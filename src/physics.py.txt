@@ -430,26 +430,19 @@ class HamiltonianSymbolicConverter:
 
     @staticmethod
     def decompose_hamiltonian(H_expr, xi_vars):
-        """
-        Decomposes the Hamiltonian into polynomial (local) and non-polynomial (nonlocal) parts.
-        The heuristic treats terms containing sqrt, Abs, or sign as nonlocal.
-        """
         xi = xi_vars if isinstance(xi_vars, (tuple, list)) else (xi_vars,)
         poly_terms, nonlocal_terms = 0, 0
         H_expand = sp.expand(H_expr)
+
         for term in H_expand.as_ordered_terms():
-            # Heuristic: treat terms containing sqrt/Abs/sign as nonlocal explicitly
-            # Check if the *current* 'term' (from the outer loop) has these functions.
-            # The original code had a scoping bug in the 'any' statement.
-            if any(func in term.free_symbols for func in [sp.sqrt, sp.Abs, sp.sign]) or \
-               term.has(sp.sqrt) or term.has(sp.Abs) or term.has(sp.sign):
-                # Alternative and more robust check:
-                # This checks if the specific 'term' object contains the specified functions.
+            # heuristic: treat terms containing sqrt/Abs/sign as nonlocal explicitly
+            if any(term.has(sp.sqrt) or term.has(sp.Abs) or term.has(sp.sign) for xi_i in xi for term in [term]):
                 nonlocal_terms += term
             elif all(term.is_polynomial(xi_i) for xi_i in xi):
                 poly_terms += term
             else:
                 nonlocal_terms += term
+
         return sp.simplify(poly_terms), sp.simplify(nonlocal_terms)
 
     @classmethod
@@ -689,23 +682,12 @@ def detect_catastrophes(H_expr, xi_vars, coords=None, method="auto", numeric_gri
 # --------------------------
 def classify_arnold_2d(H, xi, eta, point, tol=1e-8):
     """
-    Classify a 2D catastrophe at a critical point of H(xi, eta),
-    following Arnold invariants: Morse, A2, A3, A4, A5, D4+, D4-.
-    point is a dict mapping sympy symbols to numeric values.
+    Classify a 2D catastrophe at a critical point of H(xi,eta),
+    following Arnold invariants: A2, A3, A4, D4+, D4-.
+    point is dict mapping sympy symbols to numeric values.
     Returns a dict with classification and derivative tensors.
-
-    Arnold A_k Classification:
-    - A_k: k-th catastrophe (k ≥ 2)  
-    - Characterized by D_{k+1} = first non-zero directional derivative
-    - Examples:
-      * A2 (Fold): H ~ ξ³
-      * A3 (Cusp): H ~ ξ⁴  
-      * A4 (Swallowtail): H ~ ξ⁵
-      * A5 (Butterfly): H ~ ξ⁶
     """
     subs = {xi: point["xi"], eta: point["eta"]}
-
-    # --- 1. Hessian (2nd order) ---
     H_xx = float(sp.N(sp.diff(H, (xi, 2)).subs(subs)))
     H_yy = float(sp.N(sp.diff(H, (eta, 2)).subs(subs)))
     H_xy = float(sp.N(sp.diff(H, xi, eta).subs(subs)))
@@ -713,79 +695,36 @@ def classify_arnold_2d(H, xi, eta, point, tol=1e-8):
     rank = _np.linalg.matrix_rank(Hess, tol=tol)
     eigvals, eigvecs = _np.linalg.eig(Hess)
 
-    # --- 2. Third-order tensor ---
     H_xxx = float(sp.N(sp.diff(H, (xi, 3)).subs(subs)))
     H_xxy = float(sp.N(sp.diff(sp.diff(H, (xi, 2)), eta).subs(subs)))
     H_xyy = float(sp.N(sp.diff(sp.diff(H, xi, (eta, 2))).subs(subs)))
     H_yyy = float(sp.N(sp.diff(H, (eta, 3)).subs(subs)))
     third = {"H_xxx": H_xxx, "H_xxy": H_xxy, "H_xyy": H_xyy, "H_yyy": H_yyy}
 
-    # --- Case 1: Morse point (non-degenerate) ---
     if rank == 2:
         return {"type": "Morse (non-degenerate)", "hessian": Hess.tolist(), "third_order_tensor": third}
 
-    # --- Case 2: Rank 1 (A_k family) ---
     if rank == 1:
-        # Find the null direction (eigenvector associated with the smallest eigenvalue)
         null_idx = int(_np.argmin(_np.abs(eigvals)))
         null_dir = eigvecs[:, null_idx]
         vx, vy = float(null_dir[0]), float(null_dir[1])
-
-        # Build the directional operator D = vx * d/dxi + vy * d/deta
-        # Compute successive directional derivatives
-        D1 = vx*sp.diff(H, xi) + vy*sp.diff(H, eta)  # = 0 at critical point
-        D2 = vx*sp.diff(D1, xi) + vy*sp.diff(D1, eta) # = 0 because rank 1
+        D = vx*sp.diff(H, xi) + vy*sp.diff(H, eta)
+        D2 = vx*sp.diff(D, xi) + vy*sp.diff(D, eta)
         D3 = vx*sp.diff(D2, xi) + vy*sp.diff(D2, eta)
-        D4 = vx*sp.diff(D3, xi) + vy*sp.diff(D3, eta)
-        D5 = vx*sp.diff(D4, xi) + vy*sp.diff(D4, eta)
-        # --- FIX: Add D6 for A5 (Butterfly) test case ---
-        D6 = vx*sp.diff(D5, xi) + vy*sp.diff(D5, eta)
-
         D3_val = float(sp.N(D3.subs(subs)))
-        D4_val = float(sp.N(D4.subs(subs)))
-        D5_val = float(sp.N(D5.subs(subs)))
-        # --- FIX: Evaluate D6 ---
-        D6_val = float(sp.N(D6.subs(subs)))
-
-        # --- FIX: Store D6 in results ---
-        directional = {"D3": D3_val, "D4": D4_val, "D5": D5_val, "D6": D6_val}
-
-        # --- FIX: Corrected A_k classification (A_k <-> D_{k+1}) ---
-        # The first non-vanishing derivative D_{k+1} determines the A_k catastrophe.
         if abs(D3_val) > tol:
-            # A2 (Fold): D3 is the first non-zero
-            return {"type": "A2 (Fold)", "hessian": Hess.tolist(), "third_order_tensor": third, "directional_derivatives": directional}
-        elif abs(D4_val) > tol:
-            # A3 (Cusp): D4 is the first non-zero
-            return {"type": "A3 (Cusp)", "hessian": Hess.tolist(), "third_order_tensor": third, "directional_derivatives": directional}
-        elif abs(D5_val) > tol:
-            # A4 (Swallowtail): D5 is the first non-zero
-            return {"type": "A4 (Swallowtail)", "hessian": Hess.tolist(), "third_order_tensor": third, "directional_derivatives": directional}
-        elif abs(D6_val) > tol:
-            # A5 (Butterfly): D6 is the first non-zero
-            return {"type": "A5 (Butterfly)", "hessian": Hess.tolist(), "third_order_tensor": third, "directional_derivatives": directional}
+            return {"type": "A3 Cusp-family", "hessian": Hess.tolist(), "third_order_tensor": third, "directional_third": D3_val}
         else:
-            # A6 or higher
-            return {"type": "A6+ or higher degeneracy", "hessian": Hess.tolist(), "third_order_tensor": third, "directional_derivatives": directional}
+            return {"type": "A4 or higher (swallowtail family)", "hessian": Hess.tolist(), "third_order_tensor": third, "directional_third": D3_val}
+
+    # rank == 0: check cubic invariants to distinguish D4+ vs D4-
+    det3 = H_xxx * H_yyy - H_xxy * H_xyy
+    if det3 > 0:
+        return {"type": "D4+ (hyperbolic umbilic)", "hessian": Hess.tolist(), "third_order_tensor": third, "det3": det3}
+    else:
+        return {"type": "D4- (elliptic umbilic)", "hessian": Hess.tolist(), "third_order_tensor": third, "det3": det3}
 
 
-    # --- Case 3: Rank 0 (D4 umbilics and higher) ---
-    # The Hessian is zero. We examine the cubic tensor.
-    # (Note: This logic is correct for D4 (Tests 5, 6).
-    # It does not handle "corang 2" cases where H_3 = 0 but H_4 != 0 (like Test 7),
-    # so it correctly classifies them as a high degeneracy.)
-    
-    I = H_xxx * H_yyy - H_xxy * H_xyy
-    if abs(I) < tol:
-        # This includes D4+/- where I=0, or higher degeneracies (E6, etc.)
-        return {"type": "D4 degenerate (I=0) or higher (E6?)", "hessian": Hess.tolist(), "third_order_tensor": third, "cubic_invariant_I": I}
-    elif I > 0:
-        # This could be a valid case for D4+ if I != 0 (depends on specific H)
-        return {"type": "D4+ (Hyperbolic umbilic - I>0)", "hessian": Hess.tolist(), "third_order_tensor": third, "cubic_invariant_I": I}
-    else: # I < 0
-        # This could be a valid case for D4- if I != 0 (depends on specific H)
-        return {"type": "D4- (Elliptic umbilic - I<0)", "hessian": Hess.tolist(), "third_order_tensor": third, "cubic_invariant_I": I}
-        
 # --------------------------
 # Plotting helper for catastrophes
 # --------------------------
