@@ -1,6 +1,4 @@
 """
-hamiltonian_catalog.py
-────────────────────────────────
 Extended catalog of 1D and 2D Hamiltonians for pseudodifferential
 and semiclassical analysis, visualization, and symbolic exploration.
 

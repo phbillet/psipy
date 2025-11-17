@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
+Geometric Visualization of Pseudodifferential Operator Symbols in 2D
+
 SymbolVisualizer2D: Geometric and semi-classical tool for 2D pseudo-differential operators
 Unified version combining modular structure and rigorous caustic handling
 

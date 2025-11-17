@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Geometric Visualization of Pseudodifferential Operator Symbols
+Geometric Visualization of Pseudodifferential Operator Symbols in 1D
 
 This module provides a comprehensive toolkit for visualizing and analyzing
 the geometric structure of symbols H(x, ξ) and their connection to spectral
