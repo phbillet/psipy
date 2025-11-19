@@ -1,4 +1,4 @@
-name: CI – Tests + Coverage + Docs
+name: CI – Scripts + Coverage + Docs
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
 
-  tests:
+  scripts:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,15 +20,23 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install project and test dependencies
+      - name: Install project and dependencies
         run: |
           pip install --upgrade pip
           pip install .[test]
-          pip install pdoc
+          pip install coverage pdoc
 
-      - name: Run tests with coverage
+      - name: Run test scripts with coverage
         run: |
-          pytest tests --cov=src --cov-report=xml --cov-report=term
+          coverage run -m tests.pdesolver_tester_Dirichlet_1d
+          coverage run -m tests.pdesolver_tester_Dirichlet_2d
+          coverage run -m tests.pdesolver_tester_periodic_1d
+          coverage run -m tests.pdesolver_tester_periodic_2d
+          coverage run -m tests.pde_symbolic_tester
+          coverage run -m tests.physics_tester
+          coverage run -m tests.psiop_tester
+          coverage xml
+          coverage report -m
 
       - name: Upload coverage file
         uses: actions/upload-artifact@v4
@@ -38,11 +46,11 @@ jobs:
 
 
   docs:
-    needs: tests
+    needs: scripts
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write     # indispensable pour gh-pages
+      contents: write
 
     steps:
       - name: Checkout repository
