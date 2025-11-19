@@ -965,7 +965,7 @@ class PDESolver:
             # Calculation of u_prev2 (initial acceleration)
             if not hasattr(self, 'u_prev2'):
                 if self.has_psi:
-                    acc0 = self.apply_psiOp(self.u_prev)
+                    acc0 = -self.apply_psiOp(self.u_prev)
                 else:
                     acc0 = self.linear_rhs(self.u_prev, is_v=False)
                 rhs_nl = self.apply_nonlinear(self.u_prev, is_v=False)
@@ -1218,117 +1218,52 @@ class PDESolver:
         if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n
         elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n
         elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n
-    
-        Parameters
-        ----------
-        u : np.ndarray 
-            Input field to which the operator is applied.
-            Should be 1D or 2D depending on the problem dimension.
-    
-        Returns:
-            np.ndarray: Result of applying the pseudo-differential operator to u.
-    
-        Raises:
-            ValueError: If an unsupported boundary condition is specified.
-        """
-        if not self.is_spatial:
-            return self.apply_psiOp_constant(u)
-        elif self.boundary_condition == 'periodic':
-            return self.apply_psiOp_kohn_nirenberg_fft(u)
-        elif self.boundary_condition == 'dirichlet':
-            return self.apply_psiOp_kohn_nirenberg_nonperiodic(u)
-        else:
-            raise ValueError(f"Invalid boundary condition '{self.boundary_condition}'")
-
-    def apply_psiOp_constant(self, u):
-        """
-        Apply a constant-coefficient pseudo-differential operator in Fourier space.
-
-        This method assumes the symbol is diagonal in the Fourier basis and acts as a 
-        multiplication operator. It performs the operation:
         
-            (ψu)(x) = 𝓕⁻¹[ -σ(k) · 𝓕[u](k) ]
-
-        where:
-        - σ(k) is the combined pseudo-differential operator symbol
-        - 𝓕 denotes the forward Fourier transform
-        - 𝓕⁻¹ denotes the inverse Fourier transform
-
-        The dealiasing mask is applied before returning to physical space.
+        This method delegates to the apply() method of each 
+        PseudoDifferentialOperator instance.
         
         Parameters
         ----------
-        u : np.ndarray
-            Input function in physical space (real-valued or complex-valued)
+        u : ndarray
+            Function to which operators are applied
+            
+        Returns
+        -------
+        ndarray
+            Result of applying all operators with their coefficients
+        """
+        if not hasattr(self, 'psi_ops') or not self.psi_ops:
+            raise ValueError("No pseudo-differential operators defined")
+        
+        result = np.zeros_like(u, dtype=np.complex128)
+        
+        for coeff, psi_op in self.psi_ops:
+            coeff = np.complex128(coeff)
+            if self.dim == 1:
+                contribution = psi_op.apply(
+                    u=u,
+                    x_grid=self.x_grid,
+                    kx=self.kx,
+                    boundary_condition=self.boundary_condition,
+                    dealiasing_mask=self.dealiasing_mask
+                )
+            elif self.dim == 2:
+                contribution = psi_op.apply(
+                    u=u,
+                    x_grid=self.x_grid,
+                    kx=self.kx,
+                    y_grid=self.y_grid,
+                    ky=self.ky,
+                    boundary_condition=self.boundary_condition,
+                    dealiasing_mask=self.dealiasing_mask
+                )
+            else:
+                raise ValueError("Only 1D and 2D supported")
+            
+            result += coeff * contribution
+        
+        return result
 
-        Returns:
-            np.ndarray : Result of applying the pseudo-differential operator to u, same shape as input
-        """
-        u_hat = self.fft(u)
-        u_hat *= -self.combined_symbol
-        u_hat *= self.dealiasing_mask
-        return self.ifft(u_hat)
-
-    def apply_psiOp_kohn_nirenberg_fft(self, u):
-        """
-        Apply a pseudo-differential operator using the Kohn–Nirenberg quantization in Fourier space.
-    
-        This method evaluates the action of a pseudo-differential operator defined by the total symbol,
-        computed from all psiOp terms in the equation. It uses the fast Fourier transform (FFT) for
-        efficiency in periodic domains.
-    
-        Parameters
-        ----------
-        u : np.ndarray
-            Input function in real space to which the operator is applied.
-    
-        Returns:
-            np.ndarray: Resulting function after applying the pseudo-differential operator.
-    
-        Process:
-            1. Compute the total symbolic expression of the pseudo-differential operator.
-            2. Build a callable numerical function from the symbol.
-            3. Evaluate Op(p)(u) via the Kohn–Nirenberg quantization using FFT.
-    
-        Note:
-            - Assumes periodic boundary conditions.
-            - The returned result is the negative of the standard definition due to PDE sign conventions.
-        """
-        total_symbol = self.total_symbol_expr()
-        symbol_func = self.build_symbol_func(total_symbol)
-        return -self.kohn_nirenberg_fft(u_vals=u, symbol_func=symbol_func)
-
-    def apply_psiOp_kohn_nirenberg_nonperiodic(self, u):
-        """
-        Apply a pseudo-differential operator using the Kohn–Nirenberg quantization on non-periodic domains.
-    
-        This method evaluates the action of a pseudo-differential operator Op(p) on a function u 
-        via the Kohn–Nirenberg representation. It supports both 1D and 2D cases and uses spatial 
-        and frequency grids to evaluate the operator symbol p(x, ξ).
-    
-        The operator symbol p(x, ξ) is extracted from the PDE and evaluated numerically using 
-        `_total_symbol_expr` and `_build_symbol_func`.
-    
-        Parameters
-        ----------
-        u : np.ndarray
-            Input function (real space) to which the operator is applied.
-    
-        Returns:
-            np.ndarray: Result of applying Op(p) to u in real space.
-    
-        Notes:
-            - For 1D: p(x, ξ) is evaluated over x_grid and xi_grid.
-            - For 2D: p(x, y, ξ, η) is evaluated over (x_grid, y_grid) and (xi_grid, eta_grid).
-            - The result is computed using `kohn_nirenberg_nonperiodic`, which handles non-periodic boundary conditions.
-        """
-        total_symbol = self.total_symbol_expr()
-        symbol_func = self.build_symbol_func(total_symbol)
-        if self.dim == 1:
-            return -self.kohn_nirenberg_nonperiodic(u_vals=u, x_grid=self.x_grid, xi_grid=self.kx, symbol_func=symbol_func)
-        else:
-            return -self.kohn_nirenberg_nonperiodic(u_vals=u, x_grid=(self.x_grid, self.y_grid), xi_grid=(self.kx, self.ky), symbol_func=symbol_func)
-     
     def step_order1_with_psi(self, source_contribution):
         """
         Perform one time step of a first-order evolution using a pseudo-differential operator.
@@ -1427,7 +1362,7 @@ class PDESolver:
                 u_new = self.ifft(u_hat_new)
             else:
                 # if the symbol depends on spatial variables : Euler method
-                Lu_prev = self.apply_psiOp(self.u_prev)
+                Lu_prev = -self.apply_psiOp(self.u_prev)
                 u_nl = self.apply_nonlinear(self.u_prev)
                 u_new = self.u_prev + self.dt * (Lu_prev + u_nl + source)
                 u_new = spectral_filter(u_new, cutoff=self.dealiasing_ratio)
@@ -1464,7 +1399,7 @@ class PDESolver:
         Returns:
             np.ndarray: Updated solution array after one time step.
         """
-        Lu_prev = self.apply_psiOp(self.u_prev)
+        Lu_prev = -self.apply_psiOp(self.u_prev)
         rhs_nl = self.apply_nonlinear(self.u_prev, is_v=False)
         u_new = 2 * self.u_prev - self.u_prev2 + self.dt ** 2 * (Lu_prev + rhs_nl + source_contribution)
         self.apply_boundary(u_new)
@@ -1673,21 +1608,20 @@ class PDESolver:
         print("✅ Elliptic pseudo-differential symbol: inversion allowed.")
     
         R_symbol = psi_total.right_inverse_asymptotic(order=order)
-        print("Right inverse asymptotic symbol:")
+        print('Right inverse asymptotic symbol:')
         pprint(R_symbol, num_columns=NUM_COLS)
-
+        
+        # ========================================================================
+        # FIX: Always lambdify with all variables for consistency
+        # ========================================================================
         if self.dim == 1:
-            if R_symbol.has(x):
-                R_func = lambdify((x, xi), R_symbol, modules='numpy')
-            else:
-                R_func = lambdify((xi,), R_symbol, modules='numpy')
-        else:
-            if R_symbol.has(x) or R_symbol.has(y):
-                R_func = lambdify((x, y, xi, eta), R_symbol, modules='numpy')
-            else:
-                R_func = lambdify((xi, eta), R_symbol, modules='numpy')
-    
-        # Build rhs
+            # Always include both x and xi in the signature
+            R_func = lambdify((x, xi), R_symbol, modules='numpy')
+        elif self.dim == 2:
+            # Always include all four variables
+            R_func = lambdify((x, y, xi, eta), R_symbol, modules='numpy')
+        
+        # Prepare right-hand side
         if self.source_terms:
             f_expr = sum(self.source_terms)
             used_vars = [v for v in spatial_vars if f_expr.has(v)]
@@ -1697,369 +1631,90 @@ class PDESolver:
             else:
                 rhs = f_func(self.X, self.Y) if used_vars else np.zeros_like(self.X)
         elif self.initial_condition:
-            raise ValueError("Initial condition should be None for stationnary equation.")
+            raise ValueError('Initial condition should be None for stationnary equation.')
         else:
-            raise ValueError("No source term provided to construct the right-hand side.")
-    
+            raise ValueError('No source term provided to construct the right-hand side.')
+        
         f_hat = self.fft(rhs)
-    
+        
+        # ========================================================================
+        # Application of the inverse operator
+        # ========================================================================
         if self.boundary_condition == 'periodic':
             if self.dim == 1:
+                # Check if optimization is possible
                 if not R_symbol.has(x):
-                    print("⚡ Optimization: symbol independent of x — direct product in Fourier.")
-                    R_vals = R_func(self.KX)
+                    print('⚡ Optimization: symbol independent of x – direct product in Fourier.')
+                    # Create wrapper that ignores x
+                    def R_func_optimized(kx_val):
+                        return R_func(0.0, kx_val)  # x=0 since it doesn't matter
+                    
+                    R_vals = R_func_optimized(self.KX)
                     u_hat = R_vals * f_hat
                     u = self.ifft(u_hat)
                 else:
-                    print("⚙️ 1D Kohn-Nirenberg Quantification")
-                    x, xi = symbols('x xi', real=True)
-                    R_func = lambdify((x, xi), R_symbol, 'numpy')  # Still 2 args for uniformity
-                    u = self.kohn_nirenberg_fft(u_vals=rhs, symbol_func=R_func)
+                    print('⚙️ 1D Kohn-Nirenberg Quantification')
+                    from psiop import kohn_nirenberg_fft
+                    u = kohn_nirenberg_fft(
+                        u_vals=rhs,
+                        symbol_func=R_func,  # Now has correct signature (x, xi)
+                        x_grid=self.x_grid,
+                        kx=self.kx,
+                        fft_func=self.fft,
+                        ifft_func=self.ifft,
+                        dim=1
+                    )
                     
             elif self.dim == 2:
                 if not R_symbol.has(x) and not R_symbol.has(y):
-                    print("⚡ Optimization: Symbol independent of x and y — direct product in 2D Fourier.")
-                    R_vals = np.vectorize(R_func)(self.KX, self.KY)
+                    print('⚡ Optimization: Symbol independent of x and y – direct product in 2D Fourier.')
+                    # Create wrapper that ignores x, y
+                    def R_func_optimized(kx_val, ky_val):
+                        return R_func(0.0, 0.0, kx_val, ky_val)
+                    
+                    R_vals = R_func_optimized(self.KX, self.KY)
                     u_hat = R_vals * f_hat
                     u = self.ifft(u_hat)
                 else:
-                    print("⚙️ 2D Kohn-Nirenberg Quantification")
-                    x, xi, y, eta = symbols('x xi y eta', real=True)
-                    R_func = lambdify((x, y, xi, eta), R_symbol, 'numpy')  # Still 2 args for uniformity
-                    u = self.kohn_nirenberg_fft(u_vals=rhs, symbol_func=R_func)
+                    print('⚙️ 2D Kohn-Nirenberg Quantification')
+                    from psiop import kohn_nirenberg_fft
+                    u = kohn_nirenberg_fft(
+                        u_vals=rhs,
+                        symbol_func=R_func,  # Now has correct signature (x, y, xi, eta)
+                        x_grid=self.x_grid,
+                        kx=self.kx,
+                        fft_func=self.fft,
+                        ifft_func=self.ifft,
+                        dim=2,
+                        y_grid=self.y_grid,
+                        ky=self.ky
+                    )
             self.u = u
             return u
-        elif self.boundary_condition == 'dirichlet':
-            if self.dim == 1:
-                x, xi = symbols('x xi', real=True)
-                R_func = lambdify((x, xi), R_symbol, 'numpy')
-                u = self.kohn_nirenberg_nonperiodic(u_vals=rhs, x_grid=X, xi_grid=KX, symbol_func=R_func)
-            elif self.dim == 2:
-                x, xi, y, eta = symbols('x xi y eta', real=True)
-                R_func = lambdify((x, y, xi, eta), R_symbol, 'numpy')
-                u = self.kohn_nirenberg_nonperiodic(u_vals=rhs, x_grid=(self.x_grid, self.y_grid), xi_grid=(self.kx, self.ky), symbol_func=R_func)
-            self.u = u
-            return u   
-        else:
-            raise ValueError(
-                f"Invalid boundary condition '{self.boundary_condition}'. "
-                "Supported types are 'periodic' and 'dirichlet'."
-            )
-
-    def kohn_nirenberg_fft(self, u_vals, symbol_func,
-                           freq_window='gaussian', clamp=1e6,
-                           space_window=False):
-        """
-        Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator.
-        
-        Applies the pseudo-differential operator Op(p) to the function f via the Kohn–Nirenberg quantization:
-        
-            [Op(p)f](x) = (1/(2π)^d) ∫ p(x, ξ) e^{ix·ξ} ℱ[f](ξ) dξ
-        
-        where p(x, ξ) is a symbol that may depend on both spatial variables x and frequency variables ξ.
-        
-        This method supports both 1D and 2D cases and includes optional smoothing techniques to improve numerical stability.
-    
-        Parameters
-        ----------
-        u_vals : np.ndarray
-            Spatial samples of the input function f(x) or f(x, y), defined on a uniform grid.
-        symbol_func : callable
-            A function representing the full symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D.
-            Must accept NumPy-compatible array inputs and return a complex-valued array.
-        freq_window : {'gaussian', 'hann', None}, optional
-            Type of frequency-domain window to apply:
-            - 'gaussian': smooth decay near high frequencies
-            - 'hann': cosine-based tapering with hard cutoff
-            - None: no frequency window applied
-        clamp : float, optional
-            Upper bound on the absolute value of the symbol. Prevents numerical blow-up from large values.
-        space_window : bool, optional
-            Whether to apply a spatial Gaussian window to suppress edge effects in physical space.
-    
-        Returns
-        -------
-        np.ndarray
-            The result of applying the pseudo-differential operator to f, returned as a real or complex array
-            of the same shape as u_vals.
-    
-        Notes
-        -----
-        - The implementation uses FFT-based quadrature of the inverse Fourier transform.
-        - Symbol evaluation is vectorized over spatial and frequency grids.
-        - Frequency and spatial windows help mitigate oscillatory behavior and aliasing.
-        - In 2D, the integration is performed over a 4D tensor product grid (x, y, ξ, η).
-        """
-        # === Common setup ===
-        xg = self.x_grid
-        dx = xg[1] - xg[0]
-    
-        if self.dim == 1:
-            # === 1D case ===
-    
-            # Frequency grid (shifted to center zero)
-            Nx = self.Nx
-            k = 2 * np.pi * fftshift(fftfreq(Nx, d=dx))
-            dk = k[1] - k[0]
-    
-            # Centered FFT of input
-            f_shift = fftshift(u_vals)
-            f_hat = self.fft(f_shift) * dx
-            f_hat = fftshift(f_hat)
-    
-            # Build meshgrid for (x, ξ)
-            X, K = np.meshgrid(xg, k, indexing='ij')
-    
-            # Evaluate the symbol p(x, ξ)
-            P = symbol_func(X, K)
-    
-            # Optional: clamp extreme values
-            P = np.clip(P, -clamp, clamp)
-    
-            # === Frequency-domain window ===
-            if freq_window == 'gaussian':
-                sigma = 0.8 * np.max(np.abs(k))
-                W = np.exp(-(K / sigma) ** 4)
-                P *= W
-            elif freq_window == 'hann':
-                W = 0.5 * (1 + np.cos(np.pi * K / np.max(np.abs(K))))
-                P *= W * (np.abs(K) < np.max(np.abs(K)))
-    
-            # === Optional spatial window ===
-            if space_window:
-                x0 = (xg[0] + xg[-1]) / 2
-                L = (xg[-1] - xg[0]) / 2
-                S = np.exp(-((X - x0) / L) ** 2)
-                P *= S
-    
-            # === Oscillatory kernel and integration ===
-            kernel = np.exp(1j * X * K)
-            integrand = P * f_hat[None, :] * kernel
-    
-            # Approximate inverse Fourier integral
-            u = np.sum(integrand, axis=1) * dk / (2 * np.pi)
-            return u
-    
-        else:
-            # === 2D case ===
-    
-            yg = self.y_grid
-            dy = yg[1] - yg[0]
-            Nx, Ny = self.Nx, self.Ny
-    
-            # Frequency grids
-            kx = 2 * np.pi * fftshift(fftfreq(Nx, d=dx))
-            ky = 2 * np.pi * fftshift(fftfreq(Ny, d=dy))
-            dkx = kx[1] - kx[0]
-            dky = ky[1] - ky[0]
-    
-            # 2D FFT of f(x, y)
-            f_shift = fftshift(u_vals)
-            f_hat = self.fft(f_shift) * dx * dy
-            f_hat = fftshift(f_hat)
-    
-            # Create 4D grids for broadcasting
-            X, Y = np.meshgrid(self.x_grid, self.y_grid, indexing='ij')
-            KX, KY = np.meshgrid(kx, ky, indexing='ij')
-            Xb = X[:, :, None, None]
-            Yb = Y[:, :, None, None]
-            KXb = KX[None, None, :, :]
-            KYb = KY[None, None, :, :]
-    
-            # Evaluate p(x, y, ξ, η)
-            P_vals = symbol_func(Xb, Yb, KXb, KYb)
-            P_vals = np.clip(P_vals, -clamp, clamp)
-    
-            # === Frequency windowing ===
-            if freq_window == 'gaussian':
-                sigma_kx = 0.8 * np.max(np.abs(kx))
-                sigma_ky = 0.8 * np.max(np.abs(ky))
-                W_kx = np.exp(-(KXb / sigma_kx) ** 4)
-                W_ky = np.exp(-(KYb / sigma_ky) ** 4)
-                P_vals *= W_kx * W_ky
-            elif freq_window == 'hann':
-                Wx = 0.5 * (1 + np.cos(np.pi * KXb / np.max(np.abs(kx))))
-                Wy = 0.5 * (1 + np.cos(np.pi * KYb / np.max(np.abs(ky))))
-                mask_x = np.abs(KXb) < np.max(np.abs(kx))
-                mask_y = np.abs(KYb) < np.max(np.abs(ky))
-                P_vals *= Wx * Wy * mask_x * mask_y
-    
-            # === Optional spatial tapering ===
-            if space_window:
-                x0 = (self.x_grid[0] + self.x_grid[-1]) / 2
-                y0 = (self.y_grid[0] + self.y_grid[-1]) / 2
-                Lx = (self.x_grid[-1] - self.x_grid[0]) / 2
-                Ly = (self.y_grid[-1] - self.y_grid[0]) / 2
-                S = np.exp(-((Xb - x0) / Lx) ** 2 - ((Yb - y0) / Ly) ** 2)
-                P_vals *= S
-    
-            # === Oscillatory kernel and integration ===
-            phase = np.exp(1j * (Xb * KXb + Yb * KYb))
-            integrand = P_vals * phase * f_hat[None, None, :, :]
-    
-            # 2D Fourier inversion (numerical integration)
-            u = np.sum(integrand, axis=(2, 3)) * dkx * dky / (2 * np.pi) ** 2
-            return u
-        
-    def kohn_nirenberg_nonperiodic(self, u_vals, x_grid, xi_grid, symbol_func,
-                                   freq_window='gaussian', clamp=1e6, space_window=False):
-        """
-        Numerically applies the Kohn–Nirenberg quantization of a pseudo-differential operator 
-        in a non-periodic setting.
-    
-        This method computes:
-        
-        [Op(p)u](x) = (1/(2π)^d) ∫ p(x, ξ) e^{i x·ξ} ℱ[u](ξ) dξ
-        
-        where p(x, ξ) is a general symbol that may depend on both spatial and frequency variables.
-        It supports both 1D and 2D inputs and includes optional numerical smoothing techniques 
-        to enhance stability for non-smooth or oscillatory symbols.
-    
-        Parameters
-        ----------
-        u_vals : np.ndarray
-            Input function values defined on a uniform spatial grid. Can be 1D (Nx,) or 2D (Nx, Ny).
-        x_grid : np.ndarray
-            Spatial grid points along each axis. In 1D: shape (Nx,). In 2D: tuple of two arrays (X, Y)
-            or list of coordinate arrays.
-        xi_grid : np.ndarray
-            Frequency grid points. In 1D: shape (Nxi,). In 2D: tuple of two arrays (Xi, Eta)
-            or list of frequency arrays.
-        symbol_func : callable
-            A function representing the full symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D.
-            Must accept NumPy-compatible array inputs and return a complex-valued array.
-        freq_window : {'gaussian', 'hann', None}, optional
-            Type of frequency-domain window to apply for regularization:
             
-            - 'gaussian': Smooth exponential decay near high frequencies.
-            - 'hann': Cosine-based tapering with hard cutoff.
-            - None: No frequency window applied.
-        clamp : float, optional
-            Maximum absolute value allowed for the symbol to prevent numerical overflow.
-            Default is 1e6.
-        space_window : bool, optional
-            If True, applies a smooth spatial Gaussian window centered in the domain to reduce
-            boundary artifacts. Default is False.
-    
-        Returns
-        -------
-        np.ndarray
-            The result of applying the pseudo-differential operator Op(p) to u. Shape matches u_vals.
+        elif self.boundary_condition == 'dirichlet':
+            from psiop import kohn_nirenberg_nonperiodic
+            
+            if self.dim == 1:
+                u = kohn_nirenberg_nonperiodic(
+                    u_vals=rhs,
+                    x_grid=self.x_grid,
+                    xi_grid=self.kx,
+                    symbol_func=R_func  # Now has correct signature (x, xi)
+                )
+            elif self.dim == 2:
+                u = kohn_nirenberg_nonperiodic(
+                    u_vals=rhs,
+                    x_grid=(self.x_grid, self.y_grid),
+                    xi_grid=(self.kx, self.ky),
+                    symbol_func=R_func  # Now has correct signature (x, y, xi, eta)
+                )
+            self.u = u
+            return u
         
-        Notes
-        -----
-        - This version does not assume periodicity and is suitable for Dirichlet or Neumann boundary conditions.
-        - In 1D, the integral is evaluated as a sum over (x, ξ), using matrix exponentials.
-        - In 2D, the integration is performed over a 4D tensor product grid (x, y, ξ, η), which can be computationally intensive.
-        - Symbol evaluation should be vectorized for performance.
-        - For large grids, consider reducing resolution via resampling before calling this function.
-    
-        See Also
-        --------
-        kohn_nirenberg_fft : Faster implementation for periodic domains using FFT.
-        PseudoDifferentialOperator : Class for symbolic manipulation of pseudo-differential operators.
-        """
-        if u_vals.ndim == 1:
-            # === 1D case ===
-            x = x_grid
-            xi = xi_grid
-            dx = x[1] - x[0]
-            dxi = xi[1] - xi[0]
-    
-            phase_ft = np.exp(-1j * np.outer(xi, x))  # (Nxi, Nx)
-            u_hat = dx * np.dot(phase_ft, u_vals)     # (Nxi,)
-    
-            X, XI = np.meshgrid(x, xi, indexing='ij')  # (Nx, Nxi)
-            sigma_vals = symbol_func(X, XI)
-    
-            # Clamp values
-            sigma_vals = np.clip(sigma_vals, -clamp, clamp)
-    
-            # Frequency window
-            if freq_window == 'gaussian':
-                sigma = 0.8 * np.max(np.abs(XI))
-                window = np.exp(-(XI / sigma)**4)
-                sigma_vals *= window
-            elif freq_window == 'hann':
-                window = 0.5 * (1 + np.cos(np.pi * XI / np.max(np.abs(XI))))
-                sigma_vals *= window * (np.abs(XI) < np.max(np.abs(XI)))
-    
-            # Spatial window
-            if space_window:
-                x_center = (x[0] + x[-1]) / 2
-                L = (x[-1] - x[0]) / 2
-                window = np.exp(-((X - x_center)/L)**2)
-                sigma_vals *= window
-    
-            exp_matrix = np.exp(1j * np.outer(x, xi))  # (Nx, Nxi)
-            integrand = sigma_vals * u_hat[np.newaxis, :] * exp_matrix
-            result = dxi * np.sum(integrand, axis=1) / (2 * np.pi)
-            return result
-    
-        elif u_vals.ndim == 2:
-            # === 2D case ===
-            x1, x2 = x_grid
-            xi1, xi2 = xi_grid
-            dx1 = x1[1] - x1[0]
-            dx2 = x2[1] - x2[0]
-            dxi1 = xi1[1] - xi1[0]
-            dxi2 = xi2[1] - xi2[0]
-    
-            X1, X2 = np.meshgrid(x1, x2, indexing='ij')
-            XI1, XI2 = np.meshgrid(xi1, xi2, indexing='ij')
-    
-            # Fourier transform of u(x1, x2)
-            phase_ft = np.exp(-1j * (np.tensordot(x1, xi1, axes=0)[:, None, :, None] +
-                                     np.tensordot(x2, xi2, axes=0)[None, :, None, :]))
-            u_hat = np.tensordot(u_vals, phase_ft, axes=([0,1], [0,1])) * dx1 * dx2
-    
-            # Symbol evaluation
-            sigma_vals = symbol_func(X1[:, :, None, None], X2[:, :, None, None],
-                                     XI1[None, None, :, :], XI2[None, None, :, :])
-    
-            # Clamp values
-            sigma_vals = np.clip(sigma_vals, -clamp, clamp)
-    
-            # Frequency window
-            if freq_window == 'gaussian':
-                sigma_xi1 = 0.8 * np.max(np.abs(XI1))
-                sigma_xi2 = 0.8 * np.max(np.abs(XI2))
-                window = np.exp(-(XI1[None, None, :, :] / sigma_xi1)**4 -
-                                (XI2[None, None, :, :] / sigma_xi2)**4)
-                sigma_vals *= window
-            elif freq_window == 'hann':
-                # Frequency window - Hanning
-                wx = 0.5 * (1 + np.cos(np.pi * XI1 / np.max(np.abs(XI1))))
-                wy = 0.5 * (1 + np.cos(np.pi * XI2 / np.max(np.abs(XI2))))
-                
-                # Mask to zero outside max frequency
-                mask_x = (np.abs(XI1) < np.max(np.abs(XI1)))
-                mask_y = (np.abs(XI2) < np.max(np.abs(XI2)))
-                
-                # Expand wx and wy to match sigma_vals shape: (64, 64, 64, 64)
-                sigma_vals *= wx[:, :, None, None] * wy[:, :, None, None]
-                sigma_vals *= mask_x[:, :, None, None] * mask_y[:, :, None, None]
-    
-            # Spatial window
-            if space_window:
-                x_center = (x1[0] + x1[-1])/2
-                y_center = (x2[0] + x2[-1])/2
-                Lx = (x1[-1] - x1[0])/2
-                Ly = (x2[-1] - x2[0])/2
-                window = np.exp(-((X1 - x_center)/Lx)**2 - ((X2 - y_center)/Ly)**2)
-                sigma_vals *= window[:, :, None, None]
-    
-            # Oscillatory phase
-            phase = np.exp(1j * (X1[:, :, None, None] * XI1[None, None, :, :] +
-                                 X2[:, :, None, None] * XI2[None, None, :, :]))
-
-            integrand = sigma_vals * u_hat[None, None, :, :] * phase
-            result = dxi1 * dxi2 * np.sum(integrand, axis=(2, 3)) / (2 * np.pi)**2
-            return result
-    
         else:
-            raise NotImplementedError("Only 1D and 2D supported")
-
+            raise ValueError(f"Invalid boundary condition '{self.boundary_condition}'. Supported types are 'periodic' and 'dirichlet'.")
+        
     def step_ETD_RK4(self, u):
         """
         Perform one Exponential Time Differencing Runge-Kutta of 4th order (ETD-RK4) time step 

@@ -166,6 +166,205 @@ class PseudoDifferentialOperator:
         """        
         self.symbol_cached = None
 
+    def apply(self, u, x_grid, kx, boundary_condition='periodic', 
+              y_grid=None, ky=None, dealiasing_mask=None,
+              freq_window='gaussian', clamp=1e6, space_window=False):
+        """
+        Apply the pseudo-differential operator to the input field u.
+    
+        This method dispatches the application of the pseudo-differential operator based on:
+        
+        - Whether the symbol is spatially dependent (x/y)
+        - The boundary condition in use (periodic or dirichlet)
+    
+        Supported operations:
+        
+        - Constant-coefficient symbols: applied via Fourier multiplication.
+        - Spatially varying symbols: applied via Kohn–Nirenberg quantization.
+        - Dirichlet boundary conditions: handled with non-periodic convolution-like quantization.
+    
+        Dispatch Logic:\n
+        if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n
+        elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n
+        elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n
+        
+        Parameters
+        ----------
+        u : ndarray
+            Function to which the operator is applied
+        x_grid : ndarray
+            Spatial grid in x direction
+        kx : ndarray
+            Frequency grid in x direction
+        boundary_condition : str
+            'periodic' or 'dirichlet'
+        y_grid : ndarray, optional
+            Spatial grid in y direction (for 2D)
+        ky : ndarray, optional
+            Frequency grid in y direction (for 2D)
+        dealiasing_mask : ndarray, optional
+            Dealiasing mask
+        freq_window : str
+            Frequency windowing ('gaussian' or 'hann')
+        clamp : float
+            Clamp symbol values to [-clamp, clamp]
+        space_window : bool
+            Apply spatial windowing
+            
+        Returns
+        -------
+        ndarray
+            Result of applying the operator
+        """
+        # Check if symbol depends on spatial variables
+        is_spatial = self._is_spatial_dependent()
+        
+        # Case 1: Constant symbol with periodic BC (fast path)
+        if not is_spatial and boundary_condition == 'periodic':
+            return self._apply_constant_fft(u, x_grid, kx, y_grid, ky, dealiasing_mask)
+        
+        # Case 2: Spatial symbol with periodic BC
+        elif boundary_condition == 'periodic':
+            symbol_func = self._get_symbol_func()
+            return kohn_nirenberg_fft(
+                u_vals=u,
+                symbol_func=symbol_func,
+                x_grid=x_grid,
+                kx=kx,
+                fft_func=self.fft,
+                ifft_func=self.ifft,
+                dim=self.dim,
+                y_grid=y_grid,
+                ky=ky,
+                freq_window=freq_window,
+                clamp=clamp,
+                space_window=space_window
+            )
+        
+        # Case 3: Dirichlet BC (non-periodic)
+        elif boundary_condition == 'dirichlet':
+            symbol_func = self._get_symbol_func()
+            
+            if self.dim == 1:
+                return kohn_nirenberg_nonperiodic(
+                    u_vals=u,
+                    x_grid=x_grid,
+                    xi_grid=kx,
+                    symbol_func=symbol_func,
+                    freq_window=freq_window,
+                    clamp=clamp,
+                    space_window=space_window
+                )
+            elif self.dim == 2:
+                return kohn_nirenberg_nonperiodic(
+                    u_vals=u,
+                    x_grid=(x_grid, y_grid),
+                    xi_grid=(kx, ky),
+                    symbol_func=symbol_func,
+                    freq_window=freq_window,
+                    clamp=clamp,
+                    space_window=space_window
+                )
+        
+        else:
+            raise ValueError(f"Invalid boundary condition '{boundary_condition}'")
+    
+    def _is_spatial_dependent(self):
+        """
+        Check if the symbol depends on spatial variables.
+        
+        Returns
+        -------
+        bool
+            True if symbol depends on x (or x, y)
+        """
+        if self.dim == 1:
+            return self.symbol.has(self.vars_x[0])
+        elif self.dim == 2:
+            x, y = self.vars_x
+            return self.symbol.has(x) or self.symbol.has(y)
+        else:
+            return False
+    
+    def _get_symbol_func(self):
+        """
+        Get a lambdified version of the symbol.
+        
+        Returns
+        -------
+        callable
+            Lambdified symbol function
+        """
+        if self.dim == 1:
+            x = self.vars_x[0]
+            xi = symbols('xi', real=True)
+            return lambdify((x, xi), self.symbol, 'numpy')
+        elif self.dim == 2:
+            x, y = self.vars_x
+            xi, eta = symbols('xi eta', real=True)
+            return lambdify((x, y, xi, eta), self.symbol, 'numpy')
+        else:
+            raise NotImplementedError("Only 1D and 2D supported")
+    
+    def _apply_constant_fft(self, u, x_grid, kx, y_grid, ky, dealiasing_mask):
+        """
+        Apply a constant-coefficient pseudo-differential operator in Fourier space.
+
+        This method assumes the symbol is diagonal in the Fourier basis and acts as a 
+        multiplication operator. It performs the operation:
+        
+            (ψu)(x) = 𝓕⁻¹[ -σ(k) · 𝓕[u](k) ]
+
+        where:
+        - σ(k) is the combined pseudo-differential operator symbol
+        - 𝓕 denotes the forward Fourier transform
+        - 𝓕⁻¹ denotes the inverse Fourier transform
+
+        The dealiasing mask is applied before returning to physical space.
+        
+        Parameters
+        ----------
+        u : ndarray
+            Input function
+        x_grid : ndarray
+            Spatial grid (x)
+        kx : ndarray
+            Frequency grid (x)
+        y_grid : ndarray, optional
+            Spatial grid (y, for 2D)
+        ky : ndarray, optional
+            Frequency grid (y, for 2D)
+        dealiasing_mask : ndarray, optional
+            Dealiasing mask
+            
+        Returns
+        -------
+        ndarray
+            Result
+        """
+        u_hat = self.fft(u)
+        
+        # Evaluate symbol at grid points
+        if self.dim == 1:
+            X_dummy = np.zeros_like(kx)
+            symbol_vals = self.p_func(X_dummy, kx)
+        elif self.dim == 2:
+            KX, KY = np.meshgrid(kx, ky, indexing='ij')
+            X_dummy = np.zeros_like(KX)
+            Y_dummy = np.zeros_like(KY)
+            symbol_vals = self.p_func(X_dummy, Y_dummy, KX, KY)
+        else:
+            raise ValueError("Only 1D and 2D supported")
+        
+        # Apply symbol
+        u_hat *= symbol_vals
+        
+        # Apply dealiasing
+        if dealiasing_mask is not None:
+            u_hat *= dealiasing_mask
+        
+        return self.ifft(u_hat)
+
     def principal_symbol(self, order=1):
         """
         Compute the leading homogeneous component of the pseudo-differential symbol.
@@ -1473,118 +1672,6 @@ class PseudoDifferentialOperator:
             plt.grid(True)
             plt.show()
 
-    def simulate_evolution(self, x_grid, t_grid, y_grid=None,
-                           initial_condition=None, initial_velocity=None,
-                           solver_params=None, component='real'):
-        """
-        Simulate and animate the time evolution of a wave under this pseudo-differential operator.
-    
-        This method discretizes and numerically integrates either a first-order or
-        second-order in time PDE driven by the operator defined by `self.expr`. It supports
-        both 1D (only `x_grid`) and 2D (`x_grid` + `y_grid`) spatial domains with periodic
-        boundary conditions.
-    
-        Parameters
-        ----------
-        x_grid : numpy.ndarray
-            1D array of spatial points along the x-axis.
-        t_grid : numpy.ndarray
-            1D array of time points at which the solution will be computed (and animated).
-        y_grid : numpy.ndarray, optional
-            1D array of spatial points along the y-axis. If provided, runs a 2D simulation.
-        initial_condition : callable
-            Function u₀(x) or u₀(x, y) returning the initial field at each spatial point.
-        initial_velocity : callable, optional
-            Function ∂ₜu₀(x) or ∂ₜu₀(x, y). If given, solves the second-order wave equation,
-            otherwise solves the first-order evolution equation.
-        solver_params : dict, optional
-            Extra keyword arguments passed to `PDESolver.setup()`, for example:
-            - `boundary_condition`: string (default “periodic”)
-            - `n_frames`: int, number of frames in the returned animation
-            - any other parameters accepted by `PDESolver.setup`.
-        component : {'real', 'imag', 'abs', 'angle'}, default 'real'
-            Which component of the complex solution to animate.
-    
-        Returns
-        -------
-        matplotlib.animation.FuncAnimation
-            An animation object showing the solution over time.
-    
-        Raises
-        ------
-        ValueError
-            If `initial_condition` is not provided.
-        NotImplementedError
-            If `self.dim` is not 1 or 2.
-    
-        Notes
-        -----
-        - First-order evolution: ∂ₜu = p(x,D) u  
-        - Second-order (wave) equation: ∂²ₜu = p(x,D) u  
-        - Builds a `PDESolver` from a symbolic Sympy equation, sets up a spectral grid,
-          steps forward in time, and animates the selected component.
-        """
-        if solver_params is None:
-            solver_params = {}
-    
-        # --- 1. Symbolic variables ---
-        t = symbols('t', real=True)
-        u_sym = Function('u')
-        is_second_order = initial_velocity is not None
-    
-        if self.dim == 1:
-            x, = self.vars_x
-            xi = symbols('xi', real=True)
-            u = u_sym(t, x)
-            if is_second_order:
-                eq = Eq(diff(u, t, 2), psiOp(self.symbol, u))
-            else:
-                eq = Eq(diff(u, t), psiOp(self.symbol, u))
-        elif self.dim == 2:
-            x, y = self.vars_x
-            xi, eta = symbols('xi eta', real=True)
-            u = u_sym(t, x, y)
-            if is_second_order:
-                eq = Eq(diff(u, t, 2), psiOp(self.symbol, u))
-            else:
-                eq = Eq(diff(u, t), psiOp(self.symbol, u))
-        else:
-            raise NotImplementedError("Only 1D and 2D are supported.")
-    
-        # --- 2. Create the solver ---
-        solver = PDESolver(eq)
-        params = {
-            'Lx': x_grid.max() - x_grid.min(),
-            'Nx': len(x_grid),
-            'Lt': t_grid.max() - t_grid.min(),
-            'Nt': len(t_grid),
-            'boundary_condition': 'periodic',
-            'n_frames': min(100, len(t_grid))
-        }
-        if self.dim == 2:
-            params['Ly'] = y_grid.max() - y_grid.min()
-            params['Ny'] = len(y_grid)
-        params.update(solver_params)
-    
-        # --- 3. Initial condition ---
-        if initial_condition is None:
-            raise ValueError("initial_condition is None. Please provide a function u₀(x) or u₀(x, y) as the initial condition.")
-        
-        params['initial_condition'] = initial_condition
-        if is_second_order:
-            params['initial_velocity'] = initial_velocity
-    
-        # --- 4. Solving ---
-        print("⚙️ Solving the evolution equation (order {} in time)...".format(2 if is_second_order else 1))
-        solver.setup(**params)
-        solver.solve()
-        print("✅ Solving completed.")
-    
-        # --- 5. Animation ---
-        print("🎞️ Creating the animation...")
-        ani = solver.animate(component=component)
-        return ani
-
     def plot_hamiltonian_flow(self, x0=0.0, xi0=5.0, y0=0.0, eta0=0.0, tmax=1.0, n_steps=100, show_field=True):
         """
         Integrate and plot the Hamiltonian trajectories of the symbol in phase space.
@@ -2310,3 +2397,321 @@ class PseudoDifferentialOperator:
             # --- Interactive binding ---
             out = interactive_output(plot_2d, {'mode': mode_selector_2D, 'xi0': xi_slider, 'eta0': eta_slider, 'x0': x_slider, 'y0': y_slider})
             display(VBox([controls_box, out]))
+
+# ============================================================================
+# Standalone functions for Kohn-Nirenberg quantization
+# ============================================================================
+
+def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func, 
+                       dim=1, y_grid=None, ky=None, freq_window='gaussian', 
+                       clamp=1e6, space_window=False):
+    """
+    Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator.
+    
+    Applies the pseudo-differential operator Op(p) to the function f via the Kohn–Nirenberg quantization:
+    
+        [Op(p)f](x) = (1/(2π)^d) ∫ p(x, ξ) e^{ix·ξ} ℱ[f](ξ) dξ
+    
+    where p(x, ξ) is a symbol that may depend on both spatial variables x and frequency variables ξ.
+    
+    This method supports both 1D and 2D cases and includes optional smoothing techniques to improve numerical stability.
+
+    Parameters
+    ----------
+    u_vals : np.ndarray
+        Spatial samples of the input function f(x) or f(x, y), defined on a uniform grid.
+    symbol_func : callable
+        A function representing the full symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D.
+        Must accept NumPy-compatible array inputs and return a complex-valued array.
+    freq_window : {'gaussian', 'hann', None}, optional
+        Type of frequency-domain window to apply:
+        - 'gaussian': smooth decay near high frequencies
+        - 'hann': cosine-based tapering with hard cutoff
+        - None: no frequency window applied
+    clamp : float, optional
+        Upper bound on the absolute value of the symbol. Prevents numerical blow-up from large values.
+    space_window : bool, optional
+        Whether to apply a spatial Gaussian window to suppress edge effects in physical space.
+    
+    Parameters
+    ----------
+    u_vals : ndarray
+        Input function values
+    symbol_func : callable
+        Symbol function p(x, ξ) or p(x, y, ξ, η)
+    x_grid : ndarray
+        Spatial grid in x direction
+    kx : ndarray
+        Frequency grid in x direction
+    fft_func : callable
+        FFT function (fft or fft2)
+    ifft_func : callable
+        Inverse FFT function
+    dim : int
+        Dimension (1 or 2)
+    y_grid : ndarray, optional
+        Spatial grid in y direction (for 2D)
+    ky : ndarray, optional
+        Frequency grid in y direction (for 2D)
+    freq_window : str
+        Windowing function ('gaussian' or 'hann')
+    clamp : float
+        Clamp symbol values to [-clamp, clamp]
+    space_window : bool
+        Apply spatial windowing
+        
+    Returns
+    -------
+    ndarray
+        Result of applying the operator
+    """
+    if dim == 1:
+        dx = x_grid[1] - x_grid[0]
+        Nx = len(x_grid)
+        k = 2 * np.pi * fftshift(fftfreq(Nx, d=dx))
+        dk = k[1] - k[0]
+        
+        f_shift = fftshift(u_vals)
+        f_hat = fft_func(f_shift) * dx
+        f_hat = fftshift(f_hat)
+        
+        X, K = np.meshgrid(x_grid, k, indexing='ij')
+        P = symbol_func(X, K)
+        P = np.clip(P, -clamp, clamp)
+        
+        # Apply frequency windowing
+        if freq_window == 'gaussian':
+            sigma = 0.8 * np.max(np.abs(k))
+            W = np.exp(-(K / sigma) ** 4)
+            P *= W
+        elif freq_window == 'hann':
+            W = 0.5 * (1 + np.cos(np.pi * K / np.max(np.abs(K))))
+            P *= W * (np.abs(K) < np.max(np.abs(K)))
+        
+        # Apply spatial windowing
+        if space_window:
+            x0 = (x_grid[0] + x_grid[-1]) / 2
+            L = (x_grid[-1] - x_grid[0]) / 2
+            S = np.exp(-((X - x0) / L) ** 2)
+            P *= S
+        
+        kernel = np.exp(1j * X * K)
+        integrand = P * f_hat[None, :] * kernel
+        u = np.sum(integrand, axis=1) * dk / (2 * np.pi)
+        
+        return u
+        
+    elif dim == 2:
+        dx = x_grid[1] - x_grid[0]
+        dy = y_grid[1] - y_grid[0]
+        Nx, Ny = len(x_grid), len(y_grid)
+        
+        kx_shift = 2 * np.pi * fftshift(fftfreq(Nx, d=dx))
+        ky_shift = 2 * np.pi * fftshift(fftfreq(Ny, d=dy))
+        dkx = kx_shift[1] - kx_shift[0]
+        dky = ky_shift[1] - ky_shift[0]
+        
+        f_shift = fftshift(u_vals)
+        f_hat = fft_func(f_shift) * dx * dy
+        f_hat = fftshift(f_hat)
+        
+        X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
+        KX, KY = np.meshgrid(kx_shift, ky_shift, indexing='ij')
+        
+        Xb = X[:, :, None, None]
+        Yb = Y[:, :, None, None]
+        KXb = KX[None, None, :, :]
+        KYb = KY[None, None, :, :]
+        
+        P_vals = symbol_func(Xb, Yb, KXb, KYb)
+        P_vals = np.clip(P_vals, -clamp, clamp)
+        
+        # Apply frequency windowing
+        if freq_window == 'gaussian':
+            sigma_kx = 0.8 * np.max(np.abs(kx_shift))
+            sigma_ky = 0.8 * np.max(np.abs(ky_shift))
+            W_kx = np.exp(-(KXb / sigma_kx) ** 4)
+            W_ky = np.exp(-(KYb / sigma_ky) ** 4)
+            P_vals *= W_kx * W_ky
+        elif freq_window == 'hann':
+            Wx = 0.5 * (1 + np.cos(np.pi * KXb / np.max(np.abs(kx_shift))))
+            Wy = 0.5 * (1 + np.cos(np.pi * KYb / np.max(np.abs(ky_shift))))
+            mask_x = np.abs(KXb) < np.max(np.abs(kx_shift))
+            mask_y = np.abs(KYb) < np.max(np.abs(ky_shift))
+            P_vals *= Wx * Wy * mask_x * mask_y
+        
+        # Apply spatial windowing
+        if space_window:
+            x0 = (x_grid[0] + x_grid[-1]) / 2
+            y0 = (y_grid[0] + y_grid[-1]) / 2
+            Lx = (x_grid[-1] - x_grid[0]) / 2
+            Ly = (y_grid[-1] - y_grid[0]) / 2
+            S = np.exp(-((Xb - x0) / Lx) ** 2 - ((Yb - y0) / Ly) ** 2)
+            P_vals *= S
+        
+        phase = np.exp(1j * (Xb * KXb + Yb * KYb))
+        integrand = P_vals * phase * f_hat[None, None, :, :]
+        u = np.sum(integrand, axis=(2, 3)) * dkx * dky / (2 * np.pi) ** 2
+        
+        return u
+    
+    else:
+        raise ValueError("Only 1D and 2D are supported")
+
+
+def kohn_nirenberg_nonperiodic(u_vals, x_grid, xi_grid, symbol_func, 
+                                freq_window='gaussian', clamp=1e6, 
+                                space_window=False):
+    """
+    Apply a pseudo-differential operator using the Kohn–Nirenberg quantization on non-periodic domains.
+
+    This method evaluates the action of a pseudo-differential operator Op(p) on a function u 
+    via the Kohn–Nirenberg representation. It supports both 1D and 2D cases and uses spatial 
+    and frequency grids to evaluate the operator symbol p(x, ξ).
+
+    The operator symbol p(x, ξ) is extracted from the PDE and evaluated numerically using 
+    `_total_symbol_expr` and `_build_symbol_func`.
+
+    Parameters
+    ----------
+    u : np.ndarray
+        Input function (real space) to which the operator is applied.
+
+    Returns:
+        np.ndarray: Result of applying Op(p) to u in real space.
+
+    Notes:
+        - For 1D: p(x, ξ) is evaluated over x_grid and xi_grid.
+        - For 2D: p(x, y, ξ, η) is evaluated over (x_grid, y_grid) and (xi_grid, eta_grid).
+        - The result is computed using `kohn_nirenberg_nonperiodic`, which handles non-periodic boundary conditions.
+    
+    Parameters
+    ----------
+    u_vals : ndarray
+        Input function values (1D or 2D)
+    x_grid : ndarray or tuple of ndarray
+        Spatial grid(s). For 1D: ndarray. For 2D: (x_grid, y_grid)
+    xi_grid : ndarray or tuple of ndarray
+        Frequency grid(s). For 1D: ndarray. For 2D: (xi_grid, eta_grid)
+    symbol_func : callable
+        Symbol function p(x, ξ) or p(x, y, ξ, η)
+    freq_window : str
+        Windowing function ('gaussian' or 'hann')
+    clamp : float
+        Clamp symbol values
+    space_window : bool
+        Apply spatial windowing
+        
+    Returns
+    -------
+    ndarray
+        Result of applying the operator
+    """
+    if u_vals.ndim == 1:
+        # 1D case
+        x = x_grid
+        xi = xi_grid
+        dx = x[1] - x[0]
+        dxi = xi[1] - xi[0]
+        
+        # Fourier transform
+        phase_ft = np.exp(-1j * np.outer(xi, x))
+        u_hat = dx * np.dot(phase_ft, u_vals)
+        
+        # Evaluate symbol
+        X, XI = np.meshgrid(x, xi, indexing='ij')
+        sigma_vals = symbol_func(X, XI)
+        sigma_vals = np.clip(sigma_vals, -clamp, clamp)
+        
+        # Apply frequency windowing
+        if freq_window == 'gaussian':
+            sigma = 0.8 * np.max(np.abs(XI))
+            window = np.exp(-(XI / sigma) ** 4)
+            sigma_vals *= window
+        elif freq_window == 'hann':
+            window = 0.5 * (1 + np.cos(np.pi * XI / np.max(np.abs(XI))))
+            sigma_vals *= window * (np.abs(XI) < np.max(np.abs(XI)))
+        
+        # Apply spatial windowing
+        if space_window:
+            x_center = (x[0] + x[-1]) / 2
+            L = (x[-1] - x[0]) / 2
+            window = np.exp(-((X - x_center) / L) ** 2)
+            sigma_vals *= window
+        
+        # Inverse transform
+        exp_matrix = np.exp(1j * np.outer(x, xi))
+        integrand = sigma_vals * u_hat[np.newaxis, :] * exp_matrix
+        result = dxi * np.sum(integrand, axis=1) / (2 * np.pi)
+        
+        return result
+        
+    elif u_vals.ndim == 2:
+        # 2D case
+        x1, x2 = x_grid
+        xi1, xi2 = xi_grid
+        dx1 = x1[1] - x1[0]
+        dx2 = x2[1] - x2[0]
+        dxi1 = xi1[1] - xi1[0]
+        dxi2 = xi2[1] - xi2[0]
+        
+        X1, X2 = np.meshgrid(x1, x2, indexing='ij')
+        XI1, XI2 = np.meshgrid(xi1, xi2, indexing='ij')
+        
+        # Fourier transform
+        phase_ft = np.exp(-1j * (
+            np.tensordot(x1, xi1, axes=0)[:, None, :, None] + 
+            np.tensordot(x2, xi2, axes=0)[None, :, None, :]
+        ))
+        u_hat = np.tensordot(u_vals, phase_ft, axes=([0, 1], [0, 1])) * dx1 * dx2
+        
+        # Evaluate symbol
+        sigma_vals = symbol_func(
+            X1[:, :, None, None], 
+            X2[:, :, None, None], 
+            XI1[None, None, :, :], 
+            XI2[None, None, :, :]
+        )
+        sigma_vals = np.clip(sigma_vals, -clamp, clamp)
+        
+        # Apply frequency windowing
+        if freq_window == 'gaussian':
+            sigma_xi1 = 0.8 * np.max(np.abs(XI1))
+            sigma_xi2 = 0.8 * np.max(np.abs(XI2))
+            window = np.exp(
+                -(XI1[None, None, :, :] / sigma_xi1) ** 4 - 
+                (XI2[None, None, :, :] / sigma_xi2) ** 4
+            )
+            sigma_vals *= window
+        elif freq_window == 'hann':
+            wx = 0.5 * (1 + np.cos(np.pi * XI1 / np.max(np.abs(XI1))))
+            wy = 0.5 * (1 + np.cos(np.pi * XI2 / np.max(np.abs(XI2))))
+            mask_x = np.abs(XI1) < np.max(np.abs(XI1))
+            mask_y = np.abs(XI2) < np.max(np.abs(XI2))
+            sigma_vals *= wx[:, :, None, None] * wy[:, :, None, None]
+            sigma_vals *= mask_x[:, :, None, None] * mask_y[:, :, None, None]
+        
+        # Apply spatial windowing
+        if space_window:
+            x_center = (x1[0] + x1[-1]) / 2
+            y_center = (x2[0] + x2[-1]) / 2
+            Lx = (x1[-1] - x1[0]) / 2
+            Ly = (x2[-1] - x2[0]) / 2
+            window = np.exp(
+                -((X1 - x_center) / Lx) ** 2 - 
+                ((X2 - y_center) / Ly) ** 2
+            )
+            sigma_vals *= window[:, :, None, None]
+        
+        # Inverse transform
+        phase = np.exp(1j * (
+            X1[:, :, None, None] * XI1[None, None, :, :] + 
+            X2[:, :, None, None] * XI2[None, None, :, :]
+        ))
+        integrand = sigma_vals * u_hat[None, None, :, :] * phase
+        result = dxi1 * dxi2 * np.sum(integrand, axis=(2, 3)) / (2 * np.pi) ** 2
+        
+        return result
+        
+    else:
+        raise NotImplementedError("Only 1D and 2D supported")
