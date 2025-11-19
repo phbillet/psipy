@@ -29,20 +29,20 @@ The `psipy` ecosystem is composed of several powerful, interoperable modules:
   (FFT) methods with high-order exponential integrators (like ETD-RK4) for robust
   time evolution.
 
-- **`ψOp` (psiop)**: A complete symbolic and numerical framework for Pseudo-Differential
+- **`PseudoDifferentialOperator`**: A complete symbolic and numerical framework for Pseudo-Differential
   Operators (ΨDOs). It supports symbolic calculus (composition, commutators, adjoints)
   and microlocal analysis (ellipticity, characteristic sets), bridging formal definitions
   with numerical evaluation on grids.
 
-- **`SymPhysics`**: A symbolic toolkit for analytical mechanics. It performs purely
+- **`LagrangianHamiltonianConverter` & `HamiltonianSymbolicConverter`**: A symbolic toolkit for analytical mechanics. It performs purely
   symbolic Legendre transforms (L ↔ H) and can automatically generate formal symbolic
   PDEs (e.g., Schrödinger, Wave) from any given Hamiltonian symbol.
 
 - **`HamiltonianCatalog`**: A vast, curated, and searchable symbolic database of
-  **over 600** Hamiltonian systems. It spans classical mechanics, quantum chaos,
+  **over 500** Hamiltonian systems. It spans classical mechanics, quantum chaos,
   biophysics, and more, providing a rich testbed for research and education.
 
-- **`SymbolGeometry1D`**: A comprehensive analysis and visualization suite for 1D
+- **`SymbolGeometry`**: A comprehensive analysis and visualization suite for 1D
   Hamiltonian systems. It connects classical geometry to quantum spectra by computing
   classical trajectories, periodic orbits, and the semiclassical energy spectrum via
   the **Gutzwiller trace formula** and **EBK quantization**.
@@ -74,23 +74,19 @@ This example defines a 1D Schrödinger-type equation with a non-local,
 relativistic kinetic term, i ∂ₜ u = √(1 - ∂ₓ²) u.
 
 ```python
-import sympy as sp
-import numpy as np
-from psipy.solver import PDESolver
-from psipy.operators import psiOp
-from sympy import symbols, Function, Eq, diff
+from solver import *
 
 # 1. Define symbolic variables
-t, x, ξ = symbols('t x ξ', real=True)
+t, x, xi = symbols('t x xi', real=True)
 u = Function('u')
 
 # 2. Define the PDE symbolically
 # The symbol for the operator √(1 - ∂ₓ²) is p(ξ) = √(1 + ξ²)
 # (using the Fourier convention p(ξ) → op(ξ) → -∂ₓ²)
-p_symbol = sp.sqrt(1 + ξ**2)
+p_symbol = (1 + xi**2)**(1/2)
 
 # The equation is: i * ∂ₜ u = psiOp(p_symbol) * u
-equation = Eq(sp.I * diff(u(t, x), t), psiOp(p_symbol, u(t, x)))
+equation = Eq(I * diff(u(t, x), t), psiOp(p_symbol, u(t, x)))
 
 # 3. Create the solver
 solver = PDESolver(equation)
@@ -106,16 +102,20 @@ solver.setup(
 
 # 5. Solve the PDE
 solver.solve()
+
+# 6. Animate the solution
+ani = solver.animate()
+HTML(ani.to_jshtml())
 ```
 """
 from importlib.metadata import version
 
 # Imports publics
-from .physics import *
+from .psiop import *
 from .solver import *
+from .physics import *
 from .geometry_1d import *
 from .geometry_2d import *
-from .psiop import *
 from .hamiltonian_catalog import *
 
 # Version du package
@@ -123,14 +123,14 @@ __version__ = version("psipy")
 
 # Liste des noms exposés par `from psipy import *`
 __all__ = [
-    "PseudoDifferentialOperators",
+    "PseudoDifferentialOperator",
     "PDESolver",
     "LagrangianHamiltonianConverter",
     "HamiltonianSymbolicConverter",
-    "SymbolGeometry2D",
-    "SymbolVisualizer2D",
-    "Utilities2D",
     "SymbolGeometry",
     "SymbolVisualizer",
     "SpectralAnalysis",
+    "SymbolGeometry2D",
+    "SymbolVisualizer2D",
+    "Utilities2D",
 ]

@@ -11,6 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+EDP solver in 1D or 2D based on spectral methods
+
+It can handle:
+ - Linear differential and pseudo-differential operators
+ - Nonlinear terms up to second order in derivatives
+ - Symbolic operator composition and adjoints
+ - Asymptotic inversion of elliptic operators for stationary problems
+"""
 
 from imports import *
 from psiop import * 
