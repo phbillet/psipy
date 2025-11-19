@@ -7,6 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
+
   tests:
     runs-on: ubuntu-latest
 
@@ -19,25 +20,29 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install project + deps
+      - name: Install project and test dependencies
         run: |
           pip install --upgrade pip
-          pip install .[test]       # installe deps + extras test
-          pip install pdoc          # installation séparée (plus simple)
+          pip install .[test]
+          pip install pdoc
 
-	  - name: Run tests with coverage
-  		run: pytest tests --cov=src --cov-report=xml --cov-report=term
-		
-		
-      - name: Upload coverage to GitHub summary
+      - name: Run tests with coverage
+        run: |
+          pytest tests --cov=src --cov-report=xml --cov-report=term
+
+      - name: Upload coverage file
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-xml
+          name: coverage
           path: coverage.xml
+
 
   docs:
     needs: tests
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write     # indispensable pour gh-pages
 
     steps:
       - name: Checkout repository
@@ -48,18 +53,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install project + pdoc
+      - name: Install project and pdoc
         run: |
-          pip install .             # on n’a pas besoin des extras ici
+          pip install .
           pip install pdoc
 
       - name: Build documentation
         run: |
           mkdir -p docs/build
-          pdoc --force \
-               --html \
-               --output-dir docs/build \
-               src
+          pdoc --force --html --output-dir docs/build src
 
       - name: Deploy documentation to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
