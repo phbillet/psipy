@@ -1,5 +1,12 @@
 # Ψπ (psipy)
 
+[![CI – Scripts + Coverage + Docs](https://github.com/phbillet/psipy/actions/workflows/ci.yml/badge.svg)](https://github.com/phbillet/psipy/actions/workflows/ci.yml)
+
+[![codecov](https://codecov.io/gh/phbillet/psipy/branch/main/graph/badge.svg)](https://codecov.io/gh/phbillet/psipy)
+
+Pseudo-differential operator toolkit.
+
+
 > Python library for solving PDEs using pseudodifferential operators and spectral methods, with applications to Hamiltonian mechanics.
 
 `psipy` is a comprehensive, multi-layered Python ecosystem for advanced computational physics and symbolic mathematics. It bridges the gap between the formal symbolic representation of dynamical systems (using `SymPy`) and their numerical simulation and geometric analysis.
