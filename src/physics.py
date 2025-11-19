@@ -1,18 +1,14 @@
-# physics.py
-# Monolithic physics utilities:
-#  - Lagrangian <-> Hamiltonian converter with Legendre & Legendre-Fenchel (numeric + symbolic)
-#  - HamiltonianSymbolicConverter (formal psiOp PDE generation)
-#  - Catastrophe detection (1D & 2D) and Arnold classification for 2D
-#  - Plotting helper for catastrophes
-#
-# Author: generated in conversation
-# Date: (this conversation)
-#
-# Notes:
-#  - If you plan heavy numeric Fenchel in >1D install SciPy for robust optimization.
-#  - Plotting functions require matplotlib.
-#  - Use L_to_H(..., method="fenchel_numeric", fenchel_opts=...) for numeric Fenchel.
-# ------------------------------------------------------------------------------
+"""
+Toolkit for Lagrangian and Hamiltonian manipulation and Catastrophe analysis
+
+Physics utilities:
+ - Lagrangian <-> Hamiltonian converter with Legendre & Legendre-Fenchel (numeric + symbolic)
+ - HamiltonianSymbolicConverter (formal psiOp PDE generation)
+ - Catastrophe detection (1D & 2D) and Arnold classification for 2D
+ - Plotting helper for catastrophes
+
+Notes: Use L_to_H(..., method="fenchel_numeric", fenchel_opts=...) for numeric Fenchel.
+"""
 
 import math as _math
 import sympy as sp

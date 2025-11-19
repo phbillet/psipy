@@ -1,0 +1,68 @@
+name: CI – Tests + Coverage + Docs
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project + deps
+        run: |
+          pip install --upgrade pip
+          pip install .[test]       # installe deps + extras test
+          pip install pdoc          # installation séparée (plus simple)
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=src --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to GitHub summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  docs:
+    needs: tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project + pdoc
+        run: |
+          pip install .             # on n’a pas besoin des extras ici
+          pip install pdoc
+
+      - name: Build documentation
+        run: |
+          mkdir -p docs/build
+          pdoc --force \
+               --html \
+               --output-dir docs/build \
+               src
+
+      - name: Deploy documentation to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/build

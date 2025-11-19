@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Toolkit for pseudo-differential manipulation in 1D or 2D
+
+This package offers the following options:
+ - psiOp symbol manipulation: asymptotic expansion, asymptotic composition, adjoint, exponential....
+ - psiOp symbol visualization: amplitude, phase, characteristic set, characteristic gradient... 
+"""
 
 from imports import *
 
