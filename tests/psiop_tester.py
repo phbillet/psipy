@@ -1,13 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-
-
-
-
-
-
-from solver import *
 from psiop import *
 
 
