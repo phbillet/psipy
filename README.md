@@ -1,4 +1,4 @@
-# Ψπ (psipy)
+# $\psi\pi$ (psipy)
 
 [![CI – Scripts + Coverage + Docs](https://github.com/phbillet/psipy/actions/workflows/ci.yml/badge.svg)](https://github.com/phbillet/psipy/actions/workflows/ci.yml)
 
