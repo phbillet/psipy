@@ -394,31 +394,44 @@ class SymbolGeometry:
             S = orb.action
             lambda_stab = orb.stability
             
-            # Include repetitions of the orbit
-            for k in range(1, 5):
+            # ✅ CORRECTION 1 : Plus de répétitions (jusqu'à 10)
+            for k in range(1, 11):  # 1 → 11 (au lieu de 5)
                 T_k = k * T
                 S_k = k * S
                 
                 # Stability factor
-                if not np.isnan(lambda_stab):
+                if not np.isnan(lambda_stab) and abs(lambda_stab) > 1e-6:
                     det_factor = abs(2 * np.sinh(k * lambda_stab * T))
                 else:
-                    det_factor = 1
+                    det_factor = 1.0
                 
-                if det_factor > 1e-10:
-                    amplitude = T_k / np.sqrt(det_factor)
-                    
-                    # Maslov index (simplified: 0)
-                    mu = 0
-                    
-                    phase = S_k / hbar - np.pi * mu / 2
-                    contribution = amplitude * np.exp(1j * phase) * np.sinc((t_values - T_k) / T_k)
-                    trace += contribution
+                if det_factor < 1e-10:
+                    det_factor = 1e-10  # Évite division par zéro
+                
+                # ✅ CORRECTION 2 : Amplitude normalisée
+                amplitude = T / np.sqrt(det_factor)
+                
+                # Maslov index (0 pour oscillateur harmonique)
+                mu = 0
+                
+                # ✅ CORRECTION 3 : Pic delta au lieu de sinc
+                # Utiliser une gaussienne étroite centrée sur T_k
+                sigma = T_k * 0.05  # Largeur 5% de la période
+                gauss = np.exp(-((t_values - T_k)**2) / (2 * sigma**2))
+                gauss /= (sigma * np.sqrt(2 * np.pi))  # Normalisation
+                
+                phase = S_k / hbar - np.pi * mu / 2
+                contribution = amplitude * gauss * np.exp(1j * phase)
+                
+                # ✅ CORRECTION 4 : Facteur d'amortissement pour grandes répétitions
+                damping = np.exp(-0.1 * k)  # Atténue les contributions lointaines
+                trace += contribution * damping
         
         return trace
     
     def semiclassical_spectrum(self, periodic_orbits: List[PeriodicOrbit],
-                              hbar: float = 1.0, resolution: int = 1000) -> Spectrum:
+                              hbar: float = 1.0, 
+                              resolution: int = 4000) -> Spectrum:  # ✅ 1000 → 4000
         """
         Extract semiclassical spectrum via Fourier transform of trace
         
@@ -435,8 +448,9 @@ class SymbolGeometry:
         -------
         Spectrum
             Spectral information
-        """
-        t_max = 50 / hbar
+        """        
+        # ✅ Temps d'intégration plus long
+        t_max = 200 / hbar  # 50 → 200
         t_values = np.linspace(0, t_max, resolution)
         
         trace = self.gutzwiller_trace_formula(periodic_orbits, t_values, hbar)
@@ -451,7 +465,6 @@ class SymbolGeometry:
             trace_t=t_values,
             trace=trace
         )
-
 
 # ============================================================================
 # VISUALIZATION ENGINE
@@ -900,7 +913,7 @@ class SymbolVisualizer:
         E_positive = spectrum.energies[mask]
         I_positive = spectrum.intensity[mask]
         
-        peaks, _ = find_peaks(I_positive, height=np.max(I_positive)*0.1)
+        peaks, _ = find_peaks(I_positive, height=np.max(I_positive)*0.05, distance=5) 
         
         if len(peaks) > 1:
             E_levels = E_positive[peaks]
@@ -1007,10 +1020,11 @@ class SpectralAnalysis:
             'std_spacing': np.std(spacings),
             'classification': classification
         }
-    
+
     @staticmethod
     def berry_tabor_formula(periodic_orbits: List[PeriodicOrbit], 
-                           energy: float) -> float:
+                           energy: float, 
+                           window: float = 1.0) -> float:  # ✅ Fenêtre paramétrable
         """
         Berry-Tabor formula for integrable systems
         
@@ -1031,13 +1045,11 @@ class SpectralAnalysis:
         density = 0.0
         
         for orb in periodic_orbits:
-            if abs(orb.energy - energy) < 0.1:
-                # Contribution from this orbit
-                # ρ(E) ~ T(E) / (2π) for integrable systems
-                density += orb.period / (2 * np.pi)
+            # ✅ Contribution gaussienne lissée
+            weight = np.exp(-((orb.energy - energy)**2) / (2 * window**2))
+            density += weight * orb.period / (2 * np.pi)
         
-        return density
-
+        return density / (window * np.sqrt(2 * np.pi))
 
 # ============================================================================
 # MAIN INTERFACE
