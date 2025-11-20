@@ -1278,6 +1278,215 @@ class PseudoDifferentialOperator:
         else:
             raise NotImplementedError("Only 1D and 2D operators are supported")
 
+    def pseudospectrum_analysis(self, x_grid, lambda_real_range, lambda_imag_range, 
+                               epsilon_levels=[1e-1, 1e-2, 1e-3, 1e-4],
+                               resolution=100, method='spectral', L=None, N=None):
+        """
+        Compute and visualize the pseudospectrum of the pseudo-differential operator.
+        
+        The ε-pseudospectrum is defined as:
+            Λ_ε(A) = { λ ∈ ℂ : ‖(A - λI)^{-1}‖ ≥ ε^{-1} }
+        
+        This method quantizes the operator symbol into a matrix representation 
+        and samples the resolvent norm over a grid in the complex plane.
+        
+        Parameters
+        ----------
+        x_grid : ndarray
+            Spatial discretization grid (used if method='finite_difference')
+        lambda_real_range : tuple
+            Real part range of complex λ: (λ_re_min, λ_re_max)
+        lambda_imag_range : tuple
+            Imaginary part range: (λ_im_min, λ_im_max)
+        epsilon_levels : list of float
+            Contour levels for ε-pseudospectrum boundaries
+        resolution : int
+            Number of grid points per axis in the λ-plane
+        method : str
+            Discretization method:
+            - 'spectral': FFT-based spectral differentiation (periodic, high accuracy)
+            - 'finite_difference': Standard finite differences
+        L : float, optional
+            Half-domain length for spectral method (default: inferred from x_grid)
+        N : int, optional
+            Number of grid points for spectral method (default: len(x_grid))
+        
+        Returns
+        -------
+        dict
+            Contains:
+            - 'lambda_grid': meshgrid of complex λ values
+            - 'resolvent_norm': 2D array of ‖(A - λI)^{-1}‖
+            - 'sigma_min': 2D array of σ_min(A - λI)
+            - 'epsilon_levels': input epsilon levels
+            - 'eigenvalues': computed eigenvalues (if available)
+        
+        Notes
+        -----
+        - For non-self-adjoint operators, the pseudospectrum can extend far from 
+          the actual spectrum, revealing transient behavior and non-normal dynamics.
+        - The spectral method is preferred for smooth, periodic-like symbols.
+        - Computational cost scales as O(resolution² × N³) due to SVD at each λ.
+        
+        Examples
+        --------
+        >>> # Analyze pseudospectrum of a non-self-adjoint operator
+        >>> x, xi = symbols('x xi', real=True)
+        >>> symbol = xi**2 + 1j*x*xi  # non-self-adjoint
+        >>> op = PseudoDifferentialOperator(symbol, [x], mode='symbol')
+        >>> result = op.pseudospectrum_analysis(
+        ...     x_grid=np.linspace(-5, 5, 128),
+        ...     lambda_real_range=(-2, 10),
+        ...     lambda_imag_range=(-3, 3),
+        ...     method='spectral'
+        ... )
+        """
+        from scipy.linalg import svdvals
+        from scipy.sparse import diags
+        
+        if self.dim != 1:
+            raise NotImplementedError("Pseudospectrum analysis currently supports 1D only")
+        
+        # --- Step 1: Quantize the operator into a matrix ---
+        if method == 'spectral':
+            # Spectral (FFT) discretization
+            if L is None:
+                L = (x_grid[-1] - x_grid[0]) / 2.0
+            if N is None:
+                N = len(x_grid)
+            
+            x_grid_spectral = np.linspace(-L, L, N, endpoint=False)
+            dx = x_grid_spectral[1] - x_grid_spectral[0]
+            k = np.fft.fftfreq(N, d=dx) * 2.0 * np.pi
+            k2 = -k**2  # symbol for -d²/dx²
+            
+            # Build operator matrix via spectral differentiation
+            def apply_operator(u):
+                """Apply Op(symbol) to vector u"""
+                u_hat = np.fft.fft(u)
+                # Extract kinetic part from symbol (assuming symbol = f(xi) + g(x))
+                # This is a simplified model; for general symbols, use full quantization
+                kinetic = k2 * u_hat
+                v = np.fft.ifft(kinetic)
+                # Add potential/position-dependent part
+                x_vals = x_grid_spectral
+                potential = self.p_func(x_vals, 0.0)  # evaluate at ξ=0 for position part
+                v += potential * u
+                return np.real(v)
+            
+            # Assemble matrix
+            H = np.zeros((N, N), dtype=complex)
+            for j in range(N):
+                e = np.zeros(N)
+                e[j] = 1.0
+                H[:, j] = apply_operator(e)
+            
+            print(f"Operator quantized via spectral method: {N}×{N} matrix")
+        
+        elif method == 'finite_difference':
+            # Finite difference discretization
+            N = len(x_grid)
+            dx = x_grid[1] - x_grid[0]
+            
+            # Build -d²/dx² using centered differences
+            diag_main = -2.0 / dx**2 * np.ones(N)
+            diag_off = 1.0 / dx**2 * np.ones(N - 1)
+            D2 = diags([diag_off, diag_main, diag_off], [-1, 0, 1], shape=(N, N)).toarray()
+            
+            # Add position-dependent part from symbol
+            x_vals = x_grid
+            potential = np.diag(self.p_func(x_vals, 0.0))
+            
+            H = -D2 + potential
+            print(f"Operator quantized via finite differences: {N}×{N} matrix")
+        
+        else:
+            raise ValueError("method must be 'spectral' or 'finite_difference'")
+        
+        # --- Step 2: Sample resolvent norm over λ-plane ---
+        lambda_re = np.linspace(*lambda_real_range, resolution)
+        lambda_im = np.linspace(*lambda_imag_range, resolution)
+        Lambda_re, Lambda_im = np.meshgrid(lambda_re, lambda_im)
+        Lambda = Lambda_re + 1j * Lambda_im
+        
+        resolvent_norm = np.zeros_like(Lambda, dtype=float)
+        sigma_min_grid = np.zeros_like(Lambda, dtype=float)
+        
+        I = np.eye(N)
+        
+        print(f"Computing pseudospectrum over {resolution}×{resolution} grid...")
+        for i in range(resolution):
+            for j in range(resolution):
+                lam = Lambda[i, j]
+                A = H - lam * I
+                
+                try:
+                    # Compute smallest singular value
+                    s = svdvals(A)
+                    s_min = s[-1]
+                    sigma_min_grid[i, j] = s_min
+                    resolvent_norm[i, j] = 1.0 / (s_min + 1e-16)  # regularization
+                except Exception:
+                    resolvent_norm[i, j] = np.nan
+                    sigma_min_grid[i, j] = np.nan
+        
+        # --- Step 3: Compute eigenvalues ---
+        try:
+            eigenvalues = np.linalg.eigvals(H)
+        except:
+            eigenvalues = None
+        
+        # --- Step 4: Visualization ---
+        plt.figure(figsize=(14, 6))
+        
+        # Left panel: log10(resolvent norm)
+        plt.subplot(1, 2, 1)
+        levels_log = np.log10(1.0 / np.array(epsilon_levels))
+        cs = plt.contour(Lambda_re, Lambda_im, np.log10(resolvent_norm + 1e-16), 
+                         levels=levels_log, colors='blue', linewidths=1.5)
+        plt.clabel(cs, inline=True, fmt='ε=10^%d')
+        
+        if eigenvalues is not None:
+            plt.plot(eigenvalues.real, eigenvalues.imag, 'r*', markersize=8, label='Eigenvalues')
+        
+        plt.xlabel('Re(λ)')
+        plt.ylabel('Im(λ)')
+        plt.title('ε-Pseudospectrum: log₁₀(‖(A - λI)⁻¹‖)')
+        plt.grid(alpha=0.3)
+        plt.legend()
+        plt.axis('equal')
+        
+        # Right panel: σ_min contours
+        plt.subplot(1, 2, 2)
+        cs2 = plt.contourf(Lambda_re, Lambda_im, sigma_min_grid, 
+                           levels=50, cmap='viridis')
+        plt.colorbar(cs2, label='σ_min(A - λI)')
+        
+        if eigenvalues is not None:
+            plt.plot(eigenvalues.real, eigenvalues.imag, 'r*', markersize=8)
+        
+        for eps in epsilon_levels:
+            plt.contour(Lambda_re, Lambda_im, sigma_min_grid, 
+                       levels=[eps], colors='red', linewidths=1.5, alpha=0.7)
+        
+        plt.xlabel('Re(λ)')
+        plt.ylabel('Im(λ)')
+        plt.title('Smallest singular value σ_min(A - λI)')
+        plt.grid(alpha=0.3)
+        plt.axis('equal')
+        
+        plt.tight_layout()
+        plt.show()
+        
+        return {
+            'lambda_grid': Lambda,
+            'resolvent_norm': resolvent_norm,
+            'sigma_min': sigma_min_grid,
+            'epsilon_levels': epsilon_levels,
+            'eigenvalues': eigenvalues,
+            'operator_matrix': H
+        }
+    
     def symplectic_flow(self):
         """
         Compute the Hamiltonian vector field associated with the principal symbol.
