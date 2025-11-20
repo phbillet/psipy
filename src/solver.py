@@ -59,7 +59,7 @@ class PDESolver:
     >>> u = Function('u')
     >>> t, x = symbols('t x')
     >>> eq = Eq(diff(u(t, x), t), diff(u(t, x), x, 2) + u(t, x)**2)
-    >>> def initial(x): return np.sin(x)
+    >>> def _initial(x): return np.sin(x)
     >>> solver = PDESolver(eq)
     >>> solver.setup(Lx=2*np.pi, Nx=128, Lt=1.0, Nt=1000, initial_condition=initial)
     >>> solver.solve()
@@ -193,7 +193,7 @@ class PDESolver:
         self.source_terms = []
         self.pseudo_terms = []
         self.temporal_order = 0  # Order of the temporal derivative
-        self.linear_terms, self.nonlinear_terms, self.symbol_terms, self.source_terms, self.pseudo_terms = self.parse_equation(equation)
+        self.linear_terms, self.nonlinear_terms, self.symbol_terms, self.source_terms, self.pseudo_terms = self._parse_equation(equation)
         # flag : pseudo‑differential operator present ?
         self.has_psi = bool(self.pseudo_terms)
         if self.has_psi:
@@ -211,14 +211,14 @@ class PDESolver:
     
         # Compute linear operator
         if not self.is_stationary:
-            self.compute_linear_operator()
+            self._compute_linear_operator()
         else:
             self.psi_ops = []
             for coeff, sym_expr in self.pseudo_terms:
                 psi = PseudoDifferentialOperator(sym_expr, self.spatial_vars, self.u, mode='symbol')
                 self.psi_ops.append((coeff, psi))
 
-    def parse_equation(self, equation):
+    def _parse_equation(self, equation):
         """
         Parse the PDE to separate linear and nonlinear terms, symbolic operators (Op), 
         source terms, and pseudo-differential operators (psiOp).
@@ -255,7 +255,7 @@ class PDESolver:
                 - Mixed terms involving both u and its derivatives
                 - External symbolic operators (Op) and pseudo-differential operators (psiOp)
         """
-        def is_nonlinear_term(term, u_func):
+        def _is_nonlinear_term(term, u_func):
             # If the term contains functions (Abs, sin, exp, ...) applied to u
             if term.has(u_func):
                 for sub in preorder_traversal(term):
@@ -333,7 +333,7 @@ class PDESolver:
                     print("  --> Classified as symbolic linear term (Op)")
                 continue
     
-            if is_nonlinear_term(term, self.u):
+            if _is_nonlinear_term(term, self.u):
                 nonlinear_terms.append(term)
                 print("  --> Classified as nonlinear")
                 continue
@@ -385,7 +385,7 @@ class PDESolver:
         return linear_terms, nonlinear_terms, symbol_terms, source_terms, pseudo_terms
 
 
-    def compute_linear_operator(self):
+    def _compute_linear_operator(self):
         """
         Compute the symbolic Fourier representation L(k) of the linear operator 
         derived from the linear part of the PDE.
@@ -528,7 +528,7 @@ class PDESolver:
             print("\n--- Final linear operator ---")
             pprint(self.L_symbolic, num_columns=NUM_COLS)   
 
-    def linear_rhs(self, u, is_v=False):
+    def _linear_rhs(self, u, is_v=False):
         """
         Apply the linear operator (in Fourier space) to the field u or v.
 
@@ -638,15 +638,15 @@ class PDESolver:
         if self.dim == 1:
             if Nx is None:
                 raise ValueError("Nx must be specified in 1D.")
-            self.setup_1D(Lx, Nx)
+            self._setup_1D(Lx, Nx)
         else:
             if None in (Ly, Ny):
                 raise ValueError("In 2D, Ly and Ny must be provided.")
-            self.setup_2D(Lx, Ly, Nx, Ny)
+            self._setup_2D(Lx, Ly, Nx, Ny)
     
         # Initialization of solution and velocities
         if not self.is_stationary:
-            self.initialize_conditions(initial_condition, initial_velocity)
+            self._initialize_conditions(initial_condition, initial_velocity)
             
         # Symbol analysis if present
         if self.has_psi:
@@ -655,14 +655,14 @@ class PDESolver:
             if self.L_symbolic == 0:
                 print("⚠️ Linear operator is null.")
             else:
-                self.check_cfl_condition()
-                self.check_symbol_conditions()
+                self._check_cfl_condition()
+                self._check_symbol_conditions()
                 if plot:
-                	self.plot_symbol()
+                	self._plot_symbol()
                 	if self.temporal_order == 2:
-                		self.analyze_wave_propagation()
+                		self._analyze_wave_propagation()
 
-    def setup_1D(self, Lx, Nx):
+    def _setup_1D(self, Lx, Nx):
         """
         Configure internal variables for one-dimensional (1D) problems.
     
@@ -729,15 +729,15 @@ class PDESolver:
     
         # Preparation of symbol or linear operator
         if self.has_psi:
-            self.prepare_symbol_tables()
+            self._prepare_symbol_tables()
         else:
             L_vals = np.array(self.L(self.KX), dtype=np.complex128)
             self.exp_L = np.exp(L_vals * self.dt)
             if self.temporal_order == 2:
                 omega_val = self.omega(self.KX)
-                self.setup_omega_terms(omega_val)
+                self._setup_omega_terms(omega_val)
     
-    def setup_2D(self, Lx, Ly, Nx, Ny):
+    def _setup_2D(self, Lx, Ly, Nx, Ny):
         """
         Configure internal variables for two-dimensional (2D) problems.
     
@@ -812,15 +812,15 @@ class PDESolver:
     
         # Preparation of symbol or linear operator
         if self.has_psi:
-            self.prepare_symbol_tables()
+            self._prepare_symbol_tables()
         else:
             L_vals = self.L(self.KX, self.KY)
             self.exp_L = np.exp(L_vals * self.dt)
             if self.temporal_order == 2:
                 omega_val = self.omega(self.KX, self.KY)
-                self.setup_omega_terms(omega_val)
+                self._setup_omega_terms(omega_val)
     
-    def setup_omega_terms(self, omega_val):
+    def _setup_omega_terms(self, omega_val):
         """
         Initialize terms derived from the angular frequency ω for time evolution.
     
@@ -869,7 +869,7 @@ class PDESolver:
         nonzero = omega_val != 0
         self.inv_omega[nonzero] = 1.0 / omega_val[nonzero]
 
-    def evaluate_source_at_t0(self):
+    def _evaluate_source_at_t0(self):
         """
         Evaluate source terms at initial time t = 0 over the spatial grid.
     
@@ -913,7 +913,7 @@ class PDESolver:
                 for x_val in self.x_grid
             ], dtype=np.float64)
     
-    def initialize_conditions(self, initial_condition, initial_velocity):
+    def _initialize_conditions(self, initial_condition, initial_velocity):
         """
         Initialize the solution and velocity fields at t = 0.
     
@@ -958,7 +958,7 @@ class PDESolver:
             self.u_prev = initial_condition(self.X)
         else:
             self.u_prev = initial_condition(self.X, self.Y)
-        self.apply_boundary(self.u_prev)
+        self._apply_boundary(self.u_prev)
     
         # Initial velocity (second order)
         if self.temporal_order == 2:
@@ -974,18 +974,18 @@ class PDESolver:
             # Calculation of u_prev2 (initial acceleration)
             if not hasattr(self, 'u_prev2'):
                 if self.has_psi:
-                    acc0 = -self.apply_psiOp(self.u_prev)
+                    acc0 = -self._apply_psiOp(self.u_prev)
                 else:
-                    acc0 = self.linear_rhs(self.u_prev, is_v=False)
-                rhs_nl = self.apply_nonlinear(self.u_prev, is_v=False)
+                    acc0 = self._linear_rhs(self.u_prev, is_v=False)
+                rhs_nl = self._apply_nonlinear(self.u_prev, is_v=False)
                 acc0 += rhs_nl
                 if hasattr(self, 'source_terms') and self.source_terms:
-                    acc0 += self.evaluate_source_at_t0()
+                    acc0 += self._evaluate_source_at_t0()
                 self.u_prev2 = self.u_prev - self.dt * self.v_prev + 0.5 * self.dt**2 * acc0
     
         self.frames = [self.u_prev.copy()]
            
-    def apply_boundary(self, u):
+    def _apply_boundary(self, u):
         """
         Apply boundary conditions to the solution array based on the specified type.
     
@@ -1040,7 +1040,7 @@ class PDESolver:
                 "Supported types are 'periodic' and 'dirichlet'."
             )
 
-    def apply_nonlinear(self, u, is_v=False):
+    def _apply_nonlinear(self, u, is_v=False):
         """
         Apply nonlinear terms to the solution using spectral differentiation with dealiasing.
 
@@ -1119,7 +1119,7 @@ class PDESolver:
         
         return nonlinear_term * self.dt
 
-    def prepare_symbol_tables(self):
+    def _prepare_symbol_tables(self):
         """
         Precompute and store evaluated pseudo-differential operator symbols for spectral methods.
 
@@ -1155,7 +1155,7 @@ class PDESolver:
         self.combined_symbol = sum((coeff * sym for coeff, sym in self.precomputed_symbols))
         self.combined_symbol = np.array(self.combined_symbol, dtype=np.complex128)
 
-    def total_symbol_expr(self):
+    def _total_symbol_expr(self):
         """
         Compute the total pseudo-differential symbol expression from all pseudo_terms.
 
@@ -1175,7 +1175,7 @@ class PDESolver:
             self.symbol_expr = sum(coeff * expr for coeff, expr in self.pseudo_terms)
         return self.symbol_expr
 
-    def build_symbol_func(self, expr):
+    def _build_symbol_func(self, expr):
         """
         Build a numerical evaluation function from a symbolic pseudo-differential operator expression.
     
@@ -1208,7 +1208,7 @@ class PDESolver:
             x, y, xi, eta = symbols('x y xi eta', real=True)
             return lambdify((x, y, xi, eta), expr, 'numpy')
 
-    def apply_psiOp(self, u):
+    def _apply_psiOp(self, u):
         """
         Apply the pseudo-differential operator to the input field u.
     
@@ -1273,7 +1273,7 @@ class PDESolver:
         
         return result
 
-    def step_order1_with_psi(self, source_contribution):
+    def _step_order1_with_psi(self, source_contribution):
         """
         Perform one time step of a first-order evolution using a pseudo-differential operator.
     
@@ -1320,7 +1320,7 @@ class PDESolver:
         else:
             source = source_contribution
 
-        def spectral_filter(u, cutoff=0.8):
+        def _spectral_filter(u, cutoff=0.8):
             if u.ndim == 1:
                 u_hat = self.fft(u)
                 N = len(u)
@@ -1340,7 +1340,7 @@ class PDESolver:
 
         # Recalculate symbol if necessary
         if self.is_spatial:
-            self.prepare_symbol_tables()  # Recalculates self.combined_symbol
+            self._prepare_symbol_tables()  # Recalculates self.combined_symbol
     
         # Case with FFT (symbol diagonalizable in Fourier space)
         if self.boundary_condition == 'periodic' and not self.is_spatial:
@@ -1348,12 +1348,12 @@ class PDESolver:
             u_hat *= np.exp(-self.dt * self.combined_symbol)
             u_hat *= self.dealiasing_mask
             u_symb = self.ifft(u_hat)
-            u_nl = self.apply_nonlinear(self.u_prev)
+            u_nl = self._apply_nonlinear(self.u_prev)
             u_new = u_symb + u_nl + source
         else:
             if not self.is_spatial:
                 # General case with ETD1
-                u_nl = self.apply_nonlinear(self.u_prev)
+                u_nl = self._apply_nonlinear(self.u_prev)
     
                 # Calculation of exp(dt * L) and phi1(dt * L)
                 L_vals = self.combined_symbol  # Uses the updated symbol
@@ -1371,15 +1371,15 @@ class PDESolver:
                 u_new = self.ifft(u_hat_new)
             else:
                 # if the symbol depends on spatial variables : Euler method
-                Lu_prev = -self.apply_psiOp(self.u_prev)
-                u_nl = self.apply_nonlinear(self.u_prev)
+                Lu_prev = -self._apply_psiOp(self.u_prev)
+                u_nl = self._apply_nonlinear(self.u_prev)
                 u_new = self.u_prev + self.dt * (Lu_prev + u_nl + source)
-                u_new = spectral_filter(u_new, cutoff=self.dealiasing_ratio)
+                u_new = _spectral_filter(u_new, cutoff=self.dealiasing_ratio)
         # Applying boundary conditions
-        self.apply_boundary(u_new)
+        self._apply_boundary(u_new)
         return u_new
 
-    def step_order2_with_psi(self, source_contribution):
+    def _step_order2_with_psi(self, source_contribution):
         """
         Perform one time step of a second-order time evolution using a pseudo-differential operator.
     
@@ -1408,10 +1408,10 @@ class PDESolver:
         Returns:
             np.ndarray: Updated solution array after one time step.
         """
-        Lu_prev = -self.apply_psiOp(self.u_prev)
-        rhs_nl = self.apply_nonlinear(self.u_prev, is_v=False)
+        Lu_prev = -self._apply_psiOp(self.u_prev)
+        rhs_nl = self._apply_nonlinear(self.u_prev, is_v=False)
         u_new = 2 * self.u_prev - self.u_prev2 + self.dt ** 2 * (Lu_prev + rhs_nl + source_contribution)
-        self.apply_boundary(u_new)
+        self._apply_boundary(u_new)
         self.u_prev2 = self.u_prev
         self.u_prev = u_new
         self.u = u_new
@@ -1479,25 +1479,25 @@ class PDESolver:
 
             if self.temporal_order == 1:
                 if self.has_psi:
-                    u_new = self.step_order1_with_psi(source_contribution)
+                    u_new = self._step_order1_with_psi(source_contribution)
                 elif hasattr(self, 'time_scheme') and self.time_scheme == 'ETD-RK4':
-                    u_new = self.step_ETD_RK4(self.u_prev)
+                    u_new = self._step_ETD_RK4(self.u_prev)
                 else:
                     u_hat = self.fft(self.u_prev)
                     u_hat *= self.exp_L
                     u_hat *= self.dealiasing_mask
                     u_lin = self.ifft(u_hat)
-                    u_nl = self.apply_nonlinear(u_lin)
+                    u_nl = self._apply_nonlinear(u_lin)
                     u_new = u_lin + u_nl + source_contribution
-                self.apply_boundary(u_new)
+                self._apply_boundary(u_new)
                 self.u_prev = u_new
 
             elif self.temporal_order == 2:
                 if self.has_psi:
-                    u_new = self.step_order2_with_psi(source_contribution)
+                    u_new = self._step_order2_with_psi(source_contribution)
                 else:
                     if hasattr(self, 'time_scheme') and self.time_scheme == 'ETD-RK4':
-                        u_new, v_new = self.step_ETD_RK4_order2(self.u_prev, self.v_prev)
+                        u_new, v_new = self._step_ETD_RK4_order2(self.u_prev, self.v_prev)
                     else:
                         u_hat = self.fft(self.u_prev)
                         v_hat = self.fft(self.v_prev)
@@ -1505,12 +1505,12 @@ class PDESolver:
                         v_new_hat = -self.omega_val * self.sin_omega_dt * u_hat + self.cos_omega_dt * v_hat
                         u_new = self.ifft(u_new_hat)
                         v_new = self.ifft(v_new_hat)
-                        u_nl = self.apply_nonlinear(self.u_prev, is_v=False)
-                        v_nl = self.apply_nonlinear(self.v_prev, is_v=True)
+                        u_nl = self._apply_nonlinear(self.u_prev, is_v=False)
+                        v_nl = self._apply_nonlinear(self.v_prev, is_v=True)
                         u_new += (u_nl + source_contribution) * self.dt ** 2 / 2
                         v_new += (u_nl + source_contribution) * self.dt
-                    self.apply_boundary(u_new)
-                    self.apply_boundary(v_new)
+                    self._apply_boundary(u_new)
+                    self._apply_boundary(v_new)
                     self.u_prev = u_new
                     self.v_prev = v_new
 
@@ -1518,7 +1518,7 @@ class PDESolver:
                 self.frames.append(self.u_prev.copy())
 
             if self.temporal_order == 2 and (not self.has_psi):
-                E = self.compute_energy()
+                E = self._compute_energy()
                 self.energy_history.append(E)
 
         return self.frames  
@@ -1655,10 +1655,10 @@ class PDESolver:
                 if not R_symbol.has(x):
                     print('⚡ Optimization: symbol independent of x – direct product in Fourier.')
                     # Create wrapper that ignores x
-                    def R_func_optimized(kx_val):
+                    def _R_func_optimized(kx_val):
                         return R_func(0.0, kx_val)  # x=0 since it doesn't matter
                     
-                    R_vals = R_func_optimized(self.KX)
+                    R_vals = _R_func_optimized(self.KX)
                     u_hat = R_vals * f_hat
                     u = self.ifft(u_hat)
                 else:
@@ -1678,10 +1678,10 @@ class PDESolver:
                 if not R_symbol.has(x) and not R_symbol.has(y):
                     print('⚡ Optimization: Symbol independent of x and y – direct product in 2D Fourier.')
                     # Create wrapper that ignores x, y
-                    def R_func_optimized(kx_val, ky_val):
+                    def _R_func_optimized(kx_val, ky_val):
                         return R_func(0.0, 0.0, kx_val, ky_val)
                     
-                    R_vals = R_func_optimized(self.KX, self.KY)
+                    R_vals = _R_func_optimized(self.KX, self.KY)
                     u_hat = R_vals * f_hat
                     u = self.ifft(u_hat)
                 else:
@@ -1724,7 +1724,7 @@ class PDESolver:
         else:
             raise ValueError(f"Invalid boundary condition '{self.boundary_condition}'. Supported types are 'periodic' and 'dirichlet'.")
         
-    def step_ETD_RK4(self, u):
+    def _step_ETD_RK4(self, u):
         """
         Perform one Exponential Time Differencing Runge-Kutta of 4th order (ETD-RK4) time step 
         for first-order in time PDEs of the form:
@@ -1785,16 +1785,16 @@ class PDESolver:
         ifft = self.ifft
     
         u_hat = fft(u)
-        N1 = fft(self.apply_nonlinear(u))
+        N1 = fft(self._apply_nonlinear(u))
     
         a = ifft(E2 * (u_hat + 0.5 * dt * N1 * phi1_dtL))
-        N2 = fft(self.apply_nonlinear(a))
+        N2 = fft(self._apply_nonlinear(a))
     
         b = ifft(E2 * (u_hat + 0.5 * dt * N2 * phi1_dtL))
-        N3 = fft(self.apply_nonlinear(b))
+        N3 = fft(self._apply_nonlinear(b))
     
         c = ifft(E * (u_hat + dt * N3 * phi1_dtL))
-        N4 = fft(self.apply_nonlinear(c))
+        N4 = fft(self._apply_nonlinear(c))
     
         u_new_hat = E * u_hat + dt * (
             N1 * phi1_dtL + 2 * (N2 + N3) * phi2_dtL + N4 * phi1_dtL
@@ -1802,7 +1802,7 @@ class PDESolver:
     
         return ifft(u_new_hat)
 
-    def step_ETD_RK4_order2(self, u, v):
+    def _step_ETD_RK4_order2(self, u, v):
         """
         Perform one time step of the Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) scheme for second-order PDEs.
     
@@ -1811,7 +1811,7 @@ class PDESolver:
         
             ∂ₜ²u = L u + N(u)
             
-        where L is a linear operator and N is a nonlinear term computed via self.apply_nonlinear.
+        where L is a linear operator and N is a nonlinear term computed via self._apply_nonlinear.
         
         The exponential integrator handles the linear part exactly in Fourier space, while the nonlinear terms are integrated 
         using a fourth-order Runge-Kutta-like approach. This ensures high accuracy and stability for stiff systems.
@@ -1836,7 +1836,7 @@ class PDESolver:
         ifft = self.ifft
     
         def rhs(u_val):
-            return ifft(L_fft * fft(u_val)) + self.apply_nonlinear(u_val, is_v=False)
+            return ifft(L_fft * fft(u_val)) + self._apply_nonlinear(u_val, is_v=False)
     
         # Stage A
         A = rhs(u)
@@ -1861,7 +1861,7 @@ class PDESolver:
     
         return u_new, v_new
 
-    def check_cfl_condition(self):
+    def _check_cfl_condition(self):
         """
         Check the CFL (Courant–Friedrichs–Lewymann) condition based on group velocity 
         for second-order time-dependent PDEs.
@@ -1935,7 +1935,7 @@ class PDESolver:
         else:
             raise NotImplementedError("Only 1D and 2D problems are supported.")
 
-    def check_symbol_conditions(self, k_range=None, verbose=True):
+    def _check_symbol_conditions(self, k_range=None, verbose=True):
         """
         Check strict analytic conditions on the linear symbol self.L_symbolic:
             This method evaluates three key properties of the Fourier multiplier 
@@ -2047,7 +2047,7 @@ class PDESolver:
         if verbose:
             print("✔ Symbol analysis completed.")
 
-    def analyze_wave_propagation(self):
+    def _analyze_wave_propagation(self):
         """
         Perform a detailed analysis of wave propagation characteristics based on the dispersion relation ω(k).
     
@@ -2148,7 +2148,7 @@ class PDESolver:
         else:
             print("❌ Only 1D and 2D wave analysis supported.")
         
-    def plot_symbol(self, component="abs", k_range=None, cmap="viridis"):
+    def _plot_symbol(self, component="abs", k_range=None, cmap="viridis"):
         """
         Visualize the spectral symbol L(k) or L(kx, ky) in 1D or 2D.
     
@@ -2254,7 +2254,7 @@ class PDESolver:
         else:
             raise ValueError("Only 1D and 2D supported.")
 
-    def compute_energy(self):
+    def _compute_energy(self):
         """
         Compute the total energy of the wave equation solution for second-order temporal PDEs. 
         The energy is defined as:
@@ -2392,7 +2392,7 @@ class PDESolver:
         - In 1D, the solution is displayed using a standard line plot.
         - In 2D, the solution is visualized as a 3D surface plot.
         """
-        def get_component(u):
+        def _get_component(u):
             if component == 'real':
                 return np.real(u)
             elif component == 'imag':
@@ -2483,7 +2483,7 @@ class PDESolver:
           before drawing the next frame to avoid memory/visual accumulation.
         - Animation interval is 50 ms per frame (unchanged).
         """
-        def get_component(u):
+        def _get_component(u):
             if component == 'real':
                 return np.real(u)
             elif component == 'imag':
@@ -2522,7 +2522,7 @@ class PDESolver:
             ax.set_title('Initial condition')
             plt.tight_layout()
     
-            def update_1d(frame_number):
+            def _update_1d(frame_number):
                 frame = frame_indices[frame_number]
                 ydata = get_component(self.frames[frame])
                 ydata_real = np.real(ydata) if np.iscomplexobj(ydata) else ydata
@@ -2558,7 +2558,7 @@ class PDESolver:
             surf = ax.plot_surface(self.X, self.Y, data0, cmap='viridis')
             plt.tight_layout()
     
-            def update_surface(frame_number):
+            def _update_surface(frame_number):
                 frame = frame_indices[frame_number]
                 current_data = get_component(self.frames[frame])
                 z_offset = np.max(current_data) + 0.05 * (np.max(current_data) - np.min(current_data))
@@ -2628,7 +2628,7 @@ class PDESolver:
             # containers for dynamic overlay artists (stored on function object)
             # update_im.contour_art and update_im.scatter_art will be created dynamically
     
-            def update_im(frame_number):
+            def _update_im(frame_number):
                 frame = frame_indices[frame_number]
                 current_data = get_component(self.frames[frame])
     
@@ -2833,3 +2833,5 @@ class PDESolver:
                 plt.colorbar()
                 plt.tight_layout()
                 plt.show()
+
+        return error
