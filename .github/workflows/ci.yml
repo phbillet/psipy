@@ -72,13 +72,11 @@ jobs:
       - name: Build documentation
         run: |
           mkdir -p docs/build
-          # Crée un index.html à la racine + place les modules dans /src/
-          pdoc --output-dir docs/build --index-page src src
-          # (option alternative : cp docs/build/src/index.html docs/build/index.html)
+          pdoc --output-dir docs/build src
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/build
+          publish_dir: docs/build/src   # <-- IMPORTANT
           destination_dir: .
