@@ -117,6 +117,10 @@ from .physics import *
 from .geometry_1d import *
 from .geometry_2d import *
 from .hamiltonian_catalog import *
+from .riemannian_1d import *
+from .riemannian_2d import *
+from .symplectic_1d import *
+from .symplectic_2d import *
 
 # Version du package
 __version__ = version("psipy")
@@ -133,4 +137,9 @@ __all__ = [
     "SymbolGeometry2D",
     "SymbolVisualizer2D",
     "Utilities2D",
+    "Metric1D",
+    "Metric2D",
+    "SymplecticForm1D",
+    "SymplecticForm2D",
+    
 ]
