@@ -121,6 +121,8 @@ from .riemannian_1d import *
 from .riemannian_2d import *
 from .symplectic_1d import *
 from .symplectic_2d import *
+from .microlocal_1d import *
+from .microlocal_2d import *
 
 # Version du package
 __version__ = version("psipy")
@@ -137,9 +139,34 @@ __all__ = [
     "SymbolGeometry2D",
     "SymbolVisualizer2D",
     "Utilities2D",
-    "Metric1D",
-    "Metric2D",
-    "SymplecticForm1D",
-    "SymplecticForm2D",
+    # Riemannian 1D
+    'Metric1D',
+    'geodesic_integrator',
+    'laplace_beltrami',
     
+    # Riemannian 2D
+    'Metric2D',
+    'geodesic_solver',
+    'exponential_map',
+    
+    # Symplectic 1D
+    'SymplecticForm1D',
+    'hamiltonian_flow',
+    'poisson_bracket',
+    
+    # Symplectic 2D
+    'SymplecticForm2D',
+    'hamiltonian_flow_4d',
+    'poincare_section',
+    
+    # Microlocal 1D
+    'characteristic_variety',
+    'bicharacteristic_flow',
+    'wkb_ansatz',
+    'bohr_sommerfeld_quantization',
+    
+    # Microlocal 2D
+    'characteristic_variety_2d',
+    'bichar_flow_2d',
+    'compute_maslov_index',
 ]
