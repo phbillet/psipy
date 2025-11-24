@@ -367,7 +367,6 @@ def monodromy_matrix(H, periodic_orbit, method='finite_difference'):
     """
     x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
     
-    # Extract period
     T = periodic_orbit['t'][-1]
     z_orbit = np.array([
         periodic_orbit['x1'],
@@ -377,31 +376,44 @@ def monodromy_matrix(H, periodic_orbit, method='finite_difference'):
     ])
     
     if method == 'finite_difference':
-        # Perturb initial conditions
+        # Perturber les conditions initiales
         z0 = z_orbit[:, 0]
-        epsilon = 1e-6
+        epsilon = 1e-6 # Taille de la perturbation
         
         M = np.zeros((4, 4))
         
+        # Utiliser l'option 'n_steps' du periodic_orbit pour les perturbations
+        n_steps_pert = len(periodic_orbit['t'])
+        
         for i in range(4):
-            # Forward perturbation
-            z_pert = z0.copy()
-            z_pert[i] += epsilon
+            # 1. Perturbation AVANT (z0 + epsilon)
+            z_pert_pos = z0.copy()
+            z_pert_pos[i] += epsilon
             
-            traj_pert = hamiltonian_flow_4d(
-                H, tuple(z_pert), (0, T), n_steps=1000
+            traj_pert_pos = hamiltonian_flow_4d(
+                H, tuple(z_pert_pos), (0, T), integrator='rk45', 
+                n_steps=n_steps_pert 
             )
-            
-            z_final_pert = np.array([
-                traj_pert['x1'][-1],
-                traj_pert['p1'][-1],
-                traj_pert['x2'][-1],
-                traj_pert['p2'][-1]
+            z_final_pos = np.array([
+                traj_pert_pos['x1'][-1], traj_pert_pos['p1'][-1],
+                traj_pert_pos['x2'][-1], traj_pert_pos['p2'][-1]
             ])
             
-            z_final_ref = z_orbit[:, -1]
+            # 2. Perturbation ARRIÈRE (z0 - epsilon)
+            z_pert_neg = z0.copy()
+            z_pert_neg[i] -= epsilon
             
-            M[:, i] = (z_final_pert - z_final_ref) / epsilon
+            traj_pert_neg = hamiltonian_flow_4d(
+                H, tuple(z_pert_neg), (0, T), integrator='rk45', 
+                n_steps=n_steps_pert
+            )
+            z_final_neg = np.array([
+                traj_pert_neg['x1'][-1], traj_pert_neg['p1'][-1],
+                traj_pert_neg['x2'][-1], traj_pert_neg['p2'][-1]
+            ])
+            
+            # 3. Différence Centrale: M ≈ (z_final_pos - z_final_neg) / (2 * epsilon)
+            M[:, i] = (z_final_pos - z_final_neg) / (2 * epsilon)
         
         eigenvalues = np.linalg.eigvals(M)
         
@@ -661,9 +673,96 @@ def test_poincare_section():
     
     print("✓ Poincaré section test passed")
 
+def test_symplectic_form():
+    """Test SymplecticForm2D initialization and inversion."""
+    
+    # 1. Test canonical form
+    omega = SymplecticForm2D()
+    canonical_matrix = Matrix([
+        [0, -1,  0,  0],
+        [1,  0,  0,  0],
+        [0,  0,  0, -1],
+        [0,  0,  1,  0]
+    ])
+    
+    assert omega.omega_matrix == canonical_matrix, "Symplectic matrix mismatch"
+    
+    # 2. Test inverse
+    identity_matrix = omega.omega_matrix @ omega.omega_inv
+    # Check if the product is close to the 4x4 Identity matrix (SymPy's Identity is safer)
+    from sympy import eye
+    assert identity_matrix == eye(4), "Inverse matrix calculation failed"
+    
+    # 3. Test antisymmetry check (Implicitly tested by not raising error)
+    print("✓ SymplecticForm2D test passed")
+
+def test_first_return_map():
+    """Test first_return_map functionality."""
+    x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    H = (p1**2 + p2**2 + x1**2 + x2**2) / 2 # Integrable
+
+    section_def = {'variable': 'x2', 'value': 0, 'direction': 'positive'}
+    z0 = (1, 0, 0, 0.5)
+
+    # Use a small number of returns for speed
+    ps = poincare_section(H, section_def, z0, tmax=50, n_returns=5)
+
+    section_points = ps['section_points']
+    assert len(section_points) >= 2, "Not enough section points for return map test"
+
+    rm = first_return_map(section_points, plot_variables=('x1', 'p1'))
+
+    # Check dimensions
+    n_pts = len(section_points)
+    assert rm['current'].shape == (n_pts - 1, 2), "Current points shape mismatch"
+    assert rm['next'].shape == (n_pts - 1, 2), "Next points shape mismatch"
+
+    # Check shift logic (P_n vs P_{n+1})
+    # The first 'next' point should be the second 'current' point
+    assert np.allclose(rm['next'][0], [section_points[1]['x1'], section_points[1]['p1']]), \
+        "Return map P_n vs P_{n+1} logic error"
+
+    print("✓ First return map test passed")
+
+def test_monodromy_matrix_simple():
+    """Test monodromy_matrix for a simple stable periodic orbit (harmonic oscillator)."""
+    x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+
+    # Hamiltonian of two uncoupled harmonic oscillators
+    H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+
+    # Simple periodic orbit: period T = 2*pi
+    T_period = 2 * np.pi
+    z0 = (1.0, 0.0, 0.0, 0.0)
+
+    # Compute the full trajectory for one period (HAUTE PRÉCISION)
+    periodic_orbit = hamiltonian_flow_4d(H, z0, (0, T_period), integrator='rk45', n_steps=5000)
+
+    # Check if the orbit is (approximately) periodic
+    x1_end = periodic_orbit['x1'][-1]
+    x1_start = periodic_orbit['x1'][0]
+    # Tolérance pour la périodicité
+    assert np.isclose(x1_end, x1_start, atol=1e-3), "Orbit not periodic enough for test"
+
+    # Compute the monodromy matrix (utilise maintenant n_steps=5000 à l'intérieur)
+    mono = monodromy_matrix(H, periodic_orbit, method='finite_difference')
+
+    floquet_multipliers = mono['floquet_multipliers']
+    modules = np.abs(floquet_multipliers)
+    print(modules)
+
+    # Utiliser np.allclose pour vérifier que le module est proche de 1.0 (FIX)
+    # atol=1e-3 devrait maintenant passer avec n_steps=5000 pour les deux calculs
+    assert np.allclose(modules, 1.0, atol=1e-3), "Floquet multipliers modulus not close to 1.0 (Stability check failed)"
+
+    print("✓ Monodromy matrix simple test passed (stability check)")
+
 
 if __name__ == "__main__":
     print("Running symplectic_2d tests...\n")
     test_coupled_oscillators()
     test_poincare_section()
+    test_symplectic_form()
+    test_first_return_map()
+    test_monodromy_matrix_simple()
     print("\n✓ All tests passed")
