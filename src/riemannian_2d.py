@@ -74,6 +74,14 @@ class Metric2D:
     """
     
     def __init__(self, g_matrix, vars_xy):
+        if not isinstance(g_matrix, Matrix):
+            g_matrix = Matrix(g_matrix)
+    
+        if g_matrix.shape != (2, 2):
+            raise ValueError("Metric2D requires a 2×2 metric tensor")
+    
+        if len(vars_xy) != 2:
+            raise ValueError("Metric2D requires exactly two coordinates (x, y)")
         self.vars_xy = vars_xy
         self.x, self.y = vars_xy
         

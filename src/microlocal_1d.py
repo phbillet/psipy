@@ -312,9 +312,8 @@ def wkb_ansatz(symbol, initial_phase, order=1, x_domain=(-5, 5), n_points=200):
         'u': u_vals
     }
 
-
-def bohr_sommerfeld_quantization(H, n_max=10, x_range=(-10, 10), 
-                                  hbar=1.0, method='contour'):
+def bohr_sommerfeld_quantization(H, n_max=10, x_range=(-10, 10),
+                                 hbar=1.0, method='fast'):
     """
     Compute Bohr-Sommerfeld quantization condition.
     
@@ -353,94 +352,98 @@ def bohr_sommerfeld_quantization(H, n_max=10, x_range=(-10, 10),
     This is the semiclassical quantization condition, exact for
     harmonic oscillator, accurate for slowly varying potentials.
     """
+    import numpy as np
+    from scipy.integrate import quad
+    from scipy.optimize import bisect
+    from sympy import symbols, solve, lambdify
+
     x, p = symbols('x p', real=True)
     E_sym = symbols('E', real=True, positive=True)
-    
-    # Solve H(x, p) = E for p(x)
+
+    # Solve H(x,p)=E → p(x,E)
     p_solutions = solve(H - E_sym, p)
-    
-    if len(p_solutions) == 0:
-        raise ValueError("Cannot solve for momentum")
-    
-    # Take positive branch
-    p_expr = p_solutions[-1] if len(p_solutions) > 1 else p_solutions[0]
-    
+    if not p_solutions:
+        raise ValueError("Unable to solve H=E for p(x,E).")
+
+    # Keep the branch with positive momentum
+    p_expr = p_solutions[-1]
+    p_func = lambdify((x, E_sym), p_expr, 'numpy')
+
+    alpha = 0.5  # Maslov index
+
     energies = []
     actions = []
     quantum_numbers = []
+
+    # Find turning points from the sign of p^2
+    X = np.linspace(x_range[0], x_range[1], 2000)
+
+    def action(E):
+        """Compute classical action I(E) = (1/pi) ∫ p dx."""
+        p_vals = p_func(X, E)
+        p_vals = np.real_if_close(p_vals)
+        p_vals = np.real(p_vals)
+        
+        # Handle case where p_vals is a scalar (independent of x)
+        if np.ndim(p_vals) == 0:
+            # For free particle or x-independent momentum, no bound states
+            return 0.0
+        
+        mask = p_vals >= 0
+        if not np.any(mask):
+            return 0.0
     
-    # Maslov index (typical value for bound states)
-    alpha = 0.5
+        # locate turning region
+        idx = np.where(mask)[0]
+        if len(idx) == 0:
+            return 0.0
+        
+        a = X[idx[0]]
+        b = X[idx[-1]]
     
-    for n in range(n_max):
-        # Target action
-        I_target = hbar * (n + alpha)
-        
-        # Find energy E such that action integral equals I_target
-        def action_error(E_val):
-            try:
-                p_func = lambdify(x, p_expr.subs(E_sym, E_val), 'numpy')
-                
-                # Find turning points
-                x_test = np.linspace(x_range[0], x_range[1], 1000)
-                p_test = np.array([p_func(xi) for xi in x_test])
-                
-                # Real values only
-                real_mask = np.isreal(p_test)
-                if not np.any(real_mask):
-                    return 1e10
-                
-                x_real = x_test[real_mask]
-                p_real = np.real(p_test[real_mask])
-                
-                # Find turning points (where p crosses zero)
-                sign_changes = np.diff(np.sign(p_real))
-                turning_indices = np.where(sign_changes != 0)[0]
-                
-                if len(turning_indices) < 2:
-                    return 1e10
-                
-                x_left = x_real[turning_indices[0]]
-                x_right = x_real[turning_indices[-1]]
-                
-                # Integrate action
-                from scipy.integrate import quad
-                
-                def integrand(x_val):
-                    p_val = p_func(x_val)
-                    return np.real(p_val) if np.iscomplex(p_val) else p_val
-                
-                I, _ = quad(integrand, x_left, x_right)
-                I = 2 * I / (2 * np.pi)  # Factor of 2 for both branches
-                
-                return (I - I_target)**2
-            
-            except:
-                return 1e10
-        
-        # Optimize to find E_n
-        from scipy.optimize import minimize_scalar
-        
-        # Initial guess
-        E_guess = hbar * (n + 0.5)
-        
-        result = minimize_scalar(
-            action_error,
-            bounds=(0.01, 100),
-            method='bounded'
-        )
-        
-        if result.fun < 0.1:  # Reasonable convergence
-            energies.append(result.x)
-            actions.append(hbar * (n + alpha))
-            quantum_numbers.append(n)
+        def integrand(xv):
+            pv = p_func(xv, E)
+            return np.sqrt(max(pv, 0))
     
+        I, _ = quad(integrand, a, b, epsabs=1e-10, epsrel=1e-10)
+        return I / np.pi
+
+    # target quantized actions
+    targets = [hbar*(n + alpha) for n in range(n_max)]
+
+    # Energy brackets to scan
+    E_scan = np.linspace(1e-6, 50, 200)
+
+    I_scan = [action(E) for E in E_scan]
+
+    for n, Itarget in zip(range(n_max), targets):
+
+        # Need an interval where action crosses target
+        found = False
+        for k in range(len(E_scan)-1):
+            if (I_scan[k] - Itarget)*(I_scan[k+1] - Itarget) < 0:
+                E_left, E_right = E_scan[k], E_scan[k+1]
+                found = True
+                break
+
+        if not found:
+            continue
+
+        # Solve I(E)=target by bisection (monotone → guaranteed)
+        def F(E):
+            return action(E) - Itarget
+
+        E_n = bisect(F, E_left, E_right, xtol=1e-10, rtol=1e-10, maxiter=100)
+        energies.append(E_n)
+        actions.append(Itarget)
+        quantum_numbers.append(n)
+
     return {
-        'n': np.array(quantum_numbers),
-        'E_n': np.array(energies),
-        'actions': np.array(actions),
-        'hbar': hbar,
-        'alpha': alpha
+        "n": np.array(quantum_numbers),
+        "E_n": np.array(energies),
+        "actions": np.array(actions),
+        "hbar": hbar,
+        "alpha": alpha
     }
 
 

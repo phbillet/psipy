@@ -174,15 +174,18 @@ def bichar_flow_2d(symbol, z0, tspan, method='symplectic', n_steps=1000):
             
             elif method == 'verlet':
                 # Velocity Verlet
-                xi_half = xi_curr + 0.5 * dt * f_xi(x_curr, y_curr, xi_curr, eta_curr)
-                eta_half = eta_curr + 0.5 * dt * f_eta(x_curr, y_curr, xi_curr, eta_curr)
+                # 1. half-step momenta
+                xi_half  = xi_curr  + 0.5*dt * f_xi(x_curr, y_curr, xi_curr, eta_curr)
+                eta_half = eta_curr + 0.5*dt * f_eta(x_curr, y_curr, xi_curr, eta_curr)
                 
+                # 2. full-step positions (using half-step momenta)
                 x_new = x_curr + dt * f_x(x_curr, y_curr, xi_half, eta_half)
                 y_new = y_curr + dt * f_y(x_curr, y_curr, xi_half, eta_half)
                 
-                xi_new = xi_half + 0.5 * dt * f_xi(x_new, y_new, xi_half, eta_half)
-                eta_new = eta_half + 0.5 * dt * f_eta(x_new, y_new, xi_half, eta_half)
-            
+                # 3. full-step momenta (using new positions)
+                xi_new  = xi_half  + 0.5*dt * f_xi(x_new, y_new, xi_half, eta_half)
+                eta_new = eta_half + 0.5*dt * f_eta(x_new, y_new, xi_half, eta_half)
+
             x_vals[i+1] = x_new
             y_vals[i+1] = y_new
             xi_vals[i+1] = xi_new
@@ -219,7 +222,13 @@ def wkb_multidim(symbol, initial_phase, order=1, domain=((-5,5), (-5,5)),
     symbol : sympy expression
         Principal symbol p(x, y, ξ, η).
     initial_phase : dict
-        Initial data on a curve: 'curve', 'S_values', 'normal_derivatives'.
+        Initial data on a curve with keys:
+        - 'x': x-coordinates of initial curve (array)
+        - 'y': y-coordinates of initial curve (array)
+        - 'S': phase values S(s) along curve (array)
+        - 'p_x': initial ∂S/∂x = ξ (array)
+        - 'p_y': initial ∂S/∂η = η (array)
+        - 'a': initial amplitude (array, optional)
     order : int
         WKB order (0 or 1).
     domain : tuple of tuples
@@ -230,50 +239,423 @@ def wkb_multidim(symbol, initial_phase, order=1, domain=((-5,5), (-5,5)),
     Returns
     -------
     dict
-        WKB solution: 'x', 'y', 'S', 'a', 'u'.
+        WKB solution: 'x', 'y', 'S', 'a', 'u', 'rays'.
     
     Notes
     -----
-    In 2D, the eikonal equation is solved by method of characteristics,
-    which generates rays from the initial curve.
+    Uses ray tracing (method of characteristics) to solve the eikonal equation:
+    1. Rays emanate from the initial curve
+    2. Along each ray, solve ODEs for position, momentum, phase, amplitude
+    3. Interpolate solution onto regular grid
     
     Examples
     --------
     >>> x, y, xi, eta = symbols('x y xi eta', real=True)
     >>> p = xi**2 + eta**2  # Wave equation
-    >>> # Initial data on circle
-    >>> theta = np.linspace(0, 2*np.pi, 50)
-    >>> curve = np.array([np.cos(theta), np.sin(theta)])
-    >>> ic = {'curve': curve, 'S_values': np.zeros(50), ...}
-    >>> wkb = wkb_multidim(p, ic)
+    >>> # Initial data on line segment
+    >>> n_pts = 20
+    >>> x_init = np.linspace(-1, 1, n_pts)
+    >>> y_init = np.zeros(n_pts)
+    >>> S_init = np.zeros(n_pts)
+    >>> p_x = np.ones(n_pts)  # ξ = 1 (direction)
+    >>> p_y = np.zeros(n_pts)  # η = 0
+    >>> ic = {'x': x_init, 'y': y_init, 'S': S_init, 
+    ...       'p_x': p_x, 'p_y': p_y}
+    >>> wkb = wkb_multidim(p, ic, resolution=30)
     """
+    from scipy.integrate import solve_ivp
+    from scipy.interpolate import griddata
+    
     x, y, xi, eta = symbols('x y xi eta', real=True)
     
-    # For now, implement a simplified version for demonstration
-    # Full implementation requires ray tracing from initial curve
+    # Extract initial data
+    if not all(k in initial_phase for k in ['x', 'y', 'S', 'p_x', 'p_y']):
+        raise ValueError(
+            "initial_phase must contain: 'x', 'y', 'S', 'p_x', 'p_y'"
+        )
     
-    print("Warning: Full multidimensional WKB not yet implemented")
-    print("Use method of characteristics to solve eikonal equation")
+    x_init = np.asarray(initial_phase['x'])
+    y_init = np.asarray(initial_phase['y'])
+    S_init = np.asarray(initial_phase['S'])
+    px_init = np.asarray(initial_phase['p_x'])
+    py_init = np.asarray(initial_phase['p_y'])
     
-    # Placeholder: return grid structure
+    # Initial amplitude (default to 1)
+    if 'a' in initial_phase:
+        a_init = np.asarray(initial_phase['a'])
+    else:
+        a_init = np.ones_like(x_init)
+    
+    n_rays = len(x_init)
+    
+    # Compute Hamilton's equations for ray tracing
+    # Ray equations:
+    #   dx/dt = ∂p/∂ξ,  dy/dt = ∂p/∂η
+    #   dξ/dt = -∂p/∂x,  dη/dt = -∂p/∂y
+    #   dS/dt = ξ·∂p/∂ξ + η·∂p/∂η - p
+    #   (transport equation for amplitude comes later)
+    
+    dp_dxi = diff(symbol, xi)
+    dp_deta = diff(symbol, eta)
+    dp_dx = diff(symbol, x)
+    dp_dy = diff(symbol, y)
+    
+    # Lambdify for speed
+    f_dx = lambdify((x, y, xi, eta), dp_dxi, 'numpy')
+    f_dy = lambdify((x, y, xi, eta), dp_deta, 'numpy')
+    f_dxi = lambdify((x, y, xi, eta), -dp_dx, 'numpy')
+    f_deta = lambdify((x, y, xi, eta), -dp_dy, 'numpy')
+    p_func = lambdify((x, y, xi, eta), symbol, 'numpy')
+    
+    # For transport equation (amplitude)
+    if order >= 1:
+        # Transport equation: da/dt = -½ a · (∂²p/∂ξ² · dξ/dt + ∂²p/∂η² · dη/dt)
+        # Simplified: amplitude evolution
+        d2p_dxi2 = diff(symbol, xi, 2)
+        d2p_deta2 = diff(symbol, eta, 2)
+        d2p_dxideta = diff(diff(symbol, xi), eta)
+        
+        f_d2p_dxi2 = lambdify((x, y, xi, eta), d2p_dxi2, 'numpy')
+        f_d2p_deta2 = lambdify((x, y, xi, eta), d2p_deta2, 'numpy')
+        f_d2p_dxideta = lambdify((x, y, xi, eta), d2p_dxideta, 'numpy')
+    
+    # Ray tracing: integrate ODEs for each ray
+    print(f"Ray tracing {n_rays} rays...")
+    
+    rays = []
+    tmax = 5.0  # Maximum ray propagation time
+    n_steps_per_ray = 100
+    
+    for i in range(n_rays):
+        # Initial conditions for this ray
+        z0 = [x_init[i], y_init[i], px_init[i], py_init[i], S_init[i], a_init[i]]
+        
+        def ray_ode(t, z):
+            """
+            ODE system for ray:
+            z = [x, y, ξ, η, S, a]
+            """
+            x_val, y_val, xi_val, eta_val, S_val, a_val = z
+            
+            # Ray equations
+            dxdt = f_dx(x_val, y_val, xi_val, eta_val)
+            dydt = f_dy(x_val, y_val, xi_val, eta_val)
+            dxidt = f_dxi(x_val, y_val, xi_val, eta_val)
+            detadt = f_deta(x_val, y_val, xi_val, eta_val)
+            
+            # Phase evolution: dS/dt = ξ·(∂p/∂ξ) + η·(∂p/∂η) - p
+            p_val = p_func(x_val, y_val, xi_val, eta_val)
+            dSdt = xi_val * dxdt + eta_val * dydt - p_val
+            
+            # Amplitude evolution (if order >= 1)
+            if order >= 1:
+                # Transport equation (simplified)
+                # div(a² ∇_ξ p) = 0 along ray
+                # da/dt ≈ -a/2 · div(∇_ξ p)
+                d2pxi2 = f_d2p_dxi2(x_val, y_val, xi_val, eta_val)
+                d2peta2 = f_d2p_deta2(x_val, y_val, xi_val, eta_val)
+                
+                # Geometric spreading factor
+                div_term = d2pxi2 * dxidt + d2peta2 * detadt
+                dadt = -0.5 * a_val * div_term
+            else:
+                dadt = 0
+            
+            return [dxdt, dydt, dxidt, detadt, dSdt, dadt]
+        
+        # Integrate ray
+        try:
+            sol = solve_ivp(
+                ray_ode,
+                (0, tmax),
+                z0,
+                method='RK45',
+                t_eval=np.linspace(0, tmax, n_steps_per_ray),
+                rtol=1e-6,
+                atol=1e-9
+            )
+            
+            rays.append({
+                't': sol.t,
+                'x': sol.y[0],
+                'y': sol.y[1],
+                'xi': sol.y[2],
+                'eta': sol.y[3],
+                'S': sol.y[4],
+                'a': sol.y[5]
+            })
+        except Exception as e:
+            print(f"Warning: Ray {i} integration failed: {e}")
+            continue
+    
+    if len(rays) == 0:
+        raise RuntimeError("All rays failed to integrate")
+    
+    print(f"Successfully traced {len(rays)} rays")
+    
+    # Interpolate ray data onto regular grid
     (x_min, x_max), (y_min, y_max) = domain
-    x_vals = np.linspace(x_min, x_max, resolution)
-    y_vals = np.linspace(y_min, y_max, resolution)
-    X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
+    x_grid = np.linspace(x_min, x_max, resolution)
+    y_grid = np.linspace(y_min, y_max, resolution)
+    X_grid, Y_grid = np.meshgrid(x_grid, y_grid, indexing='ij')
     
-    # Dummy phase and amplitude
-    S = np.zeros_like(X)
-    a = np.ones_like(X)
-    u = a * np.exp(1j * S)
+    # Collect all ray points
+    x_points = []
+    y_points = []
+    S_points = []
+    a_points = []
+    
+    for ray in rays:
+        x_points.extend(ray['x'])
+        y_points.extend(ray['y'])
+        S_points.extend(ray['S'])
+        a_points.extend(ray['a'])
+    
+    points = np.column_stack([x_points, y_points])
+    
+    # Interpolate phase
+    print("Interpolating phase onto grid...")
+    S_grid = griddata(
+        points, 
+        S_points, 
+        (X_grid, Y_grid), 
+        method='linear',
+        fill_value=0.0
+    )
+    
+    # Interpolate amplitude
+    print("Interpolating amplitude onto grid...")
+    a_grid = griddata(
+        points, 
+        a_points, 
+        (X_grid, Y_grid), 
+        method='linear',
+        fill_value=0.0
+    )
+    
+    # Handle NaN values (outside ray coverage)
+    S_grid = np.nan_to_num(S_grid, nan=0.0)
+    a_grid = np.nan_to_num(a_grid, nan=0.0)
+    
+    # Construct WKB solution
+    u_grid = a_grid * np.exp(1j * S_grid)
+    
+    print("WKB solution computed successfully")
     
     return {
-        'x': X,
-        'y': Y,
-        'S': S,
-        'a': a,
-        'u': u,
-        'note': 'Placeholder implementation'
+        'x': X_grid,
+        'y': Y_grid,
+        'S': S_grid,
+        'a': a_grid,
+        'u': u_grid,
+        'rays': rays,
+        'n_rays': len(rays)
     }
+    
+
+def create_initial_data_line(x_range, n_points=20, direction=(1, 0), 
+                             y_intercept=0.0):
+    """
+    Create initial data for WKB on a line segment.
+    
+    Parameters
+    ----------
+    x_range : tuple
+        Range (x_min, x_max) for the line segment.
+    n_points : int
+        Number of points on the line.
+    direction : tuple
+        Direction of rays (ξ₀, η₀).
+    y_intercept : float
+        y-coordinate of the line.
+    
+    Returns
+    -------
+    dict
+        Initial data for wkb_multidim.
+    
+    Examples
+    --------
+    >>> # Horizontal line with rays going upward
+    >>> ic = create_initial_data_line((-1, 1), n_points=20, 
+    ...                                direction=(0, 1), y_intercept=0)
+    """
+    x_init = np.linspace(x_range[0], x_range[1], n_points)
+    y_init = np.full(n_points, y_intercept)
+    S_init = np.zeros(n_points)
+    
+    # Normalize direction
+    dir_norm = np.sqrt(direction[0]**2 + direction[1]**2)
+    px_init = np.full(n_points, direction[0] / dir_norm)
+    py_init = np.full(n_points, direction[1] / dir_norm)
+    
+    return {
+        'x': x_init,
+        'y': y_init,
+        'S': S_init,
+        'p_x': px_init,
+        'p_y': py_init
+    }
+
+
+def create_initial_data_circle(radius=1.0, n_points=30, outward=True):
+    """
+    Create initial data for WKB on a circle.
+    
+    Parameters
+    ----------
+    radius : float
+        Radius of the circle.
+    n_points : int
+        Number of points on the circle.
+    outward : bool
+        If True, rays point outward; if False, inward.
+    
+    Returns
+    -------
+    dict
+        Initial data for wkb_multidim.
+    
+    Examples
+    --------
+    >>> # Circle with outward rays
+    >>> ic = create_initial_data_circle(radius=1.0, n_points=30, outward=True)
+    """
+    theta = np.linspace(0, 2*np.pi, n_points, endpoint=False)
+    
+    x_init = radius * np.cos(theta)
+    y_init = radius * np.sin(theta)
+    S_init = np.zeros(n_points)
+    
+    # Rays perpendicular to circle
+    if outward:
+        px_init = np.cos(theta)
+        py_init = np.sin(theta)
+    else:
+        px_init = -np.cos(theta)
+        py_init = -np.sin(theta)
+    
+    return {
+        'x': x_init,
+        'y': y_init,
+        'S': S_init,
+        'p_x': px_init,
+        'p_y': py_init
+    }
+
+
+def create_initial_data_point_source(x0=0.0, y0=0.0, n_rays=20):
+    """
+    Create initial data for WKB from a point source.
+    
+    Parameters
+    ----------
+    x0, y0 : float
+        Source location.
+    n_rays : int
+        Number of rays emanating from source.
+    
+    Returns
+    -------
+    dict
+        Initial data for wkb_multidim.
+    
+    Examples
+    --------
+    >>> # Point source at origin
+    >>> ic = create_initial_data_point_source(0, 0, n_rays=24)
+    """
+    theta = np.linspace(0, 2*np.pi, n_rays, endpoint=False)
+    
+    x_init = np.full(n_rays, x0)
+    y_init = np.full(n_rays, y0)
+    S_init = np.zeros(n_rays)
+    
+    # Rays in all directions
+    px_init = np.cos(theta)
+    py_init = np.sin(theta)
+    
+    return {
+        'x': x_init,
+        'y': y_init,
+        'S': S_init,
+        'p_x': px_init,
+        'p_y': py_init
+    }
+
+def visualize_wkb_rays(wkb_result, plot_type='phase', n_rays_plot=None):
+    """
+    Visualize WKB solution with rays.
+    
+    Parameters
+    ----------
+    wkb_result : dict
+        Output from wkb_multidim.
+    plot_type : str
+        What to visualize: 'phase', 'amplitude', 'real', 'rays'.
+    n_rays_plot : int, optional
+        Number of rays to plot (if None, plot all).
+    
+    Examples
+    --------
+    >>> wkb = wkb_multidim(...)
+    >>> visualize_wkb_rays(wkb, plot_type='phase')
+    """
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    X = wkb_result['x']
+    Y = wkb_result['y']
+    
+    if plot_type == 'phase':
+        # Plot phase
+        S = wkb_result['S']
+        im = ax.contourf(X, Y, S, levels=30, cmap='twilight')
+        plt.colorbar(im, ax=ax, label='Phase S(x,y)')
+        ax.set_title('WKB Phase Function')
+    
+    elif plot_type == 'amplitude':
+        # Plot amplitude
+        a = wkb_result['a']
+        im = ax.contourf(X, Y, a, levels=30, cmap='viridis')
+        plt.colorbar(im, ax=ax, label='Amplitude a(x,y)')
+        ax.set_title('WKB Amplitude')
+    
+    elif plot_type == 'real':
+        # Plot real part
+        u = wkb_result['u']
+        im = ax.contourf(X, Y, np.real(u), levels=30, cmap='RdBu')
+        plt.colorbar(im, ax=ax, label='Re(u)')
+        ax.set_title('WKB Solution - Real Part')
+    
+    elif plot_type == 'rays':
+        # Plot phase contours with rays
+        S = wkb_result['S']
+        ax.contour(X, Y, S, levels=20, colors='gray', alpha=0.3)
+        ax.set_title('WKB Rays')
+    
+    # Overlay rays
+    if 'rays' in wkb_result and plot_type in ['phase', 'amplitude', 'rays']:
+        rays = wkb_result['rays']
+        n_total = len(rays)
+        
+        if n_rays_plot is None:
+            n_rays_plot = min(n_total, 20)  # Limit for clarity
+        
+        # Select evenly spaced rays
+        ray_indices = np.linspace(0, n_total-1, n_rays_plot, dtype=int)
+        
+        for idx in ray_indices:
+            ray = rays[idx]
+            ax.plot(ray['x'], ray['y'], 'r-', alpha=0.5, linewidth=1)
+            # Mark start
+            ax.plot(ray['x'][0], ray['y'][0], 'go', markersize=4)
+    
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_aspect('equal')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
 
 
 def compute_maslov_index(path_in_phase_space, symbol):

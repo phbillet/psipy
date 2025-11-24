@@ -311,7 +311,6 @@ def test_metric2d_invalid_dimension():
         # Should only accept 2x2 matrices
         metric = Metric2D(g, (x, y))
 
-
 def test_metric2d_non_symmetric():
     """Test handling of non-symmetric metric (should symmetrize)."""
     x, y = symbols('x y', real=True)

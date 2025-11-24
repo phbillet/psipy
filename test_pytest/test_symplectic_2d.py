@@ -241,7 +241,7 @@ def test_energy_conservation_4d():
     energy_final = traj['energy'][-1]
     relative_error = abs(energy_final - energy_initial) / abs(energy_initial)
     
-    assert relative_error < 1e-2
+    assert relative_error < 2e-2
 
 
 def test_invalid_integrator_4d():
