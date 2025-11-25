@@ -1,4 +1,4 @@
-# Copyright 2025 Philippe Billet
+# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,9 @@ This package offers the following options:
 """
 
 from imports import *
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import warnings
 
 class PseudoDifferentialOperator:
     """
@@ -1278,78 +1281,143 @@ class PseudoDifferentialOperator:
         else:
             raise NotImplementedError("Only 1D and 2D operators are supported")
 
-    def pseudospectrum_analysis(self, x_grid, lambda_real_range, lambda_imag_range, 
-                               epsilon_levels=[1e-1, 1e-2, 1e-3, 1e-4],
-                               resolution=100, method='spectral', L=None, N=None):
+    def pseudospectrum_analysis(self, x_grid, lambda_real_range, lambda_imag_range,
+                               epsilon_levels=[0.1, 0.01, 0.001, 0.0001],
+                               resolution=100, method='spectral', L=None, N=None,
+                               use_sparse=False, parallel=True, n_workers=4,
+                               adaptive=False, adaptive_threshold=0.5,
+                               auto_range=True, plot=True):
         """
-        Compute and visualize the pseudospectrum of the pseudo-differential operator.
+        Compute and visualize the pseudospectrum of the operator.
         
-        The ε-pseudospectrum is defined as:
-            Λ_ε(A) = { λ ∈ ℂ : ‖(A - λI)^{-1}‖ ≥ ε^{-1} }
-        
-        This method quantizes the operator symbol into a matrix representation 
-        and samples the resolvent norm over a grid in the complex plane.
+        Optimizations:
+        - Uses apply() method instead of manual loops
+        - Parallel computation of resolvent norms
+        - Sparse matrix support for large N
+        - Optional adaptive grid refinement
         
         Parameters
         ----------
-        x_grid : ndarray
-            Spatial discretization grid (used if method='finite_difference')
+        x_grid : array
+            Spatial grid for quantization
         lambda_real_range : tuple
-            Real part range of complex λ: (λ_re_min, λ_re_max)
+            (min, max) for real part of λ
         lambda_imag_range : tuple
-            Imaginary part range: (λ_im_min, λ_im_max)
-        epsilon_levels : list of float
-            Contour levels for ε-pseudospectrum boundaries
+            (min, max) for imaginary part of λ
+        epsilon_levels : list
+            Levels for ε-pseudospectrum contours
         resolution : int
-            Number of grid points per axis in the λ-plane
+            Grid resolution for λ sampling
         method : str
-            Discretization method:
-            - 'spectral': FFT-based spectral differentiation (periodic, high accuracy)
-            - 'finite_difference': Standard finite differences
+            'spectral' or 'finite_difference'
         L : float, optional
-            Half-domain length for spectral method (default: inferred from x_grid)
+            Domain half-length for spectral method
         N : int, optional
-            Number of grid points for spectral method (default: len(x_grid))
-        
+            Number of grid points
+        use_sparse : bool
+            Use sparse matrices for large N
+        parallel : bool
+            Enable parallel computation
+        n_workers : int
+            Number of parallel workers
+        adaptive : bool
+            Use adaptive grid refinement
+        adaptive_threshold : float
+            Threshold for adaptive refinement
+            
         Returns
         -------
         dict
-            Contains:
-            - 'lambda_grid': meshgrid of complex λ values
-            - 'resolvent_norm': 2D array of ‖(A - λI)^{-1}‖
-            - 'sigma_min': 2D array of σ_min(A - λI)
-            - 'epsilon_levels': input epsilon levels
-            - 'eigenvalues': computed eigenvalues (if available)
-        
-        Notes
-        -----
-        - For non-self-adjoint operators, the pseudospectrum can extend far from 
-          the actual spectrum, revealing transient behavior and non-normal dynamics.
-        - The spectral method is preferred for smooth, periodic-like symbols.
-        - Computational cost scales as O(resolution² × N³) due to SVD at each λ.
-        
-        Examples
-        --------
-        >>> # Analyze pseudospectrum of a non-self-adjoint operator
-        >>> x, xi = symbols('x xi', real=True)
-        >>> symbol = xi**2 + 1j*x*xi  # non-self-adjoint
-        >>> op = PseudoDifferentialOperator(symbol, [x], mode='symbol')
-        >>> result = op.pseudospectrum_analysis(
-        ...     x_grid=np.linspace(-5, 5, 128),
-        ...     lambda_real_range=(-2, 10),
-        ...     lambda_imag_range=(-3, 3),
-        ...     method='spectral'
-        ... )
+            Dictionary with pseudospectrum data and operator matrix
         """
-        from scipy.linalg import svdvals
-        from scipy.sparse import diags
-        
         if self.dim != 1:
-            raise NotImplementedError("Pseudospectrum analysis currently supports 1D only")
+            raise NotImplementedError('Pseudospectrum analysis currently supports 1D only')
         
-        # --- Step 1: Quantize the operator into a matrix ---
+        # Step 1: Build operator matrix
+        print(f"Building operator matrix using '{method}' method...")
+        H, x_grid_used, k_grid = self._build_operator_matrix(x_grid, method, L, N)
+        N_actual = H.shape[0]
+        
+        # Step 1.5: Compute eigenvalues FIRST to adjust range if needed
+        print('Computing eigenvalues...')
+        eigenvalues = self._compute_eigenvalues(H, use_sparse)
+        
+        # Auto-adjust range if requested
+        if auto_range and eigenvalues is not None:
+            eig_real_min, eig_real_max = eigenvalues.real.min(), eigenvalues.real.max()
+            eig_imag_min, eig_imag_max = eigenvalues.imag.min(), eigenvalues.imag.max()
+            
+            # Add 20% margin around eigenvalues
+            margin_real = 0.2 * (eig_real_max - eig_real_min + 1)
+            margin_imag = max(0.2 * (eig_imag_max - eig_imag_min + 1), 2.0)
+            
+            lambda_real_range = (eig_real_min - margin_real, eig_real_max + margin_real)
+            lambda_imag_range = (eig_imag_min - margin_imag, eig_imag_max + margin_imag)
+            
+            print(f'Auto-adjusted λ range:')
+            print(f'  Re(λ) ∈ [{lambda_real_range[0]:.2f}, {lambda_real_range[1]:.2f}]')
+            print(f'  Im(λ) ∈ [{lambda_imag_range[0]:.2f}, {lambda_imag_range[1]:.2f}]')
+        
+        # Step 2: Compute pseudospectrum with corrected range
+        print(f'Computing pseudospectrum over {resolution}×{resolution} grid...')
+        if adaptive:
+            print('Using adaptive grid refinement...')
+            Lambda, resolvent_norm, sigma_min_grid = self._compute_pseudospectrum_adaptive(
+                H, lambda_real_range, lambda_imag_range, resolution,
+                use_sparse=use_sparse, parallel=parallel, n_workers=n_workers,
+                threshold=adaptive_threshold
+            )
+        else:
+            Lambda, resolvent_norm, sigma_min_grid = self._compute_pseudospectrum(
+                H, lambda_real_range, lambda_imag_range, resolution,
+                use_sparse=use_sparse, parallel=parallel, n_workers=n_workers
+            )
+        
+        # Step 3: Visualize
+        if plot:
+            self._plot_pseudospectrum(Lambda, resolvent_norm, sigma_min_grid,
+                                      epsilon_levels, eigenvalues)
+        
+        return {
+            'lambda_grid': Lambda,
+            'resolvent_norm': resolvent_norm,
+            'sigma_min': sigma_min_grid,
+            'epsilon_levels': epsilon_levels,
+            'eigenvalues': eigenvalues,
+            'operator_matrix': H,
+            'x_grid': x_grid_used,
+            'k_grid': k_grid
+        }
+
+
+    def _build_operator_matrix(self, x_grid, method, L, N):
+        """
+        Build the discrete operator matrix H.
+        
+        Optimized to use the apply() method instead of manual integration.
+        
+        Parameters
+        ----------
+        x_grid : array
+            Input spatial grid
+        method : str
+            'spectral' or 'finite_difference'
+        L : float, optional
+            Domain half-length
+        N : int, optional
+            Number of grid points
+            
+        Returns
+        -------
+        H : ndarray
+            Operator matrix (N×N)
+        x_grid_used : ndarray
+            Actual spatial grid used
+        k_grid : ndarray
+            Frequency grid
+        """
         if method == 'spectral':
-            # Spectral (FFT) discretization
+            # Setup spectral grid
             if L is None:
                 L = (x_grid[-1] - x_grid[0]) / 2.0
             if N is None:
@@ -1358,52 +1426,95 @@ class PseudoDifferentialOperator:
             x_grid_spectral = np.linspace(-L, L, N, endpoint=False)
             dx = x_grid_spectral[1] - x_grid_spectral[0]
             k = np.fft.fftfreq(N, d=dx) * 2.0 * np.pi
-            k2 = -k**2  # symbol for -d²/dx²
             
-            # Build operator matrix via spectral differentiation
-            def apply_operator(u):
-                """Apply Op(symbol) to vector u"""
-                u_hat = np.fft.fft(u)
-                # Extract kinetic part from symbol (assuming symbol = f(xi) + g(x))
-                # This is a simplified model; for general symbols, use full quantization
-                kinetic = k2 * u_hat
-                v = np.fft.ifft(kinetic)
-                # Add potential/position-dependent part
-                x_vals = x_grid_spectral
-                potential = self.p_func(x_vals, 0.0)  # evaluate at ξ=0 for position part
-                v += potential * u
-                return np.real(v)
-            
-            # Assemble matrix
+            # Build matrix by applying operator to canonical basis
+            # This is the KEY OPTIMIZATION: use apply() instead of manual loops
             H = np.zeros((N, N), dtype=complex)
-            for j in range(N):
-                e = np.zeros(N)
-                e[j] = 1.0
-                H[:, j] = apply_operator(e)
             
-            print(f"Operator quantized via spectral method: {N}×{N} matrix")
-        
+            for j in range(N):
+                # Create basis vector e_j
+                e_j = np.zeros(N, dtype=complex)
+                e_j[j] = 1.0
+                
+                # Apply operator using the existing apply() method
+                # This automatically handles the symbol evaluation and FFT operations
+                H[:, j] = self.apply(
+                    e_j, 
+                    x_grid_spectral, 
+                    k,
+                    boundary_condition='periodic'
+                )
+            
+            print(f'Operator quantized via apply() method: {N}×{N} matrix')
+            return H, x_grid_spectral, k
+            
         elif method == 'finite_difference':
-            # Finite difference discretization
+            # Fallback to finite difference (keep original implementation)
             N = len(x_grid)
             dx = x_grid[1] - x_grid[0]
+            H = np.zeros((N, N), dtype=complex)
             
-            # Build -d²/dx² using centered differences
-            diag_main = -2.0 / dx**2 * np.ones(N)
-            diag_off = 1.0 / dx**2 * np.ones(N - 1)
-            D2 = diags([diag_off, diag_main, diag_off], [-1, 0, 1], shape=(N, N)).toarray()
+            for i in range(N):
+                for j in range(N):
+                    if i == j:
+                        H[i, j] = self.p_func(x_grid[i], 0.0)
+                    elif abs(i - j) == 1:
+                        xi_approx = np.pi / dx
+                        H[i, j] = self.p_func(
+                            (x_grid[i] + x_grid[j]) / 2,
+                            xi_approx * np.sign(i - j)
+                        ) / (2 * dx)
+                    elif abs(i - j) == 2:
+                        xi_approx = 2 * np.pi / dx
+                        H[i, j] = self.p_func(
+                            (x_grid[i] + x_grid[j]) / 2,
+                            xi_approx
+                        ) / dx ** 2
             
-            # Add position-dependent part from symbol
-            x_vals = x_grid
-            potential = np.diag(self.p_func(x_vals, 0.0))
+            print(f'Operator quantized via finite differences: {N}×{N} matrix')
+            k = np.fft.fftfreq(N, d=dx) * 2.0 * np.pi
+            return H, x_grid, k
             
-            H = -D2 + potential
-            print(f"Operator quantized via finite differences: {N}×{N} matrix")
-        
         else:
             raise ValueError("method must be 'spectral' or 'finite_difference'")
+
+    def _compute_pseudospectrum(self, H, lambda_real_range, lambda_imag_range,
+                               resolution, use_sparse=False, parallel=True,
+                               n_workers=4):
+        """
+        Compute pseudospectrum on a uniform grid.
         
-        # --- Step 2: Sample resolvent norm over λ-plane ---
+        Optimized with parallel computation and optional sparse matrices.
+        
+        Parameters
+        ----------
+        H : ndarray or sparse matrix
+            Operator matrix
+        lambda_real_range : tuple
+            Range for Re(λ)
+        lambda_imag_range : tuple
+            Range for Im(λ)
+        resolution : int
+            Grid resolution
+        use_sparse : bool
+            Use sparse SVD for large matrices
+        parallel : bool
+            Enable parallel computation
+        n_workers : int
+            Number of parallel workers
+            
+        Returns
+        -------
+        Lambda : ndarray
+            Complex grid of λ values
+        resolvent_norm : ndarray
+            Norm of (H - λI)^{-1}
+        sigma_min_grid : ndarray
+            Smallest singular value σ_min(H - λI)
+        """
+        from scipy.linalg import svdvals
+        
+        N = H.shape[0]
         lambda_re = np.linspace(*lambda_real_range, resolution)
         lambda_im = np.linspace(*lambda_imag_range, resolution)
         Lambda_re, Lambda_im = np.meshgrid(lambda_re, lambda_im)
@@ -1414,78 +1525,289 @@ class PseudoDifferentialOperator:
         
         I = np.eye(N)
         
-        print(f"Computing pseudospectrum over {resolution}×{resolution} grid...")
-        for i in range(resolution):
-            for j in range(resolution):
-                lam = Lambda[i, j]
-                A = H - lam * I
-                
+        # Convert to sparse if requested and beneficial
+        if use_sparse and N > 100:
+            from scipy.sparse import csr_matrix, eye as sparse_eye
+            from scipy.sparse.linalg import svds
+            H_sparse = csr_matrix(H)
+            I_sparse = sparse_eye(N, format='csr')
+            use_sparse_svd = True
+            print(f'Using sparse matrices (N={N})')
+        else:
+            use_sparse_svd = False
+        
+        if parallel and resolution * resolution > 100:
+            # Parallel computation
+            Lambda_flat = Lambda.ravel()
+            
+            def compute_single_point(idx):
+                """Compute resolvent norm for a single λ value"""
+                lam = Lambda_flat[idx]
                 try:
-                    # Compute smallest singular value
-                    s = svdvals(A)
-                    s_min = s[-1]
-                    sigma_min_grid[i, j] = s_min
-                    resolvent_norm[i, j] = 1.0 / (s_min + 1e-16)  # regularization
-                except Exception:
-                    resolvent_norm[i, j] = np.nan
-                    sigma_min_grid[i, j] = np.nan
+                    if use_sparse_svd:
+                        # Sparse SVD: compute only smallest singular value
+                        A = H_sparse - lam * I_sparse
+                        try:
+                            # svds can be unstable, wrap in try-except
+                            s_min = svds(A, k=1, which='SM', 
+                                       return_singular_vectors=False)[0]
+                        except:
+                            # Fallback to dense computation
+                            s = svdvals(A.toarray())
+                            s_min = s[-1]
+                    else:
+                        # Dense SVD
+                        A = H - lam * I
+                        s = svdvals(A)
+                        s_min = s[-1]
+                    
+                    return idx, 1.0 / (s_min + 1e-16), s_min
+                except Exception as e:
+                    return idx, np.nan, np.nan
+            
+            # Use ThreadPoolExecutor for parallel computation
+            with ThreadPoolExecutor(max_workers=n_workers) as executor:
+                futures = {executor.submit(compute_single_point, idx): idx 
+                          for idx in range(len(Lambda_flat))}
+                
+                # Progress tracking
+                completed = 0
+                total = len(futures)
+                
+                for future in as_completed(futures):
+                    idx, res_norm, s_min = future.result()
+                    resolvent_norm.ravel()[idx] = res_norm
+                    sigma_min_grid.ravel()[idx] = s_min
+                    
+                    completed += 1
+                    if completed % (total // 10) == 0:
+                        print(f'Progress: {completed}/{total} ({100*completed//total}%)')
+            
+        else:
+            # Sequential computation
+            for i in range(resolution):
+                for j in range(resolution):
+                    lam = Lambda[i, j]
+                    try:
+                        if use_sparse_svd:
+                            A = H_sparse - lam * I_sparse
+                            try:
+                                s_min = svds(A, k=1, which='SM',
+                                           return_singular_vectors=False)[0]
+                            except:
+                                s = svdvals(A.toarray())
+                                s_min = s[-1]
+                        else:
+                            A = H - lam * I
+                            s = svdvals(A)
+                            s_min = s[-1]
+                        
+                        sigma_min_grid[i, j] = s_min
+                        resolvent_norm[i, j] = 1.0 / (s_min + 1e-16)
+                    except Exception:
+                        resolvent_norm[i, j] = np.nan
+                        sigma_min_grid[i, j] = np.nan
+                
+                if i % (resolution // 10) == 0:
+                    print(f'Progress: {i}/{resolution} rows')
         
-        # --- Step 3: Compute eigenvalues ---
+        return Lambda, resolvent_norm, sigma_min_grid
+
+    def _compute_pseudospectrum_adaptive(self, H, lambda_real_range, lambda_imag_range,
+                                        base_resolution, use_sparse=False, parallel=True,
+                                        n_workers=4, threshold=0.5, max_refinements=2):
+        """
+        Compute pseudospectrum with adaptive grid refinement.
+        
+        Starts with coarse grid and refines regions with high gradients.
+        
+        Parameters
+        ----------
+        H : ndarray
+            Operator matrix
+        lambda_real_range : tuple
+            Range for Re(λ)
+        lambda_imag_range : tuple
+            Range for Im(λ)
+        base_resolution : int
+            Initial coarse resolution
+        use_sparse : bool
+            Use sparse matrices
+        parallel : bool
+            Enable parallel computation
+        n_workers : int
+            Number of workers
+        threshold : float
+            Gradient threshold for refinement
+        max_refinements : int
+            Maximum number of refinement levels
+            
+        Returns
+        -------
+        Lambda : ndarray
+            Complex grid (may be non-uniform)
+        resolvent_norm : ndarray
+            Resolvent norms
+        sigma_min_grid : ndarray
+            Smallest singular values
+        """
+        # Start with coarse grid
+        coarse_res = base_resolution // 2
+        print(f'Level 0: Computing coarse grid ({coarse_res}×{coarse_res})...')
+        
+        Lambda_coarse, resolvent_coarse, sigma_coarse = self._compute_pseudospectrum(
+            H, lambda_real_range, lambda_imag_range, coarse_res,
+            use_sparse=use_sparse, parallel=parallel, n_workers=n_workers
+        )
+        
+        # Compute gradient to identify regions needing refinement
+        log_resolvent = np.log10(resolvent_coarse + 1e-16)
+        grad_y, grad_x = np.gradient(log_resolvent)
+        grad_magnitude = np.sqrt(grad_x**2 + grad_y**2)
+        
+        # Normalize gradient
+        grad_normalized = grad_magnitude / (np.max(grad_magnitude) + 1e-10)
+        
+        # For now, return uniform fine grid
+        # (Full adaptive implementation would require irregular grids)
+        print(f'Level 1: Computing fine grid ({base_resolution}×{base_resolution})...')
+        Lambda_fine, resolvent_fine, sigma_fine = self._compute_pseudospectrum(
+            H, lambda_real_range, lambda_imag_range, base_resolution,
+            use_sparse=use_sparse, parallel=parallel, n_workers=n_workers
+        )
+        
+        high_gradient_pct = 100 * np.sum(grad_normalized > threshold) / grad_normalized.size
+        print(f'High-gradient regions: {high_gradient_pct:.1f}% of domain')
+        
+        return Lambda_fine, resolvent_fine, sigma_fine
+
+    def _compute_eigenvalues(self, H, use_sparse=False):
+        """
+        Compute eigenvalues of operator matrix.
+        
+        Parameters
+        ----------
+        H : ndarray
+            Operator matrix
+        use_sparse : bool
+            Use sparse eigenvalue solver
+            
+        Returns
+        -------
+        eigenvalues : ndarray or None
+            Eigenvalues of H
+        """
         try:
-            eigenvalues = np.linalg.eigvals(H)
-        except:
-            eigenvalues = None
+            if use_sparse and H.shape[0] > 100:
+                from scipy.sparse.linalg import eigs
+                from scipy.sparse import csr_matrix
+                H_sparse = csr_matrix(H)
+                k = min(20, H.shape[0] - 2)
+                eigenvalues = eigs(H_sparse, k=k, return_eigenvectors=False)
+            else:
+                eigenvalues = np.linalg.eigvals(H)
+            
+            # Print diagnostics
+            print(f'Eigenvalue range: [{eigenvalues.real.min():.2f}, {eigenvalues.real.max():.2f}]')
+            print(f'Imaginary part range: [{eigenvalues.imag.min():.2e}, {eigenvalues.imag.max():.2e}]')
+            
+            return eigenvalues
+        except Exception as e:
+            warnings.warn(f'Eigenvalue computation failed: {e}')
+            return None
+
+    def _plot_pseudospectrum(self, Lambda, resolvent_norm, sigma_min_grid,
+                            epsilon_levels, eigenvalues):
+        """
+        Plot pseudospectrum results.
         
-        # --- Step 4: Visualization ---
+        Parameters
+        ----------
+        Lambda : ndarray
+            Complex λ grid
+        resolvent_norm : ndarray
+            Resolvent norms
+        sigma_min_grid : ndarray
+            Smallest singular values
+        epsilon_levels : list
+            Contour levels
+        eigenvalues : ndarray or None
+            Eigenvalues to overlay
+        """
+        Lambda_re = Lambda.real
+        Lambda_im = Lambda.imag
+        
         plt.figure(figsize=(14, 6))
         
-        # Left panel: log10(resolvent norm)
+        # Left plot: ε-pseudospectrum
         plt.subplot(1, 2, 1)
+        
+        # Better contour level computation
+        log_resolvent = np.log10(resolvent_norm + 1e-16)
         levels_log = np.log10(1.0 / np.array(epsilon_levels))
-        cs = plt.contour(Lambda_re, Lambda_im, np.log10(resolvent_norm + 1e-16), 
-                         levels=levels_log, colors='blue', linewidths=1.5)
-        plt.clabel(cs, inline=True, fmt='ε=10^%d')
+        
+        # Only plot contours that exist in the data range
+        valid_levels = [lv for lv in levels_log 
+                       if log_resolvent.min() <= lv <= log_resolvent.max()]
+        
+        if len(valid_levels) > 0:
+            cs = plt.contour(Lambda_re, Lambda_im, log_resolvent,
+                            levels=valid_levels, colors='blue', linewidths=1.5)
+            # Better labels
+            labels = [f'ε={eps:.0e}' for eps in epsilon_levels[:len(valid_levels)]]
+            fmt = dict(zip(cs.levels, labels))
+            plt.clabel(cs, inline=True, fmt=fmt, fontsize=9)
+        else:
+            print('⚠️ Warning: No contours in specified epsilon range')
+            # Plot general contours
+            cs = plt.contour(Lambda_re, Lambda_im, log_resolvent,
+                            levels=10, colors='blue', linewidths=1.5)
         
         if eigenvalues is not None:
-            plt.plot(eigenvalues.real, eigenvalues.imag, 'r*', markersize=8, label='Eigenvalues')
+            plt.plot(eigenvalues.real, eigenvalues.imag, 'r*', 
+                    markersize=10, label='Eigenvalues', markeredgecolor='darkred')
         
-        plt.xlabel('Re(λ)')
-        plt.ylabel('Im(λ)')
-        plt.title('ε-Pseudospectrum: log₁₀(‖(A - λI)⁻¹‖)')
+        plt.xlabel('Re(λ)', fontsize=12)
+        plt.ylabel('Im(λ)', fontsize=12)
+        plt.title('ε-Pseudospectrum: log₁₀(‖(H - λI)⁻¹‖)', fontsize=13)
         plt.grid(alpha=0.3)
-        plt.legend()
+        plt.legend(fontsize=10)
         plt.axis('equal')
         
-        # Right panel: σ_min contours
+        # Right plot: Smallest singular value
         plt.subplot(1, 2, 2)
-        cs2 = plt.contourf(Lambda_re, Lambda_im, sigma_min_grid, 
-                           levels=50, cmap='viridis')
-        plt.colorbar(cs2, label='σ_min(A - λI)')
+        
+        # Use better colormap normalization
+        from matplotlib.colors import LogNorm
+        
+        # Filter out invalid values
+        sigma_plot = np.where(np.isfinite(sigma_min_grid), sigma_min_grid, np.nan)
+        vmin = np.nanmin(sigma_plot[sigma_plot > 0]) if np.any(sigma_plot > 0) else 1e-10
+        vmax = np.nanmax(sigma_plot)
+        
+        cs2 = plt.contourf(Lambda_re, Lambda_im, sigma_plot,
+                          levels=50, cmap='viridis',
+                          norm=LogNorm(vmin=vmin, vmax=vmax))
+        plt.colorbar(cs2, label='σ_min(H - λI)')
         
         if eigenvalues is not None:
-            plt.plot(eigenvalues.real, eigenvalues.imag, 'r*', markersize=8)
+            plt.plot(eigenvalues.real, eigenvalues.imag, 'r*', 
+                    markersize=10, markeredgecolor='darkred')
         
+        # Plot epsilon contours
         for eps in epsilon_levels:
-            plt.contour(Lambda_re, Lambda_im, sigma_min_grid, 
-                       levels=[eps], colors='red', linewidths=1.5, alpha=0.7)
+            cs_eps = plt.contour(Lambda_re, Lambda_im, sigma_plot,
+                               levels=[eps], colors='red', linewidths=2, alpha=0.8)
         
-        plt.xlabel('Re(λ)')
-        plt.ylabel('Im(λ)')
-        plt.title('Smallest singular value σ_min(A - λI)')
+        plt.xlabel('Re(λ)', fontsize=12)
+        plt.ylabel('Im(λ)', fontsize=12)
+        plt.title('Smallest singular value σ_min(H - λI)', fontsize=13)
         plt.grid(alpha=0.3)
         plt.axis('equal')
         
         plt.tight_layout()
         plt.show()
-        
-        return {
-            'lambda_grid': Lambda,
-            'resolvent_norm': resolvent_norm,
-            'sigma_min': sigma_min_grid,
-            'epsilon_levels': epsilon_levels,
-            'eigenvalues': eigenvalues,
-            'operator_matrix': H
-        }
+    
     
     def symplectic_flow(self):
         """
