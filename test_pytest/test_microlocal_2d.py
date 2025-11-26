@@ -144,7 +144,8 @@ def test_wkb_multidim_placeholder():
         domain=((-2, 2), (-2, 2)), 
         resolution=20
     )
-    
+
+
     # Basic checks
     assert 'x' in wkb
     assert 'y' in wkb
@@ -157,7 +158,7 @@ def test_wkb_multidim_placeholder():
     assert wkb['x'].shape == (20, 20)
     assert wkb['y'].shape == (20, 20)
     assert wkb['S'].shape == (20, 20)
-    assert wkb['a'].shape == (20, 20)
+    assert wkb['a'][0].shape == (20, 20)
     assert wkb['u'].shape == (20, 20)
     
     # Check that we traced some rays
@@ -233,8 +234,8 @@ def test_wkb_multidim_circular_source():
     assert len(wkb['rays']) >= 15
     
     # Check amplitude behavior (should decay with distance for circular waves)
-    a_center = wkb['a'][20, 20]  # Center
-    a_edge = wkb['a'][0, 0]      # Edge
+    a_center = wkb['a'][0][20, 20]  # Center
+    a_edge = wkb['a'][0][0, 0]      # Edge
     
     # Solution should exist
     assert wkb['u'].shape == (40, 40)
@@ -578,7 +579,7 @@ def test_wkb_multidim_structure():
     assert wkb['x'].shape == (10, 10)
     assert wkb['y'].shape == (10, 10)
     assert wkb['S'].shape == (10, 10)
-    assert wkb['a'].shape == (10, 10)
+    assert wkb['a'][0].shape == (10, 10)
     assert wkb['u'].shape == (10, 10)
     assert isinstance(wkb['rays'], list)
     assert len(wkb['rays']) > 0
