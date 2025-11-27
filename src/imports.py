@@ -8,6 +8,7 @@ from scipy.ndimage import maximum_filter
 from scipy.sparse import diags
 from scipy.sparse.linalg import svds 
 from scipy.integrate import trapezoid as scipy_trapezoid
+from scipy.interpolate import griddata, interp1d
 from sympy import (
     symbols, Function, 
     solve, pprint, Mul,
