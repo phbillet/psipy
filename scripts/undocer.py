@@ -37,5 +37,5 @@ def process_file(input_file, output_file):
 
 # Exemple d'utilisation
 input_file = '../src/psiop.py'
-output_file = '../src/psiop_undoc.py'
+output_file = '../src/psiop_ud.py'
 process_file(input_file, output_file)

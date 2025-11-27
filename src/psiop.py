@@ -24,6 +24,220 @@ from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import warnings
 
+# ==================================================================
+# CAUSTIC DETECTION AND CLASSIFICATION
+# ==================================================================
+
+class CausticDetector:
+    """
+    Detect and classify caustics in ray families.
+    
+    Caustic types:
+    - Fold (A2): Generic 1-parameter family, corrected by Airy function
+    - Cusp (A3): Generic 2-parameter family, corrected by Pearcey function
+    - Swallowtail (A4): More degenerate, requires higher corrections
+    """
+    
+    def __init__(self, rays, dimension):
+        self.rays = rays
+        self.dimension = dimension
+        self.caustics = []
+    
+    def detect_caustics(self, threshold=1e-3):
+        """
+        Detect caustics by analyzing Jacobian of ray mapping.
+        
+        Caustic occurs when ∂(x,y)/∂(ray_param, t) = 0
+        """
+        print("Detecting caustics...")
+        
+        for i, ray in enumerate(self.rays):
+            if self.dimension == 1:
+                caustics_1d = self._detect_1d_caustics(ray, i)
+                self.caustics.extend(caustics_1d)
+            else:
+                caustics_2d = self._detect_2d_caustics(ray, i, threshold)
+                self.caustics.extend(caustics_2d)
+        
+        print(f"Found {len(self.caustics)} caustic points")
+        return self.caustics
+    
+    def _detect_1d_caustics(self, ray, ray_idx):
+        """
+        In 1D, caustic occurs when dx/dt = 0 (ray turns around).
+        """
+        caustics = []
+        
+        x = ray['x']
+        t = ray['t']
+        
+        # Compute velocity
+        dxdt = np.gradient(x, t)
+        
+        # Find sign changes (turning points)
+        sign_changes = np.where(np.diff(np.sign(dxdt)))[0]
+        
+        for idx in sign_changes:
+            caustics.append({
+                'type': 'fold',  # 1D caustics are always folds
+                'ray_idx': ray_idx,
+                'time_idx': idx,
+                'position': x[idx],
+                'time': t[idx],
+                'caustic_type': 'A2'
+            })
+        
+        return caustics
+    
+    def _detect_2d_caustics(self, ray, ray_idx, threshold):
+        """
+        In 2D, caustic occurs when det(Jacobian) ≈ 0.
+        Classify type by eigenvalues of Hessian.
+        """
+        caustics = []
+        
+        x = ray['x']
+        y = ray['y']
+        xi = ray['xi']
+        eta = ray['eta']
+        t = ray['t']
+        
+        # Numerical Jacobian along ray
+        # J = [[∂x/∂t, ∂x/∂s], [∂y/∂t, ∂y/∂s]]
+        # Approximate using neighboring rays (would need full family)
+        
+        # Simpler criterion: momentum magnitude
+        p_mag = np.sqrt(xi**2 + eta**2)
+        
+        # Look for near-zero momentum (approximate caustic indicator)
+        near_zero = np.where(p_mag < threshold)[0]
+        
+        for idx in near_zero:
+            # Classify caustic type by analyzing trajectory curvature
+            if idx > 0 and idx < len(t) - 1:
+                # Second derivatives
+                d2x = x[idx+1] - 2*x[idx] + x[idx-1]
+                d2y = y[idx+1] - 2*y[idx] + y[idx-1]
+                curvature = np.sqrt(d2x**2 + d2y**2)
+                
+                # Simple classification
+                if curvature < 0.1:
+                    caustic_type = 'A2'  # Fold
+                    correction_type = 'airy'
+                else:
+                    caustic_type = 'A3'  # Cusp
+                    correction_type = 'pearcey'
+                
+                caustics.append({
+                    'type': correction_type,
+                    'ray_idx': ray_idx,
+                    'time_idx': idx,
+                    'position': (x[idx], y[idx]),
+                    'time': t[idx],
+                    'caustic_type': caustic_type,
+                    'curvature': curvature
+                })
+        
+        return caustics
+    
+    def compute_maslov_index(self, ray):
+        """
+        Compute Maslov index: number of caustics crossed × π/2.
+        
+        The Maslov index accumulates phase jumps at caustics.
+        """
+        maslov = 0
+        
+        if self.dimension == 1:
+            x = ray['x']
+            dxdt = np.gradient(x, ray['t'])
+            # Count sign changes
+            maslov = len(np.where(np.diff(np.sign(dxdt)))[0])
+        else:
+            # In 2D, need to track conjugate points
+            # Simplified: count momentum near-zeros
+            xi, eta = ray['xi'], ray['eta']
+            p_mag = np.sqrt(xi**2 + eta**2)
+            maslov = len(np.where(p_mag < 0.01)[0])
+        
+        return maslov * np.pi / 2
+
+
+# ==================================================================
+# SPECIAL FUNCTIONS FOR CAUSTIC CORRECTIONS
+# ==================================================================
+
+class CausticFunctions:
+    """
+    Special functions for caustic corrections.
+    """
+    
+    @staticmethod
+    def airy_uniform(z):
+        """
+        Airy function Ai(z) for fold caustic correction.
+        
+        Near a fold caustic, the WKB solution is replaced by:
+        u(x) ≈ A(x) · Ai((x-x_c)/ε^{2/3}) · exp(iS(x)/ε)
+        """
+        return airy(z)[0]
+    
+    @staticmethod
+    def airy_derivative(z):
+        """
+        Derivative of Airy function Ai'(z).
+        """
+        return airy(z)[1]
+    
+    @staticmethod
+    def pearcey_integral(x, y):
+        """
+        Pearcey integral for cusp caustic (A3 singularity).
+        
+        P(x,y) = ∫_{-∞}^{∞} exp(i(t^4 + xt^2 + yt)) dt
+        
+        This is more complex and typically requires numerical integration.
+        Simplified implementation using stationary phase.
+        """
+        # Number of integration points
+        n_pts = 200
+        t = np.linspace(-5, 5, n_pts)
+        dt = t[1] - t[0]
+        
+        # Phase function: φ(t) = t^4 + x*t^2 + y*t
+        phase = t**4 + x * t**2 + y * t
+        
+        # Numerical integration
+        integrand = np.exp(1j * phase)
+        result = np.trapz(integrand, dx=dt)
+        
+        return result
+    
+    @staticmethod
+    def pearcey_approx(x, y):
+        """
+        Approximate Pearcey function using asymptotic expansion.
+        Faster but less accurate than full integration.
+        """
+        # Asymptotic form for large |x|, |y|
+        r = np.sqrt(x**2 + y**2) + 1e-10
+        
+        if r > 2:
+            # Asymptotic expansion
+            return np.exp(1j * (x**2/4 + y**2/(4*x))) / np.sqrt(r)
+        else:
+            # Fall back to numerical
+            return CausticFunctions.pearcey_integral(x, y)
+    
+    @staticmethod
+    def maslov_phase_shift(n_caustics):
+        """
+        Phase shift from Maslov index.
+        
+        Each caustic crossed adds π/2 to the phase.
+        """
+        return n_caustics * np.pi / 2
+
 class PseudoDifferentialOperator:
     """
     Pseudo-differential operator with dynamic symbol evaluation on spatial grids.
@@ -72,12 +286,13 @@ class PseudoDifferentialOperator:
     >>> op = PseudoDifferentialOperator(expr=expr, vars_x=[x], var_u=u(x), mode='auto')
     """
 
-    def __init__(self, expr, vars_x, var_u=None, mode='symbol'):
+    def __init__(self, expr, vars_x, var_u=None, mode='symbol', quantization='weyl'):
         self.dim = len(vars_x)
         self.mode = mode
         self.symbol_cached = None
         self.expr = expr
         self.vars_x = vars_x
+        self.quantization = quantization
 
         if self.dim == 1:
             x, = vars_x
@@ -128,8 +343,43 @@ class PseudoDifferentialOperator:
             raise NotImplementedError("Only 1D and 2D supported")
 
         if mode == 'auto':
+            self._compute_symbol_derivatives() 
             print("\nsymbol = ")
             pprint(self.symbol, num_columns=NUM_COLS)
+
+    def _compute_symbol_derivatives(self):
+        """Compute derivatives for WKB application."""
+        self.derivatives = {}
+        if self.dim == 1:
+            x = self.vars_x[0]
+            xi = symbols('xi', real=True)
+            self.derivatives['dp_dx'] = diff(self.symbol, x)
+            self.derivatives['dp_dxi'] = diff(self.symbol, xi)
+            self.derivatives['d2p_dxi2'] = diff(self.symbol, xi, 2)
+            self.derivatives['d2p_dx2'] = diff(self.symbol, x, 2)
+            self.derivatives['d2p_dxidx'] = diff(diff(self.symbol, xi), x)
+        elif self.dim == 2:
+            x, y = self.vars_x
+            xi, eta = symbols('xi eta', real=True)
+            self.derivatives['dp_dx'] = diff(self.symbol, x)
+            self.derivatives['dp_dy'] = diff(self.symbol, y)
+            self.derivatives['dp_dxi'] = diff(self.symbol, xi)
+            self.derivatives['dp_deta'] = diff(self.symbol, eta)
+            self.derivatives['d2p_dxi2'] = diff(self.symbol, xi, 2)
+            self.derivatives['d2p_deta2'] = diff(self.symbol, eta, 2)
+            self.derivatives['d2p_dx2'] = diff(self.symbol, x, 2)
+            self.derivatives['d2p_dy2'] = diff(self.symbol, y, 2)
+            self.derivatives['d2p_dxidx'] = diff(diff(self.symbol, xi), x)
+            self.derivatives['d2p_detady'] = diff(diff(self.symbol, eta), y)
+        
+        # Lambdify for numerical evaluation
+        if self.dim == 1:
+            vars_tuple = (self.vars_x[0], symbols('xi', real=True))
+        else:
+            vars_tuple = tuple(self.vars_x) + (symbols('xi', real=True), symbols('eta', real=True))
+        
+        for name, expr in self.derivatives.items():
+            setattr(self, f'_{name}_func', lambdify(vars_tuple, expr, 'numpy'))
         
     def evaluate(self, X, Y, KX, KY, cache=True):
         """
@@ -178,7 +428,8 @@ class PseudoDifferentialOperator:
 
     def apply(self, u, x_grid, kx, boundary_condition='periodic', 
               y_grid=None, ky=None, dealiasing_mask=None,
-              freq_window='gaussian', clamp=1e6, space_window=False):
+              freq_window='gaussian', clamp=1e6, space_window=False,
+              wkb_mode=False, wkb_order=1, epsilon=None):
         """
         Apply the pseudo-differential operator to the input field u.
     
@@ -220,6 +471,13 @@ class PseudoDifferentialOperator:
             Clamp symbol values to [-clamp, clamp]
         space_window : bool
             Apply spatial windowing
+        wkb_mode : bool or dict
+            If True, treat u as WKB solution dict and use apply_to_wkb()
+            If dict, must be the WKB solution itself (u parameter ignored)
+        wkb_order : int
+            Order for WKB application (only used if wkb_mode=True)
+        epsilon : float
+            Semi-classical parameter for WKB (only used if wkb_mode=True)
             
         Returns
         -------
@@ -229,6 +487,11 @@ class PseudoDifferentialOperator:
         # Check if symbol depends on spatial variables
         is_spatial = self._is_spatial_dependent()
         
+        # Case 0: using WKB approximation
+        if wkb_mode:
+            wkb_solution = u if isinstance(wkb_mode, bool) and isinstance(u, dict) else wkb_mode
+            return self.apply_to_wkb(wkb_solution, order=wkb_order, epsilon=epsilon)
+            
         # Case 1: Constant symbol with periodic BC (fast path)
         if not is_spatial and boundary_condition == 'periodic':
             return self._apply_constant_fft(u, x_grid, kx, y_grid, ky, dealiasing_mask)
@@ -278,6 +541,111 @@ class PseudoDifferentialOperator:
         
         else:
             raise ValueError(f"Invalid boundary condition '{boundary_condition}'")
+
+    def apply_to_wkb(self, wkb_solution, order=1, epsilon=None):
+        """Apply pseudo-differential operator to WKB solution.
+        
+        Parameters:
+        -----------
+        wkb_solution : dict
+            WKB solution with keys: 'S', 'a', 'x', ('y'), 'dimension', 'epsilon'
+        order : int
+            Order of approximation (0, 1, or 2)
+        epsilon : float
+            Semi-classical parameter (uses wkb_solution['epsilon'] if None)
+        
+        Returns:
+        --------
+        dict : Modified WKB solution with operator applied
+        """
+        if epsilon is None:
+            epsilon = wkb_solution.get('epsilon', 0.1)
+        
+        if not hasattr(self, 'derivatives'):
+            self._compute_symbol_derivatives()
+        
+        dim = wkb_solution['dimension']
+        if dim != self.dim:
+            raise ValueError(f'Dimension mismatch: operator is {self.dim}D, solution is {dim}D')
+        
+        S = wkb_solution['S']
+        a_input = wkb_solution['a'][0] if isinstance(wkb_solution['a'], dict) else wkb_solution['a']
+        
+        if dim == 1:
+            x_grid = wkb_solution['x']
+            dS_dx = np.gradient(S, x_grid)
+            
+            # Order 0
+            p_vals = self.p_func(x_grid, dS_dx)
+            b0 = p_vals * a_input
+            amplitudes = {0: b0}
+            
+            if order >= 1:
+                d2S_dx2 = np.gradient(dS_dx, x_grid)
+                da0_dx = np.gradient(a_input, x_grid)
+                
+                d2p_dxi2 = self._d2p_dxi2_func(x_grid, dS_dx)
+                d2p_dxidx = self._d2p_dxidx_func(x_grid, dS_dx)
+                dp_dxi = self._dp_dxi_func(x_grid, dS_dx)
+                
+                if self.quantization == 'weyl':
+                    b1 = 1j/2 * (d2p_dxi2 * d2S_dx2 * a_input + 2 * d2p_dxidx * da0_dx)
+                else:  # Kohn-Nirenberg
+                    b1 = 1j * dp_dxi * da0_dx
+                amplitudes[1] = b1
+            
+            if order >= 2:
+                amplitudes[2] = np.zeros_like(b0, dtype=complex)
+        
+        else:  # dim == 2
+            X, Y = wkb_solution['x'], wkb_solution['y']
+            dx = X[1,0] - X[0,0]
+            dy = Y[0,1] - Y[0,0]
+            
+            dS_dx = np.gradient(S, axis=0) / dx
+            dS_dy = np.gradient(S, axis=1) / dy
+            
+            # Order 0
+            p_vals = self.p_func(X, Y, dS_dx, dS_dy)
+            b0 = p_vals * a_input
+            amplitudes = {0: b0}
+            
+            if order >= 1:
+                d2S_dx2 = np.gradient(dS_dx, axis=0) / dx
+                d2S_dy2 = np.gradient(dS_dy, axis=1) / dy
+                da0_dx = np.gradient(a_input, axis=0) / dx
+                da0_dy = np.gradient(a_input, axis=1) / dy
+                
+                d2p_dxi2 = self._d2p_dxi2_func(X, Y, dS_dx, dS_dy)
+                d2p_deta2 = self._d2p_deta2_func(X, Y, dS_dx, dS_dy)
+                d2p_dxidx = self._d2p_dxidx_func(X, Y, dS_dx, dS_dy)
+                d2p_detady = self._d2p_detady_func(X, Y, dS_dx, dS_dy)
+                
+                if self.quantization == 'weyl':
+                    b1 = 1j/2 * (d2p_dxi2 * d2S_dx2 * a_input + 
+                                 d2p_deta2 * d2S_dy2 * a_input + 
+                                 2 * d2p_dxidx * da0_dx + 
+                                 2 * d2p_detady * da0_dy)
+                else:
+                    dp_dxi = self._dp_dxi_func(X, Y, dS_dx, dS_dy)
+                    dp_deta = self._dp_deta_func(X, Y, dS_dx, dS_dy)
+                    b1 = 1j * (dp_dxi * da0_dx + dp_deta * da0_dy)
+                amplitudes[1] = b1
+            
+            if order >= 2:
+                amplitudes[2] = np.zeros_like(b0, dtype=complex)
+        
+        # Combine amplitudes
+        a_total = sum(epsilon**k * amplitudes[k] for k in range(order + 1))
+        u_output = a_total * np.exp(1j * S / epsilon)
+        
+        result = wkb_solution.copy()
+        result['u'] = u_output
+        result['a'] = amplitudes
+        result['a_total'] = a_total
+        result['operator_applied'] = str(self.symbol)
+        
+        return result
     
     def _is_spatial_dependent(self):
         """
@@ -2936,6 +3304,1084 @@ class PseudoDifferentialOperator:
             out = interactive_output(plot_2d, {'mode': mode_selector_2D, 'xi0': xi_slider, 'eta0': eta_slider, 'x0': x_slider, 'y0': y_slider})
             display(VBox([controls_box, out]))
 
+
+
+# ==================================================================
+# ENHANCED WKB WITH CAUSTIC CORRECTIONS
+# ==================================================================
+
+def wkb_approximation(symbol, initial_phase, order=1, domain=None,
+                               resolution=50, epsilon=0.1, dimension=None,
+                               caustic_correction='auto', caustic_threshold=1e-3):
+    """
+    Enhanced WKB with automatic caustic detection and correction.
+    
+    Parameters
+    ----------
+    symbol : sympy expression
+        Principal symbol p(x, ξ) or p(x, y, ξ, η).
+    initial_phase : dict
+        Initial data (see wkb_multidim documentation).
+    order : int
+        WKB order (0-3).
+    domain : tuple or None
+        Spatial domain.
+    resolution : int or tuple
+        Grid resolution.
+    epsilon : float
+        Small parameter.
+    dimension : int or None
+        Force dimension (1 or 2), or auto-detect.
+    caustic_correction : str
+        'auto': automatic detection and correction
+        'maslov': Maslov index only
+        'airy': Force Airy correction (fold caustics)
+        'pearcey': Force Pearcey correction (cusp caustics)
+        'none': No caustic correction
+    caustic_threshold : float
+        Threshold for caustic detection.
+    
+    Returns
+    -------
+    dict
+        Enhanced solution with caustic information.
+    """
+
+    base_solution = _compute_base_wkb(symbol, initial_phase, order, domain,
+                                      resolution, epsilon, dimension)
+    
+    # Detect caustics
+    detector = CausticDetector(base_solution['rays'], base_solution['dimension'])
+    caustics = detector.detect_caustics(threshold=caustic_threshold)
+    
+    if len(caustics) == 0:
+        print("No caustics detected - using standard WKB")
+        base_solution['caustic_correction'] = 'none'
+        base_solution['caustics'] = []
+        return base_solution
+    
+    print(f"\nApplying caustic corrections (mode: {caustic_correction})...")
+    
+    # Apply corrections based on caustic type
+    if base_solution['dimension'] == 1:
+        corrected_solution = _apply_1d_caustic_corrections(
+            base_solution, caustics, epsilon, caustic_correction
+        )
+    else:
+        corrected_solution = _apply_2d_caustic_corrections(
+            base_solution, caustics, epsilon, caustic_correction
+        )
+    
+    corrected_solution['caustics'] = caustics
+    corrected_solution['caustic_correction'] = caustic_correction
+    
+    print("Caustic corrections applied successfully")
+    
+    return corrected_solution
+
+
+def _compute_base_wkb(symbol, initial_phase, order, domain, resolution, epsilon, dimension):
+    """
+    Compute base WKB solution (simplified version for demo).
+    In practice, this would call the full wkb_multidim function.
+    """
+    # Detect dimension
+    if dimension is None:
+        has_y = 'y' in initial_phase and 'p_y' in initial_phase
+        dimension = 2 if has_y else 1
+    
+    # Setup variables
+    if dimension == 1:
+        x, xi = symbols('x xi', real=True)
+        all_vars = (x, xi)
+    else:
+        x, y, xi, eta = symbols('x y xi eta', real=True)
+        all_vars = (x, y, xi, eta)
+    
+    # Compute derivatives
+    dp_dxi = diff(symbol, all_vars[-2] if dimension == 1 else all_vars[2])
+    if dimension == 2:
+        dp_deta = diff(symbol, all_vars[3])
+    dp_dx = diff(symbol, all_vars[0])
+    if dimension == 2:
+        dp_dy = diff(symbol, all_vars[1])
+    
+    # Lambdify
+    f_dx = lambdify(all_vars, dp_dxi, 'numpy')
+    if dimension == 2:
+        f_dy = lambdify(all_vars, dp_deta, 'numpy')
+    f_dxi = lambdify(all_vars, -dp_dx, 'numpy')
+    if dimension == 2:
+        f_deta = lambdify(all_vars, -dp_dy, 'numpy')
+    p_func = lambdify(all_vars, symbol, 'numpy')
+    
+    # Extract initial data
+    x_init = np.asarray(initial_phase['x'])
+    n_rays = len(x_init)
+    
+    if dimension == 2:
+        y_init = np.asarray(initial_phase['y'])
+    
+    S_init = np.asarray(initial_phase['S'])
+    px_init = np.asarray(initial_phase['p_x'])
+    
+    if dimension == 2:
+        py_init = np.asarray(initial_phase['p_y'])
+    
+    # Get amplitude
+    if 'a' in initial_phase:
+        if isinstance(initial_phase['a'], dict):
+            a0_init = np.asarray(initial_phase['a'][0])
+        else:
+            a0_init = np.asarray(initial_phase['a'])
+    else:
+        a0_init = np.ones(n_rays)
+    
+    # Ray tracing
+    rays = []
+    tmax = 5.0
+    n_steps = 100
+    
+    for i in range(n_rays):
+        if dimension == 1:
+            z0 = [x_init[i], px_init[i], S_init[i], a0_init[i]]
+        else:
+            z0 = [x_init[i], y_init[i], px_init[i], py_init[i], 
+                  S_init[i], a0_init[i]]
+        
+        def ray_ode(t, z):
+            if dimension == 1:
+                x_val, xi_val, S_val, a_val = z
+                args = (x_val, xi_val)
+                dxdt = f_dx(*args)
+                dxidt = f_dxi(*args)
+                p_val = p_func(*args)
+                dSdt = xi_val * dxdt - p_val
+                
+                # Simple amplitude evolution
+                dadt = -0.5 * a_val * 0.0  # Simplified
+                
+                return [dxdt, dxidt, dSdt, dadt]
+            else:
+                x_val, y_val, xi_val, eta_val, S_val, a_val = z
+                args = (x_val, y_val, xi_val, eta_val)
+                dxdt = f_dx(*args)
+                dydt = f_dy(*args)
+                dxidt = f_dxi(*args)
+                detadt = f_deta(*args)
+                p_val = p_func(*args)
+                dSdt = xi_val * dxdt + eta_val * dydt - p_val
+                
+                dadt = 0.0  # Simplified
+                
+                return [dxdt, dydt, dxidt, detadt, dSdt, dadt]
+        
+        try:
+            sol = solve_ivp(ray_ode, (0, tmax), z0,
+                          t_eval=np.linspace(0, tmax, n_steps),
+                          method='RK45')
+            
+            if dimension == 1:
+                rays.append({
+                    't': sol.t,
+                    'x': sol.y[0],
+                    'xi': sol.y[1],
+                    'S': sol.y[2],
+                    'a': sol.y[3]
+                })
+            else:
+                rays.append({
+                    't': sol.t,
+                    'x': sol.y[0],
+                    'y': sol.y[1],
+                    'xi': sol.y[2],
+                    'eta': sol.y[3],
+                    'S': sol.y[4],
+                    'a': sol.y[5]
+                })
+        except:
+            continue
+    
+    # Interpolate to grid
+    if domain is None:
+        x_all = np.concatenate([r['x'] for r in rays])
+        x_min, x_max = x_all.min(), x_all.max()
+        if dimension == 1:
+            domain = (x_min - 1, x_max + 1)
+        else:
+            y_all = np.concatenate([r['y'] for r in rays])
+            y_min, y_max = y_all.min(), y_all.max()
+            domain = ((x_min - 1, x_max + 1), (y_min - 1, y_max + 1))
+    
+    if dimension == 1:
+        x_grid = np.linspace(domain[0], domain[1], resolution)
+        
+        x_pts = np.concatenate([r['x'] for r in rays])
+        S_pts = np.concatenate([r['S'] for r in rays])
+        a_pts = np.concatenate([r['a'] for r in rays])
+        
+        sort_idx = np.argsort(x_pts)
+        S_grid = interp1d(x_pts[sort_idx], S_pts[sort_idx], 
+                         kind='linear', bounds_error=False, fill_value=0.0)(x_grid)
+        a_grid = interp1d(x_pts[sort_idx], a_pts[sort_idx],
+                         kind='linear', bounds_error=False, fill_value=0.0)(x_grid)
+        
+        u_grid = a_grid * np.exp(1j * S_grid / epsilon)
+        
+        return {
+            'dimension': 1,
+            'x': x_grid,
+            'S': S_grid,
+            'a': {0: a_grid},
+            'u': u_grid,
+            'rays': rays,
+            'epsilon': epsilon,
+            'order': order
+        }
+    else:
+        nx = ny = resolution if isinstance(resolution, int) else resolution[0]
+        x_grid = np.linspace(domain[0][0], domain[0][1], nx)
+        y_grid = np.linspace(domain[1][0], domain[1][1], ny)
+        X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
+        
+        x_pts = []
+        y_pts = []
+        S_pts = []
+        a_pts = []
+        
+        for r in rays:
+            x_pts.extend(r['x'])
+            y_pts.extend(r['y'])
+            S_pts.extend(r['S'])
+            a_pts.extend(r['a'])
+        
+        points = np.column_stack([x_pts, y_pts])
+        
+        S_grid = griddata(points, S_pts, (X, Y), method='linear', fill_value=0.0)
+        a_grid = griddata(points, a_pts, (X, Y), method='linear', fill_value=0.0)
+        
+        S_grid = np.nan_to_num(S_grid)
+        a_grid = np.nan_to_num(a_grid)
+        
+        u_grid = a_grid * np.exp(1j * S_grid / epsilon)
+        
+        return {
+            'dimension': 2,
+            'x': X,
+            'y': Y,
+            'S': S_grid,
+            'a': {0: a_grid},
+            'u': u_grid,
+            'rays': rays,
+            'epsilon': epsilon,
+            'order': order
+        }
+
+def _apply_1d_caustic_corrections(base_solution, caustics, epsilon, mode):
+    """
+    Apply caustic corrections in 1D using Airy functions and Maslov index.
+    """
+    x = base_solution['x']
+    S = base_solution['S']
+    a = base_solution['a'][0]
+    
+    # Initialize u_corrected with the standard solution
+    u_corrected = np.copy(base_solution['u'])
+    
+    # Compute Maslov index for each point
+    maslov_phases = np.zeros_like(x)
+    
+    for caustic in caustics:
+        x_c = caustic['position']
+        # Add π/2 phase shift past each caustic
+        maslov_phases[x > x_c] += np.pi / 2
+    
+    # Apply corrections based on mode
+    if mode == 'none':
+        # No correction, just return the standard solution
+        print("No caustic correction applied (mode: none)")
+    
+    elif mode == 'maslov' or (mode == 'auto' and len(caustics) > 0):
+        # Apply Maslov phase correction
+        u_corrected = a * np.exp(1j * (S / epsilon + maslov_phases))
+        print(f"Applied Maslov correction: {len(caustics)} caustics found")
+    
+    if mode == 'airy' or (mode == 'auto' and len(caustics) > 0):
+        # Apply Airy function near caustics
+        # Start from current u_corrected (which may already have Maslov)
+        
+        for caustic in caustics:
+            x_c = caustic['position']
+            
+            # Region of Airy correction
+            airy_width = 5 * epsilon**(2/3)
+            mask = np.abs(x - x_c) < airy_width
+            
+            if np.any(mask):
+                # Scaled coordinate
+                z = (x[mask] - x_c) / epsilon**(2/3)
+                
+                # Airy function
+                Ai = CausticFunctions.airy_uniform(z)
+                
+                # Amplitude at caustic
+                idx_c = np.argmin(np.abs(x - x_c))
+                a_c = a[idx_c]
+                S_c = S[idx_c]
+                
+                # Replace with uniform approximation
+                u_corrected[mask] = a_c * Ai * np.exp(1j * S_c / epsilon)
+        
+        if mode == 'airy':
+            print(f"Applied Airy corrections near {len(caustics)} fold caustics")
+        elif mode == 'auto':
+            print(f"Applied Airy corrections near {len(caustics)} fold caustics")
+    
+    result = base_solution.copy()
+    result['u'] = u_corrected
+    result['u_standard'] = base_solution['u']  # Keep original for comparison
+    result['maslov_phases'] = maslov_phases
+    
+    return result
+
+def _apply_2d_caustic_corrections(base_solution, caustics, epsilon, mode):
+    """
+    Apply caustic corrections in 2D using Airy/Pearcey functions.
+    """
+    X = base_solution['x']
+    Y = base_solution['y']
+    S = base_solution['S']
+    a = base_solution['a'][0]
+    
+    u_corrected = np.copy(base_solution['u'])
+    
+    if mode == 'none':
+        print("No caustic correction applied (mode: none)")
+        result = base_solution.copy()
+        result['u_standard'] = base_solution['u']
+        return result
+    
+    # Classify and correct each caustic
+    for caustic in caustics:
+        x_c, y_c = caustic['position']
+        caustic_type = caustic['type']
+        
+        if caustic_type == 'airy' or caustic['caustic_type'] == 'A2':
+            # Fold caustic - use Airy
+            correction_width = 5 * epsilon**(2/3)
+            
+            # Distance to caustic
+            dist = np.sqrt((X - x_c)**2 + (Y - y_c)**2)
+            mask = dist < correction_width
+            
+            if np.any(mask):
+                # Find direction normal to caustic (simplified)
+                # In practice, compute from ray geometry
+                
+                # Scaled coordinate perpendicular to caustic
+                z = dist[mask] / epsilon**(2/3)
+                
+                # Airy correction
+                Ai = CausticFunctions.airy_uniform(z)
+                
+                idx_x = np.argmin(np.abs(X[:, 0] - x_c))
+                idx_y = np.argmin(np.abs(Y[0, :] - y_c))
+                
+                a_c = a[idx_x, idx_y]
+                S_c = S[idx_x, idx_y]
+                
+                u_corrected[mask] = a_c * Ai * np.exp(1j * S_c / epsilon)
+        
+        elif caustic_type == 'pearcey' or caustic['caustic_type'] == 'A3':
+            # Cusp caustic - use Pearcey
+            correction_width = 5 * epsilon**(1/2)
+            
+            dist = np.sqrt((X - x_c)**2 + (Y - y_c)**2)
+            mask = dist < correction_width
+            
+            if np.any(mask):
+                # Scaled coordinates
+                x_scaled = (X[mask] - x_c) / epsilon**(1/2)
+                y_scaled = (Y[mask] - y_c) / epsilon**(1/4)
+                
+                # Pearcey integral (expensive!)
+                P_vals = np.array([CausticFunctions.pearcey_approx(xs, ys) 
+                                  for xs, ys in zip(x_scaled, y_scaled)])
+                
+                idx_x = np.argmin(np.abs(X[:, 0] - x_c))
+                idx_y = np.argmin(np.abs(Y[0, :] - y_c))
+                
+                a_c = a[idx_x, idx_y]
+                S_c = S[idx_x, idx_y]
+                
+                u_corrected[mask] = a_c * P_vals * np.exp(1j * S_c / epsilon)
+    
+    print(f"Applied corrections to {len(caustics)} caustics")
+    print(f"  Fold (Airy): {sum(1 for c in caustics if c['caustic_type']=='A2')}")
+    print(f"  Cusp (Pearcey): {sum(1 for c in caustics if c['caustic_type']=='A3')}")
+    
+    result = base_solution.copy()
+    result['u'] = u_corrected
+    result['u_standard'] = base_solution['u']
+    
+    return result
+
+
+# ==================================================================
+# VISUALIZATION WITH CAUSTIC HIGHLIGHTING
+# ==================================================================
+
+def plot_with_caustics(solution, component='abs', highlight_caustics=True):
+    """
+    Plot WKB solution with caustics highlighted.
+    
+    Parameters
+    ----------
+    solution : dict
+        Output of wkb_approximation()
+    component : {'abs','real','imag','phase'}
+        Which component of u to visualize.
+    highlight_caustics : bool
+        Whether to mark caustic locations.
+    """
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+
+    # ----------------------------------------------------------
+    # Helper: select component to plot
+    # ----------------------------------------------------------
+    def _select_component(u, component):
+        if component == 'real':
+            return np.real(u), 'RdBu_r'
+        elif component == 'imag':
+            return np.imag(u), 'RdBu_r'
+        elif component == 'abs':
+            return np.abs(u), 'viridis'
+        elif component == 'phase':
+            return np.angle(u), 'twilight'
+        else:
+            raise ValueError("component must be one of: real, imag, abs, phase")
+
+    # ----------------------------------------------------------
+    # Helper: plot 1D caustics (single legend entry)
+    # ----------------------------------------------------------
+    def _plot_caustics_1d(ax, caustics, x, data):
+        if not highlight_caustics or len(caustics) == 0:
+            return
+        added = False
+        for c in caustics:
+            xc = c['position']
+            ax.axvline(xc, color='red', linestyle='--', linewidth=2,
+                       alpha=0.7, label='Caustic' if not added else None)
+            ax.plot(
+                xc,
+                data[np.argmin(np.abs(x - xc))],
+                'ro', markersize=8
+            )
+            added = True
+
+    # ----------------------------------------------------------
+    # Helper: plot 2D caustics (only two legend entries: A2, A3)
+    # ----------------------------------------------------------
+    def _plot_caustics_2d(ax, caustics):
+        if not highlight_caustics or len(caustics) == 0:
+            return
+
+        type_seen = set()
+
+        for c in caustics:
+            x_c, y_c = c['position']
+            t = c.get('caustic_type', 'A2')
+
+            marker = 'o' if t == 'A2' else 's'
+            color = 'red' if t == 'A2' else 'orange'
+
+            label = None
+            if t not in type_seen:
+                label = f"{'Fold' if t=='A2' else 'Cusp'} ({t})"
+                type_seen.add(t)
+
+            ax.plot(
+                x_c, y_c, marker,
+                color=color,
+                markersize=10,
+                markeredgecolor='white',
+                markeredgewidth=1.5,
+                label=label
+            )
+
+    # ----------------------------------------------------------
+    # Retrieve data & select component
+    # ----------------------------------------------------------
+    dim = solution['dimension']
+    u = solution['u']
+    caustics = solution.get('caustics', [])
+
+    data, cmap = _select_component(u, component)
+
+    # ----------------------------------------------------------
+    # 1D plotting
+    # ----------------------------------------------------------
+    if dim == 1:
+        fig, axes = plt.subplots(2 if 'u_standard' in solution else 1,
+                                 1, figsize=(12, 6))
+
+        if not isinstance(axes, np.ndarray):
+            axes = [axes]
+
+        x = solution['x']
+
+        # Main panel
+        ax = axes[0]
+        ax.plot(x, data, 'b-', linewidth=2, label=component)
+        ax.set_xlabel('x')
+        ax.set_ylabel(f'{component}(u)')
+        ax.set_title(f'WKB with Caustic Corrections ({solution.get("caustic_correction","none")})')
+        ax.grid(True, alpha=0.3)
+
+        # Caustics
+        _plot_caustics_1d(ax, caustics, x, data)
+        ax.legend()
+
+        # Comparison panel
+        if 'u_standard' in solution:
+            ax2 = axes[1]
+            data_std, _ = _select_component(solution['u_standard'], component)
+            ax2.plot(x, data_std, 'r--', linewidth=2, alpha=0.7, label='Standard WKB')
+            ax2.plot(x, data, 'b-', linewidth=2, label='Corrected')
+            ax2.set_xlabel('x')
+            ax2.set_ylabel(f'{component}(u)')
+            ax2.set_title('Comparison: Standard vs Corrected')
+            ax2.grid(True, alpha=0.3)
+
+            # Caustics on the comparison plot
+            _plot_caustics_1d(ax2, caustics, x, data)
+            ax2.legend()
+
+        plt.tight_layout()
+        return fig
+
+    # ----------------------------------------------------------
+    # 2D plotting
+    # ----------------------------------------------------------
+    else:
+        fig, axes = plt.subplots(1, 2 if 'u_standard' in solution else 1,
+                                 figsize=(16, 6))
+
+        if not isinstance(axes, np.ndarray):
+            axes = [axes]
+
+        X = solution['x']
+        Y = solution['y']
+
+        idx = 0
+
+        # Standard WKB
+        if 'u_standard' in solution:
+            data_std, _ = _select_component(solution['u_standard'], component)
+            im = axes[0].contourf(X, Y, data_std, 30, cmap=cmap)
+            axes[0].set_title("Standard WKB")
+            axes[0].set_aspect('equal')
+            axes[0].set_xlabel('x')
+            axes[0].set_ylabel('y')
+            fig.colorbar(im, ax=axes[0])
+            idx = 1
+
+        # Corrected WKB
+        im2 = axes[idx].contourf(X, Y, data, 30, cmap=cmap)
+        axes[idx].set_title(f"With Caustic Corrections ({solution.get('caustic_correction','none')})")
+        axes[idx].set_aspect('equal')
+        axes[idx].set_xlabel('x')
+        axes[idx].set_ylabel('y')
+        fig.colorbar(im2, ax=axes[idx])
+
+        # Caustics (single legend)
+        _plot_caustics_2d(axes[idx], caustics)
+
+        # Rays (optional)
+        if 'rays' in solution:
+            rays = solution['rays']
+            step = max(1, len(rays)//20)
+            for r in rays[::step]:
+                axes[idx].plot(r['x'], r['y'], 'k-', linewidth=0.6, alpha=0.25)
+
+        axes[idx].legend(loc='upper right')
+
+        plt.tight_layout()
+        return fig
+        
+def plot_with_caustics_old (solution, component='abs', highlight_caustics=True):
+    """
+    Plot WKB solution with caustics highlighted.
+    """
+    import matplotlib.pyplot as plt
+    
+    dim = solution['dimension']
+    u = solution['u']
+    caustics = solution.get('caustics', [])
+    
+    # Select component
+    if component == 'real':
+        data = np.real(u)
+        cmap = 'RdBu_r'
+    elif component == 'imag':
+        data = np.imag(u)
+        cmap = 'RdBu_r'
+    elif component == 'abs':
+        data = np.abs(u)
+        cmap = 'viridis'
+    elif component == 'phase':
+        data = np.angle(u)
+        cmap = 'twilight'
+    
+    if dim == 1:
+        fig, axes = plt.subplots(2, 1, figsize=(12, 8))
+        
+        x = solution['x']
+        
+        # Plot solution
+        axes[0].plot(x, data, 'b-', linewidth=2, label=component)
+        axes[0].set_xlabel('x', fontsize=12)
+        axes[0].set_ylabel(f'{component}(u)', fontsize=12)
+        axes[0].set_title(f'WKB with Caustic Corrections ({solution.get("caustic_correction", "none")})')
+        axes[0].grid(True, alpha=0.3)
+        
+        # Highlight caustics
+        if highlight_caustics and len(caustics) > 0:
+            for caustic in caustics:
+                x_c = caustic['position']
+                axes[0].axvline(x_c, color='red', linestyle='--', 
+                              linewidth=2, alpha=0.7, label='Caustic')
+                axes[0].plot(x_c, data[np.argmin(np.abs(x - x_c))], 
+                           'ro', markersize=10)
+        
+        axes[0].legend()
+        
+        # Compare with/without correction
+        if 'u_standard' in solution:
+            data_std = np.abs(solution['u_standard']) if component == 'abs' else np.real(solution['u_standard'])
+            axes[1].plot(x, data_std, 'r--', linewidth=2, label='Standard WKB', alpha=0.7)
+            axes[1].plot(x, data, 'b-', linewidth=2, label='With corrections')
+            axes[1].set_xlabel('x', fontsize=12)
+            axes[1].set_ylabel(f'{component}(u)', fontsize=12)
+            axes[1].set_title('Comparison: Standard vs Corrected')
+            axes[1].grid(True, alpha=0.3)
+            axes[1].legend()
+            
+            if highlight_caustics:
+                for caustic in caustics:
+                    axes[1].axvline(caustic['position'], color='red', 
+                                  linestyle=':', alpha=0.5)
+    
+    else:  # 2D
+        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+        
+        X, Y = solution['x'], solution['y']
+        
+        # Standard solution
+        if 'u_standard' in solution:
+            data_std = np.abs(solution['u_standard']) if component == 'abs' else np.real(solution['u_standard'])
+            im1 = axes[0].contourf(X, Y, data_std, levels=30, cmap=cmap)
+            axes[0].set_title('Standard WKB')
+            axes[0].set_xlabel('x')
+            axes[0].set_ylabel('y')
+            axes[0].set_aspect('equal')
+            plt.colorbar(im1, ax=axes[0])
+        
+        # Corrected solution
+        im2 = axes[1].contourf(X, Y, data, levels=30, cmap=cmap)
+        axes[1].set_title(f'With Caustic Corrections ({solution.get("caustic_correction", "none")})')
+        axes[1].set_xlabel('x')
+        axes[1].set_ylabel('y')
+        axes[1].set_aspect('equal')
+        plt.colorbar(im2, ax=axes[1])
+        
+        # Plot caustics
+        if highlight_caustics and len(caustics) > 0:
+            for caustic in caustics:
+                x_c, y_c = caustic['position']
+                for ax in axes:
+                    marker = 'o' if caustic['caustic_type'] == 'A2' else 's'
+                    color = 'red' if caustic['caustic_type'] == 'A2' else 'orange'
+                    ax.plot(x_c, y_c, marker, color=color, markersize=10,
+                           markeredgecolor='white', markeredgewidth=2)
+            
+            # Legend
+            from matplotlib.patches import Patch
+            legend_elements = [
+                Patch(facecolor='red', label='Fold (A2)'),
+                Patch(facecolor='orange', label='Cusp (A3)')
+            ]
+            axes[1].legend(handles=legend_elements, loc='upper right')
+        
+        # Plot rays
+        if 'rays' in solution:
+            for ray in solution['rays'][::max(1, len(solution['rays'])//20)]:
+                axes[1].plot(ray['x'], ray['y'], 'k-', alpha=0.2, linewidth=0.5)
+    
+    plt.tight_layout()
+    return fig
+
+
+def plot_caustic_analysis(solution):
+    """
+    Detailed analysis plot of caustics.
+    """
+    import matplotlib.pyplot as plt
+    
+    caustics = solution.get('caustics', [])
+    if len(caustics) == 0:
+        print("No caustics to analyze")
+        return None
+    
+    dim = solution['dimension']
+    
+    if dim == 1:
+        fig, axes = plt.subplots(3, 1, figsize=(12, 10))
+        
+        x = solution['x']
+        
+        # 1. Solution amplitude
+        axes[0].plot(x, np.abs(solution['u']), 'b-', linewidth=2, label='|u| corrected')
+        if 'u_standard' in solution:
+            axes[0].plot(x, np.abs(solution['u_standard']), 'r--', 
+                        linewidth=2, alpha=0.7, label='|u| standard')
+        
+        for caustic in caustics:
+            x_c = caustic['position']
+            axes[0].axvline(x_c, color='red', linestyle=':', alpha=0.5)
+            axes[0].text(x_c, axes[0].get_ylim()[1]*0.9, 
+                        f"Caustic\n{caustic['caustic_type']}", 
+                        ha='center', fontsize=9,
+                        bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.5))
+        
+        axes[0].set_ylabel('|u|', fontsize=12)
+        axes[0].set_title('Amplitude with Caustic Locations')
+        axes[0].legend()
+        axes[0].grid(True, alpha=0.3)
+        
+        # 2. Phase
+        axes[1].plot(x, solution['S'], 'g-', linewidth=2, label='Phase S')
+        
+        if 'maslov_phases' in solution:
+            axes[1].plot(x, solution['maslov_phases'], 'orange', 
+                        linewidth=2, linestyle='--', label='Maslov correction')
+        
+        for caustic in caustics:
+            axes[1].axvline(caustic['position'], color='red', linestyle=':', alpha=0.5)
+        
+        axes[1].set_ylabel('Phase', fontsize=12)
+        axes[1].set_title('Phase and Maslov Index')
+        axes[1].legend()
+        axes[1].grid(True, alpha=0.3)
+        
+        # 3. Error between standard and corrected
+        if 'u_standard' in solution:
+            error = np.abs(solution['u'] - solution['u_standard'])
+            axes[2].plot(x, error, 'purple', linewidth=2)
+            axes[2].set_xlabel('x', fontsize=12)
+            axes[2].set_ylabel('|u_corrected - u_standard|', fontsize=12)
+            axes[2].set_title('Correction Magnitude')
+            axes[2].set_yscale('log')
+            axes[2].grid(True, alpha=0.3)
+            
+            for caustic in caustics:
+                axes[2].axvline(caustic['position'], color='red', linestyle=':', alpha=0.5)
+    
+    else:  # 2D
+        n_caustics = len(caustics)
+        fig = plt.figure(figsize=(16, 10))
+        
+        gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
+        
+        X, Y = solution['x'], solution['y']
+        
+        # Main plot: solution with caustics
+        ax_main = fig.add_subplot(gs[0:2, 0:2])
+        im = ax_main.contourf(X, Y, np.abs(solution['u']), levels=30, cmap='viridis')
+        plt.colorbar(im, ax=ax_main, label='|u|')
+        
+        # Plot rays
+        if 'rays' in solution:
+            for ray in solution['rays'][::max(1, len(solution['rays'])//30)]:
+                ax_main.plot(ray['x'], ray['y'], 'k-', alpha=0.15, linewidth=0.5)
+        
+        # Mark caustics
+        fold_caustics = []
+        cusp_caustics = []
+        
+        for caustic in caustics:
+            x_c, y_c = caustic['position']
+            if caustic['caustic_type'] == 'A2':
+                fold_caustics.append((x_c, y_c))
+                ax_main.plot(x_c, y_c, 'ro', markersize=12, 
+                           markeredgecolor='white', markeredgewidth=2)
+            else:
+                cusp_caustics.append((x_c, y_c))
+                ax_main.plot(x_c, y_c, 'ys', markersize=12,
+                           markeredgecolor='white', markeredgewidth=2)
+        
+        ax_main.set_xlabel('x', fontsize=11)
+        ax_main.set_ylabel('y', fontsize=11)
+        ax_main.set_title(f'Solution with {n_caustics} Caustics', fontsize=13)
+        ax_main.set_aspect('equal')
+        
+        # Legend
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor='red', label=f'Fold (A2): {len(fold_caustics)}'),
+            Patch(facecolor='yellow', label=f'Cusp (A3): {len(cusp_caustics)}')
+        ]
+        ax_main.legend(handles=legend_elements, loc='upper right')
+        
+        # Phase plot
+        ax_phase = fig.add_subplot(gs[0, 2])
+        im_phase = ax_phase.contourf(X, Y, solution['S'], levels=30, cmap='twilight')
+        plt.colorbar(im_phase, ax=ax_phase, label='Phase S')
+        ax_phase.set_title('Phase')
+        ax_phase.set_aspect('equal')
+        
+        # Error plot
+        if 'u_standard' in solution:
+            ax_error = fig.add_subplot(gs[1, 2])
+            error = np.abs(solution['u'] - solution['u_standard'])
+            im_error = ax_error.contourf(X, Y, np.log10(error + 1e-10), 
+                                        levels=30, cmap='hot')
+            plt.colorbar(im_error, ax=ax_error, label='log10(error)')
+            ax_error.set_title('Correction Effect')
+            ax_error.set_aspect('equal')
+        
+        # Caustic statistics
+        ax_stats = fig.add_subplot(gs[2, :])
+        ax_stats.axis('off')
+        
+        stats_text = f"Caustic Statistics:\n"
+        stats_text += f"  Total caustics: {n_caustics}\n"
+        stats_text += f"  Fold caustics (A2): {len(fold_caustics)}\n"
+        stats_text += f"  Cusp caustics (A3): {len(cusp_caustics)}\n"
+        stats_text += f"  Correction method: {solution.get('caustic_correction', 'none')}\n"
+        stats_text += f"  Epsilon: {solution['epsilon']:.4f}\n"
+        
+        if 'u_standard' in solution:
+            max_error = np.max(np.abs(solution['u'] - solution['u_standard']))
+            mean_error = np.mean(np.abs(solution['u'] - solution['u_standard']))
+            stats_text += f"  Max correction: {max_error:.4e}\n"
+            stats_text += f"  Mean correction: {mean_error:.4e}\n"
+        
+        ax_stats.text(0.1, 0.5, stats_text, fontsize=11, 
+                     verticalalignment='center',
+                     fontfamily='monospace',
+                     bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    
+    plt.tight_layout()
+    return fig
+
+def create_initial_data_line(x_range, n_points=20, direction=(1, 0), 
+                             y_intercept=0.0):
+    """
+    Create initial data for WKB on a line segment.
+    
+    Parameters
+    ----------
+    x_range : tuple
+        Range (x_min, x_max) for the line segment.
+    n_points : int
+        Number of points on the line.
+    direction : tuple
+        Direction of rays (ξ₀, η₀).
+    y_intercept : float
+        y-coordinate of the line.
+    
+    Returns
+    -------
+    dict
+        Initial data for wkb_multidim.
+    
+    Examples
+    --------
+    >>> # Horizontal line with rays going upward
+    >>> ic = create_initial_data_line((-1, 1), n_points=20, 
+    ...                                direction=(0, 1), y_intercept=0)
+    """
+    x_init = np.linspace(x_range[0], x_range[1], n_points)
+    y_init = np.full(n_points, y_intercept)
+    S_init = np.zeros(n_points)
+    
+    # Normalize direction
+    dir_norm = np.sqrt(direction[0]**2 + direction[1]**2)
+    px_init = np.full(n_points, direction[0] / dir_norm)
+    py_init = np.full(n_points, direction[1] / dir_norm)
+    
+    return {
+        'x': x_init,
+        'y': y_init,
+        'S': S_init,
+        'p_x': px_init,
+        'p_y': py_init
+    }
+
+
+def create_initial_data_circle(radius=1.0, n_points=30, outward=True):
+    """
+    Create initial data for WKB on a circle.
+    
+    Parameters
+    ----------
+    radius : float
+        Radius of the circle.
+    n_points : int
+        Number of points on the circle.
+    outward : bool
+        If True, rays point outward; if False, inward.
+    
+    Returns
+    -------
+    dict
+        Initial data for wkb_multidim.
+    
+    Examples
+    --------
+    >>> # Circle with outward rays
+    >>> ic = create_initial_data_circle(radius=1.0, n_points=30, outward=True)
+    """
+    theta = np.linspace(0, 2*np.pi, n_points, endpoint=False)
+    
+    x_init = radius * np.cos(theta)
+    y_init = radius * np.sin(theta)
+    S_init = np.zeros(n_points)
+    
+    # Rays perpendicular to circle
+    if outward:
+        px_init = np.cos(theta)
+        py_init = np.sin(theta)
+    else:
+        px_init = -np.cos(theta)
+        py_init = -np.sin(theta)
+    
+    return {
+        'x': x_init,
+        'y': y_init,
+        'S': S_init,
+        'p_x': px_init,
+        'p_y': py_init
+    }
+
+
+def create_initial_data_point_source(x0=0.0, y0=0.0, n_rays=20):
+    """
+    Create initial data for WKB from a point source.
+    
+    Parameters
+    ----------
+    x0, y0 : float
+        Source location.
+    n_rays : int
+        Number of rays emanating from source.
+    
+    Returns
+    -------
+    dict
+        Initial data for wkb_multidim.
+    
+    Examples
+    --------
+    >>> # Point source at origin
+    >>> ic = create_initial_data_point_source(0, 0, n_rays=24)
+    """
+    theta = np.linspace(0, 2*np.pi, n_rays, endpoint=False)
+    
+    x_init = np.full(n_rays, x0)
+    y_init = np.full(n_rays, y0)
+    S_init = np.zeros(n_rays)
+    
+    # Rays in all directions
+    px_init = np.cos(theta)
+    py_init = np.sin(theta)
+    
+    return {
+        'x': x_init,
+        'y': y_init,
+        'S': S_init,
+        'p_x': px_init,
+        'p_y': py_init
+    }
+
+def visualize_wkb_rays(wkb_result, plot_type='phase', n_rays_plot=None):
+    """
+    Visualize WKB solution with rays.
+    
+    Parameters
+    ----------
+    wkb_result : dict
+        Output from wkb_multidim.
+    plot_type : str
+        What to visualize: 'phase', 'amplitude', 'real', 'rays'.
+    n_rays_plot : int, optional
+        Number of rays to plot (if None, plot all).
+    
+    Examples
+    --------
+    >>> wkb = wkb_multidim(...)
+    >>> visualize_wkb_rays(wkb, plot_type='phase')
+    """
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    X = wkb_result['x']
+    Y = wkb_result['y']
+    
+    if plot_type == 'phase':
+        # Plot phase
+        S = wkb_result['S']
+        im = ax.contourf(X, Y, S, levels=30, cmap='twilight')
+        plt.colorbar(im, ax=ax, label='Phase S(x,y)')
+        ax.set_title('WKB Phase Function')
+    
+    elif plot_type == 'amplitude':
+        # Plot amplitude
+        a = wkb_result['a']
+        im = ax.contourf(X, Y, a, levels=30, cmap='viridis')
+        plt.colorbar(im, ax=ax, label='Amplitude a(x,y)')
+        ax.set_title('WKB Amplitude')
+    
+    elif plot_type == 'real':
+        # Plot real part
+        u = wkb_result['u']
+        im = ax.contourf(X, Y, np.real(u), levels=30, cmap='RdBu')
+        plt.colorbar(im, ax=ax, label='Re(u)')
+        ax.set_title('WKB Solution - Real Part')
+    
+    elif plot_type == 'rays':
+        # Plot phase contours with rays
+        S = wkb_result['S']
+        ax.contour(X, Y, S, levels=20, colors='gray', alpha=0.3)
+        ax.set_title('WKB Rays')
+    
+    # Overlay rays
+    if 'rays' in wkb_result and plot_type in ['phase', 'amplitude', 'rays']:
+        rays = wkb_result['rays']
+        n_total = len(rays)
+        
+        if n_rays_plot is None:
+            n_rays_plot = min(n_total, 20)  # Limit for clarity
+        
+        # Select evenly spaced rays
+        ray_indices = np.linspace(0, n_total-1, n_rays_plot, dtype=int)
+        
+        for idx in ray_indices:
+            ray = rays[idx]
+            ax.plot(ray['x'], ray['y'], 'r-', alpha=0.5, linewidth=1)
+            # Mark start
+            ax.plot(ray['x'][0], ray['y'][0], 'go', markersize=4)
+    
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_aspect('equal')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+    
 # ============================================================================
 # Standalone functions for Kohn-Nirenberg quantization
 # ============================================================================
