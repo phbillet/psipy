@@ -3380,203 +3380,545 @@ def wkb_approximation(symbol, initial_phase, order=1, domain=None,
     return corrected_solution
 
 
-def _compute_base_wkb(symbol, initial_phase, order, domain, resolution, epsilon, dimension):
+def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
+                resolution=50, epsilon=0.1, dimension=None):
     """
-    Compute base WKB solution (simplified version for demo).
-    In practice, this would call the full wkb_multidim function.
-    """
-    # Detect dimension
+    Compute multidimensional WKB approximation (1D or 2D).
+
+    u(x) ≈ exp(iS/ε) · [a₀ + ε·a₁ + ε²·a₂ + ...]
+    
+    Automatically detects dimension from initial_phase or uses dimension parameter.
+    
+    Parameters  
+    ----------  
+    symbol : sympy expression  
+        Principal symbol p(x, ξ) for 1D or p(x, y, ξ, η) for 2D.
+    initial_phase : dict  
+        Initial data on a curve/point:
+        
+        1D: Keys 'x', 'S', 'p_x', optionally 'a' (dict or array)
+        2D: Keys 'x', 'y', 'S', 'p_x', 'p_y', optionally 'a' (dict or array)
+        
+    order : int  
+        WKB order (0, 1, 2, or 3).
+    domain : tuple or None
+        1D: (x_min, x_max)
+        2D: ((x_min, x_max), (y_min, y_max))
+        If None, inferred from initial data.
+    resolution : int or tuple
+        Grid resolution (single int or (nx, ny) for 2D).
+    epsilon : float
+        Small parameter for asymptotic expansion.
+    dimension : int or None
+        Force dimension (1 or 2). If None, auto-detect.
+      
+    Returns  
+    -------  
+    dict  
+        WKB solution with keys adapted to dimension.
+        
+    Examples
+    --------
+    # 1D example
+    >>> x, xi = symbols('x xi', real=True)
+    >>> p = xi**2 - (1 + 0.1*x)**2  # Variable speed wave equation
+    >>> ic = {'x': [0], 'S': [0], 'p_x': [1.0], 'a': {0: [1.0]}}
+    >>> sol = wkb_multidim(p, ic, order=2, domain=(-5, 5), epsilon=0.1)
+    
+    # 2D example
+    >>> x, y, xi, eta = symbols('x y xi eta', real=True)
+    >>> p = xi**2 + eta**2 - 1  # 2D wave equation
+    >>> n = 20
+    >>> ic = {'x': np.linspace(-1, 1, n), 'y': np.zeros(n),
+    ...       'S': np.zeros(n), 'p_x': np.ones(n), 'p_y': np.zeros(n)}
+    >>> sol = wkb_multidim(p, ic, order=2, domain=((-3,3),(-3,3)))
+    """  
+    from scipy.integrate import solve_ivp  
+    from scipy.interpolate import griddata, interp1d
+    
+    # ==================================================================
+    # DETECT DIMENSION
+    # ==================================================================
+    
     if dimension is None:
+        # Auto-detect from initial_phase
         has_y = 'y' in initial_phase and 'p_y' in initial_phase
         dimension = 2 if has_y else 1
     
-    # Setup variables
+    if dimension not in [1, 2]:
+        raise ValueError(f"Dimension must be 1 or 2, got {dimension}")
+    
+    print(f"WKB approximation in {dimension}D (order {order})")
+    
+    # ==================================================================
+    # SETUP SYMBOLIC VARIABLES
+    # ==================================================================
+    
     if dimension == 1:
-        x, xi = symbols('x xi', real=True)
+        x = symbols('x', real=True)
+        xi = symbols('xi', real=True)
+        spatial_vars = [x]
+        momentum_vars = [xi]
+        spatial_symbols = (x,)
+        momentum_symbols = (xi,)
         all_vars = (x, xi)
-    else:
-        x, y, xi, eta = symbols('x y xi eta', real=True)
+    else:  # dimension == 2
+        x, y = symbols('x y', real=True)
+        xi, eta = symbols('xi eta', real=True)
+        spatial_vars = [x, y]
+        momentum_vars = [xi, eta]
+        spatial_symbols = (x, y)
+        momentum_symbols = (xi, eta)
         all_vars = (x, y, xi, eta)
     
-    # Compute derivatives
-    dp_dxi = diff(symbol, all_vars[-2] if dimension == 1 else all_vars[2])
-    if dimension == 2:
-        dp_deta = diff(symbol, all_vars[3])
-    dp_dx = diff(symbol, all_vars[0])
-    if dimension == 2:
-        dp_dy = diff(symbol, all_vars[1])
+    # ==================================================================
+    # VALIDATE AND EXTRACT INITIAL DATA
+    # ==================================================================
     
-    # Lambdify
-    f_dx = lambdify(all_vars, dp_dxi, 'numpy')
-    if dimension == 2:
-        f_dy = lambdify(all_vars, dp_deta, 'numpy')
-    f_dxi = lambdify(all_vars, -dp_dx, 'numpy')
-    if dimension == 2:
-        f_deta = lambdify(all_vars, -dp_dy, 'numpy')
-    p_func = lambdify(all_vars, symbol, 'numpy')
+    required_keys_1d = ['x', 'S', 'p_x']
+    required_keys_2d = ['x', 'y', 'S', 'p_x', 'p_y']
+    required_keys = required_keys_2d if dimension == 2 else required_keys_1d
     
-    # Extract initial data
+    if not all(k in initial_phase for k in required_keys):
+        raise ValueError(f"initial_phase must contain: {required_keys}")
+    
+    # Extract spatial coordinates
     x_init = np.asarray(initial_phase['x'])
     n_rays = len(x_init)
     
     if dimension == 2:
         y_init = np.asarray(initial_phase['y'])
+        if len(y_init) != n_rays:
+            raise ValueError("x and y must have same length")
     
+    # Extract phase and momentum
     S_init = np.asarray(initial_phase['S'])
     px_init = np.asarray(initial_phase['p_x'])
     
     if dimension == 2:
         py_init = np.asarray(initial_phase['p_y'])
     
-    # Get amplitude
+    # Extract amplitudes for each order
+    a_init = {}
+    
     if 'a' in initial_phase:
         if isinstance(initial_phase['a'], dict):
-            a0_init = np.asarray(initial_phase['a'][0])
+            for k, v in initial_phase['a'].items():
+                a_init[k] = np.asarray(v)
         else:
-            a0_init = np.asarray(initial_phase['a'])
+            a_init[0] = np.asarray(initial_phase['a'])
     else:
-        a0_init = np.ones(n_rays)
+        a_init[0] = np.ones(n_rays)
     
-    # Ray tracing
-    rays = []
-    tmax = 5.0
-    n_steps = 100
+    # Initialize missing orders to zero
+    for k in range(order + 1):
+        if k not in a_init:
+            a_init[k] = np.zeros(n_rays)
     
-    for i in range(n_rays):
-        if dimension == 1:
-            z0 = [x_init[i], px_init[i], S_init[i], a0_init[i]]
-        else:
-            z0 = [x_init[i], y_init[i], px_init[i], py_init[i], 
-                  S_init[i], a0_init[i]]
+    # ==================================================================
+    # COMPUTE SYMBOLIC DERIVATIVES
+    # ==================================================================
+    
+    print("Computing symbolic derivatives...")
+    
+    derivatives = {}
+    
+    # First derivatives (Hamilton equations)
+    for i, mom_var in enumerate(momentum_vars):
+        derivatives[f'dp_d{mom_var.name}'] = diff(symbol, mom_var)
+    
+    for i, space_var in enumerate(spatial_vars):
+        derivatives[f'dp_d{space_var.name}'] = diff(symbol, space_var)
+    
+    # Second derivatives (transport equations)
+    for mom_var in momentum_vars:
+        derivatives[f'd2p_d{mom_var.name}2'] = diff(symbol, mom_var, 2)
+    
+    for space_var in spatial_vars:
+        for mom_var in momentum_vars:
+            derivatives[f'd2p_d{mom_var.name}d{space_var.name}'] = \
+                diff(diff(symbol, mom_var), space_var)
+    
+    if len(momentum_vars) == 2:
+        derivatives['d2p_dxideta'] = diff(diff(symbol, momentum_vars[0]), 
+                                          momentum_vars[1])
+    
+    # Third derivatives (higher-order corrections)
+    if order >= 2:
+        for mom_var in momentum_vars:
+            derivatives[f'd3p_d{mom_var.name}3'] = diff(symbol, mom_var, 3)
         
-        def ray_ode(t, z):
-            if dimension == 1:
-                x_val, xi_val, S_val, a_val = z
-                args = (x_val, xi_val)
-                dxdt = f_dx(*args)
-                dxidt = f_dxi(*args)
-                p_val = p_func(*args)
-                dSdt = xi_val * dxdt - p_val
-                
-                # Simple amplitude evolution
-                dadt = -0.5 * a_val * 0.0  # Simplified
-                
-                return [dxdt, dxidt, dSdt, dadt]
-            else:
-                x_val, y_val, xi_val, eta_val, S_val, a_val = z
-                args = (x_val, y_val, xi_val, eta_val)
-                dxdt = f_dx(*args)
-                dydt = f_dy(*args)
-                dxidt = f_dxi(*args)
-                detadt = f_deta(*args)
-                p_val = p_func(*args)
-                dSdt = xi_val * dxdt + eta_val * dydt - p_val
-                
-                dadt = 0.0  # Simplified
-                
-                return [dxdt, dydt, dxidt, detadt, dSdt, dadt]
-        
-        try:
-            sol = solve_ivp(ray_ode, (0, tmax), z0,
-                          t_eval=np.linspace(0, tmax, n_steps),
-                          method='RK45')
-            
-            if dimension == 1:
-                rays.append({
-                    't': sol.t,
-                    'x': sol.y[0],
-                    'xi': sol.y[1],
-                    'S': sol.y[2],
-                    'a': sol.y[3]
-                })
-            else:
-                rays.append({
-                    't': sol.t,
-                    'x': sol.y[0],
-                    'y': sol.y[1],
-                    'xi': sol.y[2],
-                    'eta': sol.y[3],
-                    'S': sol.y[4],
-                    'a': sol.y[5]
-                })
-        except:
-            continue
+        if dimension == 2:
+            derivatives['d3p_dxi2deta'] = diff(diff(symbol, xi, 2), eta)
+            derivatives['d3p_dxideta2'] = diff(diff(symbol, xi), eta, 2)
+            derivatives['d3p_dxi2dx'] = diff(diff(symbol, xi, 2), x)
+            derivatives['d3p_deta2dy'] = diff(diff(symbol, eta, 2), y)
     
-    # Interpolate to grid
-    if domain is None:
-        x_all = np.concatenate([r['x'] for r in rays])
-        x_min, x_max = x_all.min(), x_all.max()
+    # Lambdify all derivatives
+    print(f"Lambdifying {len(derivatives)} derivatives...")
+    funcs = {}
+    for name, expr in derivatives.items():
+        funcs[name] = lambdify(all_vars, expr, 'numpy')
+    
+    # Principal symbol
+    funcs['p'] = lambdify(all_vars, symbol, 'numpy')
+    
+    # ==================================================================
+    # HELPER FUNCTIONS FOR DERIVATIVES EVALUATION
+    # ==================================================================
+    
+    def eval_func(name, *args):
+        """Safely evaluate a function, handling dimension differences."""
+        if name in funcs:
+            return funcs[name](*args)
+        return 0.0
+    
+    def compute_geometric_spreading(*args):
+        """
+        Compute divergence of momentum gradient.
+        1D: d²p/dξ²
+        2D: d²p/dξ² + d²p/dη²
+        """
         if dimension == 1:
-            domain = (x_min - 1, x_max + 1)
+            return eval_func('d2p_dxi2', *args)
         else:
-            y_all = np.concatenate([r['y'] for r in rays])
-            y_min, y_max = y_all.min(), y_all.max()
-            domain = ((x_min - 1, x_max + 1), (y_min - 1, y_max + 1))
+            return (eval_func('d2p_dxi2', *args) + 
+                   eval_func('d2p_deta2', *args))
+    
+    def compute_spatial_momentum_coupling(*args):
+        """
+        Compute ∇_x · ∇_ξ p
+        1D: ∂²p/∂x∂ξ
+        2D: ∂²p/∂x∂ξ + ∂²p/∂y∂η
+        """
+        if dimension == 1:
+            return eval_func('d2p_dxidx', *args)
+        else:
+            return (eval_func('d2p_dxidx', *args) + 
+                   eval_func('d2p_detady', *args))
+    
+    # ==================================================================
+    # RAY TRACING ODE SYSTEM
+    # ==================================================================
+    
+    print(f"Ray tracing {n_rays} rays...")
+    
+    # State vector indices
+    # 1D: [x, ξ, S, a₀, a₁, ...]
+    # 2D: [x, y, ξ, η, S, a₀, a₁, ...]
     
     if dimension == 1:
+        idx_x, idx_xi, idx_S = 0, 1, 2
+        idx_a_start = 3
+    else:
+        idx_x, idx_y, idx_xi, idx_eta, idx_S = 0, 1, 2, 3, 4
+        idx_a_start = 5
+    
+    idx_a = {k: idx_a_start + k for k in range(order + 1)}
+    
+    rays = []
+    tmax = 5.0
+    n_steps_per_ray = 100
+    
+    for i in range(n_rays):
+        # Build initial condition
+        if dimension == 1:
+            z0 = [x_init[i], px_init[i], S_init[i]]
+        else:
+            z0 = [x_init[i], y_init[i], px_init[i], py_init[i], S_init[i]]
+        
+        # Add amplitudes
+        for k in range(order + 1):
+            z0.append(a_init[k][i])
+        
+        def ray_ode(t, z):
+            """ODE system for rays - dimension-agnostic."""
+            
+            # Extract state variables
+            if dimension == 1:
+                x_val = z[idx_x]
+                xi_val = z[idx_xi]
+                S_val = z[idx_S]
+                args = (x_val, xi_val)
+            else:
+                x_val = z[idx_x]
+                y_val = z[idx_y]
+                xi_val = z[idx_xi]
+                eta_val = z[idx_eta]
+                S_val = z[idx_S]
+                args = (x_val, y_val, xi_val, eta_val)
+            
+            a_vals = {k: z[idx_a[k]] for k in range(order + 1)}
+            
+            # ========================================
+            # HAMILTON'S EQUATIONS
+            # ========================================
+            
+            if dimension == 1:
+                # dx/dt = ∂p/∂ξ
+                dxdt = eval_func('dp_dxi', *args)
+                # dξ/dt = -∂p/∂x
+                dxidt = -eval_func('dp_dx', *args)
+                
+                derivs = [dxdt, dxidt]
+                
+            else:  # dimension == 2
+                # dx/dt = ∂p/∂ξ, dy/dt = ∂p/∂η
+                dxdt = eval_func('dp_dxi', *args)
+                dydt = eval_func('dp_deta', *args)
+                # dξ/dt = -∂p/∂x, dη/dt = -∂p/∂y
+                dxidt = -eval_func('dp_dx', *args)
+                detadt = -eval_func('dp_dy', *args)
+                
+                derivs = [dxdt, dydt, dxidt, detadt]
+            
+            # Phase evolution: dS/dt = Σᵢ ξᵢ·(∂p/∂ξᵢ) - p
+            p_val = eval_func('p', *args)
+            
+            if dimension == 1:
+                dSdt = xi_val * dxdt - p_val
+            else:
+                dSdt = xi_val * dxdt + eta_val * dydt - p_val
+            
+            derivs.append(dSdt)
+            
+            # ========================================
+            # AMPLITUDE EQUATIONS (multi-order)
+            # ========================================
+            
+            # Geometric spreading factor (same for all orders)
+            geom_spread = compute_geometric_spreading(*args)
+            
+            da_dt = {}
+            
+            # Order 0: Standard WKB transport
+            da_dt[0] = -0.5 * a_vals[0] * geom_spread
+            
+            # Order 1: First correction
+            if order >= 1:
+                da_dt[1] = -0.5 * a_vals[1] * geom_spread
+                
+                # Spatial-momentum coupling correction
+                coupling = compute_spatial_momentum_coupling(*args)
+                da_dt[1] += -0.5 * a_vals[0] * coupling
+                
+                # Cross-derivative terms (2D only)
+                if dimension == 2:
+                    cross_term = eval_func('d2p_dxideta', *args)
+                    da_dt[1] += -0.25 * a_vals[0] * cross_term * (dxidt + detadt)
+            
+            # Order 2: Second correction
+            if order >= 2:
+                da_dt[2] = -0.5 * a_vals[2] * geom_spread
+                
+                # Third-order derivative corrections
+                if dimension == 1:
+                    d3 = eval_func('d3p_dxi3', *args)
+                    da_dt[2] += -0.125 * a_vals[0] * d3 * dxidt
+                else:
+                    d3xi = eval_func('d3p_dxi3', *args)
+                    d3eta = eval_func('d3p_deta3', *args)
+                    d3mix1 = eval_func('d3p_dxi2deta', *args)
+                    d3mix2 = eval_func('d3p_dxideta2', *args)
+                    
+                    correction = (d3xi * dxidt + d3eta * detadt + 
+                                 d3mix1 * (dxidt + detadt) +
+                                 d3mix2 * (dxidt + detadt))
+                    da_dt[2] += -0.125 * a_vals[0] * correction
+                
+                # Contributions from a₁
+                da_dt[2] += -0.25 * a_vals[1] * coupling
+            
+            # Order 3: Third correction
+            if order >= 3:
+                da_dt[3] = -0.5 * a_vals[3] * geom_spread
+                
+                # Simplified higher-order terms
+                if dimension == 1:
+                    d3 = eval_func('d3p_dxi3', *args)
+                    da_dt[3] += -0.1 * a_vals[1] * d3 * dxidt
+                else:
+                    d3terms = (eval_func('d3p_dxi3', *args) + 
+                              eval_func('d3p_deta3', *args))
+                    da_dt[3] += -0.1 * a_vals[1] * d3terms * (dxidt + detadt)
+            
+            # Assemble derivative vector
+            for k in range(order + 1):
+                derivs.append(da_dt.get(k, 0.0))
+            
+            return derivs
+        
+        # Integrate ray
+        try:
+            sol = solve_ivp(
+                ray_ode,
+                (0, tmax),
+                z0,
+                method='RK45',
+                t_eval=np.linspace(0, tmax, n_steps_per_ray),
+                rtol=1e-6,
+                atol=1e-9
+            )
+            
+            ray_data = {'t': sol.t}
+            
+            if dimension == 1:
+                ray_data['x'] = sol.y[idx_x]
+                ray_data['xi'] = sol.y[idx_xi]
+                ray_data['S'] = sol.y[idx_S]
+            else:
+                ray_data['x'] = sol.y[idx_x]
+                ray_data['y'] = sol.y[idx_y]
+                ray_data['xi'] = sol.y[idx_xi]
+                ray_data['eta'] = sol.y[idx_eta]
+                ray_data['S'] = sol.y[idx_S]
+            
+            for k in range(order + 1):
+                ray_data[f'a{k}'] = sol.y[idx_a[k]]
+            
+            rays.append(ray_data)
+            
+        except Exception as e:
+            print(f"Warning: Ray {i} integration failed: {e}")
+            continue
+    
+    if len(rays) == 0:
+        raise RuntimeError("All rays failed to integrate")
+    
+    print(f"Successfully traced {len(rays)} rays")
+    
+    # ==================================================================
+    # INTERPOLATION ONTO REGULAR GRID
+    # ==================================================================
+    
+    print("Interpolating solution onto grid...")
+    
+    # Determine domain
+    if domain is None:
+        x_all = np.concatenate([ray['x'] for ray in rays])
+        x_min, x_max = x_all.min(), x_all.max()
+        margin = 0.1 * (x_max - x_min)
+        
+        if dimension == 1:
+            domain = (x_min - margin, x_max + margin)
+        else:
+            y_all = np.concatenate([ray['y'] for ray in rays])
+            y_min, y_max = y_all.min(), y_all.max()
+            margin_y = 0.1 * (y_max - y_min)
+            domain = ((x_min - margin, x_max + margin),
+                     (y_min - margin_y, y_max + margin_y))
+    
+    # Create grid
+    if dimension == 1:
+        if isinstance(resolution, tuple):
+            resolution = resolution[0]
+        
         x_grid = np.linspace(domain[0], domain[1], resolution)
         
-        x_pts = np.concatenate([r['x'] for r in rays])
-        S_pts = np.concatenate([r['S'] for r in rays])
-        a_pts = np.concatenate([r['a'] for r in rays])
+        # Collect ray data
+        x_points = np.concatenate([ray['x'] for ray in rays])
+        S_points = np.concatenate([ray['S'] for ray in rays])
+        a_points = {k: np.concatenate([ray[f'a{k}'] for ray in rays]) 
+                   for k in range(order + 1)}
         
-        sort_idx = np.argsort(x_pts)
-        S_grid = interp1d(x_pts[sort_idx], S_pts[sort_idx], 
-                         kind='linear', bounds_error=False, fill_value=0.0)(x_grid)
-        a_grid = interp1d(x_pts[sort_idx], a_pts[sort_idx],
-                         kind='linear', bounds_error=False, fill_value=0.0)(x_grid)
+        # Sort for interpolation
+        sort_idx = np.argsort(x_points)
+        x_points = x_points[sort_idx]
+        S_points = S_points[sort_idx]
+        for k in range(order + 1):
+            a_points[k] = a_points[k][sort_idx]
         
-        u_grid = a_grid * np.exp(1j * S_grid / epsilon)
+        # Interpolate
+        S_grid = interp1d(x_points, S_points, kind='linear', 
+                         bounds_error=False, fill_value=0.0)(x_grid)
         
-        return {
-            'dimension': 1,
-            'x': x_grid,
-            'S': S_grid,
-            'a': {0: a_grid},
-            'u': u_grid,
-            'rays': rays,
-            'epsilon': epsilon,
-            'order': order
-        }
-    else:
-        nx = ny = resolution if isinstance(resolution, int) else resolution[0]
-        x_grid = np.linspace(domain[0][0], domain[0][1], nx)
-        y_grid = np.linspace(domain[1][0], domain[1][1], ny)
-        X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
+        a_grids = {}
+        for k in range(order + 1):
+            a_grids[k] = interp1d(x_points, a_points[k], kind='linear',
+                                 bounds_error=False, fill_value=0.0)(x_grid)
         
-        x_pts = []
-        y_pts = []
-        S_pts = []
-        a_pts = []
+        grid_coords = {'x': x_grid}
         
-        for r in rays:
-            x_pts.extend(r['x'])
-            y_pts.extend(r['y'])
-            S_pts.extend(r['S'])
-            a_pts.extend(r['a'])
+    else:  # dimension == 2
+        if isinstance(resolution, int):
+            nx = ny = resolution
+        else:
+            nx, ny = resolution
         
-        points = np.column_stack([x_pts, y_pts])
+        (x_min, x_max), (y_min, y_max) = domain
+        x_grid = np.linspace(x_min, x_max, nx)
+        y_grid = np.linspace(y_min, y_max, ny)
+        X_grid, Y_grid = np.meshgrid(x_grid, y_grid, indexing='ij')
         
-        S_grid = griddata(points, S_pts, (X, Y), method='linear', fill_value=0.0)
-        a_grid = griddata(points, a_pts, (X, Y), method='linear', fill_value=0.0)
+        # Collect ray data
+        x_points = []
+        y_points = []
+        S_points = []
+        a_points = {k: [] for k in range(order + 1)}
         
-        S_grid = np.nan_to_num(S_grid)
-        a_grid = np.nan_to_num(a_grid)
+        for ray in rays:
+            x_points.extend(ray['x'])
+            y_points.extend(ray['y'])
+            S_points.extend(ray['S'])
+            for k in range(order + 1):
+                a_points[k].extend(ray[f'a{k}'])
         
-        u_grid = a_grid * np.exp(1j * S_grid / epsilon)
+        points = np.column_stack([x_points, y_points])
         
-        return {
-            'dimension': 2,
-            'x': X,
-            'y': Y,
-            'S': S_grid,
-            'a': {0: a_grid},
-            'u': u_grid,
-            'rays': rays,
-            'epsilon': epsilon,
-            'order': order
-        }
-
+        # Interpolate
+        S_grid = griddata(points, S_points, (X_grid, Y_grid),
+                         method='linear', fill_value=0.0)
+        S_grid = np.nan_to_num(S_grid, nan=0.0)
+        
+        a_grids = {}
+        for k in range(order + 1):
+            a_grids[k] = griddata(points, a_points[k], (X_grid, Y_grid),
+                                 method='linear', fill_value=0.0)
+            a_grids[k] = np.nan_to_num(a_grids[k], nan=0.0)
+        
+        grid_coords = {'x': X_grid, 'y': Y_grid}
+    
+    # ==================================================================
+    # CONSTRUCT WKB SOLUTION
+    # ==================================================================
+    
+    phase_factor = np.exp(1j * S_grid / epsilon)
+    
+    # Sum asymptotic series
+    a_total = np.zeros_like(a_grids[0], dtype=complex)
+    epsilon_power = 1.0
+    
+    for k in range(order + 1):
+        a_total += epsilon_power * a_grids[k]
+        epsilon_power *= epsilon
+        print(f"  Order {k}: max|a_{k}| = {np.max(np.abs(a_grids[k])):.6f}")
+    
+    u_grid = phase_factor * a_total
+    
+    print(f"\nWKB solution computed (order {order}, dim={dimension})")
+    print(f"Max |u| = {np.max(np.abs(u_grid)):.6f}")
+    
+    # ==================================================================
+    # RETURN RESULTS
+    # ==================================================================
+    
+    result = {
+        'dimension': dimension,
+        'order': order,
+        'epsilon': epsilon,
+        'domain': domain,
+        'S': S_grid,
+        'a': a_grids,
+        'a_total': a_total,
+        'u': u_grid,
+        'rays': rays,
+        'n_rays': len(rays)
+    }
+    
+    result.update(grid_coords)
+    
+    return result
+    
 def _apply_1d_caustic_corrections(base_solution, caustics, epsilon, mode):
     """
     Apply caustic corrections in 1D using Airy functions and Maslov index.
@@ -3726,6 +4068,315 @@ def _apply_2d_caustic_corrections(base_solution, caustics, epsilon, mode):
     
     return result
 
+def compare_orders(symbol, initial_phase, max_order=3, **kwargs):
+    """
+    Compare WKB approximations at different orders.
+    Works for both 1D and 2D automatically.
+    """
+    import matplotlib.pyplot as plt
+    
+    solutions = {}
+    
+    for order in range(max_order + 1):
+        print(f"\n{'='*60}")
+        print(f"Computing order {order}")
+        print(f"{'='*60}")
+        
+        sol = wkb_approximation(symbol, initial_phase, order=order, **kwargs)
+        solutions[order] = sol
+    
+    # Plot comparison
+    dim = solutions[0]['dimension']
+    n_orders = max_order + 1
+    
+    if dim == 1:
+        fig, axes = plt.subplots(n_orders, 1, figsize=(12, 3*n_orders))
+        if n_orders == 1:
+            axes = [axes]
+        
+        for order, ax in enumerate(axes):
+            sol = solutions[order]
+            x = sol['x']
+            u = sol['u']
+            
+            ax.plot(x, np.real(u), 'b-', label='Re(u)', linewidth=2)
+            ax.plot(x, np.imag(u), 'r--', label='Im(u)', linewidth=2)
+            ax.plot(x, np.abs(u), 'g:', label='|u|', linewidth=2)
+            
+            ax.set_xlabel('x', fontsize=11)
+            ax.set_ylabel('u', fontsize=11)
+            ax.set_title(f'Order {order} (ε={sol["epsilon"]:.3f})', fontsize=12)
+            ax.grid(True, alpha=0.3)
+            ax.legend(loc='best')
+            
+            # Add text with max amplitude
+            max_amp = np.max(np.abs(u))
+            ax.text(0.02, 0.98, f'max|u| = {max_amp:.4f}',
+                   transform=ax.transAxes, va='top',
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    
+    else:  # dim == 2
+        fig, axes = plt.subplots(2, n_orders, figsize=(5*n_orders, 9))
+        if n_orders == 1:
+            axes = axes.reshape(2, 1)
+        
+        for order in range(n_orders):
+            sol = solutions[order]
+            X, Y = sol['x'], sol['y']
+            u = sol['u']
+            
+            # Top row: |u|
+            im1 = axes[0, order].contourf(X, Y, np.abs(u), levels=30, cmap='viridis')
+            axes[0, order].set_title(f'Order {order}: |u|', fontsize=11)
+            axes[0, order].set_xlabel('x')
+            axes[0, order].set_ylabel('y')
+            axes[0, order].set_aspect('equal')
+            plt.colorbar(im1, ax=axes[0, order])
+            
+            # Bottom row: Re(u)
+            im2 = axes[1, order].contourf(X, Y, np.real(u), levels=30, cmap='RdBu_r')
+            axes[1, order].set_title(f'Order {order}: Re(u)', fontsize=11)
+            axes[1, order].set_xlabel('x')
+            axes[1, order].set_ylabel('y')
+            axes[1, order].set_aspect('equal')
+            plt.colorbar(im2, ax=axes[1, order])
+            
+            # Overlay some rays
+            if 'rays' in sol:
+                for ray in sol['rays'][::max(1, len(sol['rays'])//15)]:
+                    axes[0, order].plot(ray['x'], ray['y'], 'k-', alpha=0.2, linewidth=0.5)
+                    axes[1, order].plot(ray['x'], ray['y'], 'k-', alpha=0.2, linewidth=0.5)
+    
+    plt.tight_layout()
+    
+    # Print convergence info
+    print("\n" + "="*60)
+    print("CONVERGENCE ANALYSIS")
+    print("="*60)
+    
+    if dim == 1:
+        # Sample at center
+        idx_center = len(solutions[0]['x']) // 2
+        
+        print(f"\nAt x = {solutions[0]['x'][idx_center]:.3f}:")
+        for order in range(n_orders):
+            u_val = solutions[order]['u'][idx_center]
+            print(f"  Order {order}: u = {u_val:.6f}, |u| = {np.abs(u_val):.6f}")
+    else:
+        # Sample at center
+        nx, ny = solutions[0]['x'].shape
+        idx_x, idx_y = nx//2, ny//2
+        
+        print(f"\nAt (x,y) = ({solutions[0]['x'][idx_x, idx_y]:.3f}, "
+              f"{solutions[0]['y'][idx_x, idx_y]:.3f}):")
+        for order in range(n_orders):
+            u_val = solutions[order]['u'][idx_x, idx_y]
+            print(f"  Order {order}: u = {u_val:.6f}, |u| = {np.abs(u_val):.6f}")
+    
+    # Compute differences between consecutive orders
+    print("\nRelative differences between orders:")
+    for order in range(1, n_orders):
+        u_prev = solutions[order-1]['u']
+        u_curr = solutions[order]['u']
+        
+        # L2 relative difference
+        diff = np.linalg.norm(u_curr - u_prev) / (np.linalg.norm(u_prev) + 1e-10)
+        print(f"  ||u_{order} - u_{order-1}|| / ||u_{order-1}|| = {diff:.6e}")
+    
+    return solutions, fig
+
+def plot_phase_space(solution, time_slice=None):
+    """
+    Plot phase space (position-momentum) trajectories.
+    
+    Parameters
+    ----------
+    solution : dict
+        Output from wkb_multidim
+    time_slice : float or None
+        Time at which to sample (None = final time)
+    """
+    import matplotlib.pyplot as plt
+    
+    dim = solution['dimension']
+    rays = solution['rays']
+    
+    if time_slice is None:
+        time_idx = -1
+    else:
+        time_idx = np.argmin(np.abs(rays[0]['t'] - time_slice))
+    
+    if dim == 1:
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+        
+        # Position-momentum plot
+        for ray in rays:
+            x = ray['x']
+            xi = ray['xi']
+            ax1.plot(x, xi, 'b-', alpha=0.5, linewidth=1)
+            ax1.plot(x[0], xi[0], 'go', markersize=6)
+            ax1.plot(x[time_idx], xi[time_idx], 'ro', markersize=4)
+        
+        ax1.set_xlabel('x (position)', fontsize=12)
+        ax1.set_ylabel('ξ (momentum)', fontsize=12)
+        ax1.set_title('Phase Space Trajectories', fontsize=13)
+        ax1.grid(True, alpha=0.3)
+        
+        # Phase evolution
+        for i, ray in enumerate(rays[::max(1, len(rays)//10)]):
+            ax2.plot(ray['t'], ray['S'], alpha=0.7, label=f'Ray {i}')
+        
+        ax2.set_xlabel('t (time)', fontsize=12)
+        ax2.set_ylabel('S (phase)', fontsize=12)
+        ax2.set_title('Phase Evolution', fontsize=13)
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(loc='best', fontsize=8)
+        
+    else:  # dim == 2
+        fig = plt.figure(figsize=(16, 5))
+        
+        # 3D phase space (x, y, |p|)
+        ax1 = fig.add_subplot(131, projection='3d')
+        for ray in rays[::max(1, len(rays)//20)]:
+            x = ray['x']
+            y = ray['y']
+            p_mag = np.sqrt(ray['xi']**2 + ray['eta']**2)
+            ax1.plot(x, y, p_mag, alpha=0.6, linewidth=1)
+        
+        ax1.set_xlabel('x')
+        ax1.set_ylabel('y')
+        ax1.set_zlabel('|p|')
+        ax1.set_title('Phase Space (x, y, |p|)')
+        
+        # Momentum plane (ξ, η)
+        ax2 = fig.add_subplot(132)
+        for ray in rays:
+            xi = ray['xi']
+            eta = ray['eta']
+            ax2.plot(xi, eta, 'b-', alpha=0.4, linewidth=0.8)
+            ax2.plot(xi[0], eta[0], 'go', markersize=4)
+            ax2.plot(xi[time_idx], eta[time_idx], 'ro', markersize=3)
+        
+        ax2.set_xlabel('ξ', fontsize=12)
+        ax2.set_ylabel('η', fontsize=12)
+        ax2.set_title('Momentum Space', fontsize=13)
+        ax2.set_aspect('equal')
+        ax2.grid(True, alpha=0.3)
+        
+        # Phase evolution
+        ax3 = fig.add_subplot(133)
+        for i, ray in enumerate(rays[::max(1, len(rays)//15)]):
+            ax3.plot(ray['t'], ray['S'], alpha=0.6)
+        
+        ax3.set_xlabel('t (time)', fontsize=12)
+        ax3.set_ylabel('S (phase)', fontsize=12)
+        ax3.set_title('Phase Evolution', fontsize=13)
+        ax3.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    return fig
+
+
+# ==================================================================
+# ADVANCED: Amplitude decomposition
+# ==================================================================
+
+def plot_amplitude_decomposition(solution):
+    """
+    Plot individual amplitude orders aₖ and their contributions.
+    """
+    import matplotlib.pyplot as plt
+    
+    dim = solution['dimension']
+    order = solution['order']
+    eps = solution['epsilon']
+    
+    if dim == 1:
+        fig, axes = plt.subplots(order + 2, 1, figsize=(12, 3*(order+2)))
+        if order == 0:
+            axes = [axes]
+        else:
+            axes = axes.flatten()
+        
+        x = solution['x']
+        
+        # Plot each amplitude order
+        for k in range(order + 1):
+            ak = solution['a'][k]
+            weight = eps**k
+            
+            axes[k].plot(x, ak, 'b-', linewidth=2, label=f'$a_{k}$')
+            axes[k].plot(x, weight * ak, 'r--', linewidth=2, 
+                        label=f'$\\varepsilon^{k} a_{k}$')
+            
+            axes[k].set_xlabel('x')
+            axes[k].set_ylabel(f'$a_{k}$')
+            axes[k].set_title(f'Amplitude order {k} (weight = ε^{k} = {weight:.4f})')
+            axes[k].grid(True, alpha=0.3)
+            axes[k].legend()
+        
+        # Plot total amplitude
+        axes[order + 1].plot(x, np.real(solution['a_total']), 'b-', 
+                            linewidth=2, label='Re($a_{total}$)')
+        axes[order + 1].plot(x, np.imag(solution['a_total']), 'r--', 
+                            linewidth=2, label='Im($a_{total}$)')
+        axes[order + 1].plot(x, np.abs(solution['a_total']), 'g:', 
+                            linewidth=2, label='$|a_{total}|$')
+        
+        axes[order + 1].set_xlabel('x')
+        axes[order + 1].set_ylabel('Total amplitude')
+        axes[order + 1].set_title('Total Amplitude (sum of all orders)')
+        axes[order + 1].grid(True, alpha=0.3)
+        axes[order + 1].legend()
+        
+    else:  # dim == 2
+        fig, axes = plt.subplots(2, order + 2, figsize=(5*(order+2), 9))
+        if order == 0:
+            axes = axes.reshape(2, 1)
+        
+        X, Y = solution['x'], solution['y']
+        
+        # Plot each amplitude order
+        for k in range(order + 1):
+            ak = solution['a'][k]
+            weight = eps**k
+            
+            # Top: ak
+            im1 = axes[0, k].contourf(X, Y, ak, levels=30, cmap='viridis')
+            axes[0, k].set_title(f'$a_{k}$')
+            axes[0, k].set_xlabel('x')
+            axes[0, k].set_ylabel('y')
+            axes[0, k].set_aspect('equal')
+            plt.colorbar(im1, ax=axes[0, k])
+            
+            # Bottom: weighted
+            im2 = axes[1, k].contourf(X, Y, weight * ak, levels=30, cmap='viridis')
+            axes[1, k].set_title(f'$\\varepsilon^{k} a_{k}$ (ε={eps:.3f})')
+            axes[1, k].set_xlabel('x')
+            axes[1, k].set_ylabel('y')
+            axes[1, k].set_aspect('equal')
+            plt.colorbar(im2, ax=axes[1, k])
+        
+        # Plot total amplitude
+        a_total_abs = np.abs(solution['a_total'])
+        a_total_real = np.real(solution['a_total'])
+        
+        im3 = axes[0, order+1].contourf(X, Y, a_total_abs, levels=30, cmap='viridis')
+        axes[0, order+1].set_title('$|a_{total}|$')
+        axes[0, order+1].set_xlabel('x')
+        axes[0, order+1].set_ylabel('y')
+        axes[0, order+1].set_aspect('equal')
+        plt.colorbar(im3, ax=axes[0, order+1])
+        
+        im4 = axes[1, order+1].contourf(X, Y, a_total_real, levels=30, cmap='RdBu_r')
+        axes[1, order+1].set_title('Re($a_{total}$)')
+        axes[1, order+1].set_xlabel('x')
+        axes[1, order+1].set_ylabel('y')
+        axes[1, order+1].set_aspect('equal')
+        plt.colorbar(im4, ax=axes[1, order+1])
+    
+    plt.tight_layout()
+    return fig
 
 # ==================================================================
 # VISUALIZATION WITH CAUSTIC HIGHLIGHTING
@@ -3911,119 +4562,6 @@ def plot_with_caustics(solution, component='abs', highlight_caustics=True):
 
         plt.tight_layout()
         return fig
-        
-def plot_with_caustics_old (solution, component='abs', highlight_caustics=True):
-    """
-    Plot WKB solution with caustics highlighted.
-    """
-    import matplotlib.pyplot as plt
-    
-    dim = solution['dimension']
-    u = solution['u']
-    caustics = solution.get('caustics', [])
-    
-    # Select component
-    if component == 'real':
-        data = np.real(u)
-        cmap = 'RdBu_r'
-    elif component == 'imag':
-        data = np.imag(u)
-        cmap = 'RdBu_r'
-    elif component == 'abs':
-        data = np.abs(u)
-        cmap = 'viridis'
-    elif component == 'phase':
-        data = np.angle(u)
-        cmap = 'twilight'
-    
-    if dim == 1:
-        fig, axes = plt.subplots(2, 1, figsize=(12, 8))
-        
-        x = solution['x']
-        
-        # Plot solution
-        axes[0].plot(x, data, 'b-', linewidth=2, label=component)
-        axes[0].set_xlabel('x', fontsize=12)
-        axes[0].set_ylabel(f'{component}(u)', fontsize=12)
-        axes[0].set_title(f'WKB with Caustic Corrections ({solution.get("caustic_correction", "none")})')
-        axes[0].grid(True, alpha=0.3)
-        
-        # Highlight caustics
-        if highlight_caustics and len(caustics) > 0:
-            for caustic in caustics:
-                x_c = caustic['position']
-                axes[0].axvline(x_c, color='red', linestyle='--', 
-                              linewidth=2, alpha=0.7, label='Caustic')
-                axes[0].plot(x_c, data[np.argmin(np.abs(x - x_c))], 
-                           'ro', markersize=10)
-        
-        axes[0].legend()
-        
-        # Compare with/without correction
-        if 'u_standard' in solution:
-            data_std = np.abs(solution['u_standard']) if component == 'abs' else np.real(solution['u_standard'])
-            axes[1].plot(x, data_std, 'r--', linewidth=2, label='Standard WKB', alpha=0.7)
-            axes[1].plot(x, data, 'b-', linewidth=2, label='With corrections')
-            axes[1].set_xlabel('x', fontsize=12)
-            axes[1].set_ylabel(f'{component}(u)', fontsize=12)
-            axes[1].set_title('Comparison: Standard vs Corrected')
-            axes[1].grid(True, alpha=0.3)
-            axes[1].legend()
-            
-            if highlight_caustics:
-                for caustic in caustics:
-                    axes[1].axvline(caustic['position'], color='red', 
-                                  linestyle=':', alpha=0.5)
-    
-    else:  # 2D
-        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-        
-        X, Y = solution['x'], solution['y']
-        
-        # Standard solution
-        if 'u_standard' in solution:
-            data_std = np.abs(solution['u_standard']) if component == 'abs' else np.real(solution['u_standard'])
-            im1 = axes[0].contourf(X, Y, data_std, levels=30, cmap=cmap)
-            axes[0].set_title('Standard WKB')
-            axes[0].set_xlabel('x')
-            axes[0].set_ylabel('y')
-            axes[0].set_aspect('equal')
-            plt.colorbar(im1, ax=axes[0])
-        
-        # Corrected solution
-        im2 = axes[1].contourf(X, Y, data, levels=30, cmap=cmap)
-        axes[1].set_title(f'With Caustic Corrections ({solution.get("caustic_correction", "none")})')
-        axes[1].set_xlabel('x')
-        axes[1].set_ylabel('y')
-        axes[1].set_aspect('equal')
-        plt.colorbar(im2, ax=axes[1])
-        
-        # Plot caustics
-        if highlight_caustics and len(caustics) > 0:
-            for caustic in caustics:
-                x_c, y_c = caustic['position']
-                for ax in axes:
-                    marker = 'o' if caustic['caustic_type'] == 'A2' else 's'
-                    color = 'red' if caustic['caustic_type'] == 'A2' else 'orange'
-                    ax.plot(x_c, y_c, marker, color=color, markersize=10,
-                           markeredgecolor='white', markeredgewidth=2)
-            
-            # Legend
-            from matplotlib.patches import Patch
-            legend_elements = [
-                Patch(facecolor='red', label='Fold (A2)'),
-                Patch(facecolor='orange', label='Cusp (A3)')
-            ]
-            axes[1].legend(handles=legend_elements, loc='upper right')
-        
-        # Plot rays
-        if 'rays' in solution:
-            for ray in solution['rays'][::max(1, len(solution['rays'])//20)]:
-                axes[1].plot(ray['x'], ray['y'], 'k-', alpha=0.2, linewidth=0.5)
-    
-    plt.tight_layout()
-    return fig
-
 
 def plot_caustic_analysis(solution):
     """
