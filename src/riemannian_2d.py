@@ -1087,51 +1087,169 @@ def de_rham_laplacian(metric, form_degree):
         raise NotImplementedError("Only forms of degree 0 and 1 implemented")
 
 
-def visualize_curvature(metric, x_range, y_range, resolution=50, 
-                       quantity='gauss', cmap='RdBu_r'):
+def visualize_curvature(metric, x_range=None, y_range=None, 
+                        resolution=100, quantity='gauss', cmap='RdBu_r',
+                        **kwargs):
     """
-    Visualize curvature on 2D manifold.
-    
+    Visualize curvature properties of a 1D or 2D Riemannian manifold.
+
+    For 1D manifolds:
+        - Plots the metric component g₁₁(x) and optionally Christoffel symbol.
+        - Supports coloring by speed, time, or Christoffel magnitude.
+
+    For 2D manifolds:
+        - Plots scalar curvature quantities (Gaussian or Ricci) as a color map.
+
     Parameters
     ----------
-    metric : Metric2D
-        Riemannian metric.
-    x_range, y_range : tuple
-        Domain ranges.
-    resolution : int
-        Grid resolution.
-    quantity : str
-        Curvature to plot: 'gauss', 'ricci_scalar', 'ricci_tensor'.
-    cmap : str
-        Colormap name.
-    
+    metric : Metric
+        A Riemannian metric object (1D or 2D).
+    x_range : tuple, optional
+        (min, max) for x-coordinate. Required for 2D; inferred for 1D.
+    y_range : tuple, optional
+        (min, max) for y-coordinate. Required for 2D; ignored for 1D.
+    resolution : int, default=100
+        Grid resolution for 2D plots; sampling density for 1D.
+    quantity : str, default='gauss'
+        For 2D: {'gauss', 'ricci_scalar'}.
+        For 1D: {'metric', 'christoffel'} (default: 'metric').
+    cmap : str, default='RdBu_r'
+        Colormap for 2D scalar fields.
+
+    Additional keyword arguments (1D only):
+    ---------------------------------------
+    initial_conditions : list of tuples, optional
+        Initial conditions as [(x0, v0), ...]. Required for geodesic overlay.
+    tspan : tuple, optional
+        Time span for geodesic integration, e.g., (0, 10).
+    colorby : {'speed', 'time', 'curvature'}, default='speed'
+        Coloring scheme for geodesic trajectories.
+    n_steps : int, default=500
+        Number of integration steps for geodesics.
+
     Examples
     --------
+    # 1D: Plot metric and geodesics
+    >>> x = symbols('x', real=True)
+    >>> metric = Metric(x**2, (x,))
+    >>> visualize_curvature(metric, initial_conditions=[(1.0, 1.0)], tspan=(0, 5))
+
+    # 2D: Plot Gaussian curvature
     >>> x, y = symbols('x y', real=True)
-    >>> r, theta = symbols('r theta', real=True, positive=True)
-    >>> g_sphere = Matrix([[1, 0], [0, sin(x)**2]])
-    >>> metric = Metric2D(g_sphere, (x, y))
-    >>> visualize_curvature(metric, (0.1, np.pi-0.1), (0, 2*np.pi))
+    >>> g = Matrix([[1, 0], [0, sin(x)**2]])
+    >>> metric = Metric(g, (x, y))
+    >>> visualize_curvature(metric, (0.1, 3.0), (0, 6.28), quantity='gauss')
     """
+    if metric.dim == 1:
+        _visualize_curvature_1d(metric, x_range, resolution, quantity, **kwargs)
+    elif metric.dim == 2:
+        if x_range is None or y_range is None:
+            raise ValueError("x_range and y_range are required for 2D visualization")
+        _visualize_curvature_2d(metric, x_range, y_range, resolution, quantity, cmap)
+    else:
+        raise ValueError("Only 1D and 2D manifolds are supported")
+
+
+def _visualize_curvature_1d(metric, x_range, resolution, quantity, **kwargs):
+    """Internal helper for 1D curvature/metric visualization."""
+    x = metric.coords[0]
+    initial_conditions = kwargs.get('initial_conditions')
+    tspan = kwargs.get('tspan', (0, 10))
+    colorby = kwargs.get('colorby', 'speed')
+    n_steps = kwargs.get('n_steps', 500)
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 8))
+    ax_metric, ax_geo = axes
+
+    # Determine x plotting range
+    if x_range is None:
+        if initial_conditions:
+            x_vals_all = []
+            for x0, v0 in initial_conditions:
+                traj = geodesic_solver(metric, (x0,), (v0,), tspan, n_steps=n_steps)
+                x_vals_all.extend(traj['x'])
+            x_min, x_max = np.min(x_vals_all), np.max(x_vals_all)
+            x_range = (x_min - 0.5, x_max + 0.5)
+        else:
+            x_range = (-5, 5)  # fallback
+
+    x_plot = np.linspace(x_range[0], x_range[1], resolution)
+
+    # Plot metric or Christoffel
+    if quantity == 'metric':
+        y_plot = metric.g_func[(0, 0)](x_plot)
+        ylabel = 'g₁₁(x)'
+        title = 'Metric Component'
+    elif quantity == 'christoffel':
+        y_plot = metric.christoffel_func[0][0][0](x_plot)
+        ylabel = 'Γ¹₁₁(x)'
+        title = 'Christoffel Symbol'
+    else:
+        raise ValueError("quantity must be 'metric' or 'christoffel' for 1D")
+
+    ax_metric.plot(x_plot, y_plot, 'k-', linewidth=2, label=ylabel)
+    ax_metric.set_xlabel('x')
+    ax_metric.set_ylabel(ylabel)
+    ax_metric.set_title(title)
+    ax_metric.grid(True, alpha=0.3)
+    ax_metric.legend()
+
+    # Plot geodesics if provided
+    if initial_conditions:
+        for x0, v0 in initial_conditions:
+            traj = geodesic_solver(metric, (x0,), (v0,), tspan, n_steps=n_steps)
+            if colorby == 'speed':
+                colors = np.abs(traj['v'])
+            elif colorby == 'time':
+                colors = traj['t']
+            elif colorby == 'curvature':
+                colors = np.abs(metric.christoffel_func[0][0][0](traj['x']))
+            else:
+                colors = None
+
+            label = f'IC: x₀={x0:.2f}, v₀={v0:.2f}'
+            if colors is not None:
+                scatter = ax_geo.scatter(traj['t'], traj['x'], c=colors,
+                                         s=10, cmap='viridis', alpha=0.6)
+            else:
+                ax_geo.plot(traj['t'], traj['x'], alpha=0.7, label=label)
+
+        ax_geo.set_xlabel('t')
+        ax_geo.set_ylabel('x(t)')
+        ax_geo.set_title('Geodesic Trajectories')
+        ax_geo.grid(True, alpha=0.3)
+        ax_geo.legend()
+
+        if colors is not None:
+            cbar = plt.colorbar(scatter, ax=ax_geo)
+            cbar.set_label(colorby.capitalize())
+    else:
+        ax_geo.text(0.5, 0.5, 'No initial conditions provided\nfor geodesic overlay',
+                    ha='center', va='center', transform=ax_geo.transAxes, alpha=0.5)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def _visualize_curvature_2d(metric, x_range, y_range, resolution, quantity, cmap):
+    """Internal helper for 2D curvature visualization."""
     x_vals = np.linspace(x_range[0], x_range[1], resolution)
     y_vals = np.linspace(y_range[0], y_range[1], resolution)
     X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
-    
+
     if quantity == 'gauss':
         K_expr = metric.gauss_curvature()
-        K_func = lambdify(metric.vars_xy, K_expr, 'numpy')
+        K_func = lambdify(metric.coords, K_expr, 'numpy')
         Z = K_func(X, Y)
-        title = 'Gaussian Curvature K(x,y)'
-    
+        title = 'Gaussian Curvature K(x, y)'
     elif quantity == 'ricci_scalar':
         R_expr = metric.ricci_scalar()
-        R_func = lambdify(metric.vars_xy, R_expr, 'numpy')
+        R_func = lambdify(metric.coords, R_expr, 'numpy')
         Z = R_func(X, Y)
-        title = 'Ricci Scalar R(x,y)'
-    
+        title = 'Ricci Scalar R(x, y)'
     else:
-        raise ValueError("quantity must be 'gauss' or 'ricci_scalar'")
-    
+        raise ValueError("quantity must be 'gauss' or 'ricci_scalar' for 2D")
+
     plt.figure(figsize=(10, 8))
     plt.pcolormesh(X, Y, Z, shading='auto', cmap=cmap)
     plt.colorbar(label=title)
@@ -1141,7 +1259,6 @@ def visualize_curvature(metric, x_range, y_range, resolution=50,
     plt.axis('equal')
     plt.tight_layout()
     plt.show()
-
 
 def visualize_geodesics(metric, initial_conditions, tspan, x_range=None,
                        y_range=None, plot_curvature=True, n_steps=500):
