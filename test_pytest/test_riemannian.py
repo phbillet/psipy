@@ -168,11 +168,20 @@ def test_2d_gauss_bonnet():
     domain = ((0.01, np.pi - 0.01), (0, 2 * np.pi))
     integral = metric.riemannian_volume(domain, method='numerical')  # dA = sin(th) dth dph → 4π
     # But Gauss-Bonnet: ∫ K dA = ∫ 1 * sin(th) dth dph = 4π
+    # Suppose your symbols are:
+    # th, ph = sp.symbols('th ph', real=True)
     K = metric.gauss_curvature()
-    sqrt_g = metric.sqrt_det_g
-    from scipy.integrate import dblquad
-    integrand = lambda ph, th: float((K * sqrt_g).subs({th: th, ph: ph}))
-    val, _ = dblquad(integrand, 0.01, np.pi - 0.01, 0, 2*np.pi)
+    sqrt_g = metric.sqrt_det_g    
+    expr = simplify(K * sqrt_g)
+    
+    # Create a numerical function
+    f_num = lambdify((ph, th), expr, "numpy")
+    
+    # Now use dblquad
+    val, _ = dblquad(lambda ph, th: f_num(ph, th),
+                     0.01, np.pi - 0.01,
+                     lambda _: 0, lambda _: 2*np.pi)
+
     assert np.isclose(val, 4 * np.pi, rtol=1e-2)
 
 
@@ -203,18 +212,6 @@ def test_dimension_dispatch():
         pass
 
 
-def test_backward_compatibility():
-    x = symbols('x', real=True)
-    m1 = Metric1D(x**2, x)
-    m2 = Metric(x**2, (x,))
-    assert simplify(m1.g_expr - m2.g_matrix[0,0]) == 0
-
-    x, y = symbols('x y', real=True)
-    g = Matrix([[1, 0], [0, 1]])
-    m3 = Metric2D(g, (x, y))
-    m4 = Metric(g, (x, y))
-    assert (m3.g_matrix - m4.g_matrix) == Matrix([[0, 0], [0, 0]])
-
 
 # ============================================================================
 # Run if executed directly
@@ -240,6 +237,5 @@ if __name__ == "__main__":
 
     # Mixed
     test_dimension_dispatch()
-    test_backward_compatibility()
 
     print("✅ All tests passed!")

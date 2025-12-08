@@ -118,7 +118,7 @@ class Metric:
         ----------
         H_expr : sympy expression
             Hamiltonian H(x, y, pₓ, pᵧ).
-        vars_xy : tuple
+        coords : tuple
             Position variables (x, y).
         vars_p : tuple
             Momentum variables (pₓ, pᵧ).
@@ -658,7 +658,7 @@ def exponential_map(metric, p, v, t=1.0):
     p : tuple
         Base point (x₀, y₀).
     v : tuple
-Initial tangent vector (vₓ, vᵧ).
+        Initial tangent vector (vₓ, vᵧ).
     t : float
         Parameter value (geodesic "time").
     method : str
@@ -874,7 +874,7 @@ def jacobi_equation_solver(metric, geodesic, initial_variation, tspan,
     R = metric.riemann_tensor()
     
     # Lambdify Riemann tensor components
-    x_sym, y_sym = metric.vars_xy
+    x_sym, y_sym = metric.coords
     R_func = {}
     for i in range(2):
         R_func[i] = {}
@@ -1043,12 +1043,67 @@ def visualize_geodesics(metric, initial_conditions, tspan, **kwargs):
         ax1.legend(); ax2.legend(); ax2.grid(True)
         plt.show()
     else:
-        # Reuse 2D logic (with curvature background if possible)
-        fig, ax = plt.subplots()
-        trajectories = [geodesic_solver(metric, p0, v0, tspan) for p0, v0 in initial_conditions]
-        for traj in trajectories:
-            ax.plot(traj['x'], traj['y'])
-        ax.set_aspect('equal')
+        fig, ax = plt.subplots(figsize=(12, 10))
+        
+        # Collect all trajectories
+        trajectories = []
+        for p0, v0 in initial_conditions:
+            traj = geodesic_solver(metric, p0, v0, tspan, n_steps=n_steps)
+            trajectories.append(traj)
+        
+        # Determine plot range
+        if x_range is None:
+            all_x = np.concatenate([t['x'] for t in trajectories])
+            x_margin = 0.1 * (all_x.max() - all_x.min())
+            x_range = (all_x.min() - x_margin, all_x.max() + x_margin)
+        
+        if y_range is None:
+            all_y = np.concatenate([t['y'] for t in trajectories])
+            y_margin = 0.1 * (all_y.max() - all_y.min())
+            y_range = (all_y.min() - y_margin, all_y.max() + y_margin)
+        
+        # Plot curvature background
+        if plot_curvature:
+            try:
+                x_bg = np.linspace(x_range[0], x_range[1], 100)
+                y_bg = np.linspace(y_range[0], y_range[1], 100)
+                X_bg, Y_bg = np.meshgrid(x_bg, y_bg, indexing='ij')
+                
+                K_expr = metric.gauss_curvature()
+                K_func = lambdify(metric.coords, K_expr, 'numpy')
+                K_vals = K_func(X_bg, Y_bg)
+                
+                im = ax.pcolormesh(X_bg, Y_bg, K_vals, shading='auto',
+                                  cmap='RdBu_r', alpha=0.3, vmin=-1, vmax=1)
+                plt.colorbar(im, ax=ax, label='Gaussian Curvature')
+            except:
+                print("Warning: Could not compute curvature background")
+        
+        # Plot geodesics
+        for idx, traj in enumerate(trajectories):
+            p0, v0 = initial_conditions[idx]
+            label = f'IC: ({p0[0]:.2f},{p0[1]:.2f}), v=({v0[0]:.2f},{v0[1]:.2f})'
+            
+            # Color by time
+            colors = plt.cm.viridis(np.linspace(0, 1, len(traj['x'])))
+            
+            for i in range(len(traj['x']) - 1):
+                ax.plot(traj['x'][i:i+2], traj['y'][i:i+2],
+                       color=colors[i], alpha=0.8, linewidth=2)
+            
+            # Mark start and end
+            ax.plot(traj['x'][0], traj['y'][0], 'go', markersize=10, 
+                   label=f'Start {idx+1}')
+            ax.plot(traj['x'][-1], traj['y'][-1], 'ro', markersize=10,
+                   label=f'End {idx+1}')
+        
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_title('Geodesics on Riemannian Manifold')
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.3)
+        ax.axis('equal')
+        plt.tight_layout()
         plt.show()
 
 def visualize_curvature(metric, x_range, y_range, resolution=50, 
@@ -1083,13 +1138,13 @@ def visualize_curvature(metric, x_range, y_range, resolution=50,
     
     if quantity == 'gauss':
         K_expr = metric.gauss_curvature()
-        K_func = lambdify(metric.vars_xy, K_expr, 'numpy')
+        K_func = lambdify(metric.coords, K_expr, 'numpy')
         Z = K_func(X, Y)
         title = 'Gaussian Curvature K(x,y)'
     
     elif quantity == 'ricci_scalar':
         R_expr = metric.ricci_scalar()
-        R_func = lambdify(metric.vars_xy, R_expr, 'numpy')
+        R_func = lambdify(metric.coords, R_expr, 'numpy')
         Z = R_func(X, Y)
         title = 'Ricci Scalar R(x,y)'
     
@@ -1097,6 +1152,11 @@ def visualize_curvature(metric, x_range, y_range, resolution=50,
         raise ValueError("quantity must be 'gauss' or 'ricci_scalar'")
     
     plt.figure(figsize=(10, 8))
+    # --- FIX: Broadcast constant curvature ---
+    Z = np.array(Z)
+    if Z.ndim == 0:      # constant curvature case
+        Z = np.full_like(X, Z)
+   
     plt.pcolormesh(X, Y, Z, shading='auto', cmap=cmap)
     plt.colorbar(label=title)
     plt.xlabel('x')

@@ -3,7 +3,7 @@ from numpy.linalg import svd
 import matplotlib.pyplot as plt
 from scipy.fft import fft2, ifft2, fft, ifft, fftfreq, fftshift, ifftshift
 from scipy.signal.windows import hann
-from scipy.integrate import solve_ivp
+from scipy.integrate import solve_ivp, dblquad
 from scipy.ndimage import maximum_filter
 from scipy.sparse import diags
 from scipy.sparse.linalg import svds 
@@ -13,7 +13,7 @@ from sympy import (
     symbols, Function, 
     solve, pprint, Mul,
     lambdify, expand, Eq, simplify, trigsimp, N,
-    radsimp, ratsimp, cancel,
+    radsimp, ratsimp, cancel, 
     Lambda, Piecewise, Basic, degree, Pow, preorder_traversal, Heaviside, 
     powdenest, expand, Matrix,
     sqrt, I,  pi, series, oo, 
