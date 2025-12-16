@@ -1,4 +1,4 @@
-# Copyright 2025 Philippe Billet
+# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

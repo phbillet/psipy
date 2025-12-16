@@ -3314,75 +3314,6 @@ def wkb_approximation(symbol, initial_phase, order=1, domain=None,
                                resolution=50, epsilon=0.1, dimension=None,
                                caustic_correction='auto', caustic_threshold=1e-3):
     """
-    Enhanced WKB with automatic caustic detection and correction.
-    
-    Parameters
-    ----------
-    symbol : sympy expression
-        Principal symbol p(x, ξ) or p(x, y, ξ, η).
-    initial_phase : dict
-        Initial data (see wkb_multidim documentation).
-    order : int
-        WKB order (0-3).
-    domain : tuple or None
-        Spatial domain.
-    resolution : int or tuple
-        Grid resolution.
-    epsilon : float
-        Small parameter.
-    dimension : int or None
-        Force dimension (1 or 2), or auto-detect.
-    caustic_correction : str
-        'auto': automatic detection and correction
-        'maslov': Maslov index only
-        'airy': Force Airy correction (fold caustics)
-        'pearcey': Force Pearcey correction (cusp caustics)
-        'none': No caustic correction
-    caustic_threshold : float
-        Threshold for caustic detection.
-    
-    Returns
-    -------
-    dict
-        Enhanced solution with caustic information.
-    """
-
-    base_solution = _compute_base_wkb(symbol, initial_phase, order, domain,
-                                      resolution, epsilon, dimension)
-    
-    # Detect caustics
-    detector = CausticDetector(base_solution['rays'], base_solution['dimension'])
-    caustics = detector.detect_caustics(threshold=caustic_threshold)
-    
-    if len(caustics) == 0:
-        print("No caustics detected - using standard WKB")
-        base_solution['caustic_correction'] = 'none'
-        base_solution['caustics'] = []
-        return base_solution
-    
-    print(f"\nApplying caustic corrections (mode: {caustic_correction})...")
-    
-    # Apply corrections based on caustic type
-    if base_solution['dimension'] == 1:
-        corrected_solution = _apply_1d_caustic_corrections(
-            base_solution, caustics, epsilon, caustic_correction
-        )
-    else:
-        corrected_solution = _apply_2d_caustic_corrections(
-            base_solution, caustics, epsilon, caustic_correction
-        )
-    
-    corrected_solution['caustics'] = caustics
-    corrected_solution['caustic_correction'] = caustic_correction
-    
-    print("Caustic corrections applied successfully")
-    
-    return corrected_solution
-
-
-def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
-                resolution=50, epsilon=0.1, dimension=None):
-    """
     Compute multidimensional WKB approximation (1D or 2D).
 
     u(x) ≈ exp(iS/ε) · [a₀ + ε·a₁ + ε²·a₂ + ...]
@@ -3423,7 +3354,7 @@ def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
     >>> x, xi = symbols('x xi', real=True)
     >>> p = xi**2 - (1 + 0.1*x)**2  # Variable speed wave equation
     >>> ic = {'x': [0], 'S': [0], 'p_x': [1.0], 'a': {0: [1.0]}}
-    >>> sol = wkb_multidim(p, ic, order=2, domain=(-5, 5), epsilon=0.1)
+    >>> sol = wkb_approximation(p, ic, order=2, domain=(-5, 5), epsilon=0.1)
     
     # 2D example
     >>> x, y, xi, eta = symbols('x y xi eta', real=True)
@@ -3431,7 +3362,45 @@ def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
     >>> n = 20
     >>> ic = {'x': np.linspace(-1, 1, n), 'y': np.zeros(n),
     ...       'S': np.zeros(n), 'p_x': np.ones(n), 'p_y': np.zeros(n)}
-    >>> sol = wkb_multidim(p, ic, order=2, domain=((-3,3),(-3,3)))
+    >>> sol = wkb_approximation(p, ic, order=2, domain=((-3,3),(-3,3)))
+    """  
+    base_solution = _compute_base_wkb(symbol, initial_phase, order, domain,
+                                      resolution, epsilon, dimension)
+    
+    # Detect caustics
+    detector = CausticDetector(base_solution['rays'], base_solution['dimension'])
+    caustics = detector.detect_caustics(threshold=caustic_threshold)
+    
+    if len(caustics) == 0:
+        print("No caustics detected - using standard WKB")
+        base_solution['caustic_correction'] = 'none'
+        base_solution['caustics'] = []
+        return base_solution
+    
+    print(f"\nApplying caustic corrections (mode: {caustic_correction})...")
+    
+    # Apply corrections based on caustic type
+    if base_solution['dimension'] == 1:
+        corrected_solution = _apply_1d_caustic_corrections(
+            base_solution, caustics, epsilon, caustic_correction
+        )
+    else:
+        corrected_solution = _apply_2d_caustic_corrections(
+            base_solution, caustics, epsilon, caustic_correction
+        )
+    
+    corrected_solution['caustics'] = caustics
+    corrected_solution['caustic_correction'] = caustic_correction
+    
+    print("Caustic corrections applied successfully")
+    
+    return corrected_solution
+
+
+def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
+                resolution=50, epsilon=0.1, dimension=None):
+    """
+    Compute multidimensional WKB approximation (1D or 2D).
     """  
     from scipy.integrate import solve_ivp  
     from scipy.interpolate import griddata, interp1d
@@ -3864,10 +3833,15 @@ def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
                 a_points[k].extend(ray[f'a{k}'])
         
         points = np.column_stack([x_points, y_points])
-        
+        if np.std(y_points) < 1e-12:
+            # degenerate case: 1D interpolation
+            S_grid = np.interp(X_grid[:,0], x_points, S_points)
+            S_grid = np.tile(S_grid[:, None], (1, Y_grid.shape[1]))
+        else:
+            S_grid = griddata(points, S_points, (X_grid, Y_grid),
+                              method='linear', fill_value=0.0,
+                              rescale=True)       
         # Interpolate
-        S_grid = griddata(points, S_points, (X_grid, Y_grid),
-                         method='linear', fill_value=0.0)
         S_grid = np.nan_to_num(S_grid, nan=0.0)
         
         a_grids = {}
@@ -4192,7 +4166,7 @@ def plot_phase_space(solution, time_slice=None):
     Parameters
     ----------
     solution : dict
-        Output from wkb_multidim
+        Output from wkb_approximation
     time_slice : float or None
         Time at which to sample (None = final time)
     """
@@ -4735,7 +4709,7 @@ def create_initial_data_line(x_range, n_points=20, direction=(1, 0),
     Returns
     -------
     dict
-        Initial data for wkb_multidim.
+        Initial data for wkb_approximation.
     
     Examples
     --------
@@ -4777,7 +4751,7 @@ def create_initial_data_circle(radius=1.0, n_points=30, outward=True):
     Returns
     -------
     dict
-        Initial data for wkb_multidim.
+        Initial data for wkb_approximation.
     
     Examples
     --------
@@ -4821,7 +4795,7 @@ def create_initial_data_point_source(x0=0.0, y0=0.0, n_rays=20):
     Returns
     -------
     dict
-        Initial data for wkb_multidim.
+        Initial data for wkb_approximation.
     
     Examples
     --------
@@ -4853,7 +4827,7 @@ def visualize_wkb_rays(wkb_result, plot_type='phase', n_rays_plot=None):
     Parameters
     ----------
     wkb_result : dict
-        Output from wkb_multidim.
+        Output from wkb_approximation.
     plot_type : str
         What to visualize: 'phase', 'amplitude', 'real', 'rays'.
     n_rays_plot : int, optional
@@ -4861,7 +4835,7 @@ def visualize_wkb_rays(wkb_result, plot_type='phase', n_rays_plot=None):
     
     Examples
     --------
-    >>> wkb = wkb_multidim(...)
+    >>> wkb = wkb_approximation(...)
     >>> visualize_wkb_rays(wkb, plot_type='phase')
     """
     fig, ax = plt.subplots(figsize=(10, 8))

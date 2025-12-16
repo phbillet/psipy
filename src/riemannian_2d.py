@@ -1,4 +1,4 @@
-# Copyright 2025 Philippe Billet
+# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,6 +84,8 @@ class Metric2D:
             raise ValueError("Metric2D requires exactly two coordinates (x, y)")
         self.vars_xy = vars_xy
         self.x, self.y = vars_xy
+
+        self.dim = 2
         
         if not isinstance(g_matrix, Matrix):
             g_matrix = Matrix(g_matrix)
@@ -1239,7 +1241,7 @@ def _visualize_curvature_2d(metric, x_range, y_range, resolution, quantity, cmap
 
     if quantity == 'gauss':
         K_expr = metric.gauss_curvature()
-        K_func = lambdify(metric.coords, K_expr, 'numpy')
+        K_func = lambdify(metric.vars_xy, K_expr, 'numpy')
         Z = K_func(X, Y)
         title = 'Gaussian Curvature K(x, y)'
     elif quantity == 'ricci_scalar':

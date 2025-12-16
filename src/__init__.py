@@ -24,15 +24,15 @@ spectrum.
 
 The `psipy` ecosystem is composed of several powerful, interoperable modules:
 
-- **`PDESolver`**: The main numerical engine. It parses symbolic PDEs and solves
-  1D/2D, linear/nonlinear, time-dependent or stationary equations. It uses spectral
-  (FFT) methods with high-order exponential integrators (like ETD-RK4) for robust
-  time evolution.
-
 - **`PseudoDifferentialOperator`**: A complete symbolic and numerical framework for Pseudo-Differential
   Operators (ΨDOs). It supports symbolic calculus (composition, commutators, adjoints)
   and microlocal analysis (ellipticity, characteristic sets), bridging formal definitions
   with numerical evaluation on grids.
+  
+- **`PDESolver`**: The main numerical engine. It parses symbolic PDEs and solves
+  1D/2D, linear/nonlinear, time-dependent or stationary equations. It uses spectral
+  (FFT) methods with high-order exponential integrators (like ETD-RK4) for robust
+  time evolution.
 
 - **`LagrangianHamiltonianConverter` & `HamiltonianSymbolicConverter`**: A symbolic toolkit for analytical mechanics. It performs purely
   symbolic Legendre transforms (L ↔ H) and can automatically generate formal symbolic
