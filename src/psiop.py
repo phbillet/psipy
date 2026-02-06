@@ -20,223 +20,10 @@ This package offers the following options:
 """
 
 from imports import *
+from caustics import * 
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import warnings
-
-# ==================================================================
-# CAUSTIC DETECTION AND CLASSIFICATION
-# ==================================================================
-
-class CausticDetector:
-    """
-    Detect and classify caustics in ray families.
-    
-    Caustic types:
-    - Fold (A2): Generic 1-parameter family, corrected by Airy function
-    - Cusp (A3): Generic 2-parameter family, corrected by Pearcey function
-    - Swallowtail (A4): More degenerate, requires higher corrections
-    """
-    
-    def __init__(self, rays, dimension):
-        self.rays = rays
-        self.dimension = dimension
-        self.caustics = []
-    
-    def detect_caustics(self, threshold=1e-3):
-        """
-        Detect caustics by analyzing Jacobian of ray mapping.
-        
-        Caustic occurs when ∂(x,y)/∂(ray_param, t) = 0
-        """
-        print("Detecting caustics...")
-        
-        for i, ray in enumerate(self.rays):
-            if self.dimension == 1:
-                caustics_1d = self._detect_1d_caustics(ray, i)
-                self.caustics.extend(caustics_1d)
-            else:
-                caustics_2d = self._detect_2d_caustics(ray, i, threshold)
-                self.caustics.extend(caustics_2d)
-        
-        print(f"Found {len(self.caustics)} caustic points")
-        return self.caustics
-    
-    def _detect_1d_caustics(self, ray, ray_idx):
-        """
-        In 1D, caustic occurs when dx/dt = 0 (ray turns around).
-        """
-        caustics = []
-        
-        x = ray['x']
-        t = ray['t']
-        
-        # Compute velocity
-        dxdt = np.gradient(x, t)
-        
-        # Find sign changes (turning points)
-        sign_changes = np.where(np.diff(np.sign(dxdt)))[0]
-        
-        for idx in sign_changes:
-            caustics.append({
-                'type': 'fold',  # 1D caustics are always folds
-                'ray_idx': ray_idx,
-                'time_idx': idx,
-                'position': x[idx],
-                'time': t[idx],
-                'caustic_type': 'A2'
-            })
-        
-        return caustics
-    
-    def _detect_2d_caustics(self, ray, ray_idx, threshold):
-        """
-        In 2D, caustic occurs when det(Jacobian) ≈ 0.
-        Classify type by eigenvalues of Hessian.
-        """
-        caustics = []
-        
-        x = ray['x']
-        y = ray['y']
-        xi = ray['xi']
-        eta = ray['eta']
-        t = ray['t']
-        
-        # Numerical Jacobian along ray
-        # J = [[∂x/∂t, ∂x/∂s], [∂y/∂t, ∂y/∂s]]
-        # Approximate using neighboring rays (would need full family)
-        
-        # Simpler criterion: momentum magnitude
-        p_mag = np.sqrt(xi**2 + eta**2)
-        
-        # Look for near-zero momentum (approximate caustic indicator)
-        near_zero = np.where(p_mag < threshold)[0]
-        
-        for idx in near_zero:
-            # Classify caustic type by analyzing trajectory curvature
-            if idx > 0 and idx < len(t) - 1:
-                # Second derivatives
-                d2x = x[idx+1] - 2*x[idx] + x[idx-1]
-                d2y = y[idx+1] - 2*y[idx] + y[idx-1]
-                curvature = np.sqrt(d2x**2 + d2y**2)
-                
-                # Simple classification
-                if curvature < 0.1:
-                    caustic_type = 'A2'  # Fold
-                    correction_type = 'airy'
-                else:
-                    caustic_type = 'A3'  # Cusp
-                    correction_type = 'pearcey'
-                
-                caustics.append({
-                    'type': correction_type,
-                    'ray_idx': ray_idx,
-                    'time_idx': idx,
-                    'position': (x[idx], y[idx]),
-                    'time': t[idx],
-                    'caustic_type': caustic_type,
-                    'curvature': curvature
-                })
-        
-        return caustics
-    
-    def compute_maslov_index(self, ray):
-        """
-        Compute Maslov index: number of caustics crossed × π/2.
-        
-        The Maslov index accumulates phase jumps at caustics.
-        """
-        maslov = 0
-        
-        if self.dimension == 1:
-            x = ray['x']
-            dxdt = np.gradient(x, ray['t'])
-            # Count sign changes
-            maslov = len(np.where(np.diff(np.sign(dxdt)))[0])
-        else:
-            # In 2D, need to track conjugate points
-            # Simplified: count momentum near-zeros
-            xi, eta = ray['xi'], ray['eta']
-            p_mag = np.sqrt(xi**2 + eta**2)
-            maslov = len(np.where(p_mag < 0.01)[0])
-        
-        return maslov * np.pi / 2
-
-
-# ==================================================================
-# SPECIAL FUNCTIONS FOR CAUSTIC CORRECTIONS
-# ==================================================================
-
-class CausticFunctions:
-    """
-    Special functions for caustic corrections.
-    """
-    
-    @staticmethod
-    def airy_uniform(z):
-        """
-        Airy function Ai(z) for fold caustic correction.
-        
-        Near a fold caustic, the WKB solution is replaced by:
-        u(x) ≈ A(x) · Ai((x-x_c)/ε^{2/3}) · exp(iS(x)/ε)
-        """
-        return airy(z)[0]
-    
-    @staticmethod
-    def airy_derivative(z):
-        """
-        Derivative of Airy function Ai'(z).
-        """
-        return airy(z)[1]
-    
-    @staticmethod
-    def pearcey_integral(x, y):
-        """
-        Pearcey integral for cusp caustic (A3 singularity).
-        
-        P(x,y) = ∫_{-∞}^{∞} exp(i(t^4 + xt^2 + yt)) dt
-        
-        This is more complex and typically requires numerical integration.
-        Simplified implementation using stationary phase.
-        """
-        # Number of integration points
-        n_pts = 200
-        t = np.linspace(-5, 5, n_pts)
-        dt = t[1] - t[0]
-        
-        # Phase function: φ(t) = t^4 + x*t^2 + y*t
-        phase = t**4 + x * t**2 + y * t
-        
-        # Numerical integration
-        integrand = np.exp(1j * phase)
-        result = np.trapz(integrand, dx=dt)
-        
-        return result
-    
-    @staticmethod
-    def pearcey_approx(x, y):
-        """
-        Approximate Pearcey function using asymptotic expansion.
-        Faster but less accurate than full integration.
-        """
-        # Asymptotic form for large |x|, |y|
-        r = np.sqrt(x**2 + y**2) + 1e-10
-        
-        if r > 2:
-            # Asymptotic expansion
-            return np.exp(1j * (x**2/4 + y**2/(4*x))) / np.sqrt(r)
-        else:
-            # Fall back to numerical
-            return CausticFunctions.pearcey_integral(x, y)
-    
-    @staticmethod
-    def maslov_phase_shift(n_caustics):
-        """
-        Phase shift from Maslov index.
-        
-        Each caustic crossed adds π/2 to the phase.
-        """
-        return n_caustics * np.pi / 2
 
 class PseudoDifferentialOperator:
     """
@@ -428,8 +215,7 @@ class PseudoDifferentialOperator:
 
     def apply(self, u, x_grid, kx, boundary_condition='periodic', 
               y_grid=None, ky=None, dealiasing_mask=None,
-              freq_window='gaussian', clamp=1e6, space_window=False,
-              wkb_mode=False, wkb_order=1, epsilon=None):
+              freq_window='gaussian', clamp=1e6, space_window=False):
         """
         Apply the pseudo-differential operator to the input field u.
     
@@ -471,13 +257,6 @@ class PseudoDifferentialOperator:
             Clamp symbol values to [-clamp, clamp]
         space_window : bool
             Apply spatial windowing
-        wkb_mode : bool or dict
-            If True, treat u as WKB solution dict and use apply_to_wkb()
-            If dict, must be the WKB solution itself (u parameter ignored)
-        wkb_order : int
-            Order for WKB application (only used if wkb_mode=True)
-        epsilon : float
-            Semi-classical parameter for WKB (only used if wkb_mode=True)
             
         Returns
         -------
@@ -486,11 +265,6 @@ class PseudoDifferentialOperator:
         """
         # Check if symbol depends on spatial variables
         is_spatial = self._is_spatial_dependent()
-        
-        # Case 0: using WKB approximation
-        if wkb_mode:
-            wkb_solution = u if isinstance(wkb_mode, bool) and isinstance(u, dict) else wkb_mode
-            return self.apply_to_wkb(wkb_solution, order=wkb_order, epsilon=epsilon)
             
         # Case 1: Constant symbol with periodic BC (fast path)
         if not is_spatial and boundary_condition == 'periodic':
@@ -541,111 +315,6 @@ class PseudoDifferentialOperator:
         
         else:
             raise ValueError(f"Invalid boundary condition '{boundary_condition}'")
-
-    def apply_to_wkb(self, wkb_solution, order=1, epsilon=None):
-        """Apply pseudo-differential operator to WKB solution.
-        
-        Parameters:
-        -----------
-        wkb_solution : dict
-            WKB solution with keys: 'S', 'a', 'x', ('y'), 'dimension', 'epsilon'
-        order : int
-            Order of approximation (0, 1, or 2)
-        epsilon : float
-            Semi-classical parameter (uses wkb_solution['epsilon'] if None)
-        
-        Returns:
-        --------
-        dict : Modified WKB solution with operator applied
-        """
-        if epsilon is None:
-            epsilon = wkb_solution.get('epsilon', 0.1)
-        
-        if not hasattr(self, 'derivatives'):
-            self._compute_symbol_derivatives()
-        
-        dim = wkb_solution['dimension']
-        if dim != self.dim:
-            raise ValueError(f'Dimension mismatch: operator is {self.dim}D, solution is {dim}D')
-        
-        S = wkb_solution['S']
-        a_input = wkb_solution['a'][0] if isinstance(wkb_solution['a'], dict) else wkb_solution['a']
-        
-        if dim == 1:
-            x_grid = wkb_solution['x']
-            dS_dx = np.gradient(S, x_grid)
-            
-            # Order 0
-            p_vals = self.p_func(x_grid, dS_dx)
-            b0 = p_vals * a_input
-            amplitudes = {0: b0}
-            
-            if order >= 1:
-                d2S_dx2 = np.gradient(dS_dx, x_grid)
-                da0_dx = np.gradient(a_input, x_grid)
-                
-                d2p_dxi2 = self._d2p_dxi2_func(x_grid, dS_dx)
-                d2p_dxidx = self._d2p_dxidx_func(x_grid, dS_dx)
-                dp_dxi = self._dp_dxi_func(x_grid, dS_dx)
-                
-                if self.quantization == 'weyl':
-                    b1 = 1j/2 * (d2p_dxi2 * d2S_dx2 * a_input + 2 * d2p_dxidx * da0_dx)
-                else:  # Kohn-Nirenberg
-                    b1 = 1j * dp_dxi * da0_dx
-                amplitudes[1] = b1
-            
-            if order >= 2:
-                amplitudes[2] = np.zeros_like(b0, dtype=complex)
-        
-        else:  # dim == 2
-            X, Y = wkb_solution['x'], wkb_solution['y']
-            dx = X[1,0] - X[0,0]
-            dy = Y[0,1] - Y[0,0]
-            
-            dS_dx = np.gradient(S, axis=0) / dx
-            dS_dy = np.gradient(S, axis=1) / dy
-            
-            # Order 0
-            p_vals = self.p_func(X, Y, dS_dx, dS_dy)
-            b0 = p_vals * a_input
-            amplitudes = {0: b0}
-            
-            if order >= 1:
-                d2S_dx2 = np.gradient(dS_dx, axis=0) / dx
-                d2S_dy2 = np.gradient(dS_dy, axis=1) / dy
-                da0_dx = np.gradient(a_input, axis=0) / dx
-                da0_dy = np.gradient(a_input, axis=1) / dy
-                
-                d2p_dxi2 = self._d2p_dxi2_func(X, Y, dS_dx, dS_dy)
-                d2p_deta2 = self._d2p_deta2_func(X, Y, dS_dx, dS_dy)
-                d2p_dxidx = self._d2p_dxidx_func(X, Y, dS_dx, dS_dy)
-                d2p_detady = self._d2p_detady_func(X, Y, dS_dx, dS_dy)
-                
-                if self.quantization == 'weyl':
-                    b1 = 1j/2 * (d2p_dxi2 * d2S_dx2 * a_input + 
-                                 d2p_deta2 * d2S_dy2 * a_input + 
-                                 2 * d2p_dxidx * da0_dx + 
-                                 2 * d2p_detady * da0_dy)
-                else:
-                    dp_dxi = self._dp_dxi_func(X, Y, dS_dx, dS_dy)
-                    dp_deta = self._dp_deta_func(X, Y, dS_dx, dS_dy)
-                    b1 = 1j * (dp_dxi * da0_dx + dp_deta * da0_dy)
-                amplitudes[1] = b1
-            
-            if order >= 2:
-                amplitudes[2] = np.zeros_like(b0, dtype=complex)
-        
-        # Combine amplitudes
-        a_total = sum(epsilon**k * amplitudes[k] for k in range(order + 1))
-        u_output = a_total * np.exp(1j * S / epsilon)
-        
-        result = wkb_solution.copy()
-        result['u'] = u_output
-        result['a'] = amplitudes
-        result['a_total'] = a_total
-        result['operator_applied'] = str(self.symbol)
-        
-        return result
     
     def _is_spatial_dependent(self):
         """
@@ -3350,19 +3019,56 @@ def wkb_approximation(symbol, initial_phase, order=1, domain=None,
         
     Examples
     --------
-    # 1D example
+    >>> from sympy import symbols, sqrt
+    >>> 
+    >>> # 1D harmonic oscillator
     >>> x, xi = symbols('x xi', real=True)
-    >>> p = xi**2 - (1 + 0.1*x)**2  # Variable speed wave equation
-    >>> ic = {'x': [0], 'S': [0], 'p_x': [1.0], 'a': {0: [1.0]}}
-    >>> sol = wkb_approximation(p, ic, order=2, domain=(-5, 5), epsilon=0.1)
+    >>> symbol = xi**2 + x**2  # p(x,ξ) = ξ² + x²
+    >>> 
+    >>> # Initial conditions: Gaussian wave packet
+    >>> n_rays = 20
+    >>> x0 = np.linspace(-2, 2, n_rays)
+    >>> initial = {
+    ...     'x': x0,
+    ...     'p_x': np.ones(n_rays),  # momentum = 1
+    ...     'S': 0.5 * x0**2,         # phase
+    ...     'a': np.exp(-x0**2)       # Gaussian amplitude
+    ... }
+    >>> 
+    >>> result = wkb_approximation(
+    ...     symbol, initial, order=2, epsilon=0.05, resolution=100
+    ... )
+    >>> 
+    >>> # Extract solution
+    >>> x_grid = result['x']
+    >>> u = result['u']
+    >>> plt.plot(x_grid, np.abs(u))
     
-    # 2D example
+    >>> # 2D wave equation
     >>> x, y, xi, eta = symbols('x y xi eta', real=True)
-    >>> p = xi**2 + eta**2 - 1  # 2D wave equation
-    >>> n = 20
-    >>> ic = {'x': np.linspace(-1, 1, n), 'y': np.zeros(n),
-    ...       'S': np.zeros(n), 'p_x': np.ones(n), 'p_y': np.zeros(n)}
-    >>> sol = wkb_approximation(p, ic, order=2, domain=((-3,3),(-3,3)))
+    >>> c = 1.0  # wave speed
+    >>> symbol = xi**2 + eta**2 - c**2
+    >>> 
+    >>> # Point source initial conditions
+    >>> theta = np.linspace(0, 2*np.pi, 30, endpoint=False)
+    >>> r0 = 0.5
+    >>> initial = {
+    ...     'x': r0 * np.cos(theta),
+    ...     'y': r0 * np.sin(theta),
+    ...     'p_x': np.cos(theta),
+    ...     'p_y': np.sin(theta),
+    ...     'S': np.zeros(30),
+    ...     'a': np.ones(30)
+    ... }
+    >>> 
+    >>> result = wkb_approximation(
+    ...     symbol, initial, order=1, epsilon=0.1, resolution=(80, 80)
+    ... )
+    >>> 
+    >>> # Visualize 2D solution
+    >>> X, Y = result['x'], result['y']
+    >>> U = result['u']
+    >>> plt.pcolormesh(X, Y, np.abs(U))
     """  
     base_solution = _compute_base_wkb(symbol, initial_phase, order, domain,
                                       resolution, epsilon, dimension)
@@ -3400,7 +3106,193 @@ def wkb_approximation(symbol, initial_phase, order=1, domain=None,
 def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
                 resolution=50, epsilon=0.1, dimension=None):
     """
-    Compute multidimensional WKB approximation (1D or 2D).
+    Compute multidimensional WKB (Wentzel-Kramers-Brillouin) approximation for wave propagation.
+    
+    Constructs an asymptotic solution to a pseudo-differential equation using the WKB method,
+    which represents the solution as an oscillatory phase multiplied by a slowly varying amplitude:
+    
+        u(x, ε) = exp(iS(x)/ε) · Σₖ₌₀ⁿ εᵏ aₖ(x)
+    
+    where S(x) is the eikonal (phase function), aₖ(x) are transport amplitudes, and ε is a 
+    small parameter representing the inverse wavelength. The method traces bicharacteristic rays
+    through phase space using Hamilton's equations and solves transport equations along these
+    rays to determine amplitude evolution.
+    
+    This implementation supports both 1D and 2D spatial domains and can compute multi-order
+    corrections (order 0 through 3+) to improve accuracy beyond the standard semiclassical limit.
+    
+    Mathematical Framework
+    ----------------------
+    Given a symbol p(x, ξ) defining the pseudo-differential operator, the WKB method solves:
+    
+    1. **Eikonal equation** (determines phase):
+       p(x, ∇S(x)) = 0
+       
+    2. **Transport equations** (determine amplitudes):
+       ∇ₓp·∇a₀ + (1/2)a₀∇ξ·∇ₓp = 0  (order 0)
+       [Higher-order corrections for k ≥ 1]
+    
+    The rays are computed via Hamilton's equations:
+       dx/dt = ∂p/∂ξ,    dξ/dt = -∂p/∂x
+       dS/dt = ξ·∂p/∂ξ - p
+    
+    Parameters
+    ----------
+    symbol : sympy.Expr
+        Symbolic expression for the principal symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D.
+        Must be written in terms of SymPy symbols and represent the dispersion relation
+        of the wave equation. Common examples:
+        - Schrödinger: ξ² + V(x)
+        - Wave equation: ξ² + η² - ω²
+        - Helmholtz: ξ² - k²(x)
+        
+    initial_phase : dict
+        Initial conditions for ray tracing at t=0. Must contain:
+        
+        **Required keys (1D)**:
+            - 'x' : array_like, shape (n_rays,)
+                Initial spatial positions
+            - 'p_x' : array_like, shape (n_rays,)
+                Initial momenta (ξ values)
+            - 'S' : array_like, shape (n_rays,)
+                Initial phase values
+                
+        **Required keys (2D)**:
+            - 'x', 'y' : array_like, shape (n_rays,)
+                Initial spatial positions
+            - 'p_x', 'p_y' : array_like, shape (n_rays,)
+                Initial momenta (ξ, η values)
+            - 'S' : array_like, shape (n_rays,)
+                Initial phase values
+                
+        **Optional key**:
+            - 'a' : array_like or dict
+                Initial amplitude values. Can be:
+                - Single array (n_rays,) → interpreted as a₀
+                - Dict {0: a₀, 1: a₁, ...} → multi-order amplitudes
+                If omitted, a₀ defaults to ones, higher orders to zeros.
+    
+    order : int, default=1
+        Maximum order of the asymptotic expansion. Higher orders include progressively
+        smaller corrections proportional to εᵏ:
+        - 0: Leading-order WKB (geometric optics)
+        - 1: First correction (includes caustic pre-factors)
+        - 2: Second correction (third-derivative terms)
+        - 3+: Higher corrections (simplified expressions)
+        
+    domain : tuple or None, default=None
+        Spatial domain for the output grid:
+        - 1D: (x_min, x_max)
+        - 2D: ((x_min, x_max), (y_min, y_max))
+        If None, automatically determined from ray extent with 10% margin.
+        
+    resolution : int or tuple, default=50
+        Grid resolution for interpolated output:
+        - int: Same resolution in all dimensions
+        - tuple: (nx,) for 1D or (nx, ny) for 2D
+        
+    epsilon : float, default=0.1
+        Small parameter ε representing the inverse wavelength or semiclassical parameter.
+        The solution is accurate when ε → 0. Typical values: 0.01 to 0.5.
+        
+    dimension : int or None, default=None
+        Spatial dimension (1 or 2). If None, automatically detected from initial_phase:
+        - Presence of 'y' and 'p_y' keys → dimension = 2
+        - Otherwise → dimension = 1
+    
+    Returns
+    -------
+    result : dict
+        Dictionary containing the computed WKB solution and diagnostic information:
+        
+        **Solution fields**:
+            - 'u' : ndarray, shape (nx,) or (nx, ny), complex
+                Complete WKB approximation: u = exp(iS/ε) · Σₖ εᵏaₖ
+            - 'S' : ndarray, shape (nx,) or (nx, ny), float
+                Interpolated phase function (eikonal)
+            - 'a' : dict of ndarrays
+                Individual amplitude orders: {0: a₀, 1: a₁, ..., order: aₙ}
+            - 'a_total' : ndarray, complex
+                Total amplitude: Σₖ εᵏaₖ (without phase factor)
+                
+        **Grid information**:
+            - 'x' : ndarray
+                Spatial grid in x direction (1D: shape (nx,), 2D: shape (nx, ny))
+            - 'y' : ndarray (2D only)
+                Spatial grid in y direction, shape (nx, ny)
+                
+        **Ray tracing data**:
+            - 'rays' : list of dict
+                Each dict contains traced ray data with keys:
+                't', 'x', 'y' (2D), 'xi', 'eta' (2D), 'S', 'a0', 'a1', ...
+            - 'n_rays' : int
+                Number of successfully traced rays
+                
+        **Metadata**:
+            - 'dimension' : int
+                Spatial dimension used (1 or 2)
+            - 'order' : int
+                Order of asymptotic expansion
+            - 'epsilon' : float
+                Small parameter value
+            - 'domain' : tuple
+                Spatial domain used for output grid
+    
+    Raises
+    ------
+    ValueError
+        - If dimension is not 1 or 2
+        - If required keys are missing from initial_phase
+        - If array lengths are inconsistent (e.g., len(x) ≠ len(y) in 2D)
+    RuntimeError
+        - If all rays fail to integrate (numerical instability)
+    
+    Notes
+    -----
+    **Validity and Limitations**:
+    
+    1. **Small ε assumption**: The WKB method is asymptotic in ε → 0. Results become
+       inaccurate for ε > 1 or near caustics where rays focus.
+       
+    2. **Caustics**: At caustics (where rays cross), the amplitude formally diverges.
+       This implementation does not include uniform asymptotic expansions needed for
+       caustic regions. Use with caution near focal points.
+       
+    3. **Turning points**: Classical turning points (where p = 0) require connection
+       formulas not implemented here. The method works best away from such points.
+       
+    4. **Interpolation artifacts**: The solution is interpolated from discrete rays
+       onto a regular grid. Ensure sufficient ray density (n_rays) and resolution
+       to avoid aliasing or gaps.
+    
+    **Numerical Implementation**:
+    
+    - Ray integration uses scipy.integrate.solve_ivp with RK45 (4th/5th order Runge-Kutta)
+    - Default tolerances: rtol=1e-6, atol=1e-9
+    - Integration time: t ∈ [0, 5] with 100 evaluation points per ray
+    - 1D interpolation: linear (interp1d)
+    - 2D interpolation: linear scattered data (griddata)
+    
+    **Computational Complexity**:
+    
+    - Ray tracing: O(n_rays × n_steps × n_derivatives)
+    - Grid interpolation: O(n_rays × n_steps × resolution^dimension)
+    - Memory: O(resolution^dimension) for output arrays
+    
+    References
+    ----------
+    .. [1] Maslov, V.P. and Fedoriuk, M.V. (1981). "Semi-Classical Approximation 
+           in Quantum Mechanics". Springer.
+    .. [2] Ralston, J. (1982). "Gaussian beams and the propagation of singularities". 
+           Studies in PDE, MAA Studies in Mathematics, 23, 206-248.
+    .. [3] Hörmander, L. (1985). "The Analysis of Linear Partial Differential Operators III".
+           Springer-Verlag.
+    
+    See Also
+    --------
+    scipy.integrate.solve_ivp : ODE solver used for ray tracing
+    scipy.interpolate.griddata : 2D interpolation method
+    numpy.fft : For comparison with spectral methods
     """  
     from scipy.integrate import solve_ivp  
     from scipy.interpolate import griddata, interp1d
