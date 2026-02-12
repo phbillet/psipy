@@ -123,6 +123,7 @@ from .symplectic_1d import *
 from .symplectic_2d import *
 from .microlocal_1d import *
 from .microlocal_2d import *
+from stationary_phase import *
 
 # Version du package
 __version__ = version("psipy")

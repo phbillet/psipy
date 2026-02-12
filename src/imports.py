@@ -27,10 +27,9 @@ from sympy import (
     gegenbauer, chebyshevu, legendre, assoc_legendre, hermite, laguerre, assoc_laguerre,
     diff, Derivative, integrate, 
     fourier_transform, inverse_fourier_transform,zeros
-
 )
 from sympy.core.function import AppliedUndef
-from scipy.special import legendre, eval_hermite, airy, eval_genlaguerre, jv, kv, sph_harm, gamma
+from scipy.special import legendre, eval_hermite, airy, eval_genlaguerre, jv, kv, sph_harm_y, gamma
 from scipy.spatial.distance import cdist
 from scipy.stats import norm
 from scipy.stats import wasserstein_distance
