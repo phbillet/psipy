@@ -468,6 +468,241 @@ class StationaryPhaseEvaluator:
             )
 
     def _eval_morse_order2(self, cp: CriticalPoint, lam: float) -> AsymptoticContribution:
+            """
+            Evaluate the asymptotic contribution for a non-degenerate (Morse) critical point.
+            
+            This method implements the standard stationary phase formula with second-order 
+            correction terms for oscillatory integrals of the form:
+            
+                I(λ) = ∫ a(x) exp(iλφ(x)) dx
+            
+            as λ → ∞. The asymptotic expansion is:
+            
+                I(λ) ≈ I₀(λ) + I₁(λ) + O(λ^(-n/2-2))
+            
+            where I₀ is the leading term (order λ^(-n/2)) and I₁ is the first correction 
+            (order λ^(-n/2-1)).
+            
+            Leading Term (Order 0)
+            ----------------------
+            The dominant contribution from the critical point x_c where ∇φ(x_c) = 0:
+            
+                I₀(λ) = (2π)^(n/2) / (λ^(n/2) √|det H|) × exp(iλφ(x_c)) × a(x_c) × exp(iπμ/4)
+            
+            Components:
+                - (2π/λ)^(n/2): Gaussian prefactor from the quadratic approximation
+                - √|det H|: Determinant of the Hessian matrix H = ∇²φ(x_c)
+                - exp(iλφ(x_c)): Rapid oscillation at the critical point
+                - a(x_c): Amplitude function evaluated at the critical point
+                - exp(iπμ/4): Maslov phase correction, where μ = n - 2σ is the Morse index
+                  (n = dimension, σ = signature = number of negative eigenvalues of H)
+            
+            Correction Term (Order 1)
+            -------------------------
+            The next-order contribution accounts for:
+            1. Non-constant amplitude (amplitude derivatives)
+            2. Cubic phase anharmonicity (third derivatives of φ)
+            3. Quartic phase anharmonicity (fourth derivatives of φ)
+            
+                I₁(λ) = I₀(λ) / (iλ) × C
+            
+            where the correction factor C is:
+            
+                C = (1/2) Tr(H⁻¹ ∇²a) - (1/2) ⟨H⁻¹∇a, V⟩ + (a(x_c)/24) (5S₃ - 3S₄)
+            
+            Term breakdown:
+            
+            1. Amplitude Laplacian term: (1/2) Tr(H⁻¹ ∇²a)
+               - Captures the effect of amplitude curvature at the critical point
+               - H⁻¹ "twists" the Laplacian by the phase geometry
+            
+            2. Mixed amplitude-phase term: -(1/2) ⟨H⁻¹∇a, V⟩
+               - Couples amplitude gradient with cubic phase nonlinearity
+               - V_k = Σᵢⱼ (H⁻¹)ᵢⱼ ∂³φ/∂xᵢ∂xⱼ∂xₖ
+            
+            3. Pure phase anharmonicity: (a(x_c)/24) (5S₃ - 3S₄)
+               - S₄: Quartic term = Σᵢⱼₖₗ (H⁻¹)ᵢⱼ (H⁻¹)ₖₗ ∂⁴φ/∂xᵢ∂xⱼ∂xₖ∂xₗ
+               - S₃: Cubic term = Σᵢⱼₖₗₘₙ (H⁻¹)ᵢⱼ (H⁻¹)ₖₗ (H⁻¹)ₘₙ D³φᵢₖₘ D³φⱼₗₙ
+               - The coefficients 5 and 3 come from Feynman diagram combinatorics
+            
+            Mathematical Background
+            -----------------------
+            The correction terms arise from expanding the integrand to higher orders in 
+            (x - x_c) around the critical point and performing Gaussian integrals. The 
+            coefficients are determined by the topology of Feynman diagrams:
+            - S₃ corresponds to "theta graph" diagrams (three-loop)
+            - S₄ corresponds to "sunset" diagrams (two-loop with quartic vertex)
+            
+            The factors of 1/2 in the amplitude terms come from the expansion of the 
+            Gaussian measure, while the 5 and 3 in the phase term arise from diagram 
+            symmetry factors.
+            
+            Parameters
+            ----------
+            cp : CriticalPoint
+                Critical point with non-zero Hessian determinant (det H ≠ 0).
+                Must contain: position, phase_value, amplitude_value, hessian_matrix,
+                hessian_inv, signature, grad_amp, hess_amp, phase_d3, phase_d4.
+            lam : float
+                Large frequency parameter λ. The asymptotic approximation improves 
+                as λ → ∞. Typically valid for λ ≳ 10.
+                
+            Returns
+            -------
+            AsymptoticContribution
+                Object containing:
+                - leading_term: I₀(λ), the dominant O(λ^(-n/2)) contribution
+                - correction_term: I₁(λ), the O(λ^(-n/2-1)) correction
+                - total_value: I₀(λ) + I₁(λ)
+                - point: Reference to the input critical point
+                - order_leading: n/2 (the decay exponent)
+            
+            Notes
+            -----
+            The correction term becomes negligible for large λ. The ratio
+            |I₁/I₀| ~ O(λ⁻¹) should decrease linearly on a log-log plot, which
+            can be verified using the convergence diagnostic tools.
+            
+            For dimension n=2, the leading term scales as O(λ⁻¹) and the correction 
+            as O(λ⁻²), providing rapid asymptotic convergence.
+            
+            References
+            ----------
+            .. [1] Hörmander, L. "The Analysis of Linear Partial Differential Operators I" 
+                   (1983), Chapter 7: Oscillatory Integrals
+            .. [2] Berry, M.V. & Howls, C.J. "High orders of the Weyl expansion for quantum 
+                   billiards" Physical Review E 50.5 (1994): 3577-3595
+            .. [3] Wong, R. "Asymptotic Approximations of Integrals" (1989), Chapter 2
+            
+            Examples
+            --------
+            >>> # For a Gaussian phase φ = x²/2 + y²/2 with constant amplitude a = 1
+            >>> # at the critical point (0, 0), the leading term is:
+            >>> # I₀(λ) = 2π/λ (exact for Gaussian)
+            >>> evaluator = StationaryPhaseEvaluator()
+            >>> contribution = evaluator._eval_morse_order2(cp, lam=100)
+            >>> print(f"Leading: {contribution.leading_term:.4e}")
+            >>> print(f"Correction: {contribution.correction_term:.4e}")
+            >>> print(f"Ratio: {abs(contribution.correction_term/contribution.leading_term):.2%}")
+            """
+            dim = cp.position.shape[0]
+            
+            # ============================================================================
+            # LEADING TERM (Order λ^(-n/2))
+            # ============================================================================
+            # Compute the dominant Gaussian contribution from the quadratic approximation
+            # of the phase near the critical point.
+            
+            # Gaussian prefactor: (2π/λ)^(n/2)
+            # This comes from the n-dimensional Gaussian integral formula
+            prefactor = (2 * np.pi / lam) ** (dim / 2.0)
+            
+            # Maslov phase: exp(iπμ/4) where μ = n - 2σ (Morse index)
+            # Accounts for the topology of the phase function at the critical point
+            # σ = signature = number of negative eigenvalues of the Hessian
+            maslov = np.exp(1j * np.pi / 4 * (dim - 2 * cp.signature))
+            
+            # Rapid oscillatory factor: exp(iλφ(x_c))
+            # This is the phase evaluated at the critical point
+            phase_osc = np.exp(1j * lam * cp.phase_value)
+            
+            # Geometric factor: 1/√|det H|
+            # The Hessian determinant measures the "curvature volume" at the critical point
+            denom = np.sqrt(np.abs(cp.hessian_det))
+            
+            # Amplitude at critical point: a(x_c)
+            leading_amp = cp.amplitude_value
+            
+            # Combine all factors for the leading term
+            term_0 = (prefactor / denom) * phase_osc * maslov * leading_amp
+            
+            # ============================================================================
+            # CORRECTION TERM (Order λ^(-n/2-1))
+            # ============================================================================
+            # Compute next-order corrections from amplitude derivatives and phase 
+            # anharmonicity (cubic and quartic terms in the Taylor expansion).
+            
+            # Inverse Hessian matrix: H⁻¹ = (∇²φ)⁻¹
+            # Used to "propagate" corrections through the phase geometry
+            H_inv = cp.hessian_inv
+            
+            # ------------------------------------------------------------------------
+            # Term 1: Amplitude Laplacian Contribution
+            # ------------------------------------------------------------------------
+            # Measures how the amplitude curvature affects the integral
+            # Formula: (1/2) Tr(H⁻¹ ∇²a)
+            # 
+            # Physical interpretation: If the amplitude has negative curvature along
+            # directions where the phase is flat (small eigenvalues of H), this term
+            # can become significant.
+            term_amp = 0.5 * np.einsum('ij,ij->', H_inv, cp.hess_amp)
+            
+            # ------------------------------------------------------------------------
+            # Term 2: Mixed Amplitude-Phase Contribution
+            # ------------------------------------------------------------------------
+            # Couples the amplitude gradient with cubic phase terms
+            # 
+            # Step 1: Contract H⁻¹ with D³φ to get effective vector V_k
+            # V_k = Σᵢⱼ (H⁻¹)ᵢⱼ ∂³φ/∂xᵢ∂xⱼ∂xₖ
+            # This vector represents the "cubic force" felt by the amplitude gradient
+            V = np.einsum('ij,ijk->k', H_inv, cp.phase_d3)
+            
+            # Step 2: Inner product of (H⁻¹∇a) with V, scaled by -1/2
+            # Formula: -(1/2) ⟨H⁻¹∇a, V⟩
+            # 
+            # Physical interpretation: If amplitude increases along directions where 
+            # phase has strong cubic nonlinearity, this coupling enhances the contribution
+            term_mix = -0.5 * np.dot(np.dot(H_inv, cp.grad_amp), V)
+            
+            # ------------------------------------------------------------------------
+            # Term 3: Pure Phase Anharmonicity
+            # ------------------------------------------------------------------------
+            # Captures corrections from non-quadratic phase terms (cubic and quartic)
+            # These arise from expanding exp(iλφ(x)) beyond the Gaussian approximation
+            
+            # S₄: Quartic contraction
+            # Contract the fourth derivative tensor D⁴φ with two copies of H⁻¹
+            # Formula: Σᵢⱼₖₗ (H⁻¹)ᵢⱼ (H⁻¹)ₖₗ ∂⁴φ/∂xᵢ∂xⱼ∂xₖ∂xₗ
+            # 
+            # Corresponds to Feynman diagrams with a single quartic vertex
+            S4 = np.einsum('ij,kl,ijkl->', H_inv, H_inv, cp.phase_d4)
+            
+            # S₃: Cubic contraction (Theta graph)
+            # Contract two copies of D³φ with three copies of H⁻¹
+            # Formula: Σᵢⱼₖₗₘₙ (H⁻¹)ᵢⱼ (H⁻¹)ₖₗ (H⁻¹)ₘₙ D³φᵢₖₘ D³φⱼₗₙ
+            # 
+            # Corresponds to Feynman diagrams with two cubic vertices connected in a loop
+            # (the "theta graph" topology)
+            S3 = np.einsum('ij,kl,mn,ikm,jln->', H_inv, H_inv, H_inv, cp.phase_d3, cp.phase_d3)
+            
+            # Combine cubic and quartic contributions with diagram symmetry factors
+            # Formula: (a₀/24) (5S₃ - 3S₄)
+            # 
+            # The coefficients 5 and 3 arise from:
+            # - Combinatorial factors in the Taylor expansion
+            # - Symmetry factors of Feynman diagrams (vertex permutations)
+            # - Wick's theorem for Gaussian integrals
+            term_phase = (cp.amplitude_value / 24.0) * (5.0 * S3 - 3.0 * S4)
+            
+            # Sum all three correction contributions
+            correction_factor = term_amp + term_mix + term_phase
+            
+            # Scale correction by 1/(iλ) relative to leading term
+            # The factor of i comes from ∫ x² exp(iλφ) dx ∝ -i/λ ∫ ∂²/∂λ² exp(iλφ) dx
+            val_correction = (prefactor / denom) * phase_osc * maslov * (correction_factor / (1j * lam))
+            
+            # ============================================================================
+            # RETURN ASYMPTOTIC CONTRIBUTION
+            # ============================================================================
+            return AsymptoticContribution(
+                leading_term=term_0,
+                correction_term=val_correction,
+                total_value=term_0 + val_correction,
+                point=cp,
+                order_leading=dim/2.0
+            )
+    
+    def _eval_morse_order2_old(self, cp: CriticalPoint, lam: float) -> AsymptoticContribution:
         """
         Evaluate the asymptotic contribution for a non-degenerate (Morse) critical point.
         
