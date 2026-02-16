@@ -808,7 +808,7 @@ class StationaryPhaseEvaluator:
             ∫ exp(iλ α x³/3) dx
         
         The exact asymptotic formula is:
-            I(λ) = 2π Ai(0) × (3λ|α|)^(-1/3) × exp(iπ/6 × sign(α))
+            I(λ) = 2π Ai(0) × (λ|α|)^(-1/3) × exp(iπ/6 × sign(α))
         
         where:
             - Ai(0) ≈ 0.355028... is the Airy function at zero
@@ -842,8 +842,8 @@ class StationaryPhaseEvaluator:
         # Exact value of Ai(0)
         Ai0 = airy(0)[0]  # ≈ 0.3550280538878172
         
-        # Scale factor: (3 λ |α|)^(-1/3)
-        scale = (3 * lam * abs(alpha)) ** (-1/3)
+        # Scale factor: (λ |α|)^(-1/3)
+        scale = (lam * abs(alpha)) ** (-1/3)
         
         # Maslov phase for Airy: exp(i π/6 * sign(α))
         # Since ∫ exp(i t³/3) dt = 2π Ai(0) and ∫ exp(-i t³/3) dt = 2π Ai(0) * exp(-iπ/3)
@@ -889,13 +889,13 @@ class StationaryPhaseEvaluator:
         beta = coeffs['quadratic_transverse']
         
         # Transverse Gaussian Integral
-        scale_v = np.sqrt(np.pi / (lam * np.abs(beta)))
+        scale_v = np.sqrt(2 * np.pi / (lam * np.abs(beta)))
         phase_v = np.exp(1j * np.pi/4 * np.sign(beta))
         
         # Degenerate Airy Integral with Maslov phase
-        # ∫ exp(i λ α u³/3) du = 2π Ai(0) (3λ|α|)^{-1/3} exp(i π/6 · sign(α))
+        # ∫ exp(i λ α u³/3) du = 2π Ai(0) (λ|α|)^{-1/3} exp(i π/6 · sign(α))
         Ai0 = airy(0)[0]
-        scale_u = 2 * np.pi * Ai0 * (3 * lam * np.abs(alpha))**(-1.0/3.0)
+        scale_u = 2 * np.pi * Ai0 * (lam * np.abs(alpha))**(-1.0/3.0)
         phase_u = np.exp(1j * np.pi / 6.0 * np.sign(alpha))  # ← MASLOV PHASE ADDED
         
         val = (cp.amplitude_value * np.exp(1j * lam * cp.phase_value) * scale_u * phase_u * scale_v * phase_v)
@@ -943,7 +943,7 @@ class StationaryPhaseEvaluator:
             return AsymptoticContribution(0j, 0j, 0j, cp, 0.75)
         
         # MAJOR CORRECTION: exact asymptotic constant
-        pearcey_factor = 0.5 * gamma(0.25) * (1.0 / (lam * abs(gamma_coeff)))**0.25
+        pearcey_factor = 0.5 * gamma(0.25) * (4.0 / (lam * abs(gamma_coeff)))**0.25
         
         # Transverse Gaussian factor (already correct)
         gaussian_factor = np.sqrt(2.0 * np.pi / (lam * abs(beta_coeff)))
