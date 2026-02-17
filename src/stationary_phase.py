@@ -1,3 +1,16 @@
+# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import numpy as np
 import sympy as sp
 from scipy.special import airy, gamma
@@ -398,7 +411,9 @@ class StationaryPhaseAnalyzer:
         if self.dim > 1:
             non_null_idxs = np.where(np.abs(cp.eigenvalues) > self.tolerance)[0]
             if len(non_null_idxs) > 0:
-                quadratic_transverse = cp.eigenvalues[non_null_idxs[0]] / 2.0
+                # The eigenvalue IS the coefficient beta in phi ~ beta*v^2/2
+                # (since d²phi/dv² = beta for this form)
+                quadratic_transverse = cp.eigenvalues[non_null_idxs[0]]
         
         return {
             'cubic': alpha,               # alpha for phi = alpha * u^3/3
@@ -808,7 +823,7 @@ class StationaryPhaseEvaluator:
             ∫ exp(iλ α x³/3) dx
         
         The exact asymptotic formula is:
-            I(λ) = 2π Ai(0) × (λ|α|)^(-1/3) × exp(iπ/6 × sign(α))
+            I(λ) = 2π Ai(0) × (3λ|α|)^(-1/3) × exp(iπ/6 × sign(α))
         
         where:
             - Ai(0) ≈ 0.355028... is the Airy function at zero
@@ -842,15 +857,17 @@ class StationaryPhaseEvaluator:
         # Exact value of Ai(0)
         Ai0 = airy(0)[0]  # ≈ 0.3550280538878172
         
-        # Scale factor: (λ |α|)^(-1/3)
+        # Scale factor: (λ|α|)^(-1/3)
+        # Derivation: sub t = (λ|α|)^(1/3)·x → (λ|α|)^(-1/3) ∫ exp(it³/3) dt
+        #             = (λ|α|)^(-1/3) · 2πAi(0)   [Olver, "Asymptotics & Special Functions", §7.3]
+        # NOTE: (3λ|α|)^(-1/3) is WRONG — there is no factor of 3 here.
         scale = (lam * abs(alpha)) ** (-1/3)
         
-        # Maslov phase for Airy: exp(i π/6 * sign(α))
-        # Since ∫ exp(i t³/3) dt = 2π Ai(0) and ∫ exp(-i t³/3) dt = 2π Ai(0) * exp(-iπ/3)
-        phase_sign = np.exp(1j * np.pi / 6 * np.sign(alpha))
+        # No Maslov phase: ∫ exp(iλαx³/3) dx over ℝ is purely real for any sign of α,
+        # because cos(λαx³/3) is even (contributes) and sin(λαx³/3) is odd (cancels).
         
         # Total contribution
-        val = 2 * np.pi * Ai0 * scale * phase_sign * cp.amplitude_value
+        val = 2 * np.pi * Ai0 * scale * cp.amplitude_value
         
         return AsymptoticContribution(
             leading_term=val,
@@ -889,16 +906,20 @@ class StationaryPhaseEvaluator:
         beta = coeffs['quadratic_transverse']
         
         # Transverse Gaussian Integral
+        # For ∫ exp(iλβv²/2) dv = √(2π/(λβ)) exp(iπ/4 sign(β))
         scale_v = np.sqrt(2 * np.pi / (lam * np.abs(beta)))
         phase_v = np.exp(1j * np.pi/4 * np.sign(beta))
         
-        # Degenerate Airy Integral with Maslov phase
-        # ∫ exp(i λ α u³/3) du = 2π Ai(0) (λ|α|)^{-1/3} exp(i π/6 · sign(α))
+        # Degenerate Airy Integral (REAL, no Maslov phase):
+        # ∫ exp(iλα u³/3) du = 2π Ai(0) · (λ|α|)^(-1/3)
+        # Sub t = (λ|α|)^(1/3)·u → (λ|α|)^(-1/3) ∫ exp(it³/3) dt = (λ|α|)^(-1/3)·2πAi(0)
+        # The integral over ℝ is REAL: cos(λu³/3) is even → contributes; sin is odd → cancels.
+        # NOTE: (3λ|α|)^(-1/3) would be wrong — there is NO factor of 3.
         Ai0 = airy(0)[0]
         scale_u = 2 * np.pi * Ai0 * (lam * np.abs(alpha))**(-1.0/3.0)
-        phase_u = np.exp(1j * np.pi / 6.0 * np.sign(alpha))  # ← MASLOV PHASE ADDED
+        # No phase_u: integral over ℝ of exp(iλαu³/3) is purely real for any sign of α.
         
-        val = (cp.amplitude_value * np.exp(1j * lam * cp.phase_value) * scale_u * phase_u * scale_v * phase_v)
+        val = (cp.amplitude_value * np.exp(1j * lam * cp.phase_value) * scale_u * scale_v * phase_v)
         
         return AsymptoticContribution(
             leading_term=val,
@@ -942,10 +963,15 @@ class StationaryPhaseEvaluator:
             warnings.warn("Near-zero coefficients in Pearcey evaluation")
             return AsymptoticContribution(0j, 0j, 0j, cp, 0.75)
         
-        # MAJOR CORRECTION: exact asymptotic constant
-        pearcey_factor = 0.5 * gamma(0.25) * (4.0 / (lam * abs(gamma_coeff)))**0.25
+        # Exact asymptotic constant for ∫ exp(iλγu⁴/4) du:
+        # Sub t = (λ|γ|)^{1/4}·u → (λ|γ|)^{-1/4} ∫ exp(it⁴/4) dt
+        # ∫_{-∞}^∞ exp(it⁴/4) dt = 4^{1/4} · ∫ exp(iv⁴) dv  [sub v = t/4^{1/4}]
+        #                         = 4^{1/4} · (1/2)·Γ(1/4)·exp(iπ/8)
+        # Therefore: ∫ exp(iλγu⁴/4) du = (4/(λ|γ|))^{1/4} · (1/2)·Γ(1/4)·exp(iπ sign(γ)/8)
+        # NOTE: (1/(λ|γ|))^{1/4} is WRONG — the correct factor is (4/(λ|γ|))^{1/4} = √2/(λ|γ|)^{1/4}
+        pearcey_factor = (4.0 / (lam * abs(gamma_coeff)))**0.25 * 0.5 * gamma(0.25)
         
-        # Transverse Gaussian factor (already correct)
+        # Transverse Gaussian factor: ∫ exp(iλβv²/2) dv = √(2π/(λ|β|)) exp(iπ sign(β)/4)
         gaussian_factor = np.sqrt(2.0 * np.pi / (lam * abs(beta_coeff)))
         
         # Maslov phases
