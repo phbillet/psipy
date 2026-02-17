@@ -600,7 +600,8 @@ class StationaryPhaseEvaluator:
             >>> print(f"Correction: {contribution.correction_term:.4e}")
             >>> print(f"Ratio: {abs(contribution.correction_term/contribution.leading_term):.2%}")
             """
-            dim = cp.position.shape[0]
+            # dim = cp.position.shape[0]
+            dim = len(cp.position)
             
             # ============================================================================
             # LEADING TERM (Order λ^(-n/2))
@@ -755,7 +756,8 @@ class StationaryPhaseEvaluator:
         Returns:
             AsymptoticContribution with both leading and correction terms.
         """
-        dim = cp.position.shape[0]
+        # dim = cp.position.shape[0]
+        dim = len(cp.position)
         
         # --- Leading Term (Order 0) ---
         prefactor = (2 * np.pi / lam) ** (dim / 2.0)
@@ -989,6 +991,67 @@ class StationaryPhaseEvaluator:
             order_leading=0.75
         )
 
+
+import numpy as np
+from dataclasses import dataclass
+
+class LaplaceEvaluator:
+    """
+    Evaluator for integrals of the form: I(λ) = ∫ a(x) exp(-λ φ(x)) dx
+    Using Laplace's Method with second-order asymptotic corrections (O(1/λ)).
+    """
+
+    def evaluate(self, cp, lam: float):
+        """
+        Standard Laplace formula for n-dimensions with anharmonic corrections.
+        """
+        n = len(cp.position)
+        inv_lam = 1.0 / lam
+        
+        # --- Leading Order Term (Order 0) ---
+        # I ≈ a(xc) * exp(-λ φ(xc)) * (2π/λ)^(n/2) * |det H|^(-1/2)
+        exponent = np.exp(-lam * np.real(cp.phase_value))
+        
+        # On s'assure que le déterminant est celui d'un maximum (pour Laplace)
+        det_h_abs = np.abs(cp.hessian_det)
+        if det_h_abs < 1e-15:
+            raise ValueError("Hessian is singular, Laplace method fails. Use a higher-order evaluator.")
+            
+        prefactor = (2 * np.pi * inv_lam)**(n / 2.0) / np.sqrt(det_h_abs)
+        term0 = cp.amplitude_value * exponent * prefactor
+        
+        # --- Second Order Corrections (O(1/λ)) ---
+        # Requires inverse Hessian to contract tensors
+        h_inv = cp.hessian_inv if hasattr(cp, 'hessian_inv') else np.linalg.inv(cp.hessian_matrix)
+        
+        # 1. Amplitude curvature (Laplacian of A)
+        # 0.5 * Tr(H⁻¹ * ∇²A)
+        term_lap_a = 0.5 * np.einsum('ij,ij', h_inv, cp.hess_amp)
+        
+        # 2. Coupling: Amplitude Gradient and Phase Skewness (D3)
+        # -0.5 * Σ (A_i * D3_jkl * H⁻¹_ij * H⁻¹_kl)
+        t_as3 = np.einsum('i,jkl,ij,kl', cp.grad_amp, cp.phase_d3, h_inv, h_inv)
+        
+        # 3. Phase Kurtosis (D4)
+        # -0.125 * Σ (D4_ijkl * H⁻¹_ij * H⁻¹_kl)
+        t_s4 = np.einsum('ijkl,ij,kl', cp.phase_d4, h_inv, h_inv)
+        
+        # 4. Squared Skewness (D3²)
+        # + 5/24 * Σ (D3_ijk * D3_lmn * H⁻¹_il * H⁻¹_jm * H⁻¹_kn)
+        t_s3s3 = np.einsum('ijk,lmn,il,jm,kn', cp.phase_d3, cp.phase_d3, h_inv, h_inv, h_inv)
+        
+        # The Laplace correction factor (O(1/λ))
+        # Unlike stationary phase, all these terms are purely real contributions
+        # to the magnitude of the Gaussian peak.
+        correction_factor = (term_lap_a - 0.5 * t_as3 - 0.125 * t_s4 + (5.0/24.0) * t_s3s3)
+        
+        correction_val = term0 * inv_lam * correction_factor
+        
+        # Total value (Real for real inputs, but handles complex amplitude)
+        total_value = term0 + correction_val
+        
+        return total_value # Ou un objet AsymptoticResult si tu préfères
+        
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np

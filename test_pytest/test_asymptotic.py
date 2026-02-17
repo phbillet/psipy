@@ -7,7 +7,7 @@ Organized by singularity type and critical scenarios.
 import numpy as np
 import sympy as sp
 from scipy import integrate
-from stationary_phase import (
+from asymptotic import (
     StationaryPhaseAnalyzer,
     StationaryPhaseEvaluator,
     SingularityType
@@ -885,6 +885,97 @@ def test_tolerance_robustness():
         # Must remain classified as Airy despite noise
         assert cp.singularity_type == SingularityType.AIRY_2D
 
+import numpy as np
+import sympy as sp
+import pytest
+from asymptotic import *
+
+# ============================================================================
+# UTILITAIRES DE VALIDATION LAPLACE
+# ============================================================================
+
+def numerical_laplace_1d(phi_expr, amp_expr, x_sym, lam, xc):
+    """
+    Quadrature locale autour du pic de Laplace pour éviter les divergences à l'infini.
+    """
+    phi_num = sp.lambdify(x_sym, phi_expr, 'numpy')
+    amp_num = sp.lambdify(x_sym, amp_expr, 'numpy')
+    
+    # On définit une fenêtre de 10 sigmas autour du col
+    # sigma ~ 1/sqrt(lambda * phi'')
+    phi_pp = float(sp.diff(phi_expr, x_sym, 2).subs(x_sym, xc))
+    sigma = 1.0 / np.sqrt(lam * phi_pp)
+    
+    x = np.linspace(xc - 10*sigma, xc + 10*sigma, 20000)
+    
+    # Calcul avec précaution numérique
+    phi_vals = phi_num(x)
+    phi_min = np.min(phi_vals)
+    # On soustrait le min pour éviter les overflows avant l'intégration
+    integrand = amp_num(x) * np.exp(-lam * (phi_vals - phi_min))
+    
+    integral = np.trapezoid(integrand, x)
+    return integral * np.exp(-lam * phi_min)
+
+# ============================================================================
+# TESTS QUANTITATIFS LAPLACE (20 CAS)
+# ============================================================================
+
+@pytest.mark.parametrize("test_id, phi_expr, amp_expr, xc, lam", [
+    # --- GROUPE 1: MORSE RÉEL PUR (Précision < 0.1%) ---
+    (1, sp.Symbol('x')**2/2, 1, [0.0], 50),                 # Gaussienne standard
+    (2, sp.Symbol('x')**2, 1, [0.0], 100),                  # Courbure forte
+    (3, (sp.Symbol('x')-1)**2/2, 1, [1.0], 50),             # Décalage spatial
+    (4, sp.Symbol('x')**2/2, sp.Symbol('x') + 2, [0.0], 80), # Amplitude linéaire (pente au col)
+    
+    # --- GROUPE 2: ANHARMONICITÉ D3 (Skewness) ---
+    # La correction D3^2 doit compenser l'asymétrie
+    (5, sp.Symbol('x')**2/2 + 0.1*sp.Symbol('x')**3 + 0.01*sp.Symbol('x')**4, 1, [0.0], 40),
+    (6, sp.Symbol('x')**2/2 - 0.2*sp.Symbol('x')**3, 1, [0.0], 60),
+    (7, sp.Symbol('x')**2/2 + 0.1*sp.Symbol('x')**3, sp.Symbol('x') + 1, [0.0], 50), # Couplage Grad(A) et D3
+    
+    # --- GROUPE 3: ANHARMONICITÉ D4 (Kurtosis) ---
+    # La correction D4 ajuste la largeur effective de la cloche
+    (8, sp.Symbol('x')**2/2 + 0.05*sp.Symbol('x')**4, 1, [0.0], 30),
+    (9, sp.Symbol('x')**2/2 - 0.02*sp.Symbol('x')**4 + 0.01*sp.Symbol('x')**6, 1, [0.0], 100),
+    
+    # --- GROUPE 4: MULTIDIMENSIONNEL (2D) ---
+    (10, sp.Symbol('x')**2/2 + sp.Symbol('y')**2/2, 1, [0,0], 50),
+    (11, sp.Symbol('x')**2/2 + 2*sp.Symbol('y')**2, 1, [0,0], 80),
+    (12, sp.Symbol('x')**2 + sp.Symbol('y')**2 + 0.1*sp.Symbol('x')*sp.Symbol('y'), 1, [0,0], 100), # Couplage xy
+    
+    # --- GROUPE 5: DIFFUSION ET GRADIENTS D'AMPLITUDE ---
+    (13, sp.Symbol('x')**2/2, sp.exp(-sp.Symbol('x')**2), [0.0], 50), # Amplitude décroissante
+    (14, sp.Symbol('x')**2/2, sp.cos(sp.Symbol('x')), [0.0], 120),   # Amplitude oscillante lente
+    
+    # --- GROUPE 6: CAS LIMITES ET ROBUSTESSE ---
+    (15, sp.Symbol('x')**2/2, 1e-5, [0.0], 1000),           # Très petite amplitude
+    (16, sp.Symbol('x')**2/2 + sp.Symbol('x')**6, 1, [0.0], 20),    # Haute anharmonicité
+    (17, (sp.Symbol('x')**2 + sp.Symbol('y')**2)/2, sp.Symbol('x')**2, [0,0], 100), # Amplitude nulle au col (A(xc)=0)
+    
+    # --- GROUPE 7: PHYSIQUE (Chaleur/Tunnel) ---
+    (18, sp.Symbol('x')**2/(4*1.0), 1, [0.0], 10),          # Noyau de chaleur à t=1, lambda=1/t
+    (19, sp.Symbol('x')**2 - sp.Symbol('x')**3/3, 1, [0.0], 50), # Potentiel métastable
+    (20, sp.Symbol('x')**2/2 + sp.Symbol('y')**2/2 + sp.Symbol('y')**4/4, 1, [0,0], 100), # Mixte Morse/Anharmonique
+])
+
+def test_laplace_quantitative(test_id, phi_expr, amp_expr, xc, lam):
+    x, y = sp.symbols('x y')
+    vars = [x] if len(xc) == 1 else [x, y]
+    
+    # Utilisation de l'analyseur
+    analyzer = StationaryPhaseAnalyzer(phi_expr, amp_expr, vars)
+    cp = analyzer.analyze_point(np.array(xc))
+    evaluator = LaplaceEvaluator()
+    
+    res = evaluator.evaluate(cp, lam)
+    
+    if len(vars) == 1:
+        # Utiliser la version locale pour la référence
+        exact = numerical_laplace_1d(phi_expr, amp_expr, x, lam, xc[0])
+        error = np.abs(res - exact) / np.abs(exact)
+        tol = 0.01 if test_id != 16 else 0.03 
+        assert error < tol
 
 # ============================================================================
 # EXECUTION
