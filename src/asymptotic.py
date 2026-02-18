@@ -11,6 +11,181 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""
+asymptotic — Large-parameter asymptotics for oscillatory and Laplace-type integrals
+====================================================================================
+
+Overview
+--------
+This module provides symbolic-numerical tools for computing the asymptotic
+behaviour of parameter-dependent integrals of the form
+
+    I(λ) = ∫ a(x) exp(iλφ(x)) dx,   λ → +∞
+
+as the large parameter λ grows without bound.  The nature of the phase
+function φ determines which asymptotic method applies:
+
++------------------+-------------------------+-----------------------------------+
+| φ                | Integral form           | Method                            |
++==================+=========================+===================================+
+| real             | oscillatory             | Stationary phase                  |
++------------------+-------------------------+-----------------------------------+
+| purely imaginary | exponentially damped    | Laplace                           |
++------------------+-------------------------+-----------------------------------+
+| genuinely complex| oscillatory + damped    | Saddle-point (method of steepest  |
+|                  |                         | descent)                          |
++------------------+-------------------------+-----------------------------------+
+
+The correct method is selected **automatically** from the symbolic expression
+of φ when the analyzer is initialised (``method=IntegralMethod.AUTO``, the
+default).  It can also be set explicitly.
+
+
+Mathematical background
+-----------------------
+All three methods share the same underlying idea: the dominant contribution
+to I(λ) as λ → ∞ comes from a small neighbourhood of a *critical point*
+x_c where ∇φ(x_c) = 0.  Away from x_c, rapid oscillations (or exponential
+decay) make the integrand self-cancelling.
+
+**Stationary phase** (φ real)
+    The leading term at a non-degenerate critical point (det ∇²φ ≠ 0,
+    *Morse* point) is
+
+        I(λ) ≈ (2π/λ)^(n/2) · a(x_c) · exp(iλφ(x_c)) · exp(iπμ/4)
+                              / √|det ∇²φ(x_c)|
+
+    where n is the dimension and μ = n − 2σ is the Maslov index (σ =
+    number of negative eigenvalues of ∇²φ).  Degenerate critical points
+    require special treatment: corank-1 singularities with a non-zero
+    cubic term yield *Airy* integrals (decay O(λ^(−1/3)) in 1D,
+    O(λ^(−5/6)) in 2D); those with a vanishing cubic but non-zero quartic
+    term yield *Pearcey* integrals (decay O(λ^(−3/4))).
+
+**Laplace's method** (φ = iψ, ψ real)
+    The integrand concentrates exponentially around the minimum x_c of ψ.
+    The leading term is identical to the stationary-phase formula with the
+    oscillatory factor replaced by a real Gaussian:
+
+        I(λ) ≈ (2π/λ)^(n/2) · a(x_c) · exp(−λψ(x_c))
+                              / √|det ∇²ψ(x_c)|
+
+    A second-order correction O(λ^(−n/2−1)) involving amplitude
+    derivatives and phase anharmonicity (cubic/quartic tensors) is also
+    computed.
+
+**Saddle-point / steepest descent** (φ complex)
+    The integration contour is deformed into ℂⁿ to pass through a saddle
+    point z_c ∈ ℂⁿ satisfying ∇φ(z_c) = 0.  On the steepest-descent
+    contour through z_c the phase Im(λφ) is stationary and Re(λφ) grows
+    as fast as possible, making the integrand a complex Gaussian.  The
+    asymptotic formula is formally identical to the Morse case:
+
+        I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c))
+                              / √det ∇²φ(z_c)
+
+    where the square root is taken on the principal branch.
+    **Limitation:** this implementation uses a naive continuation strategy
+    (minimising |∇φ(z)|² over ℝ^(2n)) and does NOT verify that the
+    original contour can be deformed through the found saddle (Picard-
+    Lefschetz theory).  A RuntimeWarning is always emitted.
+
+
+Public API
+----------
+The intended workflow involves three cooperating classes:
+
+Analyzer
+    Accepts symbolic SymPy expressions for φ(x) and a(x) and a list of
+    integration variables.  Automatically detects the integration method,
+    computes symbolic derivatives up to order 4, and converts them to fast
+    numerical (NumPy) functions.  Key methods:
+
+    * ``find_critical_points(initial_guesses)``
+          Returns real critical-point coordinates (for STATIONARY_PHASE and
+          LAPLACE) by minimising |∇φ|².
+    * ``analyze_point(xc)``
+          Returns a ``CriticalPoint`` dataclass holding the phase value,
+          Hessian, higher-order tensors, singularity classification and
+          integration method.  Accepts complex coordinates (for
+          SADDLE_POINT).
+
+SaddlePointEvaluator  *(SADDLE_POINT only)*
+    * ``find_saddle_points(analyzer, initial_guesses)``
+          Searches for saddle points in ℂⁿ by minimising |∇φ(u+iv)|²
+          over ℝ^(2n) starting from real initial guesses.  Returns complex
+          coordinate arrays to be passed to ``analyze_point``.
+
+AsymptoticEvaluator
+    Unified façade.  Accepts a ``CriticalPoint`` and the parameter λ, and
+    dispatches to the appropriate internal evaluator:
+
+    * STATIONARY_PHASE → ``StationaryPhaseEvaluator`` (Morse / Airy / Pearcey)
+    * LAPLACE          → ``LaplaceEvaluator``
+    * SADDLE_POINT     → ``SaddlePointEvaluator``
+
+    Returns an ``AsymptoticContribution`` dataclass containing the leading
+    term, the first correction, the total value, the decay exponent and the
+    method used.
+
+StationaryPhaseVisualizer  *(2D only)*
+    Diagnostic plots: phase landscape with critical-point annotation,
+    oscillatory integrand structure, and asymptotic convergence on log-log
+    axes.
+
+
+Minimal example
+---------------
+::
+
+    import sympy as sp
+    import numpy as np
+    from asymptotic import Analyzer, AsymptoticEvaluator
+
+    x, y = sp.symbols('x y')
+
+    # φ is real → AUTO selects STATIONARY_PHASE
+    phi = x**2/2 + y**2/2 + x**3/10
+    amp = 1 + x**2
+
+    analyzer = Analyzer(phi, amp, [x, y])
+    print(analyzer.method)   # IntegralMethod.STATIONARY_PHASE
+
+    points  = analyzer.find_critical_points([np.array([0., 0.])])
+    cp      = analyzer.analyze_point(points[0])
+    result  = AsymptoticEvaluator().evaluate(cp, lam=100)
+
+    print(result.leading_term)    # dominant asymptotic term
+    print(result.total_value)     # leading + first correction
+
+
+Dependencies
+------------
+* numpy  — numerical arrays and linear algebra
+* sympy  — symbolic differentiation and lambdification
+* scipy  — special functions (airy, gamma) and numerical optimisation
+* matplotlib — visualisation (optional; only required for
+               StationaryPhaseVisualizer)
+
+
+References
+----------
+.. [1] Hörmander, L.  *The Analysis of Linear Partial Differential
+       Operators I*, Springer, 1983.  Chapter 7: Oscillatory Integrals.
+.. [2] Olver, F. W. J.  *Asymptotics and Special Functions*, Academic Press,
+       1974 (reprinted A K Peters, 1997).
+.. [3] Wong, R.  *Asymptotic Approximations of Integrals*, Academic Press,
+       1989.
+.. [4] Bleistein, N. & Handelsman, R.  *Asymptotic Expansions of Integrals*,
+       Holt, Rinehart & Winston, 1975.
+.. [5] Berry, M. V. & Howls, C. J.  "High orders of the Weyl expansion for
+       quantum billiards", *Physical Review E* 50(5), 3577–3595, 1994.
+.. [6] Delabaere, E. & Howls, C. J.  "Global asymptotics for multiple
+       integrals with boundaries", *Duke Mathematical Journal* 112(2),
+       199–264, 2002.
+"""
+
 import numpy as np
 import sympy as sp
 from scipy.special import airy, gamma
@@ -21,6 +196,55 @@ from enum import Enum
 import warnings
 
 # --- Types and Enums ---
+
+class IntegralMethod(Enum):
+    """
+    Selects which asymptotic method to apply to the integral I(λ).
+
+    The three concrete methods correspond to the three possible natures of
+    the phase function φ(x) appearing in the exponential exp(iλφ(x)):
+
+    - STATIONARY_PHASE: φ is purely real.
+        I(λ) = ∫ a(x) exp(iλφ(x)) dx,  φ ∈ ℝ,  λ → +∞
+      The integrand oscillates with unit modulus; contributions arise from
+      stationary points ∇φ = 0.  Decay rate: O(λ^(-n/2)).
+      Typical applications: wave optics, quantum mechanics, Fourier integrals.
+
+    - LAPLACE: φ is purely imaginary, i.e. φ(x) = i·ψ(x) with ψ ∈ ℝ.
+        I(λ) = ∫ a(x) exp(iλ·iψ(x)) dx = ∫ a(x) exp(-λψ(x)) dx,  λ → +∞
+      The integrand is real and exponentially damped; contributions arise
+      from minima of ψ where ∇ψ = 0 and ∇²ψ > 0.
+      Typical applications: large deviations, Bayesian inference,
+      statistical mechanics partition functions.
+
+    - SADDLE_POINT: φ is genuinely complex, φ = φ_R + i·φ_I with both
+      φ_R ≠ 0 and φ_I ≠ 0.
+        I(λ) = ∫ a(x) exp(iλφ_R(x)) exp(-λφ_I(x)) dx,  λ → +∞
+      The integrand both oscillates and is exponentially modulated.
+      Contributions come from saddle points in ℂⁿ found by analytically
+      continuing ∇φ(z) = 0 into the complex plane.  The integration contour
+      must be deformed to pass through these saddle points along the
+      steepest-descent direction.
+      Note: this implementation uses a naive continuation strategy; see
+      SaddlePointEvaluator for limitations.
+
+    - AUTO: automatic detection (default).
+      The analyzer inspects φ symbolically (via sympy.im / sympy.re) and
+      falls back to a numerical test if the symbolic check is inconclusive.
+      The detected method is stored back in Analyzer.method
+      after __init__ so the user can always query which method was chosen.
+
+    Hierarchy
+    ---------
+    SADDLE_POINT is the general case; the other two are special cases:
+        SADDLE_POINT with φ_I ≡ 0  →  STATIONARY_PHASE
+        SADDLE_POINT with φ_R ≡ 0  →  LAPLACE
+    """
+    STATIONARY_PHASE = "stationary_phase"
+    LAPLACE          = "laplace"
+    SADDLE_POINT     = "saddle_point"
+    AUTO             = "auto"
+
 
 class SingularityType(Enum):
     """
@@ -95,6 +319,8 @@ class CriticalPoint:
     phase_d4: Optional[np.ndarray] = None      
     
     canonical_coefficients: Optional[Dict] = None
+    # Integration method that produced this critical point
+    method: 'IntegralMethod' = None  # set by the analyzer; forward ref resolved at runtime
 
 @dataclass
 class AsymptoticContribution:
@@ -120,32 +346,47 @@ class AsymptoticContribution:
         total_value (complex): Sum of leading_term + correction_term.
         point (CriticalPoint): The source critical point for this contribution.
         order_leading (float): The exponent p in the scaling λ^(-p) of the leading term.
+        method (IntegralMethod): The asymptotic method used to compute this contribution
+            (STATIONARY_PHASE, LAPLACE or SADDLE_POINT).
     """
     leading_term: complex
     correction_term: complex 
     total_value: complex
     point: CriticalPoint
     order_leading: float
+    method: IntegralMethod = IntegralMethod.STATIONARY_PHASE  # default for backward compat
 
 # --- Analyzer (Symbolic -> Numerical) ---
 
-class StationaryPhaseAnalyzer:
+class Analyzer:
     """
-    Handles symbolic analysis of phase and amplitude functions for stationary phase integrals.
-    
-    This class analyzes oscillatory integrals of the form:
-        I(λ) = ∫ a(x) exp(iλφ(x)) dx
-    
-    as λ → ∞, using the stationary phase method. It takes symbolic expressions for φ(x) 
-    and a(x), computes all necessary derivatives symbolically up to order 4, and converts 
-    them to fast numerical functions. It detects and classifies critical points where ∇φ = 0.
-    
+    Handles symbolic analysis of phase and amplitude functions.
+
+    Supports three integration paradigms selected via ``method``:
+
+    - ``IntegralMethod.STATIONARY_PHASE``:
+        Oscillatory integrals  I(λ) = ∫ a(x) exp(iλφ(x)) dx,  φ real.
+        All singularity types (Morse, Airy, Pearcey) are supported.
+
+    - ``IntegralMethod.LAPLACE``:
+        Exponentially damped integrals  I(λ) = ∫ a(x) exp(-λφ(x)) dx,  φ real.
+        Only non-degenerate minima of φ are relevant.
+
+    - ``IntegralMethod.SADDLE_POINT``:
+        Mixed integrals  I(λ) = ∫ a(x) exp(iλφ(x)) dx,  φ genuinely complex.
+        Saddle points are searched in ℂⁿ by continuation from real guesses.
+
+    - ``IntegralMethod.AUTO`` (default):
+        The analyzer inspects φ symbolically and chooses automatically among
+        the three concrete methods.  The resolved method is written back to
+        ``self.method`` after __init__ completes.
+
     The main workflow is:
-        1. Initialize with symbolic SymPy expressions
-        2. Find critical points using find_critical_points()
-        3. Analyze each point using analyze_point()
-        4. Use StationaryPhaseEvaluator to compute asymptotic contributions
-    
+        1. Initialize with symbolic SymPy expressions (method=AUTO by default).
+        2. Find critical / saddle points using find_critical_points().
+        3. Analyze each point using analyze_point().
+        4. Use AsymptoticEvaluator (unified façade) to compute contributions.
+
     Attributes:
         phase_expr: SymPy expression for the phase function φ(x).
         amplitude_expr: SymPy expression for the amplitude function a(x).
@@ -153,25 +394,33 @@ class StationaryPhaseAnalyzer:
         dim (int): Dimension of the integration domain.
         domain (Optional[List[Tuple]]): Optional bounds [(min, max), ...] for each variable.
         tolerance (float): Numerical tolerance for detecting zeros and critical points.
-        cubic_threshold (float): Absolute threshold for distinguishing Airy vs Pearcey 
-            singularities based on cubic term magnitude. Default: max(1e-5, 10*tolerance).
+        cubic_threshold (float): Absolute threshold for distinguishing Airy vs Pearcey
+            singularities. Default: max(1e-5, 10*tolerance). Unused for LAPLACE.
+        method (IntegralMethod): Resolved integration method (never AUTO after __init__).
     """
 
-    def __init__(self, phase_expr, amplitude_expr, variables, domain=None, tolerance=1e-6, cubic_threshold=None):
+    def __init__(self, phase_expr, amplitude_expr, variables, domain=None,
+                 tolerance=1e-6, cubic_threshold=None,
+                 method: IntegralMethod = IntegralMethod.AUTO):
         """
-        Initialize the stationary phase analyzer.
+        Initialize the analyzer.
 
         Args:
-            phase_expr: SymPy expression for phase φ(x). Should be a real-valued function.
+            phase_expr: SymPy expression for phase φ(x).
+                The nature of φ (real / imaginary / complex) determines which
+                asymptotic method is appropriate; use method=AUTO to detect it
+                automatically.
             amplitude_expr: SymPy expression for amplitude a(x). Can be complex.
             variables: List of SymPy symbols [x, y, ...] or a single symbol for 1D.
-            domain: Optional list of tuples [(min, max), ...] specifying search bounds 
+            domain: Optional list of tuples [(min, max), ...] specifying search bounds
                 for each variable when finding critical points.
-            tolerance: Numerical tolerance for zero-detection and optimization (default: 1e-6).
-                Used to determine if |∇φ| ≈ 0 at a critical point.
-            cubic_threshold: Absolute threshold for classifying cubic terms. If None, defaults 
-                to max(1e-5, 10 * tolerance). Used to distinguish Airy singularities 
-                (|cubic| > threshold) from Pearcey singularities (|cubic| < threshold).
+            tolerance: Numerical tolerance for zero-detection and optimization
+                (default: 1e-6).
+            cubic_threshold: Absolute threshold for classifying cubic terms
+                (STATIONARY_PHASE only). If None, defaults to max(1e-5, 10*tolerance).
+            method: One of IntegralMethod.{AUTO, STATIONARY_PHASE, LAPLACE,
+                SADDLE_POINT}.  AUTO (default) inspects φ symbolically and
+                resolves to one of the three concrete values.
         """
         self.phase_expr = phase_expr
         self.amplitude_expr = amplitude_expr
@@ -180,9 +429,111 @@ class StationaryPhaseAnalyzer:
         self.domain = domain
         self.tolerance = tolerance
         self.cubic_threshold = cubic_threshold if cubic_threshold is not None else max(1e-5, 10 * tolerance)
-        
+
+        # Resolve AUTO before preparing derivatives so that _detect_method
+        # can inspect the raw expression before any lambdification.
+        if method == IntegralMethod.AUTO:
+            self.method = self._detect_method(phase_expr)
+        else:
+            self.method = method
+
         self._prepare_derivatives()
         self._create_numerical_functions()
+
+    # ------------------------------------------------------------------
+    # Method auto-detection
+    # ------------------------------------------------------------------
+
+    def _detect_method(self, phase_expr) -> IntegralMethod:
+        """
+        Inspect the phase expression symbolically to select the integration method.
+
+        Strategy
+        --------
+        1. Symbolic test (fast, exact when SymPy can simplify):
+           - Compute re_part = sp.re(φ)  and  im_part = sp.im(φ)  after
+             assuming all variables are real (sp.refine with Q.real).
+           - If re_part simplifies to zero   → LAPLACE
+           - If im_part simplifies to zero   → STATIONARY_PHASE
+           - Otherwise                       → SADDLE_POINT
+
+        2. Numerical fallback (if symbolic test is inconclusive, i.e. SymPy
+           cannot decide):
+           - Sample n_samples random real points in [-2, 2]^dim.
+           - Evaluate φ numerically at each sample.
+           - If max|Re φ| < tol * max|Im φ|   → LAPLACE
+           - If max|Im φ| < tol * max|Re φ|   → STATIONARY_PHASE
+           - Otherwise                         → SADDLE_POINT
+
+        The numerical threshold uses tol = 1e-6 relative to the dominant part.
+
+        Returns
+        -------
+        IntegralMethod
+            One of STATIONARY_PHASE, LAPLACE, or SADDLE_POINT (never AUTO).
+        """
+        # --- Step 1: symbolic test ---
+        real_assumptions = {v: True for v in self.variables}
+        # Replace variables with real-stamped symbols for sp.re / sp.im
+        real_vars = [sp.Symbol(str(v), real=True) for v in self.variables]
+        expr_real = phase_expr.subs(dict(zip(self.variables, real_vars)))
+
+        try:
+            re_part = sp.simplify(sp.re(expr_real))
+            im_part = sp.simplify(sp.im(expr_real))
+
+            re_is_zero = (re_part == sp.S.Zero)
+            im_is_zero = (im_part == sp.S.Zero)
+
+            if re_is_zero and not im_is_zero:
+                return IntegralMethod.LAPLACE
+            if im_is_zero and not re_is_zero:
+                return IntegralMethod.STATIONARY_PHASE
+            if re_is_zero and im_is_zero:
+                # Constant zero phase — stationary phase is the safest default
+                return IntegralMethod.STATIONARY_PHASE
+            # Both parts are symbolically non-zero → fall through to numeric
+        except Exception:
+            pass  # SymPy failed to simplify; proceed to numerical fallback
+
+        # --- Step 2: numerical fallback ---
+        n_samples = 12
+        rng = np.random.default_rng(seed=0)  # deterministic seed for reproducibility
+        samples = rng.uniform(-2.0, 2.0, size=(n_samples, self.dim))
+
+        func_phase_num = sp.lambdify(tuple(self.variables), phase_expr, 'numpy')
+        re_magnitudes = []
+        im_magnitudes = []
+        for pt in samples:
+            try:
+                val = complex(func_phase_num(*pt))
+                re_magnitudes.append(abs(val.real))
+                im_magnitudes.append(abs(val.imag))
+            except Exception:
+                pass
+
+        if not re_magnitudes:
+            # Could not evaluate at all — default to stationary phase
+            warnings.warn(
+                "AUTO method detection: could not evaluate φ numerically. "
+                "Defaulting to STATIONARY_PHASE.",
+                RuntimeWarning,
+            )
+            return IntegralMethod.STATIONARY_PHASE
+
+        max_re = max(re_magnitudes)
+        max_im = max(im_magnitudes)
+        scale = max(max_re, max_im, 1e-30)
+        rel_tol = 1e-6
+
+        if max_re < rel_tol * scale:
+            detected = IntegralMethod.LAPLACE
+        elif max_im < rel_tol * scale:
+            detected = IntegralMethod.STATIONARY_PHASE
+        else:
+            detected = IntegralMethod.SADDLE_POINT
+
+        return detected
     
     def _prepare_derivatives(self):
         """
@@ -300,73 +651,101 @@ class StationaryPhaseAnalyzer:
 
     def analyze_point(self, xc) -> CriticalPoint:
         """
-        Perform complete analysis of a critical point.
-        
-        Computes all geometric and analytical properties needed for asymptotic evaluation:
+        Perform complete analysis of a critical point (real or complex).
+
+        For STATIONARY_PHASE and LAPLACE the coordinates xc are real (numpy
+        float array).  For SADDLE_POINT, xc may be complex (numpy complex
+        array produced by SaddlePointEvaluator.find_saddle_points).
+
+        Computes all geometric and analytical properties needed for asymptotic
+        evaluation:
         - Phase value φ(x_c) and amplitude value a(x_c)
-        - Hessian matrix ∇²φ and its properties (determinant, eigenvalues, signature)
-        - Higher-order derivatives: D3 and D4 tensors of φ, gradients and Hessians of a
+        - Hessian matrix ∇²φ and its properties (determinant, eigenvalues,
+          signature)
+        - Higher-order derivatives: D3 and D4 tensors of φ, gradients and
+          Hessians of a
         - Classification of singularity type (Morse, Airy, Pearcey, etc.)
-        - Canonical coefficients for degenerate cases (extracted via eigenvector projection)
+        - Canonical coefficients for degenerate cases
         - Hessian inverse (for Morse points only)
-        
+
         Args:
-            xc: Coordinates of the critical point (numpy array of shape (dim,)).
-            
+            xc: Coordinates of the critical point.  Real numpy array for
+                STATIONARY_PHASE / LAPLACE; complex numpy array for
+                SADDLE_POINT.
+
         Returns:
-            CriticalPoint object containing all computed properties necessary for
-            evaluating the asymptotic contribution.
+            CriticalPoint object containing all computed properties.
         """
         args = tuple(xc)
-        H = np.array(self.func_hess(*args))
-        vals, vecs = np.linalg.eigh(H) # Eigen decomposition (Symmetric matrix)
-        
+
+        # Evaluate Hessian — complex-safe: cast to complex array so that
+        # complex saddle-point coordinates do not silently drop imaginary parts.
+        H = np.array(self.func_hess(*args), dtype=complex)
+
+        # Eigendecomposition — use np.linalg.eig for complex matrices
+        # (eigh requires Hermitian; a complex Hessian at a saddle point is
+        # symmetric but not necessarily Hermitian).
+        if np.iscomplexobj(H) and np.any(np.imag(H) != 0):
+            vals, vecs = np.linalg.eig(H)
+        else:
+            H = np.real(H)
+            vals, vecs = np.linalg.eigh(H)
+
         # Reconstruct higher order tensors from flattened symbolic output
         d3_flat = self.func_d3(*args)
-        D3 = np.zeros((self.dim,)*3)
+        D3 = np.zeros((self.dim,)*3, dtype=complex)
         for k, idx in enumerate(self.d3_indices):
             D3[idx] = d3_flat[k]
-            
+
         d4_flat = self.func_d4(*args)
-        D4 = np.zeros((self.dim,)*4)
+        D4 = np.zeros((self.dim,)*4, dtype=complex)
         for k, idx in enumerate(self.d4_indices):
             D4[idx] = d4_flat[k]
 
-        grad_a = np.array(self.func_grad_amp(*args))
-        hess_a = np.array(self.func_hess_amp(*args))
+        grad_a = np.array(self.func_grad_amp(*args), dtype=complex)
+        hess_a = np.array(self.func_hess_amp(*args), dtype=complex)
 
         det = np.prod(vals)
-        # Rank: number of non-zero eigenvalues
-        rank = np.sum(np.abs(vals) > self.tolerance)
-        # Signature: number of negative eigenvalues
-        signature = np.sum(vals < -self.tolerance)
+        # Rank: number of eigenvalues with non-negligible magnitude
+        rank = int(np.sum(np.abs(vals) > self.tolerance))
+        # Signature: number of eigenvalues with strictly negative real part
+        signature = int(np.sum(np.real(vals) < -self.tolerance))
 
         cp = CriticalPoint(
-            position=xc,
+            position=np.asarray(xc),
             phase_value=complex(self.func_phase(*args)),
             amplitude_value=complex(self.func_amp(*args)),
-            singularity_type=SingularityType.MORSE, # Default
+            singularity_type=SingularityType.MORSE,  # Default, may be overridden below
             hessian_matrix=H,
-            hessian_det=det,
+            hessian_det=complex(det),
             signature=signature,
             eigenvalues=vals,
             eigenvectors=vecs,
             grad_amp=grad_a,
             hess_amp=hess_a,
             phase_d3=D3,
-            phase_d4=D4
+            phase_d4=D4,
+            method=self.method,
         )
 
         if rank == self.dim:
             cp.singularity_type = SingularityType.MORSE
             cp.hessian_inv = np.linalg.inv(H)
+            # For Laplace's method the Hessian must be positive definite (minimum of φ).
+            if self.method == IntegralMethod.LAPLACE and np.any(np.real(vals) <= self.tolerance):
+                warnings.warn(
+                    f"Laplace method: critical point at {xc} has a non-positive Hessian "
+                    "eigenvalue (it may be a saddle point or maximum). "
+                    "The Laplace approximation requires a strict minimum of φ.",
+                    RuntimeWarning,
+                )
         elif self.dim == 1 and rank == 0:  # 1D degenerate
             coeffs = self._project_degenerate_coeffs(cp)
             cp.canonical_coefficients = coeffs
             if abs(coeffs['cubic']) > self.cubic_threshold:
                 cp.singularity_type = SingularityType.AIRY_1D
             elif abs(coeffs['quartic']) > self.tolerance:
-                cp.singularity_type = SingularityType.PEARCEY  # or other 1D type
+                cp.singularity_type = SingularityType.PEARCEY
             else:
                 cp.singularity_type = SingularityType.HIGHER_ORDER
         elif self.dim == 2 and rank == 1:  # 2D corank 1
@@ -380,7 +759,7 @@ class StationaryPhaseAnalyzer:
                 cp.singularity_type = SingularityType.HIGHER_ORDER
         else:
             cp.singularity_type = SingularityType.HIGHER_ORDER
-        
+
         return cp
         
     def _project_degenerate_coeffs(self, cp: CriticalPoint) -> Dict[str, float]:
@@ -461,26 +840,29 @@ class StationaryPhaseEvaluator:
             with a warning.
         """
         if cp.singularity_type == SingularityType.MORSE:
-            return self._eval_morse_order2(cp, lam)
+            result = self._eval_morse_order2(cp, lam)
         elif cp.singularity_type == SingularityType.AIRY_1D:
-            return self._eval_airy_1d(cp, lam)
+            result = self._eval_airy_1d(cp, lam)
         elif cp.singularity_type == SingularityType.AIRY_2D:
-            return self._eval_airy_2d(cp, lam)
+            result = self._eval_airy_2d(cp, lam)
         elif cp.singularity_type == SingularityType.PEARCEY:
-            return self._eval_pearcey(cp, lam)
+            result = self._eval_pearcey(cp, lam)
         else:  # HIGHER_ORDER or unknown type
             warnings.warn(
                 f"Unhandled singularity type {cp.singularity_type.value} at {cp.position}. "
                 f"Returning zero contribution (no asymptotic formula available).",
                 RuntimeWarning
             )
-            return AsymptoticContribution(
+            result = AsymptoticContribution(
                 leading_term=0j,
                 correction_term=0j,
                 total_value=0j,
                 point=cp,
-                order_leading=float('inf')  # Indicates negligible contribution
+                order_leading=float('inf'),  # Indicates negligible contribution
+                method=IntegralMethod.STATIONARY_PHASE,
             )
+        result.method = IntegralMethod.STATIONARY_PHASE
+        return result
 
     def _eval_morse_order2(self, cp: CriticalPoint, lam: float) -> AsymptoticContribution:
             """
@@ -992,281 +1374,762 @@ class StationaryPhaseEvaluator:
         )
 
 
-import numpy as np
-from dataclasses import dataclass
-
 class LaplaceEvaluator:
     """
-    Evaluator for integrals of the form: I(λ) = ∫ a(x) exp(-λ φ(x)) dx
-    Using Laplace's Method with second-order asymptotic corrections (O(1/λ)).
+    Evaluator for exponentially damped integrals of the form:
+        I(λ) = ∫ a(x) exp(-λ φ(x)) dx,  λ → +∞
+
+    Uses Laplace's method with second-order asymptotic corrections O(λ^(-n/2-1)).
+
+    The critical point must be a strict minimum of φ (positive definite Hessian).
+    Saddle points and maxima are not supported: the Laplace method relies on the
+    Gaussian concentration of the integrand around the minimum.
+
+    Returns an AsymptoticContribution with method=IntegralMethod.LAPLACE for
+    consistency with StationaryPhaseEvaluator.
     """
 
-    def evaluate(self, cp, lam: float):
+    def evaluate(self, cp: CriticalPoint, lam: float) -> AsymptoticContribution:
         """
-        Standard Laplace formula for n-dimensions with anharmonic corrections.
+        Standard Laplace formula for n dimensions with anharmonic corrections.
+
+        Leading term (Order 0):
+            I₀(λ) = a(x_c) · exp(-λ φ(x_c)) · (2π/λ)^(n/2) · |det H|^(-1/2)
+
+        Correction term (Order 1, relative order O(1/λ)):
+            I₁(λ) = I₀(λ) · (1/λ) · C
+
+        where the real correction factor C is:
+            C = (1/2) Tr(H⁻¹ ∇²a)
+              − (1/2) ⟨∇a, (H⁻¹ ⊗ H⁻¹) D³φ⟩
+              − (1/8) (H⁻¹ ⊗ H⁻¹) : D⁴φ
+              + (5/24) (H⁻¹ ⊗ H⁻¹ ⊗ H⁻¹) : (D³φ ⊗ D³φ)
+
+        Args:
+            cp: CriticalPoint with a non-degenerate, positive definite Hessian.
+                Must contain hessian_inv (or hessian_matrix), hess_amp, grad_amp,
+                phase_d3, phase_d4.
+            lam: Large parameter λ. The approximation improves as λ → +∞.
+
+        Returns:
+            AsymptoticContribution with:
+                - leading_term:    I₀(λ), real for real a and φ.
+                - correction_term: I₁(λ), the O(λ^(-n/2-1)) correction.
+                - total_value:     I₀ + I₁.
+                - order_leading:   n/2.
+                - method:          IntegralMethod.LAPLACE.
+
+        Raises:
+            ValueError: If the Hessian is singular (det H ≈ 0).
         """
         n = len(cp.position)
         inv_lam = 1.0 / lam
-        
-        # --- Leading Order Term (Order 0) ---
-        # I ≈ a(xc) * exp(-λ φ(xc)) * (2π/λ)^(n/2) * |det H|^(-1/2)
+
+        # --- Leading term (Order 0) ---
+        # I₀ = a(x_c) · exp(-λ φ(x_c)) · (2π/λ)^(n/2) / √|det H|
         exponent = np.exp(-lam * np.real(cp.phase_value))
-        
-        # On s'assure que le déterminant est celui d'un maximum (pour Laplace)
+
         det_h_abs = np.abs(cp.hessian_det)
         if det_h_abs < 1e-15:
-            raise ValueError("Hessian is singular, Laplace method fails. Use a higher-order evaluator.")
-            
-        prefactor = (2 * np.pi * inv_lam)**(n / 2.0) / np.sqrt(det_h_abs)
-        term0 = cp.amplitude_value * exponent * prefactor
-        
-        # --- Second Order Corrections (O(1/λ)) ---
-        # Requires inverse Hessian to contract tensors
-        h_inv = cp.hessian_inv if hasattr(cp, 'hessian_inv') else np.linalg.inv(cp.hessian_matrix)
-        
-        # 1. Amplitude curvature (Laplacian of A)
-        # 0.5 * Tr(H⁻¹ * ∇²A)
-        term_lap_a = 0.5 * np.einsum('ij,ij', h_inv, cp.hess_amp)
-        
-        # 2. Coupling: Amplitude Gradient and Phase Skewness (D3)
-        # -0.5 * Σ (A_i * D3_jkl * H⁻¹_ij * H⁻¹_kl)
-        t_as3 = np.einsum('i,jkl,ij,kl', cp.grad_amp, cp.phase_d3, h_inv, h_inv)
-        
-        # 3. Phase Kurtosis (D4)
-        # -0.125 * Σ (D4_ijkl * H⁻¹_ij * H⁻¹_kl)
-        t_s4 = np.einsum('ijkl,ij,kl', cp.phase_d4, h_inv, h_inv)
-        
-        # 4. Squared Skewness (D3²)
-        # + 5/24 * Σ (D3_ijk * D3_lmn * H⁻¹_il * H⁻¹_jm * H⁻¹_kn)
-        t_s3s3 = np.einsum('ijk,lmn,il,jm,kn', cp.phase_d3, cp.phase_d3, h_inv, h_inv, h_inv)
-        
-        # The Laplace correction factor (O(1/λ))
-        # Unlike stationary phase, all these terms are purely real contributions
-        # to the magnitude of the Gaussian peak.
-        correction_factor = (term_lap_a - 0.5 * t_as3 - 0.125 * t_s4 + (5.0/24.0) * t_s3s3)
-        
-        correction_val = term0 * inv_lam * correction_factor
-        
-        # Total value (Real for real inputs, but handles complex amplitude)
-        total_value = term0 + correction_val
-        
-        return total_value # Ou un objet AsymptoticResult si tu préfères
-        
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import numpy as np
-from typing import List, Tuple, Optional
+            raise ValueError(
+                "Hessian is singular at the critical point: Laplace method fails. "
+                "Use a higher-order evaluator for degenerate critical points."
+            )
 
-class StationaryPhaseVisualizer:
-    """
-    Visualization toolkit for stationary phase analysis in 2D domains.
-    
-    Provides diagnostic plots for:
-    - Phase function topology and critical point classification
-    - Oscillatory integrand structure at finite frequencies
-    - Asymptotic convergence rates of leading/correction terms
-    
-    Notes
-    -----
-    Currently supports only 2-dimensional phase spaces (n=2). Attempts to
-    initialize with higher-dimensional analyzers will issue a warning but
-    allow partial functionality for compatible methods.
-    """
-    
-    def __init__(self, analyzer: 'StationaryPhaseAnalyzer'):
-        """
-        Initialize visualizer with a pre-configured phase analyzer.
+        prefactor = (2.0 * np.pi * inv_lam) ** (n / 2.0) / np.sqrt(det_h_abs)
+        term0 = cp.amplitude_value * exponent * prefactor
+
+        # --- Second-order corrections (O(1/λ)) ---
+        # Retrieve or recompute the inverse Hessian.
+        h_inv = cp.hessian_inv if cp.hessian_inv is not None else np.linalg.inv(cp.hessian_matrix)
+
+        # 1. Amplitude curvature: (1/2) Tr(H⁻¹ ∇²a)
+        term_lap_a = 0.5 * np.einsum('ij,ij', h_inv, cp.hess_amp)
+
+        # 2. Amplitude-gradient / cubic-phase coupling:
+        #    −(1/2) Σᵢⱼₖ (∇a)ᵢ (H⁻¹)ⱼₖ (H⁻¹)ₖₗ D³φⱼₖₗ
+        #    Rewritten as −(1/2) ⟨∇a, [(H⁻¹ ⊗ H⁻¹) : D³φ]⟩
+        t_as3 = np.einsum('i,jkl,ij,kl', cp.grad_amp, cp.phase_d3, h_inv, h_inv)
+
+        # 3. Quartic phase anharmonicity:
+        #    −(1/8) Σᵢⱼₖₗ (H⁻¹)ᵢⱼ (H⁻¹)ₖₗ D⁴φᵢⱼₖₗ
+        t_s4 = np.einsum('ijkl,ij,kl', cp.phase_d4, h_inv, h_inv)
+
+        # 4. Squared cubic anharmonicity (theta-graph Feynman diagram):
+        #    +(5/24) Σᵢⱼₖₗₘₙ (H⁻¹)ᵢₗ (H⁻¹)ⱼₘ (H⁻¹)ₖₙ D³φᵢⱼₖ D³φₗₘₙ
+        t_s3s3 = np.einsum('ijk,lmn,il,jm,kn', cp.phase_d3, cp.phase_d3, h_inv, h_inv, h_inv)
+
+        # Combine correction terms (all real for real-valued a and φ).
+        correction_factor = term_lap_a - 0.5 * t_as3 - 0.125 * t_s4 + (5.0 / 24.0) * t_s3s3
+        correction_val = term0 * inv_lam * correction_factor
+
+        total_value = term0 + correction_val
+
+        return AsymptoticContribution(
+            leading_term=complex(term0),
+            correction_term=complex(correction_val),
+            total_value=complex(total_value),
+            point=cp,
+            order_leading=n / 2.0,
+            method=IntegralMethod.LAPLACE,
+        )
         
+
+
+# --- Saddle-Point Evaluator ---
+
+class SaddlePointEvaluator:
+    """
+    Naive saddle-point evaluator for integrals with a genuinely complex phase.
+
+    Handles integrals of the form:
+        I(λ) = ∫ a(x) exp(iλφ(x)) dx,  φ = φ_R + i·φ_I,  λ → +∞
+
+    where both the real part φ_R and the imaginary part φ_I are non-trivial.
+    The integrand simultaneously oscillates (φ_R) and is exponentially damped
+    (φ_I).  The asymptotic contribution is dominated by saddle points in ℂⁿ,
+    i.e. solutions of ∇φ(z) = 0 with z ∈ ℂⁿ.
+
+    Strategy (naive continuation)
+    ------------------------------
+    1. Start from real initial guesses x₀ ∈ ℝⁿ (supplied by the caller).
+    2. Analytically continue into ℂⁿ by minimising |∇φ(z)|² over the 2n
+       real degrees of freedom (Re z, Im z), using scipy.optimize.minimize.
+    3. Accept a point z_c if |∇φ(z_c)|² < tolerance.
+    4. Apply the standard Morse formula with the complex Hessian:
+
+       I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c))
+                             · 1/√det(∇²φ(z_c))
+
+       where the complex square root is chosen with positive real part
+       (principal branch convention).
+
+    Limitations and warnings
+    ------------------------
+    - Contour validity is NOT checked.  The naive continuation finds a
+      saddle point algebraically but does NOT verify that the original
+      real integration contour can be deformed through that saddle without
+      crossing other singularities (Picard-Lefschetz theory).  A
+      RuntimeWarning is always emitted to remind the user of this.
+
+    - Branch choice.  The complex square root √det H is multi-valued.
+      This implementation uses numpy's principal branch (argument in
+      (-π, π]).  The correct branch depends on the global topology of
+      the steepest-descent contour.
+
+    - Multiple saddles.  When several saddle points are found, ALL
+      contributions are returned; their relative signs (Stokes phenomena)
+      are not resolved.
+
+    - Degenerate saddles (det H ≈ 0) are not supported; a warning is
+      issued and a zero contribution is returned.
+
+    References
+    ----------
+    .. [1] Bleistein & Handelsman, "Asymptotic Expansions of Integrals" (1975)
+    .. [2] Delabaere & Howls, "Global asymptotics for multiple integrals with
+           boundaries" (2002)
+    """
+
+    def __init__(self, tolerance: float = 1e-8):
+        self.tolerance = tolerance
+
+    # ------------------------------------------------------------------
+    # Saddle-point search in ℂⁿ
+    # ------------------------------------------------------------------
+
+    def find_saddle_points(
+        self,
+        analyzer: 'Analyzer',
+        initial_guesses: List[np.ndarray],
+    ) -> List[np.ndarray]:
+        """
+        Search for saddle points z_c ∈ ℂⁿ satisfying ∇φ(z_c) = 0.
+
+        The search minimises the real function
+
+            F(u, v) = |∇φ(u + iv)|²,   u, v ∈ ℝⁿ
+
+        starting from (u₀, v₀) = (x₀, 0) for each real guess x₀.
+
         Parameters
         ----------
-        analyzer : StationaryPhaseAnalyzer
-            Analyzer instance containing symbolic phase/amplitude definitions
-            and derivative structures. Must have dimension=2 for full functionality.
-            
-        Warns
-        -----
-        UserWarning
-            If analyzer dimension is not 2, visualization capabilities will be limited.
+        analyzer : Analyzer
+            Analyzer whose lambdified gradient func_grad is used.
+            The phase must accept complex-valued arguments.
+        initial_guesses : list of ndarray
+            Real starting points in ℝⁿ.  Each is lifted to ℂⁿ by setting
+            the imaginary part to zero.
+
+        Returns
+        -------
+        list of complex ndarray
+            Unique saddle points found (deduplicated within 1e-6).
+            Each array has shape (dim,) and dtype complex128.
+        """
+        dim = analyzer.dim
+        func_grad = analyzer.func_grad
+
+        def objective(uv: np.ndarray) -> float:
+            """Real objective: |∇φ(u + iv)|²."""
+            z = uv[:dim] + 1j * uv[dim:]
+            try:
+                g = np.array(func_grad(*z), dtype=complex)
+                return float(np.real(np.dot(g.conj(), g)))
+            except Exception:
+                return 1e30
+
+        saddle_points: List[np.ndarray] = []
+
+        for guess in initial_guesses:
+            # Initial point: real guess, zero imaginary part
+            uv0 = np.concatenate([np.real(guess), np.zeros(dim)])
+            try:
+                res = minimize(objective, uv0, method='L-BFGS-B',
+                               tol=self.tolerance,
+                               options={'maxiter': 2000, 'ftol': self.tolerance**2})
+                if res.fun < self.tolerance:
+                    z_c = res.x[:dim] + 1j * res.x[dim:]
+                    # Deduplicate: reject if too close to an existing saddle
+                    if not any(np.linalg.norm(z_c - s) < 1e-6 for s in saddle_points):
+                        saddle_points.append(z_c)
+            except Exception:
+                pass
+
+        return saddle_points
+
+    # ------------------------------------------------------------------
+    # Asymptotic formula at a single saddle point
+    # ------------------------------------------------------------------
+
+    def evaluate(self, cp: CriticalPoint, lam: float) -> AsymptoticContribution:
+        """
+        Evaluate the leading-order saddle-point contribution.
+
+        Uses the standard multi-dimensional Morse formula extended to a
+        complex critical point z_c:
+
+            I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c))
+                                 · 1/√det(∇²φ(z_c))
+
+        The complex determinant det(∇²φ(z_c)) is evaluated with numpy's
+        principal square root.
+
+        .. warning::
+            This contribution is valid only if the original integration
+            contour can be deformed through z_c along a steepest-descent
+            path.  This is NOT verified here (Picard-Lefschetz theory).
+            Always examine the result critically.
+
+        Parameters
+        ----------
+        cp : CriticalPoint
+            Saddle point with method=SADDLE_POINT, produced by
+            Analyzer.analyze_point() called with a complex
+            coordinate returned by find_saddle_points().
+        lam : float
+            Large parameter λ > 0.
+
+        Returns
+        -------
+        AsymptoticContribution
+            leading_term  : saddle-point formula value.
+            correction_term : 0j (not implemented for saddle points).
+            order_leading : n/2.
+            method        : IntegralMethod.SADDLE_POINT.
+        """
+        warnings.warn(
+            "SaddlePointEvaluator: contour validity (Picard-Lefschetz) is NOT "
+            "checked.  The contribution is correct only if the integration contour "
+            "can be deformed through this saddle point.  Verify independently.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+        dim = len(cp.position)
+
+        # Degenerate saddle: det H ≈ 0 → formula undefined
+        if abs(cp.hessian_det) < self.tolerance:
+            warnings.warn(
+                f"SaddlePointEvaluator: det(∇²φ) ≈ 0 at saddle {cp.position}. "
+                "Degenerate saddle points are not supported; returning zero contribution.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            return AsymptoticContribution(
+                leading_term=0j,
+                correction_term=0j,
+                total_value=0j,
+                point=cp,
+                order_leading=dim / 2.0,
+                method=IntegralMethod.SADDLE_POINT,
+            )
+
+        # (2π/λ)^(n/2)
+        prefactor = (2.0 * np.pi / lam) ** (dim / 2.0)
+
+        # exp(iλφ(z_c)) — complex phase, possibly with exponential decay
+        phase_osc = np.exp(1j * lam * cp.phase_value)
+
+        # 1/√det(∇²φ(z_c)) — complex square root, principal branch.
+        # This encodes both the Gaussian curvature and the Maslov-like phase
+        # at the complex saddle point.
+        sqrt_det = np.sqrt(complex(cp.hessian_det))  # principal branch
+
+        leading = prefactor * cp.amplitude_value * phase_osc / sqrt_det
+
+        return AsymptoticContribution(
+            leading_term=leading,
+            correction_term=0j,
+            total_value=leading,
+            point=cp,
+            order_leading=dim / 2.0,
+            method=IntegralMethod.SADDLE_POINT,
+        )
+
+
+# --- Unified Façade ---
+
+class AsymptoticEvaluator:
+    """
+    Unified façade that dispatches asymptotic evaluation to the appropriate
+    evaluator based on the integration method stored in a CriticalPoint.
+
+    This is the recommended entry point for end users.  Routing table:
+
+        cp.method == STATIONARY_PHASE  →  StationaryPhaseEvaluator
+        cp.method == LAPLACE           →  LaplaceEvaluator
+        cp.method == SADDLE_POINT      →  SaddlePointEvaluator
+
+    The method is determined automatically when the analyzer is constructed
+    with method=AUTO (the default).
+
+    Usage
+    -----
+    >>> analyzer = Analyzer(phi, amp, [x, y])  # AUTO by default
+    >>> print(analyzer.method)   # e.g. IntegralMethod.SADDLE_POINT
+    >>> pts = analyzer.find_critical_points([np.array([0., 0.])])
+    >>> cp  = analyzer.analyze_point(pts[0])
+    >>> result = AsymptoticEvaluator().evaluate(cp, lam=100)
+    >>> print(result.method, result.total_value)
+
+    For SADDLE_POINT, use SaddlePointEvaluator.find_saddle_points() to
+    obtain complex coordinates before calling analyze_point():
+
+    >>> sp_eval = SaddlePointEvaluator()
+    >>> saddles = sp_eval.find_saddle_points(analyzer, real_guesses)
+    >>> cp = analyzer.analyze_point(saddles[0])
+    >>> result = AsymptoticEvaluator().evaluate(cp, lam=100)
+
+    Attributes
+    ----------
+    sp_evaluator : StationaryPhaseEvaluator
+    laplace_evaluator : LaplaceEvaluator
+    saddle_evaluator : SaddlePointEvaluator
+    """
+
+    def __init__(self, tolerance: float = 1e-8):
+        self.sp_evaluator      = StationaryPhaseEvaluator(tolerance=tolerance)
+        self.laplace_evaluator = LaplaceEvaluator()
+        self.saddle_evaluator  = SaddlePointEvaluator(tolerance=tolerance)
+
+    def evaluate(self, cp: CriticalPoint, lam: float) -> AsymptoticContribution:
+        """
+        Evaluate the asymptotic contribution at parameter λ.
+
+        The evaluation method is selected from ``cp.method``:
+        - STATIONARY_PHASE → full singularity-type dispatch (Morse, Airy, Pearcey …)
+        - LAPLACE          → Laplace formula with O(1/λ) corrections
+        - SADDLE_POINT     → complex Morse formula (naive; see SaddlePointEvaluator)
+
+        Parameters
+        ----------
+        cp : CriticalPoint
+            Critical/saddle point from Analyzer.analyze_point().
+        lam : float
+            Large asymptotic parameter λ > 0.
+
+        Returns
+        -------
+        AsymptoticContribution
+
+        Raises
+        ------
+        ValueError
+            If cp.method is None, AUTO, or unrecognised.
+        """
+        if cp.method is None or cp.method == IntegralMethod.AUTO:
+            raise ValueError(
+                "CriticalPoint.method is None or AUTO. "
+                "Make sure the point was produced by Analyzer "
+                "after method resolution (AUTO should have been replaced by a "
+                "concrete method during __init__)."
+            )
+        if cp.method == IntegralMethod.STATIONARY_PHASE:
+            return self.sp_evaluator.evaluate(cp, lam)
+        elif cp.method == IntegralMethod.LAPLACE:
+            return self.laplace_evaluator.evaluate(cp, lam)
+        elif cp.method == IntegralMethod.SADDLE_POINT:
+            return self.saddle_evaluator.evaluate(cp, lam)
+        else:
+            raise ValueError(f"Unknown IntegralMethod: {cp.method!r}")
+
+
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+
+class AsymptoticVisualizer:
+    """
+    Visualization toolkit for asymptotic analysis — supports all three integration
+    methods (STATIONARY_PHASE, LAPLACE, SADDLE_POINT).
+
+    Provides three diagnostic plots, each adapted to the nature of the phase φ:
+
+    plot_phase_landscape
+        2D contour map of φ with critical / saddle-point overlay.
+        - φ real   (STATIONARY_PHASE) : single panel, Re(φ).
+        - φ imag   (LAPLACE)          : single panel, Im(φ) = ψ (the damping potential).
+        - φ complex (SADDLE_POINT)    : two panels side-by-side, Re(φ) and Im(φ).
+        The ``display`` parameter overrides the automatic choice
+        ('real', 'imag', 'both', 'abs', 'arg').
+
+    plot_integrand
+        2D map of the integrand f(x,y) = a(x,y)·exp(iλφ(x,y)) at a given λ.
+        - STATIONARY_PHASE : single panel, Re(f)  — pure oscillation, |f| = const.
+        - LAPLACE          : single panel, Re(f) = a·exp(-λψ)  — exponential envelope.
+        - SADDLE_POINT     : two panels, Re(f) and |f| = |a|·exp(-λ Im φ), revealing
+                             both the oscillation pattern and the exponential damping.
+
+    plot_asymptotic_convergence
+        Log-log plot of |I₀(λ)| and |I₁(λ)| vs λ for any dimension and any method.
+        Overlays the theoretical decay slope λ^(-p) for verification.
+
+    Notes
+    -----
+    plot_phase_landscape and plot_integrand require dim = 2.
+    plot_asymptotic_convergence works for any dimension.
+    """
+
+    # ------------------------------------------------------------------
+    # Marker / colour convention for critical-point overlay (shared)
+    # ------------------------------------------------------------------
+    _MARKER_STYLE: Dict[SingularityType, Tuple] = {
+        SingularityType.MORSE       : ('o', 'red',    'Morse'),
+        SingularityType.AIRY_1D     : ('*', 'orange', 'Airy'),
+        SingularityType.AIRY_2D     : ('*', 'orange', 'Airy'),
+        SingularityType.PEARCEY     : ('D', 'magenta','Pearcey'),
+        SingularityType.HIGHER_ORDER: ('s', 'gray',   'Higher-order'),
+    }
+
+    def __init__(self, analyzer: 'Analyzer'):
+        """
+        Parameters
+        ----------
+        analyzer : Analyzer
+            Analyzer instance (any method, any dimension).
+            dim = 2 is required for plot_phase_landscape and plot_integrand.
         """
         self.analyzer = analyzer
         if analyzer.dim != 2:
             warnings.warn(
-                f"Visualization optimized for 2D domains (received dim={analyzer.dim}). "
-                "Some plotting methods may fail or produce misleading results.",
-                UserWarning
+                f"plot_phase_landscape and plot_integrand require dim=2 "
+                f"(received dim={analyzer.dim}). "
+                "plot_asymptotic_convergence works for any dimension.",
+                UserWarning,
             )
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _make_grid(
+        self,
+        bounds: Tuple[Tuple[float, float], Tuple[float, float]],
+        n: int,
+    ):
+        """Return (X, Y, phi_val, amp_val) on a regular n×n grid."""
+        x_range = np.linspace(bounds[0][0], bounds[0][1], n)
+        y_range = np.linspace(bounds[1][0], bounds[1][1], n)
+        X, Y = np.meshgrid(x_range, y_range)
+        phi_val = np.asarray(self.analyzer.func_phase(X, Y), dtype=complex)
+        amp_val = np.asarray(self.analyzer.func_amp(X, Y),   dtype=complex)
+        return X, Y, phi_val, amp_val
+
+    def _overlay_critical_points(
+        self,
+        ax,
+        critical_points: List[CriticalPoint],
+        offset: float = 0.12,
+    ) -> None:
+        """Scatter-plot critical / saddle points on an existing Axes."""
+        plotted_labels: set = set()
+        for cp in critical_points:
+            marker, color, label = self._MARKER_STYLE.get(
+                cp.singularity_type,
+                ('s', 'gray', 'Unknown'),
+            )
+            # For complex (saddle) positions, project to real part for 2D display
+            px = float(np.real(cp.position[0]))
+            py = float(np.real(cp.position[1]))
+
+            kw = dict(c=color, s=150, marker=marker,
+                      edgecolors='white', linewidths=1.5, zorder=10)
+            if label not in plotted_labels:
+                ax.scatter(px, py, label=label, **kw)
+                plotted_labels.add(label)
+            else:
+                ax.scatter(px, py, **kw)
+
+            ax.text(
+                px + offset, py + offset,
+                cp.singularity_type.value,
+                fontsize=8, color='white', fontweight='bold',
+                bbox=dict(facecolor='black', alpha=0.55, edgecolor='none', pad=1),
+            )
+
+    @staticmethod
+    def _contour_panel(
+        fig, ax, X, Y, Z: np.ndarray,
+        title: str, label: str,
+        cmap: str = 'viridis', n_levels: int = 40,
+    ) -> None:
+        """Draw a filled contour panel with a colour bar."""
+        z_min, z_max = np.nanmin(Z), np.nanmax(Z)
+        if z_min == z_max:          # constant field — avoid degenerate levels
+            z_min -= 1e-10
+            z_max += 1e-10
+        levels = np.linspace(z_min, z_max, n_levels)
+        cf = ax.contourf(X, Y, Z, levels=levels, cmap=cmap, alpha=0.88)
+        ax.contour(X, Y, Z, levels=levels, colors='k', linewidths=0.35, alpha=0.25)
+        fig.colorbar(cf, ax=ax, label=label, shrink=0.92)
+        ax.set_title(title, fontsize=12)
+        ax.set_xlabel('$x$', fontsize=11)
+        ax.set_ylabel('$y$', fontsize=11)
+        ax.set_aspect('equal', adjustable='box')
+
+    @staticmethod
+    def _imshow_panel(
+        fig, ax, data: np.ndarray,
+        bounds: Tuple, title: str, label: str,
+        cmap: str = 'RdBu_r', symmetric: bool = True,
+    ) -> None:
+        """Draw an imshow panel with a colour bar."""
+        vmax = np.nanmax(np.abs(data))
+        vmin = -vmax if symmetric else 0.0
+        im = ax.imshow(
+            data,
+            extent=[bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]],
+            origin='lower', cmap=cmap,
+            vmin=vmin, vmax=vmax,
+            interpolation='bilinear',
+        )
+        fig.colorbar(im, ax=ax, label=label, shrink=0.92)
+        ax.set_title(title, fontsize=12)
+        ax.set_xlabel('$x$', fontsize=11)
+        ax.set_ylabel('$y$', fontsize=11)
+
+    # ------------------------------------------------------------------
+    # Public plots
+    # ------------------------------------------------------------------
 
     def plot_phase_landscape(
         self,
         critical_points: List[CriticalPoint],
         bounds: Tuple[Tuple[float, float], Tuple[float, float]] = ((-3, 3), (-3, 3)),
-        points_per_axis: int = 100
+        points_per_axis: int = 120,
+        display: Optional[str] = None,
     ) -> None:
         """
-        Visualize phase function topology with critical point classification overlay.
-        
-        Generates a filled contour plot of the phase function φ(x,y) with:
-        - Color-mapped phase values (viridis colormap)
-        - Thin black contour lines for structural clarity
-        - Critical points marked by singularity type (Morse/Airy/Pearcey)
-        - Type annotations with color-coded markers
-        
+        Visualize the phase function φ(x,y) with critical/saddle-point overlay.
+
+        The panels shown depend on the integration method (or on ``display``):
+
+        +--------------------+---------------------------------------------------+
+        | Method / display   | Panels                                            |
+        +====================+===================================================+
+        | STATIONARY_PHASE   | Re(φ)                                             |
+        | display='real'     |                                                   |
+        +--------------------+---------------------------------------------------+
+        | LAPLACE            | Im(φ) = ψ  (the damping potential)                |
+        | display='imag'     |                                                   |
+        +--------------------+---------------------------------------------------+
+        | SADDLE_POINT       | Re(φ)  |  Im(φ)  side-by-side                    |
+        | display='both'     |                                                   |
+        +--------------------+---------------------------------------------------+
+        | display='abs'      | |φ|                                               |
+        +--------------------+---------------------------------------------------+
+        | display='arg'      | arg(φ)                                            |
+        +--------------------+---------------------------------------------------+
+
         Parameters
         ----------
         critical_points : list of CriticalPoint
-            Critical points to overlay on the phase landscape.
-        bounds : tuple of (min, max) tuples, optional
-            Domain boundaries as ((x_min, x_max), (y_min, y_max)). Default: ((-3,3), (-3,3)).
-        points_per_axis : int, optional
-            Grid resolution for phase evaluation. Default: 100.
-            
+            Points to overlay (real or complex coordinates accepted).
+        bounds : pair of (min, max) pairs
+            Spatial domain  ((x_min, x_max), (y_min, y_max)).
+        points_per_axis : int
+            Grid resolution (default 120).
+        display : str or None
+            Override automatic panel selection.  One of
+            'real', 'imag', 'both', 'abs', 'arg'.
+
         Notes
         -----
-        Marker conventions:
-        - ○ Red: Morse (non-degenerate) critical points
-        - ★ Orange: Airy-type singularities (corank 1 with cubic term)
-        - ◆ Magenta: Pearcey singularities (corank 1 with quartic dominance)
-        
-        The phase landscape reveals geometric structures governing asymptotic behavior:
-        valleys/ridges indicate regions of stationary phase, while saddle points
-        correspond to Morse-type contributions.
+        Marker conventions (shared with plot_integrand):
+        ○ red    — Morse (non-degenerate)
+        ★ orange — Airy  (corank 1, cubic)
+        ◆ magenta — Pearcey (corank 1, quartic)
+        □ gray   — Higher-order / unclassified
         """
         if self.analyzer.dim != 2:
-            warnings.warn("Phase landscape visualization requires 2D domain", UserWarning)
+            warnings.warn("plot_phase_landscape requires dim=2.", UserWarning)
             return
 
-        # Generate evaluation grid
-        x_range = np.linspace(bounds[0][0], bounds[0][1], points_per_axis)
-        y_range = np.linspace(bounds[1][0], bounds[1][1], points_per_axis)
-        X, Y = np.meshgrid(x_range, y_range)
-        
-        # Evaluate phase function on grid (vectorized)
-        Z = self.analyzer.func_phase(X, Y)
+        X, Y, phi_val, _ = self._make_grid(bounds, points_per_axis)
 
-        fig, ax = plt.subplots(figsize=(10, 8))
-        
-        # Filled contour plot with adaptive levels
-        levels = np.linspace(np.min(Z), np.max(Z), 40)
-        contourf_plot = ax.contourf(X, Y, Z, levels=levels, cmap='viridis', alpha=0.85)
-        fig.colorbar(contourf_plot, ax=ax, label=r'Phase $\phi(x, y)$')
-        
-        # Overlay thin structural contours for readability
-        ax.contour(X, Y, Z, levels=levels, colors='k', linewidths=0.4, alpha=0.3)
+        # Determine which panels to draw
+        method = self.analyzer.method
+        if display is None:
+            if method == IntegralMethod.STATIONARY_PHASE:
+                display = 'real'
+            elif method == IntegralMethod.LAPLACE:
+                display = 'imag'
+            else:                          # SADDLE_POINT or unknown
+                display = 'both'
 
-        # Plot and annotate critical points by singularity type
-        plotted_types = set()  # Track types for legend deduplication
-        for cp in critical_points:
-            # Determine marker/style based on singularity classification
-            if cp.singularity_type == SingularityType.MORSE:
-                marker, color, label = 'o', 'red', 'Morse'
-            elif cp.singularity_type in (SingularityType.AIRY_1D, SingularityType.AIRY_2D):
-                marker, color, label = '*', 'orange', 'Airy'
-            elif cp.singularity_type == SingularityType.PEARCEY:
-                marker, color, label = 'D', 'magenta', 'Pearcey'
-            else:
-                marker, color, label = 's', 'gray', 'Higher-order'
-            
-            # Skip legend duplicates while plotting all points
-            if label not in plotted_types:
-                ax.scatter(
-                    cp.position[0], cp.position[1],
-                    c=color, s=120, marker=marker, edgecolors='white',
-                    linewidths=1.5, zorder=10, label=label
-                )
-                plotted_types.add(label)
-            else:
-                ax.scatter(
-                    cp.position[0], cp.position[1],
-                    c=color, s=120, marker=marker, edgecolors='white',
-                    linewidths=1.5, zorder=10
-                )
-            
-            # Annotate singularity type near point
-            ax.text(
-                cp.position[0] + 0.12, cp.position[1] + 0.12,
-                cp.singularity_type.value,
-                fontsize=9, color='white', fontweight='bold',
-                bbox=dict(facecolor='black', alpha=0.6, edgecolor='none', pad=1)
-            )
+        panel_map = {
+            'real': [(np.real(phi_val), r'$\operatorname{Re}(\phi)$',
+                      r'$\operatorname{Re}(\phi(x,y))$', 'viridis')],
+            'imag': [(np.imag(phi_val), r'$\operatorname{Im}(\phi) = \psi$',
+                      r'$\operatorname{Im}(\phi(x,y))$', 'plasma')],
+            'abs' : [(np.abs(phi_val),  r'$|\phi|$',
+                      r'$|\phi(x,y)|$',  'magma')],
+            'arg' : [(np.angle(phi_val),r'$\arg(\phi)$',
+                      r'$\arg(\phi(x,y))$', 'hsv')],
+            'both': [(np.real(phi_val), r'$\operatorname{Re}(\phi)$',
+                      r'$\operatorname{Re}(\phi(x,y))$', 'viridis'),
+                     (np.imag(phi_val), r'$\operatorname{Im}(\phi) = \psi$',
+                      r'$\operatorname{Im}(\phi(x,y))$', 'plasma')],
+        }
+        if display not in panel_map:
+            raise ValueError(f"display must be one of {list(panel_map)}; got {display!r}")
 
-        # Finalize plot aesthetics
-        ax.set_title(r'Phase Topology $\phi(x,y)$ with Critical Point Classification', fontsize=14)
-        ax.set_xlabel('$x$', fontsize=12)
-        ax.set_ylabel('$y$', fontsize=12)
-        ax.legend(loc='best', framealpha=0.9)
-        ax.set_aspect('equal', adjustable='box')
+        panels = panel_map[display]
+        ncols  = len(panels)
+        fig, axes = plt.subplots(1, ncols, figsize=(7 * ncols, 6),
+                                 squeeze=False)
+
+        for ax, (data, cbar_label, title, cmap) in zip(axes[0], panels):
+            self._contour_panel(fig, ax, X, Y, data, title, cbar_label, cmap)
+            self._overlay_critical_points(ax, critical_points)
+            ax.legend(loc='upper right', fontsize=9, framealpha=0.85)
+
+        method_label = method.value.replace('_', ' ').title()
+        fig.suptitle(
+            f'Phase Landscape — {method_label}',
+            fontsize=14, fontweight='bold', y=0.98,
+        )
         plt.tight_layout()
         plt.show()
 
-    def plot_oscillations(
+    def plot_integrand(
         self,
         lam_value: float,
         bounds: Tuple[Tuple[float, float], Tuple[float, float]] = ((-3, 3), (-3, 3)),
-        points_per_axis: int = 200
+        points_per_axis: int = 200,
     ) -> None:
         """
-        Visualize oscillatory structure of the integrand at finite frequency λ.
-        
-        Plots the real part of the oscillatory integrand:
-            Re[ a(x,y) · exp(i λ φ(x,y)) ]
-            
-        revealing:
-        - Stationary phase regions (slow oscillation zones near critical points)
-        - Rapid oscillation zones (destructive interference regions)
-        - Amplitude modulation effects from a(x,y)
-        
+        Visualize the structure of the integrand f = a(x,y)·exp(iλφ(x,y)) at
+        a given parameter λ.
+
+        The panels shown depend on the integration method:
+
+        +--------------------+---------------------------------------------------+
+        | Method             | Panels                                            |
+        +====================+===================================================+
+        | STATIONARY_PHASE   | Re(f)  — oscillation with unit-modulus envelope   |
+        +--------------------+---------------------------------------------------+
+        | LAPLACE            | f = a·exp(-λψ)  — real exponential concentration  |
+        +--------------------+---------------------------------------------------+
+        | SADDLE_POINT       | Re(f)  |  |f| = |a|·exp(-λ Im φ) side-by-side:   |
+        |                    | left shows oscillations, right shows the          |
+        |                    | exponential damping envelope                      |
+        +--------------------+---------------------------------------------------+
+
         Parameters
         ----------
         lam_value : float
-            Frequency parameter λ controlling oscillation rate.
-        bounds : tuple of (min, max) tuples, optional
-            Domain boundaries as ((x_min, x_max), (y_min, y_max)). Default: ((-3,3), (-3,3)).
-        points_per_axis : int, optional
-            Grid resolution for integrand evaluation. Higher values capture finer
-            oscillations but increase computation time. Default: 200.
-            
+            Parameter λ.  Larger values produce finer oscillations / sharper
+            concentration.
+        bounds : pair of (min, max) pairs
+            Spatial domain  ((x_min, x_max), (y_min, y_max)).
+        points_per_axis : int
+            Grid resolution (default 200).  Increase for large λ to resolve
+            fine oscillations.
+
         Notes
         -----
-        As λ increases:
-        - Oscillation wavelength decreases as ~1/√λ near Morse points
-        - Stationary phase regions contract around critical points
-        - Destructive interference dominates away from critical manifolds
-        
-        This visualization provides intuition for why asymptotic methods focus
-        exclusively on neighborhoods of critical points for large λ.
+        For STATIONARY_PHASE, as λ increases the oscillations become finer
+        everywhere *except* near stationary points (∇φ = 0), where the phase
+        is locally flat — this is the geometric core of the method.
+
+        For LAPLACE, the integrand concentrates sharply around the minimum of
+        Im(φ) = ψ, illustrating why only a small neighbourhood contributes.
+
+        For SADDLE_POINT, |f| reveals the exponential ridge structure while
+        Re(f) shows the additional rapid oscillations along the ridge.
         """
         if self.analyzer.dim != 2:
-            warnings.warn("Oscillation visualization requires 2D domain", UserWarning)
+            warnings.warn("plot_integrand requires dim=2.", UserWarning)
             return
 
-        # Generate high-resolution evaluation grid
-        x_range = np.linspace(bounds[0][0], bounds[0][1], points_per_axis)
-        y_range = np.linspace(bounds[1][0], bounds[1][1], points_per_axis)
-        X, Y = np.meshgrid(x_range, y_range)
-        
-        # Evaluate phase and amplitude on grid
-        phi_val = self.analyzer.func_phase(X, Y)
-        amp_val = self.analyzer.func_amp(X, Y)
-        
-        # Compute real part of oscillatory integrand
-        integrand = np.real(amp_val * np.exp(1j * lam_value * phi_val))
+        X, Y, phi_val, amp_val = self._make_grid(bounds, points_per_axis)
+        method = self.analyzer.method
 
-        # Create figure with symmetric colormap centered at zero
-        plt.figure(figsize=(10, 8))
-        im = plt.imshow(
-            integrand,
-            extent=[bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]],
-            origin='lower',
-            cmap='RdBu_r',
-            vmin=-np.max(np.abs(integrand)),
-            vmax=np.max(np.abs(integrand)),
-            interpolation='bilinear'
-        )
-        plt.colorbar(im, label=r'$\operatorname{Re}\left[a(x,y) e^{i \lambda \phi(x,y)}\right]$')
-        plt.title(f'Oscillatory Integrand Structure at $\\lambda = {lam_value}$', fontsize=14)
-        plt.xlabel('$x$', fontsize=12)
-        plt.ylabel('$y$', fontsize=12)
-        plt.grid(False)
+        # Full complex integrand  f = a · exp(iλφ)
+        f = amp_val * np.exp(1j * lam_value * phi_val)
+        re_f  = np.real(f)
+        abs_f = np.abs(f)
+
+        if method == IntegralMethod.STATIONARY_PHASE:
+            # Pure oscillation: |f| = |a| is independent of λ; show Re(f).
+            fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+            self._imshow_panel(
+                fig, ax, re_f, bounds,
+                title=rf'$\operatorname{{Re}}[a\, e^{{i\lambda\phi}}]$'
+                      rf' — Stationary Phase  ($\lambda={lam_value}$)',
+                label=r'$\operatorname{Re}[f]$',
+                cmap='RdBu_r', symmetric=True,
+            )
+
+        elif method == IntegralMethod.LAPLACE:
+            # Real exponential: f = a·exp(-λψ); always real for real a and ψ.
+            fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+            self._imshow_panel(
+                fig, ax, re_f, bounds,
+                title=rf'$a\, e^{{-\lambda\psi}}$'
+                      rf' — Laplace  ($\lambda={lam_value}$)',
+                label=r'$a\,e^{-\lambda\psi}$',
+                cmap='hot', symmetric=False,
+            )
+
+        else:  # SADDLE_POINT: show oscillation + damping envelope side-by-side
+            fig, (ax_re, ax_abs) = plt.subplots(1, 2, figsize=(15, 6))
+            self._imshow_panel(
+                fig, ax_re, re_f, bounds,
+                title=rf'$\operatorname{{Re}}[a\, e^{{i\lambda\phi}}]$'
+                      rf'  ($\lambda={lam_value}$)',
+                label=r'$\operatorname{Re}[f]$',
+                cmap='RdBu_r', symmetric=True,
+            )
+            self._imshow_panel(
+                fig, ax_abs, abs_f, bounds,
+                title=rf'$|a\, e^{{i\lambda\phi}}| = |a|\,e^{{-\lambda\,\operatorname{{Im}}\phi}}$'
+                      rf'  ($\lambda={lam_value}$)',
+                label=r'$|f|$',
+                cmap='hot', symmetric=False,
+            )
+
         plt.tight_layout()
         plt.show()
 
@@ -1275,157 +2138,245 @@ class StationaryPhaseVisualizer:
         cp: CriticalPoint,
         lambda_start: float = 10,
         lambda_end: float = 1000,
-        num_points: int = 50
+        num_points: int = 50,
     ) -> None:
         """
-        Diagnose asymptotic convergence rates through log-log magnitude scaling.
-        
-        Plots absolute magnitudes of:
-        - Leading asymptotic term: |I₀(λ)|
-        - First correction term: |I₁(λ)| (if non-zero)
-        
-        on log-log axes to verify theoretical decay rates:
-            |I₀(λ)| ~ λ^(-p)  where p = order_leading
-            |I₁(λ)| ~ λ^(-p-1) for Morse points with order-2 corrections
-            
+        Log-log convergence diagnostic for any method and any dimension.
+
+        Plots |I₀(λ)| and |I₁(λ)| vs λ and compares the empirical slope
+        with the theoretical decay exponent −p:
+
+        +--------------------+------------------------------------------+
+        | Method / type      | Theoretical slope  −p                   |
+        +====================+==========================================+
+        | Morse (any dim n)  | −n/2                                     |
+        | Airy 1D            | −1/3                                     |
+        | Airy 2D            | −5/6                                     |
+        | Pearcey            | −3/4                                     |
+        | Laplace (any n)    | −n/2                                     |
+        | Saddle-point       | −n/2  (complex Morse)                    |
+        +--------------------+------------------------------------------+
+
         Parameters
         ----------
         cp : CriticalPoint
-            Critical point to analyze for asymptotic behavior.
-        lambda_start : float, optional
-            Minimum λ value for convergence study. Default: 10.
-        lambda_end : float, optional
-            Maximum λ value for convergence study. Default: 1000.
-        num_points : int, optional
-            Number of λ samples (log-spaced). Default: 50.
-            
+            Critical / saddle point (any method, any dimension).
+        lambda_start : float
+            Minimum λ for the convergence sweep (default 10).
+        lambda_end : float
+            Maximum λ (default 1000).
+        num_points : int
+            Number of log-spaced λ samples (default 50).
+
         Notes
         -----
-        Expected slopes on log-log plot:
-        - Morse (2D): -1.0 for leading term (λ^(-1))
-        - Airy 2D: -5/6 ≈ -0.833
-        - Pearcey: -3/4 = -0.75
-        
-        Deviations at small λ indicate breakdown of asymptotic regime.
-        Correction term slope should be steeper by exactly -1.0 for Morse points
-        with valid order-2 expansions.
-        
-        This diagnostic validates both the classification logic and the
-        correctness of asymptotic coefficient computations.
+        A straight line on the log-log plot confirms the asymptotic regime.
+        Deviations at small λ indicate pre-asymptotic behaviour.
+        The correction term |I₁| should be parallel to |I₀| but shifted
+        down by slope −1 for Morse / Laplace points.
         """
-        evaluator = StationaryPhaseEvaluator()
+        # Use the unified evaluator so all three methods are handled.
+        evaluator = AsymptoticEvaluator()
         lams = np.logspace(np.log10(lambda_start), np.log10(lambda_end), num_points)
-        
-        abs_leading = []
+
+        abs_leading    = []
         abs_correction = []
-        
+
         for lam in lams:
-            res = evaluator.evaluate(cp, lam)
+            with warnings.catch_warnings():
+                # Suppress the Picard-Lefschetz warning during the sweep;
+                # it has already been emitted when the saddle was found.
+                warnings.simplefilter('ignore', RuntimeWarning)
+                res = evaluator.evaluate(cp, lam)
             abs_leading.append(np.abs(res.leading_term))
             abs_correction.append(np.abs(res.correction_term))
-        
-        # 🔧 CORRECTION : déduire l'ordre asymptotique du type de singularité
-        theoretical_order = {
-            SingularityType.MORSE: self.analyzer.dim / 2.0,
-            SingularityType.AIRY_1D: 1.0/3.0,
-            SingularityType.AIRY_2D: 5.0/6.0,
-            SingularityType.PEARCEY: 3.0/4.0,
-            SingularityType.HIGHER_ORDER: None
-        }.get(cp.singularity_type, None)
-        
-        plt.figure(figsize=(9, 6))
-        plt.loglog(lams, abs_leading, 'o-', label='Leading term $|I_0(\\lambda)|$', 
-                   linewidth=2.5, markersize=4, alpha=0.85)
-        
-        # Plot correction term only if non-negligible
-        abs_corr_arr = np.array(abs_correction)
-        if np.any(abs_corr_arr > 1e-15 * np.max(abs_leading)):
-            plt.loglog(lams, abs_corr_arr, 's--', label='Correction term $|I_1(\\lambda)|$', 
-                       linewidth=2, markersize=3, alpha=0.8)
-        
-        # Compute empirical slope for leading term
-        slope_lead = np.polyfit(np.log(lams), np.log(abs_leading), 1)[0]
-        
-        # 🔧 AFFICHAGE CORRIGÉ : utiliser theoretical_order au lieu de cp.order_leading
-        annotation = f'Empirical slope: {slope_lead:.2f}'
+
+        abs_leading    = np.array(abs_leading)
+        abs_correction = np.array(abs_correction)
+
+        # Theoretical decay exponent (negative slope on log-log)
+        dim = len(cp.position)
+        theoretical_order: Optional[float] = {
+            SingularityType.MORSE       : dim / 2.0,
+            SingularityType.AIRY_1D     : 1.0 / 3.0,
+            SingularityType.AIRY_2D     : 5.0 / 6.0,
+            SingularityType.PEARCEY     : 3.0 / 4.0,
+            SingularityType.HIGHER_ORDER: None,
+        }.get(cp.singularity_type, dim / 2.0)
+        # For Laplace and Saddle-point the Morse formula applies (n/2).
+        if cp.method in (IntegralMethod.LAPLACE, IntegralMethod.SADDLE_POINT):
+            theoretical_order = dim / 2.0
+
+        fig, ax = plt.subplots(figsize=(9, 6))
+        ax.loglog(lams, abs_leading, 'o-',
+                  label=r'Leading term $|I_0(\lambda)|$',
+                  linewidth=2.5, markersize=4, alpha=0.85)
+
+        # Show correction term only if it is numerically significant
+        if np.any(abs_correction > 1e-15 * np.max(abs_leading)):
+            ax.loglog(lams, abs_correction, 's--',
+                      label=r'Correction term $|I_1(\lambda)|$',
+                      linewidth=2.0, markersize=3, alpha=0.80)
+
+        # Empirical slope via linear regression on log-log data
+        valid = abs_leading > 0
+        if valid.sum() >= 2:
+            slope_lead = np.polyfit(np.log(lams[valid]),
+                                    np.log(abs_leading[valid]), 1)[0]
+        else:
+            slope_lead = float('nan')
+
+        # Overlay theoretical reference line  λ^(-p)
         if theoretical_order is not None:
-            annotation += f'\n(Theoretical: -{theoretical_order:.2f})'
-        
-        plt.text(
-            lams[5], abs_leading[5]*1.5,
-            annotation,
-            fontsize=9, 
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8)
-        )
-    
-        plt.grid(True, which="both", ls=":", alpha=0.7)
-        plt.legend(loc='best', fontsize=11)
-        plt.xlabel(r'Frequency parameter $\lambda$ (log scale)', fontsize=12)
-        plt.ylabel(r'Magnitude $|I(\lambda)|$ (log scale)', fontsize=12)
-        plt.title(
-            f'Asymptotic Convergence: {cp.singularity_type.value.capitalize()} Singularity\n'
-            f'at $\\phi({cp.position[0]:.2f}, {cp.position[1]:.2f}) = {cp.phase_value:.2f}$',
-            fontsize=13
+            ref = abs_leading[0] * (lams / lams[0]) ** (-theoretical_order)
+            ax.loglog(lams, ref, 'k:', linewidth=1.4, alpha=0.6,
+                      label=rf'Ref. slope $\lambda^{{-{theoretical_order:.3g}}}$')
+
+        # Annotation box with empirical vs theoretical slope
+        annotation = f'Empirical slope: {slope_lead:.3f}'
+        if theoretical_order is not None:
+            annotation += f'\nTheoretical: −{theoretical_order:.3g}'
+        ax.text(lams[4], abs_leading[4] * 2.0, annotation,
+                fontsize=9,
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.85))
+
+        ax.grid(True, which='both', ls=':', alpha=0.6)
+        ax.legend(loc='best', fontsize=10)
+        ax.set_xlabel(r'Parameter $\lambda$ (log scale)', fontsize=12)
+        ax.set_ylabel(r'Magnitude $|I(\lambda)|$ (log scale)', fontsize=12)
+
+        # Build a title that works for any dimension
+        method_label = cp.method.value.replace('_', ' ').title()
+        pos_str = ', '.join(f'{np.real(v):.3g}' for v in cp.position)
+        ax.set_title(
+            f'Asymptotic Convergence — {method_label} / '
+            f'{cp.singularity_type.value.capitalize()}\n'
+            rf'$x_c = ({pos_str})$,  '
+            rf'$\phi(x_c) = {cp.phase_value:.4g}$',
+            fontsize=12,
         )
         plt.tight_layout()
         plt.show()
+
+
+# Backward-compatible alias so that existing code using StationaryPhaseVisualizer
+# continues to work without modification.
+StationaryPhaseVisualizer = AsymptoticVisualizer
         
 # --- Execution Example ---
 
 if __name__ == "__main__":
-    # Define symbols
     x, y = sp.symbols('x y')
-    
-    # 1. Standard Morse Case with Anharmonicity
-    # phi = x^2/2 + y^2/2 + 0.1*x^3 (Perturbed Gaussian)
-    phi = x**2/2 + y**2/2 + 0.1 * x**3 
-    amp = 1 + x**2
-    
-    # Initialize Analyzer
-    analyzer = StationaryPhaseAnalyzer(phi, amp, [x, y])
-    
-    # Find critical points (Expect one at 0,0)
-    points = analyzer.find_critical_points([np.array([0.0, 0.0])])
-    
-    evaluator = StationaryPhaseEvaluator()
-    
-    print(f"--- Asymptotic Analysis Report ---")
-    
-    if points:
-        # Analyze the first point found
-        cp = analyzer.analyze_point(points[0])
-        
-        print(f"Critical Point: {cp.position}")
-        print(f"Type: {cp.singularity_type.value}")
-        print(f"Hessian Det: {cp.hessian_det:.4f}")
-        
-        # Evaluate for increasing lambda
-        for lam in [10, 100, 1000]:
-            res = evaluator.evaluate(cp, lam)
-            
-            print(f"\nLambda = {lam}")
-            print(f"  Order 0 Term (Leading):    {res.leading_term:.2e}")
-            print(f"  Order 1 Term (Correction): {res.correction_term:.2e}")
-            print(f"  Total Value:               {res.total_value}")
-            
-            # Check ratio to ensure asymptotic convergence
-            ratio = np.abs(res.correction_term) / np.abs(res.leading_term)
-            print(f"  Correction/Leading Ratio:  {ratio:.2%}")
-    else:
-        print("No critical points found.")
 
-    if points:
-        print("\n--- Generating Visualizations ---")
-        viz = StationaryPhaseVisualizer(analyzer)
+    # =========================================================================
+    # Helper: shared report printer (works for all three methods)
+    # =========================================================================
+    def print_report(label: str, points, analyzer,
+                     lam_values=(10, 100, 1000),
+                     saddle_points=None):
+        """
+        Print an asymptotic analysis report for the first critical/saddle point.
 
-        # 1. Phase map
-        viz.plot_phase_landscape(
-            [analyzer.analyze_point(p) for p in points],
-            bounds=((-2, 2), (-2, 2))
-        )
+        For SADDLE_POINT, pass the complex coordinates via `saddle_points`
+        (produced by SaddlePointEvaluator.find_saddle_points).
+        """
+        evaluator = AsymptoticEvaluator()
+        print(f"\n{'='*60}")
+        print(f"  {label}")
+        print(f"  Detected method: {analyzer.method.value}")
+        print(f"{'='*60}")
 
-        # 2. Oscillations
-        viz.plot_oscillations(lam_value=50, bounds=((-2, 2), (-2, 2)))
+        # Select coordinate list: real points or complex saddle points
+        coords = saddle_points if saddle_points is not None else points
+        if not coords:
+            print("  No critical/saddle points found.")
+            return
 
-        # 3. Convergence (for the first point)
-        viz.plot_asymptotic_convergence(cp)
+        cp = analyzer.analyze_point(coords[0])
+        print(f"  Critical point : {cp.position}")
+        print(f"  Singularity    : {cp.singularity_type.value}")
+        print(f"  Hessian det    : {cp.hessian_det:.4g}")
+
+        for lam in lam_values:
+            try:
+                res = evaluator.evaluate(cp, lam)
+            except RuntimeWarning:
+                pass  # saddle-point warning already emitted; continue
+            ratio = (np.abs(res.correction_term) / np.abs(res.leading_term)
+                     if np.abs(res.leading_term) > 0 else float('nan'))
+            print(f"\n  λ = {lam}")
+            print(f"    Leading term      : {res.leading_term:.4e}")
+            print(f"    Correction term   : {res.correction_term:.4e}")
+            print(f"    Total             : {res.total_value:.4e}")
+            print(f"    |correction/lead| : {ratio:.2%}")
+
+    # =========================================================================
+    # 1. φ purely real → AUTO detects STATIONARY_PHASE
+    #    I(λ) = ∫∫ (1 + x²) exp(iλ (x²/2 + y²/2 + x³/10)) dx dy
+    # =========================================================================
+    phi_real = x**2/2 + y**2/2 + x**3/10
+    amp_real = 1 + x**2
+
+    analyzer_sp = Analyzer(phi_real, amp_real, [x, y])
+    pts_sp = analyzer_sp.find_critical_points([np.array([0., 0.])])
+    print_report("Case 1 — φ real (AUTO → STATIONARY_PHASE)", pts_sp, analyzer_sp)
+
+    # =========================================================================
+    # 2. φ purely imaginary → AUTO detects LAPLACE
+    #    φ = i·ψ  with ψ = x²/2 + y²/2 + x³/20  (ψ real, minimum at origin)
+    #    The integral becomes ∫∫ exp(-λ ψ(x,y)) dx dy
+    # =========================================================================
+    phi_imag = sp.I * (x**2/2 + y**2/2 + x**3/20)
+    amp_imag = sp.Integer(1)
+
+    analyzer_lap = Analyzer(phi_imag, amp_imag, [x, y])
+    pts_lap = analyzer_lap.find_critical_points([np.array([0., 0.])])
+    print_report("Case 2 — φ imaginary (AUTO → LAPLACE)", pts_lap, analyzer_lap)
+
+    # =========================================================================
+    # 3. φ genuinely complex → AUTO detects SADDLE_POINT
+    #    φ = (x²/2 + y²/2) + i·(x²/4 + y²/4)
+    #      = (1/2 + i/4)(x² + y²)
+    #    Saddle point at origin; contribution is a complex Gaussian.
+    # =========================================================================
+    phi_cplx = (x**2/2 + y**2/2) + sp.I*(x**2/4 + y**2/4)
+    amp_cplx = sp.Integer(1)
+
+    analyzer_sdl = Analyzer(phi_cplx, amp_cplx, [x, y])
+
+    # For SADDLE_POINT we use SaddlePointEvaluator to search in ℂⁿ
+    sdl_eval = SaddlePointEvaluator()
+    saddles  = sdl_eval.find_saddle_points(analyzer_sdl, [np.array([0., 0.])])
+
+    print_report("Case 3 — φ complex (AUTO → SADDLE_POINT)", [],
+                 analyzer_sdl, saddle_points=saddles)
+
+    # =========================================================================
+    # 4. Visualisations — one visualizer per case
+    # =========================================================================
+    print("\n--- Generating Visualizations ---")
+    bounds2d = ((-2, 2), (-2, 2))
+
+    # Case 1: STATIONARY_PHASE
+    if pts_sp:
+        cp_sp = analyzer_sp.analyze_point(pts_sp[0])
+        viz_sp = AsymptoticVisualizer(analyzer_sp)
+        viz_sp.plot_phase_landscape([cp_sp], bounds=bounds2d)
+        viz_sp.plot_integrand(lam_value=50, bounds=bounds2d)
+        viz_sp.plot_asymptotic_convergence(cp_sp)
+
+    # Case 2: LAPLACE
+    if pts_lap:
+        cp_lap = analyzer_lap.analyze_point(pts_lap[0])
+        viz_lap = AsymptoticVisualizer(analyzer_lap)
+        viz_lap.plot_phase_landscape([cp_lap], bounds=bounds2d)
+        viz_lap.plot_integrand(lam_value=10, bounds=bounds2d)
+        viz_lap.plot_asymptotic_convergence(cp_lap)
+
+    # Case 3: SADDLE_POINT
+    if saddles:
+        cp_sdl = analyzer_sdl.analyze_point(saddles[0])
+        viz_sdl = AsymptoticVisualizer(analyzer_sdl)
+        viz_sdl.plot_phase_landscape([cp_sdl], bounds=bounds2d)
+        viz_sdl.plot_integrand(lam_value=20, bounds=bounds2d)
+        viz_sdl.plot_asymptotic_convergence(cp_sdl)
