@@ -1,0 +1,650 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>riemannian_1d &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="riemannian_2d" href="riemannian_2d.html" />
+    <link rel="prev" title="psiop" href="psiop.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cotangent_bundle.html">cotangent_bundle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="geometry_1d.html">geometry_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpc_examples.html">hpc_examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imports.html">imports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="microlocal_1d.html">microlocal_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="microlocal_2d.html">microlocal_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mupsipy.html">mupsipy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">riemannian_1d</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.Metric1D"><code class="docutils literal notranslate"><span class="pre">Metric1D</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.g_expr"><code class="docutils literal notranslate"><span class="pre">Metric1D.g_expr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.g_inv_expr"><code class="docutils literal notranslate"><span class="pre">Metric1D.g_inv_expr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.sqrt_det_expr"><code class="docutils literal notranslate"><span class="pre">Metric1D.sqrt_det_expr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.christoffel_expr"><code class="docutils literal notranslate"><span class="pre">Metric1D.christoffel_expr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.arc_length"><code class="docutils literal notranslate"><span class="pre">Metric1D.arc_length()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.eval"><code class="docutils literal notranslate"><span class="pre">Metric1D.eval()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.from_hamiltonian"><code class="docutils literal notranslate"><span class="pre">Metric1D.from_hamiltonian()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.gauss_curvature"><code class="docutils literal notranslate"><span class="pre">Metric1D.gauss_curvature()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.laplace_beltrami_symbol"><code class="docutils literal notranslate"><span class="pre">Metric1D.laplace_beltrami_symbol()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.ricci_scalar"><code class="docutils literal notranslate"><span class="pre">Metric1D.ricci_scalar()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#riemannian_1d.Metric1D.riemannian_volume"><code class="docutils literal notranslate"><span class="pre">Metric1D.riemannian_volume()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.christoffel"><code class="docutils literal notranslate"><span class="pre">christoffel()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.geodesic_hamiltonian_flow"><code class="docutils literal notranslate"><span class="pre">geodesic_hamiltonian_flow()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.geodesic_integrator"><code class="docutils literal notranslate"><span class="pre">geodesic_integrator()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.laplace_beltrami"><code class="docutils literal notranslate"><span class="pre">laplace_beltrami()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.sturm_liouville_reduce"><code class="docutils literal notranslate"><span class="pre">sturm_liouville_reduce()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.test_error_handling"><code class="docutils literal notranslate"><span class="pre">test_error_handling()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.test_geodesic_integrators_accuracy"><code class="docutils literal notranslate"><span class="pre">test_geodesic_integrators_accuracy()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.test_hamiltonian_flow_conservation"><code class="docutils literal notranslate"><span class="pre">test_hamiltonian_flow_conservation()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.test_integration_methods_consistency"><code class="docutils literal notranslate"><span class="pre">test_integration_methods_consistency()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.test_laplace_beltrami_properties"><code class="docutils literal notranslate"><span class="pre">test_laplace_beltrami_properties()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.test_metric_geometry_and_sl"><code class="docutils literal notranslate"><span class="pre">test_metric_geometry_and_sl()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian_1d.visualize_geodesics"><code class="docutils literal notranslate"><span class="pre">visualize_geodesics()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="riemannian_2d.html">riemannian_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symplectic_1d.html">symplectic_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symplectic_2d.html">symplectic_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">riemannian_1d</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/riemannian_1d.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-riemannian_1d">
+<span id="riemannian-1d"></span><h1>riemannian_1d<a class="headerlink" href="#module-riemannian_1d" title="Link to this heading"></a></h1>
+<p>Riemannian geometry toolkit for 1D manifolds.</p>
+<dl class="simple">
+<dt>This module provides tools for working with Riemannian metrics on 1D manifolds:</dt><dd><ul class="simple">
+<li><p>Metric representation: g₁₁(x), g¹¹(x), <a href="#id1"><span class="problematic" id="id2">|g|</span></a>, √|g|</p></li>
+<li><p>Christoffel symbols: Γ¹₁₁ = ½(log g₁₁)’</p></li>
+<li><p>Geodesic equations: ẍ + Γ¹₁₁ ẋ² = 0</p></li>
+<li><p>Laplace-Beltrami operator with explicit transport terms</p></li>
+<li><p>Riemannian volume: dVg = √g₁₁ dx</p></li>
+<li><p>Connections to Sturm-Liouville theory</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py class">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">Metric1D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#Metric1D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.Metric1D" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Riemannian metric on a 1D manifold.</p>
+<p>Represents a metric tensor g₁₁(x) and provides methods for computing
+geometric quantities: inverse metric, Christoffel symbols, curvature,
+and associated operators.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>g_expr</strong> (<em>sympy expression</em>) – Symbolic expression for the metric component g₁₁(x).</p></li>
+<li><p><strong>var_x</strong> (<em>sympy symbol</em>) – Spatial coordinate variable.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.g_expr">
+<span class="sig-name descname"><span class="pre">g_expr</span></span><a class="headerlink" href="#riemannian_1d.Metric1D.g_expr" title="Link to this definition"></a></dt>
+<dd><p>Metric tensor component g₁₁(x).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sympy expression</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.g_inv_expr">
+<span class="sig-name descname"><span class="pre">g_inv_expr</span></span><a class="headerlink" href="#riemannian_1d.Metric1D.g_inv_expr" title="Link to this definition"></a></dt>
+<dd><p>Inverse metric g¹¹(x) = 1/g₁₁(x).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sympy expression</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.sqrt_det_expr">
+<span class="sig-name descname"><span class="pre">sqrt_det_expr</span></span><a class="headerlink" href="#riemannian_1d.Metric1D.sqrt_det_expr" title="Link to this definition"></a></dt>
+<dd><p>Square root of determinant √|g| = √g₁₁.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sympy expression</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.christoffel_expr">
+<span class="sig-name descname"><span class="pre">christoffel_expr</span></span><a class="headerlink" href="#riemannian_1d.Metric1D.christoffel_expr" title="Link to this definition"></a></dt>
+<dd><p>Christoffel symbol Γ¹₁₁ = ½(log g₁₁)’.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sympy expression</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Flat metric</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Hyperbolic metric</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">gauss_curvature</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># From Hamiltonian</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span> <span class="o">=</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># Kinetic term</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="o">.</span><span class="n">from_hamiltonian</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.arc_length">
+<span class="sig-name descname"><span class="pre">arc_length</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_min</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_max</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'numerical'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#Metric1D.arc_length"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.Metric1D.arc_length" title="Link to this definition"></a></dt>
+<dd><p>Compute arc length between two points.</p>
+<p>L = ∫ₐᵇ √g₁₁(x) dx</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_min</strong> (<em>float</em>) – Endpoints.</p></li>
+<li><p><strong>x_max</strong> (<em>float</em>) – Endpoints.</p></li>
+<li><p><strong>method</strong> (<em>{'symbolic'</em><em>, </em><em>'numerical'}</em>) – Computation method.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Arc length.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.eval">
+<span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_vals</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#Metric1D.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.Metric1D.eval" title="Link to this definition"></a></dt>
+<dd><p>Evaluate metric components at given points.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x_vals</strong> (<em>float</em><em> or </em><em>ndarray</em>) – Spatial coordinates.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary containing ‘g’, ‘g_inv’, ‘sqrt_det’, ‘christoffel’.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.from_hamiltonian">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_hamiltonian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_p</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#Metric1D.from_hamiltonian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.Metric1D.from_hamiltonian" title="Link to this definition"></a></dt>
+<dd><p>Extract metric from Hamiltonian kinetic term.</p>
+<p>For a Hamiltonian H = g¹¹(x) p²/2 + V(x), extract the inverse
+metric g¹¹ = ∂²H/∂p².</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>H_expr</strong> (<em>sympy expression</em>) – Hamiltonian expression H(x, p).</p></li>
+<li><p><strong>var_x</strong> (<em>sympy symbol</em>) – Position variable.</p></li>
+<li><p><strong>var_p</strong> (<em>sympy symbol</em>) – Momentum variable.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Metric object with g₁₁ = 1/g¹¹.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#riemannian_1d.Metric1D" title="riemannian_1d.Metric1D">Metric1D</a></p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span> <span class="o">=</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="o">.</span><span class="n">from_hamiltonian</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_expr</span><span class="p">)</span>
+<span class="go">x**2</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.gauss_curvature">
+<span class="sig-name descname"><span class="pre">gauss_curvature</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#Metric1D.gauss_curvature"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.Metric1D.gauss_curvature" title="Link to this definition"></a></dt>
+<dd><p>Compute Gaussian curvature K(x).</p>
+<p>In 1D (curves in higher-dimensional space), intrinsic curvature
+vanishes. This returns the extrinsic curvature if embedded.
+For surfaces, use riemannian_2d.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Curvature K(x) = 0 for intrinsic 1D geometry.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>sympy expression</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>For a curve parametrized by arc length, the curvature measures
+how much the curve deviates from being a straight line.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.laplace_beltrami_symbol">
+<span class="sig-name descname"><span class="pre">laplace_beltrami_symbol</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#Metric1D.laplace_beltrami_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.Metric1D.laplace_beltrami_symbol" title="Link to this definition"></a></dt>
+<dd><p>Compute symbol of the Laplace-Beltrami operator.</p>
+<dl class="simple">
+<dt>The Laplace-Beltrami operator in 1D is:</dt><dd><dl class="simple">
+<dt>Δg f = (1/√g) d/dx(√g g¹¹ df/dx)</dt><dd><p>= g¹¹ d²f/dx² + (√g)’/√g · g¹¹ df/dx</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictionary with ‘principal’ (g¹¹ ξ²) and ‘subprincipal’
+(first-order transport term).</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lb</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">laplace_beltrami_symbol</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">lb</span><span class="p">[</span><span class="s1">&#39;principal&#39;</span><span class="p">])</span>
+<span class="go">xi**2/x**2</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.ricci_scalar">
+<span class="sig-name descname"><span class="pre">ricci_scalar</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#Metric1D.ricci_scalar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.Metric1D.ricci_scalar" title="Link to this definition"></a></dt>
+<dd><p>Compute Ricci scalar R(x).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Ricci scalar R = 0 (1D manifold).</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>sympy expression</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="riemannian_1d.Metric1D.riemannian_volume">
+<span class="sig-name descname"><span class="pre">riemannian_volume</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_min</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_max</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'symbolic'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#Metric1D.riemannian_volume"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.Metric1D.riemannian_volume" title="Link to this definition"></a></dt>
+<dd><p>Compute Riemannian volume of interval [x_min, x_max].</p>
+<p>Vol([a,b]) = ∫ₐᵇ √g₁₁(x) dx</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_min</strong> (<em>float</em>) – Interval endpoints.</p></li>
+<li><p><strong>x_max</strong> (<em>float</em>) – Interval endpoints.</p></li>
+<li><p><strong>method</strong> (<em>{'symbolic'</em><em>, </em><em>'numerical'}</em>) – Integration method.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Volume of the interval.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float or sympy expression</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>  <span class="c1"># Flat</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">vol</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">riemannian_volume</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">vol</span><span class="p">)</span>
+<span class="go">1</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.christoffel">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">christoffel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#christoffel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.christoffel" title="Link to this definition"></a></dt>
+<dd><p>Compute Christoffel symbol as a callable function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>metric</strong> (<a class="reference internal" href="#riemannian_1d.Metric1D" title="riemannian_1d.Metric1D"><em>Metric1D</em></a>) – Riemannian metric.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Function Γ(x) returning Γ¹₁₁(x).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>callable</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Gamma</span> <span class="o">=</span> <span class="n">christoffel</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">Gamma</span><span class="p">(</span><span class="mf">2.0</span><span class="p">))</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.geodesic_hamiltonian_flow">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">geodesic_hamiltonian_flow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'verlet'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#geodesic_hamiltonian_flow"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.geodesic_hamiltonian_flow" title="Link to this definition"></a></dt>
+<dd><p>Integrate geodesic flow in Hamiltonian formulation.</p>
+<p>Hamiltonian: H(x,p) = g¹¹(x) p² / 2</p>
+<dl class="simple">
+<dt>Hamilton’s equations:</dt><dd><p>ẋ = ∂H/∂p = g¹¹(x) p
+ṗ = -∂H/∂x = -½ (∂g¹¹/∂x) p²</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian_1d.Metric1D" title="riemannian_1d.Metric1D"><em>Metric1D</em></a>) – Riemannian metric.</p></li>
+<li><p><strong>x0</strong> (<em>float</em>) – Initial position.</p></li>
+<li><p><strong>p0</strong> (<em>float</em>) – Initial momentum.</p></li>
+<li><p><strong>tspan</strong> (<em>tuple</em>) – Time interval (t_start, t_end).</p></li>
+<li><p><strong>method</strong> (<em>{'verlet'</em><em>, </em><em>'stormer'</em><em>, </em><em>'symplectic_euler'}</em>) – Symplectic integration method.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em>) – Number of steps.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Trajectory with ‘t’, ‘x’, ‘p’, ‘energy’ arrays.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Symplectic integrators preserve the Hamiltonian structure and
+conserve energy up to small oscillations (no secular drift).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.geodesic_integrator">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">geodesic_integrator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rk4'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#geodesic_integrator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.geodesic_integrator" title="Link to this definition"></a></dt>
+<dd><p>Integrate geodesic equations.</p>
+<p>Solves: ẍ + Γ¹₁₁(x) ẋ² = 0</p>
+<dl class="simple">
+<dt>Converted to first-order system:</dt><dd><p>ẋ = v
+v̇ = -Γ¹₁₁(x) v²</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian_1d.Metric1D" title="riemannian_1d.Metric1D"><em>Metric1D</em></a>) – Riemannian metric.</p></li>
+<li><p><strong>x0</strong> (<em>float</em>) – Initial position.</p></li>
+<li><p><strong>v0</strong> (<em>float</em>) – Initial velocity dx/dt.</p></li>
+<li><p><strong>tspan</strong> (<em>tuple</em>) – Time interval (t_start, t_end).</p></li>
+<li><p><strong>method</strong> (<em>{'rk4'</em><em>, </em><em>'symplectic'</em><em>, </em><em>'adaptive'}</em>) – Integration method.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em>) – Number of time steps.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary with ‘t’, ‘x’, ‘v’ arrays.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>  <span class="c1"># Flat</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">traj</span> <span class="o">=</span> <span class="n">geodesic_integrator</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>For flat metric, geodesics are straight lines.</p></li>
+<li><p>Symplectic integrators preserve energy better for long integrations.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.laplace_beltrami">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">laplace_beltrami</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#laplace_beltrami"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.laplace_beltrami" title="Link to this definition"></a></dt>
+<dd><p>Construct Laplace-Beltrami operator as a pseudo-differential operator.</p>
+<p>Returns a symbol compatible with psiop.PseudoDifferentialOperator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>metric</strong> (<a class="reference internal" href="#riemannian_1d.Metric1D" title="riemannian_1d.Metric1D"><em>Metric1D</em></a>) – Riemannian metric.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Symbol components for use with PseudoDifferentialOperator.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">psiop</span><span class="w"> </span><span class="kn">import</span> <span class="n">PseudoDifferentialOperator</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lb_symbol</span> <span class="o">=</span> <span class="n">laplace_beltrami</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">lb_symbol</span><span class="p">[</span><span class="s1">&#39;full&#39;</span><span class="p">],</span> <span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span>
+<span class="gp">... </span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.sturm_liouville_reduce">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">sturm_liouville_reduce</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">potential_expr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#sturm_liouville_reduce"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.sturm_liouville_reduce" title="Link to this definition"></a></dt>
+<dd><p>Reduce Laplace-Beltrami to Sturm-Liouville form.</p>
+<dl class="simple">
+<dt>The eigenvalue problem:</dt><dd><p>-Δg u + V(x) u = λ u</p>
+</dd>
+<dt>can be written in Sturm-Liouville form:</dt><dd><p>-(p(x) u’)’ + q(x) u = λ w(x) u</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian_1d.Metric1D" title="riemannian_1d.Metric1D"><em>Metric1D</em></a>) – Riemannian metric.</p></li>
+<li><p><strong>potential_expr</strong> (<em>sympy expression</em><em>, </em><em>optional</em>) – Potential function V(x).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary with ‘p’, ‘q’, ‘w’ (coefficient functions).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<dl class="simple">
+<dt>For the Laplace-Beltrami:</dt><dd><p>p(x) = √g g¹¹
+q(x) = V(x) √g
+w(x) = √g</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sl</span> <span class="o">=</span> <span class="n">sturm_liouville_reduce</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">sl</span><span class="p">[</span><span class="s1">&#39;p&#39;</span><span class="p">])</span>
+<span class="go">1/x</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.test_error_handling">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">test_error_handling</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#test_error_handling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.test_error_handling" title="Link to this definition"></a></dt>
+<dd><p>Test that invalid inputs raise appropriate errors.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.test_geodesic_integrators_accuracy">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">test_geodesic_integrators_accuracy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#test_geodesic_integrators_accuracy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.test_geodesic_integrators_accuracy" title="Link to this definition"></a></dt>
+<dd><p>Test accuracy of different geodesic integrator backends (RK4, Adaptive, Symplectic).
+Metric: Flat g(x) = 1
+Exact solution: x(t) = x0 + v0*t</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.test_hamiltonian_flow_conservation">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">test_hamiltonian_flow_conservation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#test_hamiltonian_flow_conservation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.test_hamiltonian_flow_conservation" title="Link to this definition"></a></dt>
+<dd><p>Test energy conservation in Hamiltonian flow solvers.
+Metric: g(x) = x^2
+Hamiltonian: H = p^2 / (2x^2)</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.test_integration_methods_consistency">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">test_integration_methods_consistency</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#test_integration_methods_consistency"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.test_integration_methods_consistency" title="Link to this definition"></a></dt>
+<dd><p>Test consistency between symbolic and numerical integration for volume.
+Metric: g(x) = 1/x^2 (Hyperbolic)
+Interval: [1, e] -&gt; Volume should be 1.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.test_laplace_beltrami_properties">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">test_laplace_beltrami_properties</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#test_laplace_beltrami_properties"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.test_laplace_beltrami_properties" title="Link to this definition"></a></dt>
+<dd><p>Test Laplace-Beltrami symbol generation.
+Metric: g(x) = x^2
+LB Operator: Δ = x^-2 ∂² + (…)∂</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.test_metric_geometry_and_sl">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">test_metric_geometry_and_sl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#test_metric_geometry_and_sl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.test_metric_geometry_and_sl" title="Link to this definition"></a></dt>
+<dd><p>Test geometric quantities and Sturm-Liouville reduction.
+Metric: g(x) = x^2 (Polar radial part-like or cone)</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian_1d.visualize_geodesics">
+<span class="sig-prename descclassname"><span class="pre">riemannian_1d.</span></span><span class="sig-name descname"><span class="pre">visualize_geodesics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_conditions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colorby</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'speed'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian_1d.html#visualize_geodesics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian_1d.visualize_geodesics" title="Link to this definition"></a></dt>
+<dd><p>Visualize geodesics on 1D manifold with curvature coloring.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian_1d.Metric1D" title="riemannian_1d.Metric1D"><em>Metric1D</em></a>) – Riemannian metric.</p></li>
+<li><p><strong>initial_conditions</strong> (<em>list</em><em> of </em><em>tuples</em>) – List of (x0, v0) initial conditions.</p></li>
+<li><p><strong>tspan</strong> (<em>tuple</em>) – Time interval.</p></li>
+<li><p><strong>x_range</strong> (<em>tuple</em><em>, </em><em>optional</em>) – Plot range for x-axis.</p></li>
+<li><p><strong>colorby</strong> (<em>{'speed'</em><em>, </em><em>'curvature'</em><em>, </em><em>'time'}</em>) – Coloring scheme for trajectories.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em>) – Number of integration steps.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ics</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">visualize_geodesics</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">ics</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="psiop.html" class="btn btn-neutral float-left" title="psiop" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="riemannian_2d.html" class="btn btn-neutral float-right" title="riemannian_2d" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

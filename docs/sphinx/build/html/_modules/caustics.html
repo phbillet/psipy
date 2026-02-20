@@ -1,0 +1,362 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>caustics &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry_1d.html">geometry_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../imports.html">imports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal_1d.html">microlocal_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal_2d.html">microlocal_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian_1d.html">riemannian_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian_2d.html">riemannian_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic_1d.html">symplectic_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic_2d.html">symplectic_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">caustics</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for caustics</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="c1"># ==================================================================</span>
+<span class="c1"># CAUSTIC DETECTION AND CLASSIFICATION</span>
+<span class="c1"># ==================================================================</span>
+
+<div class="viewcode-block" id="CausticDetector">
+<a class="viewcode-back" href="../caustics.html#caustics.CausticDetector">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CausticDetector</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Detect and classify caustics in ray families.</span>
+<span class="sd">    </span>
+<span class="sd">    Caustic types:</span>
+<span class="sd">    - Fold (A2): Generic 1-parameter family, corrected by Airy function</span>
+<span class="sd">    - Cusp (A3): Generic 2-parameter family, corrected by Pearcey function</span>
+<span class="sd">    - Swallowtail (A4): More degenerate, requires higher corrections</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rays</span><span class="p">,</span> <span class="n">dimension</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rays</span> <span class="o">=</span> <span class="n">rays</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span> <span class="o">=</span> <span class="n">dimension</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">caustics</span> <span class="o">=</span> <span class="p">[]</span>
+    
+<div class="viewcode-block" id="CausticDetector.detect_caustics">
+<a class="viewcode-back" href="../caustics.html#caustics.CausticDetector.detect_caustics">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">detect_caustics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Detect caustics by analyzing Jacobian of ray mapping.</span>
+<span class="sd">        </span>
+<span class="sd">        Caustic occurs when ∂(x,y)/∂(ray_param, t) = 0</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Detecting caustics...&quot;</span><span class="p">)</span>
+        
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ray</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rays</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">caustics_1d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detect_1d_caustics</span><span class="p">(</span><span class="n">ray</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">caustics</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">caustics_1d</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">caustics_2d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detect_2d_caustics</span><span class="p">(</span><span class="n">ray</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">caustics</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">caustics_2d</span><span class="p">)</span>
+        
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">caustics</span><span class="p">)</span><span class="si">}</span><span class="s2"> caustic points&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">caustics</span></div>
+
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_detect_1d_caustics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ray</span><span class="p">,</span> <span class="n">ray_idx</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        In 1D, caustic occurs when dx/dt = 0 (ray turns around).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">caustics</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="n">x</span> <span class="o">=</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>
+        
+        <span class="c1"># Compute velocity</span>
+        <span class="n">dxdt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+        
+        <span class="c1"># Find sign changes (turning points)</span>
+        <span class="n">sign_changes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">dxdt</span><span class="p">)))[</span><span class="mi">0</span><span class="p">]</span>
+        
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">sign_changes</span><span class="p">:</span>
+            <span class="n">caustics</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;fold&#39;</span><span class="p">,</span>  <span class="c1"># 1D caustics are always folds</span>
+                <span class="s1">&#39;ray_idx&#39;</span><span class="p">:</span> <span class="n">ray_idx</span><span class="p">,</span>
+                <span class="s1">&#39;time_idx&#39;</span><span class="p">:</span> <span class="n">idx</span><span class="p">,</span>
+                <span class="s1">&#39;position&#39;</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span>
+                <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span>
+                <span class="s1">&#39;caustic_type&#39;</span><span class="p">:</span> <span class="s1">&#39;A2&#39;</span>
+            <span class="p">})</span>
+        
+        <span class="k">return</span> <span class="n">caustics</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_detect_2d_caustics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ray</span><span class="p">,</span> <span class="n">ray_idx</span><span class="p">,</span> <span class="n">threshold</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        In 2D, caustic occurs when det(Jacobian) ≈ 0.</span>
+<span class="sd">        Classify type by eigenvalues of Hessian.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">caustics</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="n">x</span> <span class="o">=</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">]</span>
+        <span class="n">eta</span> <span class="o">=</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">]</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>
+        
+        <span class="c1"># Numerical Jacobian along ray</span>
+        <span class="c1"># J = [[∂x/∂t, ∂x/∂s], [∂y/∂t, ∂y/∂s]]</span>
+        <span class="c1"># Approximate using neighboring rays (would need full family)</span>
+        
+        <span class="c1"># Simpler criterion: momentum magnitude</span>
+        <span class="n">p_mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">xi</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">eta</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        
+        <span class="c1"># Look for near-zero momentum (approximate caustic indicator)</span>
+        <span class="n">near_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">p_mag</span> <span class="o">&lt;</span> <span class="n">threshold</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">near_zero</span><span class="p">:</span>
+            <span class="c1"># Classify caustic type by analyzing trajectory curvature</span>
+            <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Second derivatives</span>
+                <span class="n">d2x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">idx</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="n">idx</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">d2y</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">idx</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">y</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">+</span> <span class="n">y</span><span class="p">[</span><span class="n">idx</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">curvature</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">d2x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">d2y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+                
+                <span class="c1"># Simple classification</span>
+                <span class="k">if</span> <span class="n">curvature</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">:</span>
+                    <span class="n">caustic_type</span> <span class="o">=</span> <span class="s1">&#39;A2&#39;</span>  <span class="c1"># Fold</span>
+                    <span class="n">correction_type</span> <span class="o">=</span> <span class="s1">&#39;airy&#39;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">caustic_type</span> <span class="o">=</span> <span class="s1">&#39;A3&#39;</span>  <span class="c1"># Cusp</span>
+                    <span class="n">correction_type</span> <span class="o">=</span> <span class="s1">&#39;pearcey&#39;</span>
+                
+                <span class="n">caustics</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="n">correction_type</span><span class="p">,</span>
+                    <span class="s1">&#39;ray_idx&#39;</span><span class="p">:</span> <span class="n">ray_idx</span><span class="p">,</span>
+                    <span class="s1">&#39;time_idx&#39;</span><span class="p">:</span> <span class="n">idx</span><span class="p">,</span>
+                    <span class="s1">&#39;position&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">idx</span><span class="p">]),</span>
+                    <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span>
+                    <span class="s1">&#39;caustic_type&#39;</span><span class="p">:</span> <span class="n">caustic_type</span><span class="p">,</span>
+                    <span class="s1">&#39;curvature&#39;</span><span class="p">:</span> <span class="n">curvature</span>
+                <span class="p">})</span>
+        
+        <span class="k">return</span> <span class="n">caustics</span>
+    
+<div class="viewcode-block" id="CausticDetector.compute_maslov_index">
+<a class="viewcode-back" href="../caustics.html#caustics.CausticDetector.compute_maslov_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_maslov_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ray</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute Maslov index: number of caustics crossed × π/2.</span>
+<span class="sd">        </span>
+<span class="sd">        The Maslov index accumulates phase jumps at caustics.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">maslov</span> <span class="o">=</span> <span class="mi">0</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+            <span class="n">dxdt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">])</span>
+            <span class="c1"># Count sign changes</span>
+            <span class="n">maslov</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">dxdt</span><span class="p">)))[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># In 2D, need to track conjugate points</span>
+            <span class="c1"># Simplified: count momentum near-zeros</span>
+            <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">],</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">]</span>
+            <span class="n">p_mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">xi</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">eta</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">maslov</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">p_mag</span> <span class="o">&lt;</span> <span class="mf">0.01</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        
+        <span class="k">return</span> <span class="n">maslov</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span></div>
+</div>
+
+
+
+<span class="c1"># ==================================================================</span>
+<span class="c1"># SPECIAL FUNCTIONS FOR CAUSTIC CORRECTIONS</span>
+<span class="c1"># ==================================================================</span>
+
+<div class="viewcode-block" id="CausticFunctions">
+<a class="viewcode-back" href="../caustics.html#caustics.CausticFunctions">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CausticFunctions</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Special functions for caustic corrections.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+<div class="viewcode-block" id="CausticFunctions.airy_uniform">
+<a class="viewcode-back" href="../caustics.html#caustics.CausticFunctions.airy_uniform">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">airy_uniform</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Airy function Ai(z) for fold caustic correction.</span>
+<span class="sd">        </span>
+<span class="sd">        Near a fold caustic, the WKB solution is replaced by:</span>
+<span class="sd">        u(x) ≈ A(x) · Ai((x-x_c)/ε^{2/3}) · exp(iS(x)/ε)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">airy</span><span class="p">(</span><span class="n">z</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+    
+<div class="viewcode-block" id="CausticFunctions.airy_derivative">
+<a class="viewcode-back" href="../caustics.html#caustics.CausticFunctions.airy_derivative">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">airy_derivative</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Derivative of Airy function Ai&#39;(z).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">airy</span><span class="p">(</span><span class="n">z</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span></div>
+
+    
+<div class="viewcode-block" id="CausticFunctions.pearcey_integral">
+<a class="viewcode-back" href="../caustics.html#caustics.CausticFunctions.pearcey_integral">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pearcey_integral</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pearcey integral for cusp caustic (A3 singularity).</span>
+<span class="sd">        </span>
+<span class="sd">        P(x,y) = ∫_{-∞}^{∞} exp(i(t^4 + xt^2 + yt)) dt</span>
+<span class="sd">        </span>
+<span class="sd">        This is more complex and typically requires numerical integration.</span>
+<span class="sd">        Simplified implementation using stationary phase.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Number of integration points</span>
+        <span class="n">n_pts</span> <span class="o">=</span> <span class="mi">200</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">n_pts</span><span class="p">)</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        
+        <span class="c1"># Phase function: φ(t) = t^4 + x*t^2 + y*t</span>
+        <span class="n">phase</span> <span class="o">=</span> <span class="n">t</span><span class="o">**</span><span class="mi">4</span> <span class="o">+</span> <span class="n">x</span> <span class="o">*</span> <span class="n">t</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span> <span class="o">*</span> <span class="n">t</span>
+        
+        <span class="c1"># Numerical integration</span>
+        <span class="n">integrand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">phase</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trapz</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">dx</span><span class="o">=</span><span class="n">dt</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">result</span></div>
+
+    
+<div class="viewcode-block" id="CausticFunctions.pearcey_approx">
+<a class="viewcode-back" href="../caustics.html#caustics.CausticFunctions.pearcey_approx">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pearcey_approx</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Approximate Pearcey function using asymptotic expansion.</span>
+<span class="sd">        Faster but less accurate than full integration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Asymptotic form for large |x|, |y|</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-10</span>
+        
+        <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># Asymptotic expansion</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">4</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="n">x</span><span class="p">)))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Fall back to numerical</span>
+            <span class="k">return</span> <span class="n">CausticFunctions</span><span class="o">.</span><span class="n">pearcey_integral</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="CausticFunctions.maslov_phase_shift">
+<a class="viewcode-back" href="../caustics.html#caustics.CausticFunctions.maslov_phase_shift">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">maslov_phase_shift</span><span class="p">(</span><span class="n">n_caustics</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Phase shift from Maslov index.</span>
+<span class="sd">        </span>
+<span class="sd">        Each caustic crossed adds π/2 to the phase.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">n_caustics</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

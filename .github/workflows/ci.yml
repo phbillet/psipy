@@ -1,43 +1,34 @@
 name: CI – Scripts + Coverage + Docs
-
 on:
   push:
     branches: ["main"]
   pull_request:
     branches: ["main"]
-
 jobs:
-
   scripts:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Install project and dependencies
         run: |
           pip install --upgrade pip
           pip install .[test]
-          pip install coverage pdoc
-
+          pip install coverage
       - name: Run tests with pytest and coverage
         run: |
           coverage run -m pytest test_pytest/ -v
           coverage xml
           coverage report -m
-
       - name: Upload coverage file
         uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage.xml
-          
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -50,33 +41,29 @@ jobs:
   docs:
     needs: scripts
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Install project and pdoc
+      - name: Install project and Sphinx
         run: |
           pip install --upgrade pip
           pip install .
-          pip install pdoc
-
-      - name: Build documentation
+          pip install sphinx sphinx-rtd-theme
+      - name: Generate .rst files
         run: |
-          pdoc --output-dir docs/build src
-
+          python scripts/gen_rst.py
+      - name: Build Sphinx documentation
+        run: |
+          cd docs/sphinx
+          make html
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/build
-
-
+          publish_dir: docs/sphinx/build/html

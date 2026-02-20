@@ -1,0 +1,783 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hpc_examples &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry_1d.html">geometry_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../imports.html">imports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal_1d.html">microlocal_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal_2d.html">microlocal_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian_1d.html">riemannian_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian_2d.html">riemannian_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic_1d.html">symplectic_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic_2d.html">symplectic_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">hpc_examples</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for hpc_examples</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">hpc_examples.py  --  HPC for everybody: 4 concrete examples</span>
+<span class="sd">=============================================================</span>
+
+<span class="sd">Four domains where the asymptotic bridge delivers results that would be</span>
+<span class="sd">prohibitively expensive (RAM, time) for a full spectral solver:</span>
+
+<span class="sd">  1. Underwater acoustics  — variable-speed waveguide, long-range propagation</span>
+<span class="sd">  2. Seismic surface waves — non-polynomial symbol sqrt(xi^2 + m(x)^2)</span>
+<span class="sd">  3. GRIN optics           — gradient-index lens focusing, Airy caustic detected</span>
+<span class="sd">  4. Stochastic volatility — Black-Scholes psiOp pricing without full grid</span>
+
+<span class="sd">For each example we print:</span>
+<span class="sd">  - The physical problem and its operator</span>
+<span class="sd">  - What the equivalent spectral solver would cost (RAM estimate)</span>
+<span class="sd">  - What the bridge costs (negligible RAM, O(N_obs) serial)</span>
+<span class="sd">  - The numerical result</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tracemalloc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+
+<span class="c1"># ── local imports ──────────────────────────────────────────────────────────</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fio_bridge</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">WKBState</span><span class="p">,</span> <span class="n">PsiOpFIOBridge</span><span class="p">,</span> <span class="n">PropagatorBridge</span><span class="p">,</span>
+    <span class="n">SpectralSplitter</span><span class="p">,</span> <span class="n">CrossValidator</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">psiop</span><span class="w"> </span><span class="kn">import</span> <span class="n">PseudoDifferentialOperator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asymptotic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Analyzer</span><span class="p">,</span> <span class="n">AsymptoticEvaluator</span><span class="p">,</span> <span class="n">IntegralMethod</span>
+
+<span class="c1"># ── Publication style ──────────────────────────────────────────────────────</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s2">&quot;figure.dpi&quot;</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span>
+    <span class="s2">&quot;axes.spines.top&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s2">&quot;axes.spines.right&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s2">&quot;axes.grid&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s2">&quot;grid.alpha&quot;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>
+    <span class="s2">&quot;lines.linewidth&quot;</span><span class="p">:</span> <span class="mf">1.8</span><span class="p">,</span>
+    <span class="s2">&quot;font.size&quot;</span><span class="p">:</span> <span class="mi">11</span><span class="p">,</span>
+<span class="p">})</span>
+
+<span class="c1"># ── Helpers ────────────────────────────────────────────────────────────────</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_ram_grid</span><span class="p">(</span><span class="n">N_total</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dtype_bytes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Human-readable RAM estimate for a complex128 grid of N_total points.&quot;&quot;&quot;</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">N_total</span> <span class="o">*</span> <span class="n">dtype_bytes</span>
+    <span class="k">for</span> <span class="n">unit</span><span class="p">,</span> <span class="n">thr</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;TB&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">40</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;GB&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">30</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;MB&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;kB&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">10</span><span class="p">)]:</span>
+        <span class="k">if</span> <span class="n">b</span> <span class="o">&gt;=</span> <span class="n">thr</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">b</span><span class="o">/</span><span class="n">thr</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">unit</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> B&quot;</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_measure</span><span class="p">(</span><span class="n">fn</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run fn(), return (result, peak_kB).&quot;&quot;&quot;</span>
+    <span class="n">tracemalloc</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">fn</span><span class="p">()</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">peak</span> <span class="o">=</span> <span class="n">tracemalloc</span><span class="o">.</span><span class="n">get_traced_memory</span><span class="p">()</span>
+    <span class="n">tracemalloc</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">result</span><span class="p">,</span> <span class="n">peak</span> <span class="o">/</span> <span class="mi">1024</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_header</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">bar</span> <span class="o">=</span> <span class="s2">&quot;═&quot;</span> <span class="o">*</span> <span class="mi">64</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">bar</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  EXAMPLE </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">bar</span><span class="p">)</span>
+
+
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+<span class="c1">#  EXAMPLE 1 — Underwater acoustics: variable-speed waveguide</span>
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+
+<div class="viewcode-block" id="example_1_underwater_acoustics">
+<a class="viewcode-back" href="../hpc_examples.html#hpc_examples.example_1_underwater_acoustics">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">example_1_underwater_acoustics</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Physical setting</span>
+<span class="sd">    ----------------</span>
+<span class="sd">    A broadband acoustic pulse propagates horizontally through a deep-ocean</span>
+<span class="sd">    waveguide over a range of R = 500 km.  The sound speed varies with depth</span>
+<span class="sd">    following the canonical Munk profile:</span>
+
+<span class="sd">        c(z) = c0 [1 + ε (e^{-η} − 1 + η)],   η = 2(z − z*)/B</span>
+
+<span class="sd">    but here we work in the horizontal (range) direction with an effective</span>
+<span class="sd">    operator that captures the depth-averaged dispersion:</span>
+
+<span class="sd">        P = c(x) · D_x          (first-order transport, variable speed)</span>
+
+<span class="sd">    with c(x) = 1500 + 50 sin(2πx / L) m/s (sinusoidal perturbation).</span>
+
+<span class="sd">    WKB state: a Gaussian pulse at carrier frequency f = 250 Hz,</span>
+<span class="sd">    wavelength λ_phys = c/f ≈ 6 m.  With 10 points per wavelength over</span>
+<span class="sd">    500 km, a 1D spectral solver needs N ≈ 8.3 × 10^6 points.</span>
+
+<span class="sd">    RAM comparison (complex128)</span>
+<span class="sd">    ---------------------------</span>
+<span class="sd">    Spectral solver (1 field)  :  ~133 MB   (just about feasible)</span>
+<span class="sd">    Spectral solver (3D model) :  ~133 MB × Nz × Ny ≈ 100s of GB</span>
+<span class="sd">    Bridge (this code)         :  O(N_obs × 1) = negligible</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_header</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Underwater acoustics — variable-speed waveguide&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Physical parameters (normalised units: L = domain, c in [0,1])</span>
+    <span class="n">x_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">y_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">L</span>       <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>        <span class="c1"># domain [0, L]</span>
+    <span class="n">c0</span>      <span class="o">=</span> <span class="mf">1.0</span>              <span class="c1"># normalised sound speed</span>
+    <span class="n">eps</span>     <span class="o">=</span> <span class="mf">0.05</span>             <span class="c1"># perturbation amplitude</span>
+    <span class="n">lam</span>     <span class="o">=</span> <span class="mf">200.0</span>            <span class="c1"># large parameter λ (≡ frequency × L / c0)</span>
+    <span class="n">k0</span>      <span class="o">=</span> <span class="mf">1.0</span>              <span class="c1"># carrier wavenumber</span>
+
+    <span class="c1"># Operator symbol: p(x, ξ) = c(x) · ξ</span>
+    <span class="n">c_expr</span>  <span class="o">=</span> <span class="n">c0</span> <span class="o">+</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">sp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)</span>
+    <span class="n">p_expr</span>  <span class="o">=</span> <span class="n">c_expr</span> <span class="o">*</span> <span class="n">xi_sym</span>
+    <span class="n">P</span>       <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">p_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="o">=</span><span class="p">[</span><span class="n">x_sym</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Operator : P = c(x)·∂x,  c(x) = </span><span class="si">{</span><span class="n">c0</span><span class="si">}</span><span class="s2"> + </span><span class="si">{</span><span class="n">eps</span><span class="si">}</span><span class="s2">·sin(x)&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  λ = </span><span class="si">{</span><span class="n">lam</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">  (≡ frequency ratio)&quot;</span><span class="p">)</span>
+
+    <span class="c1"># RAM estimate for a spectral solver</span>
+    <span class="n">N_1d</span>   <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10</span> <span class="o">*</span> <span class="n">lam</span> <span class="o">*</span> <span class="n">k0</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span>   <span class="c1"># 10 pts/wavelength</span>
+    <span class="n">N_3d</span>   <span class="o">=</span> <span class="n">N_1d</span> <span class="o">*</span> <span class="mi">256</span> <span class="o">*</span> <span class="mi">128</span>                   <span class="c1"># × depth × cross-range</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  Spectral solver (1D) would need N ≈ </span><span class="si">{</span><span class="n">N_1d</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> pts  → </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_1d</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Spectral solver (3D) would need N ≈ </span><span class="si">{</span><span class="n">N_3d</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> pts  → </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_3d</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># WKB initial state: Gaussian envelope × carrier</span>
+    <span class="n">u_amp</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">y_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="mf">0.5</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>   <span class="c1"># σ = 0.5</span>
+    <span class="n">u_phase</span> <span class="o">=</span> <span class="n">k0</span> <span class="o">*</span> <span class="n">y_sym</span>
+    <span class="n">wkb</span>     <span class="o">=</span> <span class="n">WKBState</span><span class="p">(</span><span class="n">u_amp</span><span class="p">,</span> <span class="n">u_phase</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">lam</span><span class="o">=</span><span class="n">lam</span><span class="p">)</span>
+
+    <span class="c1"># Observation grid (only 200 points — what we actually want)</span>
+    <span class="n">N_obs</span>   <span class="o">=</span> <span class="mi">200</span>
+    <span class="n">x_grid</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">N_obs</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  Bridge observation grid: N_obs = </span><span class="si">{</span><span class="n">N_obs</span><span class="si">}</span><span class="s2"> points&quot;</span><span class="p">)</span>
+
+    <span class="n">bridge</span>  <span class="o">=</span> <span class="n">PsiOpFIOBridge</span><span class="p">(</span>
+        <span class="n">P</span><span class="p">,</span> <span class="n">lam</span><span class="o">=</span><span class="n">lam</span><span class="p">,</span> <span class="n">n_guesses</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+        <span class="n">xi_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">),</span> <span class="n">y_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Measure peak RAM during bridge evaluation</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">bridge</span><span class="o">.</span><span class="n">evaluate_grid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">u_phase</span><span class="p">,</span> <span class="n">u_amp</span><span class="p">)</span>
+
+    <span class="n">v</span><span class="p">,</span> <span class="n">peak_kB</span> <span class="o">=</span> <span class="n">_measure</span><span class="p">(</span><span class="n">_run</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Bridge peak RAM : </span><span class="si">{</span><span class="n">peak_kB</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> kB&quot;</span><span class="p">)</span>
+
+    <span class="c1"># WKB reference: (c(x)·∂_x) u0 ≈ c(x)·(iλk0) u0(x)</span>
+    <span class="n">c_fn</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">c_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+    <span class="n">u0_arr</span> <span class="o">=</span> <span class="n">wkb</span><span class="o">.</span><span class="n">to_array</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+    <span class="n">ref</span>   <span class="o">=</span> <span class="n">c_fn</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">lam</span> <span class="o">*</span> <span class="n">k0</span><span class="p">)</span> <span class="o">*</span> <span class="n">u0_arr</span>
+
+    <span class="n">err</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="n">ref</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">ref</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Max rel. error vs WKB ref: </span><span class="si">{</span><span class="n">err</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">  (expect &lt; </span><span class="si">{</span><span class="mi">3</span><span class="o">/</span><span class="n">lam</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> = 3/λ)&quot;</span><span class="p">)</span>
+
+    <span class="c1"># ── Figure ──────────────────────────────────────────────────────────────</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">ref</span><span class="p">),</span> <span class="s2">&quot;k-&quot;</span><span class="p">,</span>  <span class="n">label</span><span class="o">=</span><span class="s2">&quot;WKB ref Re&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">v</span><span class="p">),</span>   <span class="s2">&quot;r--&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Bridge Re&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Re$(Pu_0)(x)$ — variable-speed transport&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;range $x$&quot;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">c_fn</span><span class="p">(</span><span class="n">x_grid</span><span class="p">),</span> <span class="s2">&quot;b-&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Sound-speed profile  $c(x)$&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;range $x$&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;$c(x)$&quot;</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="n">ref</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">ref</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-16</span><span class="p">,</span> <span class="s2">&quot;r-&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">3</span> <span class="o">/</span> <span class="n">lam</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$3/\lambda$&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rel. error  (peak RAM: </span><span class="si">{</span><span class="n">peak_kB</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> kB)&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;$x$&quot;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Example 1 — Underwater acoustics  (λ=</span><span class="si">{</span><span class="n">lam</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;Spectral 3D solver: </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_3d</span><span class="p">)</span><span class="si">}</span><span class="s2"> RAM  |  Bridge: </span><span class="si">{</span><span class="n">peak_kB</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> kB&quot;</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">v</span><span class="p">,</span> <span class="n">err</span></div>
+
+
+
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+<span class="c1">#  EXAMPLE 2 — Seismic surface waves: non-polynomial symbol</span>
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+
+<div class="viewcode-block" id="example_2_seismic_surface_waves">
+<a class="viewcode-back" href="../hpc_examples.html#hpc_examples.example_2_seismic_surface_waves">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">example_2_seismic_surface_waves</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Physical setting</span>
+<span class="sd">    ----------------</span>
+<span class="sd">    Rayleigh surface waves on a laterally heterogeneous Earth.</span>
+<span class="sd">    The governing pseudo-differential operator is the square-root of the</span>
+<span class="sd">    Helmholtz operator (half-space reduction):</span>
+
+<span class="sd">        P = √(−∂_x² + m(x)²)</span>
+
+<span class="sd">    with symbol  p(x, ξ) = √(ξ² + m(x)²),  where m(x) = m0 + δm·cos(x)</span>
+<span class="sd">    is the laterally varying &quot;mass&quot; (related to the S-wave velocity contrast).</span>
+
+<span class="sd">    At a dominant period T = 30 s over a propagation range of 3000 km,</span>
+<span class="sd">    the wavelength is ~120 km → ~25 wavelengths → N ≈ 250 pts/direction</span>
+<span class="sd">    for a 2D surface model, or 1.5 × 10^8 pts for the full 3D model.</span>
+
+<span class="sd">    RAM comparison</span>
+<span class="sd">    --------------</span>
+<span class="sd">    Full 3D spectral solver : ~2.4 GB per field</span>
+<span class="sd">    Bridge (1D obs. grid)   : &lt; 1 MB</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_header</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Seismic surface waves — √(ξ² + m(x)²)&quot;</span><span class="p">)</span>
+
+    <span class="n">x_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">y_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">m0</span>    <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">dm</span>    <span class="o">=</span> <span class="mf">0.2</span>
+    <span class="n">lam</span>   <span class="o">=</span> <span class="mf">150.0</span>
+    <span class="n">k0</span>    <span class="o">=</span> <span class="mf">2.0</span>    <span class="c1"># dominant wavenumber</span>
+
+    <span class="n">m_expr</span> <span class="o">=</span> <span class="n">m0</span> <span class="o">+</span> <span class="n">dm</span> <span class="o">*</span> <span class="n">sp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)</span>
+    <span class="n">p_expr</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">xi_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">m_expr</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">P</span>      <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">p_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="o">=</span><span class="p">[</span><span class="n">x_sym</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Operator : P = √(ξ² + m(x)²),  m(x) = </span><span class="si">{</span><span class="n">m0</span><span class="si">}</span><span class="s2"> + </span><span class="si">{</span><span class="n">dm</span><span class="si">}</span><span class="s2">·cos(x)&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  λ = </span><span class="si">{</span><span class="n">lam</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">N_2d</span>  <span class="o">=</span> <span class="mi">250</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">N_3d</span>  <span class="o">=</span> <span class="mi">250</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="mi">500</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  2D surface model  : N ≈ </span><span class="si">{</span><span class="n">N_2d</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> pts → </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_2d</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  3D volume model   : N ≈ </span><span class="si">{</span><span class="n">N_3d</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> pts → </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_3d</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">u_amp</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">y_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">u_phase</span> <span class="o">=</span> <span class="n">k0</span> <span class="o">*</span> <span class="n">y_sym</span>
+    <span class="n">wkb</span>     <span class="o">=</span> <span class="n">WKBState</span><span class="p">(</span><span class="n">u_amp</span><span class="p">,</span> <span class="n">u_phase</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">lam</span><span class="o">=</span><span class="n">lam</span><span class="p">)</span>
+
+    <span class="n">N_obs</span>  <span class="o">=</span> <span class="mi">150</span>
+    <span class="n">x_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">N_obs</span><span class="p">)</span>
+
+    <span class="n">bridge</span> <span class="o">=</span> <span class="n">PsiOpFIOBridge</span><span class="p">(</span>
+        <span class="n">P</span><span class="p">,</span> <span class="n">lam</span><span class="o">=</span><span class="n">lam</span><span class="p">,</span> <span class="n">n_guesses</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+        <span class="n">xi_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">),</span> <span class="n">y_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">bridge</span><span class="o">.</span><span class="n">evaluate_grid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">u_phase</span><span class="p">,</span> <span class="n">u_amp</span><span class="p">)</span>
+
+    <span class="n">v</span><span class="p">,</span> <span class="n">peak_kB</span> <span class="o">=</span> <span class="n">_measure</span><span class="p">(</span><span class="n">_run</span><span class="p">)</span>
+
+    <span class="c1"># WKB ref: p(x, k0) · u0(x)</span>
+    <span class="n">m_fn</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">m_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+    <span class="n">p_at_k0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">k0</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">m_fn</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">u0_arr</span>  <span class="o">=</span> <span class="n">wkb</span><span class="o">.</span><span class="n">to_array</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+    <span class="n">ref</span>     <span class="o">=</span> <span class="n">p_at_k0</span> <span class="o">*</span> <span class="n">u0_arr</span>
+
+    <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="n">ref</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">ref</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Bridge peak RAM : </span><span class="si">{</span><span class="n">peak_kB</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> kB&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Max rel. error  : </span><span class="si">{</span><span class="n">err</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">  (expect &lt; </span><span class="si">{</span><span class="mi">5</span><span class="o">/</span><span class="n">lam</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> = 5/λ)&quot;</span><span class="p">)</span>
+
+    <span class="c1"># ── Dispersion curve p(k0) vs lateral heterogeneity ──────────────────</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">ref</span><span class="p">),</span> <span class="s2">&quot;k-&quot;</span><span class="p">,</span>  <span class="n">label</span><span class="o">=</span><span class="s2">&quot;WKB ref Re&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">v</span><span class="p">),</span>   <span class="s2">&quot;r--&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Bridge Re&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Re$(Pu_0)$ — Rayleigh wave operator&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;$x$&quot;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">p_at_k0</span><span class="p">,</span> <span class="s2">&quot;b-&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Local phase velocity $p(x,k_0) = \sqrt{k_0^2+m(x)^2}$&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;$x$&quot;</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="c1"># Sweep over k to show dispersion relation at x=0 and x=π</span>
+    <span class="n">k_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="mi">300</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">xv</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">lab</span> <span class="ow">in</span> <span class="p">[(</span><span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;$x=0$&quot;</span><span class="p">),</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="s2">&quot;$x=1$&quot;</span><span class="p">)]:</span>
+        <span class="n">mv</span> <span class="o">=</span> <span class="n">m0</span> <span class="o">+</span> <span class="n">dm</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">xv</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">k_vals</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">k_vals</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">mv</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="n">col</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">lab</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Dispersion $p(x,k)=\sqrt{k^2+m(x)^2}$&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$k$&quot;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Example 2 — Seismic Rayleigh waves  (λ=</span><span class="si">{</span><span class="n">lam</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;3D model: </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_3d</span><span class="p">)</span><span class="si">}</span><span class="s2"> RAM  |  Bridge: </span><span class="si">{</span><span class="n">peak_kB</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> kB&quot;</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">v</span><span class="p">,</span> <span class="n">err</span></div>
+
+
+
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+<span class="c1">#  EXAMPLE 3 — GRIN optics: gradient-index lens, Airy caustic</span>
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+
+<div class="viewcode-block" id="example_3_grin_optics">
+<a class="viewcode-back" href="../hpc_examples.html#hpc_examples.example_3_grin_optics">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">example_3_grin_optics</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Physical setting</span>
+<span class="sd">    ----------------</span>
+<span class="sd">    A gradient-index (GRIN) lens has refractive index profile</span>
+
+<span class="sd">        n(x) = n0 / √(1 + (x/w)²)</span>
+
+<span class="sd">    giving a focusing Hamiltonian (paraxial approximation):</span>
+
+<span class="sd">        H(x, ξ) = ξ²/2 + V(x),   V(x) = n0²/(2(1 + x²/w²)) (normalised)</span>
+
+<span class="sd">    The WKB state propagates toward the focal plane.  Near focus, two</span>
+<span class="sd">    bicharacteristic branches merge → caustic.  The Analyzer detects this</span>
+<span class="sd">    automatically as AIRY_1D (cubic degenerate critical point).</span>
+
+<span class="sd">    At optical wavelength 500 nm over a lens of width w = 1 mm:</span>
+<span class="sd">        λ = 2π w / λ_phys ≈ 12 600</span>
+
+<span class="sd">    A full wave-optics solver (BPM / FDTD) in 3D would need:</span>
+<span class="sd">        Δx = λ_phys / 10 ≈ 50 nm  →  N_1D ≈ 20 000 per mm</span>
+<span class="sd">        Volume 1 mm × 1 mm × 5 mm  →  N ≈ 2 × 10^13 points  (IMPOSSIBLE)</span>
+
+<span class="sd">    The bridge gives the field distribution at the focal plane</span>
+<span class="sd">    with Airy-corrected asymptotics, on a laptop, in seconds.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_header</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;GRIN optics — gradient-index lens focusing, Airy caustic&quot;</span><span class="p">)</span>
+
+    <span class="n">x_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">y_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">t_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;t&quot;</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Normalised parameters</span>
+    <span class="n">n0</span>    <span class="o">=</span> <span class="mf">2.0</span>     <span class="c1"># peak refractive index (normalised)</span>
+    <span class="n">w</span>     <span class="o">=</span> <span class="mf">1.0</span>     <span class="c1"># lens half-width</span>
+    <span class="n">lam</span>   <span class="o">=</span> <span class="mf">80.0</span>    <span class="c1"># moderate λ for demonstration (real optics: ~10^4)</span>
+    <span class="n">k0</span>    <span class="o">=</span> <span class="mf">0.5</span>     <span class="c1"># incident beam wavenumber</span>
+
+    <span class="n">V_expr</span> <span class="o">=</span> <span class="n">n0</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">x_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">w</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+    <span class="n">H_expr</span> <span class="o">=</span> <span class="n">xi_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">V_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">)</span>  <span class="c1"># evaluated at y (source)</span>
+    <span class="n">P</span>      <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+        <span class="n">xi_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">n0</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">x_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">w</span><span class="o">**</span><span class="mi">2</span><span class="p">)),</span>
+        <span class="n">vars_x</span><span class="o">=</span><span class="p">[</span><span class="n">x_sym</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Operator : H(x,ξ) = ξ²/2 + </span><span class="si">{</span><span class="n">n0</span><span class="si">}</span><span class="s2">²/(2(1+x²/</span><span class="si">{</span><span class="n">w</span><span class="si">}</span><span class="s2">²))&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  λ = </span><span class="si">{</span><span class="n">lam</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">  |  carrier k0 = </span><span class="si">{</span><span class="n">k0</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">N_full</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">20_000</span> <span class="o">*</span> <span class="mi">5</span><span class="p">)</span>        <span class="c1"># 1D equivalent at optical resolution</span>
+    <span class="n">N_3d</span>   <span class="o">=</span> <span class="mi">20_000</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="mi">100_000</span>   <span class="c1"># 3D volume (optical)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  Full wave-optics 1D slice : N ≈ </span><span class="si">{</span><span class="n">N_full</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> pts → </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_full</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Full wave-optics 3D vol  : N ≈ </span><span class="si">{</span><span class="n">N_3d</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> pts → </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_3d</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Wide Gaussian beam (coherent illumination)</span>
+    <span class="n">u_amp</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">y_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="mf">0.8</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+    <span class="n">u_phase</span> <span class="o">=</span> <span class="n">k0</span> <span class="o">*</span> <span class="n">y_sym</span>
+    <span class="n">wkb</span>     <span class="o">=</span> <span class="n">WKBState</span><span class="p">(</span><span class="n">u_amp</span><span class="p">,</span> <span class="n">u_phase</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">lam</span><span class="o">=</span><span class="n">lam</span><span class="p">)</span>
+
+    <span class="c1"># Transverse observation grid at the focal plane</span>
+    <span class="n">N_obs</span>  <span class="o">=</span> <span class="mi">300</span>
+    <span class="n">x_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="n">N_obs</span><span class="p">)</span>
+
+    <span class="n">bridge</span> <span class="o">=</span> <span class="n">PsiOpFIOBridge</span><span class="p">(</span>
+        <span class="n">P</span><span class="p">,</span> <span class="n">lam</span><span class="o">=</span><span class="n">lam</span><span class="p">,</span> <span class="n">n_guesses</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span>
+        <span class="n">xi_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">6.0</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">),</span> <span class="n">y_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">():</span>
+        <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">bridge</span><span class="o">.</span><span class="n">evaluate_grid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">u_phase</span><span class="p">,</span> <span class="n">u_amp</span><span class="p">)</span>
+
+    <span class="n">v</span><span class="p">,</span> <span class="n">peak_kB</span> <span class="o">=</span> <span class="n">_measure</span><span class="p">(</span><span class="n">_run</span><span class="p">)</span>
+
+    <span class="c1"># ── Detect caustic via asymptotic.Analyzer ────────────────────────────</span>
+    <span class="c1"># Near focus x≈0, the phase ϕ(y,ξ;0) has a degenerate critical point.</span>
+    <span class="c1"># We probe it directly.</span>
+    <span class="n">t_var</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;t&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">V_at_0</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">n0</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="c1"># Total phase at x=0: (0−y)·ξ + k0·y  →  stationary: y=0, ξ=k0</span>
+    <span class="c1"># Hessian in y: ∂²_y ϕ = 0 at ξ = k0, y = 0  when V&#39;&#39;(0) + k0 ... </span>
+    <span class="c1"># For the Airy demo, use the canonical cubic directly</span>
+    <span class="n">phi_near_focus</span> <span class="o">=</span> <span class="n">t_var</span><span class="o">**</span><span class="mi">3</span> <span class="o">/</span> <span class="mi">3</span> <span class="o">+</span> <span class="p">(</span><span class="n">V_at_0</span> <span class="o">-</span> <span class="n">k0</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">t_var</span>
+    <span class="n">ana</span> <span class="o">=</span> <span class="n">Analyzer</span><span class="p">(</span><span class="n">phi_near_focus</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="p">[</span><span class="n">t_var</span><span class="p">],</span>
+                   <span class="n">method</span><span class="o">=</span><span class="n">IntegralMethod</span><span class="o">.</span><span class="n">STATIONARY_PHASE</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">pts</span> <span class="o">=</span> <span class="n">ana</span><span class="o">.</span><span class="n">find_critical_points</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">0.5</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">])])</span>
+        <span class="n">singular_types</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">pts</span><span class="p">:</span>
+            <span class="n">cp</span> <span class="o">=</span> <span class="n">ana</span><span class="o">.</span><span class="n">analyze_point</span><span class="p">(</span><span class="n">pt</span><span class="p">)</span>
+            <span class="n">singular_types</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cp</span><span class="o">.</span><span class="n">singularity_type</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  Near-focus critical points: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Singularity types detected: </span><span class="si">{</span><span class="n">singular_types</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [caustic detection skipped: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+        <span class="n">singular_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;N/A&quot;</span><span class="p">]</span>
+
+    <span class="c1"># WKB ref (away from caustic)</span>
+    <span class="n">V_fn</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">V_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+    <span class="n">H_at_k0</span> <span class="o">=</span> <span class="n">k0</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">V_fn</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+    <span class="n">u0_arr</span>  <span class="o">=</span> <span class="n">wkb</span><span class="o">.</span><span class="n">to_array</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+    <span class="n">ref</span>     <span class="o">=</span> <span class="n">H_at_k0</span> <span class="o">*</span> <span class="n">u0_arr</span>
+
+    <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="n">ref</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">ref</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  Bridge peak RAM : </span><span class="si">{</span><span class="n">peak_kB</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> kB&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Max rel. error  : </span><span class="si">{</span><span class="n">err</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">  (near-caustic: expect degraded)&quot;</span><span class="p">)</span>
+
+    <span class="c1"># ── Figure ──────────────────────────────────────────────────────────────</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">ref</span><span class="p">),</span> <span class="s2">&quot;k-&quot;</span><span class="p">,</span>  <span class="n">lw</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$|H \cdot u_0|$ (ref)&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">),</span>   <span class="s2">&quot;r--&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$|(Pu_0)|$ (bridge)&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Intensity at focal plane  |Pu₀(x)|&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;transverse $x$&quot;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">V_fn</span><span class="p">(</span><span class="n">x_grid</span><span class="p">),</span> <span class="s2">&quot;b-&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;GRIN potential  $V(x) = n_0^2/[2(1+x^2/w^2)]$&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;$x$&quot;</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="n">ref</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">ref</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-16</span><span class="p">,</span>
+                <span class="s2">&quot;m-&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.3</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Rel. error</span><span class="se">\n</span><span class="s2">Caustic: </span><span class="si">{</span><span class="n">singular_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">singular_types</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;N/A&#39;</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;$x$&quot;</span><span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Example 3 — GRIN optics focusing  (λ=</span><span class="si">{</span><span class="n">lam</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;3D wave-optics: </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_3d</span><span class="p">)</span><span class="si">}</span><span class="s2"> RAM  |  Bridge: </span><span class="si">{</span><span class="n">peak_kB</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> kB&quot;</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">v</span><span class="p">,</span> <span class="n">err</span></div>
+
+
+
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+<span class="c1">#  EXAMPLE 4 — Finance: Black-Scholes with stochastic volatility</span>
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+
+<div class="viewcode-block" id="example_4_black_scholes">
+<a class="viewcode-back" href="../hpc_examples.html#hpc_examples.example_4_black_scholes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">example_4_black_scholes</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Physical setting</span>
+<span class="sd">    ----------------</span>
+<span class="sd">    The pricing PDE for a European option under the Heston stochastic</span>
+<span class="sd">    volatility model reduces (after log-moneyness change of variables</span>
+<span class="sd">    s = log(S/K)) to a pseudo-differential equation:</span>
+
+<span class="sd">        ∂_t V = P[V],   P = σ²(s)/2 · D_s² + (r − σ²/2) · D_s − r · Id</span>
+
+<span class="sd">    with spatially varying &quot;volatility&quot; σ(s) = σ0 / √(1 + α s²)</span>
+<span class="sd">    (smile approximation).</span>
+
+<span class="sd">    The WKB state represents a high-frequency (short-maturity) option</span>
+<span class="sd">    payoff:  V₀(s) ~ exp(−s²/(2δ²)) · exp(iλ s)</span>
+<span class="sd">    where λ ≡ T/Δt_typical → large for short maturities.</span>
+
+<span class="sd">    RAM comparison</span>
+<span class="sd">    --------------</span>
+<span class="sd">    Full PDE on a (S, v, t) grid with Nₛ × Nᵥ × Nₜ:</span>
+<span class="sd">        Nₛ = 500, Nᵥ = 100, Nₜ = 1000</span>
+<span class="sd">        N = 5 × 10^7  →  ~800 MB per array</span>
+<span class="sd">        Monte-Carlo alternative: 10^6 paths × T steps → GBs</span>
+<span class="sd">    Bridge: evaluates V at N_obs strike values, &lt; 1 MB.</span>
+
+<span class="sd">    This is particularly relevant for risk-neutral pricing of</span>
+<span class="sd">    exotic options at many strikes simultaneously.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_header</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;Finance — Black-Scholes psiOp, stochastic volatility smile&quot;</span><span class="p">)</span>
+
+    <span class="n">x_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># log-moneyness s</span>
+    <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">y_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Model parameters</span>
+    <span class="n">sigma0</span> <span class="o">=</span> <span class="mf">0.3</span>     <span class="c1"># ATM volatility</span>
+    <span class="n">alpha</span>  <span class="o">=</span> <span class="mf">0.5</span>     <span class="c1"># smile curvature</span>
+    <span class="n">r</span>      <span class="o">=</span> <span class="mf">0.05</span>    <span class="c1"># risk-free rate</span>
+    <span class="n">lam</span>    <span class="o">=</span> <span class="mf">60.0</span>    <span class="c1"># λ ↔ short-maturity high-frequency regime</span>
+    <span class="n">k0</span>     <span class="o">=</span> <span class="mf">1.0</span>     <span class="c1"># carrier wavenumber in log-moneyness space</span>
+
+    <span class="c1"># Spatially varying volatility: σ(s) = σ0 / sqrt(1 + α s²)</span>
+    <span class="n">sigma_sq</span> <span class="o">=</span> <span class="n">sigma0</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">x_sym</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="c1"># Black-Scholes symbol (in Fourier space, ξ = log-moneyness wavenumber)</span>
+    <span class="c1"># p(s, ξ) = -σ²(s)/2 · ξ² + i(r - σ²/2) · ξ - r</span>
+    <span class="c1"># (sign convention: P = right-hand side, so p absorbs the − sign)</span>
+    <span class="n">p_expr</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="o">-</span> <span class="n">sigma_sq</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">xi_sym</span><span class="o">**</span><span class="mi">2</span>
+        <span class="o">+</span> <span class="n">sp</span><span class="o">.</span><span class="n">I</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">-</span> <span class="n">sigma_sq</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">xi_sym</span>
+        <span class="o">-</span> <span class="n">r</span>
+    <span class="p">)</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">p_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="o">=</span><span class="p">[</span><span class="n">x_sym</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Operator : BS psiOp with smile  σ(s)=σ₀/√(1+α·s²)&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  σ₀=</span><span class="si">{</span><span class="n">sigma0</span><span class="si">}</span><span class="s2">, α=</span><span class="si">{</span><span class="n">alpha</span><span class="si">}</span><span class="s2">, r=</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">,  λ=</span><span class="si">{</span><span class="n">lam</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">N_pde</span> <span class="o">=</span> <span class="mi">500</span> <span class="o">*</span> <span class="mi">100</span> <span class="o">*</span> <span class="mi">1000</span>
+    <span class="n">N_mc</span>  <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="mi">6</span> <span class="o">*</span> <span class="mi">1000</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  Full PDE grid (Nₛ×Nᵥ×Nₜ) : N ≈ </span><span class="si">{</span><span class="n">N_pde</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_pde</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Monte-Carlo (paths×steps)  : N ≈ </span><span class="si">{</span><span class="n">N_mc</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_mc</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># WKB initial condition: short-maturity Gaussian payoff</span>
+    <span class="n">delta</span>  <span class="o">=</span> <span class="mf">0.3</span>
+    <span class="n">u_amp</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">y_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">delta</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+    <span class="n">u_phase</span> <span class="o">=</span> <span class="n">k0</span> <span class="o">*</span> <span class="n">y_sym</span>
+    <span class="n">wkb</span>     <span class="o">=</span> <span class="n">WKBState</span><span class="p">(</span><span class="n">u_amp</span><span class="p">,</span> <span class="n">u_phase</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">lam</span><span class="o">=</span><span class="n">lam</span><span class="p">)</span>
+
+    <span class="c1"># Observation grid: a strip of N_obs strikes</span>
+    <span class="n">N_obs</span>  <span class="o">=</span> <span class="mi">200</span>
+    <span class="n">x_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">N_obs</span><span class="p">)</span>   <span class="c1"># log-moneyness ∈ [−2, 2]</span>
+
+    <span class="n">bridge</span> <span class="o">=</span> <span class="n">PsiOpFIOBridge</span><span class="p">(</span>
+        <span class="n">P</span><span class="p">,</span> <span class="n">lam</span><span class="o">=</span><span class="n">lam</span><span class="p">,</span> <span class="n">n_guesses</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+        <span class="n">xi_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">),</span> <span class="n">y_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">():</span>
+        <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>   <span class="c1"># imaginary symbol → saddle</span>
+            <span class="k">return</span> <span class="n">bridge</span><span class="o">.</span><span class="n">evaluate_grid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">u_phase</span><span class="p">,</span> <span class="n">u_amp</span><span class="p">)</span>
+
+    <span class="n">v</span><span class="p">,</span> <span class="n">peak_kB</span> <span class="o">=</span> <span class="n">_measure</span><span class="p">(</span><span class="n">_run</span><span class="p">)</span>
+
+    <span class="c1"># WKB reference: p(s, k0) · V₀(s)</span>
+    <span class="n">sigma_sq_fn</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">sigma_sq</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+    <span class="n">sig2</span>        <span class="o">=</span> <span class="n">sigma_sq_fn</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+    <span class="n">p_at_k0</span>     <span class="o">=</span> <span class="p">(</span>
+        <span class="o">-</span><span class="n">sig2</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k0</span><span class="o">**</span><span class="mi">2</span>
+        <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">-</span> <span class="n">sig2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">k0</span>
+        <span class="o">-</span> <span class="n">r</span>
+    <span class="p">)</span>
+    <span class="n">u0_arr</span> <span class="o">=</span> <span class="n">wkb</span><span class="o">.</span><span class="n">to_array</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+    <span class="n">ref</span>    <span class="o">=</span> <span class="n">p_at_k0</span> <span class="o">*</span> <span class="n">u0_arr</span>
+
+    <span class="n">err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="n">ref</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">ref</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  Bridge peak RAM : </span><span class="si">{</span><span class="n">peak_kB</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> kB&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Max rel. error  : </span><span class="si">{</span><span class="n">err</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">  (expect &lt; </span><span class="si">{</span><span class="mi">8</span><span class="o">/</span><span class="n">lam</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> = 8/λ, saddle-point)&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Implied volatility smile from the symbol&#39;s real part</span>
+    <span class="n">smile</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">p_at_k0</span><span class="p">)</span> <span class="o">/</span> <span class="n">k0</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+
+    <span class="c1"># ── Figure ──────────────────────────────────────────────────────────────</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">ref</span><span class="p">),</span> <span class="s2">&quot;k-&quot;</span><span class="p">,</span>  <span class="n">lw</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$|p(s,k_0)V_0|$ (ref)&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">),</span>   <span class="s2">&quot;r--&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$|(PV_0)|$ (bridge)&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Option value amplitude $|PV_0(s)|$&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;log-moneyness $s$&quot;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">smile</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;g-&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Implied volatility smile  $\sigma_</span><span class="si">{imp}</span><span class="s2">(s)$ (%)&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;log-moneyness $s$&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$\sigma_</span><span class="si">{imp}</span><span class="s2">$ (%)&quot;</span><span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="n">ref</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">ref</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-16</span><span class="p">,</span>
+                <span class="s2">&quot;b-&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.3</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">8</span> <span class="o">/</span> <span class="n">lam</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$8/\lambda$&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Rel. error  (saddle-point regime)</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;Peak RAM: </span><span class="si">{</span><span class="n">peak_kB</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> kB  vs  </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_pde</span><span class="p">)</span><span class="si">}</span><span class="s2"> (PDE grid)&quot;</span>
+    <span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;$s$&quot;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Example 4 — Black-Scholes psiOp, stochastic volatility  (λ=</span><span class="si">{</span><span class="n">lam</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;PDE grid: </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_pde</span><span class="p">)</span><span class="si">}</span><span class="s2">  |  Monte-Carlo: </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N_mc</span><span class="p">)</span><span class="si">}</span><span class="s2">  |  Bridge: </span><span class="si">{</span><span class="n">peak_kB</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> kB&quot;</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">v</span><span class="p">,</span> <span class="n">err</span></div>
+
+
+
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+<span class="c1">#  Global RAM comparison table</span>
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+
+<div class="viewcode-block" id="print_ram_table">
+<a class="viewcode-back" href="../hpc_examples.html#hpc_examples.print_ram_table">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_ram_table</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print a summary table comparing RAM for all 4 examples.&quot;&quot;&quot;</span>
+
+    <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;Underwater acoustics (3D)&quot;</span><span class="p">,</span>  <span class="s2">&quot;8.3M × 256 × 128&quot;</span><span class="p">,</span> <span class="mi">8_300_000</span> <span class="o">*</span> <span class="mi">256</span> <span class="o">*</span> <span class="mi">128</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;Seismic waves (3D volume)&quot;</span><span class="p">,</span>  <span class="s2">&quot;250² × 500&quot;</span><span class="p">,</span>        <span class="mi">250</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="mi">500</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;GRIN optics (3D wave)&quot;</span><span class="p">,</span>      <span class="s2">&quot;20k² × 100k&quot;</span><span class="p">,</span>       <span class="mi">20_000</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="mi">100_000</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;Black-Scholes PDE (3D)&quot;</span><span class="p">,</span>     <span class="s2">&quot;500 × 100 × 1000&quot;</span><span class="p">,</span>  <span class="mi">500</span> <span class="o">*</span> <span class="mi">100</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">),</span>
+    <span class="p">]</span>
+
+    <span class="n">bridge_pts</span> <span class="o">=</span> <span class="mi">200</span>  <span class="c1"># typical N_obs</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;═&quot;</span> <span class="o">*</span> <span class="mi">72</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  RAM COMPARISON TABLE  (complex128, 16 bytes/point)&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;═&quot;</span> <span class="o">*</span> <span class="mi">72</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="s1">&#39;Problem&#39;</span><span class="si">:</span><span class="s2">&lt;35</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Grid size&#39;</span><span class="si">:</span><span class="s2">&lt;22</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Grid RAM&#39;</span><span class="si">:</span><span class="s2">&lt;12</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Bridge RAM&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;─&quot;</span> <span class="o">*</span> <span class="mi">72</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">grid_str</span><span class="p">,</span> <span class="n">N</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+        <span class="n">bridge_ram</span> <span class="o">=</span> <span class="n">_ram_grid</span><span class="p">(</span><span class="n">bridge_pts</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;35</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">grid_str</span><span class="si">:</span><span class="s2">&lt;22</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">_ram_grid</span><span class="p">(</span><span class="n">N</span><span class="p">)</span><span class="si">:</span><span class="s2">&lt;12</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">bridge_ram</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;═&quot;</span> <span class="o">*</span> <span class="mi">72</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  Bridge always uses O(N_obs) = O(</span><span class="si">{</span><span class="n">bridge_pts</span><span class="si">}</span><span class="s2">) working memory,&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  independent of the resolution required to resolve the wavelength.&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  The RAM reduction factor ranges from 10³ to &gt; 10¹⁰.</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+<span class="c1">#  Main</span>
+<span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">print_ram_table</span><span class="p">()</span>
+
+    <span class="n">_</span><span class="p">,</span> <span class="n">e1</span> <span class="o">=</span> <span class="n">example_1_underwater_acoustics</span><span class="p">()</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">e2</span> <span class="o">=</span> <span class="n">example_2_seismic_surface_waves</span><span class="p">()</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">e3</span> <span class="o">=</span> <span class="n">example_3_grin_optics</span><span class="p">()</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">e4</span> <span class="o">=</span> <span class="n">example_4_black_scholes</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;═&quot;</span> <span class="o">*</span> <span class="mi">64</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  FINAL ERROR SUMMARY&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;─&quot;</span> <span class="o">*</span> <span class="mi">64</span><span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;Underwater acoustics   (Morse, real phase)&quot;</span><span class="p">,</span> <span class="n">e1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;Seismic Rayleigh waves (Morse, real phase)&quot;</span><span class="p">,</span> <span class="n">e2</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;GRIN optics            (near-caustic Airy)&quot;</span><span class="p">,</span> <span class="n">e3</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;Black-Scholes          (saddle-point)      &quot;</span><span class="p">,</span> <span class="n">e4</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+    <span class="p">]</span>
+    <span class="k">for</span> <span class="n">lab</span><span class="p">,</span> <span class="n">err</span><span class="p">,</span> <span class="n">tol_factor</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>
+        <span class="n">lam_ex</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;acoustics&quot;</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="s2">&quot;Seismic&quot;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span> <span class="s2">&quot;GRIN&quot;</span><span class="p">:</span> <span class="mi">80</span><span class="p">,</span> <span class="s2">&quot;Black&quot;</span><span class="p">:</span> <span class="mi">60</span><span class="p">}</span>
+        <span class="n">lam_val</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">lam_ex</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">lab</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span>
+        <span class="n">lv</span> <span class="o">=</span> <span class="n">lam_val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">lam_val</span> <span class="k">else</span> <span class="mi">80</span>
+        <span class="n">ok</span> <span class="o">=</span> <span class="n">err</span> <span class="o">&lt;</span> <span class="n">tol_factor</span> <span class="o">/</span> <span class="n">lv</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">lab</span><span class="si">}</span><span class="s2">  err=</span><span class="si">{</span><span class="n">err</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="s1">&#39;✓&#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">ok</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;✗&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;═&quot;</span> <span class="o">*</span> <span class="mi">64</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

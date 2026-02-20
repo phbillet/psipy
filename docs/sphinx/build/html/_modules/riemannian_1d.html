@@ -1,0 +1,1047 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>riemannian_1d &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry_1d.html">geometry_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../imports.html">imports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal_1d.html">microlocal_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal_2d.html">microlocal_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian_1d.html">riemannian_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian_2d.html">riemannian_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic_1d.html">symplectic_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic_2d.html">symplectic_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">riemannian_1d</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for riemannian_1d</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Riemannian geometry toolkit for 1D manifolds.</span>
+
+<span class="sd">This module provides tools for working with Riemannian metrics on 1D manifolds:</span>
+<span class="sd"> - Metric representation: g₁₁(x), g¹¹(x), |g|, √|g|</span>
+<span class="sd"> - Christoffel symbols: Γ¹₁₁ = ½(log g₁₁)&#39;</span>
+<span class="sd"> - Geodesic equations: ẍ + Γ¹₁₁ ẋ² = 0</span>
+<span class="sd"> - Laplace-Beltrami operator with explicit transport terms</span>
+<span class="sd"> - Riemannian volume: dVg = √g₁₁ dx</span>
+<span class="sd"> - Connections to Sturm-Liouville theory</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+
+<div class="viewcode-block" id="Metric1D">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.Metric1D">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Metric1D</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Riemannian metric on a 1D manifold.</span>
+<span class="sd">    </span>
+<span class="sd">    Represents a metric tensor g₁₁(x) and provides methods for computing</span>
+<span class="sd">    geometric quantities: inverse metric, Christoffel symbols, curvature,</span>
+<span class="sd">    and associated operators.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    g_expr : sympy expression</span>
+<span class="sd">        Symbolic expression for the metric component g₁₁(x).</span>
+<span class="sd">    var_x : sympy symbol</span>
+<span class="sd">        Spatial coordinate variable.</span>
+<span class="sd">    </span>
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    g_expr : sympy expression</span>
+<span class="sd">        Metric tensor component g₁₁(x).</span>
+<span class="sd">    g_inv_expr : sympy expression</span>
+<span class="sd">        Inverse metric g¹¹(x) = 1/g₁₁(x).</span>
+<span class="sd">    sqrt_det_expr : sympy expression</span>
+<span class="sd">        Square root of determinant √|g| = √g₁₁.</span>
+<span class="sd">    christoffel_expr : sympy expression</span>
+<span class="sd">        Christoffel symbol Γ¹₁₁ = ½(log g₁₁)&#39;.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # Flat metric</span>
+<span class="sd">    &gt;&gt;&gt; x = symbols(&#39;x&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; metric = Metric1D(1, x)</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt; # Hyperbolic metric</span>
+<span class="sd">    &gt;&gt;&gt; metric = Metric1D(1/x**2, x)</span>
+<span class="sd">    &gt;&gt;&gt; print(metric.gauss_curvature())</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt; # From Hamiltonian</span>
+<span class="sd">    &gt;&gt;&gt; p = symbols(&#39;p&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; H = p**2 / (2*x**2)  # Kinetic term</span>
+<span class="sd">    &gt;&gt;&gt; metric = Metric1D.from_hamiltonian(H, x, p)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g_expr</span><span class="p">,</span> <span class="n">var_x</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">var_x</span> <span class="o">=</span> <span class="n">var_x</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">g_expr</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">g_expr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">g_inv_expr</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_expr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_expr</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g_expr</span><span class="p">)))</span>
+        
+        <span class="c1"># Christoffel symbol: Γ¹₁₁ = ½(log g₁₁)&#39;</span>
+        <span class="n">log_g</span> <span class="o">=</span> <span class="n">log</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g_expr</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">christoffel_expr</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">log_g</span><span class="p">,</span> <span class="n">var_x</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        
+        <span class="c1"># Lambdify for numerical evaluation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">g_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">var_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">g_inv_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">var_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_inv_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">var_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">christoffel_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">var_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">christoffel_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="Metric1D.from_hamiltonian">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.Metric1D.from_hamiltonian">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_hamiltonian</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">H_expr</span><span class="p">,</span> <span class="n">var_x</span><span class="p">,</span> <span class="n">var_p</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extract metric from Hamiltonian kinetic term.</span>
+<span class="sd">        </span>
+<span class="sd">        For a Hamiltonian H = g¹¹(x) p²/2 + V(x), extract the inverse</span>
+<span class="sd">        metric g¹¹ = ∂²H/∂p².</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        H_expr : sympy expression</span>
+<span class="sd">            Hamiltonian expression H(x, p).</span>
+<span class="sd">        var_x : sympy symbol</span>
+<span class="sd">            Position variable.</span>
+<span class="sd">        var_p : sympy symbol</span>
+<span class="sd">            Momentum variable.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Metric1D</span>
+<span class="sd">            Metric object with g₁₁ = 1/g¹¹.</span>
+<span class="sd">        </span>
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; x, p = symbols(&#39;x p&#39;, real=True)</span>
+<span class="sd">        &gt;&gt;&gt; H = p**2/(2*x**2) + x**2/2</span>
+<span class="sd">        &gt;&gt;&gt; metric = Metric1D.from_hamiltonian(H, x, p)</span>
+<span class="sd">        &gt;&gt;&gt; print(metric.g_expr)</span>
+<span class="sd">        x**2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Extract g¹¹ from kinetic term</span>
+        <span class="n">g_inv</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">var_p</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">g_inv</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">var_x</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Metric1D.eval">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.Metric1D.eval">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_vals</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate metric components at given points.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x_vals : float or ndarray</span>
+<span class="sd">            Spatial coordinates.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            Dictionary containing &#39;g&#39;, &#39;g_inv&#39;, &#39;sqrt_det&#39;, &#39;christoffel&#39;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;g&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_func</span><span class="p">(</span><span class="n">x_vals</span><span class="p">),</span>
+            <span class="s1">&#39;g_inv&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">(</span><span class="n">x_vals</span><span class="p">),</span>
+            <span class="s1">&#39;sqrt_det&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_func</span><span class="p">(</span><span class="n">x_vals</span><span class="p">),</span>
+            <span class="s1">&#39;christoffel&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">christoffel_func</span><span class="p">(</span><span class="n">x_vals</span><span class="p">)</span>
+        <span class="p">}</span></div>
+
+    
+<div class="viewcode-block" id="Metric1D.gauss_curvature">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.Metric1D.gauss_curvature">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gauss_curvature</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute Gaussian curvature K(x).</span>
+<span class="sd">        </span>
+<span class="sd">        In 1D (curves in higher-dimensional space), intrinsic curvature</span>
+<span class="sd">        vanishes. This returns the extrinsic curvature if embedded.</span>
+<span class="sd">        For surfaces, use riemannian_2d.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy expression</span>
+<span class="sd">            Curvature K(x) = 0 for intrinsic 1D geometry.</span>
+<span class="sd">        </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        For a curve parametrized by arc length, the curvature measures</span>
+<span class="sd">        how much the curve deviates from being a straight line.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Intrinsic curvature is zero for 1D</span>
+        <span class="k">return</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Metric1D.ricci_scalar">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.Metric1D.ricci_scalar">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ricci_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute Ricci scalar R(x).</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy expression</span>
+<span class="sd">            Ricci scalar R = 0 (1D manifold).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Metric1D.laplace_beltrami_symbol">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.Metric1D.laplace_beltrami_symbol">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">laplace_beltrami_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute symbol of the Laplace-Beltrami operator.</span>
+<span class="sd">        </span>
+<span class="sd">        The Laplace-Beltrami operator in 1D is:</span>
+<span class="sd">            Δg f = (1/√g) d/dx(√g g¹¹ df/dx)</span>
+<span class="sd">                 = g¹¹ d²f/dx² + (√g)&#39;/√g · g¹¹ df/dx</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            Dictionary with &#39;principal&#39; (g¹¹ ξ²) and &#39;subprincipal&#39; </span>
+<span class="sd">            (first-order transport term).</span>
+<span class="sd">        </span>
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; x, xi = symbols(&#39;x xi&#39;, real=True)</span>
+<span class="sd">        &gt;&gt;&gt; metric = Metric1D(x**2, x)</span>
+<span class="sd">        &gt;&gt;&gt; lb = metric.laplace_beltrami_symbol()</span>
+<span class="sd">        &gt;&gt;&gt; print(lb[&#39;principal&#39;])</span>
+<span class="sd">        xi**2/x**2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">var_x</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        
+        <span class="c1"># Principal symbol: g¹¹(x) ξ²</span>
+        <span class="n">principal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_inv_expr</span> <span class="o">*</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span>
+        
+        <span class="c1"># Subprincipal symbol (transport term)</span>
+        <span class="c1"># Coefficient of first derivative: d(log√g)/dx · g¹¹</span>
+        <span class="n">log_sqrt_g</span> <span class="o">=</span> <span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_expr</span><span class="p">)</span>
+        <span class="n">transport_coeff</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">log_sqrt_g</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_inv_expr</span><span class="p">)</span>
+        <span class="n">subprincipal</span> <span class="o">=</span> <span class="n">transport_coeff</span> <span class="o">*</span> <span class="n">xi</span>
+        
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;principal&#39;</span><span class="p">:</span> <span class="n">simplify</span><span class="p">(</span><span class="n">principal</span><span class="p">),</span>
+            <span class="s1">&#39;subprincipal&#39;</span><span class="p">:</span> <span class="n">simplify</span><span class="p">(</span><span class="n">subprincipal</span><span class="p">),</span>
+            <span class="s1">&#39;full&#39;</span><span class="p">:</span> <span class="n">simplify</span><span class="p">(</span><span class="n">principal</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">subprincipal</span><span class="p">)</span>
+        <span class="p">}</span></div>
+
+    
+<div class="viewcode-block" id="Metric1D.riemannian_volume">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.Metric1D.riemannian_volume">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">riemannian_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;symbolic&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute Riemannian volume of interval [x_min, x_max].</span>
+<span class="sd">        </span>
+<span class="sd">        Vol([a,b]) = ∫ₐᵇ √g₁₁(x) dx</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x_min, x_max : float</span>
+<span class="sd">            Interval endpoints.</span>
+<span class="sd">        method : {&#39;symbolic&#39;, &#39;numerical&#39;}</span>
+<span class="sd">            Integration method.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        float or sympy expression</span>
+<span class="sd">            Volume of the interval.</span>
+<span class="sd">        </span>
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; x = symbols(&#39;x&#39;, real=True)</span>
+<span class="sd">        &gt;&gt;&gt; metric = Metric1D(1, x)  # Flat</span>
+<span class="sd">        &gt;&gt;&gt; vol = metric.riemannian_volume(0, 1)</span>
+<span class="sd">        &gt;&gt;&gt; print(vol)</span>
+<span class="sd">        1</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;symbolic&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">integrate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_expr</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">var_x</span><span class="p">,</span> <span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;numerical&#39;</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">quad</span>
+            <span class="n">integrand</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">result</span><span class="p">,</span> <span class="n">error</span> <span class="o">=</span> <span class="n">quad</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;method must be &#39;symbolic&#39; or &#39;numerical&#39;&quot;</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Metric1D.arc_length">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.Metric1D.arc_length">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">arc_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;numerical&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute arc length between two points.</span>
+<span class="sd">        </span>
+<span class="sd">        L = ∫ₐᵇ √g₁₁(x) dx</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x_min, x_max : float</span>
+<span class="sd">            Endpoints.</span>
+<span class="sd">        method : {&#39;symbolic&#39;, &#39;numerical&#39;}</span>
+<span class="sd">            Computation method.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        float</span>
+<span class="sd">            Arc length.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">riemannian_volume</span><span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="christoffel">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.christoffel">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">christoffel</span><span class="p">(</span><span class="n">metric</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute Christoffel symbol as a callable function.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric1D</span>
+<span class="sd">        Riemannian metric.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    callable</span>
+<span class="sd">        Function Γ(x) returning Γ¹₁₁(x).</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x = symbols(&#39;x&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; metric = Metric1D(x**2, x)</span>
+<span class="sd">    &gt;&gt;&gt; Gamma = christoffel(metric)</span>
+<span class="sd">    &gt;&gt;&gt; print(Gamma(2.0))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">metric</span><span class="o">.</span><span class="n">christoffel_func</span></div>
+
+
+
+<div class="viewcode-block" id="geodesic_integrator">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.geodesic_integrator">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">geodesic_integrator</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;rk4&#39;</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Integrate geodesic equations.</span>
+<span class="sd">    </span>
+<span class="sd">    Solves: ẍ + Γ¹₁₁(x) ẋ² = 0</span>
+<span class="sd">    </span>
+<span class="sd">    Converted to first-order system:</span>
+<span class="sd">        ẋ = v</span>
+<span class="sd">        v̇ = -Γ¹₁₁(x) v²</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric1D</span>
+<span class="sd">        Riemannian metric.</span>
+<span class="sd">    x0 : float</span>
+<span class="sd">        Initial position.</span>
+<span class="sd">    v0 : float</span>
+<span class="sd">        Initial velocity dx/dt.</span>
+<span class="sd">    tspan : tuple</span>
+<span class="sd">        Time interval (t_start, t_end).</span>
+<span class="sd">    method : {&#39;rk4&#39;, &#39;symplectic&#39;, &#39;adaptive&#39;}</span>
+<span class="sd">        Integration method.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of time steps.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary with &#39;t&#39;, &#39;x&#39;, &#39;v&#39; arrays.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x = symbols(&#39;x&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; metric = Metric1D(1, x)  # Flat</span>
+<span class="sd">    &gt;&gt;&gt; traj = geodesic_integrator(metric, 0.0, 1.0, (0, 10))</span>
+<span class="sd">    &gt;&gt;&gt; plt.plot(traj[&#39;t&#39;], traj[&#39;x&#39;])</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - For flat metric, geodesics are straight lines.</span>
+<span class="sd">    - Symplectic integrators preserve energy better for long integrations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_ivp</span>
+    
+    <span class="n">Gamma_func</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">christoffel_func</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">geodesic_ode</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">y</span>
+        <span class="n">dxdt</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="n">dvdt</span> <span class="o">=</span> <span class="o">-</span><span class="n">Gamma_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span><span class="o">**</span><span class="mi">2</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dxdt</span><span class="p">,</span> <span class="n">dvdt</span><span class="p">]</span>
+    
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;rk4&#39;</span> <span class="ow">or</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;adaptive&#39;</span><span class="p">:</span>
+        <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span>
+            <span class="n">geodesic_ode</span><span class="p">,</span> 
+            <span class="n">tspan</span><span class="p">,</span> 
+            <span class="p">[</span><span class="n">x0</span><span class="p">,</span> <span class="n">v0</span><span class="p">],</span>
+            <span class="n">method</span><span class="o">=</span><span class="s1">&#39;RK45&#39;</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;adaptive&#39;</span> <span class="k">else</span> <span class="s1">&#39;RK23&#39;</span><span class="p">,</span>
+            <span class="n">t_eval</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
+            <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">}</span>
+    
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;symplectic&#39;</span><span class="p">:</span>
+        <span class="c1"># Symplectic Euler for Hamiltonian formulation</span>
+        <span class="c1"># H = g¹¹(x)/2 · p²</span>
+        <span class="c1"># ẋ = g¹¹ p</span>
+        <span class="c1"># ṗ = -½ (∂g¹¹/∂x) p²</span>
+        
+        <span class="n">dt</span> <span class="o">=</span> <span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">n_steps</span>
+        <span class="n">t_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">x_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">p_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        
+        <span class="c1"># Initial momentum: p = v / g¹¹</span>
+        <span class="n">g_inv_0</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span>
+        <span class="n">p0</span> <span class="o">=</span> <span class="n">v0</span> <span class="o">/</span> <span class="n">g_inv_0</span>
+        
+        <span class="n">x_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">x0</span>
+        <span class="n">p_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">p0</span>
+        
+        <span class="c1"># Prepare derivative of g¹¹</span>
+        <span class="n">g_inv_prime</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span>
+            <span class="n">metric</span><span class="o">.</span><span class="n">var_x</span><span class="p">,</span>
+            <span class="n">diff</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_inv_expr</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">var_x</span><span class="p">),</span>
+            <span class="s1">&#39;numpy&#39;</span>
+        <span class="p">)</span>
+        
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">p_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            
+            <span class="c1"># Symplectic Euler step</span>
+            <span class="n">g_inv</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">p_new</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="n">dt</span> <span class="o">*</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">g_inv_prime</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">x_new</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">g_inv</span> <span class="o">*</span> <span class="n">p_new</span>
+            
+            <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_new</span>
+            <span class="n">p_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">p_new</span>
+        
+        <span class="c1"># Convert momentum back to velocity</span>
+        <span class="n">v_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+            <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">p</span> 
+            <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">x_vals</span><span class="p">,</span> <span class="n">p_vals</span><span class="p">)</span>
+        <span class="p">])</span>
+        
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">t_vals</span><span class="p">,</span>
+            <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">x_vals</span><span class="p">,</span>
+            <span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="n">v_vals</span><span class="p">,</span>
+            <span class="s1">&#39;p&#39;</span><span class="p">:</span> <span class="n">p_vals</span>
+        <span class="p">}</span>
+    
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;method must be &#39;rk4&#39;, &#39;symplectic&#39;, or &#39;adaptive&#39;&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="geodesic_hamiltonian_flow">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.geodesic_hamiltonian_flow">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">geodesic_hamiltonian_flow</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">p0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;verlet&#39;</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Integrate geodesic flow in Hamiltonian formulation.</span>
+<span class="sd">    </span>
+<span class="sd">    Hamiltonian: H(x,p) = g¹¹(x) p² / 2</span>
+<span class="sd">    </span>
+<span class="sd">    Hamilton&#39;s equations:</span>
+<span class="sd">        ẋ = ∂H/∂p = g¹¹(x) p</span>
+<span class="sd">        ṗ = -∂H/∂x = -½ (∂g¹¹/∂x) p²</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric1D</span>
+<span class="sd">        Riemannian metric.</span>
+<span class="sd">    x0 : float</span>
+<span class="sd">        Initial position.</span>
+<span class="sd">    p0 : float</span>
+<span class="sd">        Initial momentum.</span>
+<span class="sd">    tspan : tuple</span>
+<span class="sd">        Time interval (t_start, t_end).</span>
+<span class="sd">    method : {&#39;verlet&#39;, &#39;stormer&#39;, &#39;symplectic_euler&#39;}</span>
+<span class="sd">        Symplectic integration method.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of steps.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Trajectory with &#39;t&#39;, &#39;x&#39;, &#39;p&#39;, &#39;energy&#39; arrays.</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Symplectic integrators preserve the Hamiltonian structure and</span>
+<span class="sd">    conserve energy up to small oscillations (no secular drift).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">n_steps</span>
+    <span class="n">t_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">)</span>
+    <span class="n">x_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+    <span class="n">p_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+    
+    <span class="n">x_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">x0</span>
+    <span class="n">p_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">p0</span>
+    
+    <span class="n">g_inv_func</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span>
+    <span class="n">g_inv_prime</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span>
+        <span class="n">metric</span><span class="o">.</span><span class="n">var_x</span><span class="p">,</span>
+        <span class="n">diff</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_inv_expr</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">var_x</span><span class="p">),</span>
+        <span class="s1">&#39;numpy&#39;</span>
+    <span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;verlet&#39;</span> <span class="ow">or</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;stormer&#39;</span><span class="p">:</span>
+        <span class="c1"># Velocity Verlet / Störmer-Verlet</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">p_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            
+            <span class="c1"># Half-step momentum</span>
+            <span class="n">force</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">g_inv_prime</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">p_half</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">force</span>
+            
+            <span class="c1"># Full-step position</span>
+            <span class="n">x_new</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">g_inv_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_half</span>
+            
+            <span class="c1"># Half-step momentum (second half)</span>
+            <span class="n">force_new</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">g_inv_prime</span><span class="p">(</span><span class="n">x_new</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_half</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">p_new</span> <span class="o">=</span> <span class="n">p_half</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">force_new</span>
+            
+            <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_new</span>
+            <span class="n">p_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">p_new</span>
+    
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;symplectic_euler&#39;</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">p_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            
+            <span class="c1"># Update p first</span>
+            <span class="n">force</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">g_inv_prime</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">p_new</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">force</span>
+            
+            <span class="c1"># Update x with new p</span>
+            <span class="n">x_new</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">g_inv_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_new</span>
+            
+            <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_new</span>
+            <span class="n">p_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">p_new</span>
+    
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;method must be &#39;verlet&#39;, &#39;stormer&#39;, or &#39;symplectic_euler&#39;&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Compute energy</span>
+    <span class="n">energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+        <span class="mf">0.5</span> <span class="o">*</span> <span class="n">g_inv_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span> 
+        <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">x_vals</span><span class="p">,</span> <span class="n">p_vals</span><span class="p">)</span>
+    <span class="p">])</span>
+    
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">t_vals</span><span class="p">,</span>
+        <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">x_vals</span><span class="p">,</span>
+        <span class="s1">&#39;p&#39;</span><span class="p">:</span> <span class="n">p_vals</span><span class="p">,</span>
+        <span class="s1">&#39;energy&#39;</span><span class="p">:</span> <span class="n">energy</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="laplace_beltrami">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.laplace_beltrami">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">laplace_beltrami</span><span class="p">(</span><span class="n">metric</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct Laplace-Beltrami operator as a pseudo-differential operator.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns a symbol compatible with psiop.PseudoDifferentialOperator.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric1D</span>
+<span class="sd">        Riemannian metric.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Symbol components for use with PseudoDifferentialOperator.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from psiop import PseudoDifferentialOperator</span>
+<span class="sd">    &gt;&gt;&gt; x = symbols(&#39;x&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; metric = Metric1D(x**2, x)</span>
+<span class="sd">    &gt;&gt;&gt; lb_symbol = laplace_beltrami(metric)</span>
+<span class="sd">    &gt;&gt;&gt; op = PseudoDifferentialOperator(</span>
+<span class="sd">    ...     lb_symbol[&#39;full&#39;], [x], mode=&#39;symbol&#39;</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">metric</span><span class="o">.</span><span class="n">laplace_beltrami_symbol</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="sturm_liouville_reduce">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.sturm_liouville_reduce">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">sturm_liouville_reduce</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">potential_expr</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reduce Laplace-Beltrami to Sturm-Liouville form.</span>
+<span class="sd">    </span>
+<span class="sd">    The eigenvalue problem:</span>
+<span class="sd">        -Δg u + V(x) u = λ u</span>
+<span class="sd">    </span>
+<span class="sd">    can be written in Sturm-Liouville form:</span>
+<span class="sd">        -(p(x) u&#39;)&#39; + q(x) u = λ w(x) u</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric1D</span>
+<span class="sd">        Riemannian metric.</span>
+<span class="sd">    potential_expr : sympy expression, optional</span>
+<span class="sd">        Potential function V(x).</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary with &#39;p&#39;, &#39;q&#39;, &#39;w&#39; (coefficient functions).</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    For the Laplace-Beltrami:</span>
+<span class="sd">        p(x) = √g g¹¹</span>
+<span class="sd">        q(x) = V(x) √g</span>
+<span class="sd">        w(x) = √g</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x = symbols(&#39;x&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; metric = Metric1D(x**2, x)</span>
+<span class="sd">    &gt;&gt;&gt; sl = sturm_liouville_reduce(metric)</span>
+<span class="sd">    &gt;&gt;&gt; print(sl[&#39;p&#39;])</span>
+<span class="sd">    1/x</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">var_x</span>
+    <span class="n">sqrt_g</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">sqrt_det_expr</span>
+    <span class="n">g_inv</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_expr</span>
+    
+    <span class="n">p_expr</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">sqrt_g</span> <span class="o">*</span> <span class="n">g_inv</span><span class="p">)</span>
+    <span class="n">w_expr</span> <span class="o">=</span> <span class="n">sqrt_g</span>
+    
+    <span class="k">if</span> <span class="n">potential_expr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">q_expr</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">q_expr</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">potential_expr</span> <span class="o">*</span> <span class="n">sqrt_g</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;p&#39;</span><span class="p">:</span> <span class="n">p_expr</span><span class="p">,</span>
+        <span class="s1">&#39;q&#39;</span><span class="p">:</span> <span class="n">q_expr</span><span class="p">,</span>
+        <span class="s1">&#39;w&#39;</span><span class="p">:</span> <span class="n">w_expr</span><span class="p">,</span>
+        <span class="s1">&#39;p_func&#39;</span><span class="p">:</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">p_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">),</span>
+        <span class="s1">&#39;q_func&#39;</span><span class="p">:</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">q_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">),</span>
+        <span class="s1">&#39;w_func&#39;</span><span class="p">:</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">w_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="visualize_geodesics">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.visualize_geodesics">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_geodesics</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">initial_conditions</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">x_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+                        <span class="n">colorby</span><span class="o">=</span><span class="s1">&#39;speed&#39;</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Visualize geodesics on 1D manifold with curvature coloring.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric1D</span>
+<span class="sd">        Riemannian metric.</span>
+<span class="sd">    initial_conditions : list of tuples</span>
+<span class="sd">        List of (x0, v0) initial conditions.</span>
+<span class="sd">    tspan : tuple</span>
+<span class="sd">        Time interval.</span>
+<span class="sd">    x_range : tuple, optional</span>
+<span class="sd">        Plot range for x-axis.</span>
+<span class="sd">    colorby : {&#39;speed&#39;, &#39;curvature&#39;, &#39;time&#39;}</span>
+<span class="sd">        Coloring scheme for trajectories.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of integration steps.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x = symbols(&#39;x&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; metric = Metric1D(1 + x**2, x)</span>
+<span class="sd">    &gt;&gt;&gt; ics = [(0, 1), (0, 2), (1, 1)]</span>
+<span class="sd">    &gt;&gt;&gt; visualize_geodesics(metric, ics, (0, 10))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+    
+    <span class="c1"># Plot metric</span>
+    <span class="k">if</span> <span class="n">x_range</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">x_vals_all</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">x0</span><span class="p">,</span> <span class="n">v0</span> <span class="ow">in</span> <span class="n">initial_conditions</span><span class="p">:</span>
+            <span class="n">traj</span> <span class="o">=</span> <span class="n">geodesic_integrator</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">)</span>
+            <span class="n">x_vals_all</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">])</span>
+        <span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">x_vals_all</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">x_vals_all</span><span class="p">)</span>
+        <span class="n">x_range</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_min</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">x_max</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span>
+    
+    <span class="n">x_plot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">200</span><span class="p">)</span>
+    <span class="n">g_plot</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_func</span><span class="p">(</span><span class="n">x_plot</span><span class="p">)</span>
+    
+    <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_plot</span><span class="p">,</span> <span class="n">g_plot</span><span class="p">,</span> <span class="s1">&#39;k-&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;g₁₁(x)&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;g₁₁(x)&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Metric Component&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    
+    <span class="c1"># Plot geodesics</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">v0</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">initial_conditions</span><span class="p">):</span>
+        <span class="n">traj</span> <span class="o">=</span> <span class="n">geodesic_integrator</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">colorby</span> <span class="o">==</span> <span class="s1">&#39;speed&#39;</span><span class="p">:</span>
+            <span class="n">colors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;v&#39;</span><span class="p">])</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;IC: x₀=</span><span class="si">{</span><span class="n">x0</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">, v₀=</span><span class="si">{</span><span class="n">v0</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="k">elif</span> <span class="n">colorby</span> <span class="o">==</span> <span class="s1">&#39;time&#39;</span><span class="p">:</span>
+            <span class="n">colors</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;IC: x₀=</span><span class="si">{</span><span class="n">x0</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">, v₀=</span><span class="si">{</span><span class="n">v0</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="k">elif</span> <span class="n">colorby</span> <span class="o">==</span> <span class="s1">&#39;curvature&#39;</span><span class="p">:</span>
+            <span class="n">Gamma</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">christoffel_func</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">])</span>
+            <span class="n">colors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Gamma</span><span class="p">)</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;IC: x₀=</span><span class="si">{</span><span class="n">x0</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">, v₀=</span><span class="si">{</span><span class="n">v0</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">colors</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;IC: x₀=</span><span class="si">{</span><span class="n">x0</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">, v₀=</span><span class="si">{</span><span class="n">v0</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span>
+        
+        <span class="k">if</span> <span class="n">colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">scatter</span> <span class="o">=</span> <span class="n">ax2</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">colors</span><span class="p">,</span> 
+                                 <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span>
+    
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;t&#39;</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;x(t)&#39;</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Geodesic Trajectories&#39;</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    
+    <span class="k">if</span> <span class="n">colorby</span> <span class="ow">and</span> <span class="n">colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cbar</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">scatter</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax2</span><span class="p">)</span>
+        <span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="n">colorby</span><span class="o">.</span><span class="n">capitalize</span><span class="p">())</span>
+    
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="test_metric_geometry_and_sl">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.test_metric_geometry_and_sl">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_metric_geometry_and_sl</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Test geometric quantities and Sturm-Liouville reduction.</span>
+<span class="sd">    Metric: g(x) = x^2 (Polar radial part-like or cone)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    
+    <span class="c1"># 1. Check Inverse and Determinant</span>
+    <span class="c1"># g_inv = 1/x^2, sqrt_det = x</span>
+    <span class="k">assert</span> <span class="n">simplify</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_inv_expr</span> <span class="o">-</span> <span class="n">x</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="k">assert</span> <span class="n">simplify</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">sqrt_det_expr</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    
+    <span class="c1"># 2. Check Christoffel Symbol</span>
+    <span class="c1"># Γ = 0.5 * (ln(x^2))&#39; = 0.5 * 2/x = 1/x</span>
+    <span class="k">assert</span> <span class="n">simplify</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">christoffel_expr</span> <span class="o">-</span> <span class="mi">1</span><span class="o">/</span><span class="n">x</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    
+    <span class="c1"># 3. Check Sturm-Liouville Reduction</span>
+    <span class="c1"># p = √g * g^11 = x * 1/x^2 = 1/x</span>
+    <span class="c1"># w = √g = x</span>
+    <span class="n">sl</span> <span class="o">=</span> <span class="n">sturm_liouville_reduce</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">simplify</span><span class="p">(</span><span class="n">sl</span><span class="p">[</span><span class="s1">&#39;p&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="o">/</span><span class="n">x</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="k">assert</span> <span class="n">simplify</span><span class="p">(</span><span class="n">sl</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✓ Geometric properties and Sturm-Liouville test passed&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="test_integration_methods_consistency">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.test_integration_methods_consistency">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_integration_methods_consistency</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Test consistency between symbolic and numerical integration for volume.</span>
+<span class="sd">    Metric: g(x) = 1/x^2 (Hyperbolic)</span>
+<span class="sd">    Interval: [1, e] -&gt; Volume should be 1.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    
+    <span class="c1"># Symbolic: ∫(1/x) dx from 1 to e = ln(e) - ln(1) = 1</span>
+    <span class="n">vol_sym</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">riemannian_volume</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">e</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;symbolic&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Numerical</span>
+    <span class="n">vol_num</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">riemannian_volume</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">e</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;numerical&#39;</span><span class="p">)</span>
+    
+    <span class="k">assert</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">vol_sym</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-9</span>
+    <span class="k">assert</span> <span class="nb">abs</span><span class="p">(</span><span class="n">vol_num</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-5</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✓ Integration methods consistency test passed&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="test_geodesic_integrators_accuracy">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.test_geodesic_integrators_accuracy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_geodesic_integrators_accuracy</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Test accuracy of different geodesic integrator backends (RK4, Adaptive, Symplectic).</span>
+<span class="sd">    Metric: Flat g(x) = 1</span>
+<span class="sd">    Exact solution: x(t) = x0 + v0*t</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    
+    <span class="n">x0</span><span class="p">,</span> <span class="n">v0</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">2.0</span>
+    <span class="n">t_end</span> <span class="o">=</span> <span class="mf">2.0</span>
+    <span class="n">expected_x</span> <span class="o">=</span> <span class="n">x0</span> <span class="o">+</span> <span class="n">v0</span> <span class="o">*</span> <span class="n">t_end</span>
+    
+    <span class="n">methods</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;rk4&#39;</span><span class="p">,</span> <span class="s1">&#39;adaptive&#39;</span><span class="p">,</span> <span class="s1">&#39;symplectic&#39;</span><span class="p">]</span>
+    
+    <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">methods</span><span class="p">:</span>
+        <span class="n">traj</span> <span class="o">=</span> <span class="n">geodesic_integrator</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">t_end</span><span class="p">),</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+        <span class="n">final_x</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="c1"># Symplectic Euler is first order, RK4 is 4th order, Adaptive is variable</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="mf">1e-1</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;symplectic&#39;</span> <span class="k">else</span> <span class="mf">1e-5</span>
+        
+        <span class="k">assert</span> <span class="nb">abs</span><span class="p">(</span><span class="n">final_x</span> <span class="o">-</span> <span class="n">expected_x</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">,</span> \
+            <span class="sa">f</span><span class="s2">&quot;Method </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2"> failed accuracy test. Got </span><span class="si">{</span><span class="n">final_x</span><span class="si">}</span><span class="s2">, expected </span><span class="si">{</span><span class="n">expected_x</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✓ Geodesic integrator backends test passed&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="test_hamiltonian_flow_conservation">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.test_hamiltonian_flow_conservation">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_hamiltonian_flow_conservation</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Test energy conservation in Hamiltonian flow solvers.</span>
+<span class="sd">    Metric: g(x) = x^2</span>
+<span class="sd">    Hamiltonian: H = p^2 / (2x^2)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">p_sym</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    
+    <span class="n">x0</span> <span class="o">=</span> <span class="mf">2.0</span>
+    <span class="n">p0</span> <span class="o">=</span> <span class="mf">10.0</span> <span class="c1"># High momentum</span>
+    <span class="n">tspan</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)</span>
+    <span class="n">n_steps</span> <span class="o">=</span> <span class="mi">2000</span>
+    
+    <span class="c1"># Initial Energy</span>
+    <span class="n">H_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">p_sym</span><span class="p">),</span> <span class="n">p_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+    <span class="n">E0</span> <span class="o">=</span> <span class="n">H_func</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">p0</span><span class="p">)</span>
+    
+    <span class="n">solvers</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;verlet&#39;</span><span class="p">,</span> <span class="s1">&#39;stormer&#39;</span><span class="p">,</span> <span class="s1">&#39;symplectic_euler&#39;</span><span class="p">]</span>
+    
+    <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">solvers</span><span class="p">:</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">geodesic_hamiltonian_flow</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">p0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">)</span>
+        
+        <span class="n">energies</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;energy&#39;</span><span class="p">]</span>
+        
+        <span class="c1"># Energy should not drift significantly (bounded oscillation)</span>
+        <span class="c1"># Verify that the standard deviation of energy is small relative to E0</span>
+        <span class="n">energy_variation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span> <span class="o">/</span> <span class="n">E0</span>
+        
+        <span class="c1"># Verlet is 2nd order symplectic, Euler is 1st order.</span>
+        <span class="c1"># Adjusted tolerance: </span>
+        <span class="c1"># Symplectic Euler needs ~5% (5e-2)</span>
+        <span class="c1"># Verlet/Stormer needs ~0.5% (5e-3) given n_steps=2000 and high p0</span>
+        <span class="n">tol</span> <span class="o">=</span> <span class="mf">5e-2</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;symplectic_euler&#39;</span> <span class="k">else</span> <span class="mf">5e-3</span>
+        
+        <span class="k">assert</span> <span class="n">energy_variation</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">,</span> \
+            <span class="sa">f</span><span class="s2">&quot;Energy drift too high for </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">energy_variation</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span>
+        
+        <span class="c1"># Ensure we actually moved</span>
+        <span class="k">assert</span> <span class="nb">abs</span><span class="p">(</span><span class="n">res</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.1</span>
+        
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✓ Hamiltonian energy conservation test passed&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="test_laplace_beltrami_properties">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.test_laplace_beltrami_properties">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_laplace_beltrami_properties</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Test Laplace-Beltrami symbol generation.</span>
+<span class="sd">    Metric: g(x) = x^2</span>
+<span class="sd">    LB Operator: Δ = x^-2 ∂² + (...)∂</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    
+    <span class="n">lb</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">laplace_beltrami_symbol</span><span class="p">()</span>
+    
+    <span class="c1"># Principal symbol g^11 * xi^2 = (1/x^2) * xi^2</span>
+    <span class="n">xi</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">expected_principal</span> <span class="o">=</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span>
+    
+    <span class="k">assert</span> <span class="n">simplify</span><span class="p">(</span><span class="n">lb</span><span class="p">[</span><span class="s1">&#39;principal&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">expected_principal</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    
+    <span class="c1"># Subprincipal calculation check:</span>
+    <span class="c1"># d(log√g)/dx * g^11 * xi = d(ln x)/dx * x^-2 * xi = (1/x) * x^-2 * xi = xi / x^3</span>
+    <span class="n">expected_sub</span> <span class="o">=</span> <span class="n">xi</span> <span class="o">/</span> <span class="n">x</span><span class="o">**</span><span class="mi">3</span>
+    <span class="k">assert</span> <span class="n">simplify</span><span class="p">(</span><span class="n">lb</span><span class="p">[</span><span class="s1">&#39;subprincipal&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">expected_sub</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✓ Laplace-Beltrami symbol test passed&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="test_error_handling">
+<a class="viewcode-back" href="../riemannian_1d.html#riemannian_1d.test_error_handling">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_error_handling</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test that invalid inputs raise appropriate errors.&quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric1D</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    
+    <span class="c1"># Invalid volume method</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">metric</span><span class="o">.</span><span class="n">riemannian_volume</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;monte_carlo&#39;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;Should have raised ValueError for invalid method&quot;</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    
+    <span class="c1"># Invalid integrator method</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">geodesic_integrator</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;magic&#39;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;Should have raised ValueError for invalid integrator&quot;</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">pass</span>
+        
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✓ Error handling test passed&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Running improved riemannian_1d tests...</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">test_metric_geometry_and_sl</span><span class="p">()</span>
+    <span class="n">test_integration_methods_consistency</span><span class="p">()</span>
+    <span class="n">test_geodesic_integrators_accuracy</span><span class="p">()</span>
+    <span class="n">test_hamiltonian_flow_conservation</span><span class="p">()</span>
+    <span class="n">test_laplace_beltrami_properties</span><span class="p">()</span>
+    <span class="n">test_error_handling</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">✓ All improved tests passed&quot;</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

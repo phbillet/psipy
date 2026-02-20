@@ -1,0 +1,569 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>geometry_1d &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="geometry_2d" href="geometry_2d.html" />
+    <link rel="prev" title="fio_bridge" href="fio_bridge.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cotangent_bundle.html">cotangent_bundle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">geometry_1d</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#geometry_1d.Geodesic"><code class="docutils literal notranslate"><span class="pre">Geodesic</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Geodesic.H"><code class="docutils literal notranslate"><span class="pre">Geodesic.H</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Geodesic.J"><code class="docutils literal notranslate"><span class="pre">Geodesic.J</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Geodesic.K"><code class="docutils literal notranslate"><span class="pre">Geodesic.K</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Geodesic.caustics"><code class="docutils literal notranslate"><span class="pre">Geodesic.caustics</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Geodesic.energy"><code class="docutils literal notranslate"><span class="pre">Geodesic.energy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Geodesic.t"><code class="docutils literal notranslate"><span class="pre">Geodesic.t</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Geodesic.x"><code class="docutils literal notranslate"><span class="pre">Geodesic.x</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Geodesic.xi"><code class="docutils literal notranslate"><span class="pre">Geodesic.xi</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#geometry_1d.PeriodicOrbit"><code class="docutils literal notranslate"><span class="pre">PeriodicOrbit</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.PeriodicOrbit.action"><code class="docutils literal notranslate"><span class="pre">PeriodicOrbit.action</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.PeriodicOrbit.energy"><code class="docutils literal notranslate"><span class="pre">PeriodicOrbit.energy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.PeriodicOrbit.period"><code class="docutils literal notranslate"><span class="pre">PeriodicOrbit.period</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.PeriodicOrbit.stability"><code class="docutils literal notranslate"><span class="pre">PeriodicOrbit.stability</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.PeriodicOrbit.t_cycle"><code class="docutils literal notranslate"><span class="pre">PeriodicOrbit.t_cycle</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.PeriodicOrbit.x0"><code class="docutils literal notranslate"><span class="pre">PeriodicOrbit.x0</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.PeriodicOrbit.x_cycle"><code class="docutils literal notranslate"><span class="pre">PeriodicOrbit.x_cycle</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.PeriodicOrbit.xi0"><code class="docutils literal notranslate"><span class="pre">PeriodicOrbit.xi0</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.PeriodicOrbit.xi_cycle"><code class="docutils literal notranslate"><span class="pre">PeriodicOrbit.xi_cycle</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#geometry_1d.SpectralAnalysis"><code class="docutils literal notranslate"><span class="pre">SpectralAnalysis</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.SpectralAnalysis.analyze_integrability"><code class="docutils literal notranslate"><span class="pre">SpectralAnalysis.analyze_integrability()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.SpectralAnalysis.berry_tabor_formula"><code class="docutils literal notranslate"><span class="pre">SpectralAnalysis.berry_tabor_formula()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.SpectralAnalysis.weyl_law"><code class="docutils literal notranslate"><span class="pre">SpectralAnalysis.weyl_law()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#geometry_1d.Spectrum"><code class="docutils literal notranslate"><span class="pre">Spectrum</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Spectrum.energies"><code class="docutils literal notranslate"><span class="pre">Spectrum.energies</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Spectrum.intensity"><code class="docutils literal notranslate"><span class="pre">Spectrum.intensity</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Spectrum.trace"><code class="docutils literal notranslate"><span class="pre">Spectrum.trace</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.Spectrum.trace_t"><code class="docutils literal notranslate"><span class="pre">Spectrum.trace_t</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#geometry_1d.SymbolGeometry"><code class="docutils literal notranslate"><span class="pre">SymbolGeometry</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.SymbolGeometry.compute_geodesic"><code class="docutils literal notranslate"><span class="pre">SymbolGeometry.compute_geodesic()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.SymbolGeometry.find_periodic_orbits"><code class="docutils literal notranslate"><span class="pre">SymbolGeometry.find_periodic_orbits()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.SymbolGeometry.gutzwiller_trace_formula"><code class="docutils literal notranslate"><span class="pre">SymbolGeometry.gutzwiller_trace_formula()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.SymbolGeometry.semiclassical_spectrum"><code class="docutils literal notranslate"><span class="pre">SymbolGeometry.semiclassical_spectrum()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#geometry_1d.SymbolVisualizer"><code class="docutils literal notranslate"><span class="pre">SymbolVisualizer</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#geometry_1d.SymbolVisualizer.visualize_complete"><code class="docutils literal notranslate"><span class="pre">SymbolVisualizer.visualize_complete()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#geometry_1d.print_theory"><code class="docutils literal notranslate"><span class="pre">print_theory()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#geometry_1d.visualize_symbol"><code class="docutils literal notranslate"><span class="pre">visualize_symbol()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hpc_examples.html">hpc_examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imports.html">imports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="microlocal_1d.html">microlocal_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="microlocal_2d.html">microlocal_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mupsipy.html">mupsipy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="riemannian_1d.html">riemannian_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="riemannian_2d.html">riemannian_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symplectic_1d.html">symplectic_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symplectic_2d.html">symplectic_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">geometry_1d</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/geometry_1d.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-geometry_1d">
+<span id="geometry-1d"></span><h1>geometry_1d<a class="headerlink" href="#module-geometry_1d" title="Link to this heading"></a></h1>
+<p>Geometric Visualization of Pseudodifferential Operator Symbols in 1D</p>
+<p>This module provides a comprehensive toolkit for visualizing and analyzing
+the geometric structure of symbols H(x, ξ) and their connection to spectral
+properties through semiclassical analysis.</p>
+<p>Key concepts:
+- Hamiltonian surface and flow
+- Geodesics (classical trajectories)
+- Caustics (focal points)
+- Periodic orbits and quantization
+- Spectral analysis via trace formula</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="geometry_1d.Geodesic">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">geometry_1d.</span></span><span class="sig-name descname"><span class="pre">Geodesic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">H</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">J</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">K</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/geometry_1d.html#Geodesic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.Geodesic" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represents a geodesic (classical trajectory) in phase space</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.Geodesic.H">
+<span class="sig-name descname"><span class="pre">H</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Geodesic.H" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.Geodesic.J">
+<span class="sig-name descname"><span class="pre">J</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Geodesic.J" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.Geodesic.K">
+<span class="sig-name descname"><span class="pre">K</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Geodesic.K" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="geometry_1d.Geodesic.caustics">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">caustics</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Geodesic.caustics" title="Link to this definition"></a></dt>
+<dd><p>Indices where caustics occur (J ≈ 0)</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="geometry_1d.Geodesic.energy">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">energy</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#geometry_1d.Geodesic.energy" title="Link to this definition"></a></dt>
+<dd><p>Initial energy</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.Geodesic.t">
+<span class="sig-name descname"><span class="pre">t</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Geodesic.t" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.Geodesic.x">
+<span class="sig-name descname"><span class="pre">x</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Geodesic.x" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.Geodesic.xi">
+<span class="sig-name descname"><span class="pre">xi</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Geodesic.xi" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="geometry_1d.PeriodicOrbit">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">geometry_1d.</span></span><span class="sig-name descname"><span class="pre">PeriodicOrbit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">energy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stability</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_cycle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_cycle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_cycle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/geometry_1d.html#PeriodicOrbit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.PeriodicOrbit" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represents a periodic orbit in phase space</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.PeriodicOrbit.action">
+<span class="sig-name descname"><span class="pre">action</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#geometry_1d.PeriodicOrbit.action" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.PeriodicOrbit.energy">
+<span class="sig-name descname"><span class="pre">energy</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#geometry_1d.PeriodicOrbit.energy" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.PeriodicOrbit.period">
+<span class="sig-name descname"><span class="pre">period</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#geometry_1d.PeriodicOrbit.period" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.PeriodicOrbit.stability">
+<span class="sig-name descname"><span class="pre">stability</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#geometry_1d.PeriodicOrbit.stability" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.PeriodicOrbit.t_cycle">
+<span class="sig-name descname"><span class="pre">t_cycle</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.PeriodicOrbit.t_cycle" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.PeriodicOrbit.x0">
+<span class="sig-name descname"><span class="pre">x0</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#geometry_1d.PeriodicOrbit.x0" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.PeriodicOrbit.x_cycle">
+<span class="sig-name descname"><span class="pre">x_cycle</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.PeriodicOrbit.x_cycle" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.PeriodicOrbit.xi0">
+<span class="sig-name descname"><span class="pre">xi0</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#geometry_1d.PeriodicOrbit.xi0" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.PeriodicOrbit.xi_cycle">
+<span class="sig-name descname"><span class="pre">xi_cycle</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.PeriodicOrbit.xi_cycle" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="geometry_1d.SpectralAnalysis">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">geometry_1d.</span></span><span class="sig-name descname"><span class="pre">SpectralAnalysis</span></span><a class="reference internal" href="_modules/geometry_1d.html#SpectralAnalysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SpectralAnalysis" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Additional spectral analysis tools</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="geometry_1d.SpectralAnalysis.analyze_integrability">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">analyze_integrability</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spacings</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="reference internal" href="_modules/geometry_1d.html#SpectralAnalysis.analyze_integrability"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SpectralAnalysis.analyze_integrability" title="Link to this definition"></a></dt>
+<dd><p>Determine if system is integrable or chaotic via level statistics</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>spacings</strong> (<em>array</em>) – Energy level spacings</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Statistical measures and classification</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="geometry_1d.SpectralAnalysis.berry_tabor_formula">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">berry_tabor_formula</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">periodic_orbits</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#geometry_1d.PeriodicOrbit" title="geometry_1d.PeriodicOrbit"><span class="pre">PeriodicOrbit</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">energy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/geometry_1d.html#SpectralAnalysis.berry_tabor_formula"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SpectralAnalysis.berry_tabor_formula" title="Link to this definition"></a></dt>
+<dd><p>Berry-Tabor formula for integrable systems</p>
+<p>Smoothed density of states from periodic orbits</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>periodic_orbits</strong> (<em>list</em>) – Periodic orbits</p></li>
+<li><p><strong>energy</strong> (<em>float</em>) – Energy at which to evaluate density</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Density of states ρ(E)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="geometry_1d.SpectralAnalysis.weyl_law">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">weyl_law</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">energy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimension</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/geometry_1d.html#SpectralAnalysis.weyl_law"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SpectralAnalysis.weyl_law" title="Link to this definition"></a></dt>
+<dd><p>Weyl’s law: asymptotic density of states</p>
+<p>N(E) ~ (1/2πℏ)^d × Vol{H(x,p) ≤ E}</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>energy</strong> (<em>float</em>) – Energy threshold</p></li>
+<li><p><strong>dimension</strong> (<em>int</em>) – Phase space dimension</p></li>
+<li><p><strong>hbar</strong> (<em>float</em>) – Reduced Planck constant</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Approximate number of states below energy E</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="geometry_1d.Spectrum">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">geometry_1d.</span></span><span class="sig-name descname"><span class="pre">Spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">energies</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intensity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trace_t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trace</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/geometry_1d.html#Spectrum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.Spectrum" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Semiclassical spectrum information</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.Spectrum.energies">
+<span class="sig-name descname"><span class="pre">energies</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Spectrum.energies" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.Spectrum.intensity">
+<span class="sig-name descname"><span class="pre">intensity</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Spectrum.intensity" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.Spectrum.trace">
+<span class="sig-name descname"><span class="pre">trace</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Spectrum.trace" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="geometry_1d.Spectrum.trace_t">
+<span class="sig-name descname"><span class="pre">trace_t</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#geometry_1d.Spectrum.trace_t" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="geometry_1d.SymbolGeometry">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">geometry_1d.</span></span><span class="sig-name descname"><span class="pre">SymbolGeometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Symbol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Symbol</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/geometry_1d.html#SymbolGeometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SymbolGeometry" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Analyzes the geometric structure of a symbol H(x, ξ)</p>
+<p>This class computes:
+- Hamiltonian flow (geodesics)
+- Jacobian (focusing)
+- Caustics (singularities)
+- Periodic orbits
+- Semiclassical spectrum</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="geometry_1d.SymbolGeometry.compute_geodesic">
+<span class="sig-name descname"><span class="pre">compute_geodesic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#geometry_1d.Geodesic" title="geometry_1d.Geodesic"><span class="pre">Geodesic</span></a></span></span><a class="reference internal" href="_modules/geometry_1d.html#SymbolGeometry.compute_geodesic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SymbolGeometry.compute_geodesic" title="Link to this definition"></a></dt>
+<dd><p>Compute geodesic with Jacobian (for caustics detection)</p>
+<p>Solves the augmented system:
+dx/dt = ∂H/∂ξ
+dξ/dt = -∂H/∂x
+dJ/dt = ∂²H/∂ξ² J + ∂²H/∂x∂ξ K  (variational equation)
+dK/dt = -∂²H/∂x∂ξ J - ∂²H/∂x² K</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x0</strong> (<em>float</em>) – Initial conditions</p></li>
+<li><p><strong>xi0</strong> (<em>float</em>) – Initial conditions</p></li>
+<li><p><strong>t_max</strong> (<em>float</em>) – Final time</p></li>
+<li><p><strong>n_points</strong> (<em>int</em>) – Number of points</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Complete geodesic information</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#geometry_1d.Geodesic" title="geometry_1d.Geodesic">Geodesic</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="geometry_1d.SymbolGeometry.find_periodic_orbits">
+<span class="sig-name descname"><span class="pre">find_periodic_orbits</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">energy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_attempts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol_period</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.001</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#geometry_1d.PeriodicOrbit" title="geometry_1d.PeriodicOrbit"><span class="pre">PeriodicOrbit</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/geometry_1d.html#SymbolGeometry.find_periodic_orbits"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SymbolGeometry.find_periodic_orbits" title="Link to this definition"></a></dt>
+<dd><p>Find periodic orbits at fixed energy</p>
+<p>Strategy: Sample energy surface H(x,ξ)=E and look for closed orbits</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>energy</strong> (<em>float</em>) – Target energy level</p></li>
+<li><p><strong>x_range</strong> (<em>tuple</em>) – Search domain</p></li>
+<li><p><strong>xi_range</strong> (<em>tuple</em>) – Search domain</p></li>
+<li><p><strong>n_attempts</strong> (<em>int</em>) – Number of initial conditions to try</p></li>
+<li><p><strong>tol_period</strong> (<em>float</em>) – Tolerance for periodicity detection</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Found periodic orbits</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of <a class="reference internal" href="#geometry_1d.PeriodicOrbit" title="geometry_1d.PeriodicOrbit">PeriodicOrbit</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="geometry_1d.SymbolGeometry.gutzwiller_trace_formula">
+<span class="sig-name descname"><span class="pre">gutzwiller_trace_formula</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">periodic_orbits</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#geometry_1d.PeriodicOrbit" title="geometry_1d.PeriodicOrbit"><span class="pre">PeriodicOrbit</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/geometry_1d.html#SymbolGeometry.gutzwiller_trace_formula"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SymbolGeometry.gutzwiller_trace_formula" title="Link to this definition"></a></dt>
+<dd><p>Gutzwiller trace formula (semiclassical)</p>
+<p>Tr[exp(-iHt/ℏ)] ≈ Σ_γ A_γ exp(iS_γ/ℏ - iπμ_γ/2)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>periodic_orbits</strong> (<em>list</em>) – List of periodic orbits</p></li>
+<li><p><strong>t_values</strong> (<em>array</em>) – Time values</p></li>
+<li><p><strong>hbar</strong> (<em>float</em>) – Reduced Planck constant</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Trace as function of time</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="geometry_1d.SymbolGeometry.semiclassical_spectrum">
+<span class="sig-name descname"><span class="pre">semiclassical_spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">periodic_orbits</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#geometry_1d.PeriodicOrbit" title="geometry_1d.PeriodicOrbit"><span class="pre">PeriodicOrbit</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4000</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#geometry_1d.Spectrum" title="geometry_1d.Spectrum"><span class="pre">Spectrum</span></a></span></span><a class="reference internal" href="_modules/geometry_1d.html#SymbolGeometry.semiclassical_spectrum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SymbolGeometry.semiclassical_spectrum" title="Link to this definition"></a></dt>
+<dd><p>Extract semiclassical spectrum via Fourier transform of trace</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>periodic_orbits</strong> (<em>list</em>) – Periodic orbits</p></li>
+<li><p><strong>hbar</strong> (<em>float</em>) – Reduced Planck constant</p></li>
+<li><p><strong>resolution</strong> (<em>int</em>) – Number of points</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Spectral information</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#geometry_1d.Spectrum" title="geometry_1d.Spectrum">Spectrum</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="geometry_1d.SymbolVisualizer">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">geometry_1d.</span></span><span class="sig-name descname"><span class="pre">SymbolVisualizer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">geometry</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#geometry_1d.SymbolGeometry" title="geometry_1d.SymbolGeometry"><span class="pre">SymbolGeometry</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/geometry_1d.html#SymbolVisualizer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SymbolVisualizer" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Comprehensive visualization of symbol geometry</p>
+<p>Produces 15 panels showing:
+1. Hamiltonian surface (3D)
+2. Energy level sets (phase space foliation)
+3. Hamiltonian vector field
+4. Group velocity ∂H/∂ξ
+5. Spatial projection (caustics)
+6. Jacobian (focusing measure)
+7. Curvature (focusing tendency)
+8. Energy conservation
+9. Periodic orbits (phase space)
+10. Period-energy diagram
+11. EBK quantization
+12. Trace formula
+13. Semiclassical spectrum
+14. Orbit stability
+15. Level spacing distribution</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="geometry_1d.SymbolVisualizer.visualize_complete">
+<span class="sig-name descname"><span class="pre">visualize_complete</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geodesics_params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span></span></span><a class="reference internal" href="_modules/geometry_1d.html#SymbolVisualizer.visualize_complete"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.SymbolVisualizer.visualize_complete" title="Link to this definition"></a></dt>
+<dd><p>Create complete geometric atlas</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_range</strong> (<em>tuple</em>) – Domain limits</p></li>
+<li><p><strong>xi_range</strong> (<em>tuple</em>) – Domain limits</p></li>
+<li><p><strong>geodesics_params</strong> (<em>list</em><em> of </em><em>tuples</em>) – Each tuple: (x0, xi0, t_max, color)</p></li>
+<li><p><strong>E_range</strong> (<em>tuple</em><em>, </em><em>optional</em>) – Energy range for spectral analysis</p></li>
+<li><p><strong>hbar</strong> (<em>float</em>) – Reduced Planck constant</p></li>
+<li><p><strong>resolution</strong> (<em>int</em>) – Grid resolution</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>fig, geodesics, periodic_orbits, spectrum</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="geometry_1d.print_theory">
+<span class="sig-prename descclassname"><span class="pre">geometry_1d.</span></span><span class="sig-name descname"><span class="pre">print_theory</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/geometry_1d.html#print_theory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.print_theory" title="Link to this definition"></a></dt>
+<dd><p>Print theoretical background</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="geometry_1d.visualize_symbol">
+<span class="sig-prename descclassname"><span class="pre">geometry_1d.</span></span><span class="sig-name descname"><span class="pre">visualize_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geodesics_params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Symbol</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Symbol</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span></span></span><a class="reference internal" href="_modules/geometry_1d.html#visualize_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#geometry_1d.visualize_symbol" title="Link to this definition"></a></dt>
+<dd><p>Main interface: complete visualization of a symbol with spectral analysis examples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>symbol</strong> (<em>sympy expression</em>) – Hamiltonian H(x, ξ)</p></li>
+<li><p><strong>x_range</strong> (<em>tuple</em>) – Domain (min, max)</p></li>
+<li><p><strong>xi_range</strong> (<em>tuple</em>) – Domain (min, max)</p></li>
+<li><p><strong>geodesics_params</strong> (<em>list</em><em> of </em><em>tuples</em>) – Each: (x0, xi0, t_max) or (x0, xi0, t_max, color)</p></li>
+<li><p><strong>E_range</strong> (<em>tuple</em><em>, </em><em>optional</em>) – Energy range for spectral analysis</p></li>
+<li><p><strong>hbar</strong> (<em>float</em>) – Reduced Planck constant</p></li>
+<li><p><strong>resolution</strong> (<em>int</em>) – Grid resolution</p></li>
+<li><p><strong>x_sym</strong> (<em>sympy symbols</em><em>, </em><em>optional</em>) – If not provided, will use ‘x’ and ‘xi’</p></li>
+<li><p><strong>xi_sym</strong> (<em>sympy symbols</em><em>, </em><em>optional</em>) – If not provided, will use ‘x’ and ‘xi’</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Complete visualization and computed data</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>fig, geodesics, periodic_orbits, spectrum</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="fio_bridge.html" class="btn btn-neutral float-left" title="fio_bridge" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="geometry_2d.html" class="btn btn-neutral float-right" title="geometry_2d" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

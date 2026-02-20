@@ -1,0 +1,996 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>physics &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry_1d.html">geometry_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../imports.html">imports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal_1d.html">microlocal_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal_2d.html">microlocal_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian_1d.html">riemannian_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian_2d.html">riemannian_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic_1d.html">symplectic_1d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic_2d.html">symplectic_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">physics</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for physics</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Toolkit for Lagrangian and Hamiltonian manipulation and Catastrophe analysis</span>
+
+<span class="sd">Physics utilities:</span>
+<span class="sd"> - Lagrangian &lt;-&gt; Hamiltonian converter with Legendre &amp; Legendre-Fenchel (numeric + symbolic)</span>
+<span class="sd"> - HamiltonianSymbolicConverter (formal psiOp PDE generation)</span>
+<span class="sd"> - Catastrophe detection (1D &amp; 2D) and Arnold classification for 2D</span>
+<span class="sd"> - Plotting helper for catastrophes</span>
+
+<span class="sd">Notes: Use L_to_H(..., method=&quot;fenchel_numeric&quot;, fenchel_opts=...) for numeric Fenchel.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Matrix</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_np</span>
+
+<span class="c1"># Optional SciPy for numeric optimization</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">optimize</span> <span class="k">as</span> <span class="n">_optimize</span>
+    <span class="n">_HAS_SCIPY</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+    <span class="n">_HAS_SCIPY</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="c1"># Optional plotting</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_plt</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mpl_toolkits.mplot3d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Axes3D</span>  <span class="c1"># noqa: F401</span>
+    <span class="n">_HAS_MPL</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+    <span class="n">_HAS_MPL</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="c1"># --------------------------</span>
+<span class="c1"># Lagrangian &lt;-&gt; Hamiltonian</span>
+<span class="c1"># --------------------------</span>
+<div class="viewcode-block" id="LagrangianHamiltonianConverter">
+<a class="viewcode-back" href="../physics.html#physics.LagrangianHamiltonianConverter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LagrangianHamiltonianConverter</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Bidirectional converter between Lagrangian and Hamiltonian (Legendre transform),</span>
+<span class="sd">    with optional Legendre–Fenchel (convex conjugate) support and robust numeric fallback.</span>
+
+<span class="sd">    Main API:</span>
+<span class="sd">      L_to_H(L_expr, coords, u, p_vars, return_symbol_only=False, force=False,</span>
+<span class="sd">             method=&quot;legendre&quot;, fenchel_opts=None)</span>
+
+<span class="sd">        - method: &quot;legendre&quot; (default), &quot;fenchel_symbolic&quot;, &quot;fenchel_numeric&quot;</span>
+<span class="sd">        - If method == &quot;fenchel_numeric&quot; returns (H_repr, xi_vars, numeric_callable)</span>
+<span class="sd">          otherwise returns (H_expr, xi_vars)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_numeric_cache</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># --------------------</span>
+    <span class="c1"># Utilities</span>
+    <span class="c1"># --------------------</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_quadratic_in_p</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Robust test: returns True only if L_expr is polynomial of degree ≤ 2 in each p_var.</span>
+<span class="sd">        Falls back to False for non-polynomial expressions (Abs, sqrt, etc.).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">p_vars</span><span class="p">:</span>
+            <span class="c1"># Quick test: is L polynomial in p?</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">L_expr</span><span class="o">.</span><span class="n">is_polynomial</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">deg</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">degree</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="n">deg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">deg</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_quadratic_legendre</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Analytic Legendre transform for quadratic L: L = 1/2 p^T A p + b^T p + c</span>
+<span class="sd">        Returns (H_expr, sol_map) and raises ValueError if Hessian singular.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">([[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_i</span><span class="p">),</span> <span class="n">p_j</span><span class="p">)</span> <span class="k">for</span> <span class="n">p_j</span> <span class="ow">in</span> <span class="n">p_vars</span><span class="p">]</span> <span class="k">for</span> <span class="n">p_i</span> <span class="ow">in</span> <span class="n">p_vars</span><span class="p">])</span>
+        <span class="n">grad</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">([</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">p_vars</span><span class="p">])</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">A_inv</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">inv</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Quadratic analytic path: Hessian A is singular (non-invertible).&quot;</span><span class="p">)</span>
+        <span class="n">subs_zero</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">p_vars</span><span class="p">}</span>
+        <span class="n">b_vec</span> <span class="o">=</span> <span class="n">grad</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs_zero</span><span class="p">)</span>
+        <span class="n">xi_vec</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">)</span>
+        <span class="n">p_solution_vec</span> <span class="o">=</span> <span class="n">A_inv</span> <span class="o">*</span> <span class="p">(</span><span class="n">xi_vec</span> <span class="o">-</span> <span class="n">b_vec</span><span class="p">)</span>
+        <span class="n">sol</span> <span class="o">=</span> <span class="p">{</span><span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">p_solution_vec</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">p_vars</span><span class="p">))}</span>
+        <span class="n">H_expr</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">sol</span><span class="p">[</span><span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">p_vars</span><span class="p">)))</span> <span class="o">-</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">L_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">sol</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">H_expr</span><span class="p">),</span> <span class="n">sol</span>
+
+    <span class="c1"># ----------------------------</span>
+    <span class="c1"># Numeric Legendre-Fenchel helpers</span>
+    <span class="c1"># ----------------------------</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_legendre_fenchel_1d_numeric_callable</span><span class="p">(</span><span class="n">L_func</span><span class="p">,</span> <span class="n">p_bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">),</span> <span class="n">n_grid</span><span class="o">=</span><span class="mi">2001</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+                                             <span class="n">scipy_multistart</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a callable H_numeric(xi) = sup_p (xi*p - L(p)) for 1D L_func(p).</span>
+<span class="sd">        - L_func: callable p -&gt; L(p)</span>
+<span class="sd">        - mode: &quot;auto&quot; | &quot;scipy&quot; | &quot;grid&quot;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pmin</span><span class="p">,</span> <span class="n">pmax</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_compute_by_grid</span><span class="p">(</span><span class="n">xi</span><span class="p">):</span>
+            <span class="n">grid</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">pmin</span><span class="p">,</span> <span class="n">pmax</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_grid</span><span class="p">))</span>
+            <span class="n">Lvals</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">L_func</span><span class="p">(</span><span class="n">p</span><span class="p">))</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">grid</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">S</span> <span class="o">=</span> <span class="n">xi</span> <span class="o">*</span> <span class="n">grid</span> <span class="o">-</span> <span class="n">Lvals</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">S</span><span class="p">))</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">S</span><span class="p">[</span><span class="n">idx</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">grid</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_compute_by_scipy</span><span class="p">(</span><span class="n">xi</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_HAS_SCIPY</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">_compute_by_grid</span><span class="p">(</span><span class="n">xi</span><span class="p">)</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">negS</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                <span class="n">p0</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="n">xi</span> <span class="o">*</span> <span class="n">p0</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="n">L_func</span><span class="p">(</span><span class="n">p0</span><span class="p">)))</span>
+
+            <span class="n">best_val</span> <span class="o">=</span> <span class="o">-</span><span class="n">_math</span><span class="o">.</span><span class="n">inf</span>
+            <span class="n">best_p</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">inits</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">pmin</span><span class="p">,</span> <span class="n">pmax</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">scipy_multistart</span><span class="p">)))</span>
+            <span class="k">for</span> <span class="n">x0</span> <span class="ow">in</span> <span class="n">inits</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">res</span> <span class="o">=</span> <span class="n">_optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">negS</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x0</span><span class="p">)],</span> <span class="n">bounds</span><span class="o">=</span><span class="p">[(</span><span class="n">pmin</span><span class="p">,</span> <span class="n">pmax</span><span class="p">)],</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+                        <span class="n">pstar</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                        <span class="n">sval</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">xi</span> <span class="o">*</span> <span class="n">pstar</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="n">L_func</span><span class="p">(</span><span class="n">pstar</span><span class="p">)))</span>
+                        <span class="k">if</span> <span class="n">sval</span> <span class="o">&gt;</span> <span class="n">best_val</span><span class="p">:</span>
+                            <span class="n">best_val</span> <span class="o">=</span> <span class="n">sval</span>
+                            <span class="n">best_p</span> <span class="o">=</span> <span class="n">pstar</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">best_p</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">_compute_by_grid</span><span class="p">(</span><span class="n">xi</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">best_val</span><span class="p">,</span> <span class="n">best_p</span>
+
+        <span class="n">compute</span> <span class="o">=</span> <span class="n">_compute_by_scipy</span> <span class="k">if</span> <span class="p">(</span><span class="n">_HAS_SCIPY</span> <span class="ow">and</span> <span class="n">mode</span> <span class="o">!=</span> <span class="s2">&quot;grid&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">_compute_by_grid</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">H_numeric</span><span class="p">(</span><span class="n">xi_in</span><span class="p">):</span>
+            <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">xi_in</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">xi_arr</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">xi</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">xi_arr</span><span class="p">):</span>
+                <span class="n">val</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">compute</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">xi</span><span class="p">))</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+            <span class="k">if</span> <span class="n">_np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">xi_in</span><span class="p">):</span>
+                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">return</span> <span class="n">out</span>
+
+        <span class="k">return</span> <span class="n">H_numeric</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_legendre_fenchel_nd_numeric_callable</span><span class="p">(</span><span class="n">L_func</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">p_bounds</span><span class="p">,</span> <span class="n">n_grid_per_dim</span><span class="o">=</span><span class="mi">41</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+                                              <span class="n">scipy_multistart</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">multistart_restarts</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return callable H_numeric(xi_vector) approximating sup_p (xi·p - L(p)) for dim&gt;=2.</span>
+<span class="sd">        - L_func: callable p_vector -&gt; L(p)</span>
+<span class="sd">        - p_bounds: tuple/list of per-dimension bounds</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pmin_list</span><span class="p">,</span> <span class="n">pmax_list</span> <span class="o">=</span> <span class="n">p_bounds</span>
+        <span class="n">pmin</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">pmin_list</span><span class="p">]</span>
+        <span class="n">pmax</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">pmax_list</span><span class="p">]</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">compute_by_grid</span><span class="p">(</span><span class="n">xi_vec</span><span class="p">):</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+            <span class="n">grids</span> <span class="o">=</span> <span class="p">[</span><span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">pmin</span><span class="p">[</span><span class="n">d</span><span class="p">],</span> <span class="n">pmax</span><span class="p">[</span><span class="n">d</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_grid_per_dim</span><span class="p">))</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)]</span>
+            <span class="n">best</span> <span class="o">=</span> <span class="o">-</span><span class="n">_math</span><span class="o">.</span><span class="n">inf</span>
+            <span class="n">best_p</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">grids</span><span class="p">):</span>
+                <span class="n">pt_arr</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pt</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                <span class="n">sval</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">xi_vec</span><span class="p">,</span> <span class="n">pt_arr</span><span class="p">)</span> <span class="o">-</span> <span class="n">L_func</span><span class="p">(</span><span class="n">pt_arr</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">sval</span> <span class="o">&gt;</span> <span class="n">best</span><span class="p">:</span>
+                    <span class="n">best</span> <span class="o">=</span> <span class="n">sval</span>
+                    <span class="n">best_p</span> <span class="o">=</span> <span class="n">pt_arr</span>
+            <span class="k">return</span> <span class="n">best</span><span class="p">,</span> <span class="n">best_p</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">compute_by_scipy</span><span class="p">(</span><span class="n">xi_vec</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_HAS_SCIPY</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">compute_by_grid</span><span class="p">(</span><span class="n">xi_vec</span><span class="p">)</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">negS</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                <span class="k">return</span> <span class="o">-</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">xi_vec</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="n">L_func</span><span class="p">(</span><span class="n">p</span><span class="p">)))</span>
+
+            <span class="n">best_val</span> <span class="o">=</span> <span class="o">-</span><span class="n">_math</span><span class="o">.</span><span class="n">inf</span>
+            <span class="n">best_p</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">center</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">pmin</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">+</span> <span class="n">pmax</span><span class="p">[</span><span class="n">d</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">rng</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">123456</span><span class="p">)</span>
+            <span class="n">inits</span> <span class="o">=</span> <span class="p">[</span><span class="n">center</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">multistart_restarts</span><span class="p">):</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">pmin</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">+</span> <span class="n">r</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">pmax</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">-</span> <span class="n">pmin</span><span class="p">[</span><span class="n">d</span><span class="p">])</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                <span class="n">inits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">x0</span> <span class="ow">in</span> <span class="n">inits</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">res</span> <span class="o">=</span> <span class="n">_optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">negS</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="nb">tuple</span><span class="p">((</span><span class="n">pmin</span><span class="p">[</span><span class="n">d</span><span class="p">],</span> <span class="n">pmax</span><span class="p">[</span><span class="n">d</span><span class="p">])</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)),</span>
+                                             <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+                        <span class="n">pstar</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+                        <span class="n">sval</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">xi_vec</span><span class="p">,</span> <span class="n">pstar</span><span class="p">)</span> <span class="o">-</span> <span class="n">L_func</span><span class="p">(</span><span class="n">pstar</span><span class="p">))</span>
+                        <span class="k">if</span> <span class="n">sval</span> <span class="o">&gt;</span> <span class="n">best_val</span><span class="p">:</span>
+                            <span class="n">best_val</span> <span class="o">=</span> <span class="n">sval</span>
+                            <span class="n">best_p</span> <span class="o">=</span> <span class="n">pstar</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">best_p</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">compute_by_grid</span><span class="p">(</span><span class="n">xi_vec</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">best_val</span><span class="p">,</span> <span class="n">best_p</span>
+
+        <span class="n">compute</span> <span class="o">=</span> <span class="n">compute_by_scipy</span> <span class="k">if</span> <span class="p">(</span><span class="n">_HAS_SCIPY</span> <span class="ow">and</span> <span class="n">mode</span> <span class="o">!=</span> <span class="s2">&quot;grid&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">compute_by_grid</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">H_numeric</span><span class="p">(</span><span class="n">xi_in</span><span class="p">):</span>
+            <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">xi_in</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">xi_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">dim</span><span class="p">:</span>
+                <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">xi_arr</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">xi_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">xivec</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">xi_arr</span><span class="p">):</span>
+                <span class="n">val</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">compute</span><span class="p">(</span><span class="n">xivec</span><span class="p">)</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+            <span class="k">if</span> <span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">return</span> <span class="n">out</span>
+
+        <span class="k">return</span> <span class="n">H_numeric</span>
+
+    <span class="c1"># ----------------------------</span>
+    <span class="c1"># Main methods</span>
+    <span class="c1"># ----------------------------</span>
+<div class="viewcode-block" id="LagrangianHamiltonianConverter.L_to_H">
+<a class="viewcode-back" href="../physics.html#physics.LagrangianHamiltonianConverter.L_to_H">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">L_to_H</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">,</span> <span class="n">return_symbol_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+               <span class="n">method</span><span class="o">=</span><span class="s2">&quot;legendre&quot;</span><span class="p">,</span> <span class="n">fenchel_opts</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert L(x,u,p) -&gt; H(x,u,xi) with options for generalized Legendre (Fenchel).</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">          - method: &quot;legendre&quot; (default), &quot;fenchel_symbolic&quot;, &quot;fenchel_numeric&quot;</span>
+<span class="sd">          - fenchel_opts: dict with options for numeric fenchel</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
+        <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D dimensions are supported.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Quadratic fast-path (symbolic)</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;legendre&quot;</span><span class="p">,</span> <span class="s2">&quot;fenchel_symbolic&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_is_quadratic_in_p</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">H_expr</span><span class="p">,</span> <span class="n">sol</span> <span class="o">=</span> <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_quadratic_legendre</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">return_symbol_only</span><span class="p">:</span>
+                    <span class="n">H_expr</span> <span class="o">=</span> <span class="n">H_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span> <span class="ow">and</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;legendre&quot;</span><span class="p">:</span>
+                    <span class="k">raise</span>
+
+        <span class="c1"># CLASSICAL LEGENDRE</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;legendre&quot;</span><span class="p">:</span>
+            <span class="n">H_p</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">H_p</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">)</span>
+                <span class="n">det_H</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">H_p</span><span class="o">.</span><span class="n">det</span><span class="p">())</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">det_H</span> <span class="o">=</span> <span class="kc">None</span>
+
+            <span class="k">if</span> <span class="n">det_H</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">det_H</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Legendre transform not invertible: Hessian singular. Use force=True or Fenchel method.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">det_H</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to verify Hessian determinant symbolically. Use force=True to attempt solve().&quot;</span><span class="p">)</span>
+
+            <span class="n">eqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)]</span>
+            <span class="n">sol_list</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">,</span> <span class="nb">dict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">sol_list</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to solve symbolic Legendre relations. Use force=True or Fenchel fallback.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sol_list</span><span class="p">:</span>
+                <span class="n">sol</span> <span class="o">=</span> <span class="n">sol_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">p_vars</span><span class="p">):</span>
+                    <span class="n">sol</span> <span class="o">=</span> <span class="p">{</span><span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">sol</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">p_vars</span><span class="p">))}</span>
+                <span class="n">H_expr</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">sol</span><span class="p">[</span><span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span> <span class="o">-</span> <span class="n">L_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span>
+                <span class="n">H_expr</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">H_expr</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">return_symbol_only</span><span class="p">:</span>
+                    <span class="n">H_expr</span> <span class="o">=</span> <span class="n">H_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Legendre inversion failed even with solve().&quot;</span><span class="p">)</span>
+
+        <span class="c1"># FENCHEL: symbolic attempt</span>
+        <span class="c1"># -----------------------------------------------------</span>
+        <span class="c1">#  Prevent symbolic Fenchel when L is non-differentiable</span>
+        <span class="c1"># -----------------------------------------------------</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;fenchel_symbolic&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">L_expr</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Abs</span><span class="p">)</span> <span class="ow">or</span> <span class="n">L_expr</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">sign</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
+                <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">sign</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">Abs</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">p_vars</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Symbolic Fenchel not possible for nonsmooth L (Abs, sign). &quot;</span>
+                    <span class="s2">&quot;Use method=&#39;fenchel_numeric&#39; instead.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;fenchel_symbolic&quot;</span><span class="p">:</span>
+            <span class="n">eqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)]</span>
+            <span class="n">sol_list</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">,</span> <span class="nb">dict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sol_list</span><span class="p">:</span>
+                <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">sol</span> <span class="ow">in</span> <span class="n">sol_list</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">p_vars</span><span class="p">):</span>
+                        <span class="n">sol</span> <span class="o">=</span> <span class="p">{</span><span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">sol</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">p_vars</span><span class="p">))}</span>
+                    <span class="n">S_expr</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">sol</span><span class="p">[</span><span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span> <span class="o">-</span> <span class="n">L_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span>
+                    <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">S_expr</span><span class="p">))</span>
+                <span class="n">H_candidates</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Max</span><span class="p">(</span><span class="o">*</span><span class="n">candidates</span><span class="p">))</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">candidates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">return_symbol_only</span><span class="p">:</span>
+                    <span class="n">H_candidates</span> <span class="o">=</span> <span class="n">H_candidates</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">H_candidates</span><span class="p">,</span> <span class="n">xi_vars</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Symbolic Fenchel conjugate not found; use method=&#39;fenchel_numeric&#39; for numeric computation.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># FENCHEL: numeric path</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;fenchel_numeric&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">fenchel_opts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">fenchel_opts</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">p_bounds</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;p_bounds&quot;</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">))</span>
+                <span class="n">n_grid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_grid&quot;</span><span class="p">,</span> <span class="mi">2001</span><span class="p">))</span>
+                <span class="n">mode</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+                <span class="n">scipy_multistart</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scipy_multistart&quot;</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+
+                <span class="c1"># Build numeric L_func (try lambdify)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">p_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">],),</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+                    <span class="k">def</span><span class="w"> </span><span class="nf">L_func_scalar</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_lamb</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">p_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+                        <span class="k">def</span><span class="w"> </span><span class="nf">L_func_scalar</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_lamb</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                        <span class="k">def</span><span class="w"> </span><span class="nf">L_func_scalar</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">L_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">({</span><span class="n">p_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">p</span><span class="p">})))</span>
+
+                <span class="n">H_numeric</span> <span class="o">=</span> <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_legendre_fenchel_1d_numeric_callable</span><span class="p">(</span>
+                    <span class="n">L_func_scalar</span><span class="p">,</span> <span class="n">p_bounds</span><span class="o">=</span><span class="n">p_bounds</span><span class="p">,</span> <span class="n">n_grid</span><span class="o">=</span><span class="n">n_grid</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+                    <span class="n">scipy_multistart</span><span class="o">=</span><span class="n">scipy_multistart</span>
+                <span class="p">)</span>
+                <span class="n">H_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s2">&quot;H_numeric&quot;</span><span class="p">)</span>
+                <span class="n">H_repr</span> <span class="o">=</span> <span class="n">H_func</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_numeric_cache</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">H_repr</span><span class="p">)]</span> <span class="o">=</span> <span class="n">H_numeric</span>
+                <span class="k">return</span> <span class="n">H_repr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">H_numeric</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># dim == 2</span>
+                <span class="n">p_bounds</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;p_bounds&quot;</span><span class="p">,</span> <span class="p">[(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)])</span>
+                <span class="n">n_grid_per_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_grid_per_dim&quot;</span><span class="p">,</span> <span class="mi">41</span><span class="p">))</span>
+                <span class="n">mode</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+                <span class="n">scipy_multistart</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scipy_multistart&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span>
+                <span class="n">multistart_restarts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;multistart_restarts&quot;</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+
+                <span class="n">f_lamb</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">p_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p_vars</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+                    <span class="k">def</span><span class="w"> </span><span class="nf">L_func_nd</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_lamb</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">p_vars</span><span class="p">,),</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+                        <span class="k">def</span><span class="w"> </span><span class="nf">L_func_nd</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_lamb</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">p</span><span class="p">)))</span>
+                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                        <span class="k">def</span><span class="w"> </span><span class="nf">L_func_nd</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                            <span class="n">subs_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)}</span>
+                            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">L_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs_map</span><span class="p">)))</span>
+
+                <span class="n">H_numeric</span> <span class="o">=</span> <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_legendre_fenchel_nd_numeric_callable</span><span class="p">(</span>
+                    <span class="n">L_func_nd</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">p_bounds</span><span class="o">=</span><span class="p">(</span><span class="n">p_bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p_bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+                    <span class="n">n_grid_per_dim</span><span class="o">=</span><span class="n">n_grid_per_dim</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+                    <span class="n">scipy_multistart</span><span class="o">=</span><span class="n">scipy_multistart</span><span class="p">,</span> <span class="n">multistart_restarts</span><span class="o">=</span><span class="n">multistart_restarts</span>
+                <span class="p">)</span>
+                <span class="n">H_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s2">&quot;H_numeric&quot;</span><span class="p">)</span>
+                <span class="n">H_repr</span> <span class="o">=</span> <span class="n">H_func</span><span class="p">(</span><span class="o">*</span><span class="n">xi_vars</span><span class="p">)</span>
+                <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_numeric_cache</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">H_repr</span><span class="p">)]</span> <span class="o">=</span> <span class="n">H_numeric</span>
+                <span class="k">return</span> <span class="n">H_repr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">H_numeric</span>
+
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown method &#39;</span><span class="si">{}</span><span class="s2">&#39;. Choose &#39;legendre&#39;, &#39;fenchel_symbolic&#39; or &#39;fenchel_numeric&#39;.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">method</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="LagrangianHamiltonianConverter.H_to_L">
+<a class="viewcode-back" href="../physics.html#physics.LagrangianHamiltonianConverter.H_to_L">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">H_to_L</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Inverse Legendre (classical). Does not attempt Fenchel inverse.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">p_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
+        <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">p_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;p_x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;p_y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D are supported.&quot;</span><span class="p">)</span>
+
+        <span class="n">eqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)]</span>
+        <span class="n">sol</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="nb">dict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sol</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to symbolically solve p = ∂H/∂ξ for ξ. Use force=True.&quot;</span><span class="p">)</span>
+            <span class="n">sol</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sol</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Inverse Legendre transform failed; cannot find ξ(p).&quot;</span><span class="p">)</span>
+        <span class="n">sol</span> <span class="o">=</span> <span class="n">sol</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">sol</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">):</span>
+            <span class="n">sol</span> <span class="o">=</span> <span class="p">{</span><span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">sol</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">))}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="n">sol</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">sol</span> <span class="o">=</span> <span class="n">sol</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unexpected output from solve(); cannot construct ξ(p).&quot;</span><span class="p">)</span>
+        <span class="n">L_expr</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">sol</span><span class="p">[</span><span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">*</span> <span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span> <span class="o">-</span> <span class="n">H_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">L_expr</span><span class="p">),</span> <span class="n">p_vars</span></div>
+</div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># HamiltonianSymbolicConverter</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="HamiltonianSymbolicConverter">
+<a class="viewcode-back" href="../physics.html#physics.HamiltonianSymbolicConverter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HamiltonianSymbolicConverter</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Symbolic converter between Hamiltonians and formal PDEs (psiOp).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HamiltonianSymbolicConverter.decompose_hamiltonian">
+<a class="viewcode-back" href="../physics.html#physics.HamiltonianSymbolicConverter.decompose_hamiltonian">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">decompose_hamiltonian</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Decomposes the Hamiltonian into polynomial (local) and non-polynomial (nonlocal) parts.</span>
+<span class="sd">        The heuristic treats terms containing sqrt, Abs, or sign as nonlocal.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">xi_vars</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span> <span class="k">else</span> <span class="p">(</span><span class="n">xi_vars</span><span class="p">,)</span>
+        <span class="n">poly_terms</span><span class="p">,</span> <span class="n">nonlocal_terms</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+        <span class="n">H_expand</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">H_expr</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">H_expand</span><span class="o">.</span><span class="n">as_ordered_terms</span><span class="p">():</span>
+            <span class="c1"># Heuristic: treat terms containing sqrt/Abs/sign as nonlocal explicitly</span>
+            <span class="c1"># Check if the *current* &#39;term&#39; (from the outer loop) has these functions.</span>
+            <span class="c1"># The original code had a scoping bug in the &#39;any&#39; statement.</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">func</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">for</span> <span class="n">func</span> <span class="ow">in</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">Abs</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">sign</span><span class="p">])</span> <span class="ow">or</span> \
+               <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">)</span> <span class="ow">or</span> <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Abs</span><span class="p">)</span> <span class="ow">or</span> <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">sign</span><span class="p">):</span>
+                <span class="c1"># Alternative and more robust check:</span>
+                <span class="c1"># This checks if the specific &#39;term&#39; object contains the specified functions.</span>
+                <span class="n">nonlocal_terms</span> <span class="o">+=</span> <span class="n">term</span>
+            <span class="k">elif</span> <span class="nb">all</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">is_polynomial</span><span class="p">(</span><span class="n">xi_i</span><span class="p">)</span> <span class="k">for</span> <span class="n">xi_i</span> <span class="ow">in</span> <span class="n">xi</span><span class="p">):</span>
+                <span class="n">poly_terms</span> <span class="o">+=</span> <span class="n">term</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">nonlocal_terms</span> <span class="o">+=</span> <span class="n">term</span>
+        <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">poly_terms</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">nonlocal_terms</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde">
+<a class="viewcode-back" href="../physics.html#physics.HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hamiltonian_to_symbolic_pde</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">H_expr</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;schrodinger&quot;</span><span class="p">):</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
+        <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;eta&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D Hamiltonians are supported.&quot;</span><span class="p">)</span>
+
+        <span class="n">H_poly</span><span class="p">,</span> <span class="n">H_nonlocal</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">decompose_hamiltonian</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">)</span>
+        <span class="n">H_total</span> <span class="o">=</span> <span class="n">H_poly</span> <span class="o">+</span> <span class="n">H_nonlocal</span>
+        <span class="n">psiOp_H_u</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s2">&quot;psiOp&quot;</span><span class="p">)(</span><span class="n">H_total</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;stationary&quot;</span><span class="p">:</span>
+            <span class="n">E</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">pde</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">psiOp_H_u</span><span class="p">,</span> <span class="n">E</span> <span class="o">*</span> <span class="n">u</span><span class="p">)</span>
+            <span class="n">formal</span> <span class="o">=</span> <span class="s2">&quot;ψOp(H, u) = E u&quot;</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;schrodinger&quot;</span><span class="p">:</span>
+            <span class="n">pde</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">I</span> <span class="o">*</span> <span class="n">sp</span><span class="o">.</span><span class="n">Derivative</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">),</span> <span class="n">psiOp_H_u</span><span class="p">)</span>
+            <span class="n">formal</span> <span class="o">=</span> <span class="s2">&quot;i ∂_t u = ψOp(H, u)&quot;</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;wave&quot;</span><span class="p">:</span>
+            <span class="n">pde</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Derivative</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="o">-</span><span class="n">psiOp_H_u</span><span class="p">)</span>
+            <span class="n">formal</span> <span class="o">=</span> <span class="s2">&quot;∂_</span><span class="si">{tt}</span><span class="s2"> u + ψOp(H, u) = 0&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;mode must be one of: &#39;stationary&#39;, &#39;schrodinger&#39;, &#39;wave&#39;.&quot;</span><span class="p">)</span>
+
+        <span class="n">coord_str</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="n">xi_str</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">xi_vars</span><span class="p">)</span>
+        <span class="n">formal</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;   (H = H(</span><span class="si">{</span><span class="n">coord_str</span><span class="si">}</span><span class="s2">; </span><span class="si">{</span><span class="n">xi_str</span><span class="si">}</span><span class="s2">))&quot;</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;pde&quot;</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">pde</span><span class="p">),</span>
+            <span class="s2">&quot;H_poly&quot;</span><span class="p">:</span> <span class="n">H_poly</span><span class="p">,</span>
+            <span class="s2">&quot;H_nonlocal&quot;</span><span class="p">:</span> <span class="n">H_nonlocal</span><span class="p">,</span>
+            <span class="s2">&quot;formal_string&quot;</span><span class="p">:</span> <span class="n">formal</span><span class="p">,</span>
+            <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="n">mode</span>
+        <span class="p">}</span></div>
+</div>
+
+
+
+<span class="c1"># --------------------------</span>
+<span class="c1"># Catastrophe detector (1D &amp; 2D) + numeric fallback</span>
+<span class="c1"># --------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_try_symbolic_solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">unknowns</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">sol</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">unknowns</span><span class="p">,</span> <span class="nb">dict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sol</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sol</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_numeric_solve_system</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">unknowns</span><span class="p">,</span> <span class="n">guesses</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Try nsolve with several initial guesses.</span>
+<span class="sd">    Returns list of numeric solution dicts.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sol_set</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">guesses</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">solv</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">nsolve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">unknowns</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span> <span class="n">maxsteps</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">solv</span><span class="p">)]</span>
+            <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="n">unknowns</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">unknowns</span><span class="p">))}</span>
+            <span class="c1"># deduplicate approx</span>
+            <span class="n">already</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sol_set</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">-</span> <span class="n">mapping</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">1e-6</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">unknowns</span><span class="p">):</span>
+                    <span class="n">already</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">break</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">already</span><span class="p">:</span>
+                <span class="n">sol_set</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">continue</span>
+    <span class="k">return</span> <span class="n">sol_set</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_classify_1d_at_point</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Classify 1D catastrophe type at xi=pt by checking derivatives.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">derivs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">derivs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="n">xi_sym</span><span class="p">,</span> <span class="n">k</span><span class="p">))</span><span class="o">.</span><span class="n">subs</span><span class="p">({</span><span class="n">xi_sym</span><span class="p">:</span> <span class="n">pt</span><span class="p">})))</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">derivs</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="s2">&quot;regular (not critical)&quot;</span><span class="p">,</span> <span class="n">derivs</span>
+            <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">return</span> <span class="s2">&quot;fold (A2)&quot;</span><span class="p">,</span> <span class="n">derivs</span>
+            <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="k">return</span> <span class="s2">&quot;cusp (A3)&quot;</span><span class="p">,</span> <span class="n">derivs</span>
+            <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                <span class="k">return</span> <span class="s2">&quot;swallowtail (A4)&quot;</span><span class="p">,</span> <span class="n">derivs</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;A</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> (higher)&quot;</span><span class="p">,</span> <span class="n">derivs</span>
+    <span class="k">return</span> <span class="s2">&quot;flat (all derivatives vanish up to order </span><span class="si">{}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">max_order</span><span class="p">),</span> <span class="n">derivs</span>
+
+
+<div class="viewcode-block" id="detect_catastrophes">
+<a class="viewcode-back" href="../physics.html#physics.detect_catastrophes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">detect_catastrophes</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">numeric_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Detect catastrophes for a Hamiltonian symbol H_expr.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    H_expr : sympy.Expr</span>
+<span class="sd">    xi_vars : tuple of sympy symbols (xi,) or (xi,eta)</span>
+<span class="sd">    coords : tuple of sympy symbols (parameters) to solve for as well (optional)</span>
+<span class="sd">    method : &quot;symbolic&quot; | &quot;numeric&quot; | &quot;auto&quot;</span>
+<span class="sd">    numeric_grid : dict for numeric search options</span>
+<span class="sd">    max_order : int (for 1D derivative checks)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">)</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span> <span class="k">if</span> <span class="n">coords</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">()</span>
+    <span class="n">unknowns</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">)</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">xi_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">eq</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+        <span class="n">eqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">eq</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span>
+        <span class="n">sol_list</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;symbolic&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">):</span>
+            <span class="n">sol_list</span> <span class="o">=</span> <span class="n">_try_symbolic_solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">unknowns</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sol_list</span> <span class="ow">and</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;numeric&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">):</span>
+            <span class="n">grid</span> <span class="o">=</span> <span class="n">numeric_grid</span> <span class="ow">or</span> <span class="p">{}</span>
+            <span class="n">xi_b</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;xi_bounds&quot;</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">))</span>
+            <span class="n">nxi</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_xi&quot;</span><span class="p">,</span> <span class="mi">41</span><span class="p">))</span>
+            <span class="n">xi_inits</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xi_b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_b</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nxi</span><span class="p">))</span>
+            <span class="n">param_inits</span> <span class="o">=</span> <span class="p">[()]</span>
+            <span class="k">if</span> <span class="n">coords</span><span class="p">:</span>
+                <span class="n">p_bounds</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;param_bounds&quot;</span><span class="p">,</span> <span class="p">[(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">])</span>
+                <span class="n">pn</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_param&quot;</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+                <span class="n">arrays</span> <span class="o">=</span> <span class="p">[</span> <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">pn</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">p_bounds</span> <span class="p">]</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+                <span class="n">param_inits</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">arrays</span><span class="p">))</span>
+            <span class="n">guesses</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">xi0</span> <span class="ow">in</span> <span class="n">xi_inits</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">param_inits</span><span class="p">:</span>
+                    <span class="n">guesses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span><span class="n">xi0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="p">)))</span>
+            <span class="n">sol_num</span> <span class="o">=</span> <span class="n">_numeric_solve_system</span><span class="p">([</span><span class="n">eq</span><span class="p">],</span> <span class="n">unknowns</span><span class="p">,</span> <span class="n">guesses</span><span class="p">)</span>
+            <span class="n">sol_list</span> <span class="o">=</span> <span class="n">sol_num</span> <span class="k">if</span> <span class="n">sol_num</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sol_list</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">results</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol_list</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">sol_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">sol_list</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">sol</span> <span class="ow">in</span> <span class="n">sol_list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sol</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">sol</span><span class="p">}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">xi_val</span> <span class="o">=</span> <span class="n">mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">xi_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">typ</span><span class="p">,</span> <span class="n">derivs</span> <span class="o">=</span> <span class="n">_classify_1d_at_point</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">xi_val</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="n">max_order</span><span class="p">)</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;point&quot;</span><span class="p">:</span> <span class="n">mapping</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">typ</span><span class="p">,</span> <span class="s2">&quot;details&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;derivatives&quot;</span><span class="p">:</span> <span class="n">derivs</span><span class="p">}}</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">results</span>
+
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">xi_vars</span>
+        <span class="n">dxi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+        <span class="n">deta</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="n">eqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">dxi</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">deta</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span>
+        <span class="n">sol_list</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;symbolic&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">):</span>
+            <span class="n">sol_list</span> <span class="o">=</span> <span class="n">_try_symbolic_solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">unknowns</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sol_list</span> <span class="ow">and</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;numeric&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">):</span>
+            <span class="n">grid</span> <span class="o">=</span> <span class="n">numeric_grid</span> <span class="ow">or</span> <span class="p">{}</span>
+            <span class="n">xi_b</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;xi_bounds&quot;</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">))</span>
+            <span class="n">eta_b</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;eta_bounds&quot;</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">))</span>
+            <span class="n">nxi</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_xi&quot;</span><span class="p">,</span> <span class="mi">21</span><span class="p">))</span>
+            <span class="n">neta</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_eta&quot;</span><span class="p">,</span> <span class="mi">21</span><span class="p">))</span>
+            <span class="n">xi_inits</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xi_b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_b</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nxi</span><span class="p">))</span>
+            <span class="n">eta_inits</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">eta_b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">eta_b</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">neta</span><span class="p">))</span>
+            <span class="n">param_inits</span> <span class="o">=</span> <span class="p">[()]</span>
+            <span class="k">if</span> <span class="n">coords</span><span class="p">:</span>
+                <span class="n">p_bounds</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;param_bounds&quot;</span><span class="p">,</span> <span class="p">[(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">])</span>
+                <span class="n">pn</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_param&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+                <span class="n">arrays</span> <span class="o">=</span> <span class="p">[</span> <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">pn</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">p_bounds</span> <span class="p">]</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+                <span class="n">param_inits</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">arrays</span><span class="p">))</span>
+            <span class="n">guesses</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">xi0</span> <span class="ow">in</span> <span class="n">xi_inits</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">eta0</span> <span class="ow">in</span> <span class="n">eta_inits</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">param_inits</span><span class="p">:</span>
+                        <span class="n">guesses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span><span class="p">)))</span>
+            <span class="n">sol_num</span> <span class="o">=</span> <span class="n">_numeric_solve_system</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">unknowns</span><span class="p">,</span> <span class="n">guesses</span><span class="p">)</span>
+            <span class="n">sol_list</span> <span class="o">=</span> <span class="n">sol_num</span> <span class="k">if</span> <span class="n">sol_num</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sol_list</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">results</span>
+
+        <span class="k">for</span> <span class="n">sol</span> <span class="ow">in</span> <span class="n">sol_list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sol</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">sol</span><span class="p">}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">subs_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">mapping</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">}</span>
+            <span class="n">H_xixi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs_map</span><span class="p">)))</span>
+            <span class="n">H_etaeta</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs_map</span><span class="p">)))</span>
+            <span class="n">H_xieta</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs_map</span><span class="p">)))</span>
+            <span class="n">Hess</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">H_xixi</span><span class="p">,</span> <span class="n">H_xieta</span><span class="p">],</span> <span class="p">[</span><span class="n">H_xieta</span><span class="p">,</span> <span class="n">H_etaeta</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">w</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">Hess</span><span class="p">)</span>
+            <span class="n">rank</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">matrix_rank</span><span class="p">(</span><span class="n">Hess</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">)</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;hessian&quot;</span><span class="p">:</span> <span class="n">Hess</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;eigenvals&quot;</span><span class="p">:</span> <span class="n">w</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;eigenvecs&quot;</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;rank&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">rank</span><span class="p">)}</span>
+            <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">typ</span> <span class="o">=</span> <span class="s2">&quot;non-degenerate critical point (no catastrophe)&quot;</span>
+            <span class="k">elif</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">null_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">w</span><span class="p">)))</span>
+                <span class="n">null_vec</span> <span class="o">=</span> <span class="n">v</span><span class="p">[:,</span> <span class="n">null_idx</span><span class="p">]</span>
+                <span class="n">vx</span><span class="p">,</span> <span class="n">vy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">null_vec</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">null_vec</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">D</span> <span class="o">=</span> <span class="n">vx</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span> <span class="o">+</span> <span class="n">vy</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+                <span class="n">D2</span> <span class="o">=</span> <span class="n">vx</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span> <span class="o">+</span> <span class="n">vy</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+                <span class="n">D3</span> <span class="o">=</span> <span class="n">vx</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D2</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span> <span class="o">+</span> <span class="n">vy</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D2</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+                <span class="n">D3_val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">D3</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs_map</span><span class="p">)))</span>
+                <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">D3_val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+                    <span class="n">typ</span> <span class="o">=</span> <span class="s2">&quot;fold/cusp family (one zero eigenvalue, D3 != 0)&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">typ</span> <span class="o">=</span> <span class="s2">&quot;higher degeneracy (one zero eigenvalue and directional third = 0)&quot;</span>
+                <span class="n">info</span><span class="p">[</span><span class="s2">&quot;directional_third&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">D3_val</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># rank == 0</span>
+                <span class="n">typ</span> <span class="o">=</span> <span class="s2">&quot;high degeneracy (possible umbilic or higher catastrophe)&quot;</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;point&quot;</span><span class="p">:</span> <span class="n">mapping</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">typ</span><span class="p">,</span> <span class="s2">&quot;details&quot;</span><span class="p">:</span> <span class="n">info</span><span class="p">})</span>
+        <span class="k">return</span> <span class="n">results</span>
+
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;detect_catastrophes only supports dim 1 or 2.&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># --------------------------</span>
+<span class="c1"># Arnold 2D classifier (detailed)</span>
+<span class="c1"># --------------------------</span>
+<div class="viewcode-block" id="classify_arnold_2d">
+<a class="viewcode-back" href="../physics.html#physics.classify_arnold_2d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">classify_arnold_2d</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">point</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Classify a 2D catastrophe at a critical point of H(xi, eta),</span>
+<span class="sd">    following Arnold invariants: Morse, A2, A3, A4, A5, D4+, D4-.</span>
+<span class="sd">    point is a dict mapping sympy symbols to numeric values.</span>
+<span class="sd">    Returns a dict with classification and derivative tensors.</span>
+
+<span class="sd">    Arnold A_k Classification:</span>
+<span class="sd">    - A_k: k-th catastrophe (k ≥ 2)  </span>
+<span class="sd">    - Characterized by D_{k+1} = first non-zero directional derivative</span>
+<span class="sd">    - Examples:</span>
+<span class="sd">      * A2 (Fold): H ~ ξ³</span>
+<span class="sd">      * A3 (Cusp): H ~ ξ⁴  </span>
+<span class="sd">      * A4 (Swallowtail): H ~ ξ⁵</span>
+<span class="sd">      * A5 (Butterfly): H ~ ξ⁶</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">subs</span> <span class="o">=</span> <span class="p">{</span><span class="n">xi</span><span class="p">:</span> <span class="n">point</span><span class="p">[</span><span class="s2">&quot;xi&quot;</span><span class="p">],</span> <span class="n">eta</span><span class="p">:</span> <span class="n">point</span><span class="p">[</span><span class="s2">&quot;eta&quot;</span><span class="p">]}</span>
+
+    <span class="c1"># --- 1. Hessian (2nd order) ---</span>
+    <span class="n">H_xx</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+    <span class="n">H_yy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+    <span class="n">H_xy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+    <span class="n">Hess</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">H_xx</span><span class="p">,</span> <span class="n">H_xy</span><span class="p">],</span> <span class="p">[</span><span class="n">H_xy</span><span class="p">,</span> <span class="n">H_yy</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">rank</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">matrix_rank</span><span class="p">(</span><span class="n">Hess</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">)</span>
+    <span class="n">eigvals</span><span class="p">,</span> <span class="n">eigvecs</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">Hess</span><span class="p">)</span>
+
+    <span class="c1"># --- 2. Third-order tensor ---</span>
+    <span class="n">H_xxx</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+    <span class="n">H_xxy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="n">eta</span><span class="p">)</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+    <span class="n">H_xyy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="mi">2</span><span class="p">)))</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+    <span class="n">H_yyy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+    <span class="n">third</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;H_xxx&quot;</span><span class="p">:</span> <span class="n">H_xxx</span><span class="p">,</span> <span class="s2">&quot;H_xxy&quot;</span><span class="p">:</span> <span class="n">H_xxy</span><span class="p">,</span> <span class="s2">&quot;H_xyy&quot;</span><span class="p">:</span> <span class="n">H_xyy</span><span class="p">,</span> <span class="s2">&quot;H_yyy&quot;</span><span class="p">:</span> <span class="n">H_yyy</span><span class="p">}</span>
+
+    <span class="c1"># --- Case 1: Morse point (non-degenerate) ---</span>
+    <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;Morse (non-degenerate)&quot;</span><span class="p">,</span> <span class="s2">&quot;hessian&quot;</span><span class="p">:</span> <span class="n">Hess</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;third_order_tensor&quot;</span><span class="p">:</span> <span class="n">third</span><span class="p">}</span>
+
+    <span class="c1"># --- Case 2: Rank 1 (A_k family) ---</span>
+    <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># Find the null direction (eigenvector associated with the smallest eigenvalue)</span>
+        <span class="n">null_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">eigvals</span><span class="p">)))</span>
+        <span class="n">null_dir</span> <span class="o">=</span> <span class="n">eigvecs</span><span class="p">[:,</span> <span class="n">null_idx</span><span class="p">]</span>
+        <span class="n">vx</span><span class="p">,</span> <span class="n">vy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">null_dir</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">null_dir</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="c1"># Build the directional operator D = vx * d/dxi + vy * d/deta</span>
+        <span class="c1"># Compute successive directional derivatives</span>
+        <span class="n">D1</span> <span class="o">=</span> <span class="n">vx</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span> <span class="o">+</span> <span class="n">vy</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>  <span class="c1"># = 0 at critical point</span>
+        <span class="n">D2</span> <span class="o">=</span> <span class="n">vx</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D1</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span> <span class="o">+</span> <span class="n">vy</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D1</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span> <span class="c1"># = 0 because rank 1</span>
+        <span class="n">D3</span> <span class="o">=</span> <span class="n">vx</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D2</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span> <span class="o">+</span> <span class="n">vy</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D2</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="n">D4</span> <span class="o">=</span> <span class="n">vx</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D3</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span> <span class="o">+</span> <span class="n">vy</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D3</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="n">D5</span> <span class="o">=</span> <span class="n">vx</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D4</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span> <span class="o">+</span> <span class="n">vy</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D4</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+        <span class="c1"># --- FIX: Add D6 for A5 (Butterfly) test case ---</span>
+        <span class="n">D6</span> <span class="o">=</span> <span class="n">vx</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D5</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span> <span class="o">+</span> <span class="n">vy</span><span class="o">*</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">D5</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+
+        <span class="n">D3_val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">D3</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+        <span class="n">D4_val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">D4</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+        <span class="n">D5_val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">D5</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+        <span class="c1"># --- FIX: Evaluate D6 ---</span>
+        <span class="n">D6_val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">N</span><span class="p">(</span><span class="n">D6</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs</span><span class="p">)))</span>
+
+        <span class="c1"># --- FIX: Store D6 in results ---</span>
+        <span class="n">directional</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;D3&quot;</span><span class="p">:</span> <span class="n">D3_val</span><span class="p">,</span> <span class="s2">&quot;D4&quot;</span><span class="p">:</span> <span class="n">D4_val</span><span class="p">,</span> <span class="s2">&quot;D5&quot;</span><span class="p">:</span> <span class="n">D5_val</span><span class="p">,</span> <span class="s2">&quot;D6&quot;</span><span class="p">:</span> <span class="n">D6_val</span><span class="p">}</span>
+
+        <span class="c1"># --- FIX: Corrected A_k classification (A_k &lt;-&gt; D_{k+1}) ---</span>
+        <span class="c1"># The first non-vanishing derivative D_{k+1} determines the A_k catastrophe.</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">D3_val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="c1"># A2 (Fold): D3 is the first non-zero</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;A2 (Fold)&quot;</span><span class="p">,</span> <span class="s2">&quot;hessian&quot;</span><span class="p">:</span> <span class="n">Hess</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;third_order_tensor&quot;</span><span class="p">:</span> <span class="n">third</span><span class="p">,</span> <span class="s2">&quot;directional_derivatives&quot;</span><span class="p">:</span> <span class="n">directional</span><span class="p">}</span>
+        <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">D4_val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="c1"># A3 (Cusp): D4 is the first non-zero</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;A3 (Cusp)&quot;</span><span class="p">,</span> <span class="s2">&quot;hessian&quot;</span><span class="p">:</span> <span class="n">Hess</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;third_order_tensor&quot;</span><span class="p">:</span> <span class="n">third</span><span class="p">,</span> <span class="s2">&quot;directional_derivatives&quot;</span><span class="p">:</span> <span class="n">directional</span><span class="p">}</span>
+        <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">D5_val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="c1"># A4 (Swallowtail): D5 is the first non-zero</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;A4 (Swallowtail)&quot;</span><span class="p">,</span> <span class="s2">&quot;hessian&quot;</span><span class="p">:</span> <span class="n">Hess</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;third_order_tensor&quot;</span><span class="p">:</span> <span class="n">third</span><span class="p">,</span> <span class="s2">&quot;directional_derivatives&quot;</span><span class="p">:</span> <span class="n">directional</span><span class="p">}</span>
+        <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">D6_val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="c1"># A5 (Butterfly): D6 is the first non-zero</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;A5 (Butterfly)&quot;</span><span class="p">,</span> <span class="s2">&quot;hessian&quot;</span><span class="p">:</span> <span class="n">Hess</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;third_order_tensor&quot;</span><span class="p">:</span> <span class="n">third</span><span class="p">,</span> <span class="s2">&quot;directional_derivatives&quot;</span><span class="p">:</span> <span class="n">directional</span><span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># A6 or higher</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;A6+ or higher degeneracy&quot;</span><span class="p">,</span> <span class="s2">&quot;hessian&quot;</span><span class="p">:</span> <span class="n">Hess</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;third_order_tensor&quot;</span><span class="p">:</span> <span class="n">third</span><span class="p">,</span> <span class="s2">&quot;directional_derivatives&quot;</span><span class="p">:</span> <span class="n">directional</span><span class="p">}</span>
+
+
+    <span class="c1"># --- Case 3: Rank 0 (D4 umbilics and higher) ---</span>
+    <span class="c1"># The Hessian is zero. We examine the cubic tensor.</span>
+    <span class="c1"># (Note: This logic is correct for D4 (Tests 5, 6).</span>
+    <span class="c1"># It does not handle &quot;corang 2&quot; cases where H_3 = 0 but H_4 != 0 (like Test 7),</span>
+    <span class="c1"># so it correctly classifies them as a high degeneracy.)</span>
+    
+    <span class="n">I</span> <span class="o">=</span> <span class="n">H_xxx</span> <span class="o">*</span> <span class="n">H_yyy</span> <span class="o">-</span> <span class="n">H_xxy</span> <span class="o">*</span> <span class="n">H_xyy</span>
+    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">I</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">:</span>
+        <span class="c1"># This includes D4+/- where I=0, or higher degeneracies (E6, etc.)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;D4 degenerate (I=0) or higher (E6?)&quot;</span><span class="p">,</span> <span class="s2">&quot;hessian&quot;</span><span class="p">:</span> <span class="n">Hess</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;third_order_tensor&quot;</span><span class="p">:</span> <span class="n">third</span><span class="p">,</span> <span class="s2">&quot;cubic_invariant_I&quot;</span><span class="p">:</span> <span class="n">I</span><span class="p">}</span>
+    <span class="k">elif</span> <span class="n">I</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># This could be a valid case for D4+ if I != 0 (depends on specific H)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;D4+ (Hyperbolic umbilic - I&gt;0)&quot;</span><span class="p">,</span> <span class="s2">&quot;hessian&quot;</span><span class="p">:</span> <span class="n">Hess</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;third_order_tensor&quot;</span><span class="p">:</span> <span class="n">third</span><span class="p">,</span> <span class="s2">&quot;cubic_invariant_I&quot;</span><span class="p">:</span> <span class="n">I</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span> <span class="c1"># I &lt; 0</span>
+        <span class="c1"># This could be a valid case for D4- if I != 0 (depends on specific H)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;D4- (Elliptic umbilic - I&lt;0)&quot;</span><span class="p">,</span> <span class="s2">&quot;hessian&quot;</span><span class="p">:</span> <span class="n">Hess</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s2">&quot;third_order_tensor&quot;</span><span class="p">:</span> <span class="n">third</span><span class="p">,</span> <span class="s2">&quot;cubic_invariant_I&quot;</span><span class="p">:</span> <span class="n">I</span><span class="p">}</span></div>
+
+        
+<span class="c1"># --------------------------</span>
+<span class="c1"># Plotting helper for catastrophes</span>
+<span class="c1"># --------------------------</span>
+<div class="viewcode-block" id="plot_catastrophe">
+<a class="viewcode-back" href="../physics.html#physics.plot_catastrophe">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_catastrophe</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">xi_bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">eta_bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">n</span><span class="o">=</span><span class="mi">300</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot H and mark catastrophe points. Works for 1D and 2D.</span>
+<span class="sd">    Requires matplotlib.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_HAS_MPL</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;matplotlib not available; install matplotlib to use plot_catastrophe().&quot;</span><span class="p">)</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">xi_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xi_bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n</span><span class="p">)</span>
+        <span class="n">Hf</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">Hf</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">_plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+        <span class="n">_plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;H(xi)&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+            <span class="n">xv</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;point&quot;</span><span class="p">][</span><span class="n">xi</span><span class="p">]</span>
+            <span class="n">yv</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">Hf</span><span class="p">(</span><span class="n">xv</span><span class="p">))</span>
+            <span class="n">_plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">([</span><span class="n">xv</span><span class="p">],</span> <span class="p">[</span><span class="n">yv</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">)</span>
+            <span class="n">_plt</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
+        <span class="n">_plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">)</span>
+        <span class="n">_plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;H&quot;</span><span class="p">)</span>
+        <span class="n">_plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Catastrophe plot (1D)&quot;</span><span class="p">)</span>
+        <span class="n">_plt</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+        <span class="n">_plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">xi_vars</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xi_bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">eta_bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">eta_bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">XX</span><span class="p">,</span> <span class="n">YY</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+        <span class="n">Hf</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">),</span> <span class="n">H</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+        <span class="n">ZZ</span> <span class="o">=</span> <span class="n">Hf</span><span class="p">(</span><span class="n">XX</span><span class="p">,</span> <span class="n">YY</span><span class="p">)</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">_plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot_surface</span><span class="p">(</span><span class="n">XX</span><span class="p">,</span> <span class="n">YY</span><span class="p">,</span> <span class="n">ZZ</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">rstride</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">cstride</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+            <span class="n">xv</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;point&quot;</span><span class="p">][</span><span class="n">xi</span><span class="p">]</span>
+            <span class="n">yv</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;point&quot;</span><span class="p">][</span><span class="n">eta</span><span class="p">]</span>
+            <span class="n">zv</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">Hf</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">))</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">([</span><span class="n">xv</span><span class="p">],</span> <span class="p">[</span><span class="n">yv</span><span class="p">],</span> <span class="p">[</span><span class="n">zv</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">zv</span><span class="p">,</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;eta&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_zlabel</span><span class="p">(</span><span class="s2">&quot;H&quot;</span><span class="p">)</span>
+        <span class="n">_plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Catastrophe surface (2D)&quot;</span><span class="p">)</span>
+        <span class="n">_plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;plot_catastrophe supports only dim 1 or 2.&quot;</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
