@@ -5,6 +5,15 @@ modules = [
     if f.endswith(".py") and not f.startswith("__")
 ]
 
+import os
+
+# Modules à exclure de la documentation
+EXCLUDE = {"imports"}
+
+modules = [
+    f[:-3] for f in os.listdir("src")
+    if f.endswith(".py") and not f.startswith("__") and f[:-3] not in EXCLUDE
+]
 os.makedirs("docs/sphinx/source", exist_ok=True)
 
 for mod in sorted(modules):

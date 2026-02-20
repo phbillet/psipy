@@ -13,7 +13,6 @@ psipy — Documentation
    geometry_2d
    hamiltonian_catalog
    hpc_examples
-   imports
    microlocal_1d
    microlocal_2d
    misc
