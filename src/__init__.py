@@ -124,7 +124,7 @@ from .symplectic_2d import *
 from .microlocal_1d import *
 from .microlocal_2d import *
 from asymptotic import *
-from fio import *
+from fio_bridge import *
 
 # Version du package
 __version__ = version("psipy")
