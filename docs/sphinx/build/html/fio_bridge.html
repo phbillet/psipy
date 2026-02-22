@@ -135,18 +135,18 @@
 <li class="toctree-l3"><a class="reference internal" href="#fio_bridge.ValidationReport.error_spectrum"><code class="docutils literal notranslate"><span class="pre">ValidationReport.error_spectrum</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#fio_bridge.ValidationReport.k_grid"><code class="docutils literal notranslate"><span class="pre">ValidationReport.k_grid</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#fio_bridge.ValidationReport.lam"><code class="docutils literal notranslate"><span class="pre">ValidationReport.lam</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id16"><code class="docutils literal notranslate"><span class="pre">ValidationReport.abs_error</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id17"><code class="docutils literal notranslate"><span class="pre">ValidationReport.error_spectrum</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id18"><code class="docutils literal notranslate"><span class="pre">ValidationReport.k_grid</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id19"><code class="docutils literal notranslate"><span class="pre">ValidationReport.lam</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id20"><code class="docutils literal notranslate"><span class="pre">ValidationReport.max_abs_error</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id21"><code class="docutils literal notranslate"><span class="pre">ValidationReport.max_rel_error</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id22"><code class="docutils literal notranslate"><span class="pre">ValidationReport.rel_error</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id23"><code class="docutils literal notranslate"><span class="pre">ValidationReport.u_bridge</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id24"><code class="docutils literal notranslate"><span class="pre">ValidationReport.u_solver</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id25"><code class="docutils literal notranslate"><span class="pre">ValidationReport.wkb_threshold</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id26"><code class="docutils literal notranslate"><span class="pre">ValidationReport.wkb_valid</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id27"><code class="docutils literal notranslate"><span class="pre">ValidationReport.x_grid</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id13"><code class="docutils literal notranslate"><span class="pre">ValidationReport.abs_error</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id14"><code class="docutils literal notranslate"><span class="pre">ValidationReport.error_spectrum</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id15"><code class="docutils literal notranslate"><span class="pre">ValidationReport.k_grid</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id16"><code class="docutils literal notranslate"><span class="pre">ValidationReport.lam</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id17"><code class="docutils literal notranslate"><span class="pre">ValidationReport.max_abs_error</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id18"><code class="docutils literal notranslate"><span class="pre">ValidationReport.max_rel_error</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id19"><code class="docutils literal notranslate"><span class="pre">ValidationReport.rel_error</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id20"><code class="docutils literal notranslate"><span class="pre">ValidationReport.u_bridge</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id21"><code class="docutils literal notranslate"><span class="pre">ValidationReport.u_solver</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id22"><code class="docutils literal notranslate"><span class="pre">ValidationReport.wkb_threshold</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id23"><code class="docutils literal notranslate"><span class="pre">ValidationReport.wkb_valid</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id24"><code class="docutils literal notranslate"><span class="pre">ValidationReport.x_grid</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#fio_bridge.WKBState"><code class="docutils literal notranslate"><span class="pre">WKBState</span></code></a><ul>
@@ -723,63 +723,79 @@ evaluation to PsiOpFIOBridge.</p>
 <dd><p>Bases: <a class="reference internal" href="#fio_bridge.FourierIntegralOperator" title="fio_bridge.FourierIntegralOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">FourierIntegralOperator</span></code></a></p>
 <p>Evaluates the action of a PseudoDifferentialOperator on a WKB state
 via the stationary-phase / saddle-point method.</p>
-<p>Inherits all evaluation machinery from FourierIntegralOperator.
-Adds:
-* Auto-construction of the standard FIO phase and amplitude from the</p>
+<section id="performance-design">
+<h2>Performance design<a class="headerlink" href="#performance-design" title="Link to this heading"></a></h2>
+<p>The original bottleneck was that every call to <code class="docutils literal notranslate"><span class="pre">evaluate_at(x_val,</span> <span class="pre">...)</span></code>
+triggered a full SymPy rebuild:</p>
 <blockquote>
-<div><p>operator symbol and the WKB data.</p>
+<div><p>build_kernel    → sp.subs  (new x_val substituted into phase)
+_make_guesses   → sp.diff + sp.solve  (analytical ξ_c guess)
+_build_analyzer → Analyzer.__init__</p>
+<blockquote>
+<div><p>→ _prepare_derivatives  (20+ sp.diff calls)
+→ _create_numerical_functions  (8 lambdify calls)</p>
 </div></blockquote>
-<ul class="simple">
-<li><p>Smart initial-guess generation exploiting the stationary conditions.</p></li>
-<li><p>Grid evaluation interface.</p></li>
-</ul>
-<section id="workflow">
-<h2>Workflow<a class="headerlink" href="#workflow" title="Link to this heading"></a></h2>
-<ol class="arabic simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">bridge</span> <span class="pre">=</span> <span class="pre">PsiOpFIOBridge(op,</span> <span class="pre">lam)</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">result</span> <span class="pre">=</span> <span class="pre">bridge.evaluate_at(x_val,</span> <span class="pre">u_phase_sym,</span> <span class="pre">u_amp_sym)</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">values</span> <span class="pre">=</span> <span class="pre">bridge.evaluate_grid(x_grid,</span> <span class="pre">u_phase_sym,</span> <span class="pre">u_amp_sym)</span></code></p></li>
+</div></blockquote>
+<p>All of that work is <em>identical across x_val</em> except for the numerical
+value of x_val itself, because the phase is linear in x_val:</p>
+<blockquote>
+<div><p>φ(y, ξ; x) = (x − y)·ξ + S_u(y)
+∂φ/∂y      = −ξ + S_u′(y)      (independent of x)
+∂φ/∂ξ      = x − y              (linear in x)</p>
+</div></blockquote>
+<p>The refactored version precomputes <em>everything symbolic</em> once in
+<code class="docutils literal notranslate"><span class="pre">__init__</span></code> using a symbolic placeholder <code class="docutils literal notranslate"><span class="pre">_xp</span></code> for the observation
+coordinate.  Each call to <code class="docutils literal notranslate"><span class="pre">evaluate_at</span></code> / <code class="docutils literal notranslate"><span class="pre">evaluate_grid</span></code> then only:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>Injects <code class="docutils literal notranslate"><span class="pre">float(x_val)</span></code> into pre-built numpy callables.</p></li>
+<li><p>Runs scipy.minimize on those callables (pure numerics).</p></li>
+<li><p>Evaluates the asymptotic formula (pure numerics).</p></li>
 </ol>
+</div></blockquote>
+<p>No SymPy is touched after the first <code class="docutils literal notranslate"><span class="pre">evaluate_grid</span></code> call.
+For a grid of N points the symbolic cost is O(1) instead of O(N).</p>
+<dl class="simple">
+<dt>Measured speedup (N = 200, 1D, Morse symbol):</dt><dd><p>Before  ~45 s   (SymPy dominates)
+After   ~2.5 s  (scipy.minimize dominates)
+Factor  ~18×</p>
+</dd>
+</dl>
+<p>The public API (<code class="docutils literal notranslate"><span class="pre">evaluate_at</span></code>, <code class="docutils literal notranslate"><span class="pre">evaluate_grid</span></code>, <code class="docutils literal notranslate"><span class="pre">build_kernel</span></code>)
+is unchanged.</p>
 <dl class="field-list simple">
 <dt class="field-odd">param op<span class="colon">:</span></dt>
-<dd class="field-odd"><p>The psiOp (1D or 2D) to evaluate.</p>
-</dd>
+<dd class="field-odd"><p></p></dd>
 <dt class="field-even">type op<span class="colon">:</span></dt>
 <dd class="field-even"><p>PseudoDifferentialOperator</p>
 </dd>
 <dt class="field-odd">param lam<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Large parameter λ.  Typically 20–200.</p>
-</dd>
+<dd class="field-odd"><p></p></dd>
 <dt class="field-even">type lam<span class="colon">:</span></dt>
 <dd class="field-even"><p>float</p>
 </dd>
 <dt class="field-odd">param n_guesses<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Number of initial guesses for the critical-point search.</p>
-</dd>
+<dd class="field-odd"><p></p></dd>
 <dt class="field-even">type n_guesses<span class="colon">:</span></dt>
 <dd class="field-even"><p>int</p>
 </dd>
 <dt class="field-odd">param xi_range<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Search domain for the frequency variable ξ (or ξ1 in 2D).</p>
-</dd>
+<dd class="field-odd"><p></p></dd>
 <dt class="field-even">type xi_range<span class="colon">:</span></dt>
 <dd class="field-even"><p>tuple[float, float]</p>
 </dd>
 <dt class="field-odd">param y_range<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Search domain for the spatial variable y (or y1 in 2D).</p>
-</dd>
+<dd class="field-odd"><p></p></dd>
 <dt class="field-even">type y_range<span class="colon">:</span></dt>
 <dd class="field-even"><p>tuple[float, float]</p>
 </dd>
 <dt class="field-odd">param tol_grad<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Tolerance on <a href="#id13"><span class="problematic" id="id14">|</span></a>∇φ|² for accepting a critical point.</p>
-</dd>
+<dd class="field-odd"><p></p></dd>
 <dt class="field-even">type tol_grad<span class="colon">:</span></dt>
 <dd class="field-even"><p>float</p>
 </dd>
 <dt class="field-odd">param verbose<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Print diagnostic information.</p>
-</dd>
+<dd class="field-odd"><p></p></dd>
 <dt class="field-even">type verbose<span class="colon">:</span></dt>
 <dd class="field-even"><p>bool</p>
 </dd>
@@ -787,54 +803,27 @@ Adds:
 <dl class="py method">
 <dt class="sig sig-object py" id="fio_bridge.PsiOpFIOBridge.build_kernel">
 <span class="sig-name descname"><span class="pre">build_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_val</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_phase_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_amp_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fio_bridge.FIOKernel" title="fio_bridge.FIOKernel"><span class="pre">FIOKernel</span></a></span></span><a class="reference internal" href="_modules/fio_bridge.html#PsiOpFIOBridge.build_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fio_bridge.PsiOpFIOBridge.build_kernel" title="Link to this definition"></a></dt>
-<dd><p>Build the FIOKernel at observation point x_val.</p>
-<dl class="simple">
-<dt>Standard FIO phase (Kohn–Nirenberg quantization):</dt><dd><p>φ(y, ξ; x) = (x − y)·ξ + S_u(y)</p>
-</dd>
-<dt>Standard FIO amplitude:</dt><dd><p>a(y, ξ; x) = p(y, ξ) · a_u(y)</p>
-</dd>
-</dl>
-<p>where p is the operator symbol with x substituted by y
-(left-quantization).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>x_val</strong> (<em>float</em><em> (</em><em>1D</em><em>) or </em><em>tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>] </em><em>(</em><em>2D</em><em>)</em>)</p></li>
-<li><p><strong>u_phase_sym</strong> (<em>sp.Expr  --  WKB phase S_u</em><em>(</em><a class="reference internal" href="geometry_2d.html#geometry_2d.CausticStructure.y" title="geometry_2d.CausticStructure.y"><em>y</em></a><em>)</em>)</p></li>
-<li><p><strong>u_amp_sym</strong> (<em>sp.Expr  --  WKB amplitude a_u</em><em>(</em><a class="reference internal" href="geometry_2d.html#geometry_2d.CausticStructure.y" title="geometry_2d.CausticStructure.y"><em>y</em></a><em>)</em>)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="#fio_bridge.FIOKernel" title="fio_bridge.FIOKernel">FIOKernel</a></p>
-</dd>
-</dl>
+<dd><p>Retained for API compatibility and base-class tests.
+Not called by the optimised evaluate_at / evaluate_grid paths.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fio_bridge.PsiOpFIOBridge.evaluate_at">
 <span class="sig-name descname"><span class="pre">evaluate_at</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_val</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_phase_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_amp_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#fio_bridge.EvalResult" title="fio_bridge.EvalResult"><span class="pre">EvalResult</span></a></span></span><a class="reference internal" href="_modules/fio_bridge.html#PsiOpFIOBridge.evaluate_at"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fio_bridge.PsiOpFIOBridge.evaluate_at" title="Link to this definition"></a></dt>
-<dd><p>Evaluate (Pu)(x_val) via the stationary-phase / saddle-point method.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>x_val</strong> (<em>float</em><em> (</em><em>1D</em><em>) or </em><em>tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>] </em><em>(</em><em>2D</em><em>)</em>)</p></li>
-<li><p><strong>u_phase_sym</strong> (<em>sp.Expr  --  WKB phase S_u</em><em>(</em><a class="reference internal" href="geometry_2d.html#geometry_2d.CausticStructure.y" title="geometry_2d.CausticStructure.y"><em>y</em></a><em>)</em>)</p></li>
-<li><p><strong>u_amp_sym</strong> (<em>sp.Expr  --  WKB amplitude a_u</em><em>(</em><a class="reference internal" href="geometry_2d.html#geometry_2d.CausticStructure.y" title="geometry_2d.CausticStructure.y"><em>y</em></a><em>)</em>)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="#fio_bridge.EvalResult" title="fio_bridge.EvalResult">EvalResult</a></p>
-</dd>
-</dl>
+<dd><p>Evaluate (Pu)(x_val) at a single observation point.</p>
+<p>The first call with a given WKB pair triggers _precompute_wkb
+(O(1) SymPy work).  All subsequent calls are pure numerics.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fio_bridge.PsiOpFIOBridge.evaluate_grid">
 <span class="sig-name descname"><span class="pre">evaluate_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_phase_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_amp_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/fio_bridge.html#PsiOpFIOBridge.evaluate_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fio_bridge.PsiOpFIOBridge.evaluate_grid" title="Link to this definition"></a></dt>
 <dd><p>Evaluate (Pu)(x) at every point in x_grid.</p>
+<p>SymPy work is done once before the loop; the loop body is
+pure scipy (minimize) + numpy.  No SymPy inside the loop.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>np.ndarray of complex</p>
+<dd class="field-odd"><p>np.ndarray of complex128, shape (len(<a class="reference internal" href="#id24" title="fio_bridge.ValidationReport.x_grid">x_grid</a>),)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -848,8 +837,8 @@ Adds:
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Refine a PDESolver solution by replacing its high-frequency component
 with the asymptotically more accurate WKB estimate from PsiOpFIOBridge.</p>
-<section id="id15">
-<h2>Workflow<a class="headerlink" href="#id15" title="Link to this heading"></a></h2>
+<section id="workflow">
+<h2>Workflow<a class="headerlink" href="#workflow" title="Link to this heading"></a></h2>
 <ol class="arabic simple">
 <li><p>Split the solver solution  u_solver  into  u_low + u_high.</p></li>
 <li><p>Evaluate  u_bridge_high  via PsiOpFIOBridge on the high-frequency
@@ -925,8 +914,8 @@ sharp spectral cutoff in Fourier space.</p>
 <dl class="simple">
 <dt>The decomposition is:</dt><dd><p>u = u_low + u_high</p>
 </dd>
-<dt>where</dt><dd><p>u_low  = IFFT[ û(k) · 1_{<a href="#id28"><span class="problematic" id="id29">|k|</span></a> ≤ k_cut} ]
-u_high = IFFT[ û(k) · 1_{<a href="#id30"><span class="problematic" id="id31">|k|</span></a> &gt;  k_cut} ]</p>
+<dt>where</dt><dd><p>u_low  = IFFT[ û(k) · 1_{<a href="#id25"><span class="problematic" id="id26">|k|</span></a> ≤ k_cut} ]
+u_high = IFFT[ û(k) · 1_{<a href="#id27"><span class="problematic" id="id28">|k|</span></a> &gt;  k_cut} ]</p>
 </dd>
 </dl>
 <p>This is the natural split point between the two solvers:
@@ -936,7 +925,7 @@ u_high = IFFT[ û(k) · 1_{<a href="#id30"><span class="problematic" id="id31">|
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x_grid</strong> (<em>np.ndarray</em>) – Uniform spatial grid.</p></li>
-<li><p><strong>k_cut</strong> (<em>float</em>) – Cutoff wavenumber (in rad/unit).  Modes with <a href="#id32"><span class="problematic" id="id33">|k|</span></a> &gt; k_cut are
+<li><p><strong>k_cut</strong> (<em>float</em>) – Cutoff wavenumber (in rad/unit).  Modes with <a href="#id29"><span class="problematic" id="id30">|k|</span></a> &gt; k_cut are
 assigned to the high-frequency part.
 If None, defaults to half the Nyquist frequency.</p></li>
 </ul>
@@ -1029,7 +1018,7 @@ and the split should isolate that regime cleanly.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fio_bridge.ValidationReport.abs_error">
 <span class="sig-name descname"><span class="pre">abs_error</span></span><a class="headerlink" href="#fio_bridge.ValidationReport.abs_error" title="Link to this definition"></a></dt>
-<dd><p>Point-wise absolute error <a href="#id34"><span class="problematic" id="id35">|u_solver − u_bridge|</span></a>.</p>
+<dd><p>Point-wise absolute error <a href="#id31"><span class="problematic" id="id32">|u_solver − u_bridge|</span></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray</p>
@@ -1093,7 +1082,7 @@ and the split should isolate that regime cleanly.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fio_bridge.ValidationReport.error_spectrum">
 <span class="sig-name descname"><span class="pre">error_spectrum</span></span><a class="headerlink" href="#fio_bridge.ValidationReport.error_spectrum" title="Link to this definition"></a></dt>
-<dd><p><a href="#id36"><span class="problematic" id="id37">|FFT(u_solver − u_bridge)|</span></a> — diagnoses which wavenumbers disagree.</p>
+<dd><p><a href="#id33"><span class="problematic" id="id34">|FFT(u_solver − u_bridge)|</span></a> — diagnoses which wavenumbers disagree.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray</p>
@@ -1124,63 +1113,63 @@ and the split should isolate that regime cleanly.</p>
 </dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="id13">
+<span class="sig-name descname"><span class="pre">abs_error</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id13" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id14">
+<span class="sig-name descname"><span class="pre">error_spectrum</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id14" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id15">
+<span class="sig-name descname"><span class="pre">k_grid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id15" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="id16">
-<span class="sig-name descname"><span class="pre">abs_error</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id16" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">lam</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id16" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id17">
-<span class="sig-name descname"><span class="pre">error_spectrum</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id17" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">max_abs_error</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id17" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id18">
-<span class="sig-name descname"><span class="pre">k_grid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id18" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">max_rel_error</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id18" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id19">
-<span class="sig-name descname"><span class="pre">lam</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id19" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">rel_error</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id19" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id20">
-<span class="sig-name descname"><span class="pre">max_abs_error</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id20" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">u_bridge</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id20" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id21">
-<span class="sig-name descname"><span class="pre">max_rel_error</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id21" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">u_solver</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id21" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id22">
-<span class="sig-name descname"><span class="pre">rel_error</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id22" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">wkb_threshold</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id22" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id23">
-<span class="sig-name descname"><span class="pre">u_bridge</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id23" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">wkb_valid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#id23" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id24">
-<span class="sig-name descname"><span class="pre">u_solver</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id24" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="id25">
-<span class="sig-name descname"><span class="pre">wkb_threshold</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id25" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="id26">
-<span class="sig-name descname"><span class="pre">wkb_valid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><a class="headerlink" href="#id26" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="id27">
-<span class="sig-name descname"><span class="pre">x_grid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id27" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">x_grid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id24" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -1220,7 +1209,7 @@ both stationary and time-dependent solvers.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fio_bridge.WKBState.dominant_wavenumber">
 <span class="sig-name descname"><span class="pre">dominant_wavenumber</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/fio_bridge.html#WKBState.dominant_wavenumber"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fio_bridge.WKBState.dominant_wavenumber" title="Link to this definition"></a></dt>
-<dd><p>Return the median of <a href="#id38"><span class="problematic" id="id39">|k(x)|</span></a> over the grid — a single representative
+<dd><p>Return the median of <a href="#id35"><span class="problematic" id="id36">|k(x)|</span></a> over the grid — a single representative
 wavenumber for use as <code class="docutils literal notranslate"><span class="pre">k_cut</span></code> in SpectralSplitter.</p>
 </dd></dl>
 
@@ -1230,7 +1219,7 @@ wavenumber for use as <code class="docutils literal notranslate"><span class="pr
 <dd><p>Evaluate  u(x) = a(x) · exp(iλ S(x))  on <code class="docutils literal notranslate"><span class="pre">x_grid</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>np.ndarray of complex128, shape (len(<a class="reference internal" href="#id27" title="fio_bridge.ValidationReport.x_grid">x_grid</a>),)</p>
+<dd class="field-odd"><p>np.ndarray of complex128, shape (len(<a class="reference internal" href="#id24" title="fio_bridge.ValidationReport.x_grid">x_grid</a>),)</p>
 </dd>
 </dl>
 </dd></dl>

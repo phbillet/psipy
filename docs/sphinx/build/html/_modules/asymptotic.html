@@ -49,7 +49,6 @@
 <li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../imports.html">imports</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal_1d.html">microlocal_1d</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal_2d.html">microlocal_2d</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
@@ -1217,104 +1216,6 @@
                 <span class="n">order_leading</span><span class="o">=</span><span class="n">dim</span><span class="o">/</span><span class="mf">2.0</span>
             <span class="p">)</span>
     
-    <span class="k">def</span><span class="w"> </span><span class="nf">_eval_morse_order2_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cp</span><span class="p">:</span> <span class="n">CriticalPoint</span><span class="p">,</span> <span class="n">lam</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsymptoticContribution</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Evaluate the asymptotic contribution for a non-degenerate (Morse) critical point.</span>
-<span class="sd">        </span>
-<span class="sd">        Implements the standard stationary phase formula with second-order correction:</span>
-<span class="sd">        </span>
-<span class="sd">        Leading term (Order 0):</span>
-<span class="sd">            I₀(λ) = (2π)^(n/2) / (λ^(n/2) √|det H|) × exp(iλφ₀) × a₀ × exp(iπμ/4)</span>
-<span class="sd">        </span>
-<span class="sd">        where:</span>
-<span class="sd">            n = dimension</span>
-<span class="sd">            H = Hessian at critical point</span>
-<span class="sd">            φ₀ = phase value at critical point</span>
-<span class="sd">            a₀ = amplitude value at critical point</span>
-<span class="sd">            μ = dim - 2×signature (Maslov index)</span>
-<span class="sd">            signature = number of negative eigenvalues of H</span>
-<span class="sd">        </span>
-<span class="sd">        Correction term (Order 1):</span>
-<span class="sd">            I₁(λ) = I₀ / (iλ) × [correction_factor]</span>
-<span class="sd">        </span>
-<span class="sd">        where correction_factor includes:</span>
-<span class="sd">            1. Amplitude Laplacian: (1/2) Trace(H⁻¹ × ∇²a)</span>
-<span class="sd">            2. Mixed term: -(1/2) ⟨H⁻¹∇a, V⟩ where V_k = Σᵢⱼ (H⁻¹)ᵢⱼ D3ᵢⱼₖ</span>
-<span class="sd">            3. Pure phase anharmonicity: (a₀/24) × (5S3 - 3S4) where</span>
-<span class="sd">               S4 = Σᵢⱼₖₗ (H⁻¹)ᵢⱼ (H⁻¹)ₖₗ D4ᵢⱼₖₗ</span>
-<span class="sd">               S3 = Σᵢⱼₖₗₘₙ (H⁻¹)ᵢⱼ (H⁻¹)ₖₗ (H⁻¹)ₘₙ D3ᵢₖₘ D3ⱼₗₙ</span>
-<span class="sd">        </span>
-<span class="sd">        Reference: </span>
-<span class="sd">            - Hörmander, &quot;The Analysis of Linear Partial Differential Operators I&quot; (1983)</span>
-<span class="sd">            - Berry &amp; Howls, &quot;High orders of the Weyl expansion&quot; (1994)</span>
-<span class="sd">        </span>
-<span class="sd">        Args:</span>
-<span class="sd">            cp: CriticalPoint with non-zero Hessian determinant.</span>
-<span class="sd">            lam: Large parameter λ.</span>
-<span class="sd">            </span>
-<span class="sd">        Returns:</span>
-<span class="sd">            AsymptoticContribution with both leading and correction terms.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># dim = cp.position.shape[0]</span>
-        <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cp</span><span class="o">.</span><span class="n">position</span><span class="p">)</span>
-        
-        <span class="c1"># --- Leading Term (Order 0) ---</span>
-        <span class="n">prefactor</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">lam</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="n">dim</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
-        
-        <span class="c1"># Maslov Index: exp(i * pi/4 * (dim - 2*number_of_negative_eigenvalues))</span>
-        <span class="n">maslov</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span> <span class="o">*</span> <span class="p">(</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">cp</span><span class="o">.</span><span class="n">signature</span><span class="p">))</span>
-        <span class="n">phase_osc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">lam</span> <span class="o">*</span> <span class="n">cp</span><span class="o">.</span><span class="n">phase_value</span><span class="p">)</span>
-        
-        <span class="n">denom</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">cp</span><span class="o">.</span><span class="n">hessian_det</span><span class="p">))</span>
-        <span class="n">leading_amp</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">amplitude_value</span>
-        
-        <span class="n">term_0</span> <span class="o">=</span> <span class="p">(</span><span class="n">prefactor</span> <span class="o">/</span> <span class="n">denom</span><span class="p">)</span> <span class="o">*</span> <span class="n">phase_osc</span> <span class="o">*</span> <span class="n">maslov</span> <span class="o">*</span> <span class="n">leading_amp</span>
-        
-        <span class="c1"># --- Correction Term (Order 1 relative, Order 2 absolute) ---</span>
-        
-        <span class="n">H_inv</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">hessian_inv</span>
-        
-        <span class="c1"># 1. Laplacian of Amplitude twisted by Inverse Hessian</span>
-        <span class="c1"># Calculation: Trace(H^-1 * Hess_Amp)</span>
-        <span class="c1">#term_amp = np.einsum(&#39;ij,ij-&gt;&#39;, H_inv, cp.hess_amp)</span>
-        <span class="n">term_amp</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ij,ij-&gt;&#39;</span><span class="p">,</span> <span class="n">H_inv</span><span class="p">,</span> <span class="n">cp</span><span class="o">.</span><span class="n">hess_amp</span><span class="p">)</span>
-        
-        <span class="c1"># 2. Mixed Term (Gradient Amp dot D3 Phase)</span>
-        <span class="c1"># Vector V_k = sum_{i,j} (H^-1)_ij * D3_ijk</span>
-        <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ij,ijk-&gt;k&#39;</span><span class="p">,</span> <span class="n">H_inv</span><span class="p">,</span> <span class="n">cp</span><span class="o">.</span><span class="n">phase_d3</span><span class="p">)</span>
-        <span class="c1"># Result: - &lt; H^-1 * Grad_Amp, V &gt;</span>
-        <span class="c1">#term_mix = - np.dot(np.dot(H_inv, cp.grad_amp), V)</span>
-        <span class="n">term_mix</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">H_inv</span><span class="p">,</span> <span class="n">cp</span><span class="o">.</span><span class="n">grad_amp</span><span class="p">),</span> <span class="n">V</span><span class="p">)</span>
-        
-        <span class="c1"># 3. Pure Phase Term (Anharmonicity)</span>
-        <span class="c1"># Requires contractions of D4 with H^-1 and D3 with H^-1</span>
-        
-        <span class="c1"># S4 = Contract D4 with two H_inv: sum (H^-1)_ij (H^-1)_kl D4_ijkl</span>
-        <span class="n">S4</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ij,kl,ijkl-&gt;&#39;</span><span class="p">,</span> <span class="n">H_inv</span><span class="p">,</span> <span class="n">H_inv</span><span class="p">,</span> <span class="n">cp</span><span class="o">.</span><span class="n">phase_d4</span><span class="p">)</span>
-        
-        <span class="c1"># S3 = Contract D3^2 with three H_inv (The &quot;Theta&quot; graph)</span>
-        <span class="c1"># sum (H^-1)_ij (H^-1)_kl (H^-1)_mn D3_ikm D3_jln</span>
-        <span class="n">S3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ij,kl,mn,ikm,jln-&gt;&#39;</span><span class="p">,</span> <span class="n">H_inv</span><span class="p">,</span> <span class="n">H_inv</span><span class="p">,</span> <span class="n">H_inv</span><span class="p">,</span> <span class="n">cp</span><span class="o">.</span><span class="n">phase_d3</span><span class="p">,</span> <span class="n">cp</span><span class="o">.</span><span class="n">phase_d3</span><span class="p">)</span>
-        
-        <span class="c1"># Total correction factor (before dividing by i*lambda)</span>
-        <span class="c1"># Formula: Amp_term + Mix_term + Amp * (5/6 S3 - 1/4 S4) ? </span>
-        <span class="c1"># Note: Standard coefficients are usually (5/3 S3 - S4) / 4 or similar depending on definitions.</span>
-        <span class="c1"># Used here: (1/2) * Div(grad) - (1/8) * ... -&gt; factorized:</span>
-        <span class="c1">#correction_factor = (term_amp + term_mix + (cp.amplitude_value / 4.0) * (5.0/3.0 * S3 - S4))</span>
-        <span class="n">term_phase</span> <span class="o">=</span> <span class="p">(</span><span class="n">cp</span><span class="o">.</span><span class="n">amplitude_value</span> <span class="o">/</span> <span class="mf">24.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">5.0</span> <span class="o">*</span> <span class="n">S3</span> <span class="o">-</span> <span class="mf">3.0</span> <span class="o">*</span> <span class="n">S4</span><span class="p">)</span>
-    
-        <span class="n">correction_factor</span> <span class="o">=</span> <span class="n">term_amp</span> <span class="o">+</span> <span class="n">term_mix</span> <span class="o">+</span> <span class="n">term_phase</span>
-        
-        <span class="c1"># The correction scales as 1/(i * lambda) relative to the leading term</span>
-        <span class="n">val_correction</span> <span class="o">=</span> <span class="p">(</span><span class="n">prefactor</span> <span class="o">/</span> <span class="n">denom</span><span class="p">)</span> <span class="o">*</span> <span class="n">phase_osc</span> <span class="o">*</span> <span class="n">maslov</span> <span class="o">*</span> <span class="p">(</span><span class="n">correction_factor</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">lam</span><span class="p">))</span>
-        
-        <span class="k">return</span> <span class="n">AsymptoticContribution</span><span class="p">(</span>
-            <span class="n">leading_term</span><span class="o">=</span><span class="n">term_0</span><span class="p">,</span>
-            <span class="n">correction_term</span><span class="o">=</span><span class="n">val_correction</span><span class="p">,</span>
-            <span class="n">total_value</span><span class="o">=</span><span class="n">term_0</span> <span class="o">+</span> <span class="n">val_correction</span><span class="p">,</span>
-            <span class="n">point</span><span class="o">=</span><span class="n">cp</span><span class="p">,</span>
-            <span class="n">order_leading</span><span class="o">=</span><span class="n">dim</span><span class="o">/</span><span class="mf">2.0</span>
-        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_eval_airy_1d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cp</span><span class="p">:</span> <span class="n">CriticalPoint</span><span class="p">,</span> <span class="n">lam</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsymptoticContribution</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
