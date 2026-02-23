@@ -19,8 +19,7 @@ psipy — Documentation
    mupsipy
    physics
    psiop
-   riemannian_1d
-   riemannian_2d
+   riemannian
    solver
    symplectic_1d
    symplectic_2d

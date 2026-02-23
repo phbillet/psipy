@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'psipy'
-copyright = '2026, Philippe Billet'
-author = 'Philippe Billet'
+copyright = '2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.'
+author = 'Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
