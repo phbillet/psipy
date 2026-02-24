@@ -569,49 +569,60 @@ def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
         #   J(0) = dx0/dq  (tangent of the spatial curve)
         #   K(0) = dxi0/dq (tangent of the momentum curve)
         # For a single isolated ray (point source), use J(0)=1, K(0)=0.
-        # For a family, finite differences on the initial arrays give the tangents.
 
         if dimension == 1:
-            # Finite-difference tangents of the initial curve
+            J0 = 1.0
+            K0 = 0.0
             if n_rays > 1:
+                # Compute K0 = dxi / dx using finite differences over initial data
                 if i == 0:
-                    J0 = (x_init[1]  - x_init[0])
-                    K0 = (px_init[1] - px_init[0])
+                    dx = x_init[1] - x_init[0]
+                    dpx = px_init[1] - px_init[0]
                 elif i == n_rays - 1:
-                    J0 = (x_init[-1]  - x_init[-2])
-                    K0 = (px_init[-1] - px_init[-2])
+                    dx = x_init[-1] - x_init[-2]
+                    dpx = px_init[-1] - px_init[-2]
                 else:
-                    J0 = 0.5 * (x_init[i+1]  - x_init[i-1])
-                    K0 = 0.5 * (px_init[i+1] - px_init[i-1])
-            else:
-                J0, K0 = 1.0, 0.0   # single ray: identity
+                    dx = x_init[i+1] - x_init[i-1]
+                    dpx = px_init[i+1] - px_init[i-1]
+                K0 = dpx / dx if dx != 0 else 0.0
 
             z0 = [x_init[i], px_init[i], S_init[i], J0, K0]
 
         else:
-            # 2D: tangent vectors along initial curve (columns of J and K)
-            # q1 parametrizes position along curve; treat the ray index as q.
-            if n_rays > 1:
-                if i == 0:
-                    dx0 = x_init[1]  - x_init[0];   dy0 = y_init[1]  - y_init[0]
-                    dpx0 = px_init[1] - px_init[0];  dpy0 = py_init[1] - py_init[0]
-                elif i == n_rays - 1:
-                    dx0 = x_init[-1]  - x_init[-2];  dy0 = y_init[-1]  - y_init[-2]
-                    dpx0 = px_init[-1] - px_init[-2]; dpy0 = py_init[-1] - py_init[-2]
-                else:
-                    dx0 = 0.5*(x_init[i+1]  - x_init[i-1])
-                    dy0 = 0.5*(y_init[i+1]  - y_init[i-1])
-                    dpx0 = 0.5*(px_init[i+1] - px_init[i-1])
-                    dpy0 = 0.5*(py_init[i+1] - py_init[i-1])
-            else:
-                dx0, dy0, dpx0, dpy0 = 1.0, 0.0, 0.0, 0.0
+            # 2D: J(0) = I (identity) as required by theory and tests.
+            # K(0) = dξ₀/d(arc-length): derivative of initial momentum w.r.t.
+            # arc-length along the initial curve.  This encodes wavefront curvature:
+            # for a focusing bundle (inward circle) K(0) ≠ 0, which drives
+            # det(J) → 0 via  dJ/dt = pξξ·K + pξx·J  even when pxx = 0.
+            J11_0, J12_0 = 1.0, 0.0
+            J21_0, J22_0 = 0.0, 1.0
+            K11_0, K12_0, K21_0, K22_0 = 0.0, 0.0, 0.0, 0.0
 
-            # J block: [dx/dq1, dx/dq2; dy/dq1, dy/dq2]
-            # With a single curve parameter q, the second column is a normal:
-            J11_0 =  dx0;  J12_0 = -dy0   # tangent / normal
-            J21_0 =  dy0;  J22_0 =  dx0
-            K11_0 =  dpx0; K12_0 = -dpy0
-            K21_0 =  dpy0; K22_0 =  dpx0
+            if n_rays > 1:
+                # Finite differences of initial momentum w.r.t. ray index
+                if i == 0:
+                    dpx0 = px_init[1] - px_init[0]
+                    dpy0 = py_init[1] - py_init[0]
+                    dx0  = x_init[1]  - x_init[0]
+                    dy0  = y_init[1]  - y_init[0]
+                elif i == n_rays - 1:
+                    dpx0 = px_init[-1] - px_init[-2]
+                    dpy0 = py_init[-1] - py_init[-2]
+                    dx0  = x_init[-1]  - x_init[-2]
+                    dy0  = y_init[-1]  - y_init[-2]
+                else:
+                    dpx0 = px_init[i+1] - px_init[i-1]
+                    dpy0 = py_init[i+1] - py_init[i-1]
+                    dx0  = x_init[i+1]  - x_init[i-1]
+                    dy0  = y_init[i+1]  - y_init[i-1]
+
+                # Normalize by arc-length element so K = dξ/d(arc-length)
+                arc = np.hypot(dx0, dy0)
+                if arc > 1e-14:
+                    K11_0 = dpx0 / arc   # dxi  / d(arc-length)
+                    K21_0 = dpy0 / arc   # deta / d(arc-length)
+                    K12_0 = 0.0
+                    K22_0 = 0.0
 
             z0 = [x_init[i], y_init[i], px_init[i], py_init[i], S_init[i],
                   J11_0, J12_0, J21_0, J22_0,
@@ -997,701 +1008,7 @@ def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
     result.update(grid_coords)
     
     return result
-    
-def _compute_base_wkb_old(symbol, initial_phase, order=1, domain=None,
-                resolution=50, epsilon=0.1, dimension=None):
-    """
-    Compute multidimensional WKB (Wentzel-Kramers-Brillouin) approximation for wave propagation.
-    
-    Constructs an asymptotic solution to a pseudo-differential equation using the WKB method,
-    which represents the solution as an oscillatory phase multiplied by a slowly varying amplitude:
-    
-        u(x, ε) = exp(iS(x)/ε) · Σₖ₌₀ⁿ εᵏ aₖ(x)
-    
-    where S(x) is the eikonal (phase function), aₖ(x) are transport amplitudes, and ε is a 
-    small parameter representing the inverse wavelength. The method traces bicharacteristic rays
-    through phase space using Hamilton's equations and solves transport equations along these
-    rays to determine amplitude evolution.
-    
-    This implementation supports both 1D and 2D spatial domains and can compute multi-order
-    corrections (order 0 through 3+) to improve accuracy beyond the standard semiclassical limit.
-    
-    Mathematical Framework
-    ----------------------
-    Given a symbol p(x, ξ) defining the pseudo-differential operator, the WKB method solves:
-    
-    1. **Eikonal equation** (determines phase):
-       p(x, ∇S(x)) = 0
-       
-    2. **Transport equations** (determine amplitudes):
-       ∇ₓp·∇a₀ + (1/2)a₀∇ξ·∇ₓp = 0  (order 0)
-       [Higher-order corrections for k ≥ 1]
-    
-    The rays are computed via Hamilton's equations:
-       dx/dt = ∂p/∂ξ,    dξ/dt = -∂p/∂x
-       dS/dt = ξ·∂p/∂ξ - p
-    
-    Parameters
-    ----------
-    symbol : sympy.Expr
-        Symbolic expression for the principal symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D.
-        Must be written in terms of SymPy symbols and represent the dispersion relation
-        of the wave equation. Common examples:
-        - Schrödinger: ξ² + V(x)
-        - Wave equation: ξ² + η² - ω²
-        - Helmholtz: ξ² - k²(x)
-        
-    initial_phase : dict
-        Initial conditions for ray tracing at t=0. Must contain:
-        
-        **Required keys (1D)**:
-            - 'x' : array_like, shape (n_rays,)
-                Initial spatial positions
-            - 'p_x' : array_like, shape (n_rays,)
-                Initial momenta (ξ values)
-            - 'S' : array_like, shape (n_rays,)
-                Initial phase values
-                
-        **Required keys (2D)**:
-            - 'x', 'y' : array_like, shape (n_rays,)
-                Initial spatial positions
-            - 'p_x', 'p_y' : array_like, shape (n_rays,)
-                Initial momenta (ξ, η values)
-            - 'S' : array_like, shape (n_rays,)
-                Initial phase values
-                
-        **Optional key**:
-            - 'a' : array_like or dict
-                Initial amplitude values. Can be:
-                - Single array (n_rays,) → interpreted as a₀
-                - Dict {0: a₀, 1: a₁, ...} → multi-order amplitudes
-                If omitted, a₀ defaults to ones, higher orders to zeros.
-    
-    order : int, default=1
-        Maximum order of the asymptotic expansion. Higher orders include progressively
-        smaller corrections proportional to εᵏ:
-        - 0: Leading-order WKB (geometric optics)
-        - 1: First correction (includes caustic pre-factors)
-        - 2: Second correction (third-derivative terms)
-        - 3+: Higher corrections (simplified expressions)
-        
-    domain : tuple or None, default=None
-        Spatial domain for the output grid:
-        - 1D: (x_min, x_max)
-        - 2D: ((x_min, x_max), (y_min, y_max))
-        If None, automatically determined from ray extent with 10% margin.
-        
-    resolution : int or tuple, default=50
-        Grid resolution for interpolated output:
-        - int: Same resolution in all dimensions
-        - tuple: (nx,) for 1D or (nx, ny) for 2D
-        
-    epsilon : float, default=0.1
-        Small parameter ε representing the inverse wavelength or semiclassical parameter.
-        The solution is accurate when ε → 0. Typical values: 0.01 to 0.5.
-        
-    dimension : int or None, default=None
-        Spatial dimension (1 or 2). If None, automatically detected from initial_phase:
-        - Presence of 'y' and 'p_y' keys → dimension = 2
-        - Otherwise → dimension = 1
-    
-    Returns
-    -------
-    result : dict
-        Dictionary containing the computed WKB solution and diagnostic information:
-        
-        **Solution fields**:
-            - 'u' : ndarray, shape (nx,) or (nx, ny), complex
-                Complete WKB approximation: u = exp(iS/ε) · Σₖ εᵏaₖ
-            - 'S' : ndarray, shape (nx,) or (nx, ny), float
-                Interpolated phase function (eikonal)
-            - 'a' : dict of ndarrays
-                Individual amplitude orders: {0: a₀, 1: a₁, ..., order: aₙ}
-            - 'a_total' : ndarray, complex
-                Total amplitude: Σₖ εᵏaₖ (without phase factor)
-                
-        **Grid information**:
-            - 'x' : ndarray
-                Spatial grid in x direction (1D: shape (nx,), 2D: shape (nx, ny))
-            - 'y' : ndarray (2D only)
-                Spatial grid in y direction, shape (nx, ny)
-                
-        **Ray tracing data**:
-            - 'rays' : list of dict
-                Each dict contains traced ray data with keys:
-                't', 'x', 'y' (2D), 'xi', 'eta' (2D), 'S', 'a0', 'a1', ...
-            - 'n_rays' : int
-                Number of successfully traced rays
-                
-        **Metadata**:
-            - 'dimension' : int
-                Spatial dimension used (1 or 2)
-            - 'order' : int
-                Order of asymptotic expansion
-            - 'epsilon' : float
-                Small parameter value
-            - 'domain' : tuple
-                Spatial domain used for output grid
-    
-    Raises
-    ------
-    ValueError
-        - If dimension is not 1 or 2
-        - If required keys are missing from initial_phase
-        - If array lengths are inconsistent (e.g., len(x) ≠ len(y) in 2D)
-    RuntimeError
-        - If all rays fail to integrate (numerical instability)
-    
-    Notes
-    -----
-    **Validity and Limitations**:
-    
-    1. **Small ε assumption**: The WKB method is asymptotic in ε → 0. Results become
-       inaccurate for ε > 1 or near caustics where rays focus.
-       
-    2. **Caustics**: At caustics (where rays cross), the amplitude formally diverges.
-       This implementation does not include uniform asymptotic expansions needed for
-       caustic regions. Use with caution near focal points.
-       
-    3. **Turning points**: Classical turning points (where p = 0) require connection
-       formulas not implemented here. The method works best away from such points.
-       
-    4. **Interpolation artifacts**: The solution is interpolated from discrete rays
-       onto a regular grid. Ensure sufficient ray density (n_rays) and resolution
-       to avoid aliasing or gaps.
-    
-    **Numerical Implementation**:
-    
-    - Ray integration uses scipy.integrate.solve_ivp with RK45 (4th/5th order Runge-Kutta)
-    - Default tolerances: rtol=1e-6, atol=1e-9
-    - Integration time: t ∈ [0, 5] with 100 evaluation points per ray
-    - 1D interpolation: linear (interp1d)
-    - 2D interpolation: linear scattered data (griddata)
-    
-    **Computational Complexity**:
-    
-    - Ray tracing: O(n_rays × n_steps × n_derivatives)
-    - Grid interpolation: O(n_rays × n_steps × resolution^dimension)
-    - Memory: O(resolution^dimension) for output arrays
-    
-    References
-    ----------
-    .. [1] Maslov, V.P. and Fedoriuk, M.V. (1981). "Semi-Classical Approximation 
-           in Quantum Mechanics". Springer.
-    .. [2] Ralston, J. (1982). "Gaussian beams and the propagation of singularities". 
-           Studies in PDE, MAA Studies in Mathematics, 23, 206-248.
-    .. [3] Hörmander, L. (1985). "The Analysis of Linear Partial Differential Operators III".
-           Springer-Verlag.
-    
-    See Also
-    --------
-    scipy.integrate.solve_ivp : ODE solver used for ray tracing
-    scipy.interpolate.griddata : 2D interpolation method
-    numpy.fft : For comparison with spectral methods
-    """  
-    from scipy.integrate import solve_ivp  
-    from scipy.interpolate import griddata, interp1d
-    
-    # ==================================================================
-    # DETECT DIMENSION
-    # ==================================================================
-    
-    if dimension is None:
-        # Auto-detect from initial_phase
-        has_y = 'y' in initial_phase and 'p_y' in initial_phase
-        dimension = 2 if has_y else 1
-    
-    if dimension not in [1, 2]:
-        raise ValueError(f"Dimension must be 1 or 2, got {dimension}")
-    
-    print(f"WKB approximation in {dimension}D (order {order})")
-    
-    # ==================================================================
-    # SETUP SYMBOLIC VARIABLES
-    # ==================================================================
-    
-    if dimension == 1:
-        x = symbols('x', real=True)
-        xi = symbols('xi', real=True)
-        spatial_vars = [x]
-        momentum_vars = [xi]
-        spatial_symbols = (x,)
-        momentum_symbols = (xi,)
-        all_vars = (x, xi)
-    else:  # dimension == 2
-        x, y = symbols('x y', real=True)
-        xi, eta = symbols('xi eta', real=True)
-        spatial_vars = [x, y]
-        momentum_vars = [xi, eta]
-        spatial_symbols = (x, y)
-        momentum_symbols = (xi, eta)
-        all_vars = (x, y, xi, eta)
-    
-    # ==================================================================
-    # VALIDATE AND EXTRACT INITIAL DATA
-    # ==================================================================
-    
-    required_keys_1d = ['x', 'S', 'p_x']
-    required_keys_2d = ['x', 'y', 'S', 'p_x', 'p_y']
-    required_keys = required_keys_2d if dimension == 2 else required_keys_1d
-    
-    if not all(k in initial_phase for k in required_keys):
-        raise ValueError(f"initial_phase must contain: {required_keys}")
-    
-    # Extract spatial coordinates
-    x_init = np.asarray(initial_phase['x'])
-    n_rays = len(x_init)
-    
-    if dimension == 2:
-        y_init = np.asarray(initial_phase['y'])
-        if len(y_init) != n_rays:
-            raise ValueError("x and y must have same length")
-    
-    # Extract phase and momentum
-    S_init = np.asarray(initial_phase['S'])
-    px_init = np.asarray(initial_phase['p_x'])
-    
-    if dimension == 2:
-        py_init = np.asarray(initial_phase['p_y'])
-    
-    # Extract amplitudes for each order
-    a_init = {}
-    
-    if 'a' in initial_phase:
-        if isinstance(initial_phase['a'], dict):
-            for k, v in initial_phase['a'].items():
-                a_init[k] = np.asarray(v)
-        else:
-            a_init[0] = np.asarray(initial_phase['a'])
-    else:
-        a_init[0] = np.ones(n_rays)
-    
-    # Initialize missing orders to zero
-    for k in range(order + 1):
-        if k not in a_init:
-            a_init[k] = np.zeros(n_rays)
-    
-    # ==================================================================
-    # COMPUTE SYMBOLIC DERIVATIVES
-    # ==================================================================
-    
-    print("Computing symbolic derivatives...")
-    
-    derivatives = {}
-    
-    # First derivatives (Hamilton equations)
-    for i, mom_var in enumerate(momentum_vars):
-        derivatives[f'dp_d{mom_var.name}'] = diff(symbol, mom_var)
-    
-    for i, space_var in enumerate(spatial_vars):
-        derivatives[f'dp_d{space_var.name}'] = diff(symbol, space_var)
-    
-    # Second derivatives (transport equations)
-    for mom_var in momentum_vars:
-        derivatives[f'd2p_d{mom_var.name}2'] = diff(symbol, mom_var, 2)
-    
-    for space_var in spatial_vars:
-        for mom_var in momentum_vars:
-            derivatives[f'd2p_d{mom_var.name}d{space_var.name}'] = \
-                diff(diff(symbol, mom_var), space_var)
-    
-    if len(momentum_vars) == 2:
-        derivatives['d2p_dxideta'] = diff(diff(symbol, momentum_vars[0]), 
-                                          momentum_vars[1])
-        
-    # Full matrix H_px (necessary for J)
-    if dimension == 2:
-        derivatives['d2p_dxidy']  = diff(diff(symbol, xi),  y)
-        derivatives['d2p_detadx'] = diff(diff(symbol, eta), x)
-        
-    # Third derivatives (higher-order corrections)
-    if order >= 2:
-        for mom_var in momentum_vars:
-            derivatives[f'd3p_d{mom_var.name}3'] = diff(symbol, mom_var, 3)
-        
-        if dimension == 2:
-            derivatives['d3p_dxi2deta'] = diff(diff(symbol, xi, 2), eta)
-            derivatives['d3p_dxideta2'] = diff(diff(symbol, xi), eta, 2)
-            derivatives['d3p_dxi2dx'] = diff(diff(symbol, xi, 2), x)
-            derivatives['d3p_deta2dy'] = diff(diff(symbol, eta, 2), y)
-    
-    # Lambdify all derivatives
-    print(f"Lambdifying {len(derivatives)} derivatives...")
-    funcs = {}
-    for name, expr in derivatives.items():
-        funcs[name] = lambdify(all_vars, expr, 'numpy')
-    
-    # Principal symbol
-    funcs['p'] = lambdify(all_vars, symbol, 'numpy')
-    
-    # ==================================================================
-    # HELPER FUNCTIONS FOR DERIVATIVES EVALUATION
-    # ==================================================================
-    
-    def eval_func(name, *args):
-        """Safely evaluate a function, handling dimension differences."""
-        if name in funcs:
-            return funcs[name](*args)
-        return 0.0
-    
-    def compute_geometric_spreading(*args):
-        """
-        Compute divergence of momentum gradient.
-        1D: d²p/dξ²
-        2D: d²p/dξ² + d²p/dη²
-        """
-        if dimension == 1:
-            return eval_func('d2p_dxi2', *args)
-        else:
-            return (eval_func('d2p_dxi2', *args) + 
-                   eval_func('d2p_deta2', *args))
-    
-    def compute_spatial_momentum_coupling(*args):
-        """
-        Compute ∇_x · ∇_ξ p
-        1D: ∂²p/∂x∂ξ
-        2D: ∂²p/∂x∂ξ + ∂²p/∂y∂η
-        """
-        if dimension == 1:
-            return eval_func('d2p_dxidx', *args)
-        else:
-            return (eval_func('d2p_dxidx', *args) + 
-                   eval_func('d2p_detady', *args))
-    
-    # ==================================================================
-    # RAY TRACING ODE SYSTEM
-    # ==================================================================
-    
-    print(f"Ray tracing {n_rays} rays...")
-    
-    # State vector indices
-    # 1D: [x, ξ, S, a₀, a₁, ...]
-    # 2D: [x, y, ξ, η, S, a₀, a₁, ...]
-    
-    if dimension == 1:
-        idx_x, idx_xi, idx_S = 0, 1, 2
-        idx_a_start = 3
-    else:
-        idx_x, idx_y, idx_xi, idx_eta, idx_S = 0, 1, 2, 3, 4
-        idx_a_start = 5
-    
-    idx_a = {k: idx_a_start + k for k in range(order + 1)}
-    
-    rays = []
-    tmax = 5.0
-    n_steps_per_ray = 100
 
-    # J is initialize with identity : J(0) = I
-    if dimension == 1:
-        z0 += [1.0]          # J11 only
-    else:
-        z0 += [1.0, 0.0,     # J11, J12
-               0.0, 1.0]     # J21, J22
-    
-    for i in range(n_rays):
-        # Build initial condition
-        if dimension == 1:
-            z0 = [x_init[i], px_init[i], S_init[i]]
-        else:
-            z0 = [x_init[i], y_init[i], px_init[i], py_init[i], S_init[i]]
-        
-        # Add amplitudes
-        for k in range(order + 1):
-            z0.append(a_init[k][i])
-        
-        def ray_ode(t, z):
-            """ODE system for rays - dimension-agnostic."""
-            
-            # Extract state variables
-            if dimension == 1:
-                x_val = z[idx_x]
-                xi_val = z[idx_xi]
-                S_val = z[idx_S]
-                args = (x_val, xi_val)
-            else:
-                x_val = z[idx_x]
-                y_val = z[idx_y]
-                xi_val = z[idx_xi]
-                eta_val = z[idx_eta]
-                S_val = z[idx_S]
-                args = (x_val, y_val, xi_val, eta_val)
-            
-            a_vals = {k: z[idx_a[k]] for k in range(order + 1)}
-            
-            # ========================================
-            # HAMILTON'S EQUATIONS
-            # ========================================
-            
-            if dimension == 1:
-                # dx/dt = ∂p/∂ξ
-                dxdt = eval_func('dp_dxi', *args)
-                # dξ/dt = -∂p/∂x
-                dxidt = -eval_func('dp_dx', *args)
-                
-                derivs = [dxdt, dxidt]
-                
-            else:  # dimension == 2
-                # dx/dt = ∂p/∂ξ, dy/dt = ∂p/∂η
-                dxdt = eval_func('dp_dxi', *args)
-                dydt = eval_func('dp_deta', *args)
-                # dξ/dt = -∂p/∂x, dη/dt = -∂p/∂y
-                dxidt = -eval_func('dp_dx', *args)
-                detadt = -eval_func('dp_dy', *args)
-                
-                derivs = [dxdt, dydt, dxidt, detadt]
-            
-            # Phase evolution: dS/dt = Σᵢ ξᵢ·(∂p/∂ξᵢ) - p
-            p_val = eval_func('p', *args)
-            
-            if dimension == 1:
-                dSdt = xi_val * dxdt - p_val
-            else:
-                dSdt = xi_val * dxdt + eta_val * dydt - p_val
-            
-            derivs.append(dSdt)
-            
-            # ========================================
-            # AMPLITUDE EQUATIONS (multi-order)
-            # ========================================
-            
-            # Geometric spreading factor (same for all orders)
-            geom_spread = compute_geometric_spreading(*args)
-            
-            da_dt = {}
-            
-            # Order 0: Standard WKB transport
-            da_dt[0] = -0.5 * a_vals[0] * geom_spread
-            
-            # Order 1: First correction
-            if order >= 1:
-                da_dt[1] = -0.5 * a_vals[1] * geom_spread
-                
-                # Spatial-momentum coupling correction
-                coupling = compute_spatial_momentum_coupling(*args)
-                da_dt[1] += -0.5 * a_vals[0] * coupling
-                
-                # Cross-derivative terms (2D only)
-                if dimension == 2:
-                    cross_term = eval_func('d2p_dxideta', *args)
-                    da_dt[1] += -0.25 * a_vals[0] * cross_term * (dxidt + detadt)
-            
-            # Order 2: Second correction
-            if order >= 2:
-                da_dt[2] = -0.5 * a_vals[2] * geom_spread
-                
-                # Third-order derivative corrections
-                if dimension == 1:
-                    d3 = eval_func('d3p_dxi3', *args)
-                    da_dt[2] += -0.125 * a_vals[0] * d3 * dxidt
-                else:
-                    d3xi = eval_func('d3p_dxi3', *args)
-                    d3eta = eval_func('d3p_deta3', *args)
-                    d3mix1 = eval_func('d3p_dxi2deta', *args)
-                    d3mix2 = eval_func('d3p_dxideta2', *args)
-                    
-                    correction = (d3xi * dxidt + d3eta * detadt + 
-                                 d3mix1 * (dxidt + detadt) +
-                                 d3mix2 * (dxidt + detadt))
-                    da_dt[2] += -0.125 * a_vals[0] * correction
-                
-                # Contributions from a₁
-                da_dt[2] += -0.25 * a_vals[1] * coupling
-            
-            # Order 3: Third correction
-            if order >= 3:
-                da_dt[3] = -0.5 * a_vals[3] * geom_spread
-                
-                # Simplified higher-order terms
-                if dimension == 1:
-                    d3 = eval_func('d3p_dxi3', *args)
-                    da_dt[3] += -0.1 * a_vals[1] * d3 * dxidt
-                else:
-                    d3terms = (eval_func('d3p_dxi3', *args) + 
-                              eval_func('d3p_deta3', *args))
-                    da_dt[3] += -0.1 * a_vals[1] * d3terms * (dxidt + detadt)
-            
-            # Assemble derivative vector
-            for k in range(order + 1):
-                derivs.append(da_dt.get(k, 0.0))
-            
-            return derivs
-        
-        # Integrate ray
-        try:
-            sol = solve_ivp(
-                ray_ode,
-                (0, tmax),
-                z0,
-                method='RK45',
-                t_eval=np.linspace(0, tmax, n_steps_per_ray),
-                rtol=1e-6,
-                atol=1e-9
-            )
-            
-            ray_data = {'t': sol.t}
-            
-            if dimension == 1:
-                ray_data['x'] = sol.y[idx_x]
-                ray_data['xi'] = sol.y[idx_xi]
-                ray_data['S'] = sol.y[idx_S]
-            else:
-                ray_data['x'] = sol.y[idx_x]
-                ray_data['y'] = sol.y[idx_y]
-                ray_data['xi'] = sol.y[idx_xi]
-                ray_data['eta'] = sol.y[idx_eta]
-                ray_data['S'] = sol.y[idx_S]
-            
-            for k in range(order + 1):
-                ray_data[f'a{k}'] = sol.y[idx_a[k]]
-            
-            rays.append(ray_data)
-            
-        except Exception as e:
-            print(f"Warning: Ray {i} integration failed: {e}")
-            continue
-    
-    if len(rays) == 0:
-        raise RuntimeError("All rays failed to integrate")
-    
-    print(f"Successfully traced {len(rays)} rays")
-    
-    # ==================================================================
-    # INTERPOLATION ONTO REGULAR GRID
-    # ==================================================================
-    
-    print("Interpolating solution onto grid...")
-    
-    # Determine domain
-    if domain is None:
-        x_all = np.concatenate([ray['x'] for ray in rays])
-        x_min, x_max = x_all.min(), x_all.max()
-        margin = 0.1 * (x_max - x_min)
-        
-        if dimension == 1:
-            domain = (x_min - margin, x_max + margin)
-        else:
-            y_all = np.concatenate([ray['y'] for ray in rays])
-            y_min, y_max = y_all.min(), y_all.max()
-            margin_y = 0.1 * (y_max - y_min)
-            domain = ((x_min - margin, x_max + margin),
-                     (y_min - margin_y, y_max + margin_y))
-    
-    # Create grid
-    if dimension == 1:
-        if isinstance(resolution, tuple):
-            resolution = resolution[0]
-        
-        x_grid = np.linspace(domain[0], domain[1], resolution)
-        
-        # Collect ray data
-        x_points = np.concatenate([ray['x'] for ray in rays])
-        S_points = np.concatenate([ray['S'] for ray in rays])
-        a_points = {k: np.concatenate([ray[f'a{k}'] for ray in rays]) 
-                   for k in range(order + 1)}
-        
-        # Sort for interpolation
-        sort_idx = np.argsort(x_points)
-        x_points = x_points[sort_idx]
-        S_points = S_points[sort_idx]
-        for k in range(order + 1):
-            a_points[k] = a_points[k][sort_idx]
-        
-        # Interpolate
-        S_grid = interp1d(x_points, S_points, kind='linear', 
-                         bounds_error=False, fill_value=0.0)(x_grid)
-        
-        a_grids = {}
-        for k in range(order + 1):
-            a_grids[k] = interp1d(x_points, a_points[k], kind='linear',
-                                 bounds_error=False, fill_value=0.0)(x_grid)
-        
-        grid_coords = {'x': x_grid}
-        
-    else:  # dimension == 2
-        if isinstance(resolution, int):
-            nx = ny = resolution
-        else:
-            nx, ny = resolution
-        
-        (x_min, x_max), (y_min, y_max) = domain
-        x_grid = np.linspace(x_min, x_max, nx)
-        y_grid = np.linspace(y_min, y_max, ny)
-        X_grid, Y_grid = np.meshgrid(x_grid, y_grid, indexing='ij')
-        
-        # Collect ray data
-        x_points = []
-        y_points = []
-        S_points = []
-        a_points = {k: [] for k in range(order + 1)}
-        
-        for ray in rays:
-            x_points.extend(ray['x'])
-            y_points.extend(ray['y'])
-            S_points.extend(ray['S'])
-            for k in range(order + 1):
-                a_points[k].extend(ray[f'a{k}'])
-        
-        points = np.column_stack([x_points, y_points])
-        if np.std(y_points) < 1e-12:
-            # degenerate case: 1D interpolation
-            S_grid = np.interp(X_grid[:,0], x_points, S_points)
-            S_grid = np.tile(S_grid[:, None], (1, Y_grid.shape[1]))
-        else:
-            S_grid = griddata(points, S_points, (X_grid, Y_grid),
-                              method='linear', fill_value=0.0,
-                              rescale=True)       
-        # Interpolate
-        S_grid = np.nan_to_num(S_grid, nan=0.0)
-        
-        a_grids = {}
-        for k in range(order + 1):
-            a_grids[k] = griddata(points, a_points[k], (X_grid, Y_grid),
-                                 method='linear', fill_value=0.0)
-            a_grids[k] = np.nan_to_num(a_grids[k], nan=0.0)
-        
-        grid_coords = {'x': X_grid, 'y': Y_grid}
-    
-    # ==================================================================
-    # CONSTRUCT WKB SOLUTION
-    # ==================================================================
-    
-    phase_factor = np.exp(1j * S_grid / epsilon)
-    
-    # Sum asymptotic series
-    a_total = np.zeros_like(a_grids[0], dtype=complex)
-    epsilon_power = 1.0
-    
-    for k in range(order + 1):
-        a_total += epsilon_power * a_grids[k]
-        epsilon_power *= epsilon
-        print(f"  Order {k}: max|a_{k}| = {np.max(np.abs(a_grids[k])):.6f}")
-    
-    u_grid = phase_factor * a_total
-    
-    print(f"\nWKB solution computed (order {order}, dim={dimension})")
-    print(f"Max |u| = {np.max(np.abs(u_grid)):.6f}")
-    
-    # ==================================================================
-    # RETURN RESULTS
-    # ==================================================================
-    
-    result = {
-        'dimension': dimension,
-        'order': order,
-        'epsilon': epsilon,
-        'domain': domain,
-        'S': S_grid,
-        'a': a_grids,
-        'a_total': a_total,
-        'u': u_grid,
-        'rays': rays,
-        'n_rays': len(rays)
-    }
-    
-    result.update(grid_coords)
-    
-    return result
-    
 def _apply_1d_caustic_corrections(base_solution, caustics, epsilon, mode):
     """
     Apply caustic corrections in 1D using Airy functions and Maslov index.
@@ -1736,8 +1053,9 @@ def _apply_1d_caustic_corrections(base_solution, caustics, epsilon, mode):
                 # Scaled coordinate
                 z = (x[mask] - x_c) / epsilon**(2/3)
                 
-                # Airy function
-                Ai = CausticFunctions.airy_uniform(z)
+                # Airy function via scipy
+                from scipy.special import airy as _airy
+                Ai, _, _, _ = _airy(z)
                 
                 # Amplitude at caustic
                 idx_c = np.argmin(np.abs(x - x_c))
@@ -1745,7 +1063,7 @@ def _apply_1d_caustic_corrections(base_solution, caustics, epsilon, mode):
                 S_c = S[idx_c]
                 
                 # Replace with uniform approximation
-                u_corrected[mask] = a_c * Ai * np.exp(1j * S_c / epsilon)
+                u_corrected[mask] = a_c * np.pi * Ai * np.exp(1j * S_c / epsilon)
         
         if mode == 'airy':
             print(f"Applied Airy corrections near {len(caustics)} fold caustics")
@@ -1797,7 +1115,9 @@ def _apply_2d_caustic_corrections(base_solution, caustics, epsilon, mode):
                 z = dist[mask] / epsilon**(2/3)
                 
                 # Airy correction
-                Ai = CausticFunctions.airy_uniform(z)
+                from scipy.special import airy as _airy
+                Ai, _, _, _ = _airy(z)
+                Ai = np.pi * Ai
                 
                 idx_x = np.argmin(np.abs(X[:, 0] - x_c))
                 idx_y = np.argmin(np.abs(Y[0, :] - y_c))
@@ -2786,7 +2106,7 @@ def _run_tests(verbose=True):
     plt.colorbar(im2, ax=axes[1])
 
     # ------------------------------------------------------------------
-    # Test 3: 1D with a caustic (fold) – nécessite l'intégration de J
+    # Test 3: 1D with a caustic (fold) – use J integration
     # ------------------------------------------------------------------
     print("\nTest 3: 1D with a caustic (fold) – Airy pattern expected")
     symbol_caustic = xi**2 - x
@@ -2835,7 +2155,7 @@ def _run_tests(verbose=True):
         axes[1].axvline(x_c, color='k', linestyle=':', alpha=0.7)
 
     # ------------------------------------------------------------------
-    # Test 4: Comparaison des ordres pour l'oscillateur 1D
+    # Test 4: Comparison of orders for 1D oscillator
     # ------------------------------------------------------------------
     print("\nTest 4: Compare WKB orders (0,1,2) for 1D oscillator")
     solutions, fig4 = compare_orders(
@@ -2844,7 +2164,7 @@ def _run_tests(verbose=True):
     )
 
     # ------------------------------------------------------------------
-    # Test 5: Décomposition des amplitudes pour le cas 2D
+    # Test 5: Amplitude decomposition for 2D point source
     # ------------------------------------------------------------------
     print("\nTest 5: Amplitude decomposition for 2D point source")
     result_2d_high = wkb_approximation(
@@ -2854,13 +2174,13 @@ def _run_tests(verbose=True):
     fig5 = plot_amplitude_decomposition(result_2d_high)
 
     # ------------------------------------------------------------------
-    # Test 6: Espace des phases pour le cas 1D
+    # Test 6: Phase space plot
     # ------------------------------------------------------------------
     print("\nTest 6: Phase space plot")
     fig6 = plot_phase_space(result_1d)
 
     # ------------------------------------------------------------------
-    # Test 7: Analyse des caustiques (si détectées)
+    # Test 7: Caustic analysis plot (if detected)
     # ------------------------------------------------------------------
     if result_corr.get('caustics'):
         print("\nTest 7: Caustic analysis plot")
