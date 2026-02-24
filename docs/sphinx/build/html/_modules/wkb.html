@@ -49,16 +49,14 @@
 <li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../microlocal_1d.html">microlocal_1d</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../microlocal_2d.html">microlocal_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../solver.html">solver</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../symplectic_1d.html">symplectic_1d</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../symplectic_2d.html">symplectic_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic.html">symplectic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../wkb.html">wkb</a></li>
 </ul>
 
@@ -190,8 +188,8 @@
                                       <span class="n">resolution</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">dimension</span><span class="p">)</span>
     
     <span class="c1"># Detect caustics</span>
-    <span class="n">detector</span> <span class="o">=</span> <span class="n">CausticDetector</span><span class="p">(</span><span class="n">base_solution</span><span class="p">[</span><span class="s1">&#39;rays&#39;</span><span class="p">],</span> <span class="n">base_solution</span><span class="p">[</span><span class="s1">&#39;dimension&#39;</span><span class="p">])</span>
-    <span class="n">caustics</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">detect_caustics</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="n">caustic_threshold</span><span class="p">)</span>
+    <span class="n">detector</span> <span class="o">=</span> <span class="n">RayCausticDetector</span><span class="p">(</span><span class="n">base_solution</span><span class="p">[</span><span class="s1">&#39;rays&#39;</span><span class="p">],</span> <span class="n">base_solution</span><span class="p">[</span><span class="s1">&#39;dimension&#39;</span><span class="p">],</span> <span class="n">det_threshold</span><span class="o">=</span><span class="n">caustic_threshold</span><span class="p">)</span>
+    <span class="n">caustics</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">detect</span><span class="p">()</span>
     
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">caustics</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No caustics detected - using standard WKB&quot;</span><span class="p">)</span>
@@ -219,7 +217,6 @@
     <span class="k">return</span> <span class="n">corrected_solution</span></div>
 
 
-
 <span class="k">def</span><span class="w"> </span><span class="nf">_compute_base_wkb</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_phase</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                 <span class="n">resolution</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">dimension</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -238,6 +235,14 @@
 <span class="sd">    This implementation supports both 1D and 2D spatial domains and can compute multi-order</span>
 <span class="sd">    corrections (order 0 through 3+) to improve accuracy beyond the standard semiclassical limit.</span>
 <span class="sd">    </span>
+<span class="sd">    The stability matrix J(t) is co-integrated alongside each ray via:</span>
+<span class="sd">    </span>
+<span class="sd">        dJ/dt = H_px · J,   J(0) = I</span>
+<span class="sd">    </span>
+<span class="sd">    where H_px[i,j] = ∂²p/∂ξᵢ∂xⱼ is the mixed Hessian of the Hamiltonian.</span>
+<span class="sd">    det(J) → 0 signals a caustic; the ray dict exposes J11 (..J22 in 2D) for</span>
+<span class="sd">    downstream use by RayCausticDetector.</span>
+
 <span class="sd">    Mathematical Framework</span>
 <span class="sd">    ----------------------</span>
 <span class="sd">    Given a symbol p(x, ξ) defining the pseudo-differential operator, the WKB method solves:</span>
@@ -341,7 +346,8 @@
 <span class="sd">        **Ray tracing data**:</span>
 <span class="sd">            - &#39;rays&#39; : list of dict</span>
 <span class="sd">                Each dict contains traced ray data with keys:</span>
-<span class="sd">                &#39;t&#39;, &#39;x&#39;, &#39;y&#39; (2D), &#39;xi&#39;, &#39;eta&#39; (2D), &#39;S&#39;, &#39;a0&#39;, &#39;a1&#39;, ...</span>
+<span class="sd">                &#39;t&#39;, &#39;x&#39;, [&#39;y&#39;], &#39;xi&#39;, [&#39;eta&#39;], &#39;S&#39;, &#39;a0&#39;, &#39;a1&#39;, ...,</span>
+<span class="sd">                &#39;J11&#39; (all dims), &#39;J12&#39;, &#39;J21&#39;, &#39;J22&#39; (2D only).</span>
 <span class="sd">            - &#39;n_rays&#39; : int</span>
 <span class="sd">                Number of successfully traced rays</span>
 <span class="sd">                </span>
@@ -371,9 +377,9 @@
 <span class="sd">    1. **Small ε assumption**: The WKB method is asymptotic in ε → 0. Results become</span>
 <span class="sd">       inaccurate for ε &gt; 1 or near caustics where rays focus.</span>
 <span class="sd">       </span>
-<span class="sd">    2. **Caustics**: At caustics (where rays cross), the amplitude formally diverges.</span>
-<span class="sd">       This implementation does not include uniform asymptotic expansions needed for</span>
-<span class="sd">       caustic regions. Use with caution near focal points.</span>
+<span class="sd">    2. **Caustics**: At caustics (where rays cross), det(J) → 0 and the amplitude formally</span>
+<span class="sd">       diverges. The stability matrix J is tracked per-ray for caustic detection by</span>
+<span class="sd">       RayCausticDetector.</span>
 <span class="sd">       </span>
 <span class="sd">    3. **Turning points**: Classical turning points (where p = 0) require connection</span>
 <span class="sd">       formulas not implemented here. The method works best away from such points.</span>
@@ -520,6 +526,39 @@
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">momentum_vars</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
         <span class="n">derivatives</span><span class="p">[</span><span class="s1">&#39;d2p_dxideta&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">momentum_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> 
                                           <span class="n">momentum_vars</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># ----------------------------------------------------------------</span>
+    <span class="c1"># STABILITY MATRIX: variational equations of the Hamiltonian flow</span>
+    <span class="c1">#</span>
+    <span class="c1"># J = dx(t)/dq, where q is the parameter along the initial curve.</span>
+    <span class="c1"># Its ODE comes from differentiating Hamilton&#39;s equations w.r.t. q:</span>
+    <span class="c1">#</span>
+    <span class="c1">#   1D:</span>
+    <span class="c1">#     d/dt(dx/dq)  =  (d2p/dxi2)*dxi0/dq  +  (d2p/dxi/dx)*dx0/dq</span>
+    <span class="c1">#     d/dt(dxi/dq) = -(d2p/dx2) *dx0/dq   -  (d2p/dx/dxi)*dxi0/dq</span>
+    <span class="c1">#</span>
+    <span class="c1">#   We track the POSITION component J = dx/dq only, initialised from</span>
+    <span class="c1">#   the geometry of the initial data curve (see ray-loop below).</span>
+    <span class="c1">#   The coupled variable K = dxi/dq is also integrated so that J</span>
+    <span class="c1">#   can evolve correctly through the (d2p/dxi2)*K term.</span>
+    <span class="c1">#</span>
+    <span class="c1"># Required second derivatives:</span>
+    <span class="c1">#   d2p/dxi2    (already present as d2p_dxi2)</span>
+    <span class="c1">#   d2p/dxi/dx  (already present as d2p_dxidx)</span>
+    <span class="c1">#   d2p/dx2     NEW</span>
+    <span class="c1"># For 2D, the full 2x2 block equivalents are needed.</span>
+    <span class="c1"># ----------------------------------------------------------------</span>
+
+    <span class="c1"># Spatial second derivatives (variational equations)</span>
+    <span class="k">for</span> <span class="n">space_var</span> <span class="ow">in</span> <span class="n">spatial_vars</span><span class="p">:</span>
+        <span class="n">derivatives</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;d2p_d</span><span class="si">{</span><span class="n">space_var</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">2&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">space_var</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">dimension</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">derivatives</span><span class="p">[</span><span class="s1">&#39;d2p_dxidy&#39;</span><span class="p">]</span>  <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span>  <span class="n">y</span><span class="p">)</span>   <span class="c1"># d2p/dxi/dy</span>
+        <span class="n">derivatives</span><span class="p">[</span><span class="s1">&#39;d2p_detadx&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">eta</span><span class="p">),</span> <span class="n">x</span><span class="p">)</span>   <span class="c1"># d2p/deta/dx</span>
+        <span class="n">derivatives</span><span class="p">[</span><span class="s1">&#39;d2p_dxy&#39;</span><span class="p">]</span>    <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span>   <span class="n">y</span><span class="p">)</span>   <span class="c1"># d2p/dx/dy</span>
+        <span class="c1"># d2p_dxidx  -&gt; d2p/dxi/dx  (already present)</span>
+        <span class="c1"># d2p_detady -&gt; d2p/deta/dy (already present)</span>
     
     <span class="c1"># Third derivatives (higher-order corrections)</span>
     <span class="k">if</span> <span class="n">order</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
@@ -576,103 +615,247 @@
                    <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_detady&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">))</span>
     
     <span class="c1"># ==================================================================</span>
-    <span class="c1"># RAY TRACING ODE SYSTEM</span>
+    <span class="c1"># STATE VECTOR LAYOUT</span>
     <span class="c1"># ==================================================================</span>
-    
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Ray tracing </span><span class="si">{</span><span class="n">n_rays</span><span class="si">}</span><span class="s2"> rays...&quot;</span><span class="p">)</span>
-    
-    <span class="c1"># State vector indices</span>
-    <span class="c1"># 1D: [x, ξ, S, a₀, a₁, ...]</span>
-    <span class="c1"># 2D: [x, y, ξ, η, S, a₀, a₁, ...]</span>
-    
+    <span class="c1">#</span>
+    <span class="c1"># 1D: [x, xi, S,  J11, K11,  a0, a1, ...]</span>
+    <span class="c1">#      0   1   2   3    4    5   6</span>
+    <span class="c1">#   J11 = dx/dq,   K11 = dxi/dq</span>
+    <span class="c1">#</span>
+    <span class="c1"># 2D: [x, y, xi, eta, S,  J11,J12,J21,J22,  K11,K12,K21,K22,  a0, a1, ...]</span>
+    <span class="c1">#      0  1   2   3   4    5   6   7   8      9  10  11  12    13  14</span>
+    <span class="c1">#   Jij = dxi(t)/dqj,   Kij = dxii(t)/dqj  (i=spatial, xi=momentum)</span>
+    <span class="c1"># ==================================================================</span>
+
     <span class="k">if</span> <span class="n">dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">idx_x</span><span class="p">,</span> <span class="n">idx_xi</span><span class="p">,</span> <span class="n">idx_S</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span>
-        <span class="n">idx_a_start</span> <span class="o">=</span> <span class="mi">3</span>
+        <span class="n">idx_J11</span> <span class="o">=</span> <span class="mi">3</span>
+        <span class="n">idx_K11</span> <span class="o">=</span> <span class="mi">4</span>
+        <span class="n">idx_a_start</span> <span class="o">=</span> <span class="mi">5</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">idx_x</span><span class="p">,</span> <span class="n">idx_y</span><span class="p">,</span> <span class="n">idx_xi</span><span class="p">,</span> <span class="n">idx_eta</span><span class="p">,</span> <span class="n">idx_S</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span>
-        <span class="n">idx_a_start</span> <span class="o">=</span> <span class="mi">5</span>
-    
+        <span class="n">idx_J11</span><span class="p">,</span> <span class="n">idx_J12</span><span class="p">,</span> <span class="n">idx_J21</span><span class="p">,</span> <span class="n">idx_J22</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span>
+        <span class="n">idx_K11</span><span class="p">,</span> <span class="n">idx_K12</span><span class="p">,</span> <span class="n">idx_K21</span><span class="p">,</span> <span class="n">idx_K22</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span>
+        <span class="n">idx_a_start</span> <span class="o">=</span> <span class="mi">13</span>
+
     <span class="n">idx_a</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">idx_a_start</span> <span class="o">+</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)}</span>
+    
+    <span class="c1"># ==================================================================</span>
+    <span class="c1"># RAY TRACING</span>
+    <span class="c1"># ==================================================================</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Ray tracing </span><span class="si">{</span><span class="n">n_rays</span><span class="si">}</span><span class="s2"> rays...&quot;</span><span class="p">)</span>
     
     <span class="n">rays</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">tmax</span> <span class="o">=</span> <span class="mf">5.0</span>
     <span class="n">n_steps_per_ray</span> <span class="o">=</span> <span class="mi">100</span>
     
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_rays</span><span class="p">):</span>
-        <span class="c1"># Build initial condition</span>
+        <span class="c1"># ------------------------------------------------------------------</span>
+        <span class="c1"># Build initial state vector z0</span>
+        <span class="c1"># ------------------------------------------------------------------</span>
+        <span class="c1"># J(0) and K(0) are set from the geometry of the initial data curve.</span>
+        <span class="c1"># If rays are parametrized by q, then:</span>
+        <span class="c1">#   J(0) = dx0/dq  (tangent of the spatial curve)</span>
+        <span class="c1">#   K(0) = dxi0/dq (tangent of the momentum curve)</span>
+        <span class="c1"># For a single isolated ray (point source), use J(0)=1, K(0)=0.</span>
+
         <span class="k">if</span> <span class="n">dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">z0</span> <span class="o">=</span> <span class="p">[</span><span class="n">x_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">px_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">S_init</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+            <span class="n">J0</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="n">K0</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">if</span> <span class="n">n_rays</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Compute K0 = dxi / dx using finite differences over initial data</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">dx</span> <span class="o">=</span> <span class="n">x_init</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_init</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">dpx</span> <span class="o">=</span> <span class="n">px_init</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">px_init</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">n_rays</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">dx</span> <span class="o">=</span> <span class="n">x_init</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_init</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="n">dpx</span> <span class="o">=</span> <span class="n">px_init</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">px_init</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">dx</span> <span class="o">=</span> <span class="n">x_init</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_init</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="n">dpx</span> <span class="o">=</span> <span class="n">px_init</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">px_init</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">K0</span> <span class="o">=</span> <span class="n">dpx</span> <span class="o">/</span> <span class="n">dx</span> <span class="k">if</span> <span class="n">dx</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+            <span class="n">z0</span> <span class="o">=</span> <span class="p">[</span><span class="n">x_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">px_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">S_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">J0</span><span class="p">,</span> <span class="n">K0</span><span class="p">]</span>
+
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">z0</span> <span class="o">=</span> <span class="p">[</span><span class="n">x_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">y_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">px_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">py_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">S_init</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+            <span class="c1"># 2D: J(0) = I (identity) as required by theory and tests.</span>
+            <span class="c1"># K(0) = dξ₀/d(arc-length): derivative of initial momentum w.r.t.</span>
+            <span class="c1"># arc-length along the initial curve.  This encodes wavefront curvature:</span>
+            <span class="c1"># for a focusing bundle (inward circle) K(0) ≠ 0, which drives</span>
+            <span class="c1"># det(J) → 0 via  dJ/dt = pξξ·K + pξx·J  even when pxx = 0.</span>
+            <span class="n">J11_0</span><span class="p">,</span> <span class="n">J12_0</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span>
+            <span class="n">J21_0</span><span class="p">,</span> <span class="n">J22_0</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span>
+            <span class="n">K11_0</span><span class="p">,</span> <span class="n">K12_0</span><span class="p">,</span> <span class="n">K21_0</span><span class="p">,</span> <span class="n">K22_0</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+
+            <span class="k">if</span> <span class="n">n_rays</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Finite differences of initial momentum w.r.t. ray index</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">dpx0</span> <span class="o">=</span> <span class="n">px_init</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">px_init</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">dpy0</span> <span class="o">=</span> <span class="n">py_init</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">py_init</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">dx0</span>  <span class="o">=</span> <span class="n">x_init</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="o">-</span> <span class="n">x_init</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">dy0</span>  <span class="o">=</span> <span class="n">y_init</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="o">-</span> <span class="n">y_init</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">n_rays</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">dpx0</span> <span class="o">=</span> <span class="n">px_init</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">px_init</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="n">dpy0</span> <span class="o">=</span> <span class="n">py_init</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">py_init</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="n">dx0</span>  <span class="o">=</span> <span class="n">x_init</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="o">-</span> <span class="n">x_init</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="n">dy0</span>  <span class="o">=</span> <span class="n">y_init</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="o">-</span> <span class="n">y_init</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">dpx0</span> <span class="o">=</span> <span class="n">px_init</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">px_init</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="n">dpy0</span> <span class="o">=</span> <span class="n">py_init</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">py_init</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="n">dx0</span>  <span class="o">=</span> <span class="n">x_init</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>  <span class="o">-</span> <span class="n">x_init</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="n">dy0</span>  <span class="o">=</span> <span class="n">y_init</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>  <span class="o">-</span> <span class="n">y_init</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+                <span class="c1"># Normalize by arc-length element so K = dξ/d(arc-length)</span>
+                <span class="n">arc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span><span class="n">dx0</span><span class="p">,</span> <span class="n">dy0</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">arc</span> <span class="o">&gt;</span> <span class="mf">1e-14</span><span class="p">:</span>
+                    <span class="n">K11_0</span> <span class="o">=</span> <span class="n">dpx0</span> <span class="o">/</span> <span class="n">arc</span>   <span class="c1"># dxi  / d(arc-length)</span>
+                    <span class="n">K21_0</span> <span class="o">=</span> <span class="n">dpy0</span> <span class="o">/</span> <span class="n">arc</span>   <span class="c1"># deta / d(arc-length)</span>
+                    <span class="n">K12_0</span> <span class="o">=</span> <span class="mf">0.0</span>
+                    <span class="n">K22_0</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+            <span class="n">z0</span> <span class="o">=</span> <span class="p">[</span><span class="n">x_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">y_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">px_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">py_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">S_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                  <span class="n">J11_0</span><span class="p">,</span> <span class="n">J12_0</span><span class="p">,</span> <span class="n">J21_0</span><span class="p">,</span> <span class="n">J22_0</span><span class="p">,</span>
+                  <span class="n">K11_0</span><span class="p">,</span> <span class="n">K12_0</span><span class="p">,</span> <span class="n">K21_0</span><span class="p">,</span> <span class="n">K22_0</span><span class="p">]</span>
         
-        <span class="c1"># Add amplitudes</span>
+        <span class="c1"># Amplitudes</span>
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
             <span class="n">z0</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a_init</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
         
+        <span class="c1"># ------------------------------------------------------------------</span>
+        <span class="c1"># ODE right-hand side</span>
+        <span class="c1"># ------------------------------------------------------------------</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">ray_ode</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;ODE system for rays - dimension-agnostic.&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;ODE system for rays – includes Hamilton eqs, stability matrix J,</span>
+<span class="sd">            phase S, and amplitude transport up to the requested order.&quot;&quot;&quot;</span>
             
-            <span class="c1"># Extract state variables</span>
+            <span class="c1"># ---- extract state ----</span>
             <span class="k">if</span> <span class="n">dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">x_val</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_x</span><span class="p">]</span>
+                <span class="n">x_val</span>  <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_x</span><span class="p">]</span>
                 <span class="n">xi_val</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_xi</span><span class="p">]</span>
-                <span class="n">S_val</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_S</span><span class="p">]</span>
-                <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_val</span><span class="p">,</span> <span class="n">xi_val</span><span class="p">)</span>
+                <span class="n">S_val</span>  <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_S</span><span class="p">]</span>
+                <span class="n">args</span>   <span class="o">=</span> <span class="p">(</span><span class="n">x_val</span><span class="p">,</span> <span class="n">xi_val</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">x_val</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_x</span><span class="p">]</span>
-                <span class="n">y_val</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_y</span><span class="p">]</span>
-                <span class="n">xi_val</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_xi</span><span class="p">]</span>
+                <span class="n">x_val</span>   <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_x</span><span class="p">]</span>
+                <span class="n">y_val</span>   <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_y</span><span class="p">]</span>
+                <span class="n">xi_val</span>  <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_xi</span><span class="p">]</span>
                 <span class="n">eta_val</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_eta</span><span class="p">]</span>
-                <span class="n">S_val</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_S</span><span class="p">]</span>
-                <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">,</span> <span class="n">xi_val</span><span class="p">,</span> <span class="n">eta_val</span><span class="p">)</span>
+                <span class="n">S_val</span>   <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_S</span><span class="p">]</span>
+                <span class="n">args</span>    <span class="o">=</span> <span class="p">(</span><span class="n">x_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">,</span> <span class="n">xi_val</span><span class="p">,</span> <span class="n">eta_val</span><span class="p">)</span>
             
             <span class="n">a_vals</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_a</span><span class="p">[</span><span class="n">k</span><span class="p">]]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)}</span>
             
-            <span class="c1"># ========================================</span>
+            <span class="c1"># ================================================</span>
             <span class="c1"># HAMILTON&#39;S EQUATIONS</span>
-            <span class="c1"># ========================================</span>
+            <span class="c1"># ================================================</span>
             
             <span class="k">if</span> <span class="n">dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="c1"># dx/dt = ∂p/∂ξ</span>
-                <span class="n">dxdt</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_dxi&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
-                <span class="c1"># dξ/dt = -∂p/∂x</span>
-                <span class="n">dxidt</span> <span class="o">=</span> <span class="o">-</span><span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_dx&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
-                
+                <span class="n">dxdt</span>   <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_dxi&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+                <span class="n">dxidt</span>  <span class="o">=</span> <span class="o">-</span><span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_dx&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
                 <span class="n">derivs</span> <span class="o">=</span> <span class="p">[</span><span class="n">dxdt</span><span class="p">,</span> <span class="n">dxidt</span><span class="p">]</span>
-                
-            <span class="k">else</span><span class="p">:</span>  <span class="c1"># dimension == 2</span>
-                <span class="c1"># dx/dt = ∂p/∂ξ, dy/dt = ∂p/∂η</span>
-                <span class="n">dxdt</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_dxi&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
-                <span class="n">dydt</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_deta&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
-                <span class="c1"># dξ/dt = -∂p/∂x, dη/dt = -∂p/∂y</span>
-                <span class="n">dxidt</span> <span class="o">=</span> <span class="o">-</span><span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_dx&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
-                <span class="n">detadt</span> <span class="o">=</span> <span class="o">-</span><span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_dy&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
-                
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">dxdt</span>   <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_dxi&#39;</span><span class="p">,</span>  <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+                <span class="n">dydt</span>   <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_deta&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+                <span class="n">dxidt</span>  <span class="o">=</span> <span class="o">-</span><span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_dx&#39;</span><span class="p">,</span>  <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+                <span class="n">detadt</span> <span class="o">=</span> <span class="o">-</span><span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;dp_dy&#39;</span><span class="p">,</span>  <span class="o">*</span><span class="n">args</span><span class="p">)</span>
                 <span class="n">derivs</span> <span class="o">=</span> <span class="p">[</span><span class="n">dxdt</span><span class="p">,</span> <span class="n">dydt</span><span class="p">,</span> <span class="n">dxidt</span><span class="p">,</span> <span class="n">detadt</span><span class="p">]</span>
             
-            <span class="c1"># Phase evolution: dS/dt = Σᵢ ξᵢ·(∂p/∂ξᵢ) - p</span>
+            <span class="c1"># Phase: dS/dt = Σᵢ ξᵢ·(∂p/∂ξᵢ) - p</span>
             <span class="n">p_val</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;p&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
-            
             <span class="k">if</span> <span class="n">dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">dSdt</span> <span class="o">=</span> <span class="n">xi_val</span> <span class="o">*</span> <span class="n">dxdt</span> <span class="o">-</span> <span class="n">p_val</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">dSdt</span> <span class="o">=</span> <span class="n">xi_val</span> <span class="o">*</span> <span class="n">dxdt</span> <span class="o">+</span> <span class="n">eta_val</span> <span class="o">*</span> <span class="n">dydt</span> <span class="o">-</span> <span class="n">p_val</span>
-            
             <span class="n">derivs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dSdt</span><span class="p">)</span>
             
-            <span class="c1"># ========================================</span>
-            <span class="c1"># AMPLITUDE EQUATIONS (multi-order)</span>
-            <span class="c1"># ========================================</span>
+            <span class="c1"># ================================================</span>
+            <span class="c1"># STABILITY MATRIX – variational equations</span>
+            <span class="c1">#</span>
+            <span class="c1"># State additions per ray:</span>
+            <span class="c1">#   1D: [J, K]       where J = dx/dq, K = dxi/dq</span>
+            <span class="c1">#   2D: [J11,J12,    where Jij = dxi(t)/dqj</span>
+            <span class="c1">#        J21,J22,         Kij = dxii(t)/dqj</span>
+            <span class="c1">#        K11,K12,</span>
+            <span class="c1">#        K21,K22]</span>
+            <span class="c1">#</span>
+            <span class="c1"># Variational ODEs (differentiating Hamilton eqs w.r.t. q):</span>
+            <span class="c1">#   dJ/dt =  (d2p/dxi2)*K  +  (d2p/dxi/dx)*J      (1D)</span>
+            <span class="c1">#   dK/dt = -(d2p/dx2) *J  -  (d2p/dx/dxi)*K      (1D)</span>
+            <span class="c1">#</span>
+            <span class="c1"># J(t) is used as the caustic indicator: det(J) -&gt; 0 at caustics.</span>
+            <span class="c1"># ================================================</span>
+
+            <span class="k">if</span> <span class="n">dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Second derivatives of p at current phase-space point</span>
+                <span class="n">pxx</span>  <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dx2&#39;</span><span class="p">,</span>    <span class="o">*</span><span class="n">args</span><span class="p">)</span>   <span class="c1"># d2p/dx2</span>
+                <span class="n">pxxi</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dxidx&#39;</span><span class="p">,</span>  <span class="o">*</span><span class="n">args</span><span class="p">)</span>   <span class="c1"># d2p/dxi/dx  (= d2p/dx/dxi)</span>
+                <span class="n">pxixi</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dxi2&#39;</span><span class="p">,</span>  <span class="o">*</span><span class="n">args</span><span class="p">)</span>   <span class="c1"># d2p/dxi2</span>
+
+                <span class="n">J</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_J11</span><span class="p">]</span>   <span class="c1"># dx/dq</span>
+                <span class="n">K</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_K11</span><span class="p">]</span>   <span class="c1"># dxi/dq</span>
+
+                <span class="n">dJdt</span> <span class="o">=</span>  <span class="n">pxixi</span> <span class="o">*</span> <span class="n">K</span>  <span class="o">+</span>  <span class="n">pxxi</span> <span class="o">*</span> <span class="n">J</span>
+                <span class="n">dKdt</span> <span class="o">=</span> <span class="o">-</span><span class="n">pxx</span>   <span class="o">*</span> <span class="n">J</span>  <span class="o">-</span>  <span class="n">pxxi</span> <span class="o">*</span> <span class="n">K</span>
+
+                <span class="n">derivs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dJdt</span><span class="p">)</span>
+                <span class="n">derivs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dKdt</span><span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># 2D: all blocks of the 2x2 Hessian</span>
+                <span class="c1"># Position-position block:  -d2p/dx_i dx_j</span>
+                <span class="n">pxx</span>  <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dx2&#39;</span><span class="p">,</span>    <span class="o">*</span><span class="n">args</span><span class="p">)</span>   <span class="c1"># d2p/dx2</span>
+                <span class="n">pyy</span>  <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dy2&#39;</span><span class="p">,</span>    <span class="o">*</span><span class="n">args</span><span class="p">)</span>   <span class="c1"># d2p/dy2</span>
+                <span class="n">pxy</span>  <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dxy&#39;</span><span class="p">,</span>    <span class="o">*</span><span class="n">args</span><span class="p">)</span>   <span class="c1"># d2p/dx/dy</span>
+
+                <span class="c1"># Mixed block: d2p/dxi_i/dx_j</span>
+                <span class="n">pxix</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dxidx&#39;</span><span class="p">,</span>  <span class="o">*</span><span class="n">args</span><span class="p">)</span>   <span class="c1"># d2p/dxi/dx</span>
+                <span class="n">pxiy</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dxidy&#39;</span><span class="p">,</span>  <span class="o">*</span><span class="n">args</span><span class="p">)</span>   <span class="c1"># d2p/dxi/dy</span>
+                <span class="n">petax</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_detadx&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>  <span class="c1"># d2p/deta/dx</span>
+                <span class="n">petay</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_detady&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>  <span class="c1"># d2p/deta/dy</span>
+
+                <span class="c1"># Momentum-momentum block: d2p/dxi_i/dxi_j</span>
+                <span class="n">pxixi</span>   <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dxi2&#39;</span><span class="p">,</span>   <span class="o">*</span><span class="n">args</span><span class="p">)</span>  <span class="c1"># d2p/dxi2</span>
+                <span class="n">petaeta</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_deta2&#39;</span><span class="p">,</span>  <span class="o">*</span><span class="n">args</span><span class="p">)</span>  <span class="c1"># d2p/deta2</span>
+                <span class="n">pxieta</span>  <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dxideta&#39;</span><span class="p">,</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>  <span class="c1"># d2p/dxi/deta</span>
+
+                <span class="c1"># Current J and K blocks (2x2 each, stored column-major)</span>
+                <span class="n">J11</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_J11</span><span class="p">];</span>  <span class="n">J12</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_J12</span><span class="p">]</span>
+                <span class="n">J21</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_J21</span><span class="p">];</span>  <span class="n">J22</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_J22</span><span class="p">]</span>
+                <span class="n">K11</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_K11</span><span class="p">];</span>  <span class="n">K12</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_K12</span><span class="p">]</span>
+                <span class="n">K21</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_K21</span><span class="p">];</span>  <span class="n">K22</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">idx_K22</span><span class="p">]</span>
+
+                <span class="c1"># dJ/dt =  A_pxi * K  +  A_px * J</span>
+                <span class="c1">#   A_pxi[i,j] = d2p/dxi_i/dxi_j  (mom-mom Hessian row i)</span>
+                <span class="c1">#   A_px [i,j] = d2p/dxi_i/dx_j   (mixed Hessian row i)</span>
+                <span class="n">dJ11dt</span> <span class="o">=</span> <span class="n">pxixi</span><span class="o">*</span><span class="n">K11</span>  <span class="o">+</span> <span class="n">pxieta</span><span class="o">*</span><span class="n">K21</span>  <span class="o">+</span> <span class="n">pxix</span><span class="o">*</span><span class="n">J11</span> <span class="o">+</span> <span class="n">pxiy</span><span class="o">*</span><span class="n">J21</span>
+                <span class="n">dJ12dt</span> <span class="o">=</span> <span class="n">pxixi</span><span class="o">*</span><span class="n">K12</span>  <span class="o">+</span> <span class="n">pxieta</span><span class="o">*</span><span class="n">K22</span>  <span class="o">+</span> <span class="n">pxix</span><span class="o">*</span><span class="n">J12</span> <span class="o">+</span> <span class="n">pxiy</span><span class="o">*</span><span class="n">J22</span>
+                <span class="n">dJ21dt</span> <span class="o">=</span> <span class="n">pxieta</span><span class="o">*</span><span class="n">K11</span> <span class="o">+</span> <span class="n">petaeta</span><span class="o">*</span><span class="n">K21</span>  <span class="o">+</span> <span class="n">petax</span><span class="o">*</span><span class="n">J11</span> <span class="o">+</span> <span class="n">petay</span><span class="o">*</span><span class="n">J21</span>
+                <span class="n">dJ22dt</span> <span class="o">=</span> <span class="n">pxieta</span><span class="o">*</span><span class="n">K12</span> <span class="o">+</span> <span class="n">petaeta</span><span class="o">*</span><span class="n">K22</span>  <span class="o">+</span> <span class="n">petax</span><span class="o">*</span><span class="n">J12</span> <span class="o">+</span> <span class="n">petay</span><span class="o">*</span><span class="n">J22</span>
+
+                <span class="c1"># dK/dt = -B_xx * J  -  B_xxi * K</span>
+                <span class="c1">#   B_xx [i,j] = d2p/dx_i/dx_j  (pos-pos Hessian row i)</span>
+                <span class="c1">#   B_xxi[i,j] = d2p/dx_i/dxi_j (transposed mixed Hessian row i)</span>
+                <span class="n">dK11dt</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">pxx</span><span class="o">*</span><span class="n">J11</span>  <span class="o">+</span> <span class="n">pxy</span><span class="o">*</span><span class="n">J21</span><span class="p">)</span>  <span class="o">-</span> <span class="p">(</span><span class="n">pxix</span><span class="o">*</span><span class="n">K11</span>  <span class="o">+</span> <span class="n">petax</span><span class="o">*</span><span class="n">K21</span><span class="p">)</span>
+                <span class="n">dK12dt</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">pxx</span><span class="o">*</span><span class="n">J12</span>  <span class="o">+</span> <span class="n">pxy</span><span class="o">*</span><span class="n">J22</span><span class="p">)</span>  <span class="o">-</span> <span class="p">(</span><span class="n">pxix</span><span class="o">*</span><span class="n">K12</span>  <span class="o">+</span> <span class="n">petax</span><span class="o">*</span><span class="n">K22</span><span class="p">)</span>
+                <span class="n">dK21dt</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">pxy</span><span class="o">*</span><span class="n">J11</span>  <span class="o">+</span> <span class="n">pyy</span><span class="o">*</span><span class="n">J21</span><span class="p">)</span>  <span class="o">-</span> <span class="p">(</span><span class="n">pxiy</span><span class="o">*</span><span class="n">K11</span>  <span class="o">+</span> <span class="n">petay</span><span class="o">*</span><span class="n">K21</span><span class="p">)</span>
+                <span class="n">dK22dt</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">pxy</span><span class="o">*</span><span class="n">J12</span>  <span class="o">+</span> <span class="n">pyy</span><span class="o">*</span><span class="n">J22</span><span class="p">)</span>  <span class="o">-</span> <span class="p">(</span><span class="n">pxiy</span><span class="o">*</span><span class="n">K12</span>  <span class="o">+</span> <span class="n">petay</span><span class="o">*</span><span class="n">K22</span><span class="p">)</span>
+
+                <span class="n">derivs</span> <span class="o">+=</span> <span class="p">[</span><span class="n">dJ11dt</span><span class="p">,</span> <span class="n">dJ12dt</span><span class="p">,</span> <span class="n">dJ21dt</span><span class="p">,</span> <span class="n">dJ22dt</span><span class="p">,</span>
+                           <span class="n">dK11dt</span><span class="p">,</span> <span class="n">dK12dt</span><span class="p">,</span> <span class="n">dK21dt</span><span class="p">,</span> <span class="n">dK22dt</span><span class="p">]</span>
+            
+            <span class="c1"># ================================================</span>
+            <span class="c1"># AMPLITUDE EQUATIONS (multi-order transport)</span>
+            <span class="c1"># ================================================</span>
             
             <span class="c1"># Geometric spreading factor (same for all orders)</span>
             <span class="n">geom_spread</span> <span class="o">=</span> <span class="n">compute_geometric_spreading</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
             
             <span class="n">da_dt</span> <span class="o">=</span> <span class="p">{}</span>
             
-            <span class="c1"># Order 0: Standard WKB transport</span>
+            <span class="c1"># Order 0: standard WKB transport</span>
             <span class="n">da_dt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">a_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">geom_spread</span>
             
-            <span class="c1"># Order 1: First correction</span>
+            <span class="c1"># Order 1: first correction</span>
             <span class="k">if</span> <span class="n">order</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">da_dt</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">a_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">geom_spread</span>
                 
@@ -685,7 +868,7 @@
                     <span class="n">cross_term</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d2p_dxideta&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
                     <span class="n">da_dt</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="o">-</span><span class="mf">0.25</span> <span class="o">*</span> <span class="n">a_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">cross_term</span> <span class="o">*</span> <span class="p">(</span><span class="n">dxidt</span> <span class="o">+</span> <span class="n">detadt</span><span class="p">)</span>
             
-            <span class="c1"># Order 2: Second correction</span>
+            <span class="c1"># Order 2: second correction</span>
             <span class="k">if</span> <span class="n">order</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="n">da_dt</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">a_vals</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">geom_spread</span>
                 
@@ -694,8 +877,8 @@
                     <span class="n">d3</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_dxi3&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
                     <span class="n">da_dt</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="o">-</span><span class="mf">0.125</span> <span class="o">*</span> <span class="n">a_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">d3</span> <span class="o">*</span> <span class="n">dxidt</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">d3xi</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_dxi3&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
-                    <span class="n">d3eta</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_deta3&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+                    <span class="n">d3xi</span>   <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_dxi3&#39;</span><span class="p">,</span>     <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+                    <span class="n">d3eta</span>  <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_deta3&#39;</span><span class="p">,</span>    <span class="o">*</span><span class="n">args</span><span class="p">)</span>
                     <span class="n">d3mix1</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_dxi2deta&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
                     <span class="n">d3mix2</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_dxideta2&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
                     
@@ -707,7 +890,7 @@
                 <span class="c1"># Contributions from a₁</span>
                 <span class="n">da_dt</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="o">-</span><span class="mf">0.25</span> <span class="o">*</span> <span class="n">a_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">coupling</span>
             
-            <span class="c1"># Order 3: Third correction</span>
+            <span class="c1"># Order 3: third correction</span>
             <span class="k">if</span> <span class="n">order</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
                 <span class="n">da_dt</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">a_vals</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="n">geom_spread</span>
                 
@@ -716,17 +899,19 @@
                     <span class="n">d3</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_dxi3&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
                     <span class="n">da_dt</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">+=</span> <span class="o">-</span><span class="mf">0.1</span> <span class="o">*</span> <span class="n">a_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">d3</span> <span class="o">*</span> <span class="n">dxidt</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">d3terms</span> <span class="o">=</span> <span class="p">(</span><span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_dxi3&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span> <span class="o">+</span> 
+                    <span class="n">d3terms</span> <span class="o">=</span> <span class="p">(</span><span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_dxi3&#39;</span><span class="p">,</span>  <span class="o">*</span><span class="n">args</span><span class="p">)</span> <span class="o">+</span> 
                               <span class="n">eval_func</span><span class="p">(</span><span class="s1">&#39;d3p_deta3&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">))</span>
                     <span class="n">da_dt</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">+=</span> <span class="o">-</span><span class="mf">0.1</span> <span class="o">*</span> <span class="n">a_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">d3terms</span> <span class="o">*</span> <span class="p">(</span><span class="n">dxidt</span> <span class="o">+</span> <span class="n">detadt</span><span class="p">)</span>
             
-            <span class="c1"># Assemble derivative vector</span>
+            <span class="c1"># Assemble derivative vector (amplitudes last)</span>
             <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
                 <span class="n">derivs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">da_dt</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
             
             <span class="k">return</span> <span class="n">derivs</span>
         
+        <span class="c1"># ------------------------------------------------------------------</span>
         <span class="c1"># Integrate ray</span>
+        <span class="c1"># ------------------------------------------------------------------</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span>
                 <span class="n">ray_ode</span><span class="p">,</span>
@@ -739,17 +924,29 @@
             <span class="p">)</span>
             
             <span class="n">ray_data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">t</span><span class="p">}</span>
-            
+
             <span class="k">if</span> <span class="n">dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_x</span><span class="p">]</span>
-                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_xi</span><span class="p">]</span>
-                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;S&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_S</span><span class="p">]</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>   <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_x</span><span class="p">]</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">]</span>  <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_xi</span><span class="p">]</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;S&#39;</span><span class="p">]</span>   <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_S</span><span class="p">]</span>
+                <span class="c1"># J = dx/dq (position component of the variational state)</span>
+                <span class="c1"># det(J) = J11 in 1D; stored as 1D array for RayCausticDetector.</span>
+                <span class="n">J11</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_J11</span><span class="p">]</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;J11&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">J11</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;J&#39;</span><span class="p">]</span>   <span class="o">=</span> <span class="n">J11</span>          <span class="c1"># shape (n_steps,)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_x</span><span class="p">]</span>
-                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_y</span><span class="p">]</span>
-                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_xi</span><span class="p">]</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>   <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_x</span><span class="p">]</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>   <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_y</span><span class="p">]</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">]</span>  <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_xi</span><span class="p">]</span>
                 <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_eta</span><span class="p">]</span>
-                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;S&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_S</span><span class="p">]</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;S&#39;</span><span class="p">]</span>   <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_S</span><span class="p">]</span>
+                <span class="c1"># J block (position part of variational state)</span>
+                <span class="n">J11</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_J11</span><span class="p">];</span>  <span class="n">J12</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_J12</span><span class="p">]</span>
+                <span class="n">J21</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_J21</span><span class="p">];</span>  <span class="n">J22</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_J22</span><span class="p">]</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;J11&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">J11</span><span class="p">;</span>  <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;J12&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">J12</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;J21&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">J21</span><span class="p">;</span>  <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;J22&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">J22</span>
+                <span class="c1"># det(J) as 1D series for RayCausticDetector._find_sign_changes</span>
+                <span class="n">ray_data</span><span class="p">[</span><span class="s1">&#39;J&#39;</span><span class="p">]</span>   <span class="o">=</span> <span class="n">J11</span> <span class="o">*</span> <span class="n">J22</span> <span class="o">-</span> <span class="n">J12</span> <span class="o">*</span> <span class="n">J21</span>  <span class="c1"># shape (n_steps,)</span>
             
             <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
                 <span class="n">ray_data</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;a</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">idx_a</span><span class="p">[</span><span class="n">k</span><span class="p">]]</span>
@@ -901,7 +1098,7 @@
     <span class="n">result</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">grid_coords</span><span class="p">)</span>
     
     <span class="k">return</span> <span class="n">result</span>
-    
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_apply_1d_caustic_corrections</span><span class="p">(</span><span class="n">base_solution</span><span class="p">,</span> <span class="n">caustics</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">mode</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Apply caustic corrections in 1D using Airy functions and Maslov index.</span>
@@ -917,7 +1114,7 @@
     <span class="n">maslov_phases</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     
     <span class="k">for</span> <span class="n">caustic</span> <span class="ow">in</span> <span class="n">caustics</span><span class="p">:</span>
-        <span class="n">x_c</span> <span class="o">=</span> <span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;position&#39;</span><span class="p">]</span>
+        <span class="n">x_c</span> <span class="o">=</span> <span class="n">caustic</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="c1"># Add π/2 phase shift past each caustic</span>
         <span class="n">maslov_phases</span><span class="p">[</span><span class="n">x</span> <span class="o">&gt;</span> <span class="n">x_c</span><span class="p">]</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span>
     
@@ -936,7 +1133,7 @@
         <span class="c1"># Start from current u_corrected (which may already have Maslov)</span>
         
         <span class="k">for</span> <span class="n">caustic</span> <span class="ow">in</span> <span class="n">caustics</span><span class="p">:</span>
-            <span class="n">x_c</span> <span class="o">=</span> <span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;position&#39;</span><span class="p">]</span>
+            <span class="n">x_c</span> <span class="o">=</span> <span class="n">caustic</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             
             <span class="c1"># Region of Airy correction</span>
             <span class="n">airy_width</span> <span class="o">=</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">epsilon</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
@@ -946,8 +1143,9 @@
                 <span class="c1"># Scaled coordinate</span>
                 <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_c</span><span class="p">)</span> <span class="o">/</span> <span class="n">epsilon</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
                 
-                <span class="c1"># Airy function</span>
-                <span class="n">Ai</span> <span class="o">=</span> <span class="n">CausticFunctions</span><span class="o">.</span><span class="n">airy_uniform</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+                <span class="c1"># Airy function via scipy</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">airy</span> <span class="k">as</span> <span class="n">_airy</span>
+                <span class="n">Ai</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_airy</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
                 
                 <span class="c1"># Amplitude at caustic</span>
                 <span class="n">idx_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">x_c</span><span class="p">))</span>
@@ -955,7 +1153,7 @@
                 <span class="n">S_c</span> <span class="o">=</span> <span class="n">S</span><span class="p">[</span><span class="n">idx_c</span><span class="p">]</span>
                 
                 <span class="c1"># Replace with uniform approximation</span>
-                <span class="n">u_corrected</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">a_c</span> <span class="o">*</span> <span class="n">Ai</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">S_c</span> <span class="o">/</span> <span class="n">epsilon</span><span class="p">)</span>
+                <span class="n">u_corrected</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">a_c</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Ai</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">S_c</span> <span class="o">/</span> <span class="n">epsilon</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;airy&#39;</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Applied Airy corrections near </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">caustics</span><span class="p">)</span><span class="si">}</span><span class="s2"> fold caustics&quot;</span><span class="p">)</span>
@@ -988,10 +1186,10 @@
     
     <span class="c1"># Classify and correct each caustic</span>
     <span class="k">for</span> <span class="n">caustic</span> <span class="ow">in</span> <span class="n">caustics</span><span class="p">:</span>
-        <span class="n">x_c</span><span class="p">,</span> <span class="n">y_c</span> <span class="o">=</span> <span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;position&#39;</span><span class="p">]</span>
-        <span class="n">caustic_type</span> <span class="o">=</span> <span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span>
+        <span class="n">x_c</span><span class="p">,</span> <span class="n">y_c</span> <span class="o">=</span> <span class="n">caustic</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">caustic</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">caustic_type</span> <span class="o">=</span> <span class="n">caustic</span><span class="o">.</span><span class="n">arnold_type</span>
         
-        <span class="k">if</span> <span class="n">caustic_type</span> <span class="o">==</span> <span class="s1">&#39;airy&#39;</span> <span class="ow">or</span> <span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;caustic_type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;A2&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">caustic</span><span class="o">.</span><span class="n">arnold_type</span> <span class="o">==</span> <span class="s1">&#39;A2&#39;</span><span class="p">:</span>
             <span class="c1"># Fold caustic - use Airy</span>
             <span class="n">correction_width</span> <span class="o">=</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">epsilon</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
             
@@ -1007,7 +1205,9 @@
                 <span class="n">z</span> <span class="o">=</span> <span class="n">dist</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">/</span> <span class="n">epsilon</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
                 
                 <span class="c1"># Airy correction</span>
-                <span class="n">Ai</span> <span class="o">=</span> <span class="n">CausticFunctions</span><span class="o">.</span><span class="n">airy_uniform</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">airy</span> <span class="k">as</span> <span class="n">_airy</span>
+                <span class="n">Ai</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_airy</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+                <span class="n">Ai</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Ai</span>
                 
                 <span class="n">idx_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_c</span><span class="p">))</span>
                 <span class="n">idx_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Y</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">y_c</span><span class="p">))</span>
@@ -1017,7 +1217,7 @@
                 
                 <span class="n">u_corrected</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">a_c</span> <span class="o">*</span> <span class="n">Ai</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">S_c</span> <span class="o">/</span> <span class="n">epsilon</span><span class="p">)</span>
         
-        <span class="k">elif</span> <span class="n">caustic_type</span> <span class="o">==</span> <span class="s1">&#39;pearcey&#39;</span> <span class="ow">or</span> <span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;caustic_type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;A3&#39;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">caustic</span><span class="o">.</span><span class="n">arnold_type</span> <span class="o">==</span> <span class="s1">&#39;A3&#39;</span><span class="p">:</span>
             <span class="c1"># Cusp caustic - use Pearcey</span>
             <span class="n">correction_width</span> <span class="o">=</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">epsilon</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
             
@@ -1042,8 +1242,8 @@
                 <span class="n">u_corrected</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">a_c</span> <span class="o">*</span> <span class="n">P_vals</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">S_c</span> <span class="o">/</span> <span class="n">epsilon</span><span class="p">)</span>
     
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Applied corrections to </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">caustics</span><span class="p">)</span><span class="si">}</span><span class="s2"> caustics&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Fold (Airy): </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">caustics</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;caustic_type&#39;</span><span class="p">]</span><span class="o">==</span><span class="s1">&#39;A2&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Cusp (Pearcey): </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">caustics</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;caustic_type&#39;</span><span class="p">]</span><span class="o">==</span><span class="s1">&#39;A3&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Fold (Airy): </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">caustics</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">c</span><span class="o">.</span><span class="n">arnold_type</span><span class="o">==</span><span class="s1">&#39;A2&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Cusp (Pearcey): </span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">caustics</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">c</span><span class="o">.</span><span class="n">arnold_type</span><span class="o">==</span><span class="s1">&#39;A3&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     
     <span class="n">result</span> <span class="o">=</span> <span class="n">base_solution</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">result</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u_corrected</span>
@@ -1437,8 +1637,8 @@
         <span class="n">type_seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
 
         <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">caustics</span><span class="p">:</span>
-            <span class="n">x_c</span><span class="p">,</span> <span class="n">y_c</span> <span class="o">=</span> <span class="n">c</span><span class="p">[</span><span class="s1">&#39;position&#39;</span><span class="p">]</span>
-            <span class="n">t</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;caustic_type&#39;</span><span class="p">,</span> <span class="s1">&#39;A2&#39;</span><span class="p">)</span>
+            <span class="n">x_c</span><span class="p">,</span> <span class="n">y_c</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="s1">&#39;arnold_type&#39;</span><span class="p">,</span> <span class="s1">&#39;A2&#39;</span><span class="p">)</span>
 
             <span class="n">marker</span> <span class="o">=</span> <span class="s1">&#39;o&#39;</span> <span class="k">if</span> <span class="n">t</span> <span class="o">==</span> <span class="s1">&#39;A2&#39;</span> <span class="k">else</span> <span class="s1">&#39;s&#39;</span>
             <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span> <span class="k">if</span> <span class="n">t</span> <span class="o">==</span> <span class="s1">&#39;A2&#39;</span> <span class="k">else</span> <span class="s1">&#39;orange&#39;</span>
@@ -1585,10 +1785,10 @@
                         <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;|u| standard&#39;</span><span class="p">)</span>
         
         <span class="k">for</span> <span class="n">caustic</span> <span class="ow">in</span> <span class="n">caustics</span><span class="p">:</span>
-            <span class="n">x_c</span> <span class="o">=</span> <span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;position&#39;</span><span class="p">]</span>
+            <span class="n">x_c</span> <span class="o">=</span> <span class="n">caustic</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x_c</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
             <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">x_c</span><span class="p">,</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="mf">0.9</span><span class="p">,</span> 
-                        <span class="sa">f</span><span class="s2">&quot;Caustic</span><span class="se">\n</span><span class="si">{</span><span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;caustic_type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> 
+                        <span class="sa">f</span><span class="s2">&quot;Caustic</span><span class="se">\n</span><span class="si">{</span><span class="n">caustic</span><span class="o">.</span><span class="n">arnold_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> 
                         <span class="n">ha</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span>
                         <span class="n">bbox</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">boxstyle</span><span class="o">=</span><span class="s1">&#39;round&#39;</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="s1">&#39;yellow&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">))</span>
         
@@ -1605,7 +1805,7 @@
                         <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Maslov correction&#39;</span><span class="p">)</span>
         
         <span class="k">for</span> <span class="n">caustic</span> <span class="ow">in</span> <span class="n">caustics</span><span class="p">:</span>
-            <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;position&#39;</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+            <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">caustic</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
         
         <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Phase&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
         <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Phase and Maslov Index&#39;</span><span class="p">)</span>
@@ -1623,7 +1823,7 @@
             <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
             
             <span class="k">for</span> <span class="n">caustic</span> <span class="ow">in</span> <span class="n">caustics</span><span class="p">:</span>
-                <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;position&#39;</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+                <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">caustic</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
     
     <span class="k">else</span><span class="p">:</span>  <span class="c1"># 2D</span>
         <span class="n">n_caustics</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">caustics</span><span class="p">)</span>
@@ -1648,8 +1848,8 @@
         <span class="n">cusp_caustics</span> <span class="o">=</span> <span class="p">[]</span>
         
         <span class="k">for</span> <span class="n">caustic</span> <span class="ow">in</span> <span class="n">caustics</span><span class="p">:</span>
-            <span class="n">x_c</span><span class="p">,</span> <span class="n">y_c</span> <span class="o">=</span> <span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;position&#39;</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">caustic</span><span class="p">[</span><span class="s1">&#39;caustic_type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;A2&#39;</span><span class="p">:</span>
+            <span class="n">x_c</span><span class="p">,</span> <span class="n">y_c</span> <span class="o">=</span> <span class="n">caustic</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">caustic</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">caustic</span><span class="o">.</span><span class="n">arnold_type</span> <span class="o">==</span> <span class="s1">&#39;A2&#39;</span><span class="p">:</span>
                 <span class="n">fold_caustics</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">x_c</span><span class="p">,</span> <span class="n">y_c</span><span class="p">))</span>
                 <span class="n">ax_main</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_c</span><span class="p">,</span> <span class="n">y_c</span><span class="p">,</span> <span class="s1">&#39;ro&#39;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> 
                            <span class="n">markeredgecolor</span><span class="o">=</span><span class="s1">&#39;white&#39;</span><span class="p">,</span> <span class="n">markeredgewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
@@ -1929,6 +2129,196 @@
     <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_tests</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run a series of tests for the WKB module, generating plots for verification.</span>
+<span class="sd">    If verbose, prints progress and shows plots.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;=&quot;</span><span class="o">*</span><span class="mi">60</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  wkb.py — self-test with visualisation&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="o">*</span><span class="mi">60</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Test 1: 1D harmonic oscillator (no caustics)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Test 1: 1D harmonic oscillator (no caustics expected)&quot;</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">symbol_1d</span> <span class="o">=</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span>
+
+    <span class="n">n_rays</span> <span class="o">=</span> <span class="mi">30</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n_rays</span><span class="p">)</span>
+    <span class="n">initial_1d</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">x0</span><span class="p">,</span>
+        <span class="s1">&#39;p_x&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_rays</span><span class="p">),</span>
+        <span class="s1">&#39;S&#39;</span><span class="p">:</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">x0</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span>
+        <span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x0</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">result_1d</span> <span class="o">=</span> <span class="n">wkb_approximation</span><span class="p">(</span>
+        <span class="n">symbol_1d</span><span class="p">,</span> <span class="n">initial_1d</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">resolution</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  → </span><span class="si">{</span><span class="n">result_1d</span><span class="p">[</span><span class="s1">&#39;n_rays&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> rays traced&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  → max |u| = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">result_1d</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]))</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Plot 1D result</span>
+    <span class="n">fig1</span><span class="p">,</span> <span class="n">ax1</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+    <span class="n">x_plot</span> <span class="o">=</span> <span class="n">result_1d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_plot</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">result_1d</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]),</span> <span class="s1">&#39;b-&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Re(u)&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_plot</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="n">result_1d</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]),</span> <span class="s1">&#39;r--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Im(u)&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_plot</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">result_1d</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]),</span> <span class="s1">&#39;g:&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;|u|&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Test 1: 1D harmonic oscillator (order 2, ε=0.1)&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Test 2: 2D point source (circular waves)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Test 2: 2D point source (circular waves)&quot;</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">symbol_2d</span> <span class="o">=</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">eta</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">c</span><span class="o">**</span><span class="mi">2</span>
+
+    <span class="n">n_rays</span> <span class="o">=</span> <span class="mi">36</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">n_rays</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">r0</span> <span class="o">=</span> <span class="mf">0.5</span>
+    <span class="n">initial_2d</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">r0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span>
+        <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">r0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span>
+        <span class="s1">&#39;p_x&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span>
+        <span class="s1">&#39;p_y&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span>
+        <span class="s1">&#39;S&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_rays</span><span class="p">),</span>
+        <span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_rays</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">result_2d</span> <span class="o">=</span> <span class="n">wkb_approximation</span><span class="p">(</span>
+        <span class="n">symbol_2d</span><span class="p">,</span> <span class="n">initial_2d</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">resolution</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">80</span><span class="p">),</span> <span class="n">domain</span><span class="o">=</span><span class="p">((</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  → </span><span class="si">{</span><span class="n">result_2d</span><span class="p">[</span><span class="s1">&#39;n_rays&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> rays traced&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  → max |u| = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">result_2d</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]))</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">fig2</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">result_2d</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">result_2d</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>
+    <span class="n">im1</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">result_2d</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]),</span> <span class="n">shading</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Test 2: |u| (point source)&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im1</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">ray</span> <span class="ow">in</span> <span class="n">result_2d</span><span class="p">[</span><span class="s1">&#39;rays&#39;</span><span class="p">][::</span><span class="nb">len</span><span class="p">(</span><span class="n">result_2d</span><span class="p">[</span><span class="s1">&#39;rays&#39;</span><span class="p">])</span><span class="o">//</span><span class="mi">10</span><span class="p">]:</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ray</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">ray</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span> <span class="s1">&#39;w-&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+
+    <span class="n">im2</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">result_2d</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]),</span> <span class="n">shading</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;RdBu_r&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Test 2: Re(u)&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im2</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Test 3: 1D with a caustic (fold) – use J integration</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Test 3: 1D with a caustic (fold) – Airy pattern expected&quot;</span><span class="p">)</span>
+    <span class="n">symbol_caustic</span> <span class="o">=</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">x</span>
+    <span class="n">x0_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">25</span><span class="p">)</span>
+    <span class="n">initial_caustic</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">x0_c</span><span class="p">,</span>
+        <span class="s1">&#39;p_x&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">x0_c</span><span class="p">),</span>
+        <span class="s1">&#39;S&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x0_c</span><span class="p">),</span>
+        <span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">x0_c</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">result_no_corr</span> <span class="o">=</span> <span class="n">wkb_approximation</span><span class="p">(</span>
+        <span class="n">symbol_caustic</span><span class="p">,</span> <span class="n">initial_caustic</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">resolution</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">),</span> <span class="n">caustic_correction</span><span class="o">=</span><span class="s1">&#39;none&#39;</span>
+    <span class="p">)</span>
+    <span class="n">result_corr</span> <span class="o">=</span> <span class="n">wkb_approximation</span><span class="p">(</span>
+        <span class="n">symbol_caustic</span><span class="p">,</span> <span class="n">initial_caustic</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">resolution</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">),</span> <span class="n">caustic_correction</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span>
+        <span class="n">caustic_threshold</span><span class="o">=</span><span class="mf">1e-2</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="n">n_c</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">result_corr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;caustics&#39;</span><span class="p">,</span> <span class="p">[]))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  → detected </span><span class="si">{</span><span class="n">n_c</span><span class="si">}</span><span class="s2"> caustics (note: J non intégré → 0)&quot;</span><span class="p">)</span>
+
+    <span class="n">fig3</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">sharex</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">x_plot</span> <span class="o">=</span> <span class="n">result_no_corr</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_plot</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">result_no_corr</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]),</span> <span class="s1">&#39;b-&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;standard WKB&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_plot</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">result_corr</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]),</span> <span class="s1">&#39;r--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;with caustic correction&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;|u|&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Test 3: 1D caustic (fold) – amplitude&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_plot</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">result_no_corr</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]),</span> <span class="s1">&#39;b-&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;standard&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_plot</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">result_corr</span><span class="p">[</span><span class="s1">&#39;u&#39;</span><span class="p">]),</span> <span class="s1">&#39;r--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;corrected&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Re(u)&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Real part&#39;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">result_corr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;caustics&#39;</span><span class="p">):</span>
+        <span class="n">x_c</span> <span class="o">=</span> <span class="n">result_corr</span><span class="p">[</span><span class="s1">&#39;caustics&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x_c</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x_c</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Test 4: Comparison of orders for 1D oscillator</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Test 4: Compare WKB orders (0,1,2) for 1D oscillator&quot;</span><span class="p">)</span>
+    <span class="n">solutions</span><span class="p">,</span> <span class="n">fig4</span> <span class="o">=</span> <span class="n">compare_orders</span><span class="p">(</span>
+        <span class="n">symbol_1d</span><span class="p">,</span> <span class="n">initial_1d</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">resolution</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Test 5: Amplitude decomposition for 2D point source</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Test 5: Amplitude decomposition for 2D point source&quot;</span><span class="p">)</span>
+    <span class="n">result_2d_high</span> <span class="o">=</span> <span class="n">wkb_approximation</span><span class="p">(</span>
+        <span class="n">symbol_2d</span><span class="p">,</span> <span class="n">initial_2d</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">resolution</span><span class="o">=</span><span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="mi">60</span><span class="p">),</span> <span class="n">domain</span><span class="o">=</span><span class="p">((</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="p">)</span>
+    <span class="n">fig5</span> <span class="o">=</span> <span class="n">plot_amplitude_decomposition</span><span class="p">(</span><span class="n">result_2d_high</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Test 6: Phase space plot</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Test 6: Phase space plot&quot;</span><span class="p">)</span>
+    <span class="n">fig6</span> <span class="o">=</span> <span class="n">plot_phase_space</span><span class="p">(</span><span class="n">result_1d</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Test 7: Caustic analysis plot (if detected)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="k">if</span> <span class="n">result_corr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;caustics&#39;</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Test 7: Caustic analysis plot&quot;</span><span class="p">)</span>
+        <span class="n">fig7</span> <span class="o">=</span> <span class="n">plot_caustic_analysis</span><span class="p">(</span><span class="n">result_corr</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Test 7: Skipped (no caustic in test 3)&quot;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;=&quot;</span><span class="o">*</span><span class="mi">60</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  All tests completed. Close the figure windows to exit.&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="o">*</span><span class="mi">60</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;test1_1d_harmonic&#39;</span><span class="p">:</span> <span class="n">result_1d</span><span class="p">,</span>
+        <span class="s1">&#39;test2_2d_point&#39;</span><span class="p">:</span> <span class="n">result_2d</span><span class="p">,</span>
+        <span class="s1">&#39;test3_caustic_1d&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">result_no_corr</span><span class="p">,</span> <span class="n">result_corr</span><span class="p">),</span>
+    <span class="p">}</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">_run_tests</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 
            </div>

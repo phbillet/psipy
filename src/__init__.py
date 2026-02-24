@@ -117,14 +117,12 @@ from .physics import *
 from .geometry_1d import *
 from .geometry_2d import *
 from .hamiltonian_catalog import *
-from .riemannian_1d import *
-from .riemannian_2d import *
-from .symplectic_1d import *
-from .symplectic_2d import *
-from .microlocal_1d import *
-from .microlocal_2d import *
-from asymptotic import *
-from fio_bridge import *
+from .riemannian import *
+from .symplectic import *
+from .microlocal import *
+from .asymptotic import *
+from .fio_bridge import *
+from .wkb import * 
 
 # Version du package
 __version__ = version("psipy")

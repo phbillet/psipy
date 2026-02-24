@@ -81,18 +81,10 @@ src.imports module
    :show-inheritance:
    :undoc-members:
 
-src.microlocal\_1d module
+src.microlocal module
 -------------------------
 
-.. automodule:: src.microlocal_1d
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-src.microlocal\_2d module
--------------------------
-
-.. automodule:: src.microlocal_2d
+.. automodule:: src.microlocal
    :members:
    :show-inheritance:
    :undoc-members:
@@ -129,18 +121,10 @@ src.psiop module
    :show-inheritance:
    :undoc-members:
 
-src.riemannian\_1d module
+src.riemannian module
 -------------------------
 
-.. automodule:: src.riemannian_1d
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-src.riemannian\_2d module
--------------------------
-
-.. automodule:: src.riemannian_2d
+.. automodule:: src.riemannian
    :members:
    :show-inheritance:
    :undoc-members:
@@ -153,21 +137,14 @@ src.solver module
    :show-inheritance:
    :undoc-members:
 
-src.symplectic\_1d module
+src.symplectic module
 -------------------------
 
-.. automodule:: src.symplectic_1d
+.. automodule:: src.symplectic
    :members:
    :show-inheritance:
    :undoc-members:
 
-src.symplectic\_2d module
--------------------------
-
-.. automodule:: src.symplectic_2d
-   :members:
-   :show-inheritance:
-   :undoc-members:
 
 src.wkb module
 --------------

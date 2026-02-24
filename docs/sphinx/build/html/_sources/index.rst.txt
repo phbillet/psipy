@@ -13,14 +13,12 @@ psipy — Documentation
    geometry_2d
    hamiltonian_catalog
    hpc_examples
-   microlocal_1d
-   microlocal_2d
+   microlocal
    misc
    mupsipy
    physics
    psiop
    riemannian
    solver
-   symplectic_1d
-   symplectic_2d
+   symplectic
    wkb
