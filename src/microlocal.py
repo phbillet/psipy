@@ -502,12 +502,236 @@ def plot_bicharacteristics(symbol, initial_points, tspan, dim=None,
     plt.tight_layout()
     plt.show()
 
-def compute_maslov_index(traj, p):
+
+def plot_wavefront_set(symbol, initial_sing_support, tspan,
+                      dim=None, projection='cotangent',
+                      n_steps=500, cmap='plasma',
+                      show_flow=True, show_endpoints=True,
+                      title=None, ax=None):
+    """
+    Plot the wavefront set WF(u) of a distribution u whose singularities
+    propagate along bicharacteristics of the operator with symbol p.
+
+    The wavefront set is represented as a subset of the cotangent bundle T*ℝⁿ.
+    Each initial point (x₀, ξ₀) seeds a bicharacteristic strip; the union of
+    these strips in phase space approximates WF(u) at time tspan[1].
+
+    Parameters
+    ----------
+    symbol : sympy expression
+        Principal symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D.
+    initial_sing_support : list of tuples
+        Seed points on the wavefront set at t=0.
+        1D: list of (x₀, ξ₀) pairs.
+        2D: list of (x₀, y₀, ξ₀, η₀) quadruples.
+    tspan : tuple
+        (t_start, t_end) for bicharacteristic integration.
+    dim : int, optional
+        Dimension (1 or 2). Inferred from seed points if None.
+    projection : str
+        Which subspace to visualise (dimension-dependent):
+        - 1D:
+            'cotangent'  – (x, ξ) phase-space portrait  [default]
+            'position'   – x(t) projected onto ℝ (singular support)
+        - 2D:
+            'cotangent'  – (x, ξ) slice (ignoring y, η)
+            'position'   – (x, y) projection (singular support in ℝ²)
+            'frequency'  – (ξ, η) projection (directions of non-smoothness)
+            'full'       – 2×2 grid: position, frequency, (x,ξ), (y,η)
+    n_steps : int
+        Number of integration steps per bicharacteristic.
+    cmap : str
+        Matplotlib colormap used to colour individual bicharacteristics
+        (colour encodes the index of the seed point, i.e. which part of the
+        initial singular support it originated from).
+    show_flow : bool
+        If True, draw the full bicharacteristic strip (trajectory in phase
+        space). If False, only show the endpoint scatter.
+    show_endpoints : bool
+        If True, mark the *initial* point (green •) and *final* point (red •)
+        of each bicharacteristic.
+    title : str, optional
+        Figure title. A sensible default is generated if None.
+    ax : matplotlib Axes or array of Axes, optional
+        Axes to draw into. If None a new figure is created. For
+        projection='full' (2D) pass an array of 4 Axes or leave None.
+
+    Returns
+    -------
+    fig : matplotlib Figure
+    axes : Axes or array of Axes
+
+    Examples
+    --------
+    1D example – Schrödinger-type operator, horizontal line singularity::
+
+        x, xi = sp.symbols('x xi', real=True)
+        p = xi**2 - (1 - x**2)           # simple potential well symbol
+        seeds = [(xi_val, float(xi_val)) for xi_val in np.linspace(-1, 1, 12)]
+        fig, ax = plot_wavefront_set(p, seeds, tspan=(0, 4), dim=1)
+        plt.show()
+
+    2D example – wave operator, outward circular wavefront::
+
+        x, y, xi, eta = sp.symbols('x y xi eta', real=True)
+        p = xi**2 + eta**2 - 1
+        seeds = [(np.cos(t), np.sin(t), np.cos(t), np.sin(t))
+                 for t in np.linspace(0, 2*np.pi, 24, endpoint=False)]
+        fig, axes = plot_wavefront_set(p, seeds, tspan=(0, 2), dim=2,
+                                       projection='full')
+        plt.show()
+    """
+    # ------------------------------------------------------------------ setup
+    if dim is None:
+        dim = 2 if len(initial_sing_support[0]) == 4 else 1
+    n_seeds = len(initial_sing_support)
+    colors = plt.get_cmap(cmap)(np.linspace(0.05, 0.95, n_seeds))
+
+    # ------------------------------------------------- integrate all trajectories
+    trajs = []
+    for z0 in initial_sing_support:
+        traj = bicharacteristic_flow(symbol, z0, tspan, dim=dim,
+                                     method='symplectic', n_steps=n_steps)
+        trajs.append(traj)
+
+    # ------------------------------------------------- build figure / axes
+    if projection == 'full' and dim == 2:
+        if ax is None:
+            fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+            axes = axes.flatten()
+        else:
+            axes = np.asarray(ax).flatten()
+            fig = axes[0].get_figure()
+        ax_list = [
+            (axes[0], 'x', 'y',   'position',  'Position space  (x, y)'),
+            (axes[1], 'xi', 'eta', 'frequency', 'Frequency space  (ξ, η)'),
+            (axes[2], 'x', 'xi',  'mixed_x',   'Cotangent slice  (x, ξ)'),
+            (axes[3], 'y', 'eta', 'mixed_y',   'Cotangent slice  (y, η)'),
+        ]
+        for idx, traj in enumerate(trajs):
+            c = colors[idx]
+            x0, y0   = traj['x'][0],  traj['y'][0]
+            xi0, eta0 = traj['xi'][0], traj['eta'][0]
+            xf, yf   = traj['x'][-1],  traj['y'][-1]
+            xif, etaf = traj['xi'][-1], traj['eta'][-1]
+            pairs = [
+                (traj['x'],  traj['y'],   x0, y0,   xf, yf),
+                (traj['xi'], traj['eta'], xi0, eta0, xif, etaf),
+                (traj['x'],  traj['xi'],  x0, xi0,  xf, xif),
+                (traj['y'],  traj['eta'], y0, eta0,  yf, etaf),
+            ]
+            for (ax_obj, kx, ky, proj_label, panel_title), (u, v, u0, v0, uf, vf) \
+                    in zip(ax_list, pairs):
+                if show_flow:
+                    ax_obj.plot(u, v, color=c, alpha=0.6, lw=1.2)
+                if show_endpoints:
+                    ax_obj.plot(u0, v0, 'o', color='limegreen', ms=5,
+                                zorder=5, markeredgewidth=0)
+                    ax_obj.plot(uf, vf, 's', color='crimson', ms=4,
+                                zorder=5, markeredgewidth=0)
+        for (ax_obj, kx, ky, proj_label, panel_title) in ax_list:
+            ax_obj.set_xlabel({'x': 'x', 'xi': 'ξ', 'y': 'y', 'eta': 'η'}[kx])
+            ax_obj.set_ylabel({'x': 'x', 'xi': 'ξ', 'y': 'y', 'eta': 'η'}[ky])
+            ax_obj.set_title(panel_title, fontsize=10)
+            ax_obj.grid(alpha=0.25)
+            ax_obj.set_aspect('equal', adjustable='datalim')
+        fig.suptitle(
+            title or 'Wavefront set  WF(u)  [2D, full cotangent bundle]',
+            fontsize=13, fontweight='bold')
+        plt.tight_layout()
+        return fig, axes
+
+    # --------------------------------- single-panel projections (1D or 2D)
+    if ax is None:
+        fig, axes = plt.subplots(figsize=(8, 6))
+    else:
+        axes = ax
+        fig = axes.get_figure()
+
+    # Determine what to plot on each axis
+    if dim == 1:
+        if projection in ('cotangent', 'phase'):
+            get_u = lambda t: t['x']
+            get_v = lambda t: t['xi']
+            xlabel, ylabel = 'x', 'ξ'
+            equal_aspect = False
+        elif projection == 'position':
+            get_u = lambda t: t['t']
+            get_v = lambda t: t['x']
+            xlabel, ylabel = 't', 'x  (singular support)'
+            equal_aspect = False
+        else:
+            raise ValueError(
+                f"Unknown projection '{projection}' for dim=1. "
+                "Choose 'cotangent' or 'position'.")
+    else:  # dim == 2
+        if projection in ('cotangent', 'mixed_x'):
+            get_u = lambda t: t['x']
+            get_v = lambda t: t['xi']
+            xlabel, ylabel = 'x', 'ξ'
+            equal_aspect = True
+        elif projection == 'position':
+            get_u = lambda t: t['x']
+            get_v = lambda t: t['y']
+            xlabel, ylabel = 'x', 'y'
+            equal_aspect = True
+        elif projection == 'frequency':
+            get_u = lambda t: t['xi']
+            get_v = lambda t: t['eta']
+            xlabel, ylabel = 'ξ', 'η'
+            equal_aspect = True
+        elif projection == 'mixed_y':
+            get_u = lambda t: t['y']
+            get_v = lambda t: t['eta']
+            xlabel, ylabel = 'y', 'η'
+            equal_aspect = True
+        else:
+            raise ValueError(
+                f"Unknown projection '{projection}' for dim=2. "
+                "Choose 'cotangent', 'position', 'frequency', 'mixed_x', "
+                "'mixed_y', or 'full'.")
+
+    for idx, traj in enumerate(trajs):
+        c = colors[idx]
+        u = get_u(traj)
+        v = get_v(traj)
+        if show_flow:
+            axes.plot(u, v, color=c, alpha=0.65, lw=1.5)
+        if show_endpoints:
+            axes.plot(u[0],  v[0],  'o', color='limegreen', ms=7,
+                      zorder=5, label='initial' if idx == 0 else '')
+            axes.plot(u[-1], v[-1], 's', color='crimson',   ms=5,
+                      zorder=5, label='final'   if idx == 0 else '')
+
+    axes.set_xlabel(xlabel, fontsize=12)
+    axes.set_ylabel(ylabel, fontsize=12)
+    if equal_aspect:
+        axes.set_aspect('equal', adjustable='datalim')
+
+    if title is None:
+        dim_str = f'{dim}D'
+        title = f'Wavefront set  WF(u)  [{dim_str}, projection: {projection}]'
+    axes.set_title(title, fontsize=12)
+    axes.grid(alpha=0.3)
+    if show_endpoints:
+        handles, labels = axes.get_legend_handles_labels()
+        if labels:
+            axes.legend(fontsize=9)
+    plt.tight_layout()
+    return fig, axes
+
+
+def compute_maslov_index(traj, p=None):
+    """
+    Compute the Maslov index for a single trajectory.
+    traj : dict returned by bicharacteristic_flow (must contain J11..J22 or J)
+    p    : unused (kept for compatibility)
+    """
     dim = 2 if 'J22' in traj else 1
-    detector = RayCausticDetector([traj], dim)
+    detector = RayCausticDetector([traj], dimension=dim, det_threshold=0.05)
     detector.detect()
     return detector.maslov_index(0)
-
+    
 def compute_caustics_2d(p, initial_curve, tmax, n_rays=None, **kwargs):
     """
     Compute caustics for a 2D Hamiltonian given an initial curve.
@@ -775,5 +999,27 @@ if __name__ == "__main__":
     plt.grid(alpha=0.3)
     plt.show()
     print("✓ bohr_sommerfeld_quantization – plot shown")
+
+
+    print("\nTest: 1D wavefront set")
+    x, xi = sp.symbols('x xi', real=True)
+    p = xi**2 - (1 - x**2)
+    seeds = [(x0, 1.0) for x0 in np.linspace(-1, 1, 12)]
+    
+    fig, ax = plot_wavefront_set(p, seeds, tspan=(0, 4), dim=1,
+                                  projection='cotangent')   # (x, ξ) portrait
+    plt.show()
+    print("✓ 1D plot_wavefront_set – plot shown")
+
+    print("\nTest: 2D wavefront set")
+    x, y, xi, eta = sp.symbols('x y xi eta', real=True)
+    p = xi**2 + eta**2 - 1
+    seeds = [(np.cos(t), np.sin(t), np.cos(t), np.sin(t))
+             for t in np.linspace(0, 2*np.pi, 24, endpoint=False)]
+    
+    fig, axes = plot_wavefront_set(p, seeds, tspan=(0, 2), dim=2,
+                                    projection='full')   # 2×2 grid
+    plt.show()
+    print("✓ 2D plot_wavefront_set – plot shown")
 
     print("\n✓ All tests passed and plots displayed")
