@@ -1,154 +1,115 @@
-# $\psi\pi$ (psipy)
+# $\psi\pi$ (psipy) – Pseudodifferential Operator Toolkit
+# ψπ (psipy) – Pseudodifferential Operator Toolkit
 
 [![CI – Scripts + Coverage + Docs](https://github.com/phbillet/psipy/actions/workflows/ci.yml/badge.svg)](https://github.com/phbillet/psipy/actions/workflows/ci.yml)
-
 [![codecov](https://codecov.io/gh/phbillet/psipy/branch/main/graph/badge.svg)](https://codecov.io/gh/phbillet/psipy)
 
-Pseudo-differential operator toolkit.
+**Documentation:** [https://phbillet.github.io/psipy/](https://phbillet.github.io/psipy/)
 
+`psipy` is a unified Python framework for symbolic–numerical analysis of partial differential equations (PDEs), pseudo‑differential operators (ΨDOs), and semiclassical asymptotics. It bridges the gap between formal symbolic manipulation (SymPy) and high‑performance numerical computation (NumPy/SciPy), enabling deep exploration of phase‑space geometry, caustics, and spectral properties in both 1D and 2D.
 
-> Python library for solving PDEs using pseudodifferential operators and spectral methods, with applications to Hamiltonian mechanics.
+The library provides a comprehensive toolkit for researchers in mathematical physics, including:
+- Symbolic and numerical handling of pseudo‑differential operators.
+- Spectral PDE solvers with automatic term classification and ETD‑RK4 time stepping.
+- Asymptotic evaluation of oscillatory integrals (stationary phase, Laplace, saddle point).
+- Rigorous caustic detection and Arnold classification via the stability matrix.
+- Multidimensional WKB approximations with uniform caustic corrections.
+- Hamiltonian and Lagrangian mechanics (Legendre transforms, symbolic PDE generation).
+- A curated catalog of over 500 Hamiltonian systems for testing and research.
+- Geometric analysis of 1D/2D Hamiltonian flows, periodic orbits, and semiclassical spectra.
 
-`psipy` is a comprehensive, multi-layered Python ecosystem for advanced computational physics and symbolic mathematics. It bridges the gap between the formal symbolic representation of dynamical systems (using `SymPy`) and their numerical simulation and geometric analysis.
-
-The library allows you to define, analyze, and solve complex partial differential equations (PDEs), especially those involving **pseudo-differential operators (ΨDOs)**. It provides tools to move seamlessly between Lagrangian, Hamiltonian, and PDE formulations, solve the resulting equations using spectral methods, and deeply analyze the underlying phase-space geometry and semiclassical properties.
-
------
+---
 
 ## Core Features
 
-### 🔹 Pseudo-Differential Operators (ΨDOs)
+### 🔹 Pseudo‑Differential Operators (ΨDOs)
+- Define operators from a symbol $p(x,\xi)$ or derive them automatically from differential expressions.
+- Symbolic calculus: asymptotic expansion, composition, commutators, formal adjoints, exponential, and left/right inverses.
+- Microlocal analysis: ellipticity checks, characteristic sets, Hamiltonian flows, and pseudospectrum.
 
-  * **Symbolic & Numerical Framework**: Define operators from a symbol $p(x, \xi)$ or derive them automatically from differential expressions.
-  * **Symbolic Calculus**: Perform symbolic composition, compute commutators `[A, B]`, formal adjoints, and asymptotic expansions.
-  * **Microlocal Analysis**: Test for ellipticity, compute characteristic sets, and analyze Hamiltonian flows.
+### 🔹 PDE Solving with Spectral Methods
+- Solve **1D & 2D** linear/nonlinear time‑dependent or stationary PDEs.
+- **Automatic parsing** of SymPy equations into linear, nonlinear, source, and pseudo‑differential terms.
+- **Spectral (FFT) discretization** with periodic or Dirichlet boundary conditions.
+- Advanced time‑stepping: default exponential integrator and **ETD‑RK4** (Exponential Time Differencing Runge–Kutta 4).
+- Stationary problems solved via asymptotic inversion of elliptic ΨDOs.
 
-### 🔹 PDE Solving
+### 🔹 Asymptotic Evaluation of Oscillatory Integrals
+- Automatic detection of integration method (stationary phase, Laplace, saddle point) from the phase function.
+- **High‑order asymptotics** for Morse, Airy (fold), and Pearcey (cusp) singularities.
+- Full second‑order corrections for Morse points, including amplitude and phase anharmonicities.
+- **Saddle‑point** continuation for complex phases (with cautionary warnings).
 
-  * **Solve 1D & 2D linear and nonlinear PDEs** (time-dependent or stationary).
-  * **Spectral (FFT) methods** with support for periodic and Dirichlet boundary conditions.
-  * **Symbolic PDE Parsing**: Automatically parses `SymPy` equations to classify linear, nonlinear, and pseudo-differential terms.
-  * **Advanced Time-Stepping**: Includes exponential integrators like **ETD-RK4** (Exponential Time Differencing Runge–Kutta 4th order).
+### 🔹 Caustic Detection and Arnold Classification
+- **Algebraic classification** of 1D and 2D catastrophes up to \(A_5\) and \(D_4^\pm\).
+- **Adaptive critical‑point solver** that combines symbolic solving and grid‑based Newton refinement.
+- **Ray‑based caustic detection** using the stability matrix \(J(t)\) (corrected method); computes Maslov index and Arnold type.
 
-### 🔹 Symbolic Engine & Mechanics
+### 🔹 Multidimensional WKB Approximation
+- Ray tracing for eikonal and transport equations up to third order.
+- Co‑integration of the **stability matrix** \(J\) for rigorous caustic detection.
+- Uniform caustic corrections using Airy (fold) and Pearcey (cusp) functions.
+- Automatic interpolation onto regular grids for 1D/2D solutions.
 
-  * **Symbolic Legendre Transforms**: Bidirectional, purely symbolic conversion between Lagrangian ($L$) and Hamiltonian ($H$) formulations.
-  * **Hamiltonian-to-PDE Conversion**: Automatically generates formal symbolic PDEs (Schrödinger, Wave, or Stationary) from a given Hamiltonian symbol $H(x, \xi)$.
-  * **Extensive Hamiltonian Catalog**: Includes a vast, curated symbolic library of **over 500 Hamiltonians** (e.g., Hénon–Heiles, chaotic, integrable) for research and testing.
+### 🔹 Geometric and Dynamical Analysis
+- **Unified 1D/2D geometry engine** for Hamiltonian systems: compute geodesics, periodic orbits, Gutzwiller trace, semiclassical spectrum.
+- **Symplectic integration** (symplectic Euler, Verlet) for arbitrary degrees of freedom.
+- Poincaré sections, KAM tori detection, and Lyapunov exponents for 2‑DOF systems.
+- **Riemannian geometry** (metric, Christoffel symbols, curvature, geodesic distance) in 1D/2D.
 
-### 🔹 Semiclassical & Geometric Analysis
+### 🔹 Hamiltonian & Lagrangian Mechanics
+- **Symbolic Legendre transforms** between Lagrangian and Hamiltonian formulations (classical and convex‑analytic via Legendre–Fenchel).
+- Automatic generation of formal PDEs (Schrödinger, wave, stationary) from a Hamiltonian symbol via ΨDOs.
+- Decomposition of Hamiltonians into local (polynomial) and nonlocal (e.g., sqrt, Abs) parts.
 
-  * **Phase Space Visualization**: Generate comprehensive 1D and 2D "visualization atlases" (up to 18 panels) for any Hamiltonian.
-  * **Geometric & Caustic Detection**: Compute classical trajectories (geodesics) and rigorously detect caustics by tracking the full system Jacobian.
-  * **Spectral Analysis**: Implements the **Gutzwiller trace formula** and **EBK quantization** to compute the semiclassical energy spectrum from periodic orbits.
-  * **Dynamical Systems Tools**: Generate **Poincaré sections**, analyze **KAM tori**, and compute Maslov indices.
+### 🔹 Extensive Hamiltonian Catalog
+- Over **500 pre‑defined symbolic Hamiltonians** covering classical mechanics, quantum systems, field theory, astrophysics, condensed matter, biophysics, and many interdisciplinary domains.
+- Search, filter, and export utilities for systematic exploration and benchmarking.
 
------
+### 🔹 Visualisation and Diagnostics
+- Rich plotting: phase‑space portraits, caustic overlays, convergence plots, amplitude decompositions.
+- **AsymptoticVisualizer** for stationary‑phase, Laplace, and saddle‑point integrals.
+- **Geometry visualizers** producing multi‑panel atlases (up to 18 panels) for any symbol.
 
-## Core Components
+---
 
-The `psipy` ecosystem is composed of several key modules that work together:
+## Core Modules
 
-| Module | Description |
-| :--- | :--- |
-| [**`psiop`**](docs/psiop.md) | Symbolic and numerical framework for pseudo-differential operators. Handles symbol definition, quantization, and analysis. |
-| [**`solver`**](docs/solver.md) | The main numerical engine. Solves time-dependent and stationary PDEs using spectral methods and exponential integrators. |
-| [**`physics`**](docs/physics.md) | A symbolic toolkit for analytical mechanics. Performs Legendre transforms ($L \leftrightarrow H$) and generates formal PDEs from Hamiltonian symbols. |
-| [**`hamiltonian_catalog`**](docs/hamiltonian_catalog.md) | A vast, symbolic library of **over 500** Hamiltonian systems for testing, research, and education. |
-| [**`geometry_1d`**](docs/geometry_1d.md) | A comprehensive visualization and analysis suite for 1D systems. Computes geodesics, periodic orbits, and the semiclassical spectrum. |
-| [**`geometry_2d`**](docs/geometry_2d.md) | An advanced toolkit for 2D systems. Handles rigorous caustic detection, Poincaré sections, and KAM theory visualization. |
+| Module          | Description |
+| :-------------- | :---------- |
+| `psiop`         | Symbolic and numerical framework for pseudo‑differential operators. Defines operators, performs symbolic calculus, and applies them via FFT/Kohn‑Nirenberg. |
+| `solver`        | Spectral PDE solver with automatic term classification, support for ΨDOs, and ETD‑RK4 time stepping. Solves both time‑dependent and stationary equations. |
+| `asymptotic`    | Large‑parameter asymptotics for oscillatory integrals. Detects method, finds critical points, and evaluates leading terms + corrections for Morse/Airy/Pearcey. |
+| `caustics`      | Arnold classification, adaptive critical‑point search, and ray‑based caustic detection with Maslov index. |
+| `wkb`           | Multidimensional WKB approximation with ray tracing, amplitude transport, and uniform caustic corrections. |
+| `microlocal`    | Unified microlocal toolkit: characteristic varieties, bicharacteristic flow, wavefront sets, and WKB integration. |
+| `fio_bridge`    | Fourier Integral Operator bridge: applies ΨDOs to WKB states via asymptotic evaluation, with precomputation for speed. Includes validation tools (CrossValidator). |
+| `symplectic`    | Hamiltonian mechanics for any number of degrees of freedom: symplectic integration, Poisson brackets, fixed points, action‑angle (1D), Poincaré sections (2D). |
+| `riemannian`    | Riemannian geometry in 1D/2D: metric, geodesics, curvature, Laplace–Beltrami, exponential map, and visualisation. |
+| `geometry`      | Comprehensive visualisation and analysis of 1D/2D Hamiltonian systems: geodesics, periodic orbits, caustics, Gutzwiller trace, semiclassical spectrum, KAM tori. |
+| `physics`       | Symbolic toolkit for Lagrangian–Hamiltonian conversion (Legendre transforms, Legendre–Fenchel with numeric fallback) and automatic PDE generation from Hamiltonian symbols. |
+| `hamiltonian_catalog` | Curated collection of over 500 symbolic Hamiltonians across many domains, with search, filtering, export, and metadata. |
 
------
+---
 
-## Example Usage
+## Installation
 
-### 1\. Solve a Time-Dependent PDE
-
-Quickly define a PDE symbolically and solve it numerically.
-
-```python
-from imports import * 
-from solver import PDESolver
-
-# Define symbolic variables
-t, x = symbols('t x')
-u = Function('u')
-
-# 1. Define the PDE symbolically (e.g., u_t = u_xx + u^2)
-eq = Eq(diff(u(t, x), t), diff(u(t, x), x, 2) + u(t, x)**2)
-
-# Define an initial condition
-def initial(x_grid):
-    return np.sin(x_grid)
-
-# 2. Set up and run the solver
-solver = PDESolver(eq)
-solver.setup(Lx=2*np.pi, Nx=128, Lt=1.0, Nt=1000, initial_condition=initial)
-solver.solve()
-
-# 3. Visualization
-ani = solver.animate(component='abs')
-HTML(ani.to_jshtml())
-
+```bash
+git clone https://github.com/phbillet/psipy.git
+cd psipy
+pip install -e .
 ```
 
-### 2\. Explore the Hamiltonian Catalog
+Dependencies: `numpy`, `scipy`, `sympy`, `matplotlib` (automatically installed).
 
-Fetch and analyze a symbolic Hamiltonian from the built-in library.
+---
 
-```python
-from hamiltonian_catalog import *
+## Documentation
 
-# 1. Get a specific system (e.g., Hénon–Heiles)
-H, variables, metadata = get_hamiltonian("henon_heiles")
-print(H)
+Detailed API documentation and tutorials are available in the `docs/` directory and online at [https://phbillet.github.io/psipy/](https://phbillet.github.io/psipy/). Each module is extensively documented with mathematical background and usage examples.
 
-# H -> (xi**2 + eta**2)/2 + (x**2 + y**2)/2 + alpha*(x**2*y - y**3/3)
-
-# 2. Pretty-print its information
-print_hamiltonian_info("henon_heiles")
-
-# 3. Search the catalog by keyword
-search_hamiltonians("pendulum")
-# ['double_pendulum_reduced', 'driven_pendulum', ...]
-```
-
-### 3\. Analyze 1D Hamiltonian Geometry
-
-Define a 1D Hamiltonian and generate its complete geometric and semiclassical analysis.
-
-```python
-import sympy as sp
-import matplotlib.pyplot as plt
-from geometry_1d import visualize_symbol
-
-# 1. Define symbolic variables
-x, xi = sp.symbols('x xi', real=True)
-
-# 2. Define the Hamiltonian (e.g., Harmonic Oscillator)
-H_symbol = xi**2 + x**2
-
-# 3. Set visualization parameters
-geodesics_params = [
-    (1.0, 0.0, 10.0, 'red'),  # (x0, xi0, t_max, color)
-    (0.0, 1.5, 10.0, 'blue')
-]
-
-# 4. Run the complete analysis and display the 15-panel figure
-fig, geos, orbits, spec = visualize_symbol(
-    symbol=H_symbol,
-    x_range=(-3, 3),
-    xi_range=(-3, 3),
-    geodesics_params=geodesics_params,
-    E_range=(0.5, 4.0),
-    hbar=0.1
-)
-
-plt.show()
-```
-
------
+---
 
 ## License
 
-Licensed under the **Apache License 2.0**.
+Licensed under the **Apache License 2.0**. See [LICENSE](LICENSE).

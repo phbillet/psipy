@@ -2410,7 +2410,7 @@ class PDESolver:
         if self.dim == 1:
             # Plot the solution in 1D
             plt.figure(figsize=(8, 4))
-            plt.plot(self.x_grid, get_component(u), label=f'{component} of u')
+            plt.plot(self.x_grid, _get_component(u), label=f'{component} of u')
             plt.xlabel('x')
             plt.ylabel(f'{component} of u')
             plt.title('Stationary solution (1D)')
