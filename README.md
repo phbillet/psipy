@@ -1,7 +1,7 @@
 # $\psi\pi$ (psipy) – Pseudodifferential Operator Toolkit
-# ψπ (psipy) – Pseudodifferential Operator Toolkit
 
 [![CI – Scripts + Coverage + Docs](https://github.com/phbillet/psipy/actions/workflows/ci.yml/badge.svg)](https://github.com/phbillet/psipy/actions/workflows/ci.yml)
+
 [![codecov](https://codecov.io/gh/phbillet/psipy/branch/main/graph/badge.svg)](https://codecov.io/gh/phbillet/psipy)
 
 **Documentation:** [https://phbillet.github.io/psipy/](https://phbillet.github.io/psipy/)
