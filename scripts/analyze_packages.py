@@ -70,11 +70,17 @@ def parse_module(filepath: Path) -> dict:
 
         # ── classes ──────────────────────────────────────────────
         elif isinstance(node, ast.ClassDef):
-            methods = [
-                n.name for n in ast.walk(node)
-                if isinstance(n, ast.FunctionDef) or
-                   isinstance(n, ast.AsyncFunctionDef)
-            ]
+            # Only direct children of the class body (not inherited, not nested)
+            methods = []
+            for item in node.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    args = [a.arg for a in item.args.args if a.arg != 'self']
+                    methods.append({
+                        'name'  : item.name,
+                        'args'  : args,
+                        'lineno': item.lineno,
+                        'doc'   : ast.get_docstring(item) or '',
+                    })
             bases = [
                 ast.unparse(b) for b in node.bases
             ]
@@ -309,6 +315,10 @@ def print_report(modules, graph, redundancies, suggestions):
         for cls in mod['classes']:
             print(f"    class {cls['name']:30s} "
                   f"({len(cls['methods'])} methods)")
+            for method in cls['methods']:
+                if not method['name'].startswith('_'):
+                    args_str = ', '.join(method['args'])
+                    print(f"        def {method['name']}({args_str})")
         for fn in mod['functions']:
             if not fn['name'].startswith('_'):
                 print(f"    def   {fn['name']}")

@@ -791,73 +791,7 @@ def compute_caustics_2d(p, initial_curve, tmax, n_rays=None, **kwargs):
     return events
 
 # ----------------------------------------------------------------------
-# Tests (unchanged, now using imported WKB functions)
-# ----------------------------------------------------------------------
-def test_characteristic_variety():
-    x, xi = sp.symbols('x xi', real=True)
-    p = xi**2 - 1
-    char = characteristic_variety(p)
-    assert char['explicit'] is not None and len(char['explicit']) == 2
-    print("✓ characteristic_variety (1D)")
-
-    x, y, xi, eta = sp.symbols('x y xi eta', real=True)
-    p2 = xi**2 + eta**2 - 1
-    char2 = characteristic_variety(p2)
-    assert char2['explicit'] is None
-    assert np.isclose(char2['function'](0,0,1,0), 0)
-    print("✓ characteristic_variety (2D)")
-
-def test_bicharacteristic_flow():
-    x, xi = sp.symbols('x xi', real=True)
-    p = xi
-    traj = bicharacteristic_flow(p, (0,1), (0,5), dim=1)
-    assert np.std(traj['xi']) < 1e-6
-    assert np.allclose(traj['x'], traj['t'], rtol=1e-2)
-    print("✓ bicharacteristic_flow (1D)")
-
-    x, y, xi, eta = sp.symbols('x y xi eta', real=True)
-    p2 = xi + eta
-    traj2 = bicharacteristic_flow(p2, (0,0,1,1), (0,5), dim=2)
-    assert np.std(traj2['xi']) < 1e-6 and np.std(traj2['eta']) < 1e-6
-    assert np.allclose(traj2['x'], traj2['t'], rtol=1e-2)
-    assert np.allclose(traj2['y'], traj2['t'], rtol=1e-2)
-    print("✓ bicharacteristic_flow (2D)")
-
-def test_wkb():
-    x, xi = sp.symbols('x xi', real=True)
-    p = xi**2 - (1 + 0.1*x)**2
-    ic = {'x': [0.0], 'S': [0.0], 'p_x': [1.0], 'a': {0:[1.0]}}
-    sol = wkb_approximation(p, ic, order=2, domain=(-5,5), epsilon=0.1)
-    assert sol['dimension'] == 1
-    assert sol['u'] is not None
-    print("✓ wkb_approximation (1D)")
-
-    x, y, xi, eta = sp.symbols('x y xi eta', real=True)
-    p2 = xi**2 + eta**2 - 1
-    ic2 = create_initial_data_circle(radius=1.0, n_points=20, outward=True)
-    sol2 = wkb_approximation(p2, ic2, order=1, domain=((-3,3),(-3,3)),
-                              resolution=50, epsilon=0.1)
-    assert sol2['dimension'] == 2
-    print("✓ wkb_approximation (2D)")
-
-def test_bohr_sommerfeld():
-    x, p = sp.symbols('x p', real=True)
-    H = p**2/2 + x**2/2
-    quant = bohr_sommerfeld_quantization(H, n_max=5)
-    expected = np.array([0.5, 1.5, 2.5, 3.5, 4.5])
-    assert np.allclose(quant['E_n'], expected, rtol=1e-2)
-    print("✓ bohr_sommerfeld_quantization")
-
-if __name__ == "__main__":
-    print("Running unified microlocal tests...\n")
-    test_characteristic_variety()
-    test_bicharacteristic_flow()
-    test_wkb()
-    test_bohr_sommerfeld()
-    print("\n✓ All tests passed")
-
-# ----------------------------------------------------------------------
-# Testing and examples
+# Tests
 # ----------------------------------------------------------------------
 def test_characteristic_variety():
     x, xi = sp.symbols('x xi', real=True)
@@ -916,15 +850,12 @@ def test_bohr_sommerfeld():
     print("✓ bohr_sommerfeld_quantization")
 
 if __name__ == "__main__":
-    print("Running unified microlocal tests...\n")
+    print("Running unified microlocal tests with visualisation...\n")
+
     test_characteristic_variety()
     test_bicharacteristic_flow()
     test_wkb()
     test_bohr_sommerfeld()
-    print("\n✓ All tests passed")
-
-    # ... (after all function definitions, before the tests)
-    print("Running unified microlocal tests with visualisation...\n")
 
     # Test 1: characteristic variety
     print("\nTest: characteristic_variety")

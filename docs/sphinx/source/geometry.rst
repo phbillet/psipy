@@ -1,7 +1,7 @@
-geometry_2d
-===========
+geometry
+========
 
-.. automodule:: geometry_2d
+.. automodule:: geometry
    :members:
    :undoc-members:
    :show-inheritance:

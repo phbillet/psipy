@@ -9,8 +9,7 @@ psipy — Documentation
    caustics
    cotangent_bundle
    fio_bridge
-   geometry_1d
-   geometry_2d
+   geometry
    hamiltonian_catalog
    hpc_examples
    microlocal
