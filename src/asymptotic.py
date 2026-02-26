@@ -1,4 +1,4 @@
-# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
+# Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-asymptotic — Large-parameter asymptotics for oscillatory and Laplace-type integrals
+asymptotic.py — Large-parameter asymptotics for oscillatory and Laplace-type integrals
 ====================================================================================
 
 Overview
@@ -53,8 +53,7 @@ decay) make the integrand self-cancelling.
     The leading term at a non-degenerate critical point (det ∇²φ ≠ 0,
     *Morse* point) is
 
-        I(λ) ≈ (2π/λ)^(n/2) · a(x_c) · exp(iλφ(x_c)) · exp(iπμ/4)
-                              / √|det ∇²φ(x_c)|
+        I(λ) ≈ (2π/λ)^(n/2) · a(x_c) · exp(iλφ(x_c)) · exp(iπμ/4) / √|det ∇²φ(x_c)|
 
     where n is the dimension and μ = n − 2σ is the Maslov index (σ =
     number of negative eigenvalues of ∇²φ).  Degenerate critical points
@@ -68,8 +67,7 @@ decay) make the integrand self-cancelling.
     The leading term is identical to the stationary-phase formula with the
     oscillatory factor replaced by a real Gaussian:
 
-        I(λ) ≈ (2π/λ)^(n/2) · a(x_c) · exp(−λψ(x_c))
-                              / √|det ∇²ψ(x_c)|
+        I(λ) ≈ (2π/λ)^(n/2) · a(x_c) · exp(−λψ(x_c)) / √|det ∇²ψ(x_c)|
 
     A second-order correction O(λ^(−n/2−1)) involving amplitude
     derivatives and phase anharmonicity (cubic/quartic tensors) is also
@@ -82,92 +80,13 @@ decay) make the integrand self-cancelling.
     as fast as possible, making the integrand a complex Gaussian.  The
     asymptotic formula is formally identical to the Morse case:
 
-        I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c))
-                              / √det ∇²φ(z_c)
+        I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c)) / √det ∇²φ(z_c)
 
     where the square root is taken on the principal branch.
     **Limitation:** this implementation uses a naive continuation strategy
     (minimising |∇φ(z)|² over ℝ^(2n)) and does NOT verify that the
     original contour can be deformed through the found saddle (Picard-
     Lefschetz theory).  A RuntimeWarning is always emitted.
-
-
-Public API
-----------
-The intended workflow involves three cooperating classes:
-
-Analyzer
-    Accepts symbolic SymPy expressions for φ(x) and a(x) and a list of
-    integration variables.  Automatically detects the integration method,
-    computes symbolic derivatives up to order 4, and converts them to fast
-    numerical (NumPy) functions.  Key methods:
-
-    * ``find_critical_points(initial_guesses)``
-          Returns real critical-point coordinates (for STATIONARY_PHASE and
-          LAPLACE) by minimising |∇φ|².
-    * ``analyze_point(xc)``
-          Returns a ``CriticalPoint`` dataclass holding the phase value,
-          Hessian, higher-order tensors, singularity classification and
-          integration method.  Accepts complex coordinates (for
-          SADDLE_POINT).
-
-SaddlePointEvaluator  *(SADDLE_POINT only)*
-    * ``find_saddle_points(analyzer, initial_guesses)``
-          Searches for saddle points in ℂⁿ by minimising |∇φ(u+iv)|²
-          over ℝ^(2n) starting from real initial guesses.  Returns complex
-          coordinate arrays to be passed to ``analyze_point``.
-
-AsymptoticEvaluator
-    Unified façade.  Accepts a ``CriticalPoint`` and the parameter λ, and
-    dispatches to the appropriate internal evaluator:
-
-    * STATIONARY_PHASE → ``StationaryPhaseEvaluator`` (Morse / Airy / Pearcey)
-    * LAPLACE          → ``LaplaceEvaluator``
-    * SADDLE_POINT     → ``SaddlePointEvaluator``
-
-    Returns an ``AsymptoticContribution`` dataclass containing the leading
-    term, the first correction, the total value, the decay exponent and the
-    method used.
-
-StationaryPhaseVisualizer  *(2D only)*
-    Diagnostic plots: phase landscape with critical-point annotation,
-    oscillatory integrand structure, and asymptotic convergence on log-log
-    axes.
-
-
-Minimal example
----------------
-::
-
-    import sympy as sp
-    import numpy as np
-    from asymptotic import Analyzer, AsymptoticEvaluator
-
-    x, y = sp.symbols('x y')
-
-    # φ is real → AUTO selects STATIONARY_PHASE
-    phi = x**2/2 + y**2/2 + x**3/10
-    amp = 1 + x**2
-
-    analyzer = Analyzer(phi, amp, [x, y])
-    print(analyzer.method)   # IntegralMethod.STATIONARY_PHASE
-
-    points  = analyzer.find_critical_points([np.array([0., 0.])])
-    cp      = analyzer.analyze_point(points[0])
-    result  = AsymptoticEvaluator().evaluate(cp, lam=100)
-
-    print(result.leading_term)    # dominant asymptotic term
-    print(result.total_value)     # leading + first correction
-
-
-Dependencies
-------------
-* numpy  — numerical arrays and linear algebra
-* sympy  — symbolic differentiation and lambdification
-* scipy  — special functions (airy, gamma) and numerical optimisation
-* matplotlib — visualisation (optional; only required for
-               StationaryPhaseVisualizer)
-
 
 References
 ----------

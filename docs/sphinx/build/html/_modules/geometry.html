@@ -43,14 +43,11 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
@@ -84,7 +81,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for geometry</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.</span>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
 <span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="c1"># you may not use this file except in compliance with the License.</span>
@@ -98,47 +95,73 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Geometric Visualization of Pseudodifferential Operator Symbols — 1D and 2D</span>
+<span class="sd">geometry.py — Geometric visualisation of pseudodifferential symbols in 1D and 2D</span>
+<span class="sd">======================================================================================</span>
 
-<span class="sd">Unified module merging geometry_1d and geometry_2d with a shared class hierarchy.</span>
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The `geometry` module provides a comprehensive framework for the geometric and semiclassical analysis of pseudodifferential operator symbols `H(x,ξ)` (1D) or `H(x,y,ξ,η)` (2D).  It combines **symbolic differentiation** (SymPy) with **numerical integration** (SciPy) to compute:</span>
 
-<span class="sd">Architecture</span>
-<span class="sd">------------</span>
-<span class="sd">  _sanitize                    — shared symbolic preprocessing (single definition)</span>
+<span class="sd">* Hamiltonian flows (geodesics) including variational equations for Jacobian matrices.</span>
+<span class="sd">* Caustics – points where rays focus – detected via zero crossings of the Jacobian determinant.</span>
+<span class="sd">* Periodic orbits at fixed energies, with stability analysis (Lyapunov exponents).</span>
+<span class="sd">* Maslov indices and phase shifts associated with caustic crossings.</span>
+<span class="sd">* Gutzwiller trace formula and semiclassical spectra (1D).</span>
+<span class="sd">* Weyl’s law, Berry‑Tabor level spacing, and KAM tori classification (2D).</span>
 
-<span class="sd">  GeodesicBase                 — common fields: t, H, energy</span>
-<span class="sd">    Geodesic1D                 — 1D: x, xi, J, K</span>
-<span class="sd">    Geodesic2D                 — 2D: x, y, xi, eta, J_full, det_caustic</span>
+<span class="sd">The module is designed for both **pedagogical exploration** (via richly annotated multi‑panel figures) and **research** (extracting quantitative data such as caustic networks, Poincaré sections, and action‑angle variables).</span>
 
-<span class="sd">  PeriodicOrbitBase            — common fields: period, action, energy</span>
-<span class="sd">    PeriodicOrbit1D            — 1D: x0, xi0, stability</span>
-<span class="sd">    PeriodicOrbit2D            — 2D: x0, y0, xi0, eta0, maslov_index</span>
+<span class="sd">Key features:</span>
 
-<span class="sd">  Spectrum                     — 1D semiclassical spectrum (FFT of trace)</span>
-<span class="sd">  CausticStructure             — 2D caustic classification</span>
+<span class="sd">* **Automatic dimension detection** – a single uniform interface for 1D and 2D problems.</span>
+<span class="sd">* **Exact symbolic derivatives** of the Hamiltonian, lambdified for fast numerical evaluation.</span>
+<span class="sd">* **Augmented ODE systems** that simultaneously integrate the Hamiltonian flow and the full 4×4 Jacobian (in 2D), enabling precise caustic detection.</span>
+<span class="sd">* **Periodic orbit search** with energy‑preserving initial guesses, deduplication, and stability computation.</span>
+<span class="sd">* **Caustic classification** (fold, cusp) using curvature analysis and hierarchical clustering.</span>
+<span class="sd">* **Rich visualisation atlas** – 15‑panel figures for 1D, dynamically arranged panels for 2D, covering:</span>
+<span class="sd">    * Hamiltonian surface, level sets, vector field.</span>
+<span class="sd">    * Group velocity, spatial projections, Jacobian evolution.</span>
+<span class="sd">    * Phase space portraits, Poincaré sections, momentum space.</span>
+<span class="sd">    * Periodic orbits, action‑energy diagrams, EBK quantisation.</span>
+<span class="sd">    * Gutzwiller trace, semiclassical spectrum, level spacing distributions.</span>
+<span class="sd">    * Caustic curves, Maslov phase shifts, phase space volume (Monte Carlo).</span>
+<span class="sd">* **Spectral analysis utilities** – Weyl’s law, integrability classification, Berry‑Tabor smoothed density.</span>
+<span class="sd">* **Theoretical summaries** printed on demand (`print_theory()`, `print_theory_summary()`).</span>
 
-<span class="sd">  SymbolGeometryBase (ABC)     — shared init helpers, duplicate removal, stability wrapper</span>
-<span class="sd">    SymbolGeometry             — 1D engine: Hamilton flow, Jacobi scalars,</span>
-<span class="sd">                                 Gutzwiller trace, semiclassical spectrum</span>
-<span class="sd">    SymbolGeometry2D           — 2D engine: augmented 20-dim system, 4×4 Jacobian,</span>
-<span class="sd">                                 caustic detection, Monte Carlo volume</span>
+<span class="sd">Mathematical background</span>
+<span class="sd">-----------------------</span>
+<span class="sd">The module studies a **Hamiltonian** `H` on phase space `T*ℝⁿ` (n = 1,2).  The associated **Hamiltonian vector field** is</span>
 
-<span class="sd">  SymbolVisualizerBase (ABC)   — shared interface: visualize_complete()</span>
-<span class="sd">    SymbolVisualizer           — 15-panel 1D atlas</span>
-<span class="sd">    SymbolVisualizer2D         — dynamic-panel 2D atlas</span>
+<span class="sd">    X_H = ( ∂H/∂p , –∂H/∂x )    (1D) or ( ∂H/∂ξ , ∂H/∂η , –∂H/∂x , –∂H/∂y ) (2D).</span>
 
-<span class="sd">  SpectralAnalysis             — weyl_law, analyze_integrability, berry_tabor</span>
-<span class="sd">  Utilities2D                  — winding_number, rotation_numbers, detect_kam_tori</span>
+<span class="sd">Integral curves `(x(t),p(t))` are called **bicharacteristics** or **rays**.  Their projection onto configuration space `x(t)` gives the physical path.</span>
 
-<span class="sd">  visualize_symbol(...)        — 1D public entry point</span>
-<span class="sd">  visualize_symbol_2d(...)     — 2D public entry point</span>
-<span class="sd">  print_theory()               — 1D theoretical background</span>
-<span class="sd">  print_theory_summary()       — 2D theoretical summary</span>
+<span class="sd">**Caustics** occur when nearby rays converge, i.e. when the Jacobian matrix</span>
 
-<span class="sd">Backward-compatibility aliases</span>
-<span class="sd">-------------------------------</span>
-<span class="sd">  Geodesic     = Geodesic1D</span>
-<span class="sd">  PeriodicOrbit = PeriodicOrbit1D</span>
+<span class="sd">    J_ij = ∂x_i(t)/∂p_j(0)</span>
+
+<span class="sd">becomes singular.  In 1D `J = ∂x/∂p₀`; in 2D the 2×2 block `∂(x,y)/∂(ξ₀,η₀)` is monitored.  Zero crossings of `det(J)` mark caustics.  At a caustic the semiclassical amplitude diverges; the correct uniform approximation involves special functions (Airy for fold, Pearcey for cusp) and a phase shift of `–π/2` times the **Maslov index** (number of caustics traversed).</span>
+
+<span class="sd">The **Gutzwiller trace formula** expresses the quantum density of states as a sum over periodic orbits:</span>
+
+<span class="sd">    ρ(E) ≈ (1/πℏ) Σ_γ (T_γ/√|det(M_γ – I)|) cos(S_γ/ℏ – πμ_γ/2) .</span>
+
+<span class="sd">Here `T_γ` is the period, `S_γ` the action, `M_γ` the monodromy matrix, and `μ_γ` the Maslov index.</span>
+
+<span class="sd">For **integrable systems** (KAM tori), the **Einstein–Brillouin–Keller (EBK) quantisation** gives</span>
+
+<span class="sd">    I_k = (1/2π) ∮ p dq = ℏ (n_k + α_k/4),</span>
+
+<span class="sd">with Maslov indices `α_k`.  Level spacings follow a Poisson distribution `P(s) = e^{-s}`.  **Chaotic systems** obey the Wigner surmise `P(s) = (πs/2) e^{-πs²/4}` (Bohigas–Giannoni–Schmit conjecture).</span>
+
+<span class="sd">References</span>
+<span class="sd">----------</span>
+<span class="sd">.. [1] Arnold, V. I.  *Mathematical Methods of Classical Mechanics*, Springer‑Verlag, 1989.</span>
+<span class="sd">.. [2] Gutzwiller, M. C.  *Chaos in Classical and Quantum Mechanics*, Springer‑Verlag, 1990.</span>
+<span class="sd">.. [3] Maslov, V. P. &amp; Fedoriuk, M. V.  *Semi‑Classical Approximation in Quantum Mechanics*, Reidel, 1981.</span>
+<span class="sd">.. [4] Berry, M. V. &amp; Tabor, M.  “Level clustering in the regular spectrum”, *Proc. R. Soc. Lond. A* 356, 375–394, 1977.</span>
+<span class="sd">.. [5] Bohigas, O., Giannoni, M. J., &amp; Schmit, C.  “Characterization of chaotic quantum spectra and universality of level fluctuation laws”, *Phys. Rev. Lett.* 52, 1–4, 1984.</span>
+<span class="sd">.. [6] Kravtsov, Yu. A. &amp; Orlov, Yu. I.  *Caustics, Catastrophes and Wave Fields*, Springer, 1999.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -2254,7 +2277,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

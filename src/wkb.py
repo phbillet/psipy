@@ -1,3 +1,68 @@
+# Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""
+wkb.py — Multidimensional WKB approximation with caustic corrections
+==========================================================================
+
+Overview
+--------
+The `wkb` module provides a comprehensive implementation of the Wentzel–Kramers–Brillouin (WKB) method for constructing asymptotic solutions to linear partial differential equations of the form
+
+    P(x, –iε∇) u(x) = 0,  ε → 0,
+
+where `P(x,ξ)` is the (pseudo‑differential) symbol of the operator.  The solution is sought as a sum over rays (bicharacteristics):
+
+    u(x) ≈ ∑_j A_j(x) e^{i S_j(x)/ε},
+
+with the phase `S` satisfying the eikonal equation `P(x,∇S)=0` and the amplitudes `A_j` determined by transport equations along the rays.
+
+Key features:
+
+* **Automatic dimension detection** – works for both 1D and 2D problems without changing the calling interface.
+* **Ray tracing** – integrates Hamilton’s equations for the bicharacteristics, including the variational equations for the stability matrix `J` (used to detect caustics).
+* **Multi‑order amplitude transport** – computes amplitudes up to arbitrary order (0,1,2,3,…) by solving ODEs along each ray.
+* **Caustic detection and correction** – monitors `det(J)` to locate caustics (folds, cusps) and applies:
+    * Maslov phase shifts (π/2 per caustic),
+    * Uniform Airy (fold) or Pearcey (cusp) corrections near caustics.
+* **Interpolation onto regular grids** – uses `scipy.interpolate` (linear, `griddata`) to map the ray‑based solution to a uniform spatial grid.
+* **Rich visualisation suite** – phase portraits, amplitude decomposition, caustic analysis, ray plots, comparison of WKB orders.
+* **Utilities for generating initial data** – line segments, circles, point sources.
+
+Mathematical background
+-----------------------
+The WKB ansatz `u = e^{iS/ε} (a₀ + ε a₁ + ε² a₂ + …)` is inserted into the equation `P(x,–iε∇)u = 0`.  Expanding in powers of ε yields:
+
+* **Order ε⁰ (eikonal equation):**  `P(x, ∇S) = 0`.  This is a Hamilton–Jacobi equation solved by the method of characteristics (rays).  The rays satisfy
+
+        dx/dt = ∂P/∂ξ,  dξ/dt = –∂P/∂x,  dS/dt = ξ·∂P/∂ξ – P.
+
+* **Order ε¹ (transport equation for a₀):**  `(∂P/∂ξ)·∇a₀ + ½ (∇_ξ·∇_x P) a₀ = 0`.  Along a ray this becomes an ODE for the amplitude.
+
+* **Higher orders:**  Similar ODEs for `a₁, a₂, …` involving derivatives of `P` up to order three.
+
+The **stability matrix** `J = ∂x(t)/∂q` (where `q` parametrises the initial data) measures the focusing of nearby rays.  Its determinant vanishes at **caustics**.  Near a fold caustic the standard WKB amplitude blows up; the correct uniform approximation involves the Airy function.  Near a cusp, the Pearcey integral is required.  The module implements both corrections using the companion `caustics` module.
+
+
+References
+----------
+.. [1] Maslov, V. P. & Fedoriuk, M. V.  *Semi‑Classical Approximation in Quantum Mechanics*, Reidel, 1981.
+.. [2] Duistermaat, J. J.  “Oscillatory integrals, Lagrange immersions and unfolding of singularities”, *Comm. Pure Appl. Math.* 27, 207–281, 1974.
+.. [3] Berry, M. V. & Howls, C. J.  “High orders of the Weyl expansion for quantum billiards”, *Phys. Rev. E* 50(5), 3577–3595, 1994.
+.. [4] Ludwig, D.  “Uniform asymptotic expansions at a caustic”, *Comm. Pure Appl. Math.* 19, 215–250, 1966.
+.. [5] Kravtsov, Yu. A. & Orlov, Yu. I.  *Caustics, Catastrophes and Wave Fields*, Springer, 1999.
+"""
+
 from imports import *
 from caustics import * 
 # ==================================================================

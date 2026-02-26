@@ -1,4 +1,4 @@
-# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
+# Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,17 +12,62 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Unified symplectic geometry toolkit for Hamiltonian mechanics.
+symplectic.py — Unified symplectic geometry toolkit for Hamiltonian mechanics
+======================================================================================
 
-This module provides tools for Hamiltonian systems with any number of degrees of freedom.
-- Symplectic form ω = Σ dxᵢ ∧ dpᵢ
-- Hamiltonian flows using symplectic integrators
-- Poisson brackets
-- Fixed points and linear stability analysis
-- Phase portraits (1‑DOF), Poincaré sections (2‑DOF)
-- Action‑angle variables (1‑DOF)
-- Monodromy matrix and Lyapunov exponents (2‑DOF)
-- Automatic dimension detection
+Overview
+--------
+The `symplectic` module provides a comprehensive set of tools for studying Hamiltonian systems with an arbitrary number of degrees of freedom.  It is built around the canonical symplectic structure `ω = Σ dxᵢ ∧ dpᵢ` and offers:
+
+* Construction of the symplectic form and its inverse (Poisson tensor) for any `n`.
+* Integration of Hamilton’s equations using symplectic integrators (symplectic Euler, velocity Verlet) as well as standard RK45.
+* Symbolic computation of Poisson brackets.
+* Detection and linear stability analysis of fixed points (equilibria).
+* **1‑DOF specific** utilities: action‑angle variables, phase portraits, separatrix analysis.
+* **2‑DOF specific** utilities: Poincaré sections, first‑return maps, monodromy matrix, Lyapunov exponents.
+* Automatic inference of phase‑space variables from the Hamiltonian expression.
+
+The module is designed to be both a pedagogical tool for exploring Hamiltonian dynamics and a practical library for more advanced studies (e.g., computing monodromy matrices of periodic orbits).
+
+Mathematical background
+-----------------------
+A Hamiltonian system with `n` degrees of freedom is defined on a **phase space** of dimension `2n` with canonical coordinates `(x₁, p₁, …, xₙ, pₙ)`.  The **symplectic form**
+
+    ω = Σ dxᵢ ∧ dpᵢ
+
+is a closed non‑degenerate 2‑form that encodes the geometry of the space.  Hamilton’s equations are derived from the relation `ι_{X_H} ω = dH` and read
+
+    ẋᵢ = ∂H/∂pᵢ ,  ṗᵢ = –∂H/∂xᵢ .
+
+The **Poisson bracket** of two observables `f, g` is
+
+    {f, g} = Σ (∂f/∂xᵢ ∂g/∂pᵢ – ∂f/∂pᵢ ∂g/∂xᵢ)
+
+and satisfies the Jacobi identity.  It corresponds to the commutator in quantum mechanics via the Dirac rule `{f, g} → (1/iℏ)[f̂, ĝ]`.
+
+**Symplectic integrators** preserve the symplectic structure exactly (up to machine precision) and therefore exhibit excellent long‑term energy conservation.  The module implements:
+
+* **Symplectic Euler** (first‑order)
+* **Velocity Verlet** (second‑order, equivalent to the Störmer–Verlet method)
+
+For non‑symplectic comparisons, a standard `'rk45'` integrator is also available.
+
+For **1‑DOF systems**, the phase space is two‑dimensional; energy surfaces are curves.  The **action variable**
+
+    I(E) = (1/2π) ∮ p dx
+
+is an adiabatic invariant and, for integrable systems, can be used to construct action‑angle coordinates `(I, θ)` in which `H = H(I)` and `θ̇ = ω(I) = dH/dI`.
+
+For **2‑DOF systems**, the phase space is four‑dimensional.  A **Poincaré section** reduces the dynamics to a two‑dimensional map, revealing regular and chaotic motion.  The **monodromy matrix** (linearised return map) of a periodic orbit has eigenvalues (Floquet multipliers) that characterise its stability.  **Lyapunov exponents** quantify the rate of separation of nearby trajectories.
+
+
+References
+----------
+.. [1] Arnold, V. I.  *Mathematical Methods of Classical Mechanics*, Springer‑Verlag, 1989 (2nd ed.).  Chapters 7–9.
+.. [2] Goldstein, H., Poole, C., & Safko, J.  *Classical Mechanics*, Addison‑Wesley, 2002 (3rd ed.).  Chapter 8.
+.. [3] Hairer, E., Lubich, C., & Wanner, G.  *Geometric Numerical Integration*, Springer, 2006 (2nd ed.).  Chapters 1, 6.
+.. [4] Lichtenberg, A. J., & Lieberman, M. A.  *Regular and Chaotic Dynamics*, Springer, 1992.
+.. [5] Meyer, K. R., Hall, G. R., & Offin, D.  *Introduction to Hamiltonian Dynamical Systems and the N‑Body Problem*, Springer, 2009 (2nd ed.).
 """
 
 from imports import *

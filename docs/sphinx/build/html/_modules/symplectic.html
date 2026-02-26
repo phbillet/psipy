@@ -43,15 +43,11 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_1d.html">geometry_1d</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
@@ -85,7 +81,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for symplectic</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.</span>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
 <span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="c1"># you may not use this file except in compliance with the License.</span>
@@ -99,17 +95,62 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Unified symplectic geometry toolkit for Hamiltonian mechanics.</span>
+<span class="sd">symplectic.py — Unified symplectic geometry toolkit for Hamiltonian mechanics</span>
+<span class="sd">======================================================================================</span>
 
-<span class="sd">This module provides tools for Hamiltonian systems with any number of degrees of freedom.</span>
-<span class="sd">- Symplectic form ω = Σ dxᵢ ∧ dpᵢ</span>
-<span class="sd">- Hamiltonian flows using symplectic integrators</span>
-<span class="sd">- Poisson brackets</span>
-<span class="sd">- Fixed points and linear stability analysis</span>
-<span class="sd">- Phase portraits (1‑DOF), Poincaré sections (2‑DOF)</span>
-<span class="sd">- Action‑angle variables (1‑DOF)</span>
-<span class="sd">- Monodromy matrix and Lyapunov exponents (2‑DOF)</span>
-<span class="sd">- Automatic dimension detection</span>
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The `symplectic` module provides a comprehensive set of tools for studying Hamiltonian systems with an arbitrary number of degrees of freedom.  It is built around the canonical symplectic structure `ω = Σ dxᵢ ∧ dpᵢ` and offers:</span>
+
+<span class="sd">* Construction of the symplectic form and its inverse (Poisson tensor) for any `n`.</span>
+<span class="sd">* Integration of Hamilton’s equations using symplectic integrators (symplectic Euler, velocity Verlet) as well as standard RK45.</span>
+<span class="sd">* Symbolic computation of Poisson brackets.</span>
+<span class="sd">* Detection and linear stability analysis of fixed points (equilibria).</span>
+<span class="sd">* **1‑DOF specific** utilities: action‑angle variables, phase portraits, separatrix analysis.</span>
+<span class="sd">* **2‑DOF specific** utilities: Poincaré sections, first‑return maps, monodromy matrix, Lyapunov exponents.</span>
+<span class="sd">* Automatic inference of phase‑space variables from the Hamiltonian expression.</span>
+
+<span class="sd">The module is designed to be both a pedagogical tool for exploring Hamiltonian dynamics and a practical library for more advanced studies (e.g., computing monodromy matrices of periodic orbits).</span>
+
+<span class="sd">Mathematical background</span>
+<span class="sd">-----------------------</span>
+<span class="sd">A Hamiltonian system with `n` degrees of freedom is defined on a **phase space** of dimension `2n` with canonical coordinates `(x₁, p₁, …, xₙ, pₙ)`.  The **symplectic form**</span>
+
+<span class="sd">    ω = Σ dxᵢ ∧ dpᵢ</span>
+
+<span class="sd">is a closed non‑degenerate 2‑form that encodes the geometry of the space.  Hamilton’s equations are derived from the relation `ι_{X_H} ω = dH` and read</span>
+
+<span class="sd">    ẋᵢ = ∂H/∂pᵢ ,  ṗᵢ = –∂H/∂xᵢ .</span>
+
+<span class="sd">The **Poisson bracket** of two observables `f, g` is</span>
+
+<span class="sd">    {f, g} = Σ (∂f/∂xᵢ ∂g/∂pᵢ – ∂f/∂pᵢ ∂g/∂xᵢ)</span>
+
+<span class="sd">and satisfies the Jacobi identity.  It corresponds to the commutator in quantum mechanics via the Dirac rule `{f, g} → (1/iℏ)[f̂, ĝ]`.</span>
+
+<span class="sd">**Symplectic integrators** preserve the symplectic structure exactly (up to machine precision) and therefore exhibit excellent long‑term energy conservation.  The module implements:</span>
+
+<span class="sd">* **Symplectic Euler** (first‑order)</span>
+<span class="sd">* **Velocity Verlet** (second‑order, equivalent to the Störmer–Verlet method)</span>
+
+<span class="sd">For non‑symplectic comparisons, a standard `&#39;rk45&#39;` integrator is also available.</span>
+
+<span class="sd">For **1‑DOF systems**, the phase space is two‑dimensional; energy surfaces are curves.  The **action variable**</span>
+
+<span class="sd">    I(E) = (1/2π) ∮ p dx</span>
+
+<span class="sd">is an adiabatic invariant and, for integrable systems, can be used to construct action‑angle coordinates `(I, θ)` in which `H = H(I)` and `θ̇ = ω(I) = dH/dI`.</span>
+
+<span class="sd">For **2‑DOF systems**, the phase space is four‑dimensional.  A **Poincaré section** reduces the dynamics to a two‑dimensional map, revealing regular and chaotic motion.  The **monodromy matrix** (linearised return map) of a periodic orbit has eigenvalues (Floquet multipliers) that characterise its stability.  **Lyapunov exponents** quantify the rate of separation of nearby trajectories.</span>
+
+
+<span class="sd">References</span>
+<span class="sd">----------</span>
+<span class="sd">.. [1] Arnold, V. I.  *Mathematical Methods of Classical Mechanics*, Springer‑Verlag, 1989 (2nd ed.).  Chapters 7–9.</span>
+<span class="sd">.. [2] Goldstein, H., Poole, C., &amp; Safko, J.  *Classical Mechanics*, Addison‑Wesley, 2002 (3rd ed.).  Chapter 8.</span>
+<span class="sd">.. [3] Hairer, E., Lubich, C., &amp; Wanner, G.  *Geometric Numerical Integration*, Springer, 2006 (2nd ed.).  Chapters 1, 6.</span>
+<span class="sd">.. [4] Lichtenberg, A. J., &amp; Lieberman, M. A.  *Regular and Chaotic Dynamics*, Springer, 1992.</span>
+<span class="sd">.. [5] Meyer, K. R., Hall, G. R., &amp; Offin, D.  *Introduction to Hamiltonian Dynamical Systems and the N‑Body Problem*, Springer, 2009 (2nd ed.).</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
@@ -1522,7 +1563,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

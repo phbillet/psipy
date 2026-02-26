@@ -1,4 +1,4 @@
-# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
+# Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +12,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Toolkit for Lagrangian and Hamiltonian manipulation
+physics.py — Lagrangian and Hamiltonian toolkit: Legendre transforms & symbolic PDEs
+============================================================================================
 
-Physics utilities:
- - Lagrangian <-> Hamiltonian converter with Legendre & Legendre-Fenchel (numeric + symbolic)
- - HamiltonianSymbolicConverter (formal psiOp PDE generation)
+Overview
+--------
+The `physics` module provides a unified interface for transforming between Lagrangian and Hamiltonian descriptions of physical systems, both symbolically and numerically.  It implements the classical Legendre transform as well as the more general **Legendre–Fenchel transform** (convex conjugate) for non‑quadratic or even non‑smooth Lagrangians.  The module also bridges to pseudo‑differential operator formalisms by decomposing a Hamiltonian into its local (polynomial) and non‑local parts and generating formal PDEs of Schrödinger, wave, or stationary type.
 
-Notes: Use L_to_H(..., method="fenchel_numeric", fenchel_opts=...) for numeric Fenchel.
+Key features include:
+
+* Conversion from Lagrangian `L(x, u, p)` to Hamiltonian `H(x, u, ξ)` (and vice‑versa) using:
+    * Symbolic Legendre transform (fast path for quadratic Lagrangians, general `solve`‑based inversion).
+    * Symbolic Legendre–Fenchel transform (for convex, possibly non‑invertible relations).
+    * Numeric Legendre–Fenchel transform (grid‑based or SciPy optimisation) for 1D and 2D problems.
+* Decomposition of a Hamiltonian into polynomial and non‑polynomial (non‑local) parts – a heuristic useful for identifying the principal symbol and lower‑order terms.
+* Generation of formal symbolic PDEs using a placeholder `ψOp` to represent the action of a pseudo‑differential operator; supports stationary (eigenvalue), Schrödinger, and wave equations.
+
+Mathematical background
+-----------------------
+In classical mechanics, the **Lagrangian** `L(x, u, p)` depends on position `x`, the field `u` (optional), and the generalised velocities `p` (often denoted `ẋ`).  The conjugate momenta are defined as
+
+    ξ = ∂L/∂p.
+
+When this relation can be inverted (i.e. the Hessian `∂²L/∂p²` is non‑singular), the **Hamiltonian** is obtained by the **Legendre transform**
+
+    H(x, u, ξ) = ξ·p − L(x, u, p), with p expressed in terms of ξ.
+
+If the Hessian is singular, or if `L` is not strictly convex, the transform must be replaced by the **Legendre–Fenchel conjugate**
+
+    H(x, u, ξ) = sup_p ( ξ·p − L(x, u, p) ),
+
+which always yields a convex (in ξ) function.  This module provides both symbolic and numerical evaluations of this supremum.
+
+In the context of pseudo‑differential operators, a Hamiltonian `H(x, ξ)` can be seen as the symbol of an operator.  The module splits `H` into a **polynomial part** (local operator) and a **non‑polynomial part** (non‑local, e.g. containing `√(1+ξ²)`).  This decomposition guides the construction of the corresponding PDE:
+
+    ψOp(H, u) = E u                     (stationary),
+    
+    i ∂_t u = ψOp(H, u)                  (Schrödinger),
+    
+    ∂_tt u + ψOp(H, u) = 0                (wave),
+
+where `ψOp` is a placeholder for the pseudo‑differential operator with symbol `H`.
+
+
+References
+----------
+.. [1] Arnold, V. I.  *Mathematical Methods of Classical Mechanics*, Springer‑Verlag, 1989 (2nd ed.).  §14: Legendre Transform.
+.. [2] Rockafellar, R. T.  *Convex Analysis*, Princeton University Press, 1970.  Chapter 12: Conjugate Functions.
+.. [3] Evans, L. C.  *Partial Differential Equations*, American Mathematical Society, 2010 (2nd ed.).  §4.3: Hamilton–Jacobi Equations.
+.. [4] Folland, G. B.  *Quantum Field Theory: A Tourist Guide for Mathematicians*, American Mathematical Society, 2008.  §1: Legendre Transform and Quantisation.
 """
 
 import math as _math

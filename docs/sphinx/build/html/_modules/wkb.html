@@ -43,15 +43,11 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_1d.html">geometry_1d</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
@@ -85,7 +81,72 @@
            <div itemprop="articleBody">
              
   <h1>Source code for wkb</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">wkb.py — Multidimensional WKB approximation with caustic corrections</span>
+<span class="sd">==========================================================================</span>
+
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The `wkb` module provides a comprehensive implementation of the Wentzel–Kramers–Brillouin (WKB) method for constructing asymptotic solutions to linear partial differential equations of the form</span>
+
+<span class="sd">    P(x, –iε∇) u(x) = 0,  ε → 0,</span>
+
+<span class="sd">where `P(x,ξ)` is the (pseudo‑differential) symbol of the operator.  The solution is sought as a sum over rays (bicharacteristics):</span>
+
+<span class="sd">    u(x) ≈ ∑_j A_j(x) e^{i S_j(x)/ε},</span>
+
+<span class="sd">with the phase `S` satisfying the eikonal equation `P(x,∇S)=0` and the amplitudes `A_j` determined by transport equations along the rays.</span>
+
+<span class="sd">Key features:</span>
+
+<span class="sd">* **Automatic dimension detection** – works for both 1D and 2D problems without changing the calling interface.</span>
+<span class="sd">* **Ray tracing** – integrates Hamilton’s equations for the bicharacteristics, including the variational equations for the stability matrix `J` (used to detect caustics).</span>
+<span class="sd">* **Multi‑order amplitude transport** – computes amplitudes up to arbitrary order (0,1,2,3,…) by solving ODEs along each ray.</span>
+<span class="sd">* **Caustic detection and correction** – monitors `det(J)` to locate caustics (folds, cusps) and applies:</span>
+<span class="sd">    * Maslov phase shifts (π/2 per caustic),</span>
+<span class="sd">    * Uniform Airy (fold) or Pearcey (cusp) corrections near caustics.</span>
+<span class="sd">* **Interpolation onto regular grids** – uses `scipy.interpolate` (linear, `griddata`) to map the ray‑based solution to a uniform spatial grid.</span>
+<span class="sd">* **Rich visualisation suite** – phase portraits, amplitude decomposition, caustic analysis, ray plots, comparison of WKB orders.</span>
+<span class="sd">* **Utilities for generating initial data** – line segments, circles, point sources.</span>
+
+<span class="sd">Mathematical background</span>
+<span class="sd">-----------------------</span>
+<span class="sd">The WKB ansatz `u = e^{iS/ε} (a₀ + ε a₁ + ε² a₂ + …)` is inserted into the equation `P(x,–iε∇)u = 0`.  Expanding in powers of ε yields:</span>
+
+<span class="sd">* **Order ε⁰ (eikonal equation):**  `P(x, ∇S) = 0`.  This is a Hamilton–Jacobi equation solved by the method of characteristics (rays).  The rays satisfy</span>
+
+<span class="sd">        dx/dt = ∂P/∂ξ,  dξ/dt = –∂P/∂x,  dS/dt = ξ·∂P/∂ξ – P.</span>
+
+<span class="sd">* **Order ε¹ (transport equation for a₀):**  `(∂P/∂ξ)·∇a₀ + ½ (∇_ξ·∇_x P) a₀ = 0`.  Along a ray this becomes an ODE for the amplitude.</span>
+
+<span class="sd">* **Higher orders:**  Similar ODEs for `a₁, a₂, …` involving derivatives of `P` up to order three.</span>
+
+<span class="sd">The **stability matrix** `J = ∂x(t)/∂q` (where `q` parametrises the initial data) measures the focusing of nearby rays.  Its determinant vanishes at **caustics**.  Near a fold caustic the standard WKB amplitude blows up; the correct uniform approximation involves the Airy function.  Near a cusp, the Pearcey integral is required.  The module implements both corrections using the companion `caustics` module.</span>
+
+
+<span class="sd">References</span>
+<span class="sd">----------</span>
+<span class="sd">.. [1] Maslov, V. P. &amp; Fedoriuk, M. V.  *Semi‑Classical Approximation in Quantum Mechanics*, Reidel, 1981.</span>
+<span class="sd">.. [2] Duistermaat, J. J.  “Oscillatory integrals, Lagrange immersions and unfolding of singularities”, *Comm. Pure Appl. Math.* 27, 207–281, 1974.</span>
+<span class="sd">.. [3] Berry, M. V. &amp; Howls, C. J.  “High orders of the Weyl expansion for quantum billiards”, *Phys. Rev. E* 50(5), 3577–3595, 1994.</span>
+<span class="sd">.. [4] Ludwig, D.  “Uniform asymptotic expansions at a caustic”, *Comm. Pure Appl. Math.* 19, 215–250, 1966.</span>
+<span class="sd">.. [5] Kravtsov, Yu. A. &amp; Orlov, Yu. I.  *Caustics, Catastrophes and Wave Fields*, Springer, 1999.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">caustics</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span> 
 <span class="c1"># ==================================================================</span>
 <span class="c1"># ENHANCED WKB WITH CAUSTIC CORRECTIONS</span>
@@ -2328,7 +2389,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'psipy'
-copyright = '2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.'
-author = 'Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.'
+copyright = '2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.'
+author = 'Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -18,6 +18,7 @@ extensions = [
     'sphinx.ext.napoleon',       # supporte Google/NumPy style docstrings
     'sphinx.ext.viewcode',       # ajoute des liens vers le source
     'sphinx.ext.autosummary',    # génère des tableaux de résumé
+    'sphinx.ext.mathjax', 
 ]
 
 autodoc_default_options = {

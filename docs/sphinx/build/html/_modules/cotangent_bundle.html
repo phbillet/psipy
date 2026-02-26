@@ -43,14 +43,11 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
@@ -84,7 +81,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for cotangent_bundle</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.</span>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
 <span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="c1"># you may not use this file except in compliance with the License.</span>
@@ -96,8 +93,116 @@
 <span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
-<span class="c1"># limitations under the License.</span>
+<span class="c1"># limitations under the License..</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">cotangent_bundle.py — Symplectic geometry of cotangent bundles: from canonical structure to quantization</span>
+<span class="sd">=====================================================================================================================</span>
 
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">This module provides a symbolic‑numerical laboratory for exploring the</span>
+<span class="sd">symplectic geometry of cotangent bundles **before** a Hamiltonian is chosen.</span>
+<span class="sd">It demonstrates how the canonical symplectic form ``ω = dξ ∧ dx`` emerges</span>
+<span class="sd">directly from the geometry of T*M, and how it alone determines the Poisson</span>
+<span class="sd">bracket, Hamilton’s equations, and ultimately the link to quantum mechanics.</span>
+
+<span class="sd">The package implements:</span>
+
+<span class="sd">* Construction of the canonical Liouville 1‑form ``θ`` and the symplectic</span>
+<span class="sd">  form ``ω = dθ``.</span>
+<span class="sd">* Verification that ``ω`` is closed (``dω = 0``) and non‑degenerate</span>
+<span class="sd">  (``det ω ≠ 0``).</span>
+<span class="sd">* Derivation of Hamiltonian vector fields ``X_H`` from any symbolic</span>
+<span class="sd">  Hamiltonian ``H(x,ξ)`` via the intrinsic relation ``ι_{X_H} ω = dH``.</span>
+<span class="sd">* Numerical integration of the Hamiltonian flow with preservation checks</span>
+<span class="sd">  (energy, symplectic area, Jacobian determinant).</span>
+<span class="sd">* Symbolic and numerical study of Poisson brackets, Jacobi identity, and</span>
+<span class="sd">  canonical commutation relations.</span>
+<span class="sd">* Visualisation of phase‑space trajectories, energy surfaces, and the</span>
+<span class="sd">  symplectic area preserved by the flow.</span>
+<span class="sd">* Canonical transformations and their characterisation (preservation of ω).</span>
+<span class="sd">* A gentle introduction to the Dirac quantisation rule:</span>
+<span class="sd">  ``{f,g} ↦ (1/iℏ)[f̂,ĝ]``, illustrated with pseudo‑differential operators</span>
+<span class="sd">  (through an external `psiop` module).</span>
+
+<span class="sd">All computations are performed symbolically with **SymPy** and then</span>
+<span class="sd">lambdified for efficient numerical integration and visualisation with</span>
+<span class="sd">**NumPy/SciPy** and **Matplotlib**.</span>
+
+<span class="sd">Mathematical background</span>
+<span class="sd">-----------------------</span>
+<span class="sd">Let `M` be an `n`‑dimensional manifold (here taken as ℝⁿ for simplicity).</span>
+<span class="sd">The cotangent bundle `T*M` carries a **canonical 1‑form** (Liouville form)</span>
+<span class="sd">defined in local coordinates ``(x¹,…,xⁿ, ξ₁,…,ξₙ)`` by</span>
+
+<span class="sd">    θ = ξ₁ dx¹ + … + ξₙ dxⁿ.</span>
+
+<span class="sd">Its exterior derivative</span>
+
+<span class="sd">    ω = dθ = dξ₁ ∧ dx¹ + … + dξₙ ∧ dxⁿ</span>
+
+<span class="sd">is a closed (``dω = 0``) and non‑degenerate 2‑form – the **symplectic form**.</span>
+<span class="sd">Crucially, ω is **independent of any Hamiltonian**; it is a geometric</span>
+<span class="sd">property of the bundle itself.</span>
+
+<span class="sd">Given a smooth function `H : T*M → ℝ` (the Hamiltonian), the Hamiltonian</span>
+<span class="sd">vector field `X_H` is uniquely defined by</span>
+
+<span class="sd">    ι_{X_H} ω = dH.</span>
+
+<span class="sd">In coordinates this yields the familiar Hamilton equations</span>
+
+<span class="sd">    ˙xⁱ = ∂H/∂ξᵢ ,  ˙ξᵢ = −∂H/∂xⁱ.</span>
+
+<span class="sd">The flow `Φ_t` generated by `X_H` preserves ω (Liouville’s theorem); in</span>
+<span class="sd">particular the symplectic volume (area in 1D) is conserved.  The Poisson</span>
+<span class="sd">bracket of two observables `f,g` is defined by</span>
+
+<span class="sd">    {f,g} = ω(X_f, X_g) = Σᵢ (∂f/∂xⁱ ∂g/∂ξᵢ − ∂f/∂ξᵢ ∂g/∂xⁱ),</span>
+
+<span class="sd">and satisfies the Jacobi identity.  The canonical brackets</span>
+
+<span class="sd">    {xⁱ, ξⱼ} = δⁱⱼ ,  {xⁱ, xʲ} = {ξᵢ, ξⱼ} = 0</span>
+
+<span class="sd">are direct consequences of ω.</span>
+
+<span class="sd">**Quantisation.**  The Dirac correspondence replaces Poisson brackets by</span>
+<span class="sd">commutators:</span>
+
+<span class="sd">    [f̂,ĝ] = iℏ {f,g} .</span>
+
+<span class="sd">For the fundamental pair this gives the Heisenberg relation</span>
+<span class="sd">``[x̂ⁱ, p̂ⱼ] = iℏ δⁱⱼ``.  The module illustrates this by quantising a</span>
+<span class="sd">classical Hamiltonian into a pseudo‑differential operator (using a</span>
+<span class="sd">companion module `psiop`) and verifying the correspondence.</span>
+
+<span class="sd">**Canonical transformations.**  A change of coordinates `(x,ξ) → (X,Ξ)` is</span>
+<span class="sd">canonical iff it preserves ω, i.e.  `dΞ ∧ dX = dξ ∧ dx`.  Equivalently, the</span>
+<span class="sd">Jacobian matrix `J` satisfies `Jᵀ ω J = ω`.  Several examples are provided,</span>
+<span class="sd">together with generating functions.</span>
+
+<span class="sd">**Higher dimensions.**  The code handles arbitrary dimension by building the</span>
+<span class="sd">block‑diagonal symplectic matrix</span>
+
+<span class="sd">    ω = [[0, -I], [I, 0]] .</span>
+
+<span class="sd">References</span>
+<span class="sd">----------</span>
+<span class="sd">.. [1] Abraham, R. &amp; Marsden, J. E.  *Foundations of Mechanics*,</span>
+<span class="sd">       Addison‑Wesley, 1978 (2nd ed.).  Chapter 3: Hamiltonian Systems.</span>
+<span class="sd">.. [2] Arnold, V. I.  *Mathematical Methods of Classical Mechanics*,</span>
+<span class="sd">       Springer‑Verlag, 1989 (2nd ed.).  §37: Symplectic Structure.</span>
+<span class="sd">.. [3] Cannas da Silva, A.  *Lectures on Symplectic Geometry*,</span>
+<span class="sd">       Springer‑Verlag, 2001.  Chapter 1: Symplectic Forms.</span>
+<span class="sd">.. [4] Dirac, P. A. M.  *The Principles of Quantum Mechanics*,</span>
+<span class="sd">       Oxford University Press, 1930 (4th ed.).  §21: Poisson Brackets.</span>
+<span class="sd">.. [5] McDuff, D. &amp; Salamon, D.  *Introduction to Symplectic Topology*,</span>
+<span class="sd">       Oxford University Press, 2017 (3rd ed.).  Chapter 1: Symplectic</span>
+<span class="sd">       Manifolds.</span>
+<span class="sd">.. [6] Weyl, H.  *The Theory of Groups and Quantum Mechanics*,</span>
+<span class="sd">       Dover Publications, 1931 (translated from German).  §II.7:</span>
+<span class="sd">       Quantisation and the Symplectic Form.</span>
+<span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">,</span> <span class="n">simplify</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sympy.diffgeom</span><span class="w"> </span><span class="kn">import</span> <span class="n">Manifold</span><span class="p">,</span> <span class="n">Patch</span><span class="p">,</span> <span class="n">CoordSystem</span>
 
@@ -1987,7 +2092,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

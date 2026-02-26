@@ -43,15 +43,11 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_1d.html">geometry_1d</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
@@ -85,7 +81,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for psiop</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.</span>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
 <span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="c1"># you may not use this file except in compliance with the License.</span>
@@ -99,11 +95,56 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Toolkit for pseudo-differential manipulation in 1D or 2D</span>
+<span class="sd">psiop.py — Symbolic‑numerical toolkit for pseudo‑differential operators in 1D/2D</span>
+<span class="sd">=======================================================================================</span>
 
-<span class="sd">This package offers the following options:</span>
-<span class="sd"> - psiOp symbol manipulation: asymptotic expansion, asymptotic composition, adjoint, exponential....</span>
-<span class="sd"> - psiOp symbol visualization: amplitude, phase, characteristic set, characteristic gradient... </span>
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The `psiop` module provides a unified framework for manipulating pseudo‑differential operators (ΨDOs) in one and two spatial dimensions.  It combines **symbolic** construction of operator symbols (using SymPy) with **numerical** evaluation and visualisation (using NumPy/SciPy/Matplotlib).  The package is designed for researchers and students working in microlocal analysis, spectral theory, and the numerical analysis of PDEs.</span>
+
+<span class="sd">Key features include:</span>
+
+<span class="sd">* Symbol creation either from an explicit expression (symbol mode) or by automatic extraction from a differential operator (auto mode).</span>
+<span class="sd">* Computation of asymptotic expansions of symbols at high frequencies.</span>
+<span class="sd">* Determination of the operator order (homogeneity degree) via symbolic/numerical heuristics.</span>
+<span class="sd">* Asymptotic composition of operators in Kohn‑Nirenberg or Weyl quantisation.</span>
+<span class="sd">* Construction of formal left/right inverses and the formal adjoint.</span>
+<span class="sd">* Symbol of the exponential `exp(tP)` via series expansion.</span>
+<span class="sd">* Semiclassical trace formula (symbolic or numerical).</span>
+<span class="sd">* Hamiltonian flow associated with the principal symbol (symplectic phase‑space dynamics).</span>
+<span class="sd">* Pseudospectrum computation and visualisation with adaptive grid refinement and parallelisation.</span>
+<span class="sd">* Rich visualisation suite: symbol amplitude/phase, cotangent‑fiber structure, characteristic set, group velocity field, micro‑support, Hamiltonian trajectories.</span>
+<span class="sd">* Interactive dashboard (ipywidgets) for real‑time exploration of the symbol.</span>
+
+<span class="sd">Mathematical background</span>
+<span class="sd">-----------------------</span>
+<span class="sd">A pseudo‑differential operator `P` acting on functions of `x ∈ ℝⁿ` is formally defined by its **symbol** `p(x,ξ)`, a function on phase space `T*ℝⁿ`.  The action on a function `u` is given by the Kohn‑Nirenberg quantisation</span>
+
+<span class="sd">    (P u)(x) = (2π)^{-n} ∫_{ℝⁿ} e^{i x·ξ} p(x,ξ) û(ξ) dξ ,</span>
+
+<span class="sd">where `û` is the Fourier transform of `u`.  If the symbol does not depend on `x`, the operator reduces to a Fourier multiplier.  For a general spatially varying symbol, the above representation provides a rigorous extension of differential operators.</span>
+
+<span class="sd">The **asymptotic behaviour** of the symbol as `|ξ| → ∞` determines many properties of the operator.  The **principal symbol** `pₘ` is the homogeneous component of highest order `m`.  When the symbol is non‑homogeneous, the module attempts to estimate the effective order by expanding in inverse powers of `|ξ|` (or in a radial variable for 2D).</span>
+
+<span class="sd">**Symbolic calculus** allows one to compose operators asymptotically.  For two symbols `p` and `q`, the symbol of the composition `P ∘ Q` is given by an asymptotic series</span>
+
+<span class="sd">    (p ∘ q)(x,ξ) ~ Σ_{α} (i)^{-|α|}/α! ∂_ξ^α p(x,ξ) ∂_x^α q(x,ξ)</span>
+
+<span class="sd">in the Kohn‑Nirenberg convention (a similar expansion exists for the Weyl star product).  Truncating this series yields approximate compositions valid for high frequencies or slowly varying symbols.</span>
+
+<span class="sd">**Formal inverses** and **adjoints** are constructed via similar asymptotic series, assuming the principal symbol never vanishes.</span>
+
+<span class="sd">The **Hamiltonian flow** generated by the principal symbol describes the propagation of singularities along bicharacteristics – a cornerstone of microlocal analysis.</span>
+
+<span class="sd">The **pseudospectrum** `σ_ε(P)` is the set of `λ ∈ ℂ` for which `‖(P-λI)^{-1}‖ ≥ ε^{-1}`.  It captures the near‑spectral behaviour of non‑normal operators and is visualised via contour plots of the resolvent norm.</span>
+
+<span class="sd">References</span>
+<span class="sd">----------</span>
+<span class="sd">.. [1] Hörmander, L.  *The Analysis of Linear Partial Differential Operators III*, Springer, 1985.  Chapter 18: Pseudo‑differential Operators.</span>
+<span class="sd">.. [2] Taylor, M. E.  *Pseudo Differential Operators*, Princeton University Press, 1981.</span>
+<span class="sd">.. [3] Zworski, M.  *Semiclassical Analysis*, American Mathematical Society, 2012.  Chapter 4: Pseudo‑differential Operators.</span>
+<span class="sd">.. [4] Martinez, A.  *An Introduction to Semiclassical and Microlocal Analysis*, Springer, 2002.</span>
+<span class="sd">.. [5] Trefethen, L. N. &amp; Embree, M.  *Spectra and Pseudospectra*, Princeton University Press, 2005.  (For pseudospectrum methods.)</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
@@ -3484,7 +3525,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

@@ -43,15 +43,11 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_1d.html">geometry_1d</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
@@ -85,7 +81,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for solver</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.</span>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
 <span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="c1"># you may not use this file except in compliance with the License.</span>
@@ -99,13 +95,67 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">EDP solver in 1D or 2D based on spectral methods</span>
+<span class="sd">solver.py — Spectral PDE solver for 1D/2D equations with pseudo‑differential operators</span>
+<span class="sd">============================================================================================</span>
 
-<span class="sd">It can handle:</span>
-<span class="sd"> - Linear differential and pseudo-differential operators</span>
-<span class="sd"> - Nonlinear terms up to second order in derivatives</span>
-<span class="sd"> - Symbolic operator composition and adjoints</span>
-<span class="sd"> - Asymptotic inversion of elliptic operators for stationary problems</span>
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The `solver` module provides a high‑performance spectral solver for partial differential equations in one and two spatial dimensions.  It is designed to handle a wide class of problems, including:</span>
+
+<span class="sd">* Linear and nonlinear PDEs with periodic or Dirichlet boundary conditions.</span>
+<span class="sd">* Time‑dependent evolution (first‑ or second‑order in time) and stationary problems.</span>
+<span class="sd">* Equations involving pseudo‑differential operators (via `psiOp`), such as fractional Laplacians or non‑local terms.</span>
+<span class="sd">* Source terms and arbitrary spatial derivatives.</span>
+
+<span class="sd">The solver is built on **Fourier spectral methods** for spatial discretisation, ensuring exponential convergence for smooth solutions.  Time stepping is performed with either a simple exponential integrator, a fourth‑order **Exponential Time Differencing Runge–Kutta (ETD‑RK4)** scheme, or explicit Runge–Kutta methods for nonlinear problems.  For stationary pseudo‑differential equations, an **asymptotic inversion** of the operator is available.</span>
+
+<span class="sd">Key features:</span>
+
+<span class="sd">* Symbolic parsing of the PDE using SymPy – the user provides an equation in standard mathematical form.</span>
+<span class="sd">* Automatic extraction of linear, nonlinear, source, and pseudo‑differential terms.</span>
+<span class="sd">* Computation of the Fourier symbol of the linear operator (dispersion relation) from the equation.</span>
+<span class="sd">* Dealiasing via sharp spectral cut‑off to control aliasing errors from nonlinear terms.</span>
+<span class="sd">* Efficient FFT‑based application of linear and pseudo‑differential operators.</span>
+<span class="sd">* Support for both 1D and 2D problems with uniform grids.</span>
+<span class="sd">* Built‑in energy monitoring, CFL checks, and spectral symbol analysis.</span>
+<span class="sd">* Rich visualisation: animated solutions, error plots, energy evolution, and 3D surface/2D image displays.</span>
+<span class="sd">* Testing framework for comparison with exact solutions.</span>
+
+<span class="sd">Mathematical background</span>
+<span class="sd">-----------------------</span>
+<span class="sd">**Spectral discretisation.**  The solution `u(x,t)` is approximated by its truncated Fourier series.  Spatial derivatives are replaced by multiplication with the corresponding wavenumber in Fourier space:</span>
+
+<span class="sd">    ∂/∂x   →   i k ,  ∂²/∂x² →   -k² .</span>
+
+<span class="sd">Nonlinear terms are evaluated in physical space and then transformed back (pseudo‑spectral approach).  Dealiasing is applied by zeroing out the highest one‑third of the Fourier modes (the 2/3‑rule).</span>
+
+<span class="sd">**Linear operator.**  After parsing the PDE, the linear part is converted into a Fourier multiplier `L(k)` (or `L(kx,ky)`).  For a first‑order‑in‑time equation</span>
+
+<span class="sd">    ∂ₜ u = L u + N(u) + f(x,t),</span>
+
+<span class="sd">the variation‑of‑constants formula motivates exponential integrators.  The solver implements:</span>
+
+<span class="sd">* **Exponential Euler** (first order): `uⁿ⁺¹ = e^{LΔt} uⁿ + Δt φ₁(LΔt) (N(uⁿ)+fⁿ)` with `φ₁(z) = (e^z-1)/z`.</span>
+<span class="sd">* **ETD‑RK4** (fourth order): a Runge–Kutta scheme that uses exponentials of the linear part, achieving high accuracy for stiff problems.</span>
+
+<span class="sd">For second‑order equations</span>
+
+<span class="sd">    ∂ₜ² u = L u + N(u) + f(x,t),</span>
+
+<span class="sd">the system is reduced to first order in time, and a leap‑frog style integrator or a second‑order ETD scheme is used.</span>
+
+<span class="sd">**Pseudo‑differential operators.**  When the equation contains `psiOp(p(x,ξ), u)`, the solver builds a `PseudoDifferentialOperator` object (from the companion `psiop` module) and applies it using Kohn–Nirenberg quantisation (fast Fourier for constant‑coefficient symbols, direct quadrature for spatially varying symbols).  For stationary problems, an asymptotic right inverse is constructed via symbolic series expansion.</span>
+
+<span class="sd">**Stability.**  The solver checks the CFL condition based on the maximum group velocity derived from the dispersion relation.  It also verifies that the symbol satisfies the necessary conditions for well‑posedness (Re `L(k)` ≤ 0, sufficient high‑frequency dissipation, moderate growth).</span>
+
+
+<span class="sd">References</span>
+<span class="sd">----------</span>
+<span class="sd">.. [1] Canuto, C., Hussaini, M. Y., Quarteroni, A., &amp; Zang, T. A.  *Spectral Methods: Fundamentals in Single Domains*, Springer, 2006.</span>
+<span class="sd">.. [2] Trefethen, L. N.  *Spectral Methods in MATLAB*, SIAM, 2000.</span>
+<span class="sd">.. [3] Boyd, J. P.  *Chebyshev and Fourier Spectral Methods*, Dover, 2001.</span>
+<span class="sd">.. [4] Hochbruck, M., &amp; Ostermann, A.  “Exponential integrators”, *Acta Numerica* 19, 209–286, 2010.</span>
+<span class="sd">.. [5] Kassam, A.-K., &amp; Trefethen, L. N.  “Fourth‑order time‑stepping for stiff PDEs”, *SIAM J. Sci. Comput.* 26(4), 1214–1233, 2005.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
@@ -2513,7 +2563,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="c1"># Plot the solution in 1D</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">get_component</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">component</span><span class="si">}</span><span class="s1"> of u&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">_get_component</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">component</span><span class="si">}</span><span class="s1"> of u&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">component</span><span class="si">}</span><span class="s1"> of u&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Stationary solution (1D)&#39;</span><span class="p">)</span>
@@ -2955,7 +3005,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

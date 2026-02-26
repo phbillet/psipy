@@ -1,5 +1,4 @@
-# microlocal.py
-# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
+# Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,23 +12,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Microlocal analysis toolkit for 1D and 2D problems (unified).
+microlocal.py — Unified microlocal analysis toolkit for 1D and 2D problems
+============================================================================
 
-This module provides tools for studying singularities and wave propagation:
- - Characteristic variety Char(P) = {(x,ξ) : p(x,ξ)=0} or {(x,y,ξ,η) : p=0}
- - Bicharacteristic flows on the cotangent bundle
- - WKB approximation: eikonal and transport equations (multiple orders)
- - Bohr–Sommerfeld quantisation (1D)
- - Propagation of singularities
- - Caustics and turning points
- - Maslov index and wave fronts (2D)
+Overview
+--------
+The `microlocal` module provides a high‑level interface for studying the propagation of singularities and constructing semiclassical approximations for linear partial differential equations.  It builds upon the dedicated `wkb` (WKB approximations) and `caustics` (catastrophe classification and ray caustic detection) modules, adding dimension‑agnostic functions for the core concepts of microlocal analysis:
 
-All functions automatically detect the dimension of the problem from the
-symbol or from the supplied initial data.
+* **Characteristic variety** `Char(P) = {(x,ξ) : p(x,ξ)=0}` – the set of phase‑space points where the principal symbol vanishes, indicating where singularities can propagate.
+* **Bicharacteristic flow** – Hamilton’s equations for the principal symbol, whose integral curves (bicharacteristics) govern the propagation of wave‑front sets.
+* **Wavefront set** `WF(u)` – a refinement of the singular support that also records the directions (frequencies) in which the singularity occurs.  The module visualises how an initial wavefront set evolves under the flow.
+* **WKB approximation** (re‑exported from `wkb`) – asymptotic solutions of the form `u ≈ A e^{iS/ε}`.
+* **Caustics and Maslov index** – detection of caustics (where rays focus) and computation of the associated Maslov phase shifts, crucial for correct semiclassical quantisation.
+* **Bohr–Sommerfeld quantisation** (1D) – semiclassical energy levels for bound states.
 
-WKB‑related functionality (wkb_approximation, visualisation, initial‑data
-generators) is imported from the dedicated `wkb` module to keep the code
-DRY and maintainable.
+All functions automatically detect the spatial dimension (1 or 2) from the input data, making the module usable for both one‑dimensional and two‑dimensional problems without changing the calling syntax.
+
+Mathematical background
+-----------------------
+In microlocal analysis, a linear partial differential operator `P` is studied via its **principal symbol** `p(x,ξ)`, a function on the cotangent bundle `T*ℝⁿ`.  The **characteristic variety** is the zero set of `p`.  Singularities of a distribution `u` satisfying `P u ≈ 0` are confined to the characteristic variety and propagate along **bicharacteristics** – integral curves of the Hamiltonian vector field
+
+    X_p = ( ∂p/∂ξ , –∂p/∂x ).
+
+The **wavefront set** `WF(u)` is a closed conic subset of `T*ℝⁿ \ {0}` that records both the location `x` and the direction `ξ` of the singularity.  If `(x₀,ξ₀) ∉ WF(u)`, then `u` is smooth in a neighbourhood of `x₀` in the direction `ξ₀`.  The fundamental theorem of microlocal analysis states that `WF(Pu) ⊆ WF(u)` and that `WF(u) \ WF(Pu)` is contained in the characteristic variety and is invariant under the bicharacteristic flow.
+
+The **WKB method** seeks solutions of the form `u(x) = e^{iS(x)/ε} (a₀(x) + ε a₁(x) + …)`.  The phase `S` satisfies the eikonal equation `p(x,∇S)=0`, and the amplitudes `a_k` satisfy transport equations along bicharacteristics.  This construction breaks down at **caustics**, where rays focus; the Maslov index `μ` (a signed count of caustic crossings) provides a phase correction `e^{iμπ/2}` that restores uniformity.
+
+The module integrates these concepts into a coherent toolkit, allowing the user to:
+
+* Symbolically compute the characteristic variety.
+* Numerically integrate bicharacteristics with symplectic integrators.
+* Visualise the evolution of wavefront sets.
+* Obtain semiclassical spectra via Bohr–Sommerfeld quantisation (1D).
+* Detect caustics and compute the Maslov index (using the `caustics` module).
+
+References
+----------
+.. [1] Hörmander, L.  *The Analysis of Linear Partial Differential Operators I*, Springer, 1983.  Chapter 8: Wave Front Sets.
+.. [2] Duistermaat, J. J.  *Fourier Integral Operators*, Courant Institute Lecture Notes, 1996.
+.. [3] Maslov, V. P. & Fedoriuk, M. V.  *Semi‑Classical Approximation in Quantum Mechanics*, Reidel, 1981.
+.. [4] Zworski, M.  *Semiclassical Analysis*, American Mathematical Society, 2012.  Chapter 3: Propagation of Singularities.
+.. [5] Taylor, M. E.  *Partial Differential Equations II*, Springer, 2011.  Chapter 8: Microlocal Analysis.
 """
 
 import numpy as np

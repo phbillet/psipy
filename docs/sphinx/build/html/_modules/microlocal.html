@@ -43,14 +43,11 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
@@ -84,8 +81,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for microlocal</h1><div class="highlight"><pre>
-<span></span><span class="c1"># microlocal.py</span>
-<span class="c1"># Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.</span>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
 <span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="c1"># you may not use this file except in compliance with the License.</span>
@@ -99,23 +95,47 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Microlocal analysis toolkit for 1D and 2D problems (unified).</span>
+<span class="sd">microlocal.py — Unified microlocal analysis toolkit for 1D and 2D problems</span>
+<span class="sd">============================================================================</span>
 
-<span class="sd">This module provides tools for studying singularities and wave propagation:</span>
-<span class="sd"> - Characteristic variety Char(P) = {(x,ξ) : p(x,ξ)=0} or {(x,y,ξ,η) : p=0}</span>
-<span class="sd"> - Bicharacteristic flows on the cotangent bundle</span>
-<span class="sd"> - WKB approximation: eikonal and transport equations (multiple orders)</span>
-<span class="sd"> - Bohr–Sommerfeld quantisation (1D)</span>
-<span class="sd"> - Propagation of singularities</span>
-<span class="sd"> - Caustics and turning points</span>
-<span class="sd"> - Maslov index and wave fronts (2D)</span>
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The `microlocal` module provides a high‑level interface for studying the propagation of singularities and constructing semiclassical approximations for linear partial differential equations.  It builds upon the dedicated `wkb` (WKB approximations) and `caustics` (catastrophe classification and ray caustic detection) modules, adding dimension‑agnostic functions for the core concepts of microlocal analysis:</span>
 
-<span class="sd">All functions automatically detect the dimension of the problem from the</span>
-<span class="sd">symbol or from the supplied initial data.</span>
+<span class="sd">* **Characteristic variety** `Char(P) = {(x,ξ) : p(x,ξ)=0}` – the set of phase‑space points where the principal symbol vanishes, indicating where singularities can propagate.</span>
+<span class="sd">* **Bicharacteristic flow** – Hamilton’s equations for the principal symbol, whose integral curves (bicharacteristics) govern the propagation of wave‑front sets.</span>
+<span class="sd">* **Wavefront set** `WF(u)` – a refinement of the singular support that also records the directions (frequencies) in which the singularity occurs.  The module visualises how an initial wavefront set evolves under the flow.</span>
+<span class="sd">* **WKB approximation** (re‑exported from `wkb`) – asymptotic solutions of the form `u ≈ A e^{iS/ε}`.</span>
+<span class="sd">* **Caustics and Maslov index** – detection of caustics (where rays focus) and computation of the associated Maslov phase shifts, crucial for correct semiclassical quantisation.</span>
+<span class="sd">* **Bohr–Sommerfeld quantisation** (1D) – semiclassical energy levels for bound states.</span>
 
-<span class="sd">WKB‑related functionality (wkb_approximation, visualisation, initial‑data</span>
-<span class="sd">generators) is imported from the dedicated `wkb` module to keep the code</span>
-<span class="sd">DRY and maintainable.</span>
+<span class="sd">All functions automatically detect the spatial dimension (1 or 2) from the input data, making the module usable for both one‑dimensional and two‑dimensional problems without changing the calling syntax.</span>
+
+<span class="sd">Mathematical background</span>
+<span class="sd">-----------------------</span>
+<span class="sd">In microlocal analysis, a linear partial differential operator `P` is studied via its **principal symbol** `p(x,ξ)`, a function on the cotangent bundle `T*ℝⁿ`.  The **characteristic variety** is the zero set of `p`.  Singularities of a distribution `u` satisfying `P u ≈ 0` are confined to the characteristic variety and propagate along **bicharacteristics** – integral curves of the Hamiltonian vector field</span>
+
+<span class="sd">    X_p = ( ∂p/∂ξ , –∂p/∂x ).</span>
+
+<span class="sd">The **wavefront set** `WF(u)` is a closed conic subset of `T*ℝⁿ \ {0}` that records both the location `x` and the direction `ξ` of the singularity.  If `(x₀,ξ₀) ∉ WF(u)`, then `u` is smooth in a neighbourhood of `x₀` in the direction `ξ₀`.  The fundamental theorem of microlocal analysis states that `WF(Pu) ⊆ WF(u)` and that `WF(u) \ WF(Pu)` is contained in the characteristic variety and is invariant under the bicharacteristic flow.</span>
+
+<span class="sd">The **WKB method** seeks solutions of the form `u(x) = e^{iS(x)/ε} (a₀(x) + ε a₁(x) + …)`.  The phase `S` satisfies the eikonal equation `p(x,∇S)=0`, and the amplitudes `a_k` satisfy transport equations along bicharacteristics.  This construction breaks down at **caustics**, where rays focus; the Maslov index `μ` (a signed count of caustic crossings) provides a phase correction `e^{iμπ/2}` that restores uniformity.</span>
+
+<span class="sd">The module integrates these concepts into a coherent toolkit, allowing the user to:</span>
+
+<span class="sd">* Symbolically compute the characteristic variety.</span>
+<span class="sd">* Numerically integrate bicharacteristics with symplectic integrators.</span>
+<span class="sd">* Visualise the evolution of wavefront sets.</span>
+<span class="sd">* Obtain semiclassical spectra via Bohr–Sommerfeld quantisation (1D).</span>
+<span class="sd">* Detect caustics and compute the Maslov index (using the `caustics` module).</span>
+
+<span class="sd">References</span>
+<span class="sd">----------</span>
+<span class="sd">.. [1] Hörmander, L.  *The Analysis of Linear Partial Differential Operators I*, Springer, 1983.  Chapter 8: Wave Front Sets.</span>
+<span class="sd">.. [2] Duistermaat, J. J.  *Fourier Integral Operators*, Courant Institute Lecture Notes, 1996.</span>
+<span class="sd">.. [3] Maslov, V. P. &amp; Fedoriuk, M. V.  *Semi‑Classical Approximation in Quantum Mechanics*, Reidel, 1981.</span>
+<span class="sd">.. [4] Zworski, M.  *Semiclassical Analysis*, American Mathematical Society, 2012.  Chapter 3: Propagation of Singularities.</span>
+<span class="sd">.. [5] Taylor, M. E.  *Partial Differential Equations II*, Springer, 2011.  Chapter 8: Microlocal Analysis.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -1091,7 +1111,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

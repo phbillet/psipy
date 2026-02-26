@@ -46,19 +46,21 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fio_bridge.html">fio_bridge</a></li>
 <li class="toctree-l1"><a class="reference internal" href="geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="riemannian.html">riemannian</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solver.html">solver</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">symplectic</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#symplectic-py-unified-symplectic-geometry-toolkit-for-hamiltonian-mechanics">symplectic.py — Unified symplectic geometry toolkit for Hamiltonian mechanics</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mathematical-background">Mathematical background</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.SymplecticForm"><code class="docutils literal notranslate"><span class="pre">SymplecticForm</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#symplectic.SymplecticForm.eval"><code class="docutils literal notranslate"><span class="pre">SymplecticForm.eval()</span></code></a></li>
 </ul>
@@ -118,16 +120,74 @@
              
   <section id="module-symplectic">
 <span id="symplectic"></span><h1>symplectic<a class="headerlink" href="#module-symplectic" title="Link to this heading"></a></h1>
-<p>Unified symplectic geometry toolkit for Hamiltonian mechanics.</p>
-<p>This module provides tools for Hamiltonian systems with any number of degrees of freedom.
-- Symplectic form ω = Σ dxᵢ ∧ dpᵢ
-- Hamiltonian flows using symplectic integrators
-- Poisson brackets
-- Fixed points and linear stability analysis
-- Phase portraits (1‑DOF), Poincaré sections (2‑DOF)
-- Action‑angle variables (1‑DOF)
-- Monodromy matrix and Lyapunov exponents (2‑DOF)
-- Automatic dimension detection</p>
+<section id="symplectic-py-unified-symplectic-geometry-toolkit-for-hamiltonian-mechanics">
+<h2>symplectic.py — Unified symplectic geometry toolkit for Hamiltonian mechanics<a class="headerlink" href="#symplectic-py-unified-symplectic-geometry-toolkit-for-hamiltonian-mechanics" title="Link to this heading"></a></h2>
+<section id="overview">
+<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
+<p>The <cite>symplectic</cite> module provides a comprehensive set of tools for studying Hamiltonian systems with an arbitrary number of degrees of freedom.  It is built around the canonical symplectic structure <cite>ω = Σ dxᵢ ∧ dpᵢ</cite> and offers:</p>
+<ul class="simple">
+<li><p>Construction of the symplectic form and its inverse (Poisson tensor) for any <cite>n</cite>.</p></li>
+<li><p>Integration of Hamilton’s equations using symplectic integrators (symplectic Euler, velocity Verlet) as well as standard RK45.</p></li>
+<li><p>Symbolic computation of Poisson brackets.</p></li>
+<li><p>Detection and linear stability analysis of fixed points (equilibria).</p></li>
+<li><p><strong>1‑DOF specific</strong> utilities: action‑angle variables, phase portraits, separatrix analysis.</p></li>
+<li><p><strong>2‑DOF specific</strong> utilities: Poincaré sections, first‑return maps, monodromy matrix, Lyapunov exponents.</p></li>
+<li><p>Automatic inference of phase‑space variables from the Hamiltonian expression.</p></li>
+</ul>
+<p>The module is designed to be both a pedagogical tool for exploring Hamiltonian dynamics and a practical library for more advanced studies (e.g., computing monodromy matrices of periodic orbits).</p>
+</section>
+<section id="mathematical-background">
+<h3>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h3>
+<p>A Hamiltonian system with <cite>n</cite> degrees of freedom is defined on a <strong>phase space</strong> of dimension <cite>2n</cite> with canonical coordinates <cite>(x₁, p₁, …, xₙ, pₙ)</cite>.  The <strong>symplectic form</strong></p>
+<blockquote>
+<div><p>ω = Σ dxᵢ ∧ dpᵢ</p>
+</div></blockquote>
+<p>is a closed non‑degenerate 2‑form that encodes the geometry of the space.  Hamilton’s equations are derived from the relation <cite>ι_{X_H} ω = dH</cite> and read</p>
+<blockquote>
+<div><p>ẋᵢ = ∂H/∂pᵢ ,  ṗᵢ = –∂H/∂xᵢ .</p>
+</div></blockquote>
+<p>The <strong>Poisson bracket</strong> of two observables <cite>f, g</cite> is</p>
+<blockquote>
+<div><p>{f, g} = Σ (∂f/∂xᵢ ∂g/∂pᵢ – ∂f/∂pᵢ ∂g/∂xᵢ)</p>
+</div></blockquote>
+<p>and satisfies the Jacobi identity.  It corresponds to the commutator in quantum mechanics via the Dirac rule <cite>{f, g} → (1/iℏ)[f̂, ĝ]</cite>.</p>
+<p><strong>Symplectic integrators</strong> preserve the symplectic structure exactly (up to machine precision) and therefore exhibit excellent long‑term energy conservation.  The module implements:</p>
+<ul class="simple">
+<li><p><strong>Symplectic Euler</strong> (first‑order)</p></li>
+<li><p><strong>Velocity Verlet</strong> (second‑order, equivalent to the Störmer–Verlet method)</p></li>
+</ul>
+<p>For non‑symplectic comparisons, a standard <cite>‘rk45’</cite> integrator is also available.</p>
+<p>For <strong>1‑DOF systems</strong>, the phase space is two‑dimensional; energy surfaces are curves.  The <strong>action variable</strong></p>
+<blockquote>
+<div><p>I(E) = (1/2π) ∮ p dx</p>
+</div></blockquote>
+<p>is an adiabatic invariant and, for integrable systems, can be used to construct action‑angle coordinates <cite>(I, θ)</cite> in which <cite>H = H(I)</cite> and <cite>θ̇ = ω(I) = dH/dI</cite>.</p>
+<p>For <strong>2‑DOF systems</strong>, the phase space is four‑dimensional.  A <strong>Poincaré section</strong> reduces the dynamics to a two‑dimensional map, revealing regular and chaotic motion.  The <strong>monodromy matrix</strong> (linearised return map) of a periodic orbit has eigenvalues (Floquet multipliers) that characterise its stability.  <strong>Lyapunov exponents</strong> quantify the rate of separation of nearby trajectories.</p>
+<p class="rubric">References</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id1" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<p>Arnold, V. I.  <em>Mathematical Methods of Classical Mechanics</em>, Springer‑Verlag, 1989 (2nd ed.).  Chapters 7–9.</p>
+</aside>
+<aside class="footnote brackets" id="id2" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
+<p>Goldstein, H., Poole, C., &amp; Safko, J.  <em>Classical Mechanics</em>, Addison‑Wesley, 2002 (3rd ed.).  Chapter 8.</p>
+</aside>
+<aside class="footnote brackets" id="id3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
+<p>Hairer, E., Lubich, C., &amp; Wanner, G.  <em>Geometric Numerical Integration</em>, Springer, 2006 (2nd ed.).  Chapters 1, 6.</p>
+</aside>
+<aside class="footnote brackets" id="id4" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
+<p>Lichtenberg, A. J., &amp; Lieberman, M. A.  <em>Regular and Chaotic Dynamics</em>, Springer, 1992.</p>
+</aside>
+<aside class="footnote brackets" id="id5" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></span>
+<p>Meyer, K. R., Hall, G. R., &amp; Offin, D.  <em>Introduction to Hamiltonian Dynamical Systems and the N‑Body Problem</em>, Springer, 2009 (2nd ed.).</p>
+</aside>
+</aside>
+</section>
+</section>
 <dl class="py class">
 <dt class="sig sig-object py" id="symplectic.SymplecticForm">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">SymplecticForm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#SymplecticForm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.SymplecticForm" title="Link to this definition"></a></dt>
@@ -477,7 +537,7 @@ If None, attempt to infer from f and g.</p></li>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

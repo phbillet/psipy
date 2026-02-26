@@ -1,59 +1,63 @@
-# Copyright 2025 Philippe Billet assisted by LLMs in free mode.
-# Licensed under the Apache License, Version 2.0
+# Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
-caustics.py  —  Caustic detection, Arnold classification, and uniform corrections
-==================================================================================
+caustics.py — Catastrophe classification, ray caustic detection, and uniform asymptotic corrections
+===========================================================================================================
 
-This module centralises everything related to caustics and singularity theory,
-extracted and consolidated from physics.py (catastrophe code) and the old
-caustics.py (geometric/ray-based detection).
+Overview
+--------
+The `caustics` module provides a comprehensive toolkit for working with caustics in semiclassical analysis and catastrophe theory.  It consolidates previously scattered functionality into a single, well‑tested module with a clean API.  The main components are:
 
-Architecture
-------------
+1. **Arnold classification** (algebraic) – Symbolic classification of critical points of a function `H(ξ)` (1D) or `H(ξ,η)` (2D) into elementary catastrophes: Morse, fold (A2), cusp (A3), swallowtail (A4), butterfly (A5), and umbilics (D4±).  Uses successive derivatives and Hessian analysis.
 
-SECTION 1 — Arnold classification (algebraic, symbolic)
-    classify_arnold_1d(f, xi, point)
-    classify_arnold_2d(H, xi, eta, point)
-    Classifies a critical point up to A5 / D4± using derivative tensors.
+2. **Catastrophe detection** (adaptive numerical solver) – Robustly finds all critical points of `H` by combining symbolic solving, coarse grid scanning, Newton refinement, and clustering.  Then classifies them using the algebraic routines.
 
-SECTION 2 — Catastrophe detection (symbolic + adaptive numeric solver)
-    detect_catastrophes(H_expr, xi_vars, ...)
-    AdaptiveCriticalPointSolver
-    Finds critical points of H robustly:
-      symbolic  → sp.solve (exact, fast when possible)
-      adaptive  → coarse grid → Newton refinement → DBSCAN deduplication
-    Then dispatches to classify_arnold_* for typing.
+3. **Ray‑based caustic detection** – Operates on a bundle of rays (output of `wkb.py`) that contain the integrated **stability matrix** `J = ∂x(t)/∂q`.  Caustics are detected when `det(J)` crosses zero.  This corrects the common mistake of using velocity zeros or momentum minima as caustic indicators.  Maslov indices and phase shifts are computed automatically.
 
-SECTION 3 — Ray-based caustic detection (geometric, corrected)
-    RayCausticDetector
-    Operates on a bundle of integrated rays (output of wkb.py).
-    Correct implementation: integrates the stability matrix J along each ray,
-    detects det(J)=0, counts Maslov index properly.
-    Replaces the incorrect CausticDetector (which used dx/dt=0 or |ξ|~0).
+4. **Uniform special functions** – Implements the Airy function (fold), the Pearcey integral (cusp), and a swallowtail integral (A4), together with the correct prefactors for uniform WKB approximations near caustics.
 
-SECTION 4 — Special functions for uniform corrections
-    CausticFunctions
-    Airy Ai/Ai' for fold (A2), Pearcey P for cusp (A3),
-    Swallowtail SW for A4 — all with proper normalisation prefactors
-    for the uniform WKB approximation.
+5. **Visualisation helpers** – Functions to plot catastrophe points on 1D curves or 2D surfaces, and to overlay caustic events on ray bundles.
 
-SECTION 5 — Visualisation helpers
-    plot_catastrophe(H, xi_vars, points, ...)
+The module is designed to be **independent** of the other packages (it does not import `wkb.py`, `psiop.py`, etc.), but it is used by `wkb.py` for caustic detection and correction.
 
-Dependencies
-------------
-    sympy, numpy, scipy   (all standard)
-    matplotlib            (optional, for visualisation only)
+Mathematical background
+-----------------------
+**Caustics** are envelopes of families of rays (bicharacteristics) where the ray density becomes infinite.  In the semiclassical approximation, the amplitude diverges at a caustic, and the standard WKB ansatz breaks down.  Uniform approximations replace the oscillatory exponential by special functions.
 
-Does NOT depend on: wkb.py, psiop.py, fio_bridge.py, physics.py.
-wkb.py imports RayCausticDetector from here (one-way dependency).
+For a Hamiltonian system with `n` degrees of freedom, a family of rays is parameterised by an initial‑condition parameter `q ∈ ℝⁿ`.  The **stability matrix**
+
+    J(t) = ∂x(t)/∂q
+
+satisfies the variational equation `dJ/dt = H_{px}·J` along each ray.  A caustic occurs when `det(J(t)) = 0`.  The **Maslov index** `μ` is the signed number of such zero crossings; each crossing contributes a phase shift of `π/2` to the wave function.
+
+**Arnold’s classification of catastrophes** (singularities of gradient maps) provides a taxonomy of caustics:
+
+* **A₂ (fold)**: normal form `ξ³` – the simplest caustic, described by the Airy function.
+* **A₃ (cusp)**: normal form `ξ⁴` – described by the Pearcey integral.
+* **A₄ (swallowtail)**: normal form `ξ⁵` – a three‑parameter integral.
+* **D₄± (umbilics)**: normal forms `ξ³ + η³` (hyperbolic) and `ξ³ – 3ξη²` (elliptic) – degenerate cases with Hessian rank 0.
+
+The module classifies a critical point (where `∇H = 0`) by examining its Hessian rank and higher derivatives, using algebraic invariants.
 
 References
 ----------
-[1] Arnold, V.I. "Catastrophe Theory", Springer 1986.
-[2] Duistermaat, J.J. "Oscillatory Integrals", Comm. Pure Appl. Math. 1974.
-[3] Maslov, V.P. & Fedoriuk, M.V. "Semi-Classical Approximation", Springer 1981.
-[4] Zworski, M. "Semiclassical Analysis", AMS 2012.
+.. [1] Arnold, V. I.  *Catastrophe Theory*, Springer‑Verlag, 1986.
+.. [2] Duistermaat, J. J.  “Oscillatory integrals, Lagrange immersions and unfolding of singularities”, *Comm. Pure Appl. Math.* **27**, 207–281, 1974.
+.. [3] Maslov, V. P. & Fedoriuk, M. V.  *Semi‑Classical Approximation in Quantum Mechanics*, Reidel, 1981.
+.. [4] Kravtsov, Yu. A. & Orlov, Yu. I.  *Caustics, Catastrophes and Wave Fields*, Springer, 1999.
+.. [5] Berry, M. V. & Howls, C. J.  “High orders of the Weyl expansion for quantum billiards”, *Phys. Rev. E* **50**(5), 3577–3595, 1994.
+.. [6] Connor, J. N. L.  “Practical methods for the uniform asymptotic evaluation of oscillatory integrals”, *Mol. Phys.* **31**(1), 33–55, 1976.
 """
 
 from __future__ import annotations

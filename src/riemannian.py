@@ -1,4 +1,4 @@
-# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
+# Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,43 +12,60 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Riemannian geometry toolkit — unified 1D and 2D manifolds.
+riemannian.py — Unified 1D/2D Riemannian geometry toolkit
+================================================================
 
-This module provides a single ``Metric`` class that handles both 1D and 2D
-Riemannian manifolds, dispatching internal computations by dimension:
+Overview
+--------
+The `riemannian` module provides a unified framework for working with Riemannian manifolds in one and two dimensions.  A single class `Metric` dispatches all computations automatically based on the dimension, making it easy to switch between 1D curves and 2D surfaces without changing the calling interface.
 
-  Dimension 1
-  -----------
-  - Metric representation: g₁₁(x), g¹¹(x), |g|, √|g|
-  - Christoffel symbol: Γ¹₁₁ = ½(log g₁₁)'
-  - Geodesic equation: ẍ + Γ¹₁₁ ẋ² = 0
-  - Laplace-Beltrami operator
-  - Sturm-Liouville reduction
+Key features include:
 
-  Dimension 2
-  -----------
-  - Metric tensor gᵢⱼ(x,y), inverse g^ij, det|g|, √|g|
-  - Christoffel symbols Γⁱⱼₖ
-  - Geodesic equations and integration
-  - Curvature tensors: Riemann, Ricci, Gauss K, scalar R
-  - Exponential map, geodesic distance
-  - Jacobi equation (geodesic deviation)
-  - Hodge star operator and de Rham Laplacian
+* Symbolic construction of the metric tensor from an explicit expression (1D scalar, 2D matrix) or by extraction from a Hamiltonian kinetic energy.
+* Automatic computation of Christoffel symbols (1D and 2D).
+* Geodesic integration with multiple numerical schemes (RK4, adaptive, symplectic/Verlet, Hamiltonian flow via the companion `symplectic` module).
+* Curvature: Riemann tensor, Ricci tensor, Gaussian curvature, scalar curvature.
+* Laplace–Beltrami operator: full symbol (principal + subprincipal parts) ready for microlocal analysis.
+* Riemannian volume (arc length in 1D) via symbolic or numerical integration.
+* **2D only**: Exponential map, geodesic distance (shooting or optimisation), Jacobi equation solver (geodesic deviation), Hodge star operator, de Rham Laplacian on 0‑ and 1‑forms, numerical verification of the Gauss–Bonnet theorem.
+* Rich visualisation suite: geodesic trajectories, curvature maps (Gaussian/Ricci), metric components.
 
-Usage
------
->>> from riemannian import Metric
->>> # 1D — pass a scalar expression and a single symbol
->>> x = symbols('x', real=True)
->>> m1 = Metric(x**2, (x,))
->>> m1.dim
-1
->>> # 2D — pass a 2×2 Matrix and two symbols
->>> x, y = symbols('x y', real=True)
->>> from sympy import Matrix
->>> m2 = Metric(Matrix([[1, 0], [0, x**2]]), (x, y))
->>> m2.dim
-2
+Mathematical background
+-----------------------
+A **Riemannian metric** `g` on an `n`-dimensional manifold assigns an inner product to each tangent space.  In local coordinates `(x¹,…,xⁿ)` the metric is written as
+
+    ds² = gᵢⱼ(x) dxⁱ dxʲ
+
+and its inverse is denoted `gⁱʲ`.  The **Christoffel symbols** are derived from the metric:
+
+    Γⁱⱼₖ = ½ gⁱˡ (∂ⱼ gₖₗ + ∂ₖ gⱼₗ − ∂ₗ gⱼₖ)
+
+and determine the **geodesic equation**
+
+    ẍⁱ + Γⁱⱼₖ ẋʲ ẋᵏ = 0.
+
+For a 1D metric `g₁₁(x)` the geodesic equation simplifies to
+    ẍ + Γ¹₁₁ ẋ² = 0, Γ¹₁₁ = ½ (log g₁₁)′.
+
+**Curvature** is encoded in the Riemann tensor `Rⁱⱼₖₗ`, the Ricci tensor `Rᵢⱼ = Rᵏᵢₖⱼ`, and the scalar curvature `R = gⁱʲ Rᵢⱼ`.  For a 2D surface the Gaussian curvature `K` satisfies `R₁₂₁₂ = K |g|` and is the only independent component.
+
+The **Laplace–Beltrami operator** acting on functions is
+
+    Δ = |g|^{-½} ∂ᵢ ( |g|^{½} gⁱʲ ∂ⱼ ),
+
+and its principal symbol is `gⁱʲ ξᵢ ξⱼ`.  The subprincipal symbol encodes the lower‑order terms.
+
+The module also implements the **Hodge star** on differential forms and the **de Rham Laplacian** `Δ = dδ + δd` for 0‑ and 1‑forms in 2D.
+
+
+References
+----------
+.. [1] do Carmo, M. P.  *Riemannian Geometry*, Birkhäuser, 1992.
+.. [2] Jost, J.  *Riemannian Geometry and Geometric Analysis*, Springer, 2011 (6th ed.).
+.. [3] Lee, J. M.  *Riemannian Manifolds: An Introduction to Curvature*, Springer, 1997.
+.. [4] Petersen, P.  *Riemannian Geometry*, Springer, 2016 (3rd ed.).
+.. [5] Frankel, T.  *The Geometry of Physics*, Cambridge University Press, 2011 (3rd ed.).
+
 """
 
 from imports import *

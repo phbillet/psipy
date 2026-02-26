@@ -45,20 +45,22 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fio_bridge.html">fio_bridge</a></li>
 <li class="toctree-l1"><a class="reference internal" href="geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="riemannian.html">riemannian</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solver.html">solver</a></li>
 <li class="toctree-l1"><a class="reference internal" href="symplectic.html">symplectic</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">wkb</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#wkb-py-multidimensional-wkb-approximation-with-caustic-corrections">wkb.py — Multidimensional WKB approximation with caustic corrections</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mathematical-background">Mathematical background</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#wkb.compare_orders"><code class="docutils literal notranslate"><span class="pre">compare_orders()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#wkb.create_initial_data_circle"><code class="docutils literal notranslate"><span class="pre">create_initial_data_circle()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#wkb.create_initial_data_line"><code class="docutils literal notranslate"><span class="pre">create_initial_data_line()</span></code></a></li>
@@ -99,6 +101,75 @@
              
   <section id="module-wkb">
 <span id="wkb"></span><h1>wkb<a class="headerlink" href="#module-wkb" title="Link to this heading"></a></h1>
+<section id="wkb-py-multidimensional-wkb-approximation-with-caustic-corrections">
+<h2>wkb.py — Multidimensional WKB approximation with caustic corrections<a class="headerlink" href="#wkb-py-multidimensional-wkb-approximation-with-caustic-corrections" title="Link to this heading"></a></h2>
+<section id="overview">
+<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
+<p>The <cite>wkb</cite> module provides a comprehensive implementation of the Wentzel–Kramers–Brillouin (WKB) method for constructing asymptotic solutions to linear partial differential equations of the form</p>
+<blockquote>
+<div><p>P(x, –iε∇) u(x) = 0,  ε → 0,</p>
+</div></blockquote>
+<p>where <cite>P(x,ξ)</cite> is the (pseudo‑differential) symbol of the operator.  The solution is sought as a sum over rays (bicharacteristics):</p>
+<blockquote>
+<div><p>u(x) ≈ ∑_j A_j(x) e^{i S_j(x)/ε},</p>
+</div></blockquote>
+<p>with the phase <cite>S</cite> satisfying the eikonal equation <cite>P(x,∇S)=0</cite> and the amplitudes <cite>A_j</cite> determined by transport equations along the rays.</p>
+<p>Key features:</p>
+<ul class="simple">
+<li><p><strong>Automatic dimension detection</strong> – works for both 1D and 2D problems without changing the calling interface.</p></li>
+<li><p><strong>Ray tracing</strong> – integrates Hamilton’s equations for the bicharacteristics, including the variational equations for the stability matrix <cite>J</cite> (used to detect caustics).</p></li>
+<li><p><strong>Multi‑order amplitude transport</strong> – computes amplitudes up to arbitrary order (0,1,2,3,…) by solving ODEs along each ray.</p></li>
+<li><dl class="simple">
+<dt><strong>Caustic detection and correction</strong> – monitors <cite>det(J)</cite> to locate caustics (folds, cusps) and applies:</dt><dd><ul>
+<li><p>Maslov phase shifts (π/2 per caustic),</p></li>
+<li><p>Uniform Airy (fold) or Pearcey (cusp) corrections near caustics.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p><strong>Interpolation onto regular grids</strong> – uses <cite>scipy.interpolate</cite> (linear, <cite>griddata</cite>) to map the ray‑based solution to a uniform spatial grid.</p></li>
+<li><p><strong>Rich visualisation suite</strong> – phase portraits, amplitude decomposition, caustic analysis, ray plots, comparison of WKB orders.</p></li>
+<li><p><strong>Utilities for generating initial data</strong> – line segments, circles, point sources.</p></li>
+</ul>
+</section>
+<section id="mathematical-background">
+<h3>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h3>
+<p>The WKB ansatz <cite>u = e^{iS/ε} (a₀ + ε a₁ + ε² a₂ + …)</cite> is inserted into the equation <cite>P(x,–iε∇)u = 0</cite>.  Expanding in powers of ε yields:</p>
+<ul>
+<li><p><strong>Order ε⁰ (eikonal equation):</strong>  <cite>P(x, ∇S) = 0</cite>.  This is a Hamilton–Jacobi equation solved by the method of characteristics (rays).  The rays satisfy</p>
+<blockquote>
+<div><p>dx/dt = ∂P/∂ξ,  dξ/dt = –∂P/∂x,  dS/dt = ξ·∂P/∂ξ – P.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Order ε¹ (transport equation for a₀):</strong>  <cite>(∂P/∂ξ)·∇a₀ + ½ (∇_ξ·∇_x P) a₀ = 0</cite>.  Along a ray this becomes an ODE for the amplitude.</p></li>
+<li><p><strong>Higher orders:</strong>  Similar ODEs for <cite>a₁, a₂, …</cite> involving derivatives of <cite>P</cite> up to order three.</p></li>
+</ul>
+<p>The <strong>stability matrix</strong> <cite>J = ∂x(t)/∂q</cite> (where <cite>q</cite> parametrises the initial data) measures the focusing of nearby rays.  Its determinant vanishes at <strong>caustics</strong>.  Near a fold caustic the standard WKB amplitude blows up; the correct uniform approximation involves the Airy function.  Near a cusp, the Pearcey integral is required.  The module implements both corrections using the companion <cite>caustics</cite> module.</p>
+<p class="rubric">References</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id1" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<p>Maslov, V. P. &amp; Fedoriuk, M. V.  <em>Semi‑Classical Approximation in Quantum Mechanics</em>, Reidel, 1981.</p>
+</aside>
+<aside class="footnote brackets" id="id2" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
+<p>Duistermaat, J. J.  “Oscillatory integrals, Lagrange immersions and unfolding of singularities”, <em>Comm. Pure Appl. Math.</em> 27, 207–281, 1974.</p>
+</aside>
+<aside class="footnote brackets" id="id3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
+<p>Berry, M. V. &amp; Howls, C. J.  “High orders of the Weyl expansion for quantum billiards”, <em>Phys. Rev. E</em> 50(5), 3577–3595, 1994.</p>
+</aside>
+<aside class="footnote brackets" id="id4" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
+<p>Ludwig, D.  “Uniform asymptotic expansions at a caustic”, <em>Comm. Pure Appl. Math.</em> 19, 215–250, 1966.</p>
+</aside>
+<aside class="footnote brackets" id="id5" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></span>
+<p>Kravtsov, Yu. A. &amp; Orlov, Yu. I.  <em>Caustics, Catastrophes and Wave Fields</em>, Springer, 1999.</p>
+</aside>
+</aside>
+</section>
+</section>
 <dl class="py function">
 <dt class="sig sig-object py" id="wkb.compare_orders">
 <span class="sig-prename descclassname"><span class="pre">wkb.</span></span><span class="sig-name descname"><span class="pre">compare_orders</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_phase</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/wkb.html#compare_orders"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#wkb.compare_orders" title="Link to this definition"></a></dt>
@@ -345,7 +416,7 @@ If None, inferred from initial data.</p></li>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

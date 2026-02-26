@@ -1,4 +1,4 @@
-# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
+# Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +12,67 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-EDP solver in 1D or 2D based on spectral methods
+solver.py — Spectral PDE solver for 1D/2D equations with pseudo‑differential operators
+============================================================================================
 
-It can handle:
- - Linear differential and pseudo-differential operators
- - Nonlinear terms up to second order in derivatives
- - Symbolic operator composition and adjoints
- - Asymptotic inversion of elliptic operators for stationary problems
+Overview
+--------
+The `solver` module provides a high‑performance spectral solver for partial differential equations in one and two spatial dimensions.  It is designed to handle a wide class of problems, including:
+
+* Linear and nonlinear PDEs with periodic or Dirichlet boundary conditions.
+* Time‑dependent evolution (first‑ or second‑order in time) and stationary problems.
+* Equations involving pseudo‑differential operators (via `psiOp`), such as fractional Laplacians or non‑local terms.
+* Source terms and arbitrary spatial derivatives.
+
+The solver is built on **Fourier spectral methods** for spatial discretisation, ensuring exponential convergence for smooth solutions.  Time stepping is performed with either a simple exponential integrator, a fourth‑order **Exponential Time Differencing Runge–Kutta (ETD‑RK4)** scheme, or explicit Runge–Kutta methods for nonlinear problems.  For stationary pseudo‑differential equations, an **asymptotic inversion** of the operator is available.
+
+Key features:
+
+* Symbolic parsing of the PDE using SymPy – the user provides an equation in standard mathematical form.
+* Automatic extraction of linear, nonlinear, source, and pseudo‑differential terms.
+* Computation of the Fourier symbol of the linear operator (dispersion relation) from the equation.
+* Dealiasing via sharp spectral cut‑off to control aliasing errors from nonlinear terms.
+* Efficient FFT‑based application of linear and pseudo‑differential operators.
+* Support for both 1D and 2D problems with uniform grids.
+* Built‑in energy monitoring, CFL checks, and spectral symbol analysis.
+* Rich visualisation: animated solutions, error plots, energy evolution, and 3D surface/2D image displays.
+* Testing framework for comparison with exact solutions.
+
+Mathematical background
+-----------------------
+**Spectral discretisation.**  The solution `u(x,t)` is approximated by its truncated Fourier series.  Spatial derivatives are replaced by multiplication with the corresponding wavenumber in Fourier space:
+
+    ∂/∂x   →   i k ,  ∂²/∂x² →   -k² .
+
+Nonlinear terms are evaluated in physical space and then transformed back (pseudo‑spectral approach).  Dealiasing is applied by zeroing out the highest one‑third of the Fourier modes (the 2/3‑rule).
+
+**Linear operator.**  After parsing the PDE, the linear part is converted into a Fourier multiplier `L(k)` (or `L(kx,ky)`).  For a first‑order‑in‑time equation
+
+    ∂ₜ u = L u + N(u) + f(x,t),
+
+the variation‑of‑constants formula motivates exponential integrators.  The solver implements:
+
+* **Exponential Euler** (first order): `uⁿ⁺¹ = e^{LΔt} uⁿ + Δt φ₁(LΔt) (N(uⁿ)+fⁿ)` with `φ₁(z) = (e^z-1)/z`.
+* **ETD‑RK4** (fourth order): a Runge–Kutta scheme that uses exponentials of the linear part, achieving high accuracy for stiff problems.
+
+For second‑order equations
+
+    ∂ₜ² u = L u + N(u) + f(x,t),
+
+the system is reduced to first order in time, and a leap‑frog style integrator or a second‑order ETD scheme is used.
+
+**Pseudo‑differential operators.**  When the equation contains `psiOp(p(x,ξ), u)`, the solver builds a `PseudoDifferentialOperator` object (from the companion `psiop` module) and applies it using Kohn–Nirenberg quantisation (fast Fourier for constant‑coefficient symbols, direct quadrature for spatially varying symbols).  For stationary problems, an asymptotic right inverse is constructed via symbolic series expansion.
+
+**Stability.**  The solver checks the CFL condition based on the maximum group velocity derived from the dispersion relation.  It also verifies that the symbol satisfies the necessary conditions for well‑posedness (Re `L(k)` ≤ 0, sufficient high‑frequency dissipation, moderate growth).
+
+
+References
+----------
+.. [1] Canuto, C., Hussaini, M. Y., Quarteroni, A., & Zang, T. A.  *Spectral Methods: Fundamentals in Single Domains*, Springer, 2006.
+.. [2] Trefethen, L. N.  *Spectral Methods in MATLAB*, SIAM, 2000.
+.. [3] Boyd, J. P.  *Chebyshev and Fourier Spectral Methods*, Dover, 2001.
+.. [4] Hochbruck, M., & Ostermann, A.  “Exponential integrators”, *Acta Numerica* 19, 209–286, 2010.
+.. [5] Kassam, A.-K., & Trefethen, L. N.  “Fourth‑order time‑stepping for stiff PDEs”, *SIAM J. Sci. Comput.* 26(4), 1214–1233, 2005.
 """
 
 from imports import *

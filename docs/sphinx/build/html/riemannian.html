@@ -46,18 +46,19 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="fio_bridge.html">fio_bridge</a></li>
 <li class="toctree-l1"><a class="reference internal" href="geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">riemannian</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian-py-unified-1d-2d-riemannian-geometry-toolkit">riemannian.py — Unified 1D/2D Riemannian geometry toolkit</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mathematical-background">Mathematical background</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.Metric"><code class="docutils literal notranslate"><span class="pre">Metric</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#riemannian.Metric.dim"><code class="docutils literal notranslate"><span class="pre">Metric.dim</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#riemannian.Metric.coords"><code class="docutils literal notranslate"><span class="pre">Metric.coords</span></code></a></li>
@@ -135,43 +136,72 @@
              
   <section id="module-riemannian">
 <span id="riemannian"></span><h1>riemannian<a class="headerlink" href="#module-riemannian" title="Link to this heading"></a></h1>
-<p>Riemannian geometry toolkit — unified 1D and 2D manifolds.</p>
-<p>This module provides a single <code class="docutils literal notranslate"><span class="pre">Metric</span></code> class that handles both 1D and 2D
-Riemannian manifolds, dispatching internal computations by dimension:</p>
-<blockquote>
-<div><ul class="simple">
-<li><p>Metric representation: g₁₁(x), g¹¹(x), <a href="#id1"><span class="problematic" id="id2">|g|</span></a>, √|g|</p></li>
-<li><p>Christoffel symbol: Γ¹₁₁ = ½(log g₁₁)’</p></li>
-<li><p>Geodesic equation: ẍ + Γ¹₁₁ ẋ² = 0</p></li>
-<li><p>Laplace-Beltrami operator</p></li>
-<li><p>Sturm-Liouville reduction</p></li>
-</ul>
+<section id="riemannian-py-unified-1d-2d-riemannian-geometry-toolkit">
+<h2>riemannian.py — Unified 1D/2D Riemannian geometry toolkit<a class="headerlink" href="#riemannian-py-unified-1d-2d-riemannian-geometry-toolkit" title="Link to this heading"></a></h2>
+<section id="overview">
+<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
+<p>The <cite>riemannian</cite> module provides a unified framework for working with Riemannian manifolds in one and two dimensions.  A single class <cite>Metric</cite> dispatches all computations automatically based on the dimension, making it easy to switch between 1D curves and 2D surfaces without changing the calling interface.</p>
+<p>Key features include:</p>
 <ul class="simple">
-<li><p>Metric tensor gᵢⱼ(x,y), inverse g^ij, det|g|, √|g|</p></li>
-<li><p>Christoffel symbols Γⁱⱼₖ</p></li>
-<li><p>Geodesic equations and integration</p></li>
-<li><p>Curvature tensors: Riemann, Ricci, Gauss K, scalar R</p></li>
-<li><p>Exponential map, geodesic distance</p></li>
-<li><p>Jacobi equation (geodesic deviation)</p></li>
-<li><p>Hodge star operator and de Rham Laplacian</p></li>
+<li><p>Symbolic construction of the metric tensor from an explicit expression (1D scalar, 2D matrix) or by extraction from a Hamiltonian kinetic energy.</p></li>
+<li><p>Automatic computation of Christoffel symbols (1D and 2D).</p></li>
+<li><p>Geodesic integration with multiple numerical schemes (RK4, adaptive, symplectic/Verlet, Hamiltonian flow via the companion <cite>symplectic</cite> module).</p></li>
+<li><p>Curvature: Riemann tensor, Ricci tensor, Gaussian curvature, scalar curvature.</p></li>
+<li><p>Laplace–Beltrami operator: full symbol (principal + subprincipal parts) ready for microlocal analysis.</p></li>
+<li><p>Riemannian volume (arc length in 1D) via symbolic or numerical integration.</p></li>
+<li><p><strong>2D only</strong>: Exponential map, geodesic distance (shooting or optimisation), Jacobi equation solver (geodesic deviation), Hodge star operator, de Rham Laplacian on 0‑ and 1‑forms, numerical verification of the Gauss–Bonnet theorem.</p></li>
+<li><p>Rich visualisation suite: geodesic trajectories, curvature maps (Gaussian/Ricci), metric components.</p></li>
 </ul>
+</section>
+<section id="mathematical-background">
+<h3>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h3>
+<p>A <strong>Riemannian metric</strong> <cite>g</cite> on an <cite>n</cite>-dimensional manifold assigns an inner product to each tangent space.  In local coordinates <cite>(x¹,…,xⁿ)</cite> the metric is written as</p>
+<blockquote>
+<div><p>ds² = gᵢⱼ(x) dxⁱ dxʲ</p>
 </div></blockquote>
-<section id="usage">
-<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">riemannian</span><span class="w"> </span><span class="kn">import</span> <span class="n">Metric</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="c1"># 1D — pass a scalar expression and a single symbol</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">m1</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">m1</span><span class="o">.</span><span class="n">dim</span>
-<span class="go">1</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="c1"># 2D — pass a 2×2 Matrix and two symbols</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Matrix</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">m2</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">]]),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">m2</span><span class="o">.</span><span class="n">dim</span>
-<span class="go">2</span>
-</pre></div>
-</div>
+<p>and its inverse is denoted <cite>gⁱʲ</cite>.  The <strong>Christoffel symbols</strong> are derived from the metric:</p>
+<blockquote>
+<div><p>Γⁱⱼₖ = ½ gⁱˡ (∂ⱼ gₖₗ + ∂ₖ gⱼₗ − ∂ₗ gⱼₖ)</p>
+</div></blockquote>
+<p>and determine the <strong>geodesic equation</strong></p>
+<blockquote>
+<div><p>ẍⁱ + Γⁱⱼₖ ẋʲ ẋᵏ = 0.</p>
+</div></blockquote>
+<dl class="simple">
+<dt>For a 1D metric <cite>g₁₁(x)</cite> the geodesic equation simplifies to</dt><dd><p>ẍ + Γ¹₁₁ ẋ² = 0, Γ¹₁₁ = ½ (log g₁₁)′.</p>
+</dd>
+</dl>
+<p><strong>Curvature</strong> is encoded in the Riemann tensor <cite>Rⁱⱼₖₗ</cite>, the Ricci tensor <cite>Rᵢⱼ = Rᵏᵢₖⱼ</cite>, and the scalar curvature <cite>R = gⁱʲ Rᵢⱼ</cite>.  For a 2D surface the Gaussian curvature <cite>K</cite> satisfies <cite>R₁₂₁₂ = K |g|</cite> and is the only independent component.</p>
+<p>The <strong>Laplace–Beltrami operator</strong> acting on functions is</p>
+<blockquote>
+<div><p>Δ = <a href="#id1"><span class="problematic" id="id2">|</span></a>g|^{-½} ∂ᵢ ( <a href="#id3"><span class="problematic" id="id4">|</span></a>g|^{½} gⁱʲ ∂ⱼ ),</p>
+</div></blockquote>
+<p>and its principal symbol is <cite>gⁱʲ ξᵢ ξⱼ</cite>.  The subprincipal symbol encodes the lower‑order terms.</p>
+<p>The module also implements the <strong>Hodge star</strong> on differential forms and the <strong>de Rham Laplacian</strong> <cite>Δ = dδ + δd</cite> for 0‑ and 1‑forms in 2D.</p>
+<p class="rubric">References</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id5" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<p>do Carmo, M. P.  <em>Riemannian Geometry</em>, Birkhäuser, 1992.</p>
+</aside>
+<aside class="footnote brackets" id="id6" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
+<p>Jost, J.  <em>Riemannian Geometry and Geometric Analysis</em>, Springer, 2011 (6th ed.).</p>
+</aside>
+<aside class="footnote brackets" id="id7" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
+<p>Lee, J. M.  <em>Riemannian Manifolds: An Introduction to Curvature</em>, Springer, 1997.</p>
+</aside>
+<aside class="footnote brackets" id="id8" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
+<p>Petersen, P.  <em>Riemannian Geometry</em>, Springer, 2016 (3rd ed.).</p>
+</aside>
+<aside class="footnote brackets" id="id9" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></span>
+<p>Frankel, T.  <em>The Geometry of Physics</em>, Cambridge University Press, 2011 (3rd ed.).</p>
+</aside>
+</aside>
+</section>
 </section>
 <dl class="py class">
 <dt class="sig sig-object py" id="riemannian.Metric">
@@ -309,7 +339,7 @@ a 2-tuple <code class="docutils literal notranslate"><span class="pre">(x,</span
 <span class="sig-name descname"><span class="pre">gauss_curvature</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#Metric.gauss_curvature"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.Metric.gauss_curvature" title="Link to this definition"></a></dt>
 <dd><p>Gaussian curvature K.</p>
 <p>Returns 0 for 1D (intrinsic curvature vanishes on a curve).
-For 2D, computes K = R₁₂₁₂ / <a href="#id3"><span class="problematic" id="id4">|g|</span></a>.</p>
+For 2D, computes K = R₁₂₁₂ / <a href="#id10"><span class="problematic" id="id11">|g|</span></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sympy expression</p>
@@ -468,7 +498,7 @@ For 2D, computes K = R₁₂₁₂ / <a href="#id3"><span class="problematic" id
 <dl class="py function">
 <dt class="sig sig-object py" id="riemannian.geodesic_hamiltonian_flow">
 <span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">geodesic_hamiltonian_flow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'verlet'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#geodesic_hamiltonian_flow"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.geodesic_hamiltonian_flow" title="Link to this definition"></a></dt>
-<dd><p>Integrate geodesic flow in Hamiltonian formulation.</p>
+<dd><p>Integrate geodesic flow in Hamiltonian formulation using symplectic.hamiltonian_flow.</p>
 <p>H = ½ gⁱʲ pᵢ pⱼ (1D or 2D).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -476,14 +506,16 @@ For 2D, computes K = R₁₂₁₂ / <a href="#id3"><span class="problematic" id
 <li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian.Metric" title="riemannian.Metric"><em>Metric</em></a>)</p></li>
 <li><p><strong>p0</strong> (<em>float</em><em> (</em><em>1D</em><em>) </em><em>| </em><em>tuple</em><em> (</em><em>2D</em><em>)</em>) – Initial position.</p></li>
 <li><p><strong>v0</strong> (<em>float</em><em> (</em><em>1D</em><em>) </em><em>| </em><em>tuple</em><em> (</em><em>2D</em><em>)</em>) – Initial velocity (converted to momentum internally).</p></li>
-<li><p><strong>tspan</strong> (<em>tuple</em>)</p></li>
-<li><p><strong>method</strong> (<em>str</em>) – 1D: ‘verlet’ | ‘stormer’ | ‘symplectic_euler’.
-2D: ‘verlet’ | ‘symplectic_euler’.</p></li>
-<li><p><strong>n_steps</strong> (<em>int</em>)</p></li>
+<li><p><strong>tspan</strong> (<em>tuple</em><em> (</em><em>t_start</em><em>, </em><em>t_end</em><em>)</em>)</p></li>
+<li><p><strong>method</strong> (<em>str</em>) – For 1D/2D: ‘verlet’, ‘stormer’, ‘symplectic_euler’, ‘rk45’.
+(‘stormer’ is aliased to ‘verlet’, ‘symplectic_euler’ to ‘symplectic’.)</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em>) – Number of time steps.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Phase-space trajectory with ‘energy’.</p>
+<dd class="field-even"><p>Phase‑space trajectory with keys:
+1D: ‘t’, ‘x’, ‘v’, ‘p’, ‘energy’
+2D: ‘t’, ‘x’, ‘y’, ‘vx’, ‘vy’, ‘px’, ‘py’, ‘energy’</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>dict</p>
@@ -756,7 +788,7 @@ For 2D, computes K = R₁₂₁₂ / <a href="#id3"><span class="problematic" id
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

@@ -43,15 +43,11 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_1d.html">geometry_1d</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
@@ -85,62 +81,66 @@
            <div itemprop="articleBody">
              
   <h1>Source code for caustics</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright 2025 Philippe Billet assisted by LLMs in free mode.</span>
-<span class="c1"># Licensed under the Apache License, Version 2.0</span>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">caustics.py  —  Caustic detection, Arnold classification, and uniform corrections</span>
-<span class="sd">==================================================================================</span>
+<span class="sd">caustics.py — Catastrophe classification, ray caustic detection, and uniform asymptotic corrections</span>
+<span class="sd">===========================================================================================================</span>
 
-<span class="sd">This module centralises everything related to caustics and singularity theory,</span>
-<span class="sd">extracted and consolidated from physics.py (catastrophe code) and the old</span>
-<span class="sd">caustics.py (geometric/ray-based detection).</span>
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The `caustics` module provides a comprehensive toolkit for working with caustics in semiclassical analysis and catastrophe theory.  It consolidates previously scattered functionality into a single, well‑tested module with a clean API.  The main components are:</span>
 
-<span class="sd">Architecture</span>
-<span class="sd">------------</span>
+<span class="sd">1. **Arnold classification** (algebraic) – Symbolic classification of critical points of a function `H(ξ)` (1D) or `H(ξ,η)` (2D) into elementary catastrophes: Morse, fold (A2), cusp (A3), swallowtail (A4), butterfly (A5), and umbilics (D4±).  Uses successive derivatives and Hessian analysis.</span>
 
-<span class="sd">SECTION 1 — Arnold classification (algebraic, symbolic)</span>
-<span class="sd">    classify_arnold_1d(f, xi, point)</span>
-<span class="sd">    classify_arnold_2d(H, xi, eta, point)</span>
-<span class="sd">    Classifies a critical point up to A5 / D4± using derivative tensors.</span>
+<span class="sd">2. **Catastrophe detection** (adaptive numerical solver) – Robustly finds all critical points of `H` by combining symbolic solving, coarse grid scanning, Newton refinement, and clustering.  Then classifies them using the algebraic routines.</span>
 
-<span class="sd">SECTION 2 — Catastrophe detection (symbolic + adaptive numeric solver)</span>
-<span class="sd">    detect_catastrophes(H_expr, xi_vars, ...)</span>
-<span class="sd">    AdaptiveCriticalPointSolver</span>
-<span class="sd">    Finds critical points of H robustly:</span>
-<span class="sd">      symbolic  → sp.solve (exact, fast when possible)</span>
-<span class="sd">      adaptive  → coarse grid → Newton refinement → DBSCAN deduplication</span>
-<span class="sd">    Then dispatches to classify_arnold_* for typing.</span>
+<span class="sd">3. **Ray‑based caustic detection** – Operates on a bundle of rays (output of `wkb.py`) that contain the integrated **stability matrix** `J = ∂x(t)/∂q`.  Caustics are detected when `det(J)` crosses zero.  This corrects the common mistake of using velocity zeros or momentum minima as caustic indicators.  Maslov indices and phase shifts are computed automatically.</span>
 
-<span class="sd">SECTION 3 — Ray-based caustic detection (geometric, corrected)</span>
-<span class="sd">    RayCausticDetector</span>
-<span class="sd">    Operates on a bundle of integrated rays (output of wkb.py).</span>
-<span class="sd">    Correct implementation: integrates the stability matrix J along each ray,</span>
-<span class="sd">    detects det(J)=0, counts Maslov index properly.</span>
-<span class="sd">    Replaces the incorrect CausticDetector (which used dx/dt=0 or |ξ|~0).</span>
+<span class="sd">4. **Uniform special functions** – Implements the Airy function (fold), the Pearcey integral (cusp), and a swallowtail integral (A4), together with the correct prefactors for uniform WKB approximations near caustics.</span>
 
-<span class="sd">SECTION 4 — Special functions for uniform corrections</span>
-<span class="sd">    CausticFunctions</span>
-<span class="sd">    Airy Ai/Ai&#39; for fold (A2), Pearcey P for cusp (A3),</span>
-<span class="sd">    Swallowtail SW for A4 — all with proper normalisation prefactors</span>
-<span class="sd">    for the uniform WKB approximation.</span>
+<span class="sd">5. **Visualisation helpers** – Functions to plot catastrophe points on 1D curves or 2D surfaces, and to overlay caustic events on ray bundles.</span>
 
-<span class="sd">SECTION 5 — Visualisation helpers</span>
-<span class="sd">    plot_catastrophe(H, xi_vars, points, ...)</span>
+<span class="sd">The module is designed to be **independent** of the other packages (it does not import `wkb.py`, `psiop.py`, etc.), but it is used by `wkb.py` for caustic detection and correction.</span>
 
-<span class="sd">Dependencies</span>
-<span class="sd">------------</span>
-<span class="sd">    sympy, numpy, scipy   (all standard)</span>
-<span class="sd">    matplotlib            (optional, for visualisation only)</span>
+<span class="sd">Mathematical background</span>
+<span class="sd">-----------------------</span>
+<span class="sd">**Caustics** are envelopes of families of rays (bicharacteristics) where the ray density becomes infinite.  In the semiclassical approximation, the amplitude diverges at a caustic, and the standard WKB ansatz breaks down.  Uniform approximations replace the oscillatory exponential by special functions.</span>
 
-<span class="sd">Does NOT depend on: wkb.py, psiop.py, fio_bridge.py, physics.py.</span>
-<span class="sd">wkb.py imports RayCausticDetector from here (one-way dependency).</span>
+<span class="sd">For a Hamiltonian system with `n` degrees of freedom, a family of rays is parameterised by an initial‑condition parameter `q ∈ ℝⁿ`.  The **stability matrix**</span>
+
+<span class="sd">    J(t) = ∂x(t)/∂q</span>
+
+<span class="sd">satisfies the variational equation `dJ/dt = H_{px}·J` along each ray.  A caustic occurs when `det(J(t)) = 0`.  The **Maslov index** `μ` is the signed number of such zero crossings; each crossing contributes a phase shift of `π/2` to the wave function.</span>
+
+<span class="sd">**Arnold’s classification of catastrophes** (singularities of gradient maps) provides a taxonomy of caustics:</span>
+
+<span class="sd">* **A₂ (fold)**: normal form `ξ³` – the simplest caustic, described by the Airy function.</span>
+<span class="sd">* **A₃ (cusp)**: normal form `ξ⁴` – described by the Pearcey integral.</span>
+<span class="sd">* **A₄ (swallowtail)**: normal form `ξ⁵` – a three‑parameter integral.</span>
+<span class="sd">* **D₄± (umbilics)**: normal forms `ξ³ + η³` (hyperbolic) and `ξ³ – 3ξη²` (elliptic) – degenerate cases with Hessian rank 0.</span>
+
+<span class="sd">The module classifies a critical point (where `∇H = 0`) by examining its Hessian rank and higher derivatives, using algebraic invariants.</span>
 
 <span class="sd">References</span>
 <span class="sd">----------</span>
-<span class="sd">[1] Arnold, V.I. &quot;Catastrophe Theory&quot;, Springer 1986.</span>
-<span class="sd">[2] Duistermaat, J.J. &quot;Oscillatory Integrals&quot;, Comm. Pure Appl. Math. 1974.</span>
-<span class="sd">[3] Maslov, V.P. &amp; Fedoriuk, M.V. &quot;Semi-Classical Approximation&quot;, Springer 1981.</span>
-<span class="sd">[4] Zworski, M. &quot;Semiclassical Analysis&quot;, AMS 2012.</span>
+<span class="sd">.. [1] Arnold, V. I.  *Catastrophe Theory*, Springer‑Verlag, 1986.</span>
+<span class="sd">.. [2] Duistermaat, J. J.  “Oscillatory integrals, Lagrange immersions and unfolding of singularities”, *Comm. Pure Appl. Math.* **27**, 207–281, 1974.</span>
+<span class="sd">.. [3] Maslov, V. P. &amp; Fedoriuk, M. V.  *Semi‑Classical Approximation in Quantum Mechanics*, Reidel, 1981.</span>
+<span class="sd">.. [4] Kravtsov, Yu. A. &amp; Orlov, Yu. I.  *Caustics, Catastrophes and Wave Fields*, Springer, 1999.</span>
+<span class="sd">.. [5] Berry, M. V. &amp; Howls, C. J.  “High orders of the Weyl expansion for quantum billiards”, *Phys. Rev. E* **50**(5), 3577–3595, 1994.</span>
+<span class="sd">.. [6] Connor, J. N. L.  “Practical methods for the uniform asymptotic evaluation of oscillatory integrals”, *Mol. Phys.* **31**(1), 33–55, 1976.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
@@ -1565,7 +1565,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

@@ -1,4 +1,4 @@
-# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
+# Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,47 +12,73 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Geometric Visualization of Pseudodifferential Operator Symbols — 1D and 2D
+geometry.py — Geometric visualisation of pseudodifferential symbols in 1D and 2D
+======================================================================================
 
-Unified module merging geometry_1d and geometry_2d with a shared class hierarchy.
+Overview
+--------
+The `geometry` module provides a comprehensive framework for the geometric and semiclassical analysis of pseudodifferential operator symbols `H(x,ξ)` (1D) or `H(x,y,ξ,η)` (2D).  It combines **symbolic differentiation** (SymPy) with **numerical integration** (SciPy) to compute:
 
-Architecture
-------------
-  _sanitize                    — shared symbolic preprocessing (single definition)
+* Hamiltonian flows (geodesics) including variational equations for Jacobian matrices.
+* Caustics – points where rays focus – detected via zero crossings of the Jacobian determinant.
+* Periodic orbits at fixed energies, with stability analysis (Lyapunov exponents).
+* Maslov indices and phase shifts associated with caustic crossings.
+* Gutzwiller trace formula and semiclassical spectra (1D).
+* Weyl’s law, Berry‑Tabor level spacing, and KAM tori classification (2D).
 
-  GeodesicBase                 — common fields: t, H, energy
-    Geodesic1D                 — 1D: x, xi, J, K
-    Geodesic2D                 — 2D: x, y, xi, eta, J_full, det_caustic
+The module is designed for both **pedagogical exploration** (via richly annotated multi‑panel figures) and **research** (extracting quantitative data such as caustic networks, Poincaré sections, and action‑angle variables).
 
-  PeriodicOrbitBase            — common fields: period, action, energy
-    PeriodicOrbit1D            — 1D: x0, xi0, stability
-    PeriodicOrbit2D            — 2D: x0, y0, xi0, eta0, maslov_index
+Key features:
 
-  Spectrum                     — 1D semiclassical spectrum (FFT of trace)
-  CausticStructure             — 2D caustic classification
+* **Automatic dimension detection** – a single uniform interface for 1D and 2D problems.
+* **Exact symbolic derivatives** of the Hamiltonian, lambdified for fast numerical evaluation.
+* **Augmented ODE systems** that simultaneously integrate the Hamiltonian flow and the full 4×4 Jacobian (in 2D), enabling precise caustic detection.
+* **Periodic orbit search** with energy‑preserving initial guesses, deduplication, and stability computation.
+* **Caustic classification** (fold, cusp) using curvature analysis and hierarchical clustering.
+* **Rich visualisation atlas** – 15‑panel figures for 1D, dynamically arranged panels for 2D, covering:
+    * Hamiltonian surface, level sets, vector field.
+    * Group velocity, spatial projections, Jacobian evolution.
+    * Phase space portraits, Poincaré sections, momentum space.
+    * Periodic orbits, action‑energy diagrams, EBK quantisation.
+    * Gutzwiller trace, semiclassical spectrum, level spacing distributions.
+    * Caustic curves, Maslov phase shifts, phase space volume (Monte Carlo).
+* **Spectral analysis utilities** – Weyl’s law, integrability classification, Berry‑Tabor smoothed density.
+* **Theoretical summaries** printed on demand (`print_theory()`, `print_theory_summary()`).
 
-  SymbolGeometryBase (ABC)     — shared init helpers, duplicate removal, stability wrapper
-    SymbolGeometry             — 1D engine: Hamilton flow, Jacobi scalars,
-                                 Gutzwiller trace, semiclassical spectrum
-    SymbolGeometry2D           — 2D engine: augmented 20-dim system, 4×4 Jacobian,
-                                 caustic detection, Monte Carlo volume
+Mathematical background
+-----------------------
+The module studies a **Hamiltonian** `H` on phase space `T*ℝⁿ` (n = 1,2).  The associated **Hamiltonian vector field** is
 
-  SymbolVisualizerBase (ABC)   — shared interface: visualize_complete()
-    SymbolVisualizer           — 15-panel 1D atlas
-    SymbolVisualizer2D         — dynamic-panel 2D atlas
+    X_H = ( ∂H/∂p , –∂H/∂x )    (1D) or ( ∂H/∂ξ , ∂H/∂η , –∂H/∂x , –∂H/∂y ) (2D).
 
-  SpectralAnalysis             — weyl_law, analyze_integrability, berry_tabor
-  Utilities2D                  — winding_number, rotation_numbers, detect_kam_tori
+Integral curves `(x(t),p(t))` are called **bicharacteristics** or **rays**.  Their projection onto configuration space `x(t)` gives the physical path.
 
-  visualize_symbol(...)        — 1D public entry point
-  visualize_symbol_2d(...)     — 2D public entry point
-  print_theory()               — 1D theoretical background
-  print_theory_summary()       — 2D theoretical summary
+**Caustics** occur when nearby rays converge, i.e. when the Jacobian matrix
 
-Backward-compatibility aliases
--------------------------------
-  Geodesic     = Geodesic1D
-  PeriodicOrbit = PeriodicOrbit1D
+    J_ij = ∂x_i(t)/∂p_j(0)
+
+becomes singular.  In 1D `J = ∂x/∂p₀`; in 2D the 2×2 block `∂(x,y)/∂(ξ₀,η₀)` is monitored.  Zero crossings of `det(J)` mark caustics.  At a caustic the semiclassical amplitude diverges; the correct uniform approximation involves special functions (Airy for fold, Pearcey for cusp) and a phase shift of `–π/2` times the **Maslov index** (number of caustics traversed).
+
+The **Gutzwiller trace formula** expresses the quantum density of states as a sum over periodic orbits:
+
+    ρ(E) ≈ (1/πℏ) Σ_γ (T_γ/√|det(M_γ – I)|) cos(S_γ/ℏ – πμ_γ/2) .
+
+Here `T_γ` is the period, `S_γ` the action, `M_γ` the monodromy matrix, and `μ_γ` the Maslov index.
+
+For **integrable systems** (KAM tori), the **Einstein–Brillouin–Keller (EBK) quantisation** gives
+
+    I_k = (1/2π) ∮ p dq = ℏ (n_k + α_k/4),
+
+with Maslov indices `α_k`.  Level spacings follow a Poisson distribution `P(s) = e^{-s}`.  **Chaotic systems** obey the Wigner surmise `P(s) = (πs/2) e^{-πs²/4}` (Bohigas–Giannoni–Schmit conjecture).
+
+References
+----------
+.. [1] Arnold, V. I.  *Mathematical Methods of Classical Mechanics*, Springer‑Verlag, 1989.
+.. [2] Gutzwiller, M. C.  *Chaos in Classical and Quantum Mechanics*, Springer‑Verlag, 1990.
+.. [3] Maslov, V. P. & Fedoriuk, M. V.  *Semi‑Classical Approximation in Quantum Mechanics*, Reidel, 1981.
+.. [4] Berry, M. V. & Tabor, M.  “Level clustering in the regular spectrum”, *Proc. R. Soc. Lond. A* 356, 375–394, 1977.
+.. [5] Bohigas, O., Giannoni, M. J., & Schmit, C.  “Characterization of chaotic quantum spectra and universality of level fluctuation laws”, *Phys. Rev. Lett.* 52, 1–4, 1984.
+.. [6] Kravtsov, Yu. A. & Orlov, Yu. I.  *Caustics, Catastrophes and Wave Fields*, Springer, 1999.
 """
 
 import numpy as np

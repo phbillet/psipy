@@ -1,4 +1,4 @@
-# Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.
+# Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
+hamiltonian_catalog.py — Hamiltonian catalog for analysis, visualization and more...
+=========================================================================================
+
 Extended catalog of 1D and 2D Hamiltonians for pseudodifferential
 and semiclassical analysis, visualization, and symbolic exploration.
 

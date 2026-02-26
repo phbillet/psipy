@@ -43,15 +43,11 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../cotangent_bundle.html">cotangent_bundle</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_1d.html">geometry_1d</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../geometry_2d.html">geometry_2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hpc_examples.html">hpc_examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../mupsipy.html">mupsipy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
@@ -85,7 +81,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for asymptotic</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright 2025 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral.</span>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
 <span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
 <span class="c1"># you may not use this file except in compliance with the License.</span>
@@ -100,7 +96,7 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">asymptotic — Large-parameter asymptotics for oscillatory and Laplace-type integrals</span>
+<span class="sd">asymptotic.py — Large-parameter asymptotics for oscillatory and Laplace-type integrals</span>
 <span class="sd">====================================================================================</span>
 
 <span class="sd">Overview</span>
@@ -140,8 +136,7 @@
 <span class="sd">    The leading term at a non-degenerate critical point (det ∇²φ ≠ 0,</span>
 <span class="sd">    *Morse* point) is</span>
 
-<span class="sd">        I(λ) ≈ (2π/λ)^(n/2) · a(x_c) · exp(iλφ(x_c)) · exp(iπμ/4)</span>
-<span class="sd">                              / √|det ∇²φ(x_c)|</span>
+<span class="sd">        I(λ) ≈ (2π/λ)^(n/2) · a(x_c) · exp(iλφ(x_c)) · exp(iπμ/4) / √|det ∇²φ(x_c)|</span>
 
 <span class="sd">    where n is the dimension and μ = n − 2σ is the Maslov index (σ =</span>
 <span class="sd">    number of negative eigenvalues of ∇²φ).  Degenerate critical points</span>
@@ -155,8 +150,7 @@
 <span class="sd">    The leading term is identical to the stationary-phase formula with the</span>
 <span class="sd">    oscillatory factor replaced by a real Gaussian:</span>
 
-<span class="sd">        I(λ) ≈ (2π/λ)^(n/2) · a(x_c) · exp(−λψ(x_c))</span>
-<span class="sd">                              / √|det ∇²ψ(x_c)|</span>
+<span class="sd">        I(λ) ≈ (2π/λ)^(n/2) · a(x_c) · exp(−λψ(x_c)) / √|det ∇²ψ(x_c)|</span>
 
 <span class="sd">    A second-order correction O(λ^(−n/2−1)) involving amplitude</span>
 <span class="sd">    derivatives and phase anharmonicity (cubic/quartic tensors) is also</span>
@@ -169,92 +163,13 @@
 <span class="sd">    as fast as possible, making the integrand a complex Gaussian.  The</span>
 <span class="sd">    asymptotic formula is formally identical to the Morse case:</span>
 
-<span class="sd">        I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c))</span>
-<span class="sd">                              / √det ∇²φ(z_c)</span>
+<span class="sd">        I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c)) / √det ∇²φ(z_c)</span>
 
 <span class="sd">    where the square root is taken on the principal branch.</span>
 <span class="sd">    **Limitation:** this implementation uses a naive continuation strategy</span>
 <span class="sd">    (minimising |∇φ(z)|² over ℝ^(2n)) and does NOT verify that the</span>
 <span class="sd">    original contour can be deformed through the found saddle (Picard-</span>
 <span class="sd">    Lefschetz theory).  A RuntimeWarning is always emitted.</span>
-
-
-<span class="sd">Public API</span>
-<span class="sd">----------</span>
-<span class="sd">The intended workflow involves three cooperating classes:</span>
-
-<span class="sd">Analyzer</span>
-<span class="sd">    Accepts symbolic SymPy expressions for φ(x) and a(x) and a list of</span>
-<span class="sd">    integration variables.  Automatically detects the integration method,</span>
-<span class="sd">    computes symbolic derivatives up to order 4, and converts them to fast</span>
-<span class="sd">    numerical (NumPy) functions.  Key methods:</span>
-
-<span class="sd">    * ``find_critical_points(initial_guesses)``</span>
-<span class="sd">          Returns real critical-point coordinates (for STATIONARY_PHASE and</span>
-<span class="sd">          LAPLACE) by minimising |∇φ|².</span>
-<span class="sd">    * ``analyze_point(xc)``</span>
-<span class="sd">          Returns a ``CriticalPoint`` dataclass holding the phase value,</span>
-<span class="sd">          Hessian, higher-order tensors, singularity classification and</span>
-<span class="sd">          integration method.  Accepts complex coordinates (for</span>
-<span class="sd">          SADDLE_POINT).</span>
-
-<span class="sd">SaddlePointEvaluator  *(SADDLE_POINT only)*</span>
-<span class="sd">    * ``find_saddle_points(analyzer, initial_guesses)``</span>
-<span class="sd">          Searches for saddle points in ℂⁿ by minimising |∇φ(u+iv)|²</span>
-<span class="sd">          over ℝ^(2n) starting from real initial guesses.  Returns complex</span>
-<span class="sd">          coordinate arrays to be passed to ``analyze_point``.</span>
-
-<span class="sd">AsymptoticEvaluator</span>
-<span class="sd">    Unified façade.  Accepts a ``CriticalPoint`` and the parameter λ, and</span>
-<span class="sd">    dispatches to the appropriate internal evaluator:</span>
-
-<span class="sd">    * STATIONARY_PHASE → ``StationaryPhaseEvaluator`` (Morse / Airy / Pearcey)</span>
-<span class="sd">    * LAPLACE          → ``LaplaceEvaluator``</span>
-<span class="sd">    * SADDLE_POINT     → ``SaddlePointEvaluator``</span>
-
-<span class="sd">    Returns an ``AsymptoticContribution`` dataclass containing the leading</span>
-<span class="sd">    term, the first correction, the total value, the decay exponent and the</span>
-<span class="sd">    method used.</span>
-
-<span class="sd">StationaryPhaseVisualizer  *(2D only)*</span>
-<span class="sd">    Diagnostic plots: phase landscape with critical-point annotation,</span>
-<span class="sd">    oscillatory integrand structure, and asymptotic convergence on log-log</span>
-<span class="sd">    axes.</span>
-
-
-<span class="sd">Minimal example</span>
-<span class="sd">---------------</span>
-<span class="sd">::</span>
-
-<span class="sd">    import sympy as sp</span>
-<span class="sd">    import numpy as np</span>
-<span class="sd">    from asymptotic import Analyzer, AsymptoticEvaluator</span>
-
-<span class="sd">    x, y = sp.symbols(&#39;x y&#39;)</span>
-
-<span class="sd">    # φ is real → AUTO selects STATIONARY_PHASE</span>
-<span class="sd">    phi = x**2/2 + y**2/2 + x**3/10</span>
-<span class="sd">    amp = 1 + x**2</span>
-
-<span class="sd">    analyzer = Analyzer(phi, amp, [x, y])</span>
-<span class="sd">    print(analyzer.method)   # IntegralMethod.STATIONARY_PHASE</span>
-
-<span class="sd">    points  = analyzer.find_critical_points([np.array([0., 0.])])</span>
-<span class="sd">    cp      = analyzer.analyze_point(points[0])</span>
-<span class="sd">    result  = AsymptoticEvaluator().evaluate(cp, lam=100)</span>
-
-<span class="sd">    print(result.leading_term)    # dominant asymptotic term</span>
-<span class="sd">    print(result.total_value)     # leading + first correction</span>
-
-
-<span class="sd">Dependencies</span>
-<span class="sd">------------</span>
-<span class="sd">* numpy  — numerical arrays and linear algebra</span>
-<span class="sd">* sympy  — symbolic differentiation and lambdification</span>
-<span class="sd">* scipy  — special functions (airy, gamma) and numerical optimisation</span>
-<span class="sd">* matplotlib — visualisation (optional; only required for</span>
-<span class="sd">               StationaryPhaseVisualizer)</span>
-
 
 <span class="sd">References</span>
 <span class="sd">----------</span>
@@ -2438,7 +2353,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Gemini, Claude, le chat Mistral..</p>
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
