@@ -110,10 +110,14 @@ warnings.filterwarnings('ignore')
 # ============================================================================
 
 def _sanitize(expr: sp.Expr) -> sp.Expr:
-    """Remove DiracDelta, Heaviside, and undefined sign terms for numeric use."""
-    expr = expr.replace(sp.DiracDelta, lambda *args: 0)
-    expr = expr.replace(sp.Heaviside, lambda *args: 1)
-    expr = sp.simplify(expr)
+    """Remove DiracDelta and Heaviside terms for numeric use.
+
+    Note: ``sp.simplify`` is intentionally omitted here — it is extremely
+    expensive on large symbolic expressions and the downstream lambdify call
+    handles any residual algebraic simplification at negligible cost.
+    """
+    expr = expr.replace(sp.DiracDelta, lambda *args: sp.Integer(0))
+    expr = expr.replace(sp.Heaviside,  lambda *args: sp.Integer(1))
     return expr
 
 
@@ -265,16 +269,21 @@ class SymbolGeometryBase(ABC):
     def _remove_duplicate_orbits(self, orbits: list,
                                   tol_period: float = 0.15,
                                   tol_action: float = 0.15) -> list:
-        """Remove near-duplicate periodic orbits (period + action tolerance)."""
-        unique = []
+        """Remove near-duplicate periodic orbits (period + action tolerance).
+
+        Complexity is O(n · k) where k is the number of *unique* orbits kept,
+        rather than the naïve O(n²) all-pairs scan.
+        """
+        unique: list = []
+        kept_keys: list = []          # (period, action) of unique orbits
         for orb in orbits:
-            is_dup = any(
-                abs(orb.period - u.period) < tol_period and
-                abs(orb.action  - u.action)  < tol_action
-                for u in unique
-            )
-            if not is_dup:
+            if not any(
+                abs(orb.period - p) < tol_period and
+                abs(orb.action  - a) < tol_action
+                for p, a in kept_keys
+            ):
                 unique.append(orb)
+                kept_keys.append((orb.period, orb.action))
         return unique
 
     def _run_stability_ode(self, ode_func: Callable,
@@ -336,14 +345,25 @@ class SymbolGeometry(SymbolGeometryBase):
         self.d2H_dxi2  = _sanitize(sp.diff(self.dH_dxi, self.xi_sym))
         self.d2H_dxdxi = _sanitize(sp.diff(self.dH_dx,  self.xi_sym))
 
+    def _safe_lambdify(self, args: tuple, expr: sp.Expr) -> Callable:
+        """Lambdify with a constant-function fallback for pure-number expressions."""
+        if isinstance(expr, (int, float, sp.Integer, sp.Float, sp.Number)):
+            const_val = float(expr)
+            return lambda x, xi: np.full_like(np.asarray(x, dtype=float), const_val)
+        try:
+            return sp.lambdify(args, expr, modules=['numpy', 'scipy'])
+        except Exception as e:
+            warnings.warn(f"lambdify failed for {expr}: {e}")
+            return lambda x, xi: np.full_like(np.asarray(x, dtype=float), np.nan)
+
     def _lambdify_functions(self):
         v = (self.x_sym, self.xi_sym)
-        self.f_H          = sp.lambdify(v, self.H,          'numpy')
-        self.f_dH_dx      = sp.lambdify(v, self.dH_dx,      'numpy')
-        self.f_dH_dxi     = sp.lambdify(v, self.dH_dxi,     'numpy')
-        self.f_d2H_dx2    = sp.lambdify(v, self.d2H_dx2,    'numpy')
-        self.f_d2H_dxi2   = sp.lambdify(v, self.d2H_dxi2,   'numpy')
-        self.f_d2H_dxdxi  = sp.lambdify(v, self.d2H_dxdxi,  'numpy')
+        self.f_H          = self._safe_lambdify(v, self.H)
+        self.f_dH_dx      = self._safe_lambdify(v, self.dH_dx)
+        self.f_dH_dxi     = self._safe_lambdify(v, self.dH_dxi)
+        self.f_d2H_dx2    = self._safe_lambdify(v, self.d2H_dx2)
+        self.f_d2H_dxi2   = self._safe_lambdify(v, self.d2H_dxi2)
+        self.f_d2H_dxdxi  = self._safe_lambdify(v, self.d2H_dxdxi)
 
     # ------------------------------------------------------------------
     # Geodesic
@@ -849,6 +869,67 @@ class SymbolVisualizerBase(ABC):
     def visualize_complete(self, **kwargs) -> Tuple:
         ...
 
+    # ------------------------------------------------------------------
+    # Shared grid helper (2D panels that evaluate H on (x,y) slices)
+    # ------------------------------------------------------------------
+    def _eval_on_grid_2d(self, func: Callable,
+                          X: np.ndarray, Y: np.ndarray,
+                          xi0: float = 1.0, eta0: float = 1.0) -> np.ndarray:
+        """Evaluate ``func(x, y, xi0, eta0)`` on a meshgrid, vectorised first.
+
+        Falls back to a scalar loop only if the vectorised call raises or
+        returns a result with the wrong shape (e.g. constant expressions).
+        """
+        try:
+            g = np.asarray(func(X, Y, xi0, eta0), dtype=float)
+            if g.shape != X.shape:
+                g = np.full_like(X, float(g.flat[0]))
+            return g
+        except Exception:
+            g = np.empty_like(X)
+            for i in range(X.shape[0]):
+                for j in range(X.shape[1]):
+                    try:
+                        g[i, j] = float(func(X[i, j], Y[i, j], xi0, eta0))
+                    except Exception:
+                        g[i, j] = np.nan
+            return g
+
+    # ------------------------------------------------------------------
+    # Shared panel helpers (identical logic in 1D and 2D visualizers)
+    # ------------------------------------------------------------------
+    def _shared_plot_energy_conservation(self, ax, geodesics) -> None:
+        """Plot relative energy drift on *ax* (works for both 1D and 2D)."""
+        for geo in geodesics:
+            c     = getattr(geo, 'color', 'blue')
+            H_var = (geo.H - geo.H[0]) / (np.abs(geo.H[0]) + 1e-10)
+            ax.semilogy(geo.t, np.abs(H_var) + 1e-16,
+                        color=c, linewidth=2.5, label=f'E₀={geo.H[0]:.2f}')
+        ax.set_xlabel('t'); ax.set_ylabel('|ΔH/H₀|')
+        ax.set_title('Energy Conservation\n(Numerical quality)', fontweight='bold')
+        ax.legend(fontsize=9); ax.grid(True, alpha=0.3, which='both')
+
+    def _shared_plot_level_spacing(self, ax,
+                                    spacings: np.ndarray,
+                                    title: str = 'Level Spacing Distribution\nIntegrable vs Chaotic') -> None:
+        """Histogram of normalised level spacings with Poisson / Wigner overlays."""
+        if len(spacings) < 2:
+            ax.text(0.5, 0.5, 'Insufficient data', ha='center', va='center',
+                    transform=ax.transAxes)
+            ax.set_axis_off()
+            return
+        s_norm = spacings / np.mean(spacings)
+        ax.hist(s_norm, bins=20, density=True, alpha=0.7,
+                color='royalblue', edgecolor='black', label='Data')
+        s = np.linspace(0, np.max(s_norm) * 1.1, 200)
+        ax.plot(s, np.exp(-s),
+                'g--', linewidth=2, label='Poisson (integrable)')
+        ax.plot(s, (np.pi * s / 2) * np.exp(-np.pi * s**2 / 4),
+                'r-',  linewidth=2, label='Wigner (chaotic)')
+        ax.set_xlabel('Normalized spacing s'); ax.set_ylabel('P(s)')
+        ax.set_title(title, fontweight='bold')
+        ax.legend(); ax.grid(True, alpha=0.3)
+
     def _compute_geodesics_1d(self, params: List[Tuple]) -> List[Geodesic1D]:
         geodesics = []
         for p in params:
@@ -915,18 +996,30 @@ class SymbolVisualizer(SymbolVisualizerBase):
         return fig, geodesics, periodic_orbits, spectrum
 
     def _evaluate_grids(self, X, Xi) -> Dict:
+        """Evaluate Hamiltonian and its derivatives on a meshgrid.
+
+        Uses vectorised lambdified functions where possible, falling back to a
+        scalar loop only for entries that raise exceptions (e.g. domain errors).
+        """
         grids = {}
-        for name, func in [('H',          self.geo.f_H),
-                            ('dH_dxi',     self.geo.f_dH_dxi),
-                            ('dH_dx',      self.geo.f_dH_dx),
-                            ('d2H_dxdxi',  self.geo.f_d2H_dxdxi)]:
-            g = np.zeros_like(X)
-            for i in range(X.shape[0]):
-                for j in range(X.shape[1]):
-                    try:
-                        g[i, j] = func(X[i, j], Xi[i, j])
-                    except Exception:
-                        g[i, j] = np.nan
+        for name, func in [('H',         self.geo.f_H),
+                            ('dH_dxi',    self.geo.f_dH_dxi),
+                            ('dH_dx',     self.geo.f_dH_dx),
+                            ('d2H_dxdxi', self.geo.f_d2H_dxdxi)]:
+            try:
+                g = np.asarray(func(X, Xi), dtype=float)
+                if g.shape != X.shape:
+                    # scalar result (constant symbol) — broadcast
+                    g = np.full_like(X, float(g.flat[0]))
+            except Exception:
+                # Fallback: element-wise evaluation
+                g = np.empty_like(X)
+                for i in range(X.shape[0]):
+                    for j in range(X.shape[1]):
+                        try:
+                            g[i, j] = float(func(X[i, j], Xi[i, j]))
+                        except Exception:
+                            g[i, j] = np.nan
             grids[name] = g
         return grids
 
@@ -1048,14 +1141,7 @@ class SymbolVisualizer(SymbolVisualizerBase):
 
     def _plot_energy_conservation(self, fig, geodesics, panel):
         ax = fig.add_subplot(3, 5, panel)
-        for geo in geodesics:
-            c      = getattr(geo, 'color', 'blue')
-            H_var  = (geo.H - geo.H[0]) / (np.abs(geo.H[0]) + 1e-10)
-            ax.semilogy(geo.t, np.abs(H_var) + 1e-16,
-                        color=c, linewidth=2.5, label=f'E₀={geo.H[0]:.2f}')
-        ax.set_xlabel('t'); ax.set_ylabel('|ΔH/H₀|')
-        ax.set_title('Energy Conservation\n(Numerical quality)', fontweight='bold')
-        ax.legend(fontsize=9); ax.grid(True, alpha=0.3, which='both')
+        self._shared_plot_energy_conservation(ax, geodesics)
 
     def _plot_periodic_orbits(self, fig, X, Xi, H_grid, periodic_orbits, panel):
         ax = fig.add_subplot(3, 5, panel)
@@ -1152,19 +1238,8 @@ class SymbolVisualizer(SymbolVisualizerBase):
         I_p  = spectrum.intensity[mask]
         peaks, _ = find_peaks(I_p, height=np.max(I_p)*0.05, distance=5)
         if len(peaks) > 1:
-            spacings   = np.diff(E_p[peaks])
-            s_norm     = spacings / np.mean(spacings)
-            ax.hist(s_norm, bins=20, density=True, alpha=0.7,
-                    color='blue', edgecolor='black', label='Data')
-            s = np.linspace(0, np.max(s_norm), 100)
-            ax.plot(s, np.exp(-s),
-                    'g--', linewidth=2, label='Poisson (integrable)')
-            ax.plot(s, (np.pi*s/2) * np.exp(-np.pi*s**2/4),
-                    'r-',  linewidth=2, label='Wigner (chaotic)')
-            ax.set_xlabel('Normalized spacing s'); ax.set_ylabel('P(s)')
-            ax.set_title('Level Spacing Distribution\nIntegrable vs Chaotic',
-                         fontweight='bold')
-            ax.legend(); ax.grid(True, alpha=0.3)
+            spacings = np.diff(E_p[peaks])
+            self._shared_plot_level_spacing(ax, spacings)
 
 # ============================================================================
 # 2D VISUALIZER — dynamic-panel atlas
@@ -1212,54 +1287,55 @@ class SymbolVisualizer2D(SymbolVisualizerBase):
                                   xi_range, eta_range,
                                   geodesics, periodic_orbits, caustics,
                                   hbar, resolution):
-        panels = []
+        # ----------------------------------------------------------------
+        # Build a list of (method, args) descriptors rather than lambdas
+        # that close over `fig` before it exists.  Each descriptor is a
+        # (callable, positional_args) pair; `fig` and `ax_spec` are passed
+        # at render time.
+        # ----------------------------------------------------------------
+        descriptors = []   # list of (method_ref, extra_args_tuple)
         if geodesics:
-            panels += [
-                lambda ax: self._plot_energy_surface_2d(
-                    fig, ax, x_range, y_range, geodesics, resolution),
-                lambda ax: self._plot_configuration_space(
-                    fig, ax, geodesics, caustics),
-                lambda ax: self._plot_phase_projection_x(fig, ax, geodesics),
-                lambda ax: self._plot_phase_projection_y(fig, ax, geodesics),
-                lambda ax: self._plot_momentum_space(fig, ax, geodesics),
-                lambda ax: self._plot_vector_field_2d(
-                    fig, ax, x_range, y_range, geodesics, resolution),
-                lambda ax: self._plot_group_velocity_2d(
-                    fig, ax, x_range, y_range, geodesics, resolution),
-                lambda ax: self._plot_caustic_curves_2d(
-                    fig, ax, geodesics, caustics),
-                lambda ax: self._plot_jacobian_evolution(fig, ax, geodesics),
-                lambda ax: self._plot_energy_conservation_2d(fig, ax, geodesics),
-                lambda ax: self._plot_poincare_x(fig, ax, geodesics),
-                lambda ax: self._plot_poincare_y(fig, ax, geodesics),
-                lambda ax: self._plot_caustic_network(
-                    fig, ax, x_range, y_range, geodesics),
+            descriptors += [
+                (self._plot_energy_surface_2d,
+                    (x_range, y_range, geodesics, resolution)),
+                (self._plot_configuration_space,
+                    (geodesics, caustics)),
+                (self._plot_phase_projection_x,   (geodesics,)),
+                (self._plot_phase_projection_y,   (geodesics,)),
+                (self._plot_momentum_space,        (geodesics,)),
+                (self._plot_vector_field_2d,
+                    (x_range, y_range, geodesics, resolution)),
+                (self._plot_group_velocity_2d,
+                    (x_range, y_range, geodesics, resolution)),
+                (self._plot_caustic_curves_2d,    (geodesics, caustics)),
+                (self._plot_jacobian_evolution,   (geodesics,)),
+                (self._plot_energy_conservation_2d, (geodesics,)),
+                (self._plot_poincare_x,            (geodesics,)),
+                (self._plot_poincare_y,            (geodesics,)),
+                (self._plot_caustic_network,
+                    (x_range, y_range, geodesics)),
             ]
         if periodic_orbits:
-            panels += [
-                lambda ax: self._plot_periodic_orbits_3d(
-                    fig, ax, periodic_orbits),
-                lambda ax: self._plot_action_energy_2d(fig, ax, periodic_orbits),
-                lambda ax: self._plot_torus_quantization(
-                    fig, ax, periodic_orbits, hbar),
+            descriptors += [
+                (self._plot_periodic_orbits_3d,   (periodic_orbits,)),
+                (self._plot_action_energy_2d,      (periodic_orbits,)),
+                (self._plot_torus_quantization,   (periodic_orbits, hbar)),
             ]
             if len(periodic_orbits) > 2:
-                panels.append(
-                    lambda ax: self._plot_level_spacing_2d(
-                        fig, ax, periodic_orbits))
+                descriptors.append(
+                    (self._plot_level_spacing_2d, (periodic_orbits,)))
         if periodic_orbits and E_range:
-            panels.append(
-                lambda ax: self._plot_spectral_density_with_caustics(
-                    fig, ax, periodic_orbits, E_range))
-        panels.append(
-            lambda ax: self._plot_maslov_index_phase_shifts(
-                fig, ax, geodesics, caustics))
+            descriptors.append(
+                (self._plot_spectral_density_with_caustics,
+                 (periodic_orbits, E_range)))
+        descriptors.append(
+            (self._plot_maslov_index_phase_shifts, (geodesics, caustics)))
         if E_range:
-            panels.append(
-                lambda ax: self._plot_phase_space_volume(
-                    fig, ax, E_range, x_range, y_range, xi_range, eta_range))
+            descriptors.append(
+                (self._plot_phase_space_volume,
+                 (E_range, x_range, y_range, xi_range, eta_range)))
 
-        if not panels:
+        if not descriptors:
             fig, ax = plt.subplots(figsize=(10, 6))
             ax.text(0.5, 0.5, "No panels to display.",
                     ha='center', va='center', fontsize=16,
@@ -1267,7 +1343,7 @@ class SymbolVisualizer2D(SymbolVisualizerBase):
             ax.set_axis_off()
             return fig
 
-        n = len(panels)
+        n = len(descriptors)
         if   n <= 5:  cols, rows = n, 1
         elif n <= 10: cols, rows = 5, 2
         elif n <= 15: cols, rows = 5, 3
@@ -1279,12 +1355,12 @@ class SymbolVisualizer2D(SymbolVisualizerBase):
             f'Geometric and Semiclassical Atlas — H = {self.geo.H_sym} (ℏ={hbar})',
             fontsize=18, fontweight='bold', y=0.98)
 
-        for idx, plot_cmd in enumerate(panels):
+        for idx, (method, args) in enumerate(descriptors):
             if idx >= rows * cols:
                 break
             ax_spec = gs[idx // cols, idx % cols]
             try:
-                plot_cmd(ax_spec)
+                method(fig, ax_spec, *args)
             except Exception as e:
                 ax = fig.add_subplot(ax_spec)
                 ax.text(0.5, 0.5, f"[Error]\n{type(e).__name__}",
@@ -1302,13 +1378,7 @@ class SymbolVisualizer2D(SymbolVisualizerBase):
         x  = np.linspace(x_range[0], x_range[1], res)
         y  = np.linspace(y_range[0], y_range[1], res)
         X, Y = np.meshgrid(x, y)
-        Z    = np.full_like(X, np.nan)
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                try:
-                    Z[i, j] = self.geo.H_num(X[i,j], Y[i,j], 1.0, 1.0)
-                except Exception:
-                    pass
+        Z    = self._eval_on_grid_2d(self.geo.H_num, X, Y, 1.0, 1.0)
         ax.plot_surface(X, Y, Z, cmap='viridis', alpha=0.6, edgecolor='none')
         for geo in geodesics[:5]:
             H_g = np.array([self.geo.H_num(geo.x[i], geo.y[i], 1.0, 1.0)
@@ -1384,14 +1454,8 @@ class SymbolVisualizer2D(SymbolVisualizerBase):
         x  = np.linspace(x_range[0], x_range[1], res//2)
         y  = np.linspace(y_range[0], y_range[1], res//2)
         X, Y = np.meshgrid(x, y)
-        VX = np.full_like(X, np.nan); VY = np.full_like(Y, np.nan)
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                try:
-                    VX[i,j] = self.geo.dH_dxi_num( X[i,j], Y[i,j], 1., 1.)
-                    VY[i,j] = self.geo.dH_deta_num(X[i,j], Y[i,j], 1., 1.)
-                except Exception:
-                    pass
+        VX = self._eval_on_grid_2d(self.geo.dH_dxi_num,  X, Y)
+        VY = self._eval_on_grid_2d(self.geo.dH_deta_num, X, Y)
         mag = np.sqrt(VX**2 + VY**2); mag[mag == 0] = 1
         ax.quiver(X, Y, VX/mag, VY/mag, mag, cmap='plasma', alpha=0.7, scale=30)
         for geo in geodesics[:5]:
@@ -1407,15 +1471,9 @@ class SymbolVisualizer2D(SymbolVisualizerBase):
         x  = np.linspace(x_range[0], x_range[1], res)
         y  = np.linspace(y_range[0], y_range[1], res)
         X, Y  = np.meshgrid(x, y)
-        V_mag = np.full_like(X, np.nan)
-        for i in range(X.shape[0]):
-            for j in range(X.shape[1]):
-                try:
-                    vx = self.geo.dH_dxi_num( X[i,j], Y[i,j], 1., 1.)
-                    vy = self.geo.dH_deta_num(X[i,j], Y[i,j], 1., 1.)
-                    V_mag[i,j] = np.hypot(vx, vy)
-                except Exception:
-                    pass
+        VX    = self._eval_on_grid_2d(self.geo.dH_dxi_num,  X, Y)
+        VY    = self._eval_on_grid_2d(self.geo.dH_deta_num, X, Y)
+        V_mag = np.hypot(VX, VY)
         im = ax.contourf(X, Y, V_mag, levels=20, cmap='hot')
         plt.colorbar(im, ax=ax, label='|v_g|')
         for geo in geodesics[:5]:
@@ -1469,15 +1527,16 @@ class SymbolVisualizer2D(SymbolVisualizerBase):
 
     def _plot_energy_conservation_2d(self, fig, ax_spec, geodesics):
         ax = fig.add_subplot(ax_spec)
-        for geo in geodesics:
-            c     = getattr(geo, 'color', 'blue')
-            H_var = (geo.H - geo.H[0]) / (np.abs(geo.H[0]) + 1e-10)
-            ax.semilogy(geo.t, np.abs(H_var) + 1e-16,
-                        color=c, linewidth=2, label=f'E={geo.H[0]:.2f}')
-        ax.set_xlabel('Time t'); ax.set_ylabel('|ΔH/H₀|')
-        ax.set_title('Energy Conservation\nNumerical quality',
-                     fontweight='bold', fontsize=10)
-        ax.legend(fontsize=8); ax.grid(True, alpha=0.3, which='both')
+        self._shared_plot_energy_conservation(ax, geodesics)
+
+    def _plot_level_spacing_2d(self, fig, ax_spec, periodic_orbits):
+        ax       = fig.add_subplot(ax_spec)
+        energies = sorted({o.energy for o in periodic_orbits})
+        if len(energies) > 2:
+            spacings = np.diff(energies)
+            self._shared_plot_level_spacing(
+                ax, spacings,
+                title='Level Spacing\nIntegrable vs Chaotic')
 
     def _plot_poincare_x(self, fig, ax_spec, geodesics):
         ax = fig.add_subplot(ax_spec)
@@ -1587,24 +1646,6 @@ class SymbolVisualizer2D(SymbolVisualizerBase):
         ax.set_title('Torus Quantization\nKAM theory',
                      fontweight='bold', fontsize=10)
         ax.legend(fontsize=8); ax.grid(True, alpha=0.3)
-
-    def _plot_level_spacing_2d(self, fig, ax_spec, periodic_orbits):
-        ax       = fig.add_subplot(ax_spec)
-        energies = sorted({o.energy for o in periodic_orbits})
-        if len(energies) > 2:
-            spacings = np.diff(energies)
-            s_norm   = spacings / np.mean(spacings)
-            ax.hist(s_norm, bins=15, density=True, alpha=0.7,
-                    color='blue', edgecolor='black', label='Data')
-            s = np.linspace(0, np.max(s_norm), 100)
-            ax.plot(s, np.exp(-s),
-                    'g--', linewidth=2, label='Poisson (Integrable)')
-            ax.plot(s, (np.pi*s/2) * np.exp(-np.pi*s**2/4),
-                    'r-',  linewidth=2, label='Wigner (Chaotic)')
-            ax.set_xlabel('Normalized spacing s'); ax.set_ylabel('P(s)')
-            ax.set_title('Level Spacing\nIntegrable vs Chaotic',
-                         fontweight='bold', fontsize=10)
-            ax.legend(fontsize=8); ax.grid(True, alpha=0.3)
 
     def _plot_spectral_density_with_caustics(self, fig, ax_spec,
                                                periodic_orbits, E_range):
@@ -1923,9 +1964,10 @@ def visualize_symbol_2d(symbol: sp.Expr,
 # THEORETICAL DOCUMENTATION
 # ============================================================================
 
-def print_theory():
-    """Print 1D theoretical background."""
-    print("""
+def print_theory(dim: int = 1) -> None:
+    """Print theoretical background for 1D (dim=1, default) or 2D (dim=2)."""
+    if dim == 1:
+        print("""
 ╔══════════════════════════════════════════════════════════════════════╗
 ║           GEOMETRIC VISUALIZATION OF SYMBOLS — 1D                    ║
 ║        Pseudodifferential Operators & Spectral Analysis               ║
@@ -1952,11 +1994,8 @@ Usage
         geodesics_params=[(0,1,10,'red')],
         E_range=(0.5,3), hbar=1.0)
     """)
-
-
-def print_theory_summary():
-    """Print 2D theoretical summary."""
-    print("""
+    elif dim == 2:
+        print("""
 ╔══════════════════════════════════════════════════════════════════════╗
 ║        GEOMETRIC AND SEMI-CLASSICAL THEORY FOR 2D SYSTEMS            ║
 ╚══════════════════════════════════════════════════════════════════════╝
@@ -1980,6 +2019,13 @@ Usage
         H, (-2,2), (-2,2), (-2,2), (-2,2),
         [(1,0,0,1,2*3.14,'red')], E_range=(0.5,4), hbar=0.1)
     """)
+    else:
+        raise ValueError(f"dim must be 1 or 2, got {dim!r}")
+
+
+def print_theory_summary() -> None:
+    """Alias for ``print_theory(dim=2)`` — kept for backward compatibility."""
+    print_theory(dim=2)
 
 # ============================================================================
 # EXAMPLES

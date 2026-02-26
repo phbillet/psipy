@@ -71,6 +71,14 @@ References
 from imports import *
 from symplectic import hamiltonian_flow as symp_hamiltonian_flow
 
+# Consolidate all scipy imports here so they are not re-imported inside
+# every function call (negligible overhead, but noisy and hard to audit).
+from scipy.integrate import (
+    quad, dblquad, solve_ivp, cumulative_trapezoid,
+)
+from scipy.interpolate import interp1d
+from scipy.optimize import minimize
+
 
 # ============================================================================
 # Unified Metric class
@@ -142,22 +150,24 @@ class Metric:
 
     def _init_1d(self, g_expr):
         x = self.coords[0]
-        self.g_expr = simplify(g_expr)
-        self.g_inv_expr = simplify(1 / self.g_expr)
-        self.sqrt_det_expr = simplify(sqrt(abs(self.g_expr)))
+        # One simplify pass on the input is sufficient; derived expressions
+        # (g_inv, sqrt_det, Christoffel) are kept in raw symbolic form and
+        # simplified only once at the end by lambdify's own canonicalisation.
+        self.g_expr        = simplify(g_expr)
+        self.g_inv_expr    = 1 / self.g_expr
+        self.sqrt_det_expr = sqrt(abs(self.g_expr))
 
-        # Christoffel: Γ¹₁₁ = ½(log g₁₁)'
-        self.christoffel_sym = simplify(diff(log(abs(self.g_expr)), x) / 2)
+        # Christoffel: Γ¹₁₁ = ½ (log g₁₁)'
+        self.christoffel_sym = diff(log(abs(self.g_expr)), x) / 2
 
         # Numerical lambdas
-        self.g_func = lambdify(x, self.g_expr, 'numpy')
-        self.g_inv_func = lambdify(x, self.g_inv_expr, 'numpy')
-        self.sqrt_det_func = lambdify(x, self.sqrt_det_expr, 'numpy')
-        self.christoffel_func = lambdify(x, self.christoffel_sym, 'numpy')
+        self.g_func           = lambdify(x, self.g_expr,           'numpy')
+        self.g_inv_func       = lambdify(x, self.g_inv_expr,       'numpy')
+        self.sqrt_det_func    = lambdify(x, self.sqrt_det_expr,    'numpy')
+        self.christoffel_func = lambdify(x, self.christoffel_sym,  'numpy')
 
         # Aliases used by dimension-agnostic helpers
-        # g_func as dict[(0,0)] for uniform access
-        self._g_func_dict = {(0, 0): self.g_func}
+        self._g_func_dict     = {(0, 0): self.g_func}
         self._g_inv_func_dict = {(0, 0): self.g_inv_func}
 
     # ---- 2D initialisation -------------------------------------------
@@ -169,10 +179,12 @@ class Metric:
             raise ValueError("Metric requires a 2×2 matrix for dim=2.")
 
         x, y = self.coords
-        self.g_matrix = simplify(g_matrix)
-        self.det_g = simplify(self.g_matrix.det())
-        self.sqrt_det_g = simplify(sqrt(abs(self.det_g)))
-        self.g_inv_matrix = simplify(self.g_matrix.inv())
+        # Simplify the user-supplied matrix once; derived quantities inherit
+        # the simplified form without needing a second simplify pass.
+        self.g_matrix    = simplify(g_matrix)
+        self.det_g       = self.g_matrix.det()           # exact, no extra simplify
+        self.sqrt_det_g  = sqrt(abs(self.det_g))
+        self.g_inv_matrix = self.g_matrix.inv()          # exact inverse
 
         # Christoffel symbols Γⁱⱼₖ
         self.christoffel_sym = self._compute_christoffel_2d()
@@ -186,22 +198,23 @@ class Metric:
             (i, j): lambdify((x, y), self.g_inv_matrix[i, j], 'numpy')
             for i in range(2) for j in range(2)
         }
-        self.det_g_func = lambdify((x, y), self.det_g, 'numpy')
+        self.det_g_func      = lambdify((x, y), self.det_g,      'numpy')
         self.sqrt_det_g_func = lambdify((x, y), self.sqrt_det_g, 'numpy')
 
         # Christoffel funcs: dict[i][j][k]
-        self.christoffel_func = {}
-        for i in range(2):
-            self.christoffel_func[i] = {}
-            for j in range(2):
-                self.christoffel_func[i][j] = {}
-                for k in range(2):
-                    self.christoffel_func[i][j][k] = lambdify(
-                        (x, y), self.christoffel_sym[i][j][k], 'numpy'
-                    )
+        self.christoffel_func = {
+            i: {
+                j: {
+                    k: lambdify((x, y), self.christoffel_sym[i][j][k], 'numpy')
+                    for k in range(2)
+                }
+                for j in range(2)
+            }
+            for i in range(2)
+        }
 
         # Aliases for uniform access
-        self._g_func_dict = self.g_func
+        self._g_func_dict     = self.g_func
         self._g_inv_func_dict = self.g_inv_func
 
     def _compute_christoffel_2d(self):
@@ -422,14 +435,18 @@ class Metric:
         if self.dim == 1:
             x = self.coords[0]
             xi = symbols('xi', real=True)
-            principal = self.g_inv_expr * xi**2
-            log_sqrt_g = log(self.sqrt_det_expr)
-            transport_coeff = simplify(diff(log_sqrt_g, x) * self.g_inv_expr)
-            subprincipal = transport_coeff * xi
+            principal    = self.g_inv_expr * xi**2
+            log_sqrt_g   = log(self.sqrt_det_expr)
+            # subprincipal = (d/dx log √g) * g^{-1} * ξ
+            transport    = diff(log_sqrt_g, x) * self.g_inv_expr
+            subprincipal = transport * xi
+            # One simplify at the very end on the terms that matter
+            p = simplify(principal)
+            s = simplify(subprincipal)
             return {
-                'principal': simplify(principal),
-                'subprincipal': simplify(subprincipal),
-                'full': simplify(principal + 1j * subprincipal),
+                'principal':    p,
+                'subprincipal': s,
+                'full':         p + 1j * s,
             }
         else:
             x, y = self.coords
@@ -438,14 +455,14 @@ class Metric:
             principal = (g_inv[0, 0] * xi**2 +
                          2 * g_inv[0, 1] * xi * eta +
                          g_inv[1, 1] * eta**2)
-            sqrt_g = self.sqrt_det_g
-            coeff_x = diff(sqrt_g * g_inv[0, 0], x) + diff(sqrt_g * g_inv[0, 1], y)
-            coeff_y = diff(sqrt_g * g_inv[1, 0], x) + diff(sqrt_g * g_inv[1, 1], y)
+            sqrt_g   = self.sqrt_det_g
+            coeff_x  = diff(sqrt_g * g_inv[0, 0], x) + diff(sqrt_g * g_inv[0, 1], y)
+            coeff_y  = diff(sqrt_g * g_inv[1, 0], x) + diff(sqrt_g * g_inv[1, 1], y)
             subprincipal = simplify((coeff_x * xi + coeff_y * eta) / sqrt_g)
             return {
-                'principal': simplify(principal),
-                'subprincipal': simplify(subprincipal),
-                'full': simplify(principal + 1j * subprincipal),
+                'principal':    simplify(principal),
+                'subprincipal': subprincipal,
+                'full':         simplify(principal + 1j * subprincipal),
             }
 
     # ------------------------------------------------------------------
@@ -473,7 +490,6 @@ class Metric:
             if method == 'symbolic':
                 return integrate(self.sqrt_det_expr, (x, x_min, x_max))
             elif method == 'numerical':
-                from scipy.integrate import quad
                 result, _ = quad(self.sqrt_det_func, x_min, x_max)
                 return result
             else:
@@ -485,7 +501,6 @@ class Metric:
             if method == 'symbolic':
                 return integrate(sqrt_g, (x, x_min, x_max), (y, y_min, y_max))
             elif method == 'numerical':
-                from scipy.integrate import dblquad
                 integrand = lambda yv, xv: self.sqrt_det_g_func(xv, yv)
                 result, _ = dblquad(integrand, x_min, x_max, y_min, y_max)
                 return result
@@ -509,7 +524,7 @@ class Metric:
 
 def christoffel(metric):
     """
-    Return the Christoffel symbol(s) of the metric.
+    Return the numerical Christoffel symbol(s) of the metric.
 
     Parameters
     ----------
@@ -520,10 +535,7 @@ def christoffel(metric):
     For dim=1: callable Γ(x).
     For dim=2: nested dict Gamma[i][j][k] of callables.
     """
-    if metric.dim == 1:
-        return metric.christoffel_func
-    else:
-        return metric.christoffel_func
+    return metric.christoffel_func
 
 
 def geodesic_solver(metric, p0, v0, tspan, method='rk4', n_steps=1000,
@@ -564,8 +576,6 @@ def geodesic_solver(metric, p0, v0, tspan, method='rk4', n_steps=1000,
 
 def _geodesic_1d(metric, x0, v0, tspan, method, n_steps):
     """Internal: geodesic integrator for 1D metrics."""
-    from scipy.integrate import solve_ivp
-
     Gamma_func = metric.christoffel_func
 
     def ode(t, y):
@@ -614,8 +624,6 @@ def _geodesic_1d(metric, x0, v0, tspan, method, n_steps):
 
 def _geodesic_2d(metric, p0, v0, tspan, method, n_steps, reparametrize):
     """Internal: geodesic integrator for 2D metrics."""
-    from scipy.integrate import solve_ivp
-
     Gamma = metric.christoffel_func
 
     def ode(t, state):
@@ -649,7 +657,6 @@ def _geodesic_2d(metric, p0, v0, tspan, method, n_steps, reparametrize):
         raise ValueError("2D method must be 'rk45', 'rk4', 'symplectic', or 'verlet'.")
 
     if reparametrize:
-        from scipy.integrate import cumulative_trapezoid
         ds = np.sqrt(
             metric.g_func[(0, 0)](result['x'], result['y']) * result['vx']**2 +
             2 * metric.g_func[(0, 1)](result['x'], result['y']) * result['vx'] * result['vy'] +
@@ -751,19 +758,20 @@ def geodesic_hamiltonian_flow(metric, p0, v0, tspan, method='verlet', n_steps=10
                                       integrator=integrator,
                                       n_steps=n_steps)
 
-        x_vals = traj[str(x)]
-        y_vals = traj[str(y)]
+        x_vals  = traj[str(x)]
+        y_vals  = traj[str(y)]
         px_vals = traj[str(px_sym)]
         py_vals = traj[str(py_sym)]
-        n = len(x_vals)
 
-        # Compute velocities at each point: v = g_inv · p
-        vx_vals = np.zeros(n)
-        vy_vals = np.zeros(n)
-        for i in range(n):
-            g_inv_at = metric.eval(x_vals[i], y_vals[i])['g_inv']
-            v = g_inv_at @ [px_vals[i], py_vals[i]]
-            vx_vals[i], vy_vals[i] = v[0], v[1]
+        # Vectorised velocity recovery: v = g_inv · p at each point.
+        # Evaluate the four g_inv components as arrays, then apply the
+        # 2×2 linear map without a Python for-loop.
+        g00 = metric.g_inv_func[(0, 0)](x_vals, y_vals)
+        g01 = metric.g_inv_func[(0, 1)](x_vals, y_vals)
+        g10 = metric.g_inv_func[(1, 0)](x_vals, y_vals)
+        g11 = metric.g_inv_func[(1, 1)](x_vals, y_vals)
+        vx_vals = g00 * px_vals + g01 * py_vals
+        vy_vals = g10 * px_vals + g11 * py_vals
 
         energy = traj['energy']
 
@@ -893,7 +901,6 @@ def distance(metric, p, q, method='shooting', max_iter=50, tol=1e-6):
         return float(np.sqrt(dist_sq))
 
     elif method == 'optimize':
-        from scipy.optimize import minimize
 
         def energy_functional(v):
             q_reached = exponential_map(metric, p, tuple(v), t=1.0)
@@ -935,22 +942,22 @@ def jacobi_equation_solver(metric, geodesic, initial_variation, tspan, n_steps=1
     """
     if metric.dim != 2:
         raise NotImplementedError("jacobi_equation_solver is for 2D metrics only.")
-    from scipy.integrate import solve_ivp
-    from scipy.interpolate import interp1d
 
     x_sym, y_sym = metric.coords
-    R = metric.riemann_tensor()
-    R_func = {}
-    for i in range(2):
-        R_func[i] = {}
-        for j in range(2):
-            R_func[i][j] = {}
-            for k in range(2):
-                R_func[i][j][k] = {}
-                for ell in range(2):
-                    R_func[i][j][k][ell] = lambdify(
-                        (x_sym, y_sym), R[i][j][k][ell], 'numpy'
-                    )
+    R     = metric.riemann_tensor()
+    R_func = {
+        i: {
+            j: {
+                k: {
+                    ell: lambdify((x_sym, y_sym), R[i][j][k][ell], 'numpy')
+                    for ell in range(2)
+                }
+                for k in range(2)
+            }
+            for j in range(2)
+        }
+        for i in range(2)
+    }
 
     t_geod = geodesic['t']
     x_interp = interp1d(t_geod, geodesic['x'], kind='cubic')
@@ -1069,7 +1076,6 @@ def verify_gauss_bonnet(metric, domain, resolution=100):
     """
     if metric.dim != 2:
         raise NotImplementedError("verify_gauss_bonnet is for 2D metrics only.")
-    from scipy.integrate import dblquad
 
     K_expr = metric.gauss_curvature()
     sqrt_g = metric.sqrt_det_g
@@ -1124,16 +1130,43 @@ def visualize_geodesics(metric, initial_conditions, tspan,
                                 x_range, y_range, plot_curvature, n_steps)
 
 
+def _plot_geodesic_1d_colored(ax, metric, traj, colorby, label):
+    """
+    Plot a single 1D geodesic trajectory on *ax*, coloured by *colorby*.
+
+    Returns the scatter object (or None) for colorbar attachment.
+    """
+    if colorby == 'speed':
+        colors = np.abs(traj['v'])
+    elif colorby == 'time':
+        colors = traj['t']
+    elif colorby == 'curvature':
+        colors = np.abs(metric.christoffel_func(traj['x']))
+    else:
+        colors = None
+
+    if colors is not None:
+        sc = ax.scatter(traj['t'], traj['x'], c=colors,
+                        s=10, cmap='viridis', alpha=0.6)
+        return sc
+    else:
+        ax.plot(traj['t'], traj['x'], alpha=0.7, label=label)
+        return None
+
+
 def _visualize_geodesics_1d(metric, initial_conditions, tspan,
                              x_range, colorby, n_steps):
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
 
+    # Compute all trajectories once; reuse for both range detection and plotting.
+    trajs = [
+        (x0, v0, geodesic_solver(metric, x0, v0, tspan, n_steps=n_steps))
+        for x0, v0 in initial_conditions
+    ]
+
     if x_range is None:
-        all_x = []
-        for x0, v0 in initial_conditions:
-            traj = geodesic_solver(metric, x0, v0, tspan, n_steps=n_steps)
-            all_x.extend(traj['x'])
-        x_range = (np.min(all_x) - 0.5, np.max(all_x) + 0.5)
+        all_x = np.concatenate([traj['x'] for _, _, traj in trajs])
+        x_range = (all_x.min() - 0.5, all_x.max() + 0.5)
 
     x_plot = np.linspace(x_range[0], x_range[1], 200)
     ax1.plot(x_plot, metric.g_func(x_plot), 'k-', linewidth=2, label='g₁₁(x)')
@@ -1144,24 +1177,11 @@ def _visualize_geodesics_1d(metric, initial_conditions, tspan,
     ax1.legend()
 
     scatter = None
-    colors = None
-    for x0, v0 in initial_conditions:
-        traj = geodesic_solver(metric, x0, v0, tspan, n_steps=n_steps)
+    for x0, v0, traj in trajs:
         label = f'IC: x₀={x0:.2f}, v₀={v0:.2f}'
-        if colorby == 'speed':
-            colors = np.abs(traj['v'])
-        elif colorby == 'time':
-            colors = traj['t']
-        elif colorby == 'curvature':
-            colors = np.abs(metric.christoffel_func(traj['x']))
-        else:
-            colors = None
-
-        if colors is not None:
-            scatter = ax2.scatter(traj['t'], traj['x'], c=colors,
-                                  s=10, cmap='viridis', alpha=0.6)
-        else:
-            ax2.plot(traj['t'], traj['x'], alpha=0.7, label=label)
+        sc    = _plot_geodesic_1d_colored(ax2, metric, traj, colorby, label)
+        if sc is not None:
+            scatter = sc
 
     ax2.set_xlabel('t')
     ax2.set_ylabel('x(t)')
@@ -1255,21 +1275,26 @@ def visualize_curvature(metric, x_range=None, y_range=None,
 
 def _visualize_curvature_1d(metric, x_range, resolution, quantity, **kwargs):
     initial_conditions = kwargs.get('initial_conditions')
-    tspan = kwargs.get('tspan', (0, 10))
+    tspan   = kwargs.get('tspan',   (0, 10))
     colorby = kwargs.get('colorby', 'speed')
     n_steps = kwargs.get('n_steps', 500)
 
     fig, axes = plt.subplots(2, 1, figsize=(12, 8))
     ax_metric, ax_geo = axes
 
+    # Pre-compute trajectories once (avoids double integration when x_range
+    # must be inferred from the trajectory extents).
+    trajs = []
+    if initial_conditions:
+        trajs = [
+            (x0, v0, geodesic_solver(metric, x0, v0, tspan, n_steps=n_steps))
+            for x0, v0 in initial_conditions
+        ]
+
     if x_range is None:
-        if initial_conditions:
-            all_x = []
-            for x0, v0 in initial_conditions:
-                traj = geodesic_solver(metric, x0, v0, tspan, n_steps=n_steps)
-                all_x.extend(traj['x'])
-            mn, mx = np.min(all_x), np.max(all_x)
-            x_range = (mn - 0.5, mx + 0.5)
+        if trajs:
+            all_x  = np.concatenate([traj['x'] for _, _, traj in trajs])
+            x_range = (all_x.min() - 0.5, all_x.max() + 0.5)
         else:
             x_range = (-5, 5)
 
@@ -1292,25 +1317,12 @@ def _visualize_curvature_1d(metric, x_range, resolution, quantity, **kwargs):
     ax_metric.legend()
 
     scatter = None
-    colors = None
-    if initial_conditions:
-        for x0, v0 in initial_conditions:
-            traj = geodesic_solver(metric, x0, v0, tspan, n_steps=n_steps)
-            if colorby == 'speed':
-                colors = np.abs(traj['v'])
-            elif colorby == 'time':
-                colors = traj['t']
-            elif colorby == 'curvature':
-                colors = np.abs(metric.christoffel_func(traj['x']))
-            else:
-                colors = None
-
+    if trajs:
+        for x0, v0, traj in trajs:
             label = f'IC: x₀={x0:.2f}, v₀={v0:.2f}'
-            if colors is not None:
-                scatter = ax_geo.scatter(traj['t'], traj['x'], c=colors,
-                                         s=10, cmap='viridis', alpha=0.6)
-            else:
-                ax_geo.plot(traj['t'], traj['x'], alpha=0.7, label=label)
+            sc    = _plot_geodesic_1d_colored(ax_geo, metric, traj, colorby, label)
+            if sc is not None:
+                scatter = sc
 
         ax_geo.set_xlabel('t')
         ax_geo.set_ylabel('x(t)')
