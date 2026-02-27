@@ -49,6 +49,7 @@ from ipywidgets import interact, FloatSlider, Dropdown, VBox, HBox, interactive_
 from itertools import product
 from mpl_toolkits.mplot3d import Axes3D
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 plt.rcParams['text.usetex'] = False
 FFT_WORKERS = max(1, os.cpu_count() // 2)

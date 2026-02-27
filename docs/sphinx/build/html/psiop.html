@@ -1275,10 +1275,16 @@ Must accept NumPy-compatible array inputs and return a complex-valued array.</p>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Result of applying the operator</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>ndarray</p>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>ndarray</em> – Result of applying the operator</p></li>
+<li><p><em>2-D optimizations</em></p></li>
+<li><p><em>—————–</em></p></li>
+<li><p><em>* The 4-D tensor (Nx, Ny, Nkx, Nky) is never fully materialized.</em> – The x-axis is sliced into row-blocks; for each block only a
+(block_rows, Ny, Nkx, Nky) array is needed.</p></li>
+<li><p><em>* Row-blocks are processed in parallel with ThreadPoolExecutor.</em></p></li>
+<li><p><em>* Phase kernel  exp(i*x*kx)  is factored as a pair of 2-D arrays,</em> – exploiting  exp(i*(x*kx + y*ky)) = exp(i*x*kx) * exp(i*y*ky).</p></li>
+</ul>
+</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1313,10 +1319,15 @@ and frequency grids to evaluate the operator symbol p(x, ξ).</p>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Result of applying the operator</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>ndarray</p>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>ndarray</em> – Result of applying the operator</p></li>
+<li><p><em>2-D optimizations</em></p></li>
+<li><p><em>—————–</em></p></li>
+<li><p><em>* The 4-D integrand (Nx, Ny, Nxi, Neta) is built block-by-block</em> – along the x-axis, keeping memory at O(block * Ny * Nxi * Neta).</p></li>
+<li><p><em>* Blocks are processed in parallel (ThreadPoolExecutor).</em></p></li>
+<li><p><strong>* The phase is factored</strong> (<em>exp(i*x1*xi1) * exp(i*x2*xi2)  so that</em>) – only two 2-D arrays are needed per block instead of one 4-D array.</p></li>
+</ul>
+</p>
 </dd>
 </dl>
 </dd></dl>

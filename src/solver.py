@@ -237,8 +237,21 @@ class PDESolver:
             self.fft = partial(fft, workers=FFT_WORKERS)
             self.ifft = partial(ifft, workers=FFT_WORKERS)
         else:
-            self.fft = partial(fft2, workers=FFT_WORKERS)
-            self.ifft = partial(ifft2, workers=FFT_WORKERS)
+            # In 2D, try pyfftw for faster transforms (FFTW planning is done once at
+            # first call thanks to pyfftw's interface cache).  Fall back to scipy.fft
+            # when pyfftw is not installed.
+            try:
+                import pyfftw
+                import pyfftw.interfaces.numpy_fft as pyfftw_fft
+                pyfftw.interfaces.cache.enable()
+                # pyfftw's numpy interface uses 'threads' (not 'workers' like scipy.fft)
+                self.fft  = partial(pyfftw_fft.fft2,  threads=FFT_WORKERS)
+                self.ifft = partial(pyfftw_fft.ifft2, threads=FFT_WORKERS)
+                print("ℹ️  2D FFT backend: pyfftw (FFTW)")
+            except ImportError:
+                self.fft = partial(fft2, workers=FFT_WORKERS)
+                self.ifft = partial(ifft2, workers=FFT_WORKERS)
+                print("ℹ️  2D FFT backend: scipy.fft (install pyfftw for better performance)")
             
         # Parse the equation
         self.linear_terms = {}
@@ -701,6 +714,9 @@ class PDESolver:
         # Initialization of solution and velocities
         if not self.is_stationary:
             self._initialize_conditions(initial_condition, initial_velocity)
+
+        # Pre-compile lambdified source functions once (avoids re-creating them at every time step)
+        self._precompile_source_funcs()
             
         # Symbol analysis if present
         if self.has_psi:
@@ -923,6 +939,41 @@ class PDESolver:
         nonzero = omega_val != 0
         self.inv_omega[nonzero] = 1.0 / omega_val[nonzero]
 
+    def _precompile_source_funcs(self):
+        """
+        Pre-compile lambdified callables for all source terms.
+
+        Calling lambdify() inside the time loop (once per step) has a significant
+        Python overhead.  This method creates the callables once during setup and
+        stores them in self._compiled_source_funcs so that the solve() loop can
+        call them directly without rebuilding the function objects each iteration.
+
+        Attributes set
+        --------------
+        self._compiled_source_funcs : list[callable]
+            One entry per source term.  Each callable accepts (t, X[, Y]) where
+            X and Y are the spatial grid arrays (numpy).
+        """
+        self._compiled_source_funcs = []
+        if not hasattr(self, 'source_terms') or not self.source_terms:
+            return
+        # Stationary problems have no time variable: source terms are purely spatial
+        # and are evaluated directly (not via lambdify with t).  Skip pre-compilation
+        # for those cases; solve_stationary_psiOp handles them on its own.
+        if self.is_stationary or not hasattr(self, 't'):
+            return
+        for term in self.source_terms:
+            try:
+                if self.dim == 1:
+                    fn = lambdify((self.t, self.x), term, 'numpy')
+                elif self.dim == 2:
+                    fn = lambdify((self.t, self.x, self.y), term, 'numpy')
+                else:
+                    raise ValueError("Unsupported dimension in source pre-compilation.")
+                self._compiled_source_funcs.append((fn, self.dim))
+            except Exception as e:
+                print(f"Warning: could not pre-compile source term {term}: {e}")
+
     def _evaluate_source_at_t0(self):
         """
         Evaluate source terms at initial time t = 0 over the spatial grid.
@@ -1119,6 +1170,7 @@ class PDESolver:
         - In 2D, computes ∂ₓu and ∂ᵧu via FFT and performs similar substitutions.
         - Uses lambdify to evaluate symbolic nonlinear expressions numerically.
         - Derivatives are replaced symbolically with 'u_x' and 'u_y' before evaluation.
+        - In 2D, multiple independent nonlinear terms are evaluated in parallel via ThreadPoolExecutor.
         """
         if not self.nonlinear_terms:
             return np.zeros_like(u, dtype=np.complex128)
@@ -1154,20 +1206,34 @@ class PDESolver:
             u_y_hat = (1j * self.KY) * u_hat
             u_x = self.ifft(u_x_hat)
             u_y = self.ifft(u_y_hat)
-    
-            for term in self.nonlinear_terms:
+
+            # Snapshot of the field to be passed to each worker thread
+            u_phys   = self.v_prev if is_v else u
+            X, Y     = self.X, self.Y
+            t_sym, x_sym, y_sym, u_sym = self.t, self.x, self.y, self.u_eq
+
+            def _eval_nl_term(term):
+                """Evaluate one nonlinear term; called from a thread pool."""
                 term_replaced = term
                 if term.has(Derivative):
                     for deriv in term.atoms(Derivative):
-                        if deriv.args[1][0] == self.x:
+                        if deriv.args[1][0] == x_sym:
                             term_replaced = term_replaced.subs(deriv, symbols('u_x'))
-                        elif deriv.args[1][0] == self.y:
+                        elif deriv.args[1][0] == y_sym:
                             term_replaced = term_replaced.subs(deriv, symbols('u_y'))
-                term_func = lambdify((self.t, self.x, self.y, self.u_eq, 'u_x', 'u_y'), term_replaced, 'numpy')
-                if is_v:
-                    nonlinear_term += term_func(0, self.X, self.Y, self.v_prev, u_x, u_y)
-                else:
-                    nonlinear_term += term_func(0, self.X, self.Y, u, u_x, u_y)
+                fn = lambdify((t_sym, x_sym, y_sym, u_sym, 'u_x', 'u_y'), term_replaced, 'numpy')
+                return fn(0, X, Y, u_phys, u_x, u_y)
+
+            # Parallelise only when there are at least 2 independent terms (overhead
+            # of a thread pool is not worth it for a single term).
+            if len(self.nonlinear_terms) >= 2:
+                from concurrent.futures import ThreadPoolExecutor
+                with ThreadPoolExecutor() as executor:
+                    for contrib in executor.map(_eval_nl_term, self.nonlinear_terms):
+                        nonlinear_term += contrib
+            else:
+                for term in self.nonlinear_terms:
+                    nonlinear_term += _eval_nl_term(term)
         else:
             raise ValueError("Unsupported spatial dimension.")
         
@@ -1281,6 +1347,10 @@ class PDESolver:
         if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n
         elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n
         elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n
+
+        For 2D spatially-varying symbols, the x-axis is split into blocks processed in parallel
+        using ThreadPoolExecutor.  The number of workers is controlled by the module-level
+        constant PSIOP_WORKERS (defaults to the number of logical CPUs).
         
         This method delegates to the apply() method of each 
         PseudoDifferentialOperator instance.
@@ -1297,7 +1367,54 @@ class PDESolver:
         """
         if not hasattr(self, 'psi_ops') or not self.psi_ops:
             raise ValueError("No pseudo-differential operators defined")
-        
+
+        # -----------------------------------------------------------------------
+        # 2D spatial symbol: block-parallel Kohn-Nirenberg quantization.
+        # The x-axis is partitioned into contiguous row-blocks; each block is
+        # processed independently by a worker thread, then results are assembled.
+        # This is safe because each block only reads/writes its own rows of u.
+        # -----------------------------------------------------------------------
+        if self.dim == 2 and self.is_spatial:
+            import os
+            from concurrent.futures import ThreadPoolExecutor
+
+            n_workers = int(os.environ.get('PSIOP_WORKERS', os.cpu_count() or 4))
+            Nx = self.Nx
+            # Build row-slice boundaries (last block absorbs any remainder)
+            base = Nx // n_workers
+            boundaries = [(i * base, (i + 1) * base if i < n_workers - 1 else Nx)
+                          for i in range(n_workers)]
+
+            result = np.zeros_like(u, dtype=np.complex128)
+
+            def _apply_block(bounds):
+                """Apply all psi_ops to a horizontal slice u[i0:i1, :]."""
+                i0, i1 = bounds
+                u_block   = u[i0:i1, :]
+                x_block   = self.x_grid[i0:i1]
+                block_res = np.zeros_like(u_block, dtype=np.complex128)
+                for coeff, psi_op in self.psi_ops:
+                    block_res += np.complex128(coeff) * psi_op.apply(
+                        u=u_block,
+                        x_grid=x_block,
+                        kx=self.kx,
+                        y_grid=self.y_grid,
+                        ky=self.ky,
+                        boundary_condition=self.boundary_condition,
+                        dealiasing_mask=self.dealiasing_mask
+                    )
+                return i0, i1, block_res
+
+            with ThreadPoolExecutor(max_workers=n_workers) as executor:
+                for i0, i1, block_res in executor.map(_apply_block, boundaries):
+                    result[i0:i1, :] = block_res
+
+            return result
+
+        # -----------------------------------------------------------------------
+        # Default path: 1D, or 2D with constant-coefficient symbol (no blocking
+        # needed; FFT multiplication is already highly optimised).
+        # -----------------------------------------------------------------------
         result = np.zeros_like(u, dtype=np.complex128)
         
         for coeff, psi_op in self.psi_ops:
@@ -1516,18 +1633,17 @@ class PDESolver:
         save_interval = max(1, self.Nt // self.n_frames)
         self.energy_history = []
         for step in range(self.Nt):
-            if hasattr(self, 'source_terms') and self.source_terms:
+            if hasattr(self, '_compiled_source_funcs') and self._compiled_source_funcs:
                 source_contribution = np.zeros_like(self.X, dtype=np.float64)
-                for term in self.source_terms:
+                t_val = step * self.dt
+                for fn, dim in self._compiled_source_funcs:
                     try:
-                        if self.dim == 1:
-                            source_func = lambdify((self.t, self.x), term, 'numpy')
-                            source_contribution += source_func(step * self.dt, self.X)
-                        elif self.dim == 2:
-                            source_func = lambdify((self.t, self.x, self.y), term, 'numpy')
-                            source_contribution += source_func(step * self.dt, self.X, self.Y)
+                        if dim == 1:
+                            source_contribution += fn(t_val, self.X)
+                        elif dim == 2:
+                            source_contribution += fn(t_val, self.X, self.Y)
                     except Exception as e:
-                        print(f'Error evaluating source term {term}: {e}')
+                        print(f'Error evaluating pre-compiled source term: {e}')
             else:
                 source_contribution = 0
 
@@ -2480,7 +2596,7 @@ class PDESolver:
             ax.set_ylabel('y')
             ax.set_zlabel(f'{component.title()} of u')
             plt.title('Stationary solution (2D)')    
-            data0 = get_component(u)
+            data0 = _get_component(u)
             ax.plot_surface(self.X, self.Y, data0, cmap='viridis')
             plt.tight_layout()
             plt.show()
@@ -2568,7 +2684,7 @@ class PDESolver:
         # -------------------------
         if self.dim == 1:
             fig, ax = plt.subplots()
-            initial = get_component(self.frames[0])
+            initial = _get_component(self.frames[0])
             line, = ax.plot(self.X, np.real(initial) if np.iscomplexobj(initial) else initial)
             ax.set_ylim(np.min(initial), np.max(initial))
             ax.set_xlabel('x')
@@ -2578,7 +2694,7 @@ class PDESolver:
     
             def _update_1d(frame_number):
                 frame = frame_indices[frame_number]
-                ydata = get_component(self.frames[frame])
+                ydata = _get_component(self.frames[frame])
                 ydata_real = np.real(ydata) if np.iscomplexobj(ydata) else ydata
                 line.set_ydata(ydata_real)
                 ax.set_ylim(np.min(ydata_real), np.max(ydata_real))
@@ -2597,7 +2713,7 @@ class PDESolver:
             raise ValueError("Invalid mode: choose 'surface' or 'imshow'")
     
         # Common data
-        data0 = get_component(self.frames[0])
+        data0 = _get_component(self.frames[0])
     
         if mode == 'surface':
             # original surface behavior, but ensure clean updates
@@ -2614,7 +2730,7 @@ class PDESolver:
     
             def _update_surface(frame_number):
                 frame = frame_indices[frame_number]
-                current_data = get_component(self.frames[frame])
+                current_data = _get_component(self.frames[frame])
                 z_offset = np.max(current_data) + 0.05 * (np.max(current_data) - np.min(current_data))
     
                 ax.clear()
@@ -2654,7 +2770,7 @@ class PDESolver:
                 ax.set_title(f'Solution at t = {current_time:.2f}')
                 return (surf_obj,)
     
-            ani = FuncAnimation(fig, update_surface, frames=len(target_times), interval=50)
+            ani = FuncAnimation(fig, _update_surface, frames=len(target_times), interval=50)
             return ani
     
         else:  # mode == 'imshow'
@@ -2684,7 +2800,7 @@ class PDESolver:
     
             def _update_im(frame_number):
                 frame = frame_indices[frame_number]
-                current_data = get_component(self.frames[frame])
+                current_data = _get_component(self.frames[frame])
     
                 # update raster
                 im.set_data(current_data)

@@ -616,325 +616,203 @@ def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
     idx_a = {k: idx_a_start + k for k in range(order + 1)}
     
     # ==================================================================
-    # RAY TRACING
+    # ==================================================================
+    # RAY TRACING  —  vectorised batch integration
+    # ==================================================================
+    # Instead of n_rays separate solve_ivp calls, we pack ALL rays into a
+    # single flat state vector and call solve_ivp ONCE.  The lambdified
+    # functions already accept numpy arrays, so every derivative evaluation
+    # operates on all rays simultaneously (numpy broadcasting).
+    #
+    # State: Z  shape (n_rays, ns)  where ns = components per ray.
+    # Flat:  z_flat = Z.ravel(),  reconstructed as Z = z_flat.reshape(n_rays, ns).
+    # On exit we slice Z back into per-ray dicts for the rest of the pipeline.
     # ==================================================================
 
-    print(f"Ray tracing {n_rays} rays...")
-    
-    rays = []
+    print(f"Ray tracing {n_rays} rays (vectorised batch)...")
+
     tmax = 5.0
     n_steps_per_ray = 100
-    
-    for i in range(n_rays):
-        # ------------------------------------------------------------------
-        # Build initial state vector z0
-        # ------------------------------------------------------------------
-        # J(0) and K(0) are set from the geometry of the initial data curve.
-        # If rays are parametrized by q, then:
-        #   J(0) = dx0/dq  (tangent of the spatial curve)
-        #   K(0) = dxi0/dq (tangent of the momentum curve)
-        # For a single isolated ray (point source), use J(0)=1, K(0)=0.
+
+    # ------------------------------------------------------------------
+    # Build the initial batch state matrix Z0  (n_rays × ns)
+    # ------------------------------------------------------------------
+    if dimension == 1:
+        ns = idx_a_start + order + 1
+        Z0 = np.zeros((n_rays, ns))
+        Z0[:, idx_x]   = x_init
+        Z0[:, idx_xi]  = px_init
+        Z0[:, idx_S]   = S_init
+        Z0[:, idx_J11] = 1.0
+        if n_rays > 1:
+            dpx = np.empty(n_rays); dx_ = np.empty(n_rays)
+            dpx[1:-1] = px_init[2:] - px_init[:-2]
+            dx_[1:-1] = x_init[2:]  - x_init[:-2]
+            dpx[0]  = px_init[1]  - px_init[0];  dx_[0]  = x_init[1]  - x_init[0]
+            dpx[-1] = px_init[-1] - px_init[-2]; dx_[-1] = x_init[-1] - x_init[-2]
+            with np.errstate(invalid='ignore', divide='ignore'):
+                Z0[:, idx_K11] = np.where(dx_ != 0, dpx / dx_, 0.0)
+        for k in range(order + 1):
+            Z0[:, idx_a[k]] = a_init[k]
+    else:
+        ns = idx_a_start + order + 1
+        Z0 = np.zeros((n_rays, ns))
+        Z0[:, idx_x]   = x_init;  Z0[:, idx_y]   = y_init
+        Z0[:, idx_xi]  = px_init; Z0[:, idx_eta] = py_init
+        Z0[:, idx_S]   = S_init
+        Z0[:, idx_J11] = 1.0;     Z0[:, idx_J22] = 1.0
+        if n_rays > 1:
+            dpx0 = np.empty(n_rays); dpy0 = np.empty(n_rays)
+            dx0  = np.empty(n_rays); dy0  = np.empty(n_rays)
+            for arr_in, arr_out in [(px_init, dpx0), (py_init, dpy0),
+                                    (x_init, dx0),   (y_init, dy0)]:
+                arr_out[1:-1] = arr_in[2:]  - arr_in[:-2]
+                arr_out[0]    = arr_in[1]   - arr_in[0]
+                arr_out[-1]   = arr_in[-1]  - arr_in[-2]
+            arc = np.hypot(dx0, dy0)
+            m = arc > 1e-14
+            Z0[m, idx_K11] = dpx0[m] / arc[m]
+            Z0[m, idx_K21] = dpy0[m] / arc[m]
+        for k in range(order + 1):
+            Z0[:, idx_a[k]] = a_init[k]
+
+    # ------------------------------------------------------------------
+    # Vectorised ODE right-hand side
+    # ------------------------------------------------------------------
+    def ray_ode_batch(t, z_flat):
+        Z = z_flat.reshape(n_rays, ns)
 
         if dimension == 1:
-            J0 = 1.0
-            K0 = 0.0
-            if n_rays > 1:
-                # Compute K0 = dxi / dx using finite differences over initial data
-                if i == 0:
-                    dx = x_init[1] - x_init[0]
-                    dpx = px_init[1] - px_init[0]
-                elif i == n_rays - 1:
-                    dx = x_init[-1] - x_init[-2]
-                    dpx = px_init[-1] - px_init[-2]
-                else:
-                    dx = x_init[i+1] - x_init[i-1]
-                    dpx = px_init[i+1] - px_init[i-1]
-                K0 = dpx / dx if dx != 0 else 0.0
-
-            z0 = [x_init[i], px_init[i], S_init[i], J0, K0]
-
-        else:
-            # 2D: J(0) = I (identity) as required by theory and tests.
-            # K(0) = dξ₀/d(arc-length): derivative of initial momentum w.r.t.
-            # arc-length along the initial curve.  This encodes wavefront curvature:
-            # for a focusing bundle (inward circle) K(0) ≠ 0, which drives
-            # det(J) → 0 via  dJ/dt = pξξ·K + pξx·J  even when pxx = 0.
-            J11_0, J12_0 = 1.0, 0.0
-            J21_0, J22_0 = 0.0, 1.0
-            K11_0, K12_0, K21_0, K22_0 = 0.0, 0.0, 0.0, 0.0
-
-            if n_rays > 1:
-                # Finite differences of initial momentum w.r.t. ray index
-                if i == 0:
-                    dpx0 = px_init[1] - px_init[0]
-                    dpy0 = py_init[1] - py_init[0]
-                    dx0  = x_init[1]  - x_init[0]
-                    dy0  = y_init[1]  - y_init[0]
-                elif i == n_rays - 1:
-                    dpx0 = px_init[-1] - px_init[-2]
-                    dpy0 = py_init[-1] - py_init[-2]
-                    dx0  = x_init[-1]  - x_init[-2]
-                    dy0  = y_init[-1]  - y_init[-2]
-                else:
-                    dpx0 = px_init[i+1] - px_init[i-1]
-                    dpy0 = py_init[i+1] - py_init[i-1]
-                    dx0  = x_init[i+1]  - x_init[i-1]
-                    dy0  = y_init[i+1]  - y_init[i-1]
-
-                # Normalize by arc-length element so K = dξ/d(arc-length)
-                arc = np.hypot(dx0, dy0)
-                if arc > 1e-14:
-                    K11_0 = dpx0 / arc   # dxi  / d(arc-length)
-                    K21_0 = dpy0 / arc   # deta / d(arc-length)
-                    K12_0 = 0.0
-                    K22_0 = 0.0
-
-            z0 = [x_init[i], y_init[i], px_init[i], py_init[i], S_init[i],
-                  J11_0, J12_0, J21_0, J22_0,
-                  K11_0, K12_0, K21_0, K22_0]
-        
-        # Amplitudes
-        for k in range(order + 1):
-            z0.append(a_init[k][i])
-        
-        # ------------------------------------------------------------------
-        # ODE right-hand side
-        # ------------------------------------------------------------------
-        def ray_ode(t, z):
-            """ODE system for rays – includes Hamilton eqs, stability matrix J,
-            phase S, and amplitude transport up to the requested order."""
-            
-            # ---- extract state ----
-            if dimension == 1:
-                x_val  = z[idx_x]
-                xi_val = z[idx_xi]
-                S_val  = z[idx_S]
-                args   = (x_val, xi_val)
-            else:
-                x_val   = z[idx_x]
-                y_val   = z[idx_y]
-                xi_val  = z[idx_xi]
-                eta_val = z[idx_eta]
-                S_val   = z[idx_S]
-                args    = (x_val, y_val, xi_val, eta_val)
-            
-            a_vals = {k: z[idx_a[k]] for k in range(order + 1)}
-            
-            # ================================================
-            # HAMILTON'S EQUATIONS
-            # ================================================
-            
-            if dimension == 1:
-                dxdt   = eval_func('dp_dxi', *args)
-                dxidt  = -eval_func('dp_dx', *args)
-                derivs = [dxdt, dxidt]
-            else:
-                dxdt   = eval_func('dp_dxi',  *args)
-                dydt   = eval_func('dp_deta', *args)
-                dxidt  = -eval_func('dp_dx',  *args)
-                detadt = -eval_func('dp_dy',  *args)
-                derivs = [dxdt, dydt, dxidt, detadt]
-            
-            # Phase: dS/dt = Σᵢ ξᵢ·(∂p/∂ξᵢ) - p
-            p_val = eval_func('p', *args)
-            if dimension == 1:
-                dSdt = xi_val * dxdt - p_val
-            else:
-                dSdt = xi_val * dxdt + eta_val * dydt - p_val
-            derivs.append(dSdt)
-            
-            # ================================================
-            # STABILITY MATRIX – variational equations
-            #
-            # State additions per ray:
-            #   1D: [J, K]       where J = dx/dq, K = dxi/dq
-            #   2D: [J11,J12,    where Jij = dxi(t)/dqj
-            #        J21,J22,         Kij = dxii(t)/dqj
-            #        K11,K12,
-            #        K21,K22]
-            #
-            # Variational ODEs (differentiating Hamilton eqs w.r.t. q):
-            #   dJ/dt =  (d2p/dxi2)*K  +  (d2p/dxi/dx)*J      (1D)
-            #   dK/dt = -(d2p/dx2) *J  -  (d2p/dx/dxi)*K      (1D)
-            #
-            # J(t) is used as the caustic indicator: det(J) -> 0 at caustics.
-            # ================================================
-
-            if dimension == 1:
-                # Second derivatives of p at current phase-space point
-                pxx  = eval_func('d2p_dx2',    *args)   # d2p/dx2
-                pxxi = eval_func('d2p_dxidx',  *args)   # d2p/dxi/dx  (= d2p/dx/dxi)
-                pxixi = eval_func('d2p_dxi2',  *args)   # d2p/dxi2
-
-                J = z[idx_J11]   # dx/dq
-                K = z[idx_K11]   # dxi/dq
-
-                dJdt =  pxixi * K  +  pxxi * J
-                dKdt = -pxx   * J  -  pxxi * K
-
-                derivs.append(dJdt)
-                derivs.append(dKdt)
-
-            else:
-                # 2D: all blocks of the 2x2 Hessian
-                # Position-position block:  -d2p/dx_i dx_j
-                pxx  = eval_func('d2p_dx2',    *args)   # d2p/dx2
-                pyy  = eval_func('d2p_dy2',    *args)   # d2p/dy2
-                pxy  = eval_func('d2p_dxy',    *args)   # d2p/dx/dy
-
-                # Mixed block: d2p/dxi_i/dx_j
-                pxix = eval_func('d2p_dxidx',  *args)   # d2p/dxi/dx
-                pxiy = eval_func('d2p_dxidy',  *args)   # d2p/dxi/dy
-                petax = eval_func('d2p_detadx', *args)  # d2p/deta/dx
-                petay = eval_func('d2p_detady', *args)  # d2p/deta/dy
-
-                # Momentum-momentum block: d2p/dxi_i/dxi_j
-                pxixi   = eval_func('d2p_dxi2',   *args)  # d2p/dxi2
-                petaeta = eval_func('d2p_deta2',  *args)  # d2p/deta2
-                pxieta  = eval_func('d2p_dxideta',*args)  # d2p/dxi/deta
-
-                # Current J and K blocks (2x2 each, stored column-major)
-                J11 = z[idx_J11];  J12 = z[idx_J12]
-                J21 = z[idx_J21];  J22 = z[idx_J22]
-                K11 = z[idx_K11];  K12 = z[idx_K12]
-                K21 = z[idx_K21];  K22 = z[idx_K22]
-
-                # dJ/dt =  A_pxi * K  +  A_px * J
-                #   A_pxi[i,j] = d2p/dxi_i/dxi_j  (mom-mom Hessian row i)
-                #   A_px [i,j] = d2p/dxi_i/dx_j   (mixed Hessian row i)
-                dJ11dt = pxixi*K11  + pxieta*K21  + pxix*J11 + pxiy*J21
-                dJ12dt = pxixi*K12  + pxieta*K22  + pxix*J12 + pxiy*J22
-                dJ21dt = pxieta*K11 + petaeta*K21  + petax*J11 + petay*J21
-                dJ22dt = pxieta*K12 + petaeta*K22  + petax*J12 + petay*J22
-
-                # dK/dt = -B_xx * J  -  B_xxi * K
-                #   B_xx [i,j] = d2p/dx_i/dx_j  (pos-pos Hessian row i)
-                #   B_xxi[i,j] = d2p/dx_i/dxi_j (transposed mixed Hessian row i)
-                dK11dt = -(pxx*J11  + pxy*J21)  - (pxix*K11  + petax*K21)
-                dK12dt = -(pxx*J12  + pxy*J22)  - (pxix*K12  + petax*K22)
-                dK21dt = -(pxy*J11  + pyy*J21)  - (pxiy*K11  + petay*K21)
-                dK22dt = -(pxy*J12  + pyy*J22)  - (pxiy*K12  + petay*K22)
-
-                derivs += [dJ11dt, dJ12dt, dJ21dt, dJ22dt,
-                           dK11dt, dK12dt, dK21dt, dK22dt]
-            
-            # ================================================
-            # AMPLITUDE EQUATIONS (multi-order transport)
-            # ================================================
-            
-            # Geometric spreading factor (same for all orders)
-            geom_spread = compute_geometric_spreading(*args)
-            
-            da_dt = {}
-            
-            # Order 0: standard WKB transport
-            da_dt[0] = -0.5 * a_vals[0] * geom_spread
-            
-            # Order 1: first correction
+            xv  = Z[:, idx_x];   xiv = Z[:, idx_xi]
+            args_ = (xv, xiv)
+            dxdt   =  eval_func('dp_dxi', *args_)
+            dxidt  = -eval_func('dp_dx',  *args_)
+            dSdt   = xiv * dxdt - eval_func('p', *args_)
+            pxixi  = eval_func('d2p_dxi2',  *args_)
+            pxxi   = eval_func('d2p_dxidx', *args_)
+            pxx    = eval_func('d2p_dx2',   *args_)
+            Jv = Z[:, idx_J11]; Kv = Z[:, idx_K11]
+            dJdt =  pxixi*Kv + pxxi*Jv
+            dKdt = -pxx*Jv   - pxxi*Kv
+            geom = pxixi; coupling = pxxi
+            dZ = np.empty_like(Z)
+            dZ[:, idx_x]   = dxdt;  dZ[:, idx_xi]  = dxidt
+            dZ[:, idx_S]   = dSdt
+            dZ[:, idx_J11] = dJdt;  dZ[:, idx_K11] = dKdt
+            a0v = Z[:, idx_a[0]]
+            dZ[:, idx_a[0]] = -0.5*a0v*geom
             if order >= 1:
-                da_dt[1] = -0.5 * a_vals[1] * geom_spread
-                
-                # Spatial-momentum coupling correction
-                coupling = compute_spatial_momentum_coupling(*args)
-                da_dt[1] += -0.5 * a_vals[0] * coupling
-                
-                # Cross-derivative terms (2D only)
-                if dimension == 2:
-                    cross_term = eval_func('d2p_dxideta', *args)
-                    da_dt[1] += -0.25 * a_vals[0] * cross_term * (dxidt + detadt)
-            
-            # Order 2: second correction
+                a1v = Z[:, idx_a[1]]
+                dZ[:, idx_a[1]] = -0.5*a1v*geom - 0.5*a0v*coupling
             if order >= 2:
-                da_dt[2] = -0.5 * a_vals[2] * geom_spread
-                
-                # Third-order derivative corrections
-                if dimension == 1:
-                    d3 = eval_func('d3p_dxi3', *args)
-                    da_dt[2] += -0.125 * a_vals[0] * d3 * dxidt
-                else:
-                    d3xi   = eval_func('d3p_dxi3',     *args)
-                    d3eta  = eval_func('d3p_deta3',    *args)
-                    d3mix1 = eval_func('d3p_dxi2deta', *args)
-                    d3mix2 = eval_func('d3p_dxideta2', *args)
-                    
-                    correction = (d3xi * dxidt + d3eta * detadt + 
-                                 d3mix1 * (dxidt + detadt) +
-                                 d3mix2 * (dxidt + detadt))
-                    da_dt[2] += -0.125 * a_vals[0] * correction
-                
-                # Contributions from a₁
-                da_dt[2] += -0.25 * a_vals[1] * coupling
-            
-            # Order 3: third correction
+                a2v = Z[:, idx_a[2]]
+                d3  = eval_func('d3p_dxi3', *args_)
+                dZ[:, idx_a[2]] = (-0.5*a2v*geom - 0.125*a0v*d3*dxidt
+                                   - 0.25*Z[:, idx_a[1]]*coupling)
             if order >= 3:
-                da_dt[3] = -0.5 * a_vals[3] * geom_spread
-                
-                # Simplified higher-order terms
-                if dimension == 1:
-                    d3 = eval_func('d3p_dxi3', *args)
-                    da_dt[3] += -0.1 * a_vals[1] * d3 * dxidt
-                else:
-                    d3terms = (eval_func('d3p_dxi3',  *args) + 
-                              eval_func('d3p_deta3', *args))
-                    da_dt[3] += -0.1 * a_vals[1] * d3terms * (dxidt + detadt)
-            
-            # Assemble derivative vector (amplitudes last)
-            for k in range(order + 1):
-                derivs.append(da_dt.get(k, 0.0))
-            
-            return derivs
-        
-        # ------------------------------------------------------------------
-        # Integrate ray
-        # ------------------------------------------------------------------
-        try:
-            sol = solve_ivp(
-                ray_ode,
-                (0, tmax),
-                z0,
-                method='RK45',
-                t_eval=np.linspace(0, tmax, n_steps_per_ray),
-                rtol=1e-6,
-                atol=1e-9
-            )
-            
-            ray_data = {'t': sol.t}
+                a3v = Z[:, idx_a[3]]
+                d3  = eval_func('d3p_dxi3', *args_)
+                dZ[:, idx_a[3]] = -0.5*a3v*geom - 0.1*Z[:, idx_a[1]]*d3*dxidt
 
-            if dimension == 1:
-                ray_data['x']   = sol.y[idx_x]
-                ray_data['xi']  = sol.y[idx_xi]
-                ray_data['S']   = sol.y[idx_S]
-                # J = dx/dq (position component of the variational state)
-                # det(J) = J11 in 1D; stored as 1D array for RayCausticDetector.
-                J11 = sol.y[idx_J11]
-                ray_data['J11'] = J11
-                ray_data['J']   = J11          # shape (n_steps,)
-            else:
-                ray_data['x']   = sol.y[idx_x]
-                ray_data['y']   = sol.y[idx_y]
-                ray_data['xi']  = sol.y[idx_xi]
-                ray_data['eta'] = sol.y[idx_eta]
-                ray_data['S']   = sol.y[idx_S]
-                # J block (position part of variational state)
-                J11 = sol.y[idx_J11];  J12 = sol.y[idx_J12]
-                J21 = sol.y[idx_J21];  J22 = sol.y[idx_J22]
-                ray_data['J11'] = J11;  ray_data['J12'] = J12
-                ray_data['J21'] = J21;  ray_data['J22'] = J22
-                # det(J) as 1D series for RayCausticDetector._find_sign_changes
-                ray_data['J']   = J11 * J22 - J12 * J21  # shape (n_steps,)
-            
-            for k in range(order + 1):
-                ray_data[f'a{k}'] = sol.y[idx_a[k]]
-            
-            rays.append(ray_data)
-            
-        except Exception as e:
-            print(f"Warning: Ray {i} integration failed: {e}")
-            continue
-    
-    if len(rays) == 0:
-        raise RuntimeError("All rays failed to integrate")
-    
+        else:  # dimension == 2
+            xv   = Z[:, idx_x];   yv   = Z[:, idx_y]
+            xiv  = Z[:, idx_xi];  etav = Z[:, idx_eta]
+            args_ = (xv, yv, xiv, etav)
+            dxdt   =  eval_func('dp_dxi',  *args_)
+            dydt   =  eval_func('dp_deta', *args_)
+            dxidt  = -eval_func('dp_dx',   *args_)
+            detadt = -eval_func('dp_dy',   *args_)
+            dSdt   = xiv*dxdt + etav*dydt - eval_func('p', *args_)
+            pxx    = eval_func('d2p_dx2',    *args_)
+            pyy    = eval_func('d2p_dy2',    *args_)
+            pxy    = eval_func('d2p_dxy',    *args_)
+            pxix   = eval_func('d2p_dxidx',  *args_)
+            pxiy   = eval_func('d2p_dxidy',  *args_)
+            petax  = eval_func('d2p_detadx', *args_)
+            petay  = eval_func('d2p_detady', *args_)
+            pxixi    = eval_func('d2p_dxi2',     *args_)
+            petapeta = eval_func('d2p_deta2',    *args_)
+            pxipeta  = eval_func('d2p_dxideta',  *args_)
+            J11=Z[:,idx_J11]; J12=Z[:,idx_J12]
+            J21=Z[:,idx_J21]; J22=Z[:,idx_J22]
+            K11=Z[:,idx_K11]; K12=Z[:,idx_K12]
+            K21=Z[:,idx_K21]; K22=Z[:,idx_K22]
+            dZ = np.empty_like(Z)
+            dZ[:,idx_x]=dxdt; dZ[:,idx_y]=dydt
+            dZ[:,idx_xi]=dxidt; dZ[:,idx_eta]=detadt; dZ[:,idx_S]=dSdt
+            dZ[:,idx_J11] = pxixi*K11+pxipeta*K21+pxix*J11+pxiy*J21
+            dZ[:,idx_J12] = pxixi*K12+pxipeta*K22+pxix*J12+pxiy*J22
+            dZ[:,idx_J21] = pxipeta*K11+petapeta*K21+petax*J11+petay*J21
+            dZ[:,idx_J22] = pxipeta*K12+petapeta*K22+petax*J12+petay*J22
+            dZ[:,idx_K11] = -(pxx*J11+pxy*J21)-(pxix*K11+petax*K21)
+            dZ[:,idx_K12] = -(pxx*J12+pxy*J22)-(pxix*K12+petax*K22)
+            dZ[:,idx_K21] = -(pxy*J11+pyy*J21)-(pxiy*K11+petay*K21)
+            dZ[:,idx_K22] = -(pxy*J12+pyy*J22)-(pxiy*K12+petay*K22)
+            geom = pxixi + petapeta; coupling = pxix + petay
+            a0v = Z[:, idx_a[0]]
+            dZ[:, idx_a[0]] = -0.5*a0v*geom
+            if order >= 1:
+                a1v = Z[:, idx_a[1]]
+                cross = eval_func('d2p_dxideta', *args_)
+                dZ[:, idx_a[1]] = (-0.5*a1v*geom - 0.5*a0v*coupling
+                                   - 0.25*a0v*cross*(dxidt+detadt))
+            if order >= 2:
+                a2v = Z[:, idx_a[2]]
+                d3xi   = eval_func('d3p_dxi3',     *args_)
+                d3eta  = eval_func('d3p_deta3',    *args_)
+                d3mix1 = eval_func('d3p_dxi2deta', *args_)
+                d3mix2 = eval_func('d3p_dxideta2', *args_)
+                correction = (d3xi*dxidt + d3eta*detadt
+                              + d3mix1*(dxidt+detadt) + d3mix2*(dxidt+detadt))
+                dZ[:, idx_a[2]] = (-0.5*a2v*geom - 0.125*a0v*correction
+                                   - 0.25*Z[:,idx_a[1]]*coupling)
+            if order >= 3:
+                a3v = Z[:, idx_a[3]]
+                d3t = eval_func('d3p_dxi3',*args_)+eval_func('d3p_deta3',*args_)
+                dZ[:, idx_a[3]] = (-0.5*a3v*geom
+                                   - 0.1*Z[:,idx_a[1]]*d3t*(dxidt+detadt))
+        return dZ.ravel()
+
+    # ------------------------------------------------------------------
+    # Single solve_ivp integrating all rays at once
+    # ------------------------------------------------------------------
+    sol = solve_ivp(
+        ray_ode_batch,
+        (0, tmax),
+        Z0.ravel(),
+        method='RK45',
+        t_eval=np.linspace(0, tmax, n_steps_per_ray),
+        rtol=1e-6,
+        atol=1e-9
+    )
+
+    if not sol.success:
+        print(f"Warning: batch ray integration: {sol.message}")
+
+    # Unpack: sol.y has shape (n_rays*ns, n_steps)
+    Y = sol.y.reshape(n_rays, ns, -1)   # (n_rays, ns, n_steps)
+
+    rays = []
+    for i in range(n_rays):
+        rd = {'t': sol.t}
+        if dimension == 1:
+            rd['x']   = Y[i, idx_x,  :]
+            rd['xi']  = Y[i, idx_xi, :]
+            rd['S']   = Y[i, idx_S,  :]
+            J11 = Y[i, idx_J11, :]
+            rd['J11'] = J11; rd['J'] = J11
+        else:
+            rd['x']   = Y[i, idx_x,   :]; rd['y']   = Y[i, idx_y,   :]
+            rd['xi']  = Y[i, idx_xi,  :]; rd['eta'] = Y[i, idx_eta, :]
+            rd['S']   = Y[i, idx_S,   :]
+            J11=Y[i,idx_J11,:]; J12=Y[i,idx_J12,:]
+            J21=Y[i,idx_J21,:]; J22=Y[i,idx_J22,:]
+            rd['J11']=J11; rd['J12']=J12; rd['J21']=J21; rd['J22']=J22
+            rd['J'] = J11*J22 - J12*J21
+        for k in range(order + 1):
+            rd[f'a{k}'] = Y[i, idx_a[k], :]
+        rays.append(rd)
+
     print(f"Successfully traced {len(rays)} rays")
     
     # ==================================================================
@@ -1025,11 +903,18 @@ def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
         # Interpolate
         S_grid = np.nan_to_num(S_grid, nan=0.0)
         
+        # Amplitude interpolations are independent — run in parallel with threads.
+        # (griddata spends most time in C code for Delaunay triangulation, so
+        #  threads get real concurrency despite the GIL.)
+        from concurrent.futures import ThreadPoolExecutor as _TPool
         a_grids = {}
-        for k in range(order + 1):
-            a_grids[k] = griddata(points, a_points[k], (X_grid, Y_grid),
-                                 method='linear', fill_value=0.0)
-            a_grids[k] = np.nan_to_num(a_grids[k], nan=0.0)
+        def _interp_order(k):
+            arr = griddata(points, a_points[k], (X_grid, Y_grid),
+                           method='linear', fill_value=0.0)
+            return k, np.nan_to_num(arr, nan=0.0)
+        with _TPool() as _pool:
+            for k, arr in _pool.map(_interp_order, range(order + 1)):
+                a_grids[k] = arr
         
         grid_coords = {'x': X_grid, 'y': Y_grid}
     

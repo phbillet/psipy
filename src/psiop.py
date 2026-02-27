@@ -3017,16 +3017,34 @@ class PseudoDifferentialOperator:
             out = interactive_output(plot_2d, {'mode': mode_selector_2D, 'xi0': xi_slider, 'eta0': eta_slider, 'x0': x_slider, 'y0': y_slider})
             display(VBox([controls_box, out]))
 
-
-
-    
 # ============================================================================
 # Standalone functions for Kohn-Nirenberg quantization
 # ============================================================================
 
-def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func, 
-                       dim=1, y_grid=None, ky=None, freq_window='gaussian', 
-                       clamp=1e6, space_window=False):
+# ---------------------------------------------------------------------------
+# Frequency-domain window helpers (reused in both functions)
+# ---------------------------------------------------------------------------
+def _freq_window_2d(P, KXb, KYb, kx_shift, ky_shift, mode):
+    """Apply a 2-D frequency window in-place and return P."""
+    if mode == 'gaussian':
+        sigma_kx = 0.8 * np.max(np.abs(kx_shift))
+        sigma_ky = 0.8 * np.max(np.abs(ky_shift))
+        P *= np.exp(-(KXb / sigma_kx) ** 4) * np.exp(-(KYb / sigma_ky) ** 4)
+    elif mode == 'hann':
+        Wx = 0.5 * (1 + np.cos(np.pi * KXb / np.max(np.abs(kx_shift))))
+        Wy = 0.5 * (1 + np.cos(np.pi * KYb / np.max(np.abs(ky_shift))))
+        P *= Wx * Wy * (np.abs(KXb) < np.max(np.abs(kx_shift))) \
+                     * (np.abs(KYb) < np.max(np.abs(ky_shift)))
+    return P
+
+
+# ===========================================================================
+# kohn_nirenberg_fft  (periodic boundary, FFT-based)
+# ===========================================================================
+
+def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
+                       dim=1, y_grid=None, ky=None,
+                       freq_window='gaussian', clamp=1e6, space_window=False):
     """
     Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator.
     
@@ -3086,103 +3104,151 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
     -------
     ndarray
         Result of applying the operator
+
+    2-D optimizations
+    -----------------
+    * The 4-D tensor (Nx, Ny, Nkx, Nky) is never fully materialized.
+      The x-axis is sliced into row-blocks; for each block only a
+      (block_rows, Ny, Nkx, Nky) array is needed.
+    * Row-blocks are processed in parallel with ThreadPoolExecutor.
+    * Phase kernel  exp(i*x*kx)  is factored as a pair of 2-D arrays,
+      exploiting  exp(i*(x*kx + y*ky)) = exp(i*x*kx) * exp(i*y*ky).
     """
+
+    # -----------------------------------------------------------------------
+    # 1-D  (unchanged – already fast for typical Nx)
+    # -----------------------------------------------------------------------
     if dim == 1:
         dx = x_grid[1] - x_grid[0]
         Nx = len(x_grid)
         k = 2 * np.pi * fftshift(fftfreq(Nx, d=dx))
         dk = k[1] - k[0]
-        
-        f_shift = fftshift(u_vals)
-        f_hat = fft_func(f_shift) * dx
-        f_hat = fftshift(f_hat)
-        
+
+        f_hat = fftshift(fft_func(fftshift(u_vals)) * dx)
+
         X, K = np.meshgrid(x_grid, k, indexing='ij')
         P = symbol_func(X, K)
-        P = np.clip(P, -clamp, clamp)
-        
-        # Apply frequency windowing
+        P = np.clip(P.astype(np.complex128), -clamp, clamp)
+
         if freq_window == 'gaussian':
             sigma = 0.8 * np.max(np.abs(k))
-            W = np.exp(-(K / sigma) ** 4)
-            P *= W
+            P *= np.exp(-(K / sigma) ** 4)
         elif freq_window == 'hann':
             W = 0.5 * (1 + np.cos(np.pi * K / np.max(np.abs(K))))
             P *= W * (np.abs(K) < np.max(np.abs(K)))
-        
-        # Apply spatial windowing
+
         if space_window:
             x0 = (x_grid[0] + x_grid[-1]) / 2
-            L = (x_grid[-1] - x_grid[0]) / 2
-            S = np.exp(-((X - x0) / L) ** 2)
-            P *= S
-        
+            L  = (x_grid[-1] - x_grid[0]) / 2
+            P *= np.exp(-((X - x0) / L) ** 2)
+
         kernel = np.exp(1j * X * K)
-        integrand = P * f_hat[None, :] * kernel
-        u = np.sum(integrand, axis=1) * dk / (2 * np.pi)
-        
+        u = np.sum(P * f_hat[None, :] * kernel, axis=1) * dk / (2 * np.pi)
         return u
-        
+
+    # -----------------------------------------------------------------------
+    # 2-D  (block-parallel, memory-efficient)
+    # -----------------------------------------------------------------------
     elif dim == 2:
         dx = x_grid[1] - x_grid[0]
         dy = y_grid[1] - y_grid[0]
         Nx, Ny = len(x_grid), len(y_grid)
-        
-        kx_shift = 2 * np.pi * fftshift(fftfreq(Nx, d=dx))
-        ky_shift = 2 * np.pi * fftshift(fftfreq(Ny, d=dy))
-        dkx = kx_shift[1] - kx_shift[0]
-        dky = ky_shift[1] - ky_shift[0]
-        
-        f_shift = fftshift(u_vals)
-        f_hat = fft_func(f_shift) * dx * dy
-        f_hat = fftshift(f_hat)
-        
-        X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
-        KX, KY = np.meshgrid(kx_shift, ky_shift, indexing='ij')
-        
-        Xb = X[:, :, None, None]
-        Yb = Y[:, :, None, None]
-        KXb = KX[None, None, :, :]
-        KYb = KY[None, None, :, :]
-        
-        P_vals = symbol_func(Xb, Yb, KXb, KYb)
-        P_vals = np.clip(P_vals, -clamp, clamp)
-        
-        # Apply frequency windowing
-        if freq_window == 'gaussian':
-            sigma_kx = 0.8 * np.max(np.abs(kx_shift))
-            sigma_ky = 0.8 * np.max(np.abs(ky_shift))
-            W_kx = np.exp(-(KXb / sigma_kx) ** 4)
-            W_ky = np.exp(-(KYb / sigma_ky) ** 4)
-            P_vals *= W_kx * W_ky
-        elif freq_window == 'hann':
-            Wx = 0.5 * (1 + np.cos(np.pi * KXb / np.max(np.abs(kx_shift))))
-            Wy = 0.5 * (1 + np.cos(np.pi * KYb / np.max(np.abs(ky_shift))))
-            mask_x = np.abs(KXb) < np.max(np.abs(kx_shift))
-            mask_y = np.abs(KYb) < np.max(np.abs(ky_shift))
-            P_vals *= Wx * Wy * mask_x * mask_y
-        
-        # Apply spatial windowing
+
+        kx_s = 2 * np.pi * fftshift(fftfreq(Nx, d=dx))   # (Nkx,)
+        ky_s = 2 * np.pi * fftshift(fftfreq(Ny, d=dy))   # (Nky,)
+        dkx  = kx_s[1] - kx_s[0]
+        dky  = ky_s[1] - ky_s[0]
+
+        # Global FFT of u  →  f_hat shape (Nkx, Nky)
+        f_hat = fftshift(fft_func(fftshift(u_vals)) * dx * dy)  # (Nx, Ny)
+
+        # Pre-factored phase components (avoid 4-D outer product)
+        # exp(i*(x*kx + y*ky)) = exp_x[x, kx] * exp_y[y, ky]
+        exp_y = np.exp(1j * np.outer(y_grid, ky_s))          # (Ny, Nky)
+
+        # Spatial window along y (independent of x-block)
         if space_window:
-            x0 = (x_grid[0] + x_grid[-1]) / 2
             y0 = (y_grid[0] + y_grid[-1]) / 2
-            Lx = (x_grid[-1] - x_grid[0]) / 2
             Ly = (y_grid[-1] - y_grid[0]) / 2
-            S = np.exp(-((Xb - x0) / Lx) ** 2 - ((Yb - y0) / Ly) ** 2)
-            P_vals *= S
-        
-        phase = np.exp(1j * (Xb * KXb + Yb * KYb))
-        integrand = P_vals * phase * f_hat[None, None, :, :]
-        u = np.sum(integrand, axis=(2, 3)) * dkx * dky / (2 * np.pi) ** 2
-        
-        return u
-    
+            sw_y = np.exp(-((y_grid - y0) / Ly) ** 2)        # (Ny,)
+        else:
+            sw_y = None
+
+        # 2-D frequency grids (Nkx, Nky) – used for windowing
+        KX2, KY2 = np.meshgrid(kx_s, ky_s, indexing='ij')   # each (Nkx, Nky)
+
+        # Row-block parameters
+        n_workers  = FFT_WORKERS
+        base       = max(1, Nx // n_workers)
+        boundaries = [(i * base, min((i + 1) * base, Nx))
+                      for i in range(n_workers)
+                      if i * base < Nx]
+
+        result = np.zeros((Nx, Ny), dtype=np.complex128)
+
+        def _process_block(bounds):
+            """
+            Integrate over frequency for a horizontal slice x[i0:i1].
+            Memory: (block, Ny, Nkx, Nky)  where block = i1 - i0.
+            """
+            i0, i1 = bounds
+            x_blk  = x_grid[i0:i1]                           # (B,)
+            B      = i1 - i0
+
+            # ---- symbol evaluated on the block -------------------------
+            # Broadcast shapes: x (B,1,1,1), y (1,Ny,1,1),
+            #                   kx (1,1,Nkx,1), ky (1,1,1,Nky)
+            Xb  = x_blk[:, None, None, None]
+            Yb  = y_grid[None, :, None, None]
+            KXb = kx_s[None, None, :, None]
+            KYb = ky_s[None, None, None, :]
+
+            P = symbol_func(Xb, Yb, KXb, KYb).astype(np.complex128)
+            P = np.clip(P, -clamp, clamp)
+
+            # ---- frequency window (operates on kx/ky dims) -------------
+            _freq_window_2d(P, KXb, KYb, kx_s, ky_s, freq_window)
+
+            # ---- spatial window ----------------------------------------
+            if space_window:
+                x0 = (x_grid[0] + x_grid[-1]) / 2
+                Lx = (x_grid[-1] - x_grid[0]) / 2
+                sw_x = np.exp(-((x_blk - x0) / Lx) ** 2)    # (B,)
+                P *= sw_x[:, None, None, None]
+                if sw_y is not None:
+                    P *= sw_y[None, :, None, None]
+
+            # ---- phase  exp(i*(x*kx + y*ky)) ---------------------------
+            # Factored: exp_x (B,1,Nkx,1) * exp_y (1,Ny,1,Nky)
+            exp_x_blk = np.exp(1j * np.outer(x_blk, kx_s))\
+                          .reshape(B, 1, len(kx_s), 1)        # (B,1,Nkx,1)
+            exp_y_blk = exp_y[None, :, None, :]               # (1,Ny,1,Nky)
+            phase     = exp_x_blk * exp_y_blk                 # (B,Ny,Nkx,Nky)
+
+            # f_hat broadcast: (1,1,Nkx,Nky)
+            fh = f_hat[None, None, :, :]
+
+            # Integrate over (kx, ky)
+            integrand = P * fh * phase                        # (B,Ny,Nkx,Nky)
+            blk_res   = np.sum(integrand, axis=(2, 3)) * dkx * dky / (2 * np.pi) ** 2
+            return i0, i1, blk_res                            # (B, Ny)
+
+        with ThreadPoolExecutor(max_workers=n_workers) as executor:
+            for i0, i1, blk in executor.map(_process_block, boundaries):
+                result[i0:i1, :] = blk
+
+        return result
+
     else:
         raise ValueError("Only 1D and 2D are supported")
 
 
-def kohn_nirenberg_nonperiodic(u_vals, x_grid, xi_grid, symbol_func, 
-                                freq_window='gaussian', clamp=1e6, 
+# ===========================================================================
+# kohn_nirenberg_nonperiodic  (Dirichlet / non-periodic)
+# ===========================================================================
+
+def kohn_nirenberg_nonperiodic(u_vals, x_grid, xi_grid, symbol_func,
+                                freq_window='gaussian', clamp=1e6,
                                 space_window=False):
     """
     Apply a pseudo-differential operator using the Kohn–Nirenberg quantization on non-periodic domains.
@@ -3228,112 +3294,154 @@ def kohn_nirenberg_nonperiodic(u_vals, x_grid, xi_grid, symbol_func,
     -------
     ndarray
         Result of applying the operator
+
+    2-D optimizations
+    -----------------
+    * The 4-D integrand (Nx, Ny, Nxi, Neta) is built block-by-block
+      along the x-axis, keeping memory at O(block * Ny * Nxi * Neta).
+    * Blocks are processed in parallel (ThreadPoolExecutor).
+    * The phase is factored:  exp(i*x1*xi1) * exp(i*x2*xi2)  so that
+      only two 2-D arrays are needed per block instead of one 4-D array.
     """
+
+    # -----------------------------------------------------------------------
+    # 1-D  (unchanged)
+    # -----------------------------------------------------------------------
     if u_vals.ndim == 1:
-        # 1D case
-        x = x_grid
-        xi = xi_grid
-        dx = x[1] - x[0]
+        x   = x_grid
+        xi  = xi_grid
+        dx  = x[1] - x[0]
         dxi = xi[1] - xi[0]
-        
-        # Fourier transform
+
         phase_ft = np.exp(-1j * np.outer(xi, x))
-        u_hat = dx * np.dot(phase_ft, u_vals)
-        
-        # Evaluate symbol
-        X, XI = np.meshgrid(x, xi, indexing='ij')
-        sigma_vals = symbol_func(X, XI)
-        sigma_vals = np.clip(sigma_vals, -clamp, clamp)
-        
-        # Apply frequency windowing
+        u_hat    = dx * np.dot(phase_ft, u_vals)
+
+        X, XI       = np.meshgrid(x, xi, indexing='ij')
+        sigma_vals  = symbol_func(X, XI)
+        sigma_vals  = np.clip(sigma_vals.astype(np.complex128), -clamp, clamp)
+
         if freq_window == 'gaussian':
             sigma = 0.8 * np.max(np.abs(XI))
-            window = np.exp(-(XI / sigma) ** 4)
-            sigma_vals *= window
+            sigma_vals *= np.exp(-(XI / sigma) ** 4)
         elif freq_window == 'hann':
-            window = 0.5 * (1 + np.cos(np.pi * XI / np.max(np.abs(XI))))
-            sigma_vals *= window * (np.abs(XI) < np.max(np.abs(XI)))
-        
-        # Apply spatial windowing
+            W = 0.5 * (1 + np.cos(np.pi * XI / np.max(np.abs(XI))))
+            sigma_vals *= W * (np.abs(XI) < np.max(np.abs(XI)))
+
         if space_window:
             x_center = (x[0] + x[-1]) / 2
             L = (x[-1] - x[0]) / 2
-            window = np.exp(-((X - x_center) / L) ** 2)
-            sigma_vals *= window
-        
-        # Inverse transform
+            sigma_vals *= np.exp(-((X - x_center) / L) ** 2)
+
         exp_matrix = np.exp(1j * np.outer(x, xi))
-        integrand = sigma_vals * u_hat[np.newaxis, :] * exp_matrix
-        result = dxi * np.sum(integrand, axis=1) / (2 * np.pi)
-        
+        result = dxi * np.sum(sigma_vals * u_hat[np.newaxis, :] * exp_matrix,
+                              axis=1) / (2 * np.pi)
         return result
-        
+
+    # -----------------------------------------------------------------------
+    # 2-D  (block-parallel, memory-efficient)
+    # -----------------------------------------------------------------------
     elif u_vals.ndim == 2:
-        # 2D case
-        x1, x2 = x_grid
+        x1, x2   = x_grid
         xi1, xi2 = xi_grid
-        dx1 = x1[1] - x1[0]
-        dx2 = x2[1] - x2[0]
+        dx1  = x1[1] - x1[0]
+        dx2  = x2[1] - x2[0]
         dxi1 = xi1[1] - xi1[0]
         dxi2 = xi2[1] - xi2[0]
-        
-        X1, X2 = np.meshgrid(x1, x2, indexing='ij')
-        XI1, XI2 = np.meshgrid(xi1, xi2, indexing='ij')
-        
-        # Fourier transform
-        phase_ft = np.exp(-1j * (
-            np.tensordot(x1, xi1, axes=0)[:, None, :, None] + 
-            np.tensordot(x2, xi2, axes=0)[None, :, None, :]
-        ))
-        u_hat = np.tensordot(u_vals, phase_ft, axes=([0, 1], [0, 1])) * dx1 * dx2
-        
-        # Evaluate symbol
-        sigma_vals = symbol_func(
-            X1[:, :, None, None], 
-            X2[:, :, None, None], 
-            XI1[None, None, :, :], 
-            XI2[None, None, :, :]
-        )
-        sigma_vals = np.clip(sigma_vals, -clamp, clamp)
-        
-        # Apply frequency windowing
-        if freq_window == 'gaussian':
-            sigma_xi1 = 0.8 * np.max(np.abs(XI1))
-            sigma_xi2 = 0.8 * np.max(np.abs(XI2))
-            window = np.exp(
-                -(XI1[None, None, :, :] / sigma_xi1) ** 4 - 
-                (XI2[None, None, :, :] / sigma_xi2) ** 4
-            )
-            sigma_vals *= window
-        elif freq_window == 'hann':
-            wx = 0.5 * (1 + np.cos(np.pi * XI1 / np.max(np.abs(XI1))))
-            wy = 0.5 * (1 + np.cos(np.pi * XI2 / np.max(np.abs(XI2))))
-            mask_x = np.abs(XI1) < np.max(np.abs(XI1))
-            mask_y = np.abs(XI2) < np.max(np.abs(XI2))
-            sigma_vals *= wx[:, :, None, None] * wy[:, :, None, None]
-            sigma_vals *= mask_x[:, :, None, None] * mask_y[:, :, None, None]
-        
-        # Apply spatial windowing
+
+        Nx1, Nx2  = len(x1), len(x2)
+        Nxi1, Nxi2 = len(xi1), len(xi2)
+
+        # ---- Global Fourier transform of u  (non-periodic: direct sum) ----
+        # u_hat[xi1, xi2] = dx1*dx2 * Σ_{x1,x2} u(x1,x2) exp(-i(x1*xi1+x2*xi2))
+        # Factored to keep memory manageable:
+        #   phase1 (Nxi1, Nx1)  *  phase2 (Nx2, Nxi2)
+        phase1 = np.exp(-1j * np.outer(xi1, x1))          # (Nxi1, Nx1)
+        phase2 = np.exp(-1j * np.outer(x2, xi2))          # (Nx2, Nxi2)
+        # u_hat (Nxi1, Nxi2)
+        u_hat  = dx1 * dx2 * (phase1 @ u_vals @ phase2)   # (Nxi1, Nxi2)
+
+        # Pre-factored inverse-phase along x2
+        iph2 = np.exp(1j * np.outer(x2, xi2))             # (Nx2, Nxi2)
+
+        # Spatial window along x2 (independent of x1-block)
         if space_window:
-            x_center = (x1[0] + x1[-1]) / 2
             y_center = (x2[0] + x2[-1]) / 2
-            Lx = (x1[-1] - x1[0]) / 2
             Ly = (x2[-1] - x2[0]) / 2
-            window = np.exp(
-                -((X1 - x_center) / Lx) ** 2 - 
-                ((X2 - y_center) / Ly) ** 2
-            )
-            sigma_vals *= window[:, :, None, None]
-        
-        # Inverse transform
-        phase = np.exp(1j * (
-            X1[:, :, None, None] * XI1[None, None, :, :] + 
-            X2[:, :, None, None] * XI2[None, None, :, :]
-        ))
-        integrand = sigma_vals * u_hat[None, None, :, :] * phase
-        result = dxi1 * dxi2 * np.sum(integrand, axis=(2, 3)) / (2 * np.pi) ** 2
-        
+            sw_x2 = np.exp(-((x2 - y_center) / Ly) ** 2) # (Nx2,)
+        else:
+            sw_x2 = None
+
+        # Frequency grids for windowing (Nxi1, Nxi2)
+        XI1g, XI2g = np.meshgrid(xi1, xi2, indexing='ij')
+
+        # Row-block layout along x1
+        n_workers  = FFT_WORKERS
+        base       = max(1, Nx1 // n_workers)
+        boundaries = [(i * base, min((i + 1) * base, Nx1))
+                      for i in range(n_workers)
+                      if i * base < Nx1]
+
+        result = np.zeros((Nx1, Nx2), dtype=np.complex128)
+
+        def _process_block(bounds):
+            """
+            Integrate over (xi1, xi2) for a slice x1[i0:i1].
+            Peak memory: O(B * Nx2 * Nxi1 * Nxi2) per block.
+            """
+            i0, i1 = bounds
+            x1_blk = x1[i0:i1]                             # (B,)
+            B      = i1 - i0
+
+            # Symbol  p(x1, x2, xi1, xi2)  on this block
+            # shapes: x1 (B,1,1,1), x2 (1,Nx2,1,1),
+            #         xi1 (1,1,Nxi1,1), xi2 (1,1,1,Nxi2)
+            X1b  = x1_blk[:, None, None, None]
+            X2b  = x2[None, :, None, None]
+            XI1b = xi1[None, None, :, None]
+            XI2b = xi2[None, None, None, :]
+
+            sv = symbol_func(X1b, X2b, XI1b, XI2b).astype(np.complex128)
+            sv = np.clip(sv, -clamp, clamp)
+
+            # Frequency window
+            if freq_window == 'gaussian':
+                s1 = 0.8 * np.max(np.abs(XI1b))
+                s2 = 0.8 * np.max(np.abs(XI2b))
+                sv *= np.exp(-(XI1b / s1) ** 4) * np.exp(-(XI2b / s2) ** 4)
+            elif freq_window == 'hann':
+                Wx = 0.5 * (1 + np.cos(np.pi * XI1b / np.max(np.abs(xi1))))
+                Wy = 0.5 * (1 + np.cos(np.pi * XI2b / np.max(np.abs(xi2))))
+                sv *= Wx * Wy \
+                    * (np.abs(XI1b) < np.max(np.abs(xi1))) \
+                    * (np.abs(XI2b) < np.max(np.abs(xi2)))
+
+            # Spatial window along x1
+            if space_window:
+                x_center = (x1[0] + x1[-1]) / 2
+                Lx = (x1[-1] - x1[0]) / 2
+                sw_x1 = np.exp(-((x1_blk - x_center) / Lx) ** 2)  # (B,)
+                sv *= sw_x1[:, None, None, None]
+                if sw_x2 is not None:
+                    sv *= sw_x2[None, :, None, None]
+
+            # Phase:  exp(i*x1*xi1) * exp(i*x2*xi2)
+            # iph1: (B, 1, Nxi1, 1)   iph2_b: (1, Nx2, 1, Nxi2)
+            iph1   = np.exp(1j * np.outer(x1_blk, xi1))\
+                       .reshape(B, 1, Nxi1, 1)
+            iph2_b = iph2[None, :, None, :]                # (1,Nx2,1,Nxi2)
+            phase  = iph1 * iph2_b                         # (B,Nx2,Nxi1,Nxi2)
+
+            # u_hat broadcast: (1, 1, Nxi1, Nxi2)
+            integrand = sv * u_hat[None, None, :, :] * phase
+            blk_res   = dxi1 * dxi2 \
+                        * np.sum(integrand, axis=(2, 3)) / (2 * np.pi) ** 2
+            return i0, i1, blk_res                         # (B, Nx2)
+
+        with ThreadPoolExecutor(max_workers=n_workers) as executor:
+            for i0, i1, blk in executor.map(_process_block, boundaries):
+                result[i0:i1, :] = blk
+
         return result
-        
+
     else:
         raise NotImplementedError("Only 1D and 2D supported")

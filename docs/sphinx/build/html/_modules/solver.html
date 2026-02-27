@@ -322,8 +322,21 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">fft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">fft</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">ifft</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">fft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">fft2</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">ifft2</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
+            <span class="c1"># In 2D, try pyfftw for faster transforms (FFTW planning is done once at</span>
+            <span class="c1"># first call thanks to pyfftw&#39;s interface cache).  Fall back to scipy.fft</span>
+            <span class="c1"># when pyfftw is not installed.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">pyfftw</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">pyfftw.interfaces.numpy_fft</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pyfftw_fft</span>
+                <span class="n">pyfftw</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
+                <span class="c1"># pyfftw&#39;s numpy interface uses &#39;threads&#39; (not &#39;workers&#39; like scipy.fft)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fft</span>  <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">pyfftw_fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">,</span>  <span class="n">threads</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">pyfftw_fft</span><span class="o">.</span><span class="n">ifft2</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ℹ️  2D FFT backend: pyfftw (FFTW)&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">fft2</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">ifft2</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ℹ️  2D FFT backend: scipy.fft (install pyfftw for better performance)&quot;</span><span class="p">)</span>
             
         <span class="c1"># Parse the equation</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">linear_terms</span> <span class="o">=</span> <span class="p">{}</span>
@@ -788,6 +801,9 @@
         <span class="c1"># Initialization of solution and velocities</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_stationary</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_conditions</span><span class="p">(</span><span class="n">initial_condition</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">)</span>
+
+        <span class="c1"># Pre-compile lambdified source functions once (avoids re-creating them at every time step)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_precompile_source_funcs</span><span class="p">()</span>
             
         <span class="c1"># Symbol analysis if present</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
@@ -1011,6 +1027,41 @@
         <span class="n">nonzero</span> <span class="o">=</span> <span class="n">omega_val</span> <span class="o">!=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">omega_val</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_precompile_source_funcs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pre-compile lambdified callables for all source terms.</span>
+
+<span class="sd">        Calling lambdify() inside the time loop (once per step) has a significant</span>
+<span class="sd">        Python overhead.  This method creates the callables once during setup and</span>
+<span class="sd">        stores them in self._compiled_source_funcs so that the solve() loop can</span>
+<span class="sd">        call them directly without rebuilding the function objects each iteration.</span>
+
+<span class="sd">        Attributes set</span>
+<span class="sd">        --------------</span>
+<span class="sd">        self._compiled_source_funcs : list[callable]</span>
+<span class="sd">            One entry per source term.  Each callable accepts (t, X[, Y]) where</span>
+<span class="sd">            X and Y are the spatial grid arrays (numpy).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;source_terms&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="c1"># Stationary problems have no time variable: source terms are purely spatial</span>
+        <span class="c1"># and are evaluated directly (not via lambdify with t).  Skip pre-compilation</span>
+        <span class="c1"># for those cases; solve_stationary_psiOp handles them on its own.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_stationary</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;t&#39;</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">fn</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">),</span> <span class="n">term</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">fn</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">),</span> <span class="n">term</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported dimension in source pre-compilation.&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">fn</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: could not pre-compile source term </span><span class="si">{</span><span class="n">term</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_source_at_t0</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Evaluate source terms at initial time t = 0 over the spatial grid.</span>
@@ -1207,6 +1258,7 @@
 <span class="sd">        - In 2D, computes ∂ₓu and ∂ᵧu via FFT and performs similar substitutions.</span>
 <span class="sd">        - Uses lambdify to evaluate symbolic nonlinear expressions numerically.</span>
 <span class="sd">        - Derivatives are replaced symbolically with &#39;u_x&#39; and &#39;u_y&#39; before evaluation.</span>
+<span class="sd">        - In 2D, multiple independent nonlinear terms are evaluated in parallel via ThreadPoolExecutor.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
@@ -1242,20 +1294,34 @@
             <span class="n">u_y_hat</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span> <span class="o">*</span> <span class="n">u_hat</span>
             <span class="n">u_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_x_hat</span><span class="p">)</span>
             <span class="n">u_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_y_hat</span><span class="p">)</span>
-    
-            <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">:</span>
+
+            <span class="c1"># Snapshot of the field to be passed to each worker thread</span>
+            <span class="n">u_phys</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="k">if</span> <span class="n">is_v</span> <span class="k">else</span> <span class="n">u</span>
+            <span class="n">X</span><span class="p">,</span> <span class="n">Y</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span>
+            <span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">u_sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_eq</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">_eval_nl_term</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Evaluate one nonlinear term; called from a thread pool.&quot;&quot;&quot;</span>
                 <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term</span>
                 <span class="k">if</span> <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
                     <span class="k">for</span> <span class="n">deriv</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">atoms</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
-                        <span class="k">if</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">x_sym</span><span class="p">:</span>
                             <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_x&#39;</span><span class="p">))</span>
-                        <span class="k">elif</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">:</span>
+                        <span class="k">elif</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">y_sym</span><span class="p">:</span>
                             <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_y&#39;</span><span class="p">))</span>
-                <span class="n">term_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_eq</span><span class="p">,</span> <span class="s1">&#39;u_x&#39;</span><span class="p">,</span> <span class="s1">&#39;u_y&#39;</span><span class="p">),</span> <span class="n">term_replaced</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">is_v</span><span class="p">:</span>
-                    <span class="n">nonlinear_term</span> <span class="o">+=</span> <span class="n">term_func</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span><span class="p">,</span> <span class="n">u_x</span><span class="p">,</span> <span class="n">u_y</span><span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">nonlinear_term</span> <span class="o">+=</span> <span class="n">term_func</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">u_x</span><span class="p">,</span> <span class="n">u_y</span><span class="p">)</span>
+                <span class="n">fn</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">u_sym</span><span class="p">,</span> <span class="s1">&#39;u_x&#39;</span><span class="p">,</span> <span class="s1">&#39;u_y&#39;</span><span class="p">),</span> <span class="n">term_replaced</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">fn</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">u_phys</span><span class="p">,</span> <span class="n">u_x</span><span class="p">,</span> <span class="n">u_y</span><span class="p">)</span>
+
+            <span class="c1"># Parallelise only when there are at least 2 independent terms (overhead</span>
+            <span class="c1"># of a thread pool is not worth it for a single term).</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
+                <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">contrib</span> <span class="ow">in</span> <span class="n">executor</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_eval_nl_term</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">):</span>
+                        <span class="n">nonlinear_term</span> <span class="o">+=</span> <span class="n">contrib</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">:</span>
+                    <span class="n">nonlinear_term</span> <span class="o">+=</span> <span class="n">_eval_nl_term</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported spatial dimension.&quot;</span><span class="p">)</span>
         
@@ -1369,6 +1435,10 @@
 <span class="sd">        if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n</span>
 <span class="sd">        elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n</span>
 <span class="sd">        elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n</span>
+
+<span class="sd">        For 2D spatially-varying symbols, the x-axis is split into blocks processed in parallel</span>
+<span class="sd">        using ThreadPoolExecutor.  The number of workers is controlled by the module-level</span>
+<span class="sd">        constant PSIOP_WORKERS (defaults to the number of logical CPUs).</span>
 <span class="sd">        </span>
 <span class="sd">        This method delegates to the apply() method of each </span>
 <span class="sd">        PseudoDifferentialOperator instance.</span>
@@ -1385,7 +1455,54 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;psi_ops&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No pseudo-differential operators defined&quot;</span><span class="p">)</span>
-        
+
+        <span class="c1"># -----------------------------------------------------------------------</span>
+        <span class="c1"># 2D spatial symbol: block-parallel Kohn-Nirenberg quantization.</span>
+        <span class="c1"># The x-axis is partitioned into contiguous row-blocks; each block is</span>
+        <span class="c1"># processed independently by a worker thread, then results are assembled.</span>
+        <span class="c1"># This is safe because each block only reads/writes its own rows of u.</span>
+        <span class="c1"># -----------------------------------------------------------------------</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_spatial</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
+
+            <span class="n">n_workers</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;PSIOP_WORKERS&#39;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span> <span class="ow">or</span> <span class="mi">4</span><span class="p">))</span>
+            <span class="n">Nx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
+            <span class="c1"># Build row-slice boundaries (last block absorbs any remainder)</span>
+            <span class="n">base</span> <span class="o">=</span> <span class="n">Nx</span> <span class="o">//</span> <span class="n">n_workers</span>
+            <span class="n">boundaries</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span> <span class="o">*</span> <span class="n">base</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">base</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n_workers</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">Nx</span><span class="p">)</span>
+                          <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_workers</span><span class="p">)]</span>
+
+            <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">_apply_block</span><span class="p">(</span><span class="n">bounds</span><span class="p">):</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Apply all psi_ops to a horizontal slice u[i0:i1, :].&quot;&quot;&quot;</span>
+                <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span> <span class="o">=</span> <span class="n">bounds</span>
+                <span class="n">u_block</span>   <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="n">i0</span><span class="p">:</span><span class="n">i1</span><span class="p">,</span> <span class="p">:]</span>
+                <span class="n">x_block</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">[</span><span class="n">i0</span><span class="p">:</span><span class="n">i1</span><span class="p">]</span>
+                <span class="n">block_res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u_block</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">psi_op</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="p">:</span>
+                    <span class="n">block_res</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">(</span><span class="n">coeff</span><span class="p">)</span> <span class="o">*</span> <span class="n">psi_op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                        <span class="n">u</span><span class="o">=</span><span class="n">u_block</span><span class="p">,</span>
+                        <span class="n">x_grid</span><span class="o">=</span><span class="n">x_block</span><span class="p">,</span>
+                        <span class="n">kx</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kx</span><span class="p">,</span>
+                        <span class="n">y_grid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span><span class="p">,</span>
+                        <span class="n">ky</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ky</span><span class="p">,</span>
+                        <span class="n">boundary_condition</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span><span class="p">,</span>
+                        <span class="n">dealiasing_mask</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dealiasing_mask</span>
+                    <span class="p">)</span>
+                <span class="k">return</span> <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">block_res</span>
+
+            <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">n_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">block_res</span> <span class="ow">in</span> <span class="n">executor</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_apply_block</span><span class="p">,</span> <span class="n">boundaries</span><span class="p">):</span>
+                    <span class="n">result</span><span class="p">[</span><span class="n">i0</span><span class="p">:</span><span class="n">i1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">block_res</span>
+
+            <span class="k">return</span> <span class="n">result</span>
+
+        <span class="c1"># -----------------------------------------------------------------------</span>
+        <span class="c1"># Default path: 1D, or 2D with constant-coefficient symbol (no blocking</span>
+        <span class="c1"># needed; FFT multiplication is already highly optimised).</span>
+        <span class="c1"># -----------------------------------------------------------------------</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
         
         <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">psi_op</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="p">:</span>
@@ -1606,18 +1723,17 @@
         <span class="n">save_interval</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nt</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_frames</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Nt</span><span class="p">):</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;source_terms&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_compiled_source_funcs&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span><span class="p">:</span>
                 <span class="n">source_contribution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
+                <span class="n">t_val</span> <span class="o">=</span> <span class="n">step</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+                <span class="k">for</span> <span class="n">fn</span><span class="p">,</span> <span class="n">dim</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span><span class="p">:</span>
                     <span class="k">try</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                            <span class="n">source_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">),</span> <span class="n">term</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-                            <span class="n">source_contribution</span> <span class="o">+=</span> <span class="n">source_func</span><span class="p">(</span><span class="n">step</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
-                        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                            <span class="n">source_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">),</span> <span class="n">term</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-                            <span class="n">source_contribution</span> <span class="o">+=</span> <span class="n">source_func</span><span class="p">(</span><span class="n">step</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                            <span class="n">source_contribution</span> <span class="o">+=</span> <span class="n">fn</span><span class="p">(</span><span class="n">t_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+                        <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                            <span class="n">source_contribution</span> <span class="o">+=</span> <span class="n">fn</span><span class="p">(</span><span class="n">t_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">)</span>
                     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Error evaluating source term </span><span class="si">{</span><span class="n">term</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Error evaluating pre-compiled source term: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">source_contribution</span> <span class="o">=</span> <span class="mi">0</span>
 
@@ -2579,7 +2695,7 @@
             <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">set_zlabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">component</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="si">}</span><span class="s1"> of u&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Stationary solution (2D)&#39;</span><span class="p">)</span>    
-            <span class="n">data0</span> <span class="o">=</span> <span class="n">get_component</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+            <span class="n">data0</span> <span class="o">=</span> <span class="n">_get_component</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">plot_surface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="n">data0</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
@@ -2670,7 +2786,7 @@
         <span class="c1"># -------------------------</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-            <span class="n">initial</span> <span class="o">=</span> <span class="n">get_component</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">initial</span> <span class="o">=</span> <span class="n">_get_component</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
             <span class="n">line</span><span class="p">,</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">initial</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">iscomplexobj</span><span class="p">(</span><span class="n">initial</span><span class="p">)</span> <span class="k">else</span> <span class="n">initial</span><span class="p">)</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">initial</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">initial</span><span class="p">))</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
@@ -2680,7 +2796,7 @@
     
             <span class="k">def</span><span class="w"> </span><span class="nf">_update_1d</span><span class="p">(</span><span class="n">frame_number</span><span class="p">):</span>
                 <span class="n">frame</span> <span class="o">=</span> <span class="n">frame_indices</span><span class="p">[</span><span class="n">frame_number</span><span class="p">]</span>
-                <span class="n">ydata</span> <span class="o">=</span> <span class="n">get_component</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="n">frame</span><span class="p">])</span>
+                <span class="n">ydata</span> <span class="o">=</span> <span class="n">_get_component</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="n">frame</span><span class="p">])</span>
                 <span class="n">ydata_real</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">ydata</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">iscomplexobj</span><span class="p">(</span><span class="n">ydata</span><span class="p">)</span> <span class="k">else</span> <span class="n">ydata</span>
                 <span class="n">line</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">ydata_real</span><span class="p">)</span>
                 <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">ydata_real</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">ydata_real</span><span class="p">))</span>
@@ -2699,7 +2815,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid mode: choose &#39;surface&#39; or &#39;imshow&#39;&quot;</span><span class="p">)</span>
     
         <span class="c1"># Common data</span>
-        <span class="n">data0</span> <span class="o">=</span> <span class="n">get_component</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">data0</span> <span class="o">=</span> <span class="n">_get_component</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     
         <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;surface&#39;</span><span class="p">:</span>
             <span class="c1"># original surface behavior, but ensure clean updates</span>
@@ -2716,7 +2832,7 @@
     
             <span class="k">def</span><span class="w"> </span><span class="nf">_update_surface</span><span class="p">(</span><span class="n">frame_number</span><span class="p">):</span>
                 <span class="n">frame</span> <span class="o">=</span> <span class="n">frame_indices</span><span class="p">[</span><span class="n">frame_number</span><span class="p">]</span>
-                <span class="n">current_data</span> <span class="o">=</span> <span class="n">get_component</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="n">frame</span><span class="p">])</span>
+                <span class="n">current_data</span> <span class="o">=</span> <span class="n">_get_component</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="n">frame</span><span class="p">])</span>
                 <span class="n">z_offset</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">current_data</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.05</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">current_data</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">current_data</span><span class="p">))</span>
     
                 <span class="n">ax</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
@@ -2756,7 +2872,7 @@
                 <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Solution at t = </span><span class="si">{</span><span class="n">current_time</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
                 <span class="k">return</span> <span class="p">(</span><span class="n">surf_obj</span><span class="p">,)</span>
     
-            <span class="n">ani</span> <span class="o">=</span> <span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">update_surface</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">target_times</span><span class="p">),</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+            <span class="n">ani</span> <span class="o">=</span> <span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">_update_surface</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">target_times</span><span class="p">),</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">ani</span>
     
         <span class="k">else</span><span class="p">:</span>  <span class="c1"># mode == &#39;imshow&#39;</span>
@@ -2786,7 +2902,7 @@
     
             <span class="k">def</span><span class="w"> </span><span class="nf">_update_im</span><span class="p">(</span><span class="n">frame_number</span><span class="p">):</span>
                 <span class="n">frame</span> <span class="o">=</span> <span class="n">frame_indices</span><span class="p">[</span><span class="n">frame_number</span><span class="p">]</span>
-                <span class="n">current_data</span> <span class="o">=</span> <span class="n">get_component</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="n">frame</span><span class="p">])</span>
+                <span class="n">current_data</span> <span class="o">=</span> <span class="n">_get_component</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="n">frame</span><span class="p">])</span>
     
                 <span class="c1"># update raster</span>
                 <span class="n">im</span><span class="o">.</span><span class="n">set_data</span><span class="p">(</span><span class="n">current_data</span><span class="p">)</span>
