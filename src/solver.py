@@ -2603,7 +2603,7 @@ class PDESolver:
     
         else:
             raise ValueError("Only 1D and 2D display are supported.")
-
+        
     def animate(self, component='abs', overlay='contour', mode='surface'):
         """
         Create an animated plot of the solution evolution over time.
@@ -2798,7 +2798,7 @@ class PDESolver:
             # containers for dynamic overlay artists (stored on function object)
             # update_im.contour_art and update_im.scatter_art will be created dynamically
     
-            def _update_im(frame_number):
+            def update_im(frame_number):
                 frame = frame_indices[frame_number]
                 current_data = _get_component(self.frames[frame])
     
