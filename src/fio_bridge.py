@@ -1007,37 +1007,21 @@ class _BoundAnalyzer:
     ) -> List[np.ndarray]:
         """
         Minimise |∇φ(y, ξ)|² using the pre-bound gradient callable.
-        Pure scipy.optimize — no SymPy.
+
+        Delegates to ``caustics.find_critical_points_numerical``, the shared
+        numerical kernel. Pure scipy — no SymPy.
         """
-        from scipy.optimize import minimize as _minimize
+        from caustics import find_critical_points_numerical
 
         if initial_guesses is None:
             initial_guesses = [np.zeros(self.dim)]
 
-        tol    = self.tolerance
-        points = []
-
-        def objective(z):
-            g = np.asarray(self.func_grad(*z), dtype=float)
-            return float(np.dot(g, g))
-
-        for guess in initial_guesses:
-            try:
-                res = _minimize(objective, guess, tol=tol, method='L-BFGS-B')
-                if res.success and res.fun < tol:
-                    xc = res.x
-                    # Deduplicate within tolerance 1e-4
-                    if not any(np.linalg.norm(xc - p) < 1e-4 for p in points):
-                        if self.domain:
-                            if all(d[0] <= xi <= d[1]
-                                   for xi, d in zip(xc, self.domain)):
-                                points.append(xc)
-                        else:
-                            points.append(xc)
-            except Exception:
-                pass
-
-        return points
+        return find_critical_points_numerical(
+            grad_func=self.func_grad,
+            initial_guesses=initial_guesses,
+            tolerance=self.tolerance,
+            domain=self.domain,
+        )
 
     # ── CriticalPoint construction  (numpy only) ─────────────────────────
 

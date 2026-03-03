@@ -288,6 +288,79 @@ def classify_arnold_2d(H: sp.Expr,
 # SECTION 2 — Catastrophe detection with adaptive solver
 # ══════════════════════════════════════════════════════════════════════════════
 
+def find_critical_points_numerical(
+    grad_func,
+    initial_guesses: List[np.ndarray],
+    tolerance: float = 1e-6,
+    domain: Optional[List[Tuple[float, float]]] = None,
+    cluster_tol: float = 1e-4,
+) -> List[np.ndarray]:
+    """
+    Shared numerical kernel for locating critical points where ∇φ = 0.
+
+    Minimises |∇φ(x)|² from each initial guess using L-BFGS-B, then
+    deduplicates nearby solutions with a greedy DBSCAN-style clustering.
+
+    This function is the single source of truth used by:
+      - ``asymptotic.Analyzer.find_critical_points``
+      - ``fio_bridge._BoundAnalyzer.find_critical_points``
+    It can also be called directly for lightweight use cases.
+
+    Parameters
+    ----------
+    grad_func : callable
+        Function ``grad_func(*x) -> array-like`` returning the gradient ∇φ
+        evaluated at the point ``x`` (unpacked coordinates).
+    initial_guesses : list of np.ndarray
+        Starting points for the optimisation.
+    tolerance : float
+        Convergence threshold: a point is accepted when |∇φ|² < tolerance.
+    domain : list of (lo, hi) tuples, optional
+        If provided, only points satisfying ``lo <= x_i <= hi`` are kept.
+    cluster_tol : float
+        Distance threshold for deduplication; solutions closer than this
+        are merged into a single representative point (cluster mean).
+
+    Returns
+    -------
+    list of np.ndarray
+        Unique critical points found within the given tolerance and domain.
+    """
+    if not _HAS_SCIPY:
+        raise RuntimeError("scipy is required for find_critical_points_numerical.")
+
+    from scipy.optimize import minimize as _minimize
+
+    def objective(x):
+        g = np.asarray(grad_func(*x), dtype=float)
+        return float(np.dot(g, g))
+
+    raw = []
+    for guess in initial_guesses:
+        try:
+            res = _minimize(objective, guess, tol=tolerance, method='L-BFGS-B')
+            if res.success and res.fun < tolerance:
+                xc = res.x
+                if domain is not None:
+                    if not all(lo <= xi <= hi for xi, (lo, hi) in zip(xc, domain)):
+                        continue
+                raw.append(xc)
+        except Exception:
+            pass
+
+    # Greedy DBSCAN-style deduplication
+    clusters: List[List[np.ndarray]] = []
+    for pt in raw:
+        for cluster in clusters:
+            if np.linalg.norm(pt - cluster[0]) < cluster_tol:
+                cluster.append(pt)
+                break
+        else:
+            clusters.append([pt])
+
+    return [np.mean(c, axis=0) for c in clusters]
+
+
 class AdaptiveCriticalPointSolver:
     """
     Find critical points of H(xi_vars) robustly.

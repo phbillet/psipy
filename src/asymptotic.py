@@ -524,49 +524,32 @@ class Analyzer:
         """
         Locate critical points where ∇φ(x) = 0.
 
-        Uses numerical minimization of |∇φ|² starting from provided initial guesses.
-        Multiple guesses can help find multiple critical points if they exist.
-        
-        The method deduplicates found points (within tolerance 1e-4) and optionally
-        filters by domain bounds if specified.
-        
+        Delegates to ``caustics.find_critical_points_numerical``, the shared
+        numerical kernel (L-BFGS-B minimisation of |∇φ|² + DBSCAN dedup).
+
         Args:
             initial_guesses: List of starting coordinate arrays for optimization.
                 If None, uses [0, ...] and domain center (if domain is specified).
                 Provide multiple guesses to search for multiple critical points.
-            
+
         Returns:
-            List of unique critical point coordinates (as numpy arrays) found within 
+            List of unique critical point coordinates (as numpy arrays) found within
             the specified tolerance. Empty list if no critical points are found.
         """
-        points = []
+        from caustics import find_critical_points_numerical
+
         if initial_guesses is None:
             initial_guesses = [np.zeros(self.dim)]
             if self.domain:
-                # Add center of domain as a guess
-                centers = [0.5*(d[0]+d[1]) for d in self.domain]
-                initial_guesses.append(centers)
+                centers = [0.5 * (d[0] + d[1]) for d in self.domain]
+                initial_guesses.append(np.array(centers))
 
-        def objective(x):
-            g = np.array(self.func_grad(*x))
-            return np.sum(g**2)
-
-        for guess in initial_guesses:
-            try:
-                res = minimize(objective, guess, tol=self.tolerance)
-                if res.success and res.fun < self.tolerance:
-                    xc = res.x
-                    # Check for duplicates
-                    if not any(np.linalg.norm(xc - p) < 1e-4 for p in points):
-                        # Check domain bounds
-                        if self.domain:
-                            if all(d[0] <= xi <= d[1] for xi, d in zip(xc, self.domain)):
-                                points.append(xc)
-                        else:
-                            points.append(xc)
-            except Exception: 
-                pass
-        return points
+        return find_critical_points_numerical(
+            grad_func=self.func_grad,
+            initial_guesses=initial_guesses,
+            tolerance=self.tolerance,
+            domain=self.domain,
+        )
 
     def analyze_point(self, xc) -> CriticalPoint:
         """
