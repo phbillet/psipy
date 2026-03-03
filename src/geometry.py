@@ -397,6 +397,14 @@ class SymbolGeometry(SymbolGeometryBase):
                         t_eval=np.linspace(0, t_max, n_points),
                         method='DOP853', rtol=1e-10, atol=1e-12)
 
+        # ── Guard: solve_ivp may fail if the trajectory hits a singularity ──
+        if not sol.success or sol.y.shape[1] == 0:
+            raise ValueError(
+                f"solve_ivp failed for initial condition (x0={x0}, xi0={xi0}): "
+                f"{sol.message}. "
+                f"The trajectory may have reached a singularity of H."
+            )
+
         # Vectorised: evaluate H on the full trajectory in one numpy call
         # instead of a Python scalar loop (7× faster).
         H_traj = np.asarray(self.f_H(sol.y[0], sol.y[1]), dtype=float)
