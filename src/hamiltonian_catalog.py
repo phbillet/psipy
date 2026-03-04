@@ -334,6 +334,151 @@ def visualize_hamiltonian(name: str):
     plt.show()
     return result
     
+def get_operator(name: str, param_values: dict = None, quantization: str = 'weyl'):
+    """
+    Instantiate a PseudoDifferentialOperator from a catalog Hamiltonian.
+
+    Parameters
+    ----------
+    name : str
+        Catalog key.
+    param_values : dict, optional
+        Free parameter substitutions, e.g. {'m': 1.0, 'k': 2.0}.
+        If None, the symbol is used as-is (symbolic parameters kept).
+    quantization : {'weyl', 'kn'}
+        Quantization scheme passed to PseudoDifferentialOperator.
+
+    Returns
+    -------
+    PseudoDifferentialOperator
+    """
+    from psiop import PseudoDifferentialOperator
+    H, vars, params, info = get_hamiltonian(name)
+    H_num = H.subs(_resolve_param_values(param_values)) if param_values else H
+    vars_x = [x] if info['dim'] == 1 else [x, y]
+    return PseudoDifferentialOperator(expr=H_num, vars_x=vars_x,
+                                      mode='symbol', quantization=quantization)
+
+def _resolve_param_values(param_values: dict) -> dict:
+    """
+    Convert string keys in param_values to sympy Symbols,
+    looking them up in the global SYMBOLS table first to preserve
+    assumptions (real=True, positive=True, etc.).
+    """
+    if not param_values:
+        return {}
+    # Build a lookup from name → sympy Symbol for all known symbols
+    all_symbols = {s.name: s for s in [
+        x, y, xi, eta, m, k, alpha, beta, gamma, delta, omega,
+        B, g, eps, A, V0, lambda_param, theta, R, Delta, mu,
+        golden_ratio, A_param, B_param, C_param, f_param, g_param,
+        L_z, mu1, mu2, sigma1, sigma2, zeta, z, T
+    ]}
+    resolved = {}
+    for key, val in param_values.items():
+        if isinstance(key, str):
+            sym = all_symbols.get(key, sp.Symbol(key))
+        else:
+            sym = key  # already a sympy Symbol
+        resolved[sym] = val
+    return resolved
+
+def analyze_hamiltonian(name: str, param_values: dict = None,
+                        x_grid=None, xi_grid=None):
+    """
+    Symbolic and numerical ΨDO analysis of a catalog Hamiltonian.
+
+    Computes: operator order, ellipticity, self-adjointness,
+    principal symbol, formal adjoint, symplectic flow equations.
+
+    Returns
+    -------
+    dict with keys: 'order', 'is_elliptic', 'is_self_adjoint',
+                    'principal_symbol', 'formal_adjoint', 'symplectic_flow'
+    """
+    import numpy as np
+    H, vars, params, info = get_hamiltonian(name)
+    dim = info['dim']
+
+    # Substitute parameters BEFORE instantiating the operator
+    print("param_values = ", param_values)
+    if param_values:
+        H_num = H.subs(_resolve_param_values(param_values))
+    else:
+        H_num = H
+
+    print("H_num = ", H_num)
+
+    # Warn if free parameters remain — is_elliptic_numerically will fail
+    remaining = get_parameters(H_num, dim)
+    if remaining:
+        raise ValueError(
+            f"Cannot run analyze_hamiltonian('{name}'): symbolic parameters remain "
+            f"after substitution: {[str(p) for p in remaining]}.\n"
+            f"Please provide numerical values via param_values={{{', '.join(repr(str(p))+': ?' for p in remaining)}}}."
+        )
+
+    # Build operator from the fully numerical symbol
+    from psiop import PseudoDifferentialOperator
+    vars_x = [x] if dim == 1 else [x, y]
+    op = PseudoDifferentialOperator(expr=H_num, vars_x=vars_x,
+                                    mode='symbol', quantization='weyl')
+
+    if x_grid is None:
+        x_grid  = np.linspace(-3, 3, 50)
+    if xi_grid is None:
+        xi_grid = np.linspace(-3, 3, 50)
+
+    result = {
+        'order':            op.symbol_order(),
+        'principal_symbol': op.principal_symbol(),
+        'formal_adjoint':   op.formal_adjoint(),
+        'symplectic_flow':  op.symplectic_flow(),
+        'is_self_adjoint':  op.is_self_adjoint(),
+        'is_elliptic':      op.is_elliptic_numerically(x_grid, xi_grid),
+    }
+    return result
+
+def trace_hamiltonian(name: str, param_values: dict = None,
+                      numerical: bool = False, x_bounds=None, xi_bounds=None):
+    """
+    Compute the semiclassical trace of a catalog Hamiltonian.
+    Wraps PseudoDifferentialOperator.trace_formula().
+
+    Parameters
+    ----------
+    x_bounds : tuple (min, max), optional
+        Spatial integration bounds, e.g. (-3, 3).
+    xi_bounds : tuple (min, max), optional
+        Frequency integration bounds, e.g. (-3, 3).
+    """
+    op = get_operator(name, param_values)
+
+    # psiop.trace_formula expects x_bounds as ((min, max),) in 1D — wrap accordingly
+    if x_bounds is not None and op.dim == 1:
+        x_bounds_wrapped  = (x_bounds,)
+        xi_bounds_wrapped = (xi_bounds,)
+    else:
+        x_bounds_wrapped  = x_bounds
+        xi_bounds_wrapped = xi_bounds
+
+    return op.trace_formula(
+        numerical=numerical,
+        x_bounds=x_bounds_wrapped,
+        xi_bounds=xi_bounds_wrapped,
+    )
+
+def interactive_hamiltonian(name: str, param_values: dict = None, **kwargs):
+    """
+    Launch the interactive ipywidgets dashboard for a catalog Hamiltonian.
+
+    Wraps PseudoDifferentialOperator.interactive_symbol_analysis().
+    Requires a Jupyter environment.
+    """
+    from psiop import PseudoDifferentialOperator
+    op = get_operator(name, param_values)
+    PseudoDifferentialOperator.interactive_symbol_analysis(op, **kwargs)
+    
 def get_hamiltonian(name: str):
     """
     Return Hamiltonian expression, variables, and metadata.
@@ -356,7 +501,7 @@ def get_hamiltonian(name: str):
 
     Example
     -------
-    >>> H, vars, meta = get_hamiltonian("henon_heiles")
+    >>> H, vars, params, meta = get_hamiltonian("henon_heiles")
     >>> print(meta["description"])
     Hénon–Heiles: benchmark for mixed regular/chaotic motion.
     """
@@ -371,8 +516,8 @@ def get_hamiltonian(name: str):
     H = info["expr"]
     dim = info["dim"]
     vars = (x, xi) if dim == 1 else (x, y, xi, eta)
-    params = tuple(get_parameters(H, dim))   # ← nouveau
-    return H, vars, params, info             # ← params ajouté
+    params = tuple(get_parameters(H, dim))  
+    return H, vars, params, info           
 
 def list_categories():
     """

@@ -2778,7 +2778,7 @@ class PseudoDifferentialOperator:
     def interactive_symbol_analysis(pseudo_op,
                                     xlim=(-2, 2), ylim=(-2, 2),
                                     xi_range=(0.1, 5), eta_range=(-5, 5),
-                                    density=100):
+                                    density=50):
         """
         Launch an interactive dashboard for symbol exploration using ipywidgets.
     
