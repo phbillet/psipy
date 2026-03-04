@@ -790,10 +790,17 @@ class PsiOpFIOBridge(FourierIntegralOperator):
 
         return guesses
 
-    def _bound_analyzer(self, x_val_f: float) -> '_BoundAnalyzer':
+    def _bound_analyzer(self, x_val_f) -> '_BoundAnalyzer':
         """
-        Return a ``_BoundAnalyzer`` with x_val_f already injected into
-        all numeric callables — no SymPy involved.
+        Return a ``_BoundAnalyzer`` with the observation coordinate(s)
+        already injected into all numeric callables — no SymPy involved.
+
+        Parameters
+        ----------
+        x_val_f : float  (1D)  or  tuple[float, float]  (2D)
+            In 1D a plain float is accepted; in 2D both coordinates must
+            be supplied so that both ``_xp`` and ``_yp`` placeholders are
+            bound correctly.
         """
         return _BoundAnalyzer(self, x_val_f)
 
@@ -851,8 +858,11 @@ class PsiOpFIOBridge(FourierIntegralOperator):
         """
         self._precompute_wkb(u_phase_sym, u_amp_sym)
 
-        x_val_f  = float(x_val) if self.op.dim == 1 else float(x_val[0])
-        guesses  = self._make_guesses_fast(x_val_f)
+        if self.op.dim == 1:
+            x_val_f = float(x_val)
+        else:
+            x_val_f = (float(x_val[0]), float(x_val[1]))
+        guesses  = self._make_guesses_fast(x_val_f if self.op.dim == 1 else float(x_val[0]))
         analyzer = self._bound_analyzer(x_val_f)
         pts      = self._find_critical_points(analyzer, guesses)
 
@@ -878,6 +888,7 @@ class PsiOpFIOBridge(FourierIntegralOperator):
         x_grid      : np.ndarray,
         u_phase_sym : sp.Expr,
         u_amp_sym   : sp.Expr,
+        n_workers   : Optional[int] = None,
     ) -> np.ndarray:
         """
         Evaluate (Pu)(x) at every point in x_grid.
@@ -885,35 +896,115 @@ class PsiOpFIOBridge(FourierIntegralOperator):
         SymPy work is done once before the loop; the loop body is
         pure scipy (minimize) + numpy.  No SymPy inside the loop.
 
+        Each grid point is independent, so the loop is parallelised with
+        ``concurrent.futures.ThreadPoolExecutor``.  Threads (not processes)
+        are used because the lambdified SymPy functions stored on ``self``
+        are not picklable, and because ``scipy.optimize.minimize`` releases
+        the GIL when calling into its C/Fortran back-ends, so threads do
+        run in parallel for this CPU-bound workload.
+
+        Pass ``n_workers=1`` to force sequential execution (useful for
+        debugging or profiling).
+
+        Parameters
+        ----------
+        x_grid : np.ndarray
+        u_phase_sym : sp.Expr
+        u_amp_sym   : sp.Expr
+        n_workers   : int | None
+            Number of threads.  None → ``os.cpu_count()``.
+
         Returns
         -------
         np.ndarray of complex128, shape (len(x_grid),)
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         # One-time symbolic build  (no-op on subsequent calls with same WKB)
         self._precompute_wkb(u_phase_sym, u_amp_sym)
 
         values = np.zeros(len(x_grid), dtype=complex)
-        for i, xv in enumerate(x_grid):
-            xv_f     = float(xv)
+
+        def _eval_one(i, xv):
+            if self.op.dim == 1:
+                xv_f   = float(xv)
+                xv_obs = xv_f
+            else:
+                xv_f   = float(xv[0])
+                xv_obs = (float(xv[0]), float(xv[1]))
             guesses  = self._make_guesses_fast(xv_f)
-            analyzer = self._bound_analyzer(xv_f)
+            analyzer = self._bound_analyzer(xv_obs)
             pts      = self._find_critical_points(analyzer, guesses)
-
             if not pts:
-                warnings.warn(
-                    f"No critical points at x={xv_f:.4f}; contributing 0.",
-                    RuntimeWarning, stacklevel=2,
-                )
-                continue
-
+                return i, 0j, xv_f, False
             value, _, _ = self._collect_contributions(analyzer, pts)
-            values[i]   = value
+            return i, value, xv_f, True
 
-            if self.verbose:
-                print(f"  x={xv_f:.3f}  →  (Pu)(x) = {value:.6e}")
+        # Sequential fallback when n_workers==1 or grid is tiny
+        if n_workers == 1 or len(x_grid) <= 4:
+            for i, xv in enumerate(x_grid):
+                _, value, xv_f, found = _eval_one(i, xv)
+                if not found:
+                    warnings.warn(
+                        f"No critical points at x={xv_f:.4f}; contributing 0.",
+                        RuntimeWarning, stacklevel=2,
+                    )
+                else:
+                    values[i] = value
+                    if self.verbose:
+                        print(f"  x={xv_f:.3f}  →  (Pu)(x) = {value:.6e}")
+            return values
+
+        # Parallel path — threads share the precomputed lambdas on self
+        # with no serialisation overhead.
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            futures = {
+                pool.submit(_eval_one, i, xv): i
+                for i, xv in enumerate(x_grid)
+            }
+            for fut in as_completed(futures):
+                i, value, xv_f, found = fut.result()
+                if not found:
+                    warnings.warn(
+                        f"No critical points at x={xv_f:.4f}; contributing 0.",
+                        RuntimeWarning, stacklevel=2,
+                    )
+                else:
+                    values[i] = value
+                    if self.verbose:
+                        print(f"  x={xv_f:.3f}  →  (Pu)(x) = {value:.6e}")
 
         return values
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Module-level worker for evaluate_grid parallelism
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _eval_one_grid_point(args):
+    """
+    Evaluate (Pu)(x) at a single grid point.
+
+    Must be a module-level function (not a closure) so that
+    multiprocessing can pickle it for ProcessPoolExecutor.
+    """
+    bridge, i, xv = args
+    if bridge.op.dim == 1:
+        xv_f   = float(xv)
+        xv_obs = xv_f
+    else:
+        xv_f   = float(xv[0])
+        xv_obs = (float(xv[0]), float(xv[1]))
+
+    guesses  = bridge._make_guesses_fast(xv_f)
+    analyzer = bridge._bound_analyzer(xv_obs)
+    pts      = bridge._find_critical_points(analyzer, guesses)
+
+    if not pts:
+        return i, 0j, xv_f, False
+
+    value, _, _ = bridge._collect_contributions(analyzer, pts)
+    return i, value, xv_f, True
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  _BoundAnalyzer — zero-SymPy proxy matching the Analyzer interface
@@ -961,9 +1052,13 @@ class _BoundAnalyzer:
     precomputed lambdas.
     """
 
-    def __init__(self, bridge: 'PsiOpFIOBridge', x_val_f: float):
+    def __init__(self, bridge: 'PsiOpFIOBridge', x_val_f):
         self._b  = bridge
-        self._xv = x_val_f
+        # Normalise to a tuple so func_* can always do  *self._xv_tuple
+        if isinstance(x_val_f, (int, float, np.floating)):
+            self._xv_tuple = (float(x_val_f),)
+        else:
+            self._xv_tuple = tuple(float(v) for v in x_val_f)
 
         self.method          = bridge._method
         self.dim             = len(bridge.vars_int)
@@ -976,28 +1071,28 @@ class _BoundAnalyzer:
     # ── Bound numeric callables ───────────────────────────────────────────
 
     def func_phase(self, *args):
-        return self._b._func_phase(*args, self._xv)
+        return self._b._func_phase(*args, *self._xv_tuple)
 
     def func_amp(self, *args):
-        return self._b._func_amp(*args, self._xv)
+        return self._b._func_amp(*args, *self._xv_tuple)
 
     def func_grad(self, *args):
-        return self._b._func_grad(*args, self._xv)
+        return self._b._func_grad(*args, *self._xv_tuple)
 
     def func_hess(self, *args):
-        return self._b._func_hess(*args, self._xv)
+        return self._b._func_hess(*args, *self._xv_tuple)
 
     def func_grad_amp(self, *args):
-        return self._b._func_grad_amp(*args, self._xv)
+        return self._b._func_grad_amp(*args, *self._xv_tuple)
 
     def func_hess_amp(self, *args):
-        return self._b._func_hess_amp(*args, self._xv)
+        return self._b._func_hess_amp(*args, *self._xv_tuple)
 
     def func_d3(self, *args):
-        return self._b._func_d3(*args, self._xv)
+        return self._b._func_d3(*args, *self._xv_tuple)
 
     def func_d4(self, *args):
-        return self._b._func_d4(*args, self._xv)
+        return self._b._func_d4(*args, *self._xv_tuple)
 
     # ── Critical-point search  (scipy only, no SymPy) ────────────────────
 
@@ -2015,8 +2110,10 @@ def run_test_suite(verbose: bool = True, plot: bool = True) -> Dict[str, Any]:
 
     u0_phase_sym = k0 * y_sym
     u0_amp_sym   = sp.exp(-y_sym**2 / 2)
-    n_test  = 50
-    x_test  = np.linspace(-2.5, 2.5, n_test)
+    # n_test  = 50
+    # x_test  = np.linspace(-2.5, 2.5, n_test)
+    n_test  = 128
+    x_test  = np.linspace(-np.pi, np.pi, n_test, endpoint=False)
     u0_test = np.exp(-x_test**2 / 2) * np.exp(1j * lam * k0 * x_test)
 
     bridge_kw = dict(lam=lam, n_guesses=50, xi_range=(-10.0, 10.0), verbose=verbose)

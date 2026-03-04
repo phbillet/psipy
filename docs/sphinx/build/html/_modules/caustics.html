@@ -377,6 +377,82 @@
 <span class="c1"># SECTION 2 — Catastrophe detection with adaptive solver</span>
 <span class="c1"># ══════════════════════════════════════════════════════════════════════════════</span>
 
+<div class="viewcode-block" id="find_critical_points_numerical">
+<a class="viewcode-back" href="../caustics.html#caustics.find_critical_points_numerical">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_critical_points_numerical</span><span class="p">(</span>
+    <span class="n">grad_func</span><span class="p">,</span>
+    <span class="n">initial_guesses</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+    <span class="n">domain</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">cluster_tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Shared numerical kernel for locating critical points where ∇φ = 0.</span>
+
+<span class="sd">    Minimises |∇φ(x)|² from each initial guess using L-BFGS-B, then</span>
+<span class="sd">    deduplicates nearby solutions with a greedy DBSCAN-style clustering.</span>
+
+<span class="sd">    This function is the single source of truth used by:</span>
+<span class="sd">      - ``asymptotic.Analyzer.find_critical_points``</span>
+<span class="sd">      - ``fio_bridge._BoundAnalyzer.find_critical_points``</span>
+<span class="sd">    It can also be called directly for lightweight use cases.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grad_func : callable</span>
+<span class="sd">        Function ``grad_func(*x) -&gt; array-like`` returning the gradient ∇φ</span>
+<span class="sd">        evaluated at the point ``x`` (unpacked coordinates).</span>
+<span class="sd">    initial_guesses : list of np.ndarray</span>
+<span class="sd">        Starting points for the optimisation.</span>
+<span class="sd">    tolerance : float</span>
+<span class="sd">        Convergence threshold: a point is accepted when |∇φ|² &lt; tolerance.</span>
+<span class="sd">    domain : list of (lo, hi) tuples, optional</span>
+<span class="sd">        If provided, only points satisfying ``lo &lt;= x_i &lt;= hi`` are kept.</span>
+<span class="sd">    cluster_tol : float</span>
+<span class="sd">        Distance threshold for deduplication; solutions closer than this</span>
+<span class="sd">        are merged into a single representative point (cluster mean).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of np.ndarray</span>
+<span class="sd">        Unique critical points found within the given tolerance and domain.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_HAS_SCIPY</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;scipy is required for find_critical_points_numerical.&quot;</span><span class="p">)</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span> <span class="k">as</span> <span class="n">_minimize</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">objective</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">grad_func</span><span class="p">(</span><span class="o">*</span><span class="n">x</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
+
+    <span class="n">raw</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">guess</span> <span class="ow">in</span> <span class="n">initial_guesses</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">_minimize</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">guess</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">tolerance</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;L-BFGS-B&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span> <span class="ow">and</span> <span class="n">res</span><span class="o">.</span><span class="n">fun</span> <span class="o">&lt;</span> <span class="n">tolerance</span><span class="p">:</span>
+                <span class="n">xc</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">x</span>
+                <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">lo</span> <span class="o">&lt;=</span> <span class="n">xi</span> <span class="o">&lt;=</span> <span class="n">hi</span> <span class="k">for</span> <span class="n">xi</span><span class="p">,</span> <span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xc</span><span class="p">,</span> <span class="n">domain</span><span class="p">)):</span>
+                        <span class="k">continue</span>
+                <span class="n">raw</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xc</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+    <span class="c1"># Greedy DBSCAN-style deduplication</span>
+    <span class="n">clusters</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">raw</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">cluster</span> <span class="ow">in</span> <span class="n">clusters</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">pt</span> <span class="o">-</span> <span class="n">cluster</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">cluster_tol</span><span class="p">:</span>
+                <span class="n">cluster</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">)</span>
+                <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">clusters</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">pt</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">clusters</span><span class="p">]</span></div>
+
+
+
 <div class="viewcode-block" id="AdaptiveCriticalPointSolver">
 <a class="viewcode-back" href="../caustics.html#caustics.AdaptiveCriticalPointSolver">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">AdaptiveCriticalPointSolver</span><span class="p">:</span>

@@ -623,49 +623,32 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Locate critical points where ∇φ(x) = 0.</span>
 
-<span class="sd">        Uses numerical minimization of |∇φ|² starting from provided initial guesses.</span>
-<span class="sd">        Multiple guesses can help find multiple critical points if they exist.</span>
-<span class="sd">        </span>
-<span class="sd">        The method deduplicates found points (within tolerance 1e-4) and optionally</span>
-<span class="sd">        filters by domain bounds if specified.</span>
-<span class="sd">        </span>
+<span class="sd">        Delegates to ``caustics.find_critical_points_numerical``, the shared</span>
+<span class="sd">        numerical kernel (L-BFGS-B minimisation of |∇φ|² + DBSCAN dedup).</span>
+
 <span class="sd">        Args:</span>
 <span class="sd">            initial_guesses: List of starting coordinate arrays for optimization.</span>
 <span class="sd">                If None, uses [0, ...] and domain center (if domain is specified).</span>
 <span class="sd">                Provide multiple guesses to search for multiple critical points.</span>
-<span class="sd">            </span>
+
 <span class="sd">        Returns:</span>
-<span class="sd">            List of unique critical point coordinates (as numpy arrays) found within </span>
+<span class="sd">            List of unique critical point coordinates (as numpy arrays) found within</span>
 <span class="sd">            the specified tolerance. Empty list if no critical points are found.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">caustics</span><span class="w"> </span><span class="kn">import</span> <span class="n">find_critical_points_numerical</span>
+
         <span class="k">if</span> <span class="n">initial_guesses</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">initial_guesses</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)]</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">:</span>
-                <span class="c1"># Add center of domain as a guess</span>
-                <span class="n">centers</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">]</span>
-                <span class="n">initial_guesses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">centers</span><span class="p">)</span>
+                <span class="n">centers</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">]</span>
+                <span class="n">initial_guesses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">centers</span><span class="p">))</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">objective</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-            <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func_grad</span><span class="p">(</span><span class="o">*</span><span class="n">x</span><span class="p">))</span>
-            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">g</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">guess</span> <span class="ow">in</span> <span class="n">initial_guesses</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">res</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">guess</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span> <span class="ow">and</span> <span class="n">res</span><span class="o">.</span><span class="n">fun</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span><span class="p">:</span>
-                    <span class="n">xc</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">x</span>
-                    <span class="c1"># Check for duplicates</span>
-                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">xc</span> <span class="o">-</span> <span class="n">p</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-4</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">):</span>
-                        <span class="c1"># Check domain bounds</span>
-                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">:</span>
-                            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">xi</span> <span class="o">&lt;=</span> <span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">xi</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">)):</span>
-                                <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xc</span><span class="p">)</span>
-                        <span class="k">else</span><span class="p">:</span>
-                            <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xc</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span> 
-                <span class="k">pass</span>
-        <span class="k">return</span> <span class="n">points</span></div>
+        <span class="k">return</span> <span class="n">find_critical_points_numerical</span><span class="p">(</span>
+            <span class="n">grad_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">func_grad</span><span class="p">,</span>
+            <span class="n">initial_guesses</span><span class="o">=</span><span class="n">initial_guesses</span><span class="p">,</span>
+            <span class="n">tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span><span class="p">,</span>
+            <span class="n">domain</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Analyzer.analyze_point">

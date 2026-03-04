@@ -50,6 +50,7 @@
 <li class="toctree-l1"><a class="reference internal" href="geometry.html">geometry</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">hamiltonian_catalog</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian-catalog-py-hamiltonian-catalog-for-analysis-visualization-and-more">hamiltonian_catalog.py — Hamiltonian catalog for analysis, visualization and more…</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.analyze_hamiltonian"><code class="docutils literal notranslate"><span class="pre">analyze_hamiltonian()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.batch_export_hamiltonians"><code class="docutils literal notranslate"><span class="pre">batch_export_hamiltonians()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.export_latex_table"><code class="docutils literal notranslate"><span class="pre">export_latex_table()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.find_similar_hamiltonians"><code class="docutils literal notranslate"><span class="pre">find_similar_hamiltonians()</span></code></a></li>
@@ -57,12 +58,17 @@
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.get_dimensional_analysis"><code class="docutils literal notranslate"><span class="pre">get_dimensional_analysis()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.get_hamiltonian"><code class="docutils literal notranslate"><span class="pre">get_hamiltonian()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.get_hamiltonians_by_keywords"><code class="docutils literal notranslate"><span class="pre">get_hamiltonians_by_keywords()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.get_operator"><code class="docutils literal notranslate"><span class="pre">get_operator()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.get_parameters"><code class="docutils literal notranslate"><span class="pre">get_parameters()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.get_tree"><code class="docutils literal notranslate"><span class="pre">get_tree()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.interactive_hamiltonian"><code class="docutils literal notranslate"><span class="pre">interactive_hamiltonian()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.list_categories"><code class="docutils literal notranslate"><span class="pre">list_categories()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.list_hamiltonians"><code class="docutils literal notranslate"><span class="pre">list_hamiltonians()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.print_hamiltonian_info"><code class="docutils literal notranslate"><span class="pre">print_hamiltonian_info()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.search_hamiltonians"><code class="docutils literal notranslate"><span class="pre">search_hamiltonians()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.trace_hamiltonian"><code class="docutils literal notranslate"><span class="pre">trace_hamiltonian()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.validate_hamiltonians"><code class="docutils literal notranslate"><span class="pre">validate_hamiltonians()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hamiltonian_catalog.visualize_hamiltonian"><code class="docutils literal notranslate"><span class="pre">visualize_hamiltonian()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="microlocal.html">microlocal</a></li>
@@ -120,6 +126,22 @@ H, vars, meta = get_hamiltonian(“henon_heiles”)</p>
 </dd>
 </dl>
 </section>
+<dl class="py function">
+<dt class="sig sig-object py" id="hamiltonian_catalog.analyze_hamiltonian">
+<span class="sig-prename descclassname"><span class="pre">hamiltonian_catalog.</span></span><span class="sig-name descname"><span class="pre">analyze_hamiltonian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hamiltonian_catalog.html#analyze_hamiltonian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hamiltonian_catalog.analyze_hamiltonian" title="Link to this definition"></a></dt>
+<dd><p>Symbolic and numerical ΨDO analysis of a catalog Hamiltonian.</p>
+<p>Computes: operator order, ellipticity, self-adjointness,
+principal symbol, formal adjoint, symplectic flow equations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dict with keys</strong> – ‘principal_symbol’, ‘formal_adjoint’, ‘symplectic_flow’</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>‘order’, ‘is_elliptic’, ‘is_self_adjoint’,</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py" id="hamiltonian_catalog.batch_export_hamiltonians">
 <span class="sig-prename descclassname"><span class="pre">hamiltonian_catalog.</span></span><span class="sig-name descname"><span class="pre">batch_export_hamiltonians</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'hamiltonians_export'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">formats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['json',</span> <span class="pre">'yaml',</span> <span class="pre">'csv']</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hamiltonian_catalog.html#batch_export_hamiltonians"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hamiltonian_catalog.batch_export_hamiltonians" title="Link to this definition"></a></dt>
@@ -201,13 +223,14 @@ H, vars, meta = get_hamiltonian(“henon_heiles”)</p>
 <dd class="field-even"><p><ul class="simple">
 <li><p><strong>H</strong> (<em>sympy.Expr</em>) – The Hamiltonian expression.</p></li>
 <li><p><strong>vars</strong> (<em>tuple</em>) – Variables (x, xi) for 1D or (x, y, xi, eta) for 2D.</p></li>
+<li><p><strong>params</strong> (<em>tuple</em>) – Parameters in the Hamiltonian</p></li>
 <li><p><strong>info</strong> (<em>dict</em>) – Metadata including dimension, category, and description.</p></li>
 </ul>
 </p>
 </dd>
 </dl>
 <p class="rubric">Example</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">H</span><span class="p">,</span> <span class="nb">vars</span><span class="p">,</span> <span class="n">meta</span> <span class="o">=</span> <span class="n">get_hamiltonian</span><span class="p">(</span><span class="s2">&quot;henon_heiles&quot;</span><span class="p">)</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">H</span><span class="p">,</span> <span class="nb">vars</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">meta</span> <span class="o">=</span> <span class="n">get_hamiltonian</span><span class="p">(</span><span class="s2">&quot;henon_heiles&quot;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;description&quot;</span><span class="p">])</span>
 <span class="go">Hénon–Heiles: benchmark for mixed regular/chaotic motion.</span>
 </pre></div>
@@ -225,6 +248,32 @@ H, vars, meta = get_hamiltonian(“henon_heiles”)</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="hamiltonian_catalog.get_operator">
+<span class="sig-prename descclassname"><span class="pre">hamiltonian_catalog.</span></span><span class="sig-name descname"><span class="pre">get_operator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantization</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'weyl'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hamiltonian_catalog.html#get_operator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hamiltonian_catalog.get_operator" title="Link to this definition"></a></dt>
+<dd><p>Instantiate a PseudoDifferentialOperator from a catalog Hamiltonian.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>) – Catalog key.</p></li>
+<li><p><strong>param_values</strong> (<em>dict</em><em>, </em><em>optional</em>) – Free parameter substitutions, e.g. {‘m’: 1.0, ‘k’: 2.0}.
+If None, the symbol is used as-is (symbolic parameters kept).</p></li>
+<li><p><strong>quantization</strong> (<em>{'weyl'</em><em>, </em><em>'kn'}</em>) – Quantization scheme passed to PseudoDifferentialOperator.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator">PseudoDifferentialOperator</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="hamiltonian_catalog.get_parameters">
+<span class="sig-prename descclassname"><span class="pre">hamiltonian_catalog.</span></span><span class="sig-name descname"><span class="pre">get_parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hamiltonian_catalog.html#get_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hamiltonian_catalog.get_parameters" title="Link to this definition"></a></dt>
+<dd><p>Extract free parameters from a Hamiltonian expression,
+i.e. symbols that are not dynamical variables.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="hamiltonian_catalog.get_tree">
 <span class="sig-prename descclassname"><span class="pre">hamiltonian_catalog.</span></span><span class="sig-name descname"><span class="pre">get_tree</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/hamiltonian_catalog.html#get_tree"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hamiltonian_catalog.get_tree" title="Link to this definition"></a></dt>
 <dd><p>Returns a hierarchical tree of categories reflecting the full scope
@@ -239,6 +288,14 @@ that actually appear in the catalog, with counts of Hamiltonians per subcategory
 <dd class="field-even"><p>dict</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="hamiltonian_catalog.interactive_hamiltonian">
+<span class="sig-prename descclassname"><span class="pre">hamiltonian_catalog.</span></span><span class="sig-name descname"><span class="pre">interactive_hamiltonian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hamiltonian_catalog.html#interactive_hamiltonian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hamiltonian_catalog.interactive_hamiltonian" title="Link to this definition"></a></dt>
+<dd><p>Launch the interactive ipywidgets dashboard for a catalog Hamiltonian.</p>
+<p>Wraps PseudoDifferentialOperator.interactive_symbol_analysis().
+Requires a Jupyter environment.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -316,11 +373,55 @@ that actually appear in the catalog, with counts of Hamiltonians per subcategory
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="hamiltonian_catalog.trace_hamiltonian">
+<span class="sig-prename descclassname"><span class="pre">hamiltonian_catalog.</span></span><span class="sig-name descname"><span class="pre">trace_hamiltonian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">numerical</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hamiltonian_catalog.html#trace_hamiltonian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hamiltonian_catalog.trace_hamiltonian" title="Link to this definition"></a></dt>
+<dd><p>Compute the semiclassical trace of a catalog Hamiltonian.
+Wraps PseudoDifferentialOperator.trace_formula().</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_bounds</strong> (<em>tuple</em><em> (</em><em>min</em><em>, </em><em>max</em><em>)</em><em>, </em><em>optional</em>) – Spatial integration bounds, e.g. (-3, 3).</p></li>
+<li><p><strong>xi_bounds</strong> (<em>tuple</em><em> (</em><em>min</em><em>, </em><em>max</em><em>)</em><em>, </em><em>optional</em>) – Frequency integration bounds, e.g. (-3, 3).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="hamiltonian_catalog.validate_hamiltonians">
 <span class="sig-prename descclassname"><span class="pre">hamiltonian_catalog.</span></span><span class="sig-name descname"><span class="pre">validate_hamiltonians</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/hamiltonian_catalog.html#validate_hamiltonians"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hamiltonian_catalog.validate_hamiltonians" title="Link to this definition"></a></dt>
 <dd><p>Validates all Hamiltonians to detect common errors.
 :returns: Validation report with warnings and errors.
 :rtype: dict</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="hamiltonian_catalog.visualize_hamiltonian">
+<span class="sig-prename descclassname"><span class="pre">hamiltonian_catalog.</span></span><span class="sig-name descname"><span class="pre">visualize_hamiltonian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hamiltonian_catalog.html#visualize_hamiltonian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hamiltonian_catalog.visualize_hamiltonian" title="Link to this definition"></a></dt>
+<dd><p>Interactive visualization of a Hamiltonian from the catalog.</p>
+<dl class="simple">
+<dt>Prompts the user to provide:</dt><dd><ul class="simple">
+<li><p>numerical values for all free parameters (m, k, eps, …)</p></li>
+<li><p>variable ranges (x_range, xi_range, and y_range/eta_range in 2D)</p></li>
+<li><p>initial conditions for geodesics</p></li>
+<li><p>E_range, hbar, resolution</p></li>
+</ul>
+</dd>
+</dl>
+<p>Then calls geometry.visualize_symbol (1D) or geometry.visualize_symbol_2d (2D).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<em>str</em>) – Key of the Hamiltonian in the catalog.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Result of visualize_symbol or visualize_symbol_2d.</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">visualize_hamiltonian</span><span class="p">(</span><span class="s1">&#39;harmonic_oscillator&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">visualize_hamiltonian</span><span class="p">(</span><span class="s1">&#39;henon_heiles&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>

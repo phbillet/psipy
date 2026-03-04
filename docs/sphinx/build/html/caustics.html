@@ -101,6 +101,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#caustics.classify_arnold_1d"><code class="docutils literal notranslate"><span class="pre">classify_arnold_1d()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#caustics.classify_arnold_2d"><code class="docutils literal notranslate"><span class="pre">classify_arnold_2d()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#caustics.detect_catastrophes"><code class="docutils literal notranslate"><span class="pre">detect_catastrophes()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.find_critical_points_numerical"><code class="docutils literal notranslate"><span class="pre">find_critical_points_numerical()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#caustics.plot_catastrophe"><code class="docutils literal notranslate"><span class="pre">plot_catastrophe()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#caustics.plot_caustic_events"><code class="docutils literal notranslate"><span class="pre">plot_caustic_events()</span></code></a></li>
 </ul>
@@ -212,7 +213,7 @@
 <h2>Strategy<a class="headerlink" href="#strategy" title="Link to this heading"></a></h2>
 <ol class="arabic simple">
 <li><p>Symbolic solve (sp.solve) — exact when polynomial.</p></li>
-<li><p>Coarse grid scan — evaluate <a href="#id24"><span class="problematic" id="id25">|∇H|</span></a> on a grid, keep near-zero cells
+<li><p>Coarse grid scan — evaluate <a href="#id28"><span class="problematic" id="id29">|∇H|</span></a> on a grid, keep near-zero cells
 as seeds for Newton refinement.</p></li>
 <li><p>Newton / fsolve refinement — high-accuracy convergence from seeds.</p></li>
 <li><p>DBSCAN-style deduplication — merge solutions closer than <cite>cluster_tol</cite>.</p></li>
@@ -256,7 +257,7 @@ solutions and was slow.</p>
 <dd class="field-even"><p>float</p>
 </dd>
 <dt class="field-odd">param grad_tol<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a href="#id26"><span class="problematic" id="id27">|∇H|</span></a> threshold to accept a point as critical (default 1e-8).</p>
+<dd class="field-odd"><p><a href="#id30"><span class="problematic" id="id31">|∇H|</span></a> threshold to accept a point as critical (default 1e-8).</p>
 </dd>
 <dt class="field-even">type grad_tol<span class="colon">:</span></dt>
 <dd class="field-even"><p>float</p>
@@ -545,7 +546,7 @@ shift of π/2.  The total correction factor is exp(i μ π/2).</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x</strong> (<em>control parameters</em>)</p></li>
 <li><p><strong>y</strong> (<em>control parameters</em>)</p></li>
-<li><p><strong>t_range</strong> (integration half-width (default 6.0; increase for large <a href="#id28"><span class="problematic" id="id29">|x|</span></a>,|y|))</p></li>
+<li><p><strong>t_range</strong> (integration half-width (default 6.0; increase for large <a href="#id32"><span class="problematic" id="id33">|x|</span></a>,|y|))</p></li>
 <li><p><strong>n_pts</strong> (<em>number</em><em> of </em><em>quadrature points</em>)</p></li>
 </ul>
 </dd>
@@ -611,7 +612,7 @@ The Maslov index μ counts the number of such crossings (with sign).</p>
 <h2>Correct approach vs old CausticDetector<a class="headerlink" href="#correct-approach-vs-old-causticdetector" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>OLD (wrong):</dt><dd><p>1D: caustic ↔ dx/dt = 0   (velocity turning point, NOT a caustic)
-2D: caustic ↔ <a href="#id30"><span class="problematic" id="id31">|ξ|</span></a> ≈ 0     (small momentum, NOT a caustic)</p>
+2D: caustic ↔ <a href="#id34"><span class="problematic" id="id35">|ξ|</span></a> ≈ 0     (small momentum, NOT a caustic)</p>
 </dd>
 <dt>NEW (correct):</dt><dd><p>1D: caustic ↔ J(t) = ∂x(t)/∂x₀ = 0  (requires integrating J)
 2D: caustic ↔ det([[∂x/∂x₀, ∂x/∂y₀],[∂y/∂x₀, ∂y/∂y₀]]) = 0</p>
@@ -638,8 +639,8 @@ numerically from neighbouring rays if a full bundle is provided.</p>
 <dd class="field-even"><p>int</p>
 </dd>
 <dt class="field-odd">param det_threshold<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a href="#id32"><span class="problematic" id="id33">|det(J)|</span></a> &lt; det_threshold to flag a caustic (default 0.05).
-Relative to the initial value <a href="#id34"><span class="problematic" id="id35">|det(J(0))|</span></a>.</p>
+<dd class="field-odd"><p><a href="#id36"><span class="problematic" id="id37">|det(J)|</span></a> &lt; det_threshold to flag a caustic (default 0.05).
+Relative to the initial value <a href="#id38"><span class="problematic" id="id39">|det(J(0))|</span></a>.</p>
 </dd>
 <dt class="field-even">type det_threshold<span class="colon">:</span></dt>
 <dd class="field-even"><p>float</p>
@@ -845,6 +846,41 @@ When provided, catastrophes are tracked as families.</p></li>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>list of dict, each with</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="caustics.find_critical_points_numerical">
+<span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">find_critical_points_numerical</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grad_func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_guesses</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/caustics.html#find_critical_points_numerical"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.find_critical_points_numerical" title="Link to this definition"></a></dt>
+<dd><p>Shared numerical kernel for locating critical points where ∇φ = 0.</p>
+<p>Minimises <a href="#id24"><span class="problematic" id="id25">|</span></a>∇φ(x)|² from each initial guess using L-BFGS-B, then
+deduplicates nearby solutions with a greedy DBSCAN-style clustering.</p>
+<dl class="simple">
+<dt>This function is the single source of truth used by:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">asymptotic.Analyzer.find_critical_points</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fio_bridge._BoundAnalyzer.find_critical_points</span></code></p></li>
+</ul>
+</dd>
+</dl>
+<p>It can also be called directly for lightweight use cases.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grad_func</strong> (<em>callable</em>) – Function <code class="docutils literal notranslate"><span class="pre">grad_func(*x)</span> <span class="pre">-&gt;</span> <span class="pre">array-like</span></code> returning the gradient ∇φ
+evaluated at the point <code class="docutils literal notranslate"><span class="pre">x</span></code> (unpacked coordinates).</p></li>
+<li><p><strong>initial_guesses</strong> (<em>list</em><em> of </em><em>np.ndarray</em>) – Starting points for the optimisation.</p></li>
+<li><p><strong>tolerance</strong> (<em>float</em>) – Convergence threshold: a point is accepted when <a href="#id26"><span class="problematic" id="id27">|</span></a>∇φ|² &lt; tolerance.</p></li>
+<li><p><strong>domain</strong> (<em>list</em><em> of </em><em>(</em><em>lo</em><em>, </em><em>hi</em><em>) </em><em>tuples</em><em>, </em><em>optional</em>) – If provided, only points satisfying <code class="docutils literal notranslate"><span class="pre">lo</span> <span class="pre">&lt;=</span> <span class="pre">x_i</span> <span class="pre">&lt;=</span> <span class="pre">hi</span></code> are kept.</p></li>
+<li><p><strong>cluster_tol</strong> (<em>float</em>) – Distance threshold for deduplication; solutions closer than this
+are merged into a single representative point (cluster mean).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Unique critical points found within the given tolerance and domain.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of np.ndarray</p>
 </dd>
 </dl>
 </dd></dl>

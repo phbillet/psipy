@@ -821,13 +821,29 @@ Not called by the optimised evaluate_at / evaluate_grid paths.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fio_bridge.PsiOpFIOBridge.evaluate_grid">
-<span class="sig-name descname"><span class="pre">evaluate_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_phase_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_amp_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/fio_bridge.html#PsiOpFIOBridge.evaluate_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fio_bridge.PsiOpFIOBridge.evaluate_grid" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">evaluate_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_phase_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_amp_sym</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/fio_bridge.html#PsiOpFIOBridge.evaluate_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fio_bridge.PsiOpFIOBridge.evaluate_grid" title="Link to this definition"></a></dt>
 <dd><p>Evaluate (Pu)(x) at every point in x_grid.</p>
 <p>SymPy work is done once before the loop; the loop body is
 pure scipy (minimize) + numpy.  No SymPy inside the loop.</p>
+<p>Each grid point is independent, so the loop is parallelised with
+<code class="docutils literal notranslate"><span class="pre">concurrent.futures.ThreadPoolExecutor</span></code>.  Threads (not processes)
+are used because the lambdified SymPy functions stored on <code class="docutils literal notranslate"><span class="pre">self</span></code>
+are not picklable, and because <code class="docutils literal notranslate"><span class="pre">scipy.optimize.minimize</span></code> releases
+the GIL when calling into its C/Fortran back-ends, so threads do
+run in parallel for this CPU-bound workload.</p>
+<p>Pass <code class="docutils literal notranslate"><span class="pre">n_workers=1</span></code> to force sequential execution (useful for
+debugging or profiling).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>np.ndarray of complex128, shape (len(<a class="reference internal" href="#id27" title="fio_bridge.ValidationReport.x_grid">x_grid</a>),)</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_grid</strong> (<em>np.ndarray</em>)</p></li>
+<li><p><strong>u_phase_sym</strong> (<em>sp.Expr</em>)</p></li>
+<li><p><strong>u_amp_sym</strong> (<em>sp.Expr</em>)</p></li>
+<li><p><strong>n_workers</strong> (<em>int</em><em> | </em><em>None</em>) – Number of threads.  None → <code class="docutils literal notranslate"><span class="pre">os.cpu_count()</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>np.ndarray of complex128, shape (len(<a class="reference internal" href="#id27" title="fio_bridge.ValidationReport.x_grid">x_grid</a>),)</p>
 </dd>
 </dl>
 </dd></dl>
