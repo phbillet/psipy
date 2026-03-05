@@ -2110,10 +2110,10 @@ def run_test_suite(verbose: bool = True, plot: bool = True) -> Dict[str, Any]:
 
     u0_phase_sym = k0 * y_sym
     u0_amp_sym   = sp.exp(-y_sym**2 / 2)
-    # n_test  = 50
-    # x_test  = np.linspace(-2.5, 2.5, n_test)
-    n_test  = 128
-    x_test  = np.linspace(-np.pi, np.pi, n_test, endpoint=False)
+    n_test  = 50
+    x_test  = np.linspace(-2.5, 2.5, n_test)
+    #n_test  = 128
+    #x_test  = np.linspace(-np.pi, np.pi, n_test, endpoint=False)
     u0_test = np.exp(-x_test**2 / 2) * np.exp(1j * lam * k0 * x_test)
 
     bridge_kw = dict(lam=lam, n_guesses=50, xi_range=(-10.0, 10.0), verbose=verbose)

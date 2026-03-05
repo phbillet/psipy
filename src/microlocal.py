@@ -221,7 +221,7 @@ def _bichar_flow_1d(symbol, z0, tspan, method, n_steps):
     else:
         raise ValueError("Invalid method for 1D flow")
 
-def _bichar_flow_2d(symbol, z0, tspan, method, n_steps):
+def _bichar_flow_2d_old(symbol, z0, tspan, method, n_steps):
     x, y, xi, eta = sp.symbols('x y xi eta', real=True)
     dp_dxi  = sp.diff(symbol, xi)
     dp_deta = sp.diff(symbol, eta)
@@ -291,6 +291,205 @@ def _bichar_flow_2d(symbol, z0, tspan, method, n_steps):
             'eta': eta_vals,
             'symbol_value': p_func(x_vals, y_vals, xi_vals, eta_vals)
         }
+    else:
+        raise ValueError("Invalid method for 2D flow")
+
+def _bichar_flow_2d(symbol, z0, tspan, method, n_steps):
+    """
+    Compute the bicharacteristic (Hamiltonian) flow for a 2D symbol
+    and the associated stability matrix.
+
+    The Hamiltonian system is defined by the symbol p(x, y, ξ, η):
+
+        dx/dt =  ∂p/∂ξ,    dξ/dt = -∂p/∂x,
+        dy/dt =  ∂p/∂η,    dη/dt = -∂p/∂y.
+
+    Simultaneously, the 2×2 stability matrix J(t) = ∂(x,y)/∂(x₀,y₀)
+    (the Jacobian of the spatial part of the flow with respect to initial
+    positions) is propagated according to
+
+        dJ/dt = H_px · J,   J(0) = I₂,
+
+    where H_px is the 2×2 matrix of mixed derivatives:
+
+        H_px = [[ ∂²p/(∂ξ∂x), ∂²p/(∂ξ∂y) ],
+                [ ∂²p/(∂η∂x), ∂²p/(∂η∂y) ]].
+
+    Parameters
+    ----------
+    symbol : sympy.Expr
+        Symbolic expression for the Hamiltonian p(x, y, ξ, η). Must depend
+        on the real variables x, y, xi, eta (the names are fixed in the
+        function body).
+    z0 : tuple of float
+        Initial condition (x0, y0, xi0, eta0).
+    tspan : tuple of float
+        Time interval (t0, t1).
+    method : {'rk45', 'symplectic', 'verlet'}
+        Integration method:
+        - 'rk45'      : adaptive Runge‑Kutta 4(5) from `scipy.integrate.solve_ivp`.
+                        The state is augmented with the four entries of J.
+        - 'symplectic' : fixed‑step symplectic Euler (position half‑step,
+                        momentum full‑step). Stability matrix uses forward Euler.
+        - 'verlet'     : fixed‑step Störmer‑Verlet (leapfrog). Stability matrix
+                        uses the midpoint value of H_px for the update.
+    n_steps : int
+        Number of output points (including the initial state). For fixed‑step
+        methods this equals the number of integration steps; for 'rk45' it is
+        the number of equally spaced time values at which the solution is
+        evaluated.
+
+    Returns
+    -------
+    dict
+        A dictionary containing:
+        - 't'       : 1D ndarray of shape (n_steps,) – time points.
+        - 'x','y'   : 1D ndarrays – trajectory in position.
+        - 'xi','eta': 1D ndarrays – trajectory in momentum.
+        - 'symbol_value' : 1D ndarray – p(x,y,ξ,η) evaluated along the trajectory.
+        - 'J11','J12','J21','J22' : 1D ndarrays – components of the 2×2
+          stability matrix J(t) at each time point.
+
+    Notes
+    -----
+    - The function uses symbolic differentiation (`sympy.diff`) and generates
+      NumPy callables via `lambdify`. The symbols *must* be named exactly
+      `x`, `y`, `xi`, `eta` (case‑sensitive).
+    - For 'rk45', high relative/absolute tolerances (1e‑9, 1e‑12) are used to
+      ensure accurate stability propagation.
+    - For the symplectic and Verlet schemes, the stability update is a simple
+      first‑order method (forward Euler or midpoint) that is consistent with
+      the overall integrator order but may not preserve symplecticity of the
+      linearised flow.
+    - This function is intended for internal use in pseudo‑differential
+      operator construction and is not part of the public API.
+    """
+    x, y, xi, eta = sp.symbols('x y xi eta', real=True)
+    dp_dxi  = sp.diff(symbol, xi)
+    dp_deta = sp.diff(symbol, eta)
+    dp_dx   = sp.diff(symbol, x)
+    dp_dy   = sp.diff(symbol, y)
+    f_x   = sp.lambdify((x,y,xi,eta), dp_dxi,  'numpy')
+    f_y   = sp.lambdify((x,y,xi,eta), dp_deta, 'numpy')
+    f_xi  = sp.lambdify((x,y,xi,eta), -dp_dx,  'numpy')
+    f_eta = sp.lambdify((x,y,xi,eta), -dp_dy,  'numpy')
+    p_func = sp.lambdify((x,y,xi,eta), symbol, 'numpy')
+
+    # Build H_px = [[∂²H/∂ξ∂x, ∂²H/∂ξ∂y],
+    #               [∂²H/∂η∂x, ∂²H/∂η∂y]]
+    # used by the stability ODE  dJ/dt = H_px · J,  J(0) = I₂
+    H_px_sym = sp.Matrix([
+        [sp.diff(symbol, xi,  x), sp.diff(symbol, xi,  y)],
+        [sp.diff(symbol, eta, x), sp.diff(symbol, eta, y)],
+    ])
+    H_px_func = sp.lambdify((x, y, xi, eta), H_px_sym, 'numpy')
+
+    def _H_px(xv, yv, xiv, etav):
+        """Return H_px as a (2,2) float array."""
+        return np.asarray(H_px_func(xv, yv, xiv, etav), dtype=float).reshape(2, 2)
+
+    if method == 'rk45':
+        # Augment the state with the 4 entries of J (row-major: J11,J12,J21,J22).
+        # Full state: [x, y, xi, eta, J11, J12, J21, J22]
+        z0_aug = list(z0) + [1.0, 0.0, 0.0, 1.0]   # J(0) = I₂
+
+        def ode(t, z):
+            xv, yv, xiv, etav = z[0], z[1], z[2], z[3]
+            J = z[4:].reshape(2, 2)
+            dJ = _H_px(xv, yv, xiv, etav) @ J
+            return [
+                f_x  (xv, yv, xiv, etav),
+                f_y  (xv, yv, xiv, etav),
+                f_xi (xv, yv, xiv, etav),
+                f_eta(xv, yv, xiv, etav),
+                *dJ.ravel(),
+            ]
+
+        sol = solve_ivp(ode, tspan, z0_aug, method='RK45',
+                        t_eval=np.linspace(tspan[0], tspan[1], n_steps),
+                        rtol=1e-9, atol=1e-12)
+        return {
+            't':            sol.t,
+            'x':            sol.y[0],
+            'y':            sol.y[1],
+            'xi':           sol.y[2],
+            'eta':          sol.y[3],
+            'symbol_value': p_func(sol.y[0], sol.y[1], sol.y[2], sol.y[3]),
+            'J11':          sol.y[4],
+            'J12':          sol.y[5],
+            'J21':          sol.y[6],
+            'J22':          sol.y[7],
+        }
+
+    elif method in ('symplectic', 'verlet'):
+        dt = (tspan[1] - tspan[0]) / n_steps
+        t = np.linspace(tspan[0], tspan[1], n_steps)
+        x_vals   = np.zeros(n_steps)
+        y_vals   = np.zeros(n_steps)
+        xi_vals  = np.zeros(n_steps)
+        eta_vals = np.zeros(n_steps)
+        J_vals   = np.zeros((n_steps, 2, 2))   # stability matrix at each step
+
+        x_vals[0], y_vals[0], xi_vals[0], eta_vals[0] = z0
+        J_vals[0] = np.eye(2)                  # J(0) = I₂
+
+        if method == 'symplectic':
+            for i in range(n_steps - 1):
+                xv, yv   = x_vals[i],  y_vals[i]
+                xiv, etav = xi_vals[i], eta_vals[i]
+
+                # --- momentum half-step (symplectic Euler) ---
+                xi_new  = xiv  + dt * f_xi (xv, yv, xiv, etav)
+                eta_new = etav + dt * f_eta(xv, yv, xiv, etav)
+
+                # --- position full-step ---
+                x_new = xv + dt * f_x(xv, yv, xi_new, eta_new)
+                y_new = yv + dt * f_y(xv, yv, xi_new, eta_new)
+
+                x_vals[i+1]   = x_new
+                y_vals[i+1]   = y_new
+                xi_vals[i+1]  = xi_new
+                eta_vals[i+1] = eta_new
+
+                # --- stability matrix: forward Euler on dJ/dt = H_px · J ---
+                J_vals[i+1] = J_vals[i] + dt * (_H_px(xv, yv, xiv, etav) @ J_vals[i])
+
+        else:  # verlet
+            for i in range(n_steps - 1):
+                xv, yv    = x_vals[i],  y_vals[i]
+                xiv, etav = xi_vals[i], eta_vals[i]
+
+                # --- Störmer-Verlet / leapfrog ---
+                xi_half  = xiv  + 0.5*dt * f_xi (xv, yv, xiv, etav)
+                eta_half = etav + 0.5*dt * f_eta(xv, yv, xiv, etav)
+                x_new  = xv + dt * f_x(xv, yv, xi_half, eta_half)
+                y_new  = yv + dt * f_y(xv, yv, xi_half, eta_half)
+                xi_new  = xi_half  + 0.5*dt * f_xi (x_new, y_new, xi_half, eta_half)
+                eta_new = eta_half + 0.5*dt * f_eta(x_new, y_new, xi_half, eta_half)
+
+                x_vals[i+1]   = x_new
+                y_vals[i+1]   = y_new
+                xi_vals[i+1]  = xi_new
+                eta_vals[i+1] = eta_new
+
+                # --- stability matrix: midpoint H_px for consistency with Verlet ---
+                Hpx_mid = 0.5 * (_H_px(xv,    yv,    xiv,    etav) +
+                                  _H_px(x_new, y_new, xi_new, eta_new))
+                J_vals[i+1] = J_vals[i] + dt * (Hpx_mid @ J_vals[i])
+
+        return {
+            't':            t,
+            'x':            x_vals,
+            'y':            y_vals,
+            'xi':           xi_vals,
+            'eta':          eta_vals,
+            'symbol_value': p_func(x_vals, y_vals, xi_vals, eta_vals),
+            'J11':          J_vals[:, 0, 0],
+            'J12':          J_vals[:, 0, 1],
+            'J21':          J_vals[:, 1, 0],
+            'J22':          J_vals[:, 1, 1],
+        }
+
     else:
         raise ValueError("Invalid method for 2D flow")
 
