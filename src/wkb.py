@@ -1466,7 +1466,7 @@ def plot_with_caustics(solution, component='abs', highlight_caustics=True):
             return
         added = False
         for c in caustics:
-            xc = c['position']
+            xc = c.position[0]           # CausticEvent uses attribute access, not dict
             ax.axvline(xc, color='red', linestyle='--', linewidth=2,
                        alpha=0.7, label='Caustic' if not added else None)
             ax.plot(
