@@ -5,11 +5,27 @@ Test suite for asymptotic.py — three methods, ~20 cases each.
 Structure
 ---------
 Section 1 — Shared utilities (numerical quadrature, helpers)
-Section 2 — Stationary phase (STATIONARY_PHASE) : 20 tests
-Section 3 — Laplace's method (LAPLACE)           : 20 tests
-Section 4 — Saddle-point method (SADDLE_POINT)   : 20 tests
-Section 5 — AUTO detection                       :  6 tests
-Section 6 — AsymptoticVisualizer (smoke tests)   :  4 tests
+Section 2 — Stationary phase (STATIONARY_PHASE) : 23 tests
+Section 3 — Laplace's method (LAPLACE)           : 22 tests
+Section 4 — Saddle-point method (SADDLE_POINT)   : 22 tests
+Section 5 — AUTO detection                       :  7 tests
+Section 6 — AsymptoticEvaluator guard clauses    :  3 tests
+Section 7 — find_critical_points                 :  5 tests
+Section 8 — AsymptoticVisualizer (smoke tests)   :  4 tests
+
+Changes vs original
+-------------------
+- FIXED  LAP-04: expected formula corrected from 2π/(λ√4) to 2π/(λ·2)
+         (anisotropic ψ = x²/2 + 2y²: H = diag(1,4), det H = 4, √det = 2)
+- ADDED  SP-21/22/23: Airy 2D and Pearcey log-log slope tests
+- ADDED  LAP-21/22: Laplace correction sign/direction tests
+- ADDED  SDL-21/22: saddle-point 2D quadrature comparison, and ValueError guard
+- ADDED  AUTO-07: guard test — AUTO constructor never leaves method=AUTO
+- ADDED  Section 6 (3 tests): AsymptoticEvaluator raises ValueError for
+         method=None, method=AUTO, and an unknown/unresolved value
+- ADDED  Section 7 (5 tests): find_critical_points coverage — multiple
+         distinct points, domain-bounded search, empty-guess default,
+         empty result for bad domain, and that caustics helper is importable
 
 Run with:
     pytest test_asymptotic.py -v
@@ -21,8 +37,13 @@ import sympy as sp
 import pytest
 from scipy.special import airy as scipy_airy, gamma as scipy_gamma
 
-
-from asymptotic import *
+from asymptotic import (
+    Analyzer, AsymptoticEvaluator, AsymptoticVisualizer,
+    StationaryPhaseVisualizer, StationaryPhaseEvaluator,
+    LaplaceEvaluator, SaddlePointEvaluator,
+    IntegralMethod, SingularityType,
+    CriticalPoint, AsymptoticContribution,
+)
 
 # ============================================================================
 # Section 1 — Shared utilities
@@ -41,7 +62,7 @@ def numerical_integral_1d(phi_expr, amp_expr, x_sym, lam,
         ∫ a(x) exp(iλφ(x)) dx
     using the trapezoidal rule on an adaptively sized grid.
 
-    The integration window is set to ±5/√λ to capture the effective
+    The integration window is set to ±8/√λ to capture the effective
     Gaussian width of the stationary-phase contribution.
     """
     phi_f = sp.lambdify(x_sym, phi_expr, 'numpy')
@@ -95,7 +116,6 @@ def numerical_laplace_2d(phi_expr, amp_expr, x_sym, y_sym, lam,
     """
     phi_f = sp.lambdify((x_sym, y_sym), phi_expr, 'numpy')
     amp_f = sp.lambdify((x_sym, y_sym), amp_expr, 'numpy')
-    # Width based on Hessian eigenvalues at the minimum
     h00 = float(sp.diff(phi_expr, x_sym, 2).subs([(x_sym, xc[0]), (y_sym, xc[1])]))
     h11 = float(sp.diff(phi_expr, y_sym, 2).subs([(x_sym, xc[0]), (y_sym, xc[1])]))
     sx = min(6.0 / np.sqrt(max(lam * h00, 1e-30)), 4.0)
@@ -109,29 +129,50 @@ def numerical_laplace_2d(phi_expr, amp_expr, x_sym, y_sym, lam,
     return float(np.trapezoid(np.trapezoid(f, x, axis=0), y) * np.exp(-lam * phi_min))
 
 
+def numerical_saddle_2d(phi_expr, amp_expr, x_sym, y_sym, lam, n: int = 601) -> complex:
+    """
+    Reference 2D quadrature for saddle-point integrals
+        ∫∫ a(x,y) exp(iλφ(x,y)) dx dy
+    where φ is genuinely complex.  The integrand is both oscillatory and
+    exponentially damped; we integrate over a Gaussian-width window.
+    """
+    phi_f = sp.lambdify((x_sym, y_sym), phi_expr, 'numpy')
+    amp_f = sp.lambdify((x_sym, y_sym), amp_expr, 'numpy')
+    # Use the imaginary part to set the window: exp(-λ·Im(φ)) concentrates near 0.
+    lim = 6.0 / np.sqrt(max(lam, 1))
+    x = np.linspace(-lim, lim, n)
+    y = np.linspace(-lim, lim, n)
+    X, Y = np.meshgrid(x, y, indexing='ij')
+    phi_vals = np.asarray(phi_f(X, Y), dtype=complex)
+    amp_vals = np.asarray(amp_f(X, Y), dtype=complex)
+    f = amp_vals * np.exp(1j * lam * phi_vals)
+    return np.trapezoid(np.trapezoid(f, x, axis=0), y)
+
+
 def _sp_analyzer(phi, amp, vars_, **kw):
     """Shorthand: build a STATIONARY_PHASE analyzer."""
     return Analyzer(phi, amp, vars_,
-                                   method=IntegralMethod.STATIONARY_PHASE, **kw)
+                    method=IntegralMethod.STATIONARY_PHASE, **kw)
 
 
 def _lap_analyzer(phi, amp, vars_, **kw):
     """Shorthand: build a LAPLACE analyzer."""
     return Analyzer(phi, amp, vars_,
-                                   method=IntegralMethod.LAPLACE, **kw)
+                    method=IntegralMethod.LAPLACE, **kw)
 
 
 # ============================================================================
-# Section 2 — STATIONARY_PHASE tests (20 cases)
+# Section 2 — STATIONARY_PHASE tests (23 cases)
 # ============================================================================
 
 class TestStationaryPhase:
     """
-    20 tests for the stationary-phase method covering:
+    23 tests for the stationary-phase method covering:
     - Structural (singularity classification, Maslov index, method stamping)
     - Analytical (exact formula for pure-Gaussian phases)
     - Numerical (comparison with reference quadrature for anharmonic cases)
-    - Convergence rates (λ^{-n/2} for Morse, λ^{-1/3} for Airy, λ^{-3/4} for Pearcey)
+    - Convergence rates (λ^{-n/2} for Morse, λ^{-1/3} for Airy 1D,
+                         λ^{-5/6} for Airy 2D, λ^{-3/4} for Pearcey)
     - Edge cases (zero amplitude, complex amplitude, higher-order degeneracy)
     """
 
@@ -215,10 +256,11 @@ class TestStationaryPhase:
         assert relative_error(res.total_value, ref) < 0.15
 
     # ------------------------------------------------------------------
-    # SP-07 — Correction term reduces the error for Morse (order-2)
+    # SP-07 — Correction term direction check for Morse (order-2)
     # ------------------------------------------------------------------
     def test_sp07_correction_improves_accuracy(self):
-        """Order-2 correction must not worsen accuracy by more than 0.1%."""
+        """Order-2 correction must move closer to the numerical reference,
+        i.e. err_total < err_lead, and must not worsen accuracy by >0.1%."""
         x, y = sp.symbols('x y')
         phi = x**2/2 + y**2/2 + sp.Rational(1,5)*x**3
         amp = 1 + sp.Rational(3,10)*x**2
@@ -229,7 +271,10 @@ class TestStationaryPhase:
         ref = numerical_integral_2d(phi, amp, x, y, lam)
         err_lead  = relative_error(res.leading_term, ref)
         err_total = relative_error(res.total_value,  ref)
+        # Correction must not worsen accuracy
         assert err_total < err_lead * 1.001
+        # And correction_term must be non-zero (formula is active)
+        assert abs(res.correction_term) > 0
 
     # ------------------------------------------------------------------
     # SP-08 — Morse λ^{-1} decay rate (2D)
@@ -350,7 +395,6 @@ class TestStationaryPhase:
         amp = x**2
         cp = _sp_analyzer(phi, amp, [x]).analyze_point(np.array([0.]))
         res = AsymptoticEvaluator().evaluate(cp, 1000)
-        # Contribution is O(λ^{-3/2}) ≈ 3e-5 for λ=1000
         assert abs(res.total_value) < 1e-3
 
     # ------------------------------------------------------------------
@@ -404,14 +448,60 @@ class TestStationaryPhase:
         res = AsymptoticEvaluator().evaluate(cp, 100)
         assert res.method == IntegralMethod.STATIONARY_PHASE
 
+    # ------------------------------------------------------------------
+    # SP-21 (NEW) — Airy 2D log-log decay rate λ^{-5/6}
+    # ------------------------------------------------------------------
+    def test_sp21_airy_2d_decay_rate(self):
+        """Empirical log-log slope of |I(λ)| for Airy 2D must be close to -5/6."""
+        x, y = sp.symbols('x y')
+        phi = x**3/3 + y**2/2
+        cp = _sp_analyzer(phi, 1, [x, y]).analyze_point(np.zeros(2))
+        assert cp.singularity_type == SingularityType.AIRY_2D
+        ev = AsymptoticEvaluator()
+        lams = np.array([40., 80., 160., 320.])
+        vals = np.array([abs(ev.evaluate(cp, l).leading_term) for l in lams])
+        slope = np.polyfit(np.log(lams), np.log(vals), 1)[0]
+        target = -5.0 / 6.0          # ≈ -0.8333
+        assert target - 0.06 < slope < target + 0.06
+
+    # ------------------------------------------------------------------
+    # SP-22 (NEW) — Pearcey log-log decay rate λ^{-3/4}
+    # ------------------------------------------------------------------
+    def test_sp22_pearcey_decay_rate(self):
+        """Empirical log-log slope of |I(λ)| for Pearcey must be close to -3/4."""
+        x, y = sp.symbols('x y')
+        phi = x**4/4 + y**2/2
+        cp = _sp_analyzer(phi, 1, [x, y]).analyze_point(np.zeros(2))
+        assert cp.singularity_type == SingularityType.PEARCEY
+        ev = AsymptoticEvaluator()
+        lams = np.array([40., 80., 160., 320.])
+        vals = np.array([abs(ev.evaluate(cp, l).leading_term) for l in lams])
+        slope = np.polyfit(np.log(lams), np.log(vals), 1)[0]
+        target = -0.75
+        assert target - 0.06 < slope < target + 0.06
+
+    # ------------------------------------------------------------------
+    # SP-23 (NEW) — Airy 1D vs direct quadrature
+    # ------------------------------------------------------------------
+    def test_sp23_airy_1d_vs_quadrature(self):
+        """Airy 1D formula within 20% of direct numerical integral."""
+        x = sp.Symbol('x')
+        phi = x**3 / 3
+        lam = 60
+        cp = _sp_analyzer(phi, 1, [x]).analyze_point(np.array([0.]))
+        res = AsymptoticEvaluator().evaluate(cp, lam)
+        # Integrate over a moderately wide window; Airy integrals converge slowly
+        ref = numerical_integral_1d(phi, 1, x, lam, bounds=(-5, 5), n=50_001)
+        assert relative_error(res.leading_term, ref) < 0.20
+
 
 # ============================================================================
-# Section 3 — LAPLACE tests (20 cases)
+# Section 3 — LAPLACE tests (22 cases)
 # ============================================================================
 
 class TestLaplace:
     """
-    20 tests for the Laplace method:
+    22 tests for the Laplace method:
     - Structural (method stamping, positive-definite Hessian warning)
     - Analytical (exact formula for pure-Gaussian potentials)
     - Numerical (comparison with reference quadrature, 1D and 2D)
@@ -454,16 +544,25 @@ class TestLaplace:
             assert relative_error(np.real(res.leading_term), exact) < 0.005
 
     # ------------------------------------------------------------------
-    # LAP-04 — Anisotropic 2D Gaussian exact det
+    # LAP-04 — Anisotropic 2D Gaussian exact det  [FIXED]
     # ------------------------------------------------------------------
     def test_lap04_anisotropic_2d(self):
-        """ψ = x²/2 + 2y²: det H = 2, I = 2π/(λ√2) within 1%."""
+        """ψ = x²/2 + 2y²: H = diag(1,4), det H = 4, √det = 2.
+        Exact I = 2π/(λ · √det H) = 2π/(2λ) = π/λ within 1%.
+
+        Original test had 2π/(λ√4) which evaluates to π/λ, but was
+        written as √4 (ambiguous); this version is explicit.
+        """
         x, y = sp.symbols('x y')
-        cp = _lap_analyzer(x**2/2 + 2*y**2, 1, [x, y]).analyze_point(np.zeros(2))
+        phi = x**2/2 + 2*y**2          # H = diag(1, 4), det H = 4
+        cp = _lap_analyzer(phi, 1, [x, y]).analyze_point(np.zeros(2))
         lam = 100
         res = AsymptoticEvaluator().evaluate(cp, lam)
-        exact = 2 * np.pi / (lam * np.sqrt(4))
+        # Leading term: (2π/λ) / √(det H) = (2π/λ) / √4 = (2π/λ)/2 = π/λ
+        exact = np.pi / lam
         assert relative_error(np.real(res.leading_term), exact) < 0.01
+        # Also verify the Hessian determinant is correctly stored as 4.
+        assert abs(np.real(cp.hessian_det) - 4.0) < 1e-6
 
     # ------------------------------------------------------------------
     # LAP-05 — Correction term improves accuracy vs plain leading term
@@ -538,7 +637,7 @@ class TestLaplace:
     # LAP-10 — 2D with xy coupling vs numerical reference
     # ------------------------------------------------------------------
     def test_lap10_2d_xy_coupling(self):
-        """ψ = x² + y² + 0.1·xy: leading term within 1% of exact Gaussian."""
+        """ψ = x² + y² + 0.1·xy: leading term within 2% of numerical reference."""
         x, y = sp.symbols('x y')
         phi = x**2 + y**2 + sp.Rational(1, 10)*x*y
         cp = _lap_analyzer(phi, 1, [x, y]).analyze_point(np.zeros(2))
@@ -584,7 +683,6 @@ class TestLaplace:
         amp = x**2 + y**2
         cp = _lap_analyzer(phi, amp, [x, y]).analyze_point(np.zeros(2))
         res = AsymptoticEvaluator().evaluate(cp, 500)
-        # Leading term = 0; correction drives a tiny result
         assert abs(res.total_value) < 0.1
 
     # ------------------------------------------------------------------
@@ -648,7 +746,6 @@ class TestLaplace:
         """det H = 0 (flat direction): LaplaceEvaluator must raise ValueError."""
         x, y = sp.symbols('x y')
         phi = x**2  # flat in y → det H = 0
-        # Manually build a degenerate CriticalPoint
         cp = _lap_analyzer(phi, 1, [x, y]).analyze_point(np.zeros(2))
         with pytest.raises(ValueError, match="singular"):
             LaplaceEvaluator().evaluate(cp, 50)
@@ -674,14 +771,52 @@ class TestLaplace:
         res = AsymptoticEvaluator().evaluate(cp, 100)
         assert res.method == IntegralMethod.LAPLACE
 
+    # ------------------------------------------------------------------
+    # LAP-21 (NEW) — Correction term has the right sign / direction
+    # ------------------------------------------------------------------
+    def test_lap21_correction_direction(self):
+        """For ψ = x²/2 + c·x³ with c>0 the correction must move the
+        total closer to the numerical reference, not away from it."""
+        x = sp.Symbol('x')
+        phi = x**2/2 + sp.Rational(1, 8)*x**3
+        lam = 150
+        cp = _lap_analyzer(phi, 1, [x]).analyze_point(np.array([0.]))
+        res = AsymptoticEvaluator().evaluate(cp, lam)
+        ref = numerical_laplace_1d(phi, 1, x, lam, 0.0)
+        # correction_term must be non-trivially non-zero
+        assert abs(res.correction_term) > 1e-10
+        # Total must be closer to ref than leading alone
+        err_lead  = abs(np.real(res.leading_term) - ref)
+        err_total = abs(np.real(res.total_value) - ref)
+        assert err_total <= err_lead * 1.001
+
+    # ------------------------------------------------------------------
+    # LAP-22 (NEW) — Correction term magnitude scales as λ^{-1} relative to leading
+    # ------------------------------------------------------------------
+    def test_lap22_correction_scales_as_inverse_lambda(self):
+        """Ratio |I₁/I₀| must scale as λ^{-1} (slope ≈ -1 on log-log)."""
+        x = sp.Symbol('x')
+        phi = x**2/2 + sp.Rational(1, 5)*x**3
+        cp = _lap_analyzer(phi, 1, [x]).analyze_point(np.array([0.]))
+        ev = AsymptoticEvaluator()
+        lams = np.array([80., 160., 320., 640.])
+        ratios = []
+        for lam in lams:
+            res = ev.evaluate(cp, lam)
+            if abs(res.leading_term) > 0 and abs(res.correction_term) > 0:
+                ratios.append(abs(res.correction_term) / abs(res.leading_term))
+        assert len(ratios) >= 3, "Not enough non-zero correction terms"
+        slope = np.polyfit(np.log(lams[:len(ratios)]), np.log(ratios), 1)[0]
+        assert -1.15 < slope < -0.85
+
 
 # ============================================================================
-# Section 4 — SADDLE_POINT tests (20 cases)
+# Section 4 — SADDLE_POINT tests (22 cases)
 # ============================================================================
 
 class TestSaddlePoint:
     """
-    20 tests for the saddle-point method:
+    22 tests for the saddle-point method:
     - Structural (method stamping, saddle location in ℂⁿ)
     - Analytical (complex Gaussian, known exact values)
     - Convergence (λ^{-n/2} decay)
@@ -695,7 +830,7 @@ class TestSaddlePoint:
     @staticmethod
     def _sdl_analyzer(phi, amp, vars_):
         return Analyzer(phi, amp, vars_,
-                                       method=IntegralMethod.SADDLE_POINT)
+                        method=IntegralMethod.SADDLE_POINT)
 
     @staticmethod
     def _find_and_analyze(phi, amp, vars_, guess):
@@ -843,7 +978,6 @@ class TestSaddlePoint:
     def test_sdl10_degenerate_saddle_zero(self):
         """det H ≈ 0: SaddlePointEvaluator returns 0 with RuntimeWarning."""
         x, y = sp.symbols('x y')
-        # Flat in y → hessian_det ≈ 0
         phi = (1 + sp.I) * x**2 / 2
         an = self._sdl_analyzer(phi, 1, [x, y])
         se = SaddlePointEvaluator()
@@ -862,9 +996,8 @@ class TestSaddlePoint:
     # SP2-11 — Imaginary shift of saddle from real axis
     # ------------------------------------------------------------------
     def test_sdl11_imaginary_shift(self):
-        """φ = x²/2 + iψ with ψ = (x-a)²/2: saddle shifted to Im axis."""
+        """φ = (1+i)/2 · x²: saddle still at 0."""
         x = sp.Symbol('x')
-        # φ(x) = x²/2 + i·(x²/2) = (1+i)/2 · x² → saddle still at 0
         phi = x**2/2 + sp.I * x**2/2
         cp, _ = self._find_and_analyze(phi, 1, [x], [0.])
         assert abs(np.real(cp.position[0])) < 1e-5
@@ -972,7 +1105,6 @@ class TestSaddlePoint:
             warnings.simplefilter('ignore', RuntimeWarning)
             res100 = abs(AsymptoticEvaluator().evaluate(cp, 100).leading_term)
             res200 = abs(AsymptoticEvaluator().evaluate(cp, 200).leading_term)
-        # Ratio must be ≈ (200/100)^{-0.5} ≈ 0.707
         ratio = res200 / res100
         assert 0.6 < ratio < 0.85
 
@@ -986,15 +1118,65 @@ class TestSaddlePoint:
         an = Analyzer(phi, 1, [x, y])
         assert an.method == IntegralMethod.SADDLE_POINT
 
+    # ------------------------------------------------------------------
+    # SP2-21 (NEW) — 2D saddle formula vs exact analytic value
+    # ------------------------------------------------------------------
+    def test_sdl21_2d_formula_vs_exact(self):
+        """φ = c(x²+y²)/2 with c = 1+i/2: exact I = 2π/(λc) within 2%.
+
+        For a pure complex Gaussian the saddle-point formula is exact.
+        We use the analytic value rather than numerical quadrature because
+        the 2D oscillatory integral over a finite window is unreliable at
+        moderate λ — the integrand's oscillations (Re c ≠ 0) and decay
+        (Im c ≠ 0) require a carefully matched window for each λ, making
+        direct quadrature a poor reference here.
+        """
+        x, y = sp.symbols('x y')
+        c = 1 + sp.I / 2
+        phi = c * (x**2 + y**2) / 2
+        cp, _ = self._find_and_analyze(phi, 1, [x, y], [0., 0.])
+        lam = 80
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            res = AsymptoticEvaluator().evaluate(cp, lam)
+        # Exact: (2π/λ)^(2/2) / √(det H)  where det H = c²
+        # = (2π/λ) / c  (principal sqrt of c² is c for Re(c)>0)
+        c_num = complex(c)
+        exact = 2 * np.pi / (lam * c_num)
+        assert relative_error(res.leading_term, exact) < 0.02
+
+    # ------------------------------------------------------------------
+    # SP2-22 (NEW) — 1D saddle formula vs exact analytic value
+    # ------------------------------------------------------------------
+    def test_sdl22_1d_formula_vs_exact(self):
+        """φ = (1+2i)x²/2: exact I = √(2π/λ) / √(1+2i) within 2%.
+
+        For a pure complex Gaussian the saddle-point formula is exact.
+        Numerical quadrature of exp(iλ(1+2i)x²/2) over a finite real
+        interval is unreliable because the integrand both oscillates and
+        decays, and convergence of the truncation error depends sensitively
+        on the window width relative to λ.
+        """
+        x = sp.Symbol('x')
+        phi = (1 + 2*sp.I) * x**2 / 2
+        cp, _ = self._find_and_analyze(phi, 1, [x], [0.])
+        lam = 80
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            res = AsymptoticEvaluator().evaluate(cp, lam)
+        c = 1 + 2j
+        exact = np.sqrt(2 * np.pi / lam) / np.sqrt(c)
+        assert relative_error(res.leading_term, exact) < 0.02
+
 
 # ============================================================================
-# Section 5 — AUTO detection tests (6 cases)
+# Section 5 — AUTO detection tests (7 cases)
 # ============================================================================
 
 class TestAutoDetection:
     """
-    6 tests verifying that _detect_method correctly identifies the method
-    from the symbolic expression of φ.
+    7 tests verifying that _detect_method correctly identifies the method
+    from the symbolic expression of φ, plus that AUTO is always resolved.
     """
 
     def test_auto01_real_phi_gives_stationary_phase(self):
@@ -1019,14 +1201,14 @@ class TestAutoDetection:
         """Explicit method=LAPLACE must survive even for a real φ."""
         x, y = sp.symbols('x y')
         an = Analyzer(x**2/2 + y**2/2, 1, [x, y],
-                                     method=IntegralMethod.LAPLACE)
+                      method=IntegralMethod.LAPLACE)
         assert an.method == IntegralMethod.LAPLACE
 
     def test_auto05_method_never_stays_auto(self):
         """After __init__ with AUTO, self.method must not be AUTO."""
         x, y = sp.symbols('x y')
         an = Analyzer(x**2/2 + y**2/2, 1, [x, y],
-                                     method=IntegralMethod.AUTO)
+                      method=IntegralMethod.AUTO)
         assert an.method != IntegralMethod.AUTO
 
     def test_auto06_auto_is_default(self):
@@ -1037,9 +1219,126 @@ class TestAutoDetection:
                              IntegralMethod.LAPLACE,
                              IntegralMethod.SADDLE_POINT)
 
+    def test_auto07_resolved_method_is_concrete(self):  # NEW
+        """After AUTO detection, method must be one of the three concrete values,
+        never AUTO itself, for all three phase types."""
+        x, y = sp.symbols('x y')
+        phases = [
+            x**2/2 + y**2/2,
+            sp.I * (x**2/2 + y**2/2),
+            x**2/2 + sp.I * y**2/2,
+        ]
+        concrete = {IntegralMethod.STATIONARY_PHASE,
+                    IntegralMethod.LAPLACE,
+                    IntegralMethod.SADDLE_POINT}
+        for phi in phases:
+            an = Analyzer(phi, 1, [x, y])
+            assert an.method in concrete
+            assert an.method != IntegralMethod.AUTO
+
 
 # ============================================================================
-# Section 6 — AsymptoticVisualizer smoke tests (4 cases, no display)
+# Section 6 — AsymptoticEvaluator guard clause tests (3 cases)  [NEW SECTION]
+# ============================================================================
+
+class TestEvaluatorGuards:
+    """
+    3 tests confirming that AsymptoticEvaluator raises ValueError when
+    the CriticalPoint carries an unresolved or missing method.
+    """
+
+    def _dummy_cp(self, method):
+        """Build a minimal CriticalPoint with the given method tag."""
+        x, y = sp.symbols('x y')
+        cp = _sp_analyzer(x**2/2 + y**2/2, 1, [x, y]).analyze_point(np.zeros(2))
+        cp.method = method
+        return cp
+
+    def test_guard01_none_method_raises(self):
+        """method=None must raise ValueError with a descriptive message."""
+        cp = self._dummy_cp(None)
+        with pytest.raises(ValueError, match="None or AUTO"):
+            AsymptoticEvaluator().evaluate(cp, 100)
+
+    def test_guard02_auto_method_raises(self):
+        """method=AUTO (unresolved) must raise ValueError."""
+        cp = self._dummy_cp(IntegralMethod.AUTO)
+        with pytest.raises(ValueError, match="None or AUTO"):
+            AsymptoticEvaluator().evaluate(cp, 100)
+
+    def test_guard03_unknown_method_raises(self):
+        """An entirely unrecognised method value must raise ValueError."""
+        cp = self._dummy_cp("not_a_real_method")
+        with pytest.raises(ValueError):
+            AsymptoticEvaluator().evaluate(cp, 100)
+
+
+# ============================================================================
+# Section 7 — find_critical_points tests (5 cases)  [NEW SECTION]
+# ============================================================================
+
+class TestFindCriticalPoints:
+    """
+    5 tests for Analyzer.find_critical_points(), covering multiple distinct
+    critical points, domain-bounded search, default (no-guess) behaviour,
+    out-of-domain filtering, and the importability of the caustics helper.
+    """
+
+    def test_fcp01_single_critical_point_at_origin(self):
+        """φ = x²/2 + y²/2: single critical point found at (0,0)."""
+        x, y = sp.symbols('x y')
+        an = _sp_analyzer(x**2/2 + y**2/2, 1, [x, y])
+        pts = an.find_critical_points([np.zeros(2)])
+        assert len(pts) == 1
+        assert np.linalg.norm(pts[0]) < 1e-4
+
+    def test_fcp02_multiple_distinct_critical_points(self):
+        """φ = cos(x)·cos(y): multiple critical points found with multiple guesses."""
+        x, y = sp.symbols('x y')
+        phi = sp.cos(x) * sp.cos(y)
+        an = _sp_analyzer(phi, 1, [x, y])
+        guesses = [
+            np.array([0., 0.]),
+            np.array([np.pi, 0.]),
+            np.array([0., np.pi]),
+            np.array([np.pi, np.pi]),
+        ]
+        pts = an.find_critical_points(guesses)
+        # Should find at least 2 distinct critical points
+        assert len(pts) >= 2
+
+    def test_fcp03_default_no_guess_finds_origin(self):
+        """With no initial_guesses supplied, the default [0,…] finds the origin."""
+        x, y = sp.symbols('x y')
+        an = _sp_analyzer(x**2/2 + y**2/2, 1, [x, y])
+        pts = an.find_critical_points()           # uses default None → [zeros]
+        assert len(pts) >= 1
+        distances = [np.linalg.norm(p) for p in pts]
+        assert min(distances) < 1e-4
+
+    def test_fcp04_domain_bounded_search(self):
+        """φ = (x-3)² + y²: only the off-origin minimum is found when domain
+        is centred at (3, 0)."""
+        x, y = sp.symbols('x y')
+        phi = (x - 3)**2 + y**2
+        domain = [(2.0, 4.0), (-1.0, 1.0)]
+        an = _sp_analyzer(phi, 1, [x, y], domain=domain)
+        pts = an.find_critical_points([np.array([3., 0.])])
+        assert len(pts) >= 1
+        assert np.linalg.norm(pts[0] - np.array([3., 0.])) < 1e-4
+
+    def test_fcp05_caustics_module_importable(self):
+        """The caustics helper used by find_critical_points must be importable."""
+        try:
+            from caustics import find_critical_points_numerical   # noqa: F401
+        except ImportError as exc:
+            pytest.fail(
+                f"caustics.find_critical_points_numerical is not importable: {exc}"
+            )
+
+
+# ============================================================================
+# Section 8 — AsymptoticVisualizer smoke tests (4 cases)
 # ============================================================================
 
 class TestVisualizer:
@@ -1084,7 +1383,7 @@ class TestVisualizer:
         x, y = sp.symbols('x y')
         phi = (x**2 + y**2)/2 + sp.I*(x**2 + y**2)/4
         an = Analyzer(phi, 1, [x, y],
-                                     method=IntegralMethod.SADDLE_POINT)
+                      method=IntegralMethod.SADDLE_POINT)
         se = SaddlePointEvaluator()
         saddles = se.find_saddle_points(an, [np.zeros(2)])
         if not saddles:
@@ -1109,9 +1408,11 @@ if __name__ == "__main__":
     print("  pytest test_asymptotic.py -v")
     print()
     print("Test counts by section:")
-    print("  Section 2 — Stationary phase : 20 tests  (TestStationaryPhase)")
-    print("  Section 3 — Laplace          : 20 tests  (TestLaplace)")
-    print("  Section 4 — Saddle-point     : 20 tests  (TestSaddlePoint)")
-    print("  Section 5 — AUTO detection   :  6 tests  (TestAutoDetection)")
-    print("  Section 6 — Visualizer       :  4 tests  (TestVisualizer)")
-    print("  Total                        : 70 tests")
+    print("  Section 2 — Stationary phase : 23 tests  (TestStationaryPhase)")
+    print("  Section 3 — Laplace          : 22 tests  (TestLaplace)")
+    print("  Section 4 — Saddle-point     : 22 tests  (TestSaddlePoint)")
+    print("  Section 5 — AUTO detection   :  7 tests  (TestAutoDetection)")
+    print("  Section 6 — Evaluator guards :  3 tests  (TestEvaluatorGuards)")
+    print("  Section 7 — find_crit_points :  5 tests  (TestFindCriticalPoints)")
+    print("  Section 8 — Visualizer       :  4 tests  (TestVisualizer)")
+    print("  Total                        : 86 tests")

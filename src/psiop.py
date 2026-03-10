@@ -1654,18 +1654,19 @@ class PseudoDifferentialOperator:
                 # Progress tracking
                 completed = 0
                 total = len(futures)
-                
-                for future in as_completed(futures):
-                    idx, res_norm, s_min = future.result()
-                    resolvent_norm.ravel()[idx] = res_norm
-                    sigma_min_grid.ravel()[idx] = s_min
-                    
-                    completed += 1
-                    if completed % (total // 10) == 0:
-                        print(f'Progress: {completed}/{total} ({100*completed//total}%)')
+            progress_interval = max(1, total // 10)  # FIX: Ensure at least 1
+            for future in as_completed(futures):
+                idx, res_norm, s_min = future.result()
+                resolvent_norm.ravel()[idx] = res_norm
+                sigma_min_grid.ravel()[idx] = s_min
+            
+                completed += 1
+                if completed % progress_interval == 0:  # FIX: Use progress_interval
+                    print(f'Progress: {completed}/{total} ({100*completed//total}%)')
             
         else:
             # Sequential computation
+            progress_interval = max(1, resolution // 10)  # FIX: Ensure at least 1
             for i in range(resolution):
                 for j in range(resolution):
                     lam = Lambda[i, j]
@@ -1682,14 +1683,14 @@ class PseudoDifferentialOperator:
                             A = H - lam * I
                             s = svdvals(A)
                             s_min = s[-1]
-                        
+        
                         sigma_min_grid[i, j] = s_min
                         resolvent_norm[i, j] = 1.0 / (s_min + 1e-16)
                     except Exception:
                         resolvent_norm[i, j] = np.nan
                         sigma_min_grid[i, j] = np.nan
-                
-                if i % (resolution // 10) == 0:
+        
+                if i % progress_interval == 0:  # FIX: Use progress_interval
                     print(f'Progress: {i}/{resolution} rows')
         
         return Lambda, resolvent_norm, sigma_min_grid
@@ -1932,7 +1933,7 @@ class PseudoDifferentialOperator:
         """
         Check if the pseudo-differential symbol p(x, ξ) is elliptic over a given grid.
     
-        A symbol is considered elliptic if its magnitude |p(x, ξ)| remains bounded away from zero 
+        A symbol is considered elliptic if its magnitude |p(x, ξ)| remains bounded away from zero  
         across all points in the spatial-frequency domain. This method evaluates the symbol on a 
         grid of spatial and frequency coordinates and checks whether its minimum absolute value 
         exceeds a specified threshold.
@@ -1954,16 +1955,22 @@ class PseudoDifferentialOperator:
         bool
             True if the symbol is elliptic on the resampled grid, False otherwise.
         """
-        RESAMPLE_SIZE = 32  # Reduced size to prevent memory explosion
+        RESAMPLE_SIZE = 32
         
         if self.dim == 1:
             x_vals = x_grid
             xi_vals = xi_grid
+            
             # Resampling if necessary
             if len(x_vals) > RESAMPLE_SIZE:
                 x_vals = np.linspace(x_vals.min(), x_vals.max(), RESAMPLE_SIZE)
             if len(xi_vals) > RESAMPLE_SIZE:
                 xi_vals = np.linspace(xi_vals.min(), xi_vals.max(), RESAMPLE_SIZE)
+            
+            # Ensure grid includes zero for frequency variable (critical for ellipticity check)
+            if 0 not in xi_vals:
+                xi_vals = np.append(xi_vals, 0.0)
+                xi_vals = np.sort(xi_vals)
         
             X, XI = np.meshgrid(x_vals, xi_vals, indexing='ij')
             symbol_vals = self.p_func(X, XI)
@@ -1978,18 +1985,25 @@ class PseudoDifferentialOperator:
             if len(y_vals) > RESAMPLE_SIZE:
                 y_vals = np.linspace(y_vals.min(), y_vals.max(), RESAMPLE_SIZE)
         
-            # Frequency resampling
+            # Frequency resampling - ensure zero is included
             if len(xi_vals) > RESAMPLE_SIZE:
                 xi_vals = np.linspace(xi_vals.min(), xi_vals.max(), RESAMPLE_SIZE)
             if len(eta_vals) > RESAMPLE_SIZE:
                 eta_vals = np.linspace(eta_vals.min(), eta_vals.max(), RESAMPLE_SIZE)
+            
+            if 0 not in xi_vals:
+                xi_vals = np.append(xi_vals, 0.0)
+                xi_vals = np.sort(xi_vals)
+            if 0 not in eta_vals:
+                eta_vals = np.append(eta_vals, 0.0)
+                eta_vals = np.sort(eta_vals)
         
             X, Y, XI, ETA = np.meshgrid(x_vals, y_vals, xi_vals, eta_vals, indexing='ij')
             symbol_vals = self.p_func(X, Y, XI, ETA)
         
         min_abs_val = np.min(np.abs(symbol_vals))
         return min_abs_val > threshold
-
+    
 
     def is_self_adjoint(self, tol=1e-10):
         """
@@ -3024,7 +3038,7 @@ class PseudoDifferentialOperator:
 # ---------------------------------------------------------------------------
 # Frequency-domain window helpers (reused in both functions)
 # ---------------------------------------------------------------------------
-def _freq_window_2d(P, KXb, KYb, kx_shift, ky_shift, mode):
+def freq_window_2d(P, KXb, KYb, kx_shift, ky_shift, mode):
     """Apply a 2-D frequency window in-place and return P."""
     if mode == 'gaussian':
         sigma_kx = 0.8 * np.max(np.abs(kx_shift))
@@ -3207,7 +3221,7 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
             P = np.clip(P, -clamp, clamp)
 
             # ---- frequency window (operates on kx/ky dims) -------------
-            _freq_window_2d(P, KXb, KYb, kx_s, ky_s, freq_window)
+            freq_window_2d(P, KXb, KYb, kx_s, ky_s, freq_window)
 
             # ---- spatial window ----------------------------------------
             if space_window:

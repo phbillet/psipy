@@ -1,492 +1,1097 @@
 from imports import *
 from psiop import *
+import matplotlib
+matplotlib.use('Agg')  # non-interactive backend – no display required
+import matplotlib.pyplot as plt
+
+# ===========================================================================
+# Helpers
+# ===========================================================================
+
+def _make_1d_grid(L=4.0, N=64):
+    """Return (x_grid, kx) for a periodic 1D domain [-L, L)."""
+    x = np.linspace(-L, L, N, endpoint=False)
+    dx = x[1] - x[0]
+    kx = np.fft.fftfreq(N, d=dx) * 2.0 * np.pi
+    return x, kx
+
+def _make_2d_grid(L=4.0, N=32):
+    """Return (x, y, kx, ky) for a periodic 2D domain."""
+    x = np.linspace(-L, L, N, endpoint=False)
+    y = np.linspace(-L, L, N, endpoint=False)
+    dx = x[1] - x[0]
+    dy = y[1] - y[0]
+    kx = np.fft.fftfreq(N, d=dx) * 2.0 * np.pi
+    ky = np.fft.fftfreq(N, d=dy) * 2.0 * np.pi
+    return x, y, kx, ky
+
+# ===========================================================================
+# 1. Constructor – symbol mode, 1D
+# ===========================================================================
 
 def test_symbol_mode_1d():
     x = symbols('x', real=True)
     xi = symbols('xi', real=True)
-    expr_symbol = x * xi
-    op = PseudoDifferentialOperator(expr=expr_symbol, vars_x=[x], mode='symbol')
-    assert callable(op.p_func), "p_func should be a function"
+    op = PseudoDifferentialOperator(expr=x * xi, vars_x=[x], mode='symbol')
+    assert callable(op.p_func)
     x_vals = np.array([1.0, 2.0])
     xi_vals = np.array([3.0, 4.0])
     result = op.p_func(x_vals[:, None], xi_vals[None, :])
     expected = x_vals[:, None] * xi_vals[None, :]
-    assert np.allclose(result, expected), f"Incorrect result: {result}, expected: {expected}"
+    assert np.allclose(result, expected)
+
+# 2. Constructor – auto mode, 1D (transport)
 
 def test_auto_mode_1d():
     x = symbols('x', real=True)
     u = Function('u')
-    expr_auto = diff(u(x), x)
-    op = PseudoDifferentialOperator(expr=expr_auto, vars_x=[x], var_u=u(x), mode='auto')
-    assert callable(op.p_func), "p_func should be a function"
+    op = PseudoDifferentialOperator(expr=diff(u(x), x), vars_x=[x],
+                                    var_u=u(x), mode='auto')
+    assert callable(op.p_func)
     x_vals = np.array([1.0, 2.0])
     xi_vals = np.array([3.0, 4.0])
     result = op.p_func(x_vals[:, None], xi_vals[None, :])
     expected = 1j * xi_vals[None, :]
-    assert np.allclose(result, expected, atol=1e-6), f"Incorrect result: {result}, expected: {expected}"
+    assert np.allclose(result, expected, atol=1e-6)
+
+# 3. Constructor – invalid mode raises ValueError
 
 def test_invalid_mode_1d():
     x = symbols('x', real=True)
-    expr = x
     try:
-        op = PseudoDifferentialOperator(expr=expr, vars_x=[x], mode='invalid_mode')
+        PseudoDifferentialOperator(expr=x, vars_x=[x], mode='invalid_mode')
         assert False, "no error raised for invalid mode"
     except ValueError as e:
         assert "mode must be 'auto' or 'symbol'" in str(e)
 
+# 4. Constructor – missing var_u raises ValueError
+
 def test_missing_varu_auto_mode_1d():
     x = symbols('x', real=True)
-    expr = x
     try:
-        op = PseudoDifferentialOperator(expr=expr, vars_x=[x], mode='auto')
+        PseudoDifferentialOperator(expr=x, vars_x=[x], mode='auto')
         assert False, "no error raised for missing var_u"
     except ValueError as e:
         assert "var_u must be provided in mode='auto'" in str(e)
 
+# 5. Constructor – symbol mode, 2D
+
 def test_symbol_mode_2d():
     x, y = symbols('x y', real=True)
     xi, eta = symbols('xi eta', real=True)
-    expr_symbol = x * y * xi + eta**2
-    op = PseudoDifferentialOperator(expr=expr_symbol, vars_x=[x, y], mode='symbol')
-    assert callable(op.p_func), "p_func should be a function"
-    x_vals = np.array([1.0, 2.0])
-    y_vals = np.array([0.5, 1.5])
-    xi_vals = np.array([2.0, 3.0])
-    eta_vals = np.array([1.0, 4.0])
-    result = op.p_func(
-        x_vals[:, None, None, None],
-        y_vals[None, :, None, None],
-        xi_vals[None, None, :, None],
-        eta_vals[None, None, None, :]
-    )
-    expected = (
-        x_vals[:, None, None, None] *
-        y_vals[None, :, None, None] *
-        xi_vals[None, None, :, None] +
-        eta_vals[None, None, None, :]**2
-    )
-    assert np.allclose(result, expected), f"Incorrect result: {result}, expected: {expected}"
+    op = PseudoDifferentialOperator(expr=x * y * xi + eta**2,
+                                    vars_x=[x, y], mode='symbol')
+    assert callable(op.p_func)
+    xv = np.array([1.0, 2.0])
+    yv = np.array([0.5, 1.5])
+    xiv = np.array([2.0, 3.0])
+    etav = np.array([1.0, 4.0])
+    result = op.p_func(xv[:, None, None, None], yv[None, :, None, None],
+                       xiv[None, None, :, None], etav[None, None, None, :])
+    expected = (xv[:, None, None, None] * yv[None, :, None, None]
+                * xiv[None, None, :, None] + etav[None, None, None, :]**2)
+    assert np.allclose(result, expected)
+
+# 6. Constructor – auto mode, 2D (Laplacian)
 
 def test_auto_mode_2d():
     x, y = symbols('x y', real=True)
     u = Function('u')
     expr_auto = diff(u(x, y), x, 2) + diff(u(x, y), y, 2)
-    op = PseudoDifferentialOperator(expr=expr_auto, vars_x=[x, y], var_u=u(x, y), mode='auto')
-    assert callable(op.p_func), "p_func should be a function"
-    x_vals = np.array([1.0, 2.0])
-    y_vals = np.array([0.5, 1.5])
-    xi_vals = np.array([2.0, 3.0])
-    eta_vals = np.array([1.0, 4.0])
-    result = op.p_func(
-        x_vals[:, None, None, None],
-        y_vals[None, :, None, None],
-        xi_vals[None, None, :, None],
-        eta_vals[None, None, None, :]
-    )
-    expected = -(xi_vals[None, None, :, None]**2 + eta_vals[None, None, None, :]**2)
-    assert np.allclose(result, expected), f"Incorrect result: {result}, expected: {expected}"
+    op = PseudoDifferentialOperator(expr=expr_auto, vars_x=[x, y],
+                                    var_u=u(x, y), mode='auto')
+    assert callable(op.p_func)
+    xv = np.array([1.0, 2.0])
+    yv = np.array([0.5, 1.5])
+    xiv = np.array([2.0, 3.0])
+    etav = np.array([1.0, 4.0])
+    result = op.p_func(xv[:, None, None, None], yv[None, :, None, None],
+                       xiv[None, None, :, None], etav[None, None, None, :])
+    expected = -(xiv[None, None, :, None]**2 + etav[None, None, None, :]**2)
+    assert np.allclose(result, expected)
+
+# 7. Constructor – invalid mode, 2D
 
 def test_invalid_mode_2d():
     x, y = symbols('x y', real=True)
-    expr = x * y
     try:
-        op = PseudoDifferentialOperator(expr=expr, vars_x=[x, y], mode='invalid_mode')
+        PseudoDifferentialOperator(expr=x * y, vars_x=[x, y],
+                                   mode='invalid_mode')
         assert False, "no error raised for invalid mode"
     except ValueError as e:
         assert "mode must be 'auto' or 'symbol'" in str(e)
 
+# 8. Constructor – 3D raises NotImplementedError
+
 def test_3d_not_implemented():
     x, y, z = symbols('x y z', real=True)
     u = Function('u')
-    expr_3d = u(x, y, z).diff(x, 2) + u(x, y, z).diff(y, 2) + u(x, y, z).diff(z, 2)
     try:
-        op = PseudoDifferentialOperator(expr=expr_3d, vars_x=[x, y, z], var_u=u(x, y, z), mode='auto')
-        assert False, "no error raised for dim = 3"
+        PseudoDifferentialOperator(
+            expr=u(x, y, z).diff(x, 2) + u(x, y, z).diff(y, 2) + u(x, y, z).diff(z, 2),
+            vars_x=[x, y, z], var_u=u(x, y, z), mode='auto')
+        assert False, "no error raised for dim=3"
     except NotImplementedError as e:
         assert "Only 1D and 2D supported" in str(e)
+
+# ===========================================================================
+# 9-17. Symbol order
+# ===========================================================================
 
 def test_symbol_order_1d():
     x, xi = symbols('x xi', real=True, positive=True)
     op = PseudoDifferentialOperator(expr=xi**2, vars_x=[x], mode='symbol')
-    is_hom = op.is_homogeneous()
-    assert is_hom[0] == True
-    order = op.symbol_order()
-    assert order == 2
+    assert op.is_homogeneous()[0] == True
+    assert op.symbol_order() == 2
 
 def test_symbol_order_1d_non_homogeneous():
     x, xi = symbols('x xi', real=True, positive=True)
-    op = PseudoDifferentialOperator(expr=(x*xi)**2, vars_x=[x], mode='symbol')
-    is_hom = op.is_homogeneous()
-    assert is_hom[0] == True
-    order = op.symbol_order()
-    assert order == 2
+    op = PseudoDifferentialOperator(expr=(x * xi)**2, vars_x=[x], mode='symbol')
+    assert op.is_homogeneous()[0] == True
+    assert op.symbol_order() == 2
 
 def test_symbol_order_1d_trig():
     x, xi = symbols('x xi', real=True, positive=True)
-    op = PseudoDifferentialOperator(expr=sin(x)+xi**2, vars_x=[x], mode='symbol')
-    is_hom = op.is_homogeneous()
-    assert is_hom[0] == False
-    order = op.symbol_order()
-    assert order == 2
-
-#def test_symbol_order_1d_exp():
-#    x, xi = symbols('x xi', real=True, positive=True)
-#    expr = exp(x*xi / (x**2 + xi**2))
-#    op = PseudoDifferentialOperator(expr=expr, vars_x=[x], mode='symbol')
-#    order = op.symbol_order()
-#    assert order == 0
-
-#def test_symbol_order_1d_exp_inv():
-#    x = symbols('x', real=True)
-#    xi = symbols('xi', real=True, positive=True)
-#    expr = exp(1 / xi)
-#    op = PseudoDifferentialOperator(expr=expr, vars_x=[x], mode='symbol')
-#    order = op.symbol_order()
-#    assert order == 0
+    op = PseudoDifferentialOperator(expr=sin(x) + xi**2, vars_x=[x], mode='symbol')
+    assert op.is_homogeneous()[0] == False
+    assert op.symbol_order() == 2
 
 def test_symbol_order_1d_cubic():
     x = symbols('x', real=True)
     xi = symbols('xi', real=True, positive=True)
-    expr = xi**3
-    op = PseudoDifferentialOperator(expr=expr, vars_x=[x], mode='symbol')
-    order = op.symbol_order()
-    assert order == 3
+    op = PseudoDifferentialOperator(expr=xi**3, vars_x=[x], mode='symbol')
+    assert op.symbol_order() == 3
 
 def test_symbol_order_2d():
     x, y = symbols('x y', real=True)
     xi, eta = symbols('xi eta', real=True, positive=True)
-    op2d = PseudoDifferentialOperator(expr=xi**2 + eta**2, vars_x=[x, y], mode='symbol')
-    order = op2d.symbol_order()
-    is_hom = op2d.is_homogeneous()
-    assert is_hom[0] == True
-    assert order == 2
+    op = PseudoDifferentialOperator(expr=xi**2 + eta**2, vars_x=[x, y], mode='symbol')
+    assert op.is_homogeneous()[0] == True
+    assert op.symbol_order() == 2
 
 def test_symbol_order_2d_fraction():
     x, y = symbols('x y', real=True)
     xi, eta = symbols('xi eta', real=True, positive=True)
     op = PseudoDifferentialOperator(expr=(xi**2 + eta**2)**(1/3), vars_x=[x, y])
-    is_hom = op.is_homogeneous()
-    assert is_hom[0] == True
-    order = op.symbol_order()
-    assert abs(order - 2/3) < 1e-2
-
-#def test_symbol_order_2d_fraction_plus_one():
-#    x, y = symbols('x y', real=True)
-#    xi, eta = symbols('xi eta', real=True, positive=True)
-#    op = PseudoDifferentialOperator(expr=(xi**2 + eta**2 + 1)**(1/3), vars_x=[x, y])
-#    is_hom = op.is_homogeneous()
-#    assert is_hom[0] == False
-#    order = op.symbol_order()
-#    assert abs(order - 2/3) < 1e-2
-
-#def test_symbol_order_2d_exp_complex():
-#    x, y = symbols('x y', real=True)
-#    xi, eta = symbols('xi eta', real=True, positive=True)
-#    expr = exp(x*xi / (y**2 + eta**2))
-#    op = PseudoDifferentialOperator(expr=expr, vars_x=[x, y], mode='symbol')
-#    order = op.symbol_order(tol=0.1)
-#    assert abs(order - 0) < 0.1
+    assert op.is_homogeneous()[0] == True
+    assert abs(op.symbol_order() - 2/3) < 1e-2
 
 def test_symbol_order_2d_sqrt():
     x, y = symbols('x y', real=True)
     xi, eta = symbols('xi eta', real=True, positive=True)
-    expr = sqrt(xi**2 + eta**2)
-    op = PseudoDifferentialOperator(expr=expr, vars_x=[x, y], mode='symbol')
-    order = op.symbol_order()
-    assert abs(order - 1) < 1e-2
+    op = PseudoDifferentialOperator(expr=sqrt(xi**2 + eta**2), vars_x=[x, y], mode='symbol')
+    assert abs(op.symbol_order() - 1) < 1e-2
 
-#def test_symbol_order_2d_exp_gaussian():
-#    x, y = symbols('x y', real=True)
-#    xi, eta = symbols('xi eta', real=True, positive=True)
-#    expr = exp(-(x**2 + y**2) / (xi**2 + eta**2))
-#    op = PseudoDifferentialOperator(expr=expr, vars_x=[x, y], mode='symbol')
-#    order = op.symbol_order(tol=1e-3)
-#    assert abs(order - 0) < 1e-2
+# ===========================================================================
+# 18-21. Principal symbol
+# ===========================================================================
 
 def test_principal_symbol_1d():
-    x, xi = symbols('x xi', real=True)
+    x = symbols('x', real=True)
     xi = symbols('xi', real=True, positive=True)
     expr = xi**2 + sqrt(xi**2 + x**2)
     p = PseudoDifferentialOperator(expr=expr, vars_x=[x], mode='symbol')
     ps1 = p.principal_symbol(order=1)
     ps2 = p.principal_symbol(order=2)
-    assert ps1 == xi*(xi + 1)
-    assert ps2 == x**2 / (2*xi) + xi**2 + xi
+    assert ps1 == xi * (xi + 1)
+    assert ps2 == x**2 / (2 * xi) + xi**2 + xi
 
 def test_principal_symbol_2d():
     x, y = symbols('x y', real=True)
     xi, eta = symbols('xi eta', real=True, positive=True)
-    p_ordre_1 = (xi**2 + eta**2 + 1)**(1/3)
-    p = PseudoDifferentialOperator(expr=p_ordre_1, vars_x=[x, y], mode='symbol')
+    p = PseudoDifferentialOperator(expr=(xi**2 + eta**2 + 1)**(1/3),
+                                   vars_x=[x, y], mode='symbol')
     ps1 = p.principal_symbol(order=1)
     ps2 = p.principal_symbol(order=2)
-    # These checks are based on the expected symbolic output from the original script
-    # The exact symbolic forms depend on the implementation of principal_symbol
-    # We verify that the function runs without error and returns expressions
     assert ps1 is not None
     assert ps2 is not None
 
+# ===========================================================================
+# 22-27. Asymptotic expansion
+# ===========================================================================
+
 def test_asymptotic_expansion_1d():
     x, xi = symbols('x xi', real=True, positive=True)
-    expr = exp(x*xi / (x**2 + xi**2))
-    p = PseudoDifferentialOperator(expr=expr, vars_x=[x], mode='symbol')
-    expansion = p.asymptotic_expansion(order=4)
-    assert expansion is not None
+    p = PseudoDifferentialOperator(
+        expr=exp(x * xi / (x**2 + xi**2)), vars_x=[x], mode='symbol')
+    assert p.asymptotic_expansion(order=4) is not None
 
 def test_asymptotic_expansion_1d_sqrt():
     x, xi = symbols('x xi', real=True, positive=True)
-    p_ordre_2 = sqrt(xi**2 + 1) + x / (xi**2 + 1)
-    p = PseudoDifferentialOperator(expr=p_ordre_2, vars_x=[x], mode='symbol')
-    expansion = p.asymptotic_expansion(order=4)
-    assert expansion is not None
+    p = PseudoDifferentialOperator(
+        expr=sqrt(xi**2 + 1) + x / (xi**2 + 1), vars_x=[x], mode='symbol')
+    assert p.asymptotic_expansion(order=4) is not None
 
 def test_asymptotic_expansion_2d():
     x, y, xi, eta = symbols('x y xi eta', real=True, positive=True)
-    p_ordre_1 = sqrt(xi**2 + eta**2) + x
-    p = PseudoDifferentialOperator(expr=p_ordre_1, vars_x=[x, y], mode='symbol')
-    expansion = p.asymptotic_expansion(order=4)
-    assert expansion is not None
+    p = PseudoDifferentialOperator(
+        expr=sqrt(xi**2 + eta**2) + x, vars_x=[x, y], mode='symbol')
+    assert p.asymptotic_expansion(order=4) is not None
 
 def test_asymptotic_expansion_2d_frac():
     x, y, xi, eta = symbols('x y xi eta', real=True, positive=True)
-    p_ordre_2 = sqrt(xi**2 + eta**2) + x / (xi**2 + eta**2)
-    p = PseudoDifferentialOperator(expr=p_ordre_2, vars_x=[x, y], mode='symbol')
-    expansion = p.asymptotic_expansion(order=4)
-    assert expansion is not None
+    p = PseudoDifferentialOperator(
+        expr=sqrt(xi**2 + eta**2) + x / (xi**2 + eta**2),
+        vars_x=[x, y], mode='symbol')
+    assert p.asymptotic_expansion(order=4) is not None
 
 def test_asymptotic_expansion_2d_complex():
     x, y, xi, eta = symbols('x y xi eta', real=True, positive=True)
-    expr = exp(x*xi*y*eta / (x**2 + y**2 + xi**2 + eta**2))
-    p = PseudoDifferentialOperator(expr=expr, vars_x=[x, y], mode='symbol')
+    p = PseudoDifferentialOperator(
+        expr=exp(x * xi * y * eta / (x**2 + y**2 + xi**2 + eta**2)),
+        vars_x=[x, y], mode='symbol')
+    assert p.asymptotic_expansion(order=4) is not None
+
+def test_asymptotic_expansion_1d_polynomial_order():
+    """Expansion of xi^3 truncated to order 2 should equal xi^3 (already a polynomial)."""
+    x, xi = symbols('x xi', real=True, positive=True)
+    p = PseudoDifferentialOperator(expr=xi**3, vars_x=[x], mode='symbol')
     expansion = p.asymptotic_expansion(order=4)
+    # The leading term must contain xi^3
     assert expansion is not None
+    assert xi**3 in expansion.as_ordered_terms() or simplify(expansion - xi**3) == 0
+
+# ===========================================================================
+# 28-31. Asymptotic composition
+# ===========================================================================
 
 def test_asymptotic_composition_1d():
     x, xi = symbols('x xi', real=True)
     p1 = PseudoDifferentialOperator(expr=xi + x, vars_x=[x], mode='symbol')
     p2 = PseudoDifferentialOperator(expr=xi + x**2, vars_x=[x], mode='symbol')
-    composition_1d = p1.compose_asymptotic(p2, order=2)
-    assert composition_1d is not None
+    assert p1.compose_asymptotic(p2, order=2) is not None
 
 def test_asymptotic_composition_2d():
     x, y, xi, eta = symbols('x y xi eta', real=True)
-    p1 = PseudoDifferentialOperator(expr=xi**2 + eta**2 + x*y, vars_x=[x, y], mode='symbol')
-    p2 = PseudoDifferentialOperator(expr=xi + eta + x + y, vars_x=[x, y], mode='symbol')
-    composition_2d = p1.compose_asymptotic(p2, order=3)
-    assert composition_2d is not None
+    p1 = PseudoDifferentialOperator(expr=xi**2 + eta**2 + x * y,
+                                    vars_x=[x, y], mode='symbol')
+    p2 = PseudoDifferentialOperator(expr=xi + eta + x + y,
+                                    vars_x=[x, y], mode='symbol')
+    assert p1.compose_asymptotic(p2, order=3) is not None
+
+def test_composition_weyl_mode_1d():
+    x, xi = symbols('x xi', real=True)
+    p1 = PseudoDifferentialOperator(expr=xi**2, vars_x=[x])
+    p2 = PseudoDifferentialOperator(expr=x**2, vars_x=[x])
+    result = p1.compose_asymptotic(p2, order=2, mode='weyl')
+    assert result is not None
+
+def test_composition_kn_weyl_differ():
+    """KN and Weyl compositions of non-commuting symbols should differ."""
+    x, xi = symbols('x xi', real=True)
+    p1 = PseudoDifferentialOperator(expr=x * xi, vars_x=[x])
+    p2 = PseudoDifferentialOperator(expr=xi**2, vars_x=[x])
+    kn = p1.compose_asymptotic(p2, order=2, mode='kn')
+    weyl = p1.compose_asymptotic(p2, order=2, mode='weyl')
+    assert simplify(kn - weyl) != 0
+
+# ===========================================================================
+# 32-33. Commutator
+# ===========================================================================
 
 def test_commutator_1d():
     x, xi = symbols('x xi', real=True)
-    A = PseudoDifferentialOperator(expr=x*xi, vars_x=[x])
+    A = PseudoDifferentialOperator(expr=x * xi, vars_x=[x])
     B = PseudoDifferentialOperator(expr=xi**2, vars_x=[x])
     C = A.commutator_symbolic(B, order=1)
-    simplified_C = simplify(C)
-    # Expected: 2*I*xi^2
-    expected = 2*I*xi**2
-    diff = simplify(simplified_C - expected)
-    # The simplified difference should be 0 or a form that evaluates to 0
-    # Since symbolic simplification might yield different but equivalent forms,
-    # we check if the expression is equivalent to the expected one
-    assert diff == 0 or simplify(diff) == 0
+    expected = 2 * I * xi**2
+    assert simplify(simplify(C) - expected) == 0
 
 def test_commutator_2d():
     x, y, xi, eta = symbols('x y xi eta', real=True)
-    A = PseudoDifferentialOperator(expr=x*xi + y*eta, vars_x=[x, y])
+    A = PseudoDifferentialOperator(expr=x * xi + y * eta, vars_x=[x, y])
     B = PseudoDifferentialOperator(expr=xi**2 + eta**2, vars_x=[x, y])
     C = A.commutator_symbolic(B, order=1)
-    simplified_C = simplify(C)
-    # Expected: 2*I*(xi^2+eta^2)
-    expected = 2*I*(xi**2 + eta**2)
-    diff = simplify(simplified_C - expected)
-    assert diff == 0 or simplify(diff) == 0
+    expected = 2 * I * (xi**2 + eta**2)
+    assert simplify(simplify(C) - expected) == 0
+
+# ===========================================================================
+# 34-37. Inverses
+# ===========================================================================
 
 def test_right_inverse_1d():
     x, xi = symbols('x xi', real=True)
     p = PseudoDifferentialOperator(expr=xi + 1, vars_x=[x], mode='symbol')
-    right_inv_1d = p.right_inverse_asymptotic(order=2)
-    assert right_inv_1d is not None
-    p2 = PseudoDifferentialOperator(expr=right_inv_1d, vars_x=[x], mode='symbol')
-    composition = p.compose_asymptotic(p2, order=2)
-    assert composition is not None
+    r = p.right_inverse_asymptotic(order=2)
+    assert r is not None
+    p2 = PseudoDifferentialOperator(expr=r, vars_x=[x], mode='symbol')
+    assert p.compose_asymptotic(p2, order=2) is not None
 
 def test_right_inverse_2d():
     x, y, xi, eta = symbols('x y xi eta', real=True)
     p = PseudoDifferentialOperator(expr=xi + eta + 1, vars_x=[x, y], mode='symbol')
-    right_inv_2d = p.right_inverse_asymptotic(order=2)
-    assert right_inv_2d is not None
-    p2 = PseudoDifferentialOperator(expr=right_inv_2d, vars_x=[x, y], mode='symbol')
-    composition = p.compose_asymptotic(p2, order=2)
-    assert composition is not None
+    r = p.right_inverse_asymptotic(order=2)
+    assert r is not None
+    p2 = PseudoDifferentialOperator(expr=r, vars_x=[x, y], mode='symbol')
+    assert p.compose_asymptotic(p2, order=2) is not None
 
 def test_left_inverse_1d():
     x, xi = symbols('x xi', real=True)
     p = PseudoDifferentialOperator(expr=xi + 1, vars_x=[x], mode='symbol')
-    left_inv_1d = p.left_inverse_asymptotic(order=2)
-    assert left_inv_1d is not None
-    p2 = PseudoDifferentialOperator(expr=left_inv_1d, vars_x=[x], mode='symbol')
-    composition = p2.compose_asymptotic(p, order=2)
-    assert composition is not None
+    l = p.left_inverse_asymptotic(order=2)
+    assert l is not None
+    p2 = PseudoDifferentialOperator(expr=l, vars_x=[x], mode='symbol')
+    assert p2.compose_asymptotic(p, order=2) is not None
 
 def test_left_inverse_2d():
     x, y, xi, eta = symbols('x y xi eta', real=True)
     p = PseudoDifferentialOperator(expr=xi + eta + 1, vars_x=[x, y], mode='symbol')
-    left_inv_2d = p.left_inverse_asymptotic(order=3)
-    assert left_inv_2d is not None
-    p2 = PseudoDifferentialOperator(expr=left_inv_2d, vars_x=[x, y], mode='symbol')
-    composition = p2.compose_asymptotic(p, order=3)
-    assert composition is not None
+    l = p.left_inverse_asymptotic(order=3)
+    assert l is not None
+    p2 = PseudoDifferentialOperator(expr=l, vars_x=[x, y], mode='symbol')
+    assert p2.compose_asymptotic(p, order=3) is not None
 
-def test_ellipticity_1d():
-    x, xi = symbols('x xi', real=True)
-    x_vals = np.linspace(-1, 1, 100)
-    xi_vals = np.linspace(-10, 10, 100)
-    op1 = PseudoDifferentialOperator(expr=xi**2 + 1, vars_x=[x], mode='symbol')
-    is_elliptic = op1.is_elliptic_numerically(x_vals, xi_vals)
-    assert is_elliptic == True
-    op2 = PseudoDifferentialOperator(expr=xi, vars_x=[x], mode='symbol')
-    is_elliptic = op2.is_elliptic_numerically(x_vals, xi_vals)
-    assert is_elliptic == True
-
-def test_ellipticity_2d():
-    x, y, xi, eta = symbols('x y xi eta', real=True)
-    x_vals = np.linspace(-1, 1, 50)
-    y_vals = np.linspace(-1, 1, 50)
-    xi_vals = np.linspace(-10, 10, 50)
-    eta_vals = np.linspace(-10, 10, 50)
-    op3 = PseudoDifferentialOperator(expr=xi**2 + eta**2 + 1, vars_x=[x, y], mode='symbol')
-    is_elliptic = op3.is_elliptic_numerically((x_vals, y_vals), (xi_vals, eta_vals))
-    assert is_elliptic == True
-    op4 = PseudoDifferentialOperator(expr=xi + eta, vars_x=[x, y], mode='symbol')
-    is_not_elliptic = op4.is_elliptic_numerically((x_vals, y_vals), (xi_vals, eta_vals))
-    assert is_not_elliptic == False
-
-def test_formal_adjoint_1d():
-    x, xi = symbols('x xi', real=True)
-    xi = symbols('xi', real=True, positive=True)
-    x = symbols('x', real=True, positive=True)
-    p_ordre_1 = xi**2
-    p = PseudoDifferentialOperator(expr=p_ordre_1, vars_x=[x], mode='symbol')
-    adjoint = p.formal_adjoint()
-    is_self_adjoint = p.is_self_adjoint()
-    assert adjoint is not None
-    assert is_self_adjoint == True
-
-def test_formal_adjoint_1d_complex():
-    x, xi = symbols('x xi', real=True)
-    xi = symbols('xi', real=True, positive=True)
-    x = symbols('x', real=True)
-    p_expr = (1 + I * x) * xi + exp(-x) / xi
-    p = PseudoDifferentialOperator(expr=p_expr, vars_x=[x], mode='symbol')
-    adjoint = p.formal_adjoint()
-    is_self_adjoint = p.is_self_adjoint()
-    assert adjoint is not None
-    assert is_self_adjoint == False
-
-def test_formal_adjoint_2d():
-    xi, eta = symbols('xi eta', real=True, positive=True)
-    x, y = symbols('x y', real=True, positive=True)
-    p_ordre_1 = xi**2 + eta**2
-    p = PseudoDifferentialOperator(expr=p_ordre_1, vars_x=[x, y], mode='symbol')
-    adjoint = p.formal_adjoint()
-    is_self_adjoint = p.is_self_adjoint()
-    assert adjoint is not None
-    assert is_self_adjoint == True
-
-def test_formal_adjoint_2d_asymmetric():
-    xi, eta = symbols('xi eta', real=True, positive=True)
-    x, y = symbols('x y', real=True, positive=True)
-    p_ordre_1 = y * xi**2 + x * eta**2
-    p = PseudoDifferentialOperator(expr=p_ordre_1, vars_x=[x, y], mode='symbol')
-    adjoint = p.formal_adjoint()
-    is_self_adjoint = p.is_self_adjoint()
-    assert adjoint is not None
-    assert is_self_adjoint == True
-
-def test_formal_adjoint_2d_complex():
-    x, y, xi, eta = symbols('x y xi eta', real=True)
-    xi = symbols('xi', real=True, positive=True)
-    eta = symbols('eta', real=True, positive=True)
-    x, y = symbols('x y', real=True)
-    p_expr_2d = (x + I*y)*xi + (y - I*x)*eta + exp(-x - y)/(xi + eta)
-    p2 = PseudoDifferentialOperator(expr=p_expr_2d, vars_x=[x, y], mode='symbol')
-    adjoint_2d = p2.formal_adjoint()
-    is_self_adjoint = p2.is_self_adjoint()
-    assert adjoint_2d is not None
-    assert is_self_adjoint == False
+# ===========================================================================
+# 38-39. Right/left inverse compositions (algebraic check)
+# ===========================================================================
 
 def test_left_inverse_composition():
     x, xi = symbols('x xi', real=True)
-    p_symbol = xi**2 + x**2 + 1
-    p = PseudoDifferentialOperator(expr=p_symbol, vars_x=[x], mode='symbol')
-    left_inv = p.left_inverse_asymptotic(order=2)
-    p_left_inv = PseudoDifferentialOperator(expr=left_inv, vars_x=[x], mode='symbol')
-    composition = p_left_inv.compose_asymptotic(p, order=2)
+    p = PseudoDifferentialOperator(expr=xi**2 + x**2 + 1, vars_x=[x], mode='symbol')
+    l = p.left_inverse_asymptotic(order=2)
+    p_l = PseudoDifferentialOperator(expr=l, vars_x=[x], mode='symbol')
+    composition = p_l.compose_asymptotic(p, order=2)
     assert composition is not None
 
 def test_right_inverse_composition():
     x, xi = symbols('x xi', real=True)
-    p_symbol = xi**2 + x**2 + 1
-    p = PseudoDifferentialOperator(expr=p_symbol, vars_x=[x], mode='symbol')
-    right_inv = p.right_inverse_asymptotic(order=2)
-    p_right_inv = PseudoDifferentialOperator(expr=right_inv, vars_x=[x], mode='symbol')
-    composition = p.compose_asymptotic(p_right_inv, order=2)
+    p = PseudoDifferentialOperator(expr=xi**2 + x**2 + 1, vars_x=[x], mode='symbol')
+    r = p.right_inverse_asymptotic(order=2)
+    p_r = PseudoDifferentialOperator(expr=r, vars_x=[x], mode='symbol')
+    composition = p.compose_asymptotic(p_r, order=2)
     assert composition is not None
 
-def test_trace_formula():
+# ===========================================================================
+# 40-47. Formal adjoint & self-adjointness
+# ===========================================================================
+
+def test_formal_adjoint_1d():
+    x = symbols('x', real=True, positive=True)
+    xi = symbols('xi', real=True, positive=True)
+    p = PseudoDifferentialOperator(expr=xi**2, vars_x=[x], mode='symbol')
+    adjoint = p.formal_adjoint()
+    assert adjoint is not None
+    assert p.is_self_adjoint() == True
+
+def test_formal_adjoint_1d_complex():
+    x = symbols('x', real=True)
+    xi = symbols('xi', real=True, positive=True)
+    p = PseudoDifferentialOperator(expr=(1 + I * x) * xi + exp(-x) / xi,
+                                   vars_x=[x], mode='symbol')
+    adjoint = p.formal_adjoint()
+    assert adjoint is not None
+    assert p.is_self_adjoint() == False
+
+def test_formal_adjoint_2d():
+    x, y = symbols('x y', real=True, positive=True)
+    xi, eta = symbols('xi eta', real=True, positive=True)
+    p = PseudoDifferentialOperator(expr=xi**2 + eta**2, vars_x=[x, y], mode='symbol')
+    assert p.formal_adjoint() is not None
+    assert p.is_self_adjoint() == True
+
+def test_formal_adjoint_2d_asymmetric():
+    x, y = symbols('x y', real=True, positive=True)
+    xi, eta = symbols('xi eta', real=True, positive=True)
+    p = PseudoDifferentialOperator(expr=y * xi**2 + x * eta**2,
+                                   vars_x=[x, y], mode='symbol')
+    assert p.formal_adjoint() is not None
+    assert p.is_self_adjoint() == True
+
+def test_formal_adjoint_2d_complex():
+    x, y = symbols('x y', real=True)
+    xi = symbols('xi', real=True, positive=True)
+    eta = symbols('eta', real=True, positive=True)
+    p_expr = (x + I * y) * xi + (y - I * x) * eta + exp(-x - y) / (xi + eta)
+    p = PseudoDifferentialOperator(expr=p_expr, vars_x=[x, y], mode='symbol')
+    assert p.formal_adjoint() is not None
+    assert p.is_self_adjoint() == False
+
+# ===========================================================================
+# 48-53. Ellipticity
+# ===========================================================================
+
+def test_ellipticity_1d_elliptic():
+    x, xi = symbols('x xi', real=True)
+    x_vals = np.linspace(-1, 1, 100)
+    xi_vals = np.linspace(-10, 10, 100)
+    op = PseudoDifferentialOperator(expr=xi**2 + 1, vars_x=[x], mode='symbol')
+    assert op.is_elliptic_numerically(x_vals, xi_vals) == True
+
+def test_ellipticity_1d_non_elliptic():
+    x, xi = symbols('x xi', real=True)
+    x_vals = np.linspace(-1, 1, 100)
+    xi_vals = np.linspace(-10, 10, 100)
+    # xi vanishes at xi=0
+    op = PseudoDifferentialOperator(expr=xi, vars_x=[x], mode='symbol')
+    assert op.is_elliptic_numerically(x_vals, xi_vals) == False
+
+def test_ellipticity_1d_constant_nonzero():
+    x, xi = symbols('x xi', real=True)
+    x_vals = np.linspace(-1, 1, 50)
+    xi_vals = np.linspace(-5, 5, 50)
+    op = PseudoDifferentialOperator(expr=xi**2 + 1, vars_x=[x], mode='symbol')
+    assert op.is_elliptic_numerically(x_vals, xi_vals) == True
+
+def test_ellipticity_2d_elliptic():
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    x_vals = np.linspace(-1, 1, 30)
+    y_vals = np.linspace(-1, 1, 30)
+    xi_vals = np.linspace(-5, 5, 30)
+    eta_vals = np.linspace(-5, 5, 30)
+    op = PseudoDifferentialOperator(expr=xi**2 + eta**2 + 1,
+                                    vars_x=[x, y], mode='symbol')
+    assert op.is_elliptic_numerically((x_vals, y_vals), (xi_vals, eta_vals)) == True
+
+def test_ellipticity_2d_non_elliptic():
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    x_vals = np.linspace(-1, 1, 30)
+    y_vals = np.linspace(-1, 1, 30)
+    xi_vals = np.linspace(-5, 5, 30)
+    eta_vals = np.linspace(-5, 5, 30)
+    # xi+eta vanishes on the anti-diagonal
+    op = PseudoDifferentialOperator(expr=xi + eta, vars_x=[x, y], mode='symbol')
+    assert op.is_elliptic_numerically((x_vals, y_vals), (xi_vals, eta_vals)) == False
+
+# ===========================================================================
+# 54-57. Trace formula
+# ===========================================================================
+
+def test_trace_formula_symbolic():
     x = symbols('x', real=True)
     xi = symbols('xi', real=True)
-    p = exp(-(x**2 + xi**2))
-    P = PseudoDifferentialOperator(p, [x], mode='symbol')
+    P = PseudoDifferentialOperator(exp(-(x**2 + xi**2)), [x], mode='symbol')
     trace = P.trace_formula()
     assert trace is not None
 
-def test_exponential_symbol_1d():
+def test_trace_formula_numerical_1d():
     x = symbols('x', real=True)
     xi = symbols('xi', real=True)
-    H = xi**2 + x**2
-    H_op = PseudoDifferentialOperator(H, [x], mode='symbol')
+    P = PseudoDifferentialOperator(exp(-(x**2 + xi**2)), [x], mode='symbol')
+    trace_num = P.trace_formula(
+        numerical=True,
+        x_bounds=[(-6, 6)],
+        xi_bounds=[(-6, 6)]
+    )
+    # Analytical value: (1/2π) * π = 0.5  (double Gaussian integral)
+    assert abs(trace_num - 0.5) < 1e-2
+
+def test_trace_formula_numerical_2d():
+    x, y = symbols('x y', real=True)
+    xi, eta = symbols('xi eta', real=True)
+    P = PseudoDifferentialOperator(exp(-(x**2 + y**2 + xi**2 + eta**2)),
+                                   [x, y], mode='symbol')
+    trace_num = P.trace_formula(
+        numerical=True,
+        x_bounds=[(-4, 4), (-4, 4)],
+        xi_bounds=[(-4, 4), (-4, 4)]
+    )
+    # (1/4π²) * π² = 0.25
+    assert abs(trace_num - 0.25) < 1e-2
+
+def test_trace_formula_missing_bounds_raises():
+    x = symbols('x', real=True)
+    xi = symbols('xi', real=True)
+    P = PseudoDifferentialOperator(xi**2, [x], mode='symbol')
+    try:
+        P.trace_formula(numerical=True)
+        assert False, "should raise ValueError for missing bounds"
+    except ValueError:
+        pass
+
+# ===========================================================================
+# 58-63. Exponential symbol
+# ===========================================================================
+
+def test_exponential_symbol_1d():
+    x, xi = symbols('x xi', real=True)
     t_sym = symbols('t', real=True)
-    U_symbol = H_op.exponential_symbol(t=-I*t_sym, order=3)
-    assert U_symbol is not None
+    H_op = PseudoDifferentialOperator(xi**2 + x**2, [x], mode='symbol')
+    assert H_op.exponential_symbol(t=-I * t_sym, order=3) is not None
 
 def test_exponential_symbol_heat_kernel():
-    x = symbols('x', real=True)
-    xi = symbols('xi', real=True)
-    Laplacian = -xi**2
-    L_op = PseudoDifferentialOperator(Laplacian, [x], mode='symbol')
-    heat_kernel = L_op.exponential_symbol(t=0.1, order=5)
-    assert heat_kernel is not None
+    x, xi = symbols('x xi', real=True)
+    L_op = PseudoDifferentialOperator(-xi**2, [x], mode='symbol')
+    result = L_op.exponential_symbol(t=0.1, order=5)
+    assert result is not None
 
 def test_exponential_symbol_fractional_schrodinger():
     x, xi = symbols('x xi', real=True)
-    alpha = 1.5
-    H_frac = xi**alpha
-    H_frac_op = PseudoDifferentialOperator(H_frac, [x], mode='symbol')
     t_sym = symbols('t', real=True)
-    U_frac_symbol = H_frac_op.exponential_symbol(t=-I*t_sym, order=3)
-    assert U_frac_symbol is not None
+    H_frac_op = PseudoDifferentialOperator(xi**1.5, [x], mode='symbol')
+    assert H_frac_op.exponential_symbol(t=-I * t_sym, order=3) is not None
 
 def test_exponential_symbol_gibbs():
-    x, xi = symbols('x xi', real=True)
-    H_classical = xi**2/2 + x**4/4
-    H_classical_op = PseudoDifferentialOperator(H_classical, [x], mode='symbol')
-    beta = symbols('beta', real=True)
-    Gibbs_symbol = H_classical_op.exponential_symbol(t=-beta, order=4)
-    assert Gibbs_symbol is not None
+    x, xi, beta = symbols('x xi beta', real=True)
+    H_op = PseudoDifferentialOperator(xi**2 / 2 + x**4 / 4, [x], mode='symbol')
+    assert H_op.exponential_symbol(t=-beta, order=4) is not None
 
 def test_exponential_symbol_2d():
     x, y = symbols('x y', real=True)
     xi, eta = symbols('xi eta', real=True)
-    Laplacian_2D = - (xi**2 + eta**2)
-    L_2D_op = PseudoDifferentialOperator(Laplacian_2D, [x, y], mode='symbol')
-    heat_kernel_2D = L_2D_op.exponential_symbol(t=0.05, order=4)
-    assert heat_kernel_2D is not None
+    L_op = PseudoDifferentialOperator(-(xi**2 + eta**2), [x, y], mode='symbol')
+    assert L_op.exponential_symbol(t=0.05, order=4) is not None
 
 def test_exponential_symbol_2d_harmonic_oscillator():
     x, y = symbols('x y', real=True)
     xi, eta = symbols('xi eta', real=True)
-    H_2D = xi**2 + eta**2 + x**2 + y**2
-    H_2D_op = PseudoDifferentialOperator(H_2D, [x, y], mode='symbol')
     t_sym = symbols('t', real=True)
-    U_2D_symbol = H_2D_op.exponential_symbol(t=-I*t_sym, order=3)
-    assert U_2D_symbol is not None
+    H_op = PseudoDifferentialOperator(xi**2 + eta**2 + x**2 + y**2,
+                                      [x, y], mode='symbol')
+    assert H_op.exponential_symbol(t=-I * t_sym, order=3) is not None
+
+# ===========================================================================
+# 64-67. Symplectic / Hamiltonian flow (symbolic correctness)
+# ===========================================================================
+
+def test_symplectic_flow_1d_laplacian():
+    """For p = xi^2: dx/dt = 2xi, dxi/dt = 0."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2, [x], mode='symbol')
+    H = op.symplectic_flow()
+    assert simplify(H['dx/dt'] - 2 * xi) == 0
+    assert simplify(H['dxi/dt']) == 0
+
+def test_symplectic_flow_1d_harmonic():
+    """For p = xi^2 + x^2: dx/dt = 2xi, dxi/dt = -2x."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + x**2, [x], mode='symbol')
+    H = op.symplectic_flow()
+    assert simplify(H['dx/dt'] - 2 * xi) == 0
+    assert simplify(H['dxi/dt'] + 2 * x) == 0
+
+def test_symplectic_flow_2d_laplacian():
+    """For p = xi^2 + eta^2: dx/dt = 2xi, dy/dt = 2eta, dxi/dt = 0, deta/dt = 0."""
+    x, y = symbols('x y', real=True)
+    xi, eta = symbols('xi eta', real=True)
+    op = PseudoDifferentialOperator(xi**2 + eta**2, [x, y], mode='symbol')
+    H = op.symplectic_flow()
+    assert simplify(H['dx/dt'] - 2 * xi) == 0
+    assert simplify(H['dy/dt'] - 2 * eta) == 0
+    assert simplify(H['dxi/dt']) == 0
+    assert simplify(H['deta/dt']) == 0
+
+def test_symplectic_flow_1d_spatial():
+    """For p = x*xi: dx/dt = x, dxi/dt = -xi."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(x * xi, [x], mode='symbol')
+    H = op.symplectic_flow()
+    assert simplify(H['dx/dt'] - x) == 0
+    assert simplify(H['dxi/dt'] + xi) == 0
+
+# ===========================================================================
+# 68-73. evaluate() and clear_cache()
+# ===========================================================================
+
+def test_evaluate_1d_returns_correct_values():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2, [x], mode='symbol')
+    N = 8
+    x_grid, kx = _make_1d_grid(N=N)
+    KX = kx
+    X = x_grid
+    # For evaluate in 1D: Y and KY are ignored
+    vals = op.evaluate(X, None, KX, None, cache=False)
+    expected = kx**2
+    assert np.allclose(vals, expected)
+
+def test_evaluate_1d_cache_returns_same_object():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2, [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(N=8)
+    v1 = op.evaluate(x_grid, None, kx, None, cache=True)
+    v2 = op.evaluate(x_grid, None, kx, None, cache=True)
+    assert v1 is v2, "second call should return the cached object"
+
+def test_evaluate_clear_cache():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2, [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(N=8)
+    op.evaluate(x_grid, None, kx, None, cache=True)
+    assert op.symbol_cached is not None
+    op.clear_cache()
+    assert op.symbol_cached is None
+
+def test_evaluate_no_cache_does_not_store():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2, [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(N=8)
+    op.evaluate(x_grid, None, kx, None, cache=False)
+    assert op.symbol_cached is None
+
+# ===========================================================================
+# 74-82. apply() — constant-coefficient symbol (1D, periodic)
+# ===========================================================================
+
+def _gaussian(x, sigma=1.0):
+    return np.exp(-x**2 / (2 * sigma**2))
+
+def test_apply_identity_1d():
+    """Symbol p = 1 should return u unchanged (up to numerical noise)."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(Integer(1), [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=6.0, N=128)
+    u = _gaussian(x_grid)
+    result = op.apply(u, x_grid, kx, boundary_condition='periodic')
+    assert np.allclose(np.real(result), u, atol=1e-4)
+
+def test_apply_derivative_1d():
+    """Symbol p = i*xi: applying to Gaussian should give its derivative."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(I * xi_sym, [x_sym], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=6.0, N=512)
+    sigma = 1.0
+    u = _gaussian(x_grid, sigma)
+    du_analytical = -x_grid / sigma**2 * u
+    result = op.apply(u, x_grid, kx, boundary_condition='periodic')
+    # Compare central region where boundary effects are negligible
+    mid = slice(100, 412)
+    assert np.allclose(np.real(result)[mid], du_analytical[mid], atol=1e-2)
+
+def test_apply_laplacian_1d():
+    """Symbol p = -xi^2: result should approximate the second derivative."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(-xi_sym**2, [x_sym], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=6.0, N=512)
+    sigma = 1.0
+    u = _gaussian(x_grid, sigma)
+    d2u_analytical = ((x_grid**2 / sigma**4) - 1 / sigma**2) * u
+    result = op.apply(u, x_grid, kx, boundary_condition='periodic')
+    mid = slice(100, 412)
+    assert np.allclose(np.real(result)[mid], d2u_analytical[mid], atol=5e-2)
+
+def test_apply_spatial_symbol_1d_periodic():
+    """Spatially varying symbol: x * (i*xi). Op(u) ≈ x * u'."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(x_sym * I * xi_sym, [x_sym], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=5.0, N=256)
+    sigma = 0.8
+    u = _gaussian(x_grid, sigma)
+    du = -x_grid / sigma**2 * u          # u' ≈ for Gaussian
+    expected = x_grid * du
+    result = op.apply(u, x_grid, kx, boundary_condition='periodic')
+    mid = slice(60, 196)
+    assert np.allclose(np.real(result)[mid], expected[mid], atol=5e-2)
+
+def test_apply_invalid_bc_raises():
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi_sym**2, [x_sym], mode='symbol')
+    x_grid, kx = _make_1d_grid(N=32)
+    u = np.ones(32)
+    try:
+        op.apply(u, x_grid, kx, boundary_condition='unknown')
+        assert False, "should raise ValueError"
+    except ValueError:
+        pass
+
+def test_apply_constant_symbol_linear():
+    """p = 2*xi^2 should be exactly twice p = xi^2."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op1 = PseudoDifferentialOperator(xi_sym**2, [x_sym], mode='symbol')
+    op2 = PseudoDifferentialOperator(2 * xi_sym**2, [x_sym], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=6.0, N=128)
+    u = _gaussian(x_grid)
+    r1 = op1.apply(u, x_grid, kx)
+    r2 = op2.apply(u, x_grid, kx)
+    assert np.allclose(r2, 2 * r1, atol=1e-10)
+
+def test_apply_dirichlet_bc_1d():
+    """Dirichlet BC path should not raise and produce an array of same shape."""
+    x_sym, xi_sym = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(I * xi_sym, [x_sym], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+    result = op.apply(u, x_grid, kx, boundary_condition='dirichlet')
+    assert result.shape == u.shape
+
+def test_apply_2d_constant_periodic():
+    """2D Laplacian -xi^2 - eta^2 applied to separable Gaussian."""
+    x_sym, y_sym = symbols('x y', real=True)
+    xi_sym, eta_sym = symbols('xi eta', real=True)
+    op = PseudoDifferentialOperator(-(xi_sym**2 + eta_sym**2),
+                                    [x_sym, y_sym], mode='symbol')
+    x_grid, y_grid, kx, ky = _make_2d_grid(L=5.0, N=32)
+    X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
+    sigma = 1.0
+    u = np.exp(-(X**2 + Y**2) / (2 * sigma**2))
+    result = op.apply(u, x_grid, kx, y_grid=y_grid, ky=ky,
+                      boundary_condition='periodic')
+    assert result.shape == u.shape
+    # Laplacian of Gaussian: ((x^2+y^2)/sigma^4 - 2/sigma^2) * G
+    d2u = ((X**2 + Y**2) / sigma**4 - 2 / sigma**2) * u
+    # Check central region
+    s = slice(8, 24)
+    assert np.allclose(np.real(result)[s, s], d2u[s, s], atol=0.1)
+
+# ===========================================================================
+# 83-86. kohn_nirenberg_fft standalone tests
+# ===========================================================================
+
+def test_kn_fft_derivative():
+    """kohn_nirenberg_fft with symbol i*xi should approximate first derivative."""
+    from scipy.fft import fft as sfft, ifft as sifft
+    x_grid, kx = _make_1d_grid(L=6.0, N=512)
+    sigma = 1.0
+    u = _gaussian(x_grid, sigma)
+    du_exact = -x_grid / sigma**2 * u
+    result = kohn_nirenberg_fft(
+        u_vals=u,
+        symbol_func=lambda x, xi: 1j * xi,
+        x_grid=x_grid,
+        kx=kx,
+        fft_func=sfft,
+        ifft_func=sifft,
+        dim=1,
+        freq_window='gaussian',
+    )
+    mid = slice(100, 412)
+    assert np.allclose(np.real(result)[mid], du_exact[mid], atol=1e-2)
+
+def test_kn_fft_identity():
+    from scipy.fft import fft as sfft, ifft as sifft
+    x_grid, kx = _make_1d_grid(L=6.0, N=128)
+    u = _gaussian(x_grid)
+    result = kohn_nirenberg_fft(
+        u_vals=u,
+        symbol_func=lambda x, xi: np.ones_like(x * xi, dtype=complex),
+        x_grid=x_grid,
+        kx=kx,
+        fft_func=sfft,
+        ifft_func=sifft,
+        dim=1,
+        freq_window=None,
+    )
+    assert np.allclose(np.real(result), u, atol=1e-4)
+
+def test_kn_fft_hann_window():
+    """Hann windowed version should produce a real-shaped result without exception."""
+    from scipy.fft import fft as sfft, ifft as sifft
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+    result = kohn_nirenberg_fft(
+        u_vals=u,
+        symbol_func=lambda x, xi: 1j * xi,
+        x_grid=x_grid,
+        kx=kx,
+        fft_func=sfft,
+        ifft_func=sifft,
+        dim=1,
+        freq_window='hann',
+    )
+    assert result.shape == u.shape
+
+def test_kn_fft_space_window():
+    from scipy.fft import fft as sfft, ifft as sifft
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+    result = kohn_nirenberg_fft(
+        u_vals=u,
+        symbol_func=lambda x, xi: np.ones_like(x * xi, dtype=complex),
+        x_grid=x_grid,
+        kx=kx,
+        fft_func=sfft,
+        ifft_func=sifft,
+        dim=1,
+        freq_window='gaussian',
+        space_window=True,
+    )
+    assert result.shape == u.shape
+
+# ===========================================================================
+# 87-91. kohn_nirenberg_nonperiodic standalone tests
+# ===========================================================================
+
+def test_kn_nonperiodic_derivative():
+    """Non-periodic KN with symbol i*xi should approximate the derivative."""
+    x_grid = np.linspace(-8, 8, 300)
+    xi_grid = np.fft.fftshift(np.fft.fftfreq(len(x_grid),
+                                              d=x_grid[1] - x_grid[0])) * 2 * np.pi
+    sigma = 1.0
+    u = _gaussian(x_grid, sigma)
+    du_exact = -x_grid / sigma**2 * u
+    result = kohn_nirenberg_nonperiodic(
+        u_vals=u,
+        x_grid=x_grid,
+        xi_grid=xi_grid,
+        symbol_func=lambda x, xi: 1j * xi,
+    )
+    mid = slice(60, 240)
+    assert np.allclose(np.real(result)[mid], du_exact[mid], atol=5e-2)
+
+def test_kn_nonperiodic_returns_correct_shape():
+    x_grid = np.linspace(-5, 5, 64)
+    xi_grid = np.fft.fftshift(np.fft.fftfreq(64, d=x_grid[1] - x_grid[0])) * 2 * np.pi
+    u = np.exp(-x_grid**2)
+    result = kohn_nirenberg_nonperiodic(u, x_grid, xi_grid,
+                                        lambda x, xi: np.ones_like(x * xi, dtype=complex))
+    assert result.shape == u.shape
+
+def test_kn_nonperiodic_cache_reuse():
+    """Second call with the same grid should reuse the cache (no warning the 2nd time)."""
+    import warnings as _warnings
+    x_grid = np.linspace(-4, 4, 48)
+    xi_grid = np.fft.fftshift(np.fft.fftfreq(48, d=x_grid[1] - x_grid[0])) * 2 * np.pi
+    u = np.exp(-x_grid**2)
+    invalidate_kn_cache()
+    # First call: cache miss → UserWarning
+    with _warnings.catch_warnings(record=True) as w:
+        _warnings.simplefilter("always")
+        kohn_nirenberg_nonperiodic(u, x_grid, xi_grid,
+                                   lambda x, xi: 1j * xi)
+        assert len(w) == 1
+    # Second call: cache hit → no warning
+    with _warnings.catch_warnings(record=True) as w:
+        _warnings.simplefilter("always")
+        kohn_nirenberg_nonperiodic(u, x_grid, xi_grid,
+                                   lambda x, xi: 1j * xi)
+        assert len(w) == 0
+
+def test_invalidate_kn_cache():
+    """invalidate_kn_cache() should reset the global cache."""
+    import warnings as _warnings
+    x_grid = np.linspace(-4, 4, 48)
+    xi_grid = np.fft.fftshift(np.fft.fftfreq(48, d=x_grid[1] - x_grid[0])) * 2 * np.pi
+    u = np.exp(-x_grid**2)
+    invalidate_kn_cache()
+    with _warnings.catch_warnings(record=True):
+        _warnings.simplefilter("always")
+        kohn_nirenberg_nonperiodic(u, x_grid, xi_grid, lambda x, xi: 1j * xi)
+    # Invalidate and confirm cache miss fires again
+    invalidate_kn_cache()
+    with _warnings.catch_warnings(record=True) as w:
+        _warnings.simplefilter("always")
+        kohn_nirenberg_nonperiodic(u, x_grid, xi_grid, lambda x, xi: 1j * xi)
+        assert len(w) == 1
+
+def test_kn_nonperiodic_hann_window():
+    x_grid = np.linspace(-5, 5, 64)
+    xi_grid = np.fft.fftshift(np.fft.fftfreq(64, d=x_grid[1] - x_grid[0])) * 2 * np.pi
+    u = np.exp(-x_grid**2)
+    result = kohn_nirenberg_nonperiodic(u, x_grid, xi_grid,
+                                        lambda x, xi: 1j * xi,
+                                        freq_window='hann')
+    assert result.shape == u.shape
+
+# ===========================================================================
+# 92-95. _build_operator_matrix & _compute_eigenvalues
+# ===========================================================================
+
+def test_build_operator_matrix_spectral():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(-xi**2, [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=np.pi, N=16)
+    H, x_used, k_used = op._build_operator_matrix(x_grid, 'spectral', L=None, N=None)
+    assert H.shape == (16, 16)
+    assert np.iscomplexobj(H)
+
+def test_build_operator_matrix_finite_difference():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(-xi**2, [x], mode='symbol')
+    x_grid = np.linspace(-np.pi, np.pi, 16, endpoint=False)
+    H, x_used, k_used = op._build_operator_matrix(x_grid, 'finite_difference',
+                                                   L=None, N=None)
+    assert H.shape == (16, 16)
+
+def test_build_operator_matrix_invalid_method():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(-xi**2, [x], mode='symbol')
+    x_grid = np.linspace(-np.pi, np.pi, 16, endpoint=False)
+    try:
+        op._build_operator_matrix(x_grid, 'invalid_method', None, None)
+        assert False, "should raise ValueError"
+    except ValueError:
+        pass
+
+def test_compute_eigenvalues_shape():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(-xi**2, [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=np.pi, N=16)
+    H, _, _ = op._build_operator_matrix(x_grid, 'spectral', None, None)
+    eigs = op._compute_eigenvalues(H, use_sparse=False)
+    assert eigs is not None
+    assert eigs.shape == (16,)
+
+# ===========================================================================
+# 96-98. _compute_pseudospectrum (unit-level)
+# ===========================================================================
+
+def test_compute_pseudospectrum_shape():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(-xi**2, [x], mode='symbol')
+    N = 12
+    x_grid = np.linspace(-np.pi, np.pi, N, endpoint=False)
+    H, _, _ = op._build_operator_matrix(x_grid, 'spectral', None, None)
+    Lambda, res_norm, sigma_min = op._compute_pseudospectrum(
+        H,
+        lambda_real_range=(-5, 5),
+        lambda_imag_range=(-5, 5),
+        resolution=10,
+        parallel=False
+    )
+    assert Lambda.shape == (10, 10)
+    assert res_norm.shape == (10, 10)
+    assert sigma_min.shape == (10, 10)
+
+def test_compute_pseudospectrum_resolvent_positive():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(-xi**2, [x], mode='symbol')
+    N = 10
+    x_grid = np.linspace(-np.pi, np.pi, N, endpoint=False)
+    H, _, _ = op._build_operator_matrix(x_grid, 'spectral', None, None)
+    _, res_norm, _ = op._compute_pseudospectrum(
+        H, (-3, 3), (-3, 3), resolution=8, parallel=False
+    )
+    finite_vals = res_norm[np.isfinite(res_norm)]
+    assert np.all(finite_vals >= 0)
+
+def test_pseudospectrum_analysis_no_plot():
+    """Full pseudospectrum_analysis pipeline with plot=False should return dict."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(-xi**2 - x**2, [x], mode='symbol')
+    x_grid = np.linspace(-np.pi, np.pi, 12, endpoint=False)
+    result = op.pseudospectrum_analysis(
+        x_grid=x_grid,
+        lambda_real_range=(-5, 5),
+        lambda_imag_range=(-5, 5),
+        resolution=8,
+        method='spectral',
+        parallel=False,
+        adaptive=False,
+        auto_range=False,
+        plot=False,
+    )
+    for key in ('lambda_grid', 'resolvent_norm', 'sigma_min',
+                'eigenvalues', 'operator_matrix'):
+        assert key in result
+
+# ===========================================================================
+# 99-106. Visualisation methods (smoke-tests: no exception, no display)
+# ===========================================================================
+
+def _close():
+    plt.close('all')
+
+def test_visualize_symbol_amplitude_1d():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + 1, [x], mode='symbol')
+    x_grid = np.linspace(-2, 2, 20)
+    xi_grid = np.linspace(-5, 5, 20)
+    op.visualize_symbol_amplitude(x_grid, xi_grid)
+    _close()
+
+def test_visualize_phase_1d():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(exp(I * x * xi), [x], mode='symbol')
+    x_grid = np.linspace(-2, 2, 20)
+    xi_grid = np.linspace(-5, 5, 20)
+    op.visualize_phase(x_grid, xi_grid)
+    _close()
+
+def test_visualize_fiber_1d():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + x**2, [x], mode='symbol')
+    op.visualize_fiber(np.linspace(-2, 2, 20), np.linspace(-5, 5, 20))
+    _close()
+
+def test_visualize_characteristic_set_1d():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 - x**2, [x], mode='symbol')
+    op.visualize_characteristic_set(np.linspace(-3, 3, 30),
+                                    np.linspace(-3, 3, 30))
+    _close()
+
+def test_visualize_characteristic_gradient_1d():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + x**2, [x], mode='symbol')
+    op.visualize_characteristic_gradient(np.linspace(-2, 2, 20),
+                                         np.linspace(-5, 5, 20))
+    _close()
+
+def test_visualize_micro_support_1d():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 - 1, [x], mode='symbol')
+    op.visualize_micro_support(xlim=(-2, 2), klim=(-3, 3), density=40)
+    _close()
+
+def test_plot_symplectic_vector_field_1d():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + x**2, [x], mode='symbol')
+    op.plot_symplectic_vector_field(xlim=(-2, 2), klim=(-3, 3), density=10)
+    _close()
+
+def test_group_velocity_field_1d():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**3, [x], mode='symbol')
+    op.group_velocity_field(xlim=(-2, 2), klim=(-3, 3), density=10)
+    _close()
+
+# ===========================================================================
+# 107-109. Hamiltonian flow (numerical trajectory checks)
+# ===========================================================================
+
+def test_plot_hamiltonian_flow_1d_no_exception():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + x**2, [x], mode='symbol')
+    op.plot_hamiltonian_flow(x0=1.0, xi0=0.0, tmax=1.0, n_steps=30)
+    _close()
+
+def test_plot_hamiltonian_flow_1d_circular_orbit():
+    """Harmonic oscillator orbit should stay on the same energy shell."""
+    x, xi = symbols('x xi', real=True)
+    from scipy.integrate import solve_ivp
+    op = PseudoDifferentialOperator(xi**2 + x**2, [x], mode='symbol')
+    H = op.symplectic_flow()
+    dxdt_f = lambdify((x, xi), H['dx/dt'], 'numpy')
+    dxidt_f = lambdify((x, xi), H['dxi/dt'], 'numpy')
+    x0, xi0 = 1.0, 0.0
+    sol = solve_ivp(lambda t, Y: [dxdt_f(*Y), dxidt_f(*Y)],
+                    [0, 2 * np.pi], [x0, xi0],
+                    t_eval=np.linspace(0, 2 * np.pi, 200))
+    # Energy x^2 + xi^2 = 1 must be conserved
+    energy = sol.y[0]**2 + sol.y[1]**2
+    assert np.allclose(energy, 1.0, atol=1e-3)
+
+def test_animate_singularity_1d_returns_animation():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + x**2, [x], mode='symbol')
+    ani = op.animate_singularity(xi0=1.0, x0=0.0, tmax=1.0, n_frames=10)
+    from matplotlib.animation import FuncAnimation
+    assert isinstance(ani, FuncAnimation)
+    _close()
+
+# ===========================================================================
+# 110-111. _is_spatial_dependent & _get_symbol_func
+# ===========================================================================
+
+def test_is_spatial_dependent_true():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(x * xi, [x], mode='symbol')
+    assert op._is_spatial_dependent() == True
+
+def test_is_spatial_dependent_false():
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2, [x], mode='symbol')
+    assert op._is_spatial_dependent() == False
+
+# ===========================================================================
+# 112. freq_window_2d standalone
+# ===========================================================================
+
+def testfreq_window_2d_gaussian():
+    """Gaussian window should attenuate high-frequency content."""
+    kx = np.linspace(-10, 10, 20)
+    ky = np.linspace(-10, 10, 20)
+    KXb, KYb = np.meshgrid(kx, ky, indexing='ij')
+    P = np.ones_like(KXb, dtype=complex)
+    P_windowed = freq_window_2d(P.copy(), KXb, KYb, kx, ky, 'gaussian')
+    # Central value (low freq) should be close to 1; corner should be attenuated
+    assert abs(P_windowed[10, 10]) > 0.9
+    assert abs(P_windowed[0, 0]) < abs(P_windowed[10, 10])
+
+def testfreq_window_2d_hann():
+    kx = np.linspace(-10, 10, 20)
+    ky = np.linspace(-10, 10, 20)
+    KXb, KYb = np.meshgrid(kx, ky, indexing='ij')
+    P = np.ones_like(KXb, dtype=complex)
+    P_windowed = freq_window_2d(P.copy(), KXb, KYb, kx, ky, 'hann')
+    assert P_windowed.shape == P.shape
+

@@ -1821,17 +1821,16 @@ class CrossValidator:
         """
         Apply the operator P to u₀ via PDESolver.
 
-        Strategy: set up PDESolver with the WKB state as initial condition,
-        run for a single infinitesimal time step (or use the stationary
-        path), and return the result of applying P once.
+        Strategy: set up a first-order-in-time PDE  ∂ₜu = P[u], run for a
+        single infinitesimal time step dt, and return (u₁ − u₀)/dt ≈ P[u₀].
 
-        The solver applies P directly via _apply_psiOp(), which is the
-        spectral / Kohn–Nirenberg path.  We access this through the public
-        interface: set up a stationary equation  Pu = f  where f = Pu₀
-        is approximated by evaluating P on the WKB array numerically.
+        Requirements on the caller:
+          • The dominant wavenumber of the WKB state (lam·|S'|) must be well
+            below the solver's Nyquist limit (π·Nx/Lx).  If lam is large,
+            reduce it or increase Nx via solver_kwargs.
         """
         try:
-            from solver import PDESolver            # lazy import
+            from solver import PDESolver, psiOp
         except ImportError as exc:
             raise ImportError(
                 "CrossValidator.run() requires solver.py to be importable. "
@@ -1841,35 +1840,44 @@ class CrossValidator:
         import sympy as _sp
 
         x_sym  = self.op.vars_x[0]
-        xi_sym = _sp.Symbol('xi', real=True)
         t_sym, u_func = _sp.symbols('t'), _sp.Function('u')
 
-        # Build the SymPy equation  ∂ₜu = P[u]  (first-order in time)
-        # using the psiOp wrapper so PDESolver parses it correctly.
-        psi_sym  = self.op.symbol
+        # Build  ∂ₜu = psiOp(p(ξ/lam), u)  so that when the solver evaluates
+        # the symbol at physical wavenumber k = lam·k₀ it gets p(k₀), matching
+        # the bridge's stationary-phase convention where ξ_c = S'(x) = k₀.
+        xi_s = _sp.Symbol('xi', real=True)
+        psi_rescaled = self.op.symbol.subs(xi_s, xi_s / self.lam)
         equation = _sp.Eq(
             _sp.Derivative(u_func(t_sym, x_sym), t_sym),
-            _sp.Function('psiOp')(psi_sym) * u_func(t_sym, x_sym),
+            psiOp(psi_rescaled, u_func(t_sym, x_sym)),
         )
 
         Lx = float(self.x_grid[-1] - self.x_grid[0])
         Nx = len(self.x_grid)
-        ic  = self.wkb_state.as_callable()
+        ic = self.wkb_state.as_callable()
 
-        kw = dict(Lx=Lx, Nx=Nx, Lt=1e-6, Nt=2,
+        kw = dict(Lx=Lx, Nx=Nx, Lt=0.001, Nt=1,
                   initial_condition=ic, plot=False)
         kw.update(self.solver_kwargs)
 
         solver = PDESolver(equation)
         solver.setup(**kw)
 
-        # Single step: u_new ≈ u₀ + dt·P[u₀]
-        # We want P[u₀], so return (u_new - u₀) / dt
-        u0_arr = self.wkb_state.to_array(self.x_grid)
-        solver.solve()
-        u1_arr = np.asarray(solver.frames[-1], dtype=complex)
-        dt     = solver.dt
-        return (u1_arr - u0_arr) / dt
+        # P[u₀] is the RHS of ∂ₜu = psiOp(p, u).  In Fourier space the
+        # exponential integrator does û₁ = exp(-dt·L)·û₀ where L = combined_symbol.
+        # The psiOp RHS corresponds to the operator with symbol -L, so:
+        #   P[u₀]_k  =  -combined_symbol_k · û₀_k
+        # This is exact (no finite-difference error) and avoids the catastrophic
+        # cancellation that occurs when dt is tiny (u₁≈u₀ → (u₁-u₀)/dt ≈ 0/0).
+        u0_arr = np.asarray(solver.frames[0], dtype=complex)
+        from scipy.fft import fft as _fft, ifft as _ifft
+        u0_hat = _fft(u0_arr)
+        pu0_hat = -solver.combined_symbol * u0_hat   # P[u₀] in Fourier space
+        pu0_on_solver_grid = _ifft(pu0_hat)
+
+        # Interpolate back onto self.x_grid for _build_report.
+        return (np.interp(self.x_grid, solver.x_grid, pu0_on_solver_grid.real) +
+                1j * np.interp(self.x_grid, solver.x_grid, pu0_on_solver_grid.imag))
 
     def _build_report(
         self,

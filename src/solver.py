@@ -194,7 +194,7 @@ class PDESolver:
         
         # Keep only user functions (u(x), u(x, t), etc.)
         candidate_functions = [
-            f for f in functions
+            f for f in candidate_functions
             if isinstance(f, AppliedUndef)
         ]
         

@@ -1996,17 +1996,16 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Apply the operator P to u₀ via PDESolver.</span>
 
-<span class="sd">        Strategy: set up PDESolver with the WKB state as initial condition,</span>
-<span class="sd">        run for a single infinitesimal time step (or use the stationary</span>
-<span class="sd">        path), and return the result of applying P once.</span>
+<span class="sd">        Strategy: set up a first-order-in-time PDE  ∂ₜu = P[u], run for a</span>
+<span class="sd">        single infinitesimal time step dt, and return (u₁ − u₀)/dt ≈ P[u₀].</span>
 
-<span class="sd">        The solver applies P directly via _apply_psiOp(), which is the</span>
-<span class="sd">        spectral / Kohn–Nirenberg path.  We access this through the public</span>
-<span class="sd">        interface: set up a stationary equation  Pu = f  where f = Pu₀</span>
-<span class="sd">        is approximated by evaluating P on the WKB array numerically.</span>
+<span class="sd">        Requirements on the caller:</span>
+<span class="sd">          • The dominant wavenumber of the WKB state (lam·|S&#39;|) must be well</span>
+<span class="sd">            below the solver&#39;s Nyquist limit (π·Nx/Lx).  If lam is large,</span>
+<span class="sd">            reduce it or increase Nx via solver_kwargs.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">PDESolver</span>            <span class="c1"># lazy import</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">PDESolver</span><span class="p">,</span> <span class="n">psiOp</span>
         <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
                 <span class="s2">&quot;CrossValidator.run() requires solver.py to be importable. &quot;</span>
@@ -2016,35 +2015,44 @@
 <span class="w">        </span><span class="kn">import</span> <span class="n">sympy</span> <span class="k">as</span> <span class="n">_sp</span>
 
         <span class="n">x_sym</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">vars_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">_sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">t_sym</span><span class="p">,</span> <span class="n">u_func</span> <span class="o">=</span> <span class="n">_sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;t&#39;</span><span class="p">),</span> <span class="n">_sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">)</span>
 
-        <span class="c1"># Build the SymPy equation  ∂ₜu = P[u]  (first-order in time)</span>
-        <span class="c1"># using the psiOp wrapper so PDESolver parses it correctly.</span>
-        <span class="n">psi_sym</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">symbol</span>
+        <span class="c1"># Build  ∂ₜu = psiOp(p(ξ/lam), u)  so that when the solver evaluates</span>
+        <span class="c1"># the symbol at physical wavenumber k = lam·k₀ it gets p(k₀), matching</span>
+        <span class="c1"># the bridge&#39;s stationary-phase convention where ξ_c = S&#39;(x) = k₀.</span>
+        <span class="n">xi_s</span> <span class="o">=</span> <span class="n">_sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">psi_rescaled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">xi_s</span><span class="p">,</span> <span class="n">xi_s</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">lam</span><span class="p">)</span>
         <span class="n">equation</span> <span class="o">=</span> <span class="n">_sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span>
             <span class="n">_sp</span><span class="o">.</span><span class="n">Derivative</span><span class="p">(</span><span class="n">u_func</span><span class="p">(</span><span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">),</span> <span class="n">t_sym</span><span class="p">),</span>
-            <span class="n">_sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s1">&#39;psiOp&#39;</span><span class="p">)(</span><span class="n">psi_sym</span><span class="p">)</span> <span class="o">*</span> <span class="n">u_func</span><span class="p">(</span><span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">),</span>
+            <span class="n">psiOp</span><span class="p">(</span><span class="n">psi_rescaled</span><span class="p">,</span> <span class="n">u_func</span><span class="p">(</span><span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">)),</span>
         <span class="p">)</span>
 
         <span class="n">Lx</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">Nx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">)</span>
-        <span class="n">ic</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wkb_state</span><span class="o">.</span><span class="n">as_callable</span><span class="p">()</span>
+        <span class="n">ic</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wkb_state</span><span class="o">.</span><span class="n">as_callable</span><span class="p">()</span>
 
-        <span class="n">kw</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">Lx</span><span class="o">=</span><span class="n">Lx</span><span class="p">,</span> <span class="n">Nx</span><span class="o">=</span><span class="n">Nx</span><span class="p">,</span> <span class="n">Lt</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">Nt</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">kw</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">Lx</span><span class="o">=</span><span class="n">Lx</span><span class="p">,</span> <span class="n">Nx</span><span class="o">=</span><span class="n">Nx</span><span class="p">,</span> <span class="n">Lt</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">Nt</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
                   <span class="n">initial_condition</span><span class="o">=</span><span class="n">ic</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">kw</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">solver_kwargs</span><span class="p">)</span>
 
         <span class="n">solver</span> <span class="o">=</span> <span class="n">PDESolver</span><span class="p">(</span><span class="n">equation</span><span class="p">)</span>
         <span class="n">solver</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="o">**</span><span class="n">kw</span><span class="p">)</span>
 
-        <span class="c1"># Single step: u_new ≈ u₀ + dt·P[u₀]</span>
-        <span class="c1"># We want P[u₀], so return (u_new - u₀) / dt</span>
-        <span class="n">u0_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wkb_state</span><span class="o">.</span><span class="n">to_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">)</span>
-        <span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
-        <span class="n">u1_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">solver</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-        <span class="n">dt</span>     <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">dt</span>
-        <span class="k">return</span> <span class="p">(</span><span class="n">u1_arr</span> <span class="o">-</span> <span class="n">u0_arr</span><span class="p">)</span> <span class="o">/</span> <span class="n">dt</span>
+        <span class="c1"># P[u₀] is the RHS of ∂ₜu = psiOp(p, u).  In Fourier space the</span>
+        <span class="c1"># exponential integrator does û₁ = exp(-dt·L)·û₀ where L = combined_symbol.</span>
+        <span class="c1"># The psiOp RHS corresponds to the operator with symbol -L, so:</span>
+        <span class="c1">#   P[u₀]_k  =  -combined_symbol_k · û₀_k</span>
+        <span class="c1"># This is exact (no finite-difference error) and avoids the catastrophic</span>
+        <span class="c1"># cancellation that occurs when dt is tiny (u₁≈u₀ → (u₁-u₀)/dt ≈ 0/0).</span>
+        <span class="n">u0_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">solver</span><span class="o">.</span><span class="n">frames</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.fft</span><span class="w"> </span><span class="kn">import</span> <span class="n">fft</span> <span class="k">as</span> <span class="n">_fft</span><span class="p">,</span> <span class="n">ifft</span> <span class="k">as</span> <span class="n">_ifft</span>
+        <span class="n">u0_hat</span> <span class="o">=</span> <span class="n">_fft</span><span class="p">(</span><span class="n">u0_arr</span><span class="p">)</span>
+        <span class="n">pu0_hat</span> <span class="o">=</span> <span class="o">-</span><span class="n">solver</span><span class="o">.</span><span class="n">combined_symbol</span> <span class="o">*</span> <span class="n">u0_hat</span>   <span class="c1"># P[u₀] in Fourier space</span>
+        <span class="n">pu0_on_solver_grid</span> <span class="o">=</span> <span class="n">_ifft</span><span class="p">(</span><span class="n">pu0_hat</span><span class="p">)</span>
+
+        <span class="c1"># Interpolate back onto self.x_grid for _build_report.</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">solver</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">pu0_on_solver_grid</span><span class="o">.</span><span class="n">real</span><span class="p">)</span> <span class="o">+</span>
+                <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">solver</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">pu0_on_solver_grid</span><span class="o">.</span><span class="n">imag</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_report</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
