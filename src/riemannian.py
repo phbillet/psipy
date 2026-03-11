@@ -1355,6 +1355,11 @@ def _visualize_curvature_2d(metric, x_range, y_range, resolution, quantity, cmap
     else:
         raise ValueError("2D quantity must be 'gauss' or 'ricci_scalar'.")
 
+    # When the curvature expression simplifies to a constant, lambdify returns
+    # a 0-d scalar rather than a 2-D array.  Broadcast it to the meshgrid shape
+    # so that pcolormesh always receives a properly shaped array.
+    Z = np.broadcast_to(np.asarray(Z, dtype=float), X.shape).copy()
+
     plt.figure(figsize=(10, 8))
     plt.pcolormesh(X, Y, Z, shading='auto', cmap=cmap)
     plt.colorbar(label=title)

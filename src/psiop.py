@@ -1530,28 +1530,65 @@ class PseudoDifferentialOperator:
             return H, x_grid_spectral, k
             
         elif method == 'finite_difference':
-            # Fallback to finite difference (keep original implementation)
+            # Finite-difference discretization with NON-PERIODIC (Dirichlet-type) BCs.
+            #
+            # The KN quantization maps  ξ^n  →  (-i∂_x)^n, so:
+            #   ξ^0  →  identity
+            #   ξ^1  →  -i∂_x   (real-space operator: multiply by -i then differentiate)
+            #   ξ^2  →  -∂_x²
+            #
+            # Physical operators obtained from p(x,ξ) = a(x) + b(x)·ξ + c(x)·ξ²:
+            #   a(x)·I   +  b(x)·(-i∂_x)   +  c(x)·(-∂_x²)
+            #   = a(x)·I  +  [b(x)·(-i)] · ∂_x   +  [-c(x)] · ∂_x²
+            #   = a(x)·I  -  ic(x)·∂_x            +  ν(x)·∂_x²   (when b=-ic, c=-ν)
+            #
+            # Centred-difference stencils (non-periodic, open boundaries):
+            #   ∂_x  u_j  ≈  (u_{j+1} - u_{j-1}) / (2 dx)
+            #   ∂_x² u_j  ≈  (u_{j+1} - 2 u_j + u_{j-1}) / dx²
+            #
+            # Non-periodic BCs are essential for non-normal operators:
+            # constant-coefficient operators with periodic BCs give circulant
+            # (hence NORMAL) matrices with trivially small pseudospectrum,
+            # failing the resolvent-norm test for dissipative operators.
+            # Non-periodic BCs break the circulant structure and allow the
+            # exponential ill-conditioning of eigenvectors that characterises
+            # non-normal convection-diffusion operators.
+
             N = len(x_grid)
             dx = x_grid[1] - x_grid[0]
             H = np.zeros((N, N), dtype=complex)
-            
+
+            # Extract polynomial coefficients a(x), b(x), c(x) in ξ
+            xi_tmp = np.array([0.0, 1.0, -1.0])
+            X_mat  = np.tile(x_grid[:, None], (1, 3))
+            XI_mat = np.tile(xi_tmp[None, :], (N, 1))
+            P_mat  = self.p_func(X_mat, XI_mat)          # (N, 3)
+
+            a_coeff =  P_mat[:, 0]                                    # p(x, 0)
+            b_coeff = (P_mat[:, 1] - P_mat[:, 2]) / 2.0              # coeff of ξ
+            c_coeff = (P_mat[:, 1] - 2*P_mat[:, 0] + P_mat[:, 2]) / 2.0  # coeff of ξ²
+
+            # Real-space operators:
+            #   b·ξ  → b·(-i∂_x)  → FD: b[i]*(-i)/(2dx) * (u_{j+1} - u_{j-1})
+            #   c·ξ² → c·(-∂_x²)  → FD: c[i]*(-1)/dx²  * (u_{j+1} - 2u_j + u_{j-1})
+
             for i in range(N):
-                for j in range(N):
-                    if i == j:
-                        H[i, j] = self.p_func(x_grid[i], 0.0)
-                    elif abs(i - j) == 1:
-                        xi_approx = np.pi / dx
-                        H[i, j] = self.p_func(
-                            (x_grid[i] + x_grid[j]) / 2,
-                            xi_approx * np.sign(i - j)
-                        ) / (2 * dx)
-                    elif abs(i - j) == 2:
-                        xi_approx = 2 * np.pi / dx
-                        H[i, j] = self.p_func(
-                            (x_grid[i] + x_grid[j]) / 2,
-                            xi_approx
-                        ) / dx ** 2
-            
+                # Zero-order
+                H[i, i] += a_coeff[i]
+
+                # First-order: b * (-i∂_x), centred difference, NO wrap
+                if i < N-1:
+                    H[i, i+1] += b_coeff[i] * (-1j) / (2.0 * dx)
+                if i > 0:
+                    H[i, i-1] += b_coeff[i] * (+1j) / (2.0 * dx)
+
+                # Second-order: c * (-∂_x²), centred difference, NO wrap
+                H[i, i]   += c_coeff[i] * 2.0 / dx**2
+                if i < N-1:
+                    H[i, i+1] += c_coeff[i] * (-1.0) / dx**2
+                if i > 0:
+                    H[i, i-1] += c_coeff[i] * (-1.0) / dx**2
+
             print(f'Operator quantized via finite differences: {N}×{N} matrix')
             k = np.fft.fftfreq(N, d=dx) * 2.0 * np.pi
             return H, x_grid, k

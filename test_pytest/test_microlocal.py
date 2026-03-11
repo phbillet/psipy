@@ -3,6 +3,9 @@
 
 import numpy as np
 import pytest
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for testing
+import matplotlib.pyplot as plt
 from sympy import symbols, sqrt, exp, sin, cos, simplify
 
 # Import everything from the unified microlocal module
@@ -286,7 +289,7 @@ def test_invalid_wkb_initial_conditions():
     p = xi**2
 
     # Missing initial data – now expect ValueError (not KeyError)
-    with pytest.raises(ValueError):          # ← changed
+    with pytest.raises(ValueError):
         wkb_approximation(p, {}, order=1)
 
 
@@ -313,7 +316,7 @@ def test_characteristic_variety_2d():
     
     # Isotropic: p = ξ² + η² - 1
     p = xi**2 + eta**2 - 1
-    char = characteristic_variety(p)   # unified function
+    char = characteristic_variety(p)
     
     assert 'implicit' in char
     assert 'equation' in char
@@ -419,6 +422,30 @@ def test_bichar_flow_2d_energy_conservation():
     # Symbol value should be approximately constant
     symbol_drift = np.std(traj['symbol_value'])
     assert symbol_drift < 0.2
+
+
+def test_bichar_flow_2d_stability_matrix():
+    """Test that 2D flow correctly returns the 2x2 stability matrix J."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    p = xi**2 + eta**2
+    z0 = (0, 0, 1, 1)
+    
+    traj = bicharacteristic_flow(p, z0, (0, 1), method='symplectic', n_steps=10)
+    
+    # Ensure keys exist
+    assert 'J11' in traj
+    assert 'J12' in traj
+    assert 'J21' in traj
+    assert 'J22' in traj
+    
+    # Ensure they are the correct length
+    assert len(traj['J11']) == 10
+    
+    # Initial condition for stability matrix J(0) should be the identity matrix I_2
+    assert np.isclose(traj['J11'][0], 1.0)
+    assert np.isclose(traj['J12'][0], 0.0)
+    assert np.isclose(traj['J21'][0], 0.0)
+    assert np.isclose(traj['J22'][0], 1.0)
 
 
 def test_wkb_approximation_2d_placeholder():
@@ -831,3 +858,39 @@ def test_propagate_singularity_2d_consistency():
     assert len(result['trajectories']) == len(initial_sing)
     assert len(result['endpoints']) == len(initial_sing)
     assert result['initial'] == initial_sing
+
+
+# ======================================================================
+# VISUALISATION TESTS (Smoke tests)
+# ======================================================================
+
+def test_plot_characteristic_set_smoke():
+    """Ensure characteristic set plotting runs without crashing."""
+    x, xi = symbols('x xi', real=True)
+    p = xi**2 - 1
+    plot_characteristic_set(p, (-2, 2), (-2, 2), dim=1)
+    plt.close('all')
+    
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    p2 = xi**2 + eta**2 - 1
+    plot_characteristic_set(p2, (-2, 2), (-2, 2), dim=2, xi0=1.0, eta0=0.0)
+    plt.close('all')
+
+def test_plot_bicharacteristics_smoke():
+    """Ensure bicharacteristics plotting runs without crashing."""
+    x, xi = symbols('x xi', real=True)
+    p = xi**2
+    plot_bicharacteristics(p, [(0, 1), (0, -1)], (0, 1), dim=1)
+    plt.close('all')
+
+def test_plot_wavefront_set_smoke():
+    """Ensure wavefront set plotting runs without crashing."""
+    x, xi = symbols('x xi', real=True)
+    p = xi**2 - x**2
+    fig, ax = plot_wavefront_set(p, [(0, 1)], (0, 1), dim=1)
+    plt.close('all')
+    
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    p2 = xi**2 + eta**2
+    fig, axes = plot_wavefront_set(p2, [(0, 0, 1, 0)], (0, 1), dim=2, projection='full')
+    plt.close('all')

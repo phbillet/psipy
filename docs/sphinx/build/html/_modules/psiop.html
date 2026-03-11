@@ -1660,28 +1660,65 @@
             <span class="k">return</span> <span class="n">H</span><span class="p">,</span> <span class="n">x_grid_spectral</span><span class="p">,</span> <span class="n">k</span>
             
         <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;finite_difference&#39;</span><span class="p">:</span>
-            <span class="c1"># Fallback to finite difference (keep original implementation)</span>
+            <span class="c1"># Finite-difference discretization with NON-PERIODIC (Dirichlet-type) BCs.</span>
+            <span class="c1">#</span>
+            <span class="c1"># The KN quantization maps  ξ^n  →  (-i∂_x)^n, so:</span>
+            <span class="c1">#   ξ^0  →  identity</span>
+            <span class="c1">#   ξ^1  →  -i∂_x   (real-space operator: multiply by -i then differentiate)</span>
+            <span class="c1">#   ξ^2  →  -∂_x²</span>
+            <span class="c1">#</span>
+            <span class="c1"># Physical operators obtained from p(x,ξ) = a(x) + b(x)·ξ + c(x)·ξ²:</span>
+            <span class="c1">#   a(x)·I   +  b(x)·(-i∂_x)   +  c(x)·(-∂_x²)</span>
+            <span class="c1">#   = a(x)·I  +  [b(x)·(-i)] · ∂_x   +  [-c(x)] · ∂_x²</span>
+            <span class="c1">#   = a(x)·I  -  ic(x)·∂_x            +  ν(x)·∂_x²   (when b=-ic, c=-ν)</span>
+            <span class="c1">#</span>
+            <span class="c1"># Centred-difference stencils (non-periodic, open boundaries):</span>
+            <span class="c1">#   ∂_x  u_j  ≈  (u_{j+1} - u_{j-1}) / (2 dx)</span>
+            <span class="c1">#   ∂_x² u_j  ≈  (u_{j+1} - 2 u_j + u_{j-1}) / dx²</span>
+            <span class="c1">#</span>
+            <span class="c1"># Non-periodic BCs are essential for non-normal operators:</span>
+            <span class="c1"># constant-coefficient operators with periodic BCs give circulant</span>
+            <span class="c1"># (hence NORMAL) matrices with trivially small pseudospectrum,</span>
+            <span class="c1"># failing the resolvent-norm test for dissipative operators.</span>
+            <span class="c1"># Non-periodic BCs break the circulant structure and allow the</span>
+            <span class="c1"># exponential ill-conditioning of eigenvectors that characterises</span>
+            <span class="c1"># non-normal convection-diffusion operators.</span>
+
             <span class="n">N</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
             <span class="n">dx</span> <span class="o">=</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-            
+
+            <span class="c1"># Extract polynomial coefficients a(x), b(x), c(x) in ξ</span>
+            <span class="n">xi_tmp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">])</span>
+            <span class="n">X_mat</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">x_grid</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+            <span class="n">XI_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">xi_tmp</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:],</span> <span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">P_mat</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="n">X_mat</span><span class="p">,</span> <span class="n">XI_mat</span><span class="p">)</span>          <span class="c1"># (N, 3)</span>
+
+            <span class="n">a_coeff</span> <span class="o">=</span>  <span class="n">P_mat</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>                                    <span class="c1"># p(x, 0)</span>
+            <span class="n">b_coeff</span> <span class="o">=</span> <span class="p">(</span><span class="n">P_mat</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">P_mat</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>              <span class="c1"># coeff of ξ</span>
+            <span class="n">c_coeff</span> <span class="o">=</span> <span class="p">(</span><span class="n">P_mat</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">P_mat</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">P_mat</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>  <span class="c1"># coeff of ξ²</span>
+
+            <span class="c1"># Real-space operators:</span>
+            <span class="c1">#   b·ξ  → b·(-i∂_x)  → FD: b[i]*(-i)/(2dx) * (u_{j+1} - u_{j-1})</span>
+            <span class="c1">#   c·ξ² → c·(-∂_x²)  → FD: c[i]*(-1)/dx²  * (u_{j+1} - 2u_j + u_{j-1})</span>
+
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">:</span>
-                        <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">)</span>
-                    <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="n">j</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                        <span class="n">xi_approx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">dx</span>
-                        <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span>
-                            <span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">x_grid</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
-                            <span class="n">xi_approx</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="n">j</span><span class="p">)</span>
-                        <span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
-                    <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="n">j</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                        <span class="n">xi_approx</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">dx</span>
-                        <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span>
-                            <span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">x_grid</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
-                            <span class="n">xi_approx</span>
-                        <span class="p">)</span> <span class="o">/</span> <span class="n">dx</span> <span class="o">**</span> <span class="mi">2</span>
-            
+                <span class="c1"># Zero-order</span>
+                <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">a_coeff</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                <span class="c1"># First-order: b * (-i∂_x), centred difference, NO wrap</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">N</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                    <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">b_coeff</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">b_coeff</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="o">+</span><span class="mi">1</span><span class="n">j</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
+
+                <span class="c1"># Second-order: c * (-∂_x²), centred difference, NO wrap</span>
+                <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>   <span class="o">+=</span> <span class="n">c_coeff</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="mf">2.0</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">N</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                    <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">c_coeff</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">c_coeff</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span>
+
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Operator quantized via finite differences: </span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s1">×</span><span class="si">{</span><span class="n">N</span><span class="si">}</span><span class="s1"> matrix&#39;</span><span class="p">)</span>
             <span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">dx</span><span class="p">)</span> <span class="o">*</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
             <span class="k">return</span> <span class="n">H</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">k</span>

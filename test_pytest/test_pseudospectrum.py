@@ -184,52 +184,52 @@ class TestPseudospectrumAnalysis:
     # ========================================================================
     # TEST 5: Convection-diffusion (non-normal)
     # ========================================================================
-#    def test_convection_diffusion_dissipation(self):
-#        """
-#        Test: Convection-diffusion -iν∂_x - ν∂²_x
-#        
-#        Symbol: p(x,ξ) = -ic·ξ - ν·ξ²
-#        
-#        Expected: 
-#        - Negative real parts (dissipation from diffusion)
-#       - Large pseudospectrum (non-normality)
-#        """
-#        c = 5.0   # Convection
-#        nu = 0.5  # Diffusion
-#       
-#        symbol = -I*c*self.xi - nu*self.xi**2
-#        op = PseudoDifferentialOperator(symbol, [self.x], mode='symbol')
-#       
-#        x_grid = np.linspace(0, 2*np.pi, self.N, endpoint=False)
-#       
-#        result = op.pseudospectrum_analysis(
-#            x_grid=x_grid,
-#            lambda_real_range=(-50, 10),
-#            lambda_imag_range=(-30, 30),
-#            resolution=60,
-#            method='finite_difference',
-#            parallel=False,
-#            plot=False
-#        )
-#       
-#        eigenvalues = result['eigenvalues']
-#       
-#        # Check: All eigenvalues should have non-positive real part (dissipation)
-#        max_real = np.max(eigenvalues.real)
-#        assert max_real < 1.0, \
-#            f"Dissipative operator should have Re(λ) ≤ 0, got max = {max_real}"
-#        
-#        # Check: Non-trivial imaginary parts (from convection)
-#        imag_range = np.max(eigenvalues.imag) - np.min(eigenvalues.imag)
-#        assert imag_range > 5.0, \
-#            f"Convection should produce spread in Im(λ), got range = {imag_range}"
-#       
-#        # Check: Non-normality (large resolvent norms)
-#        resolvent_norm = result['resolvent_norm']
-#        max_resolvent = np.nanmax(resolvent_norm)
-#        
-#        assert max_resolvent > 50, \
-#            f"Non-normal operator should have large resolvent norm (got {max_resolvent})"
+    def test_convection_diffusion_dissipation(self):
+        """
+        Test: Convection-diffusion -iν∂_x - ν∂²_x
+        
+        Symbol: p(x,ξ) = -ic·ξ - ν·ξ²
+        
+        Expected: 
+        - Negative real parts (dissipation from diffusion)
+       - Large pseudospectrum (non-normality)
+        """
+        c = 5.0   # Convection
+        nu = 0.5  # Diffusion
+       
+        symbol = -I*c*self.xi - nu*self.xi**2
+        op = PseudoDifferentialOperator(symbol, [self.x], mode='symbol')
+       
+        x_grid = np.linspace(0, 2*np.pi, self.N, endpoint=False)
+       
+        result = op.pseudospectrum_analysis(
+            x_grid=x_grid,
+            lambda_real_range=(-50, 10),
+            lambda_imag_range=(-30, 30),
+            resolution=60,
+            method='finite_difference',
+            parallel=False,
+            plot=False
+        )
+       
+        eigenvalues = result['eigenvalues']
+       
+        # Check: All eigenvalues should have non-positive real part (dissipation)
+        max_real = np.max(eigenvalues.real)
+        assert max_real < 1.0, \
+            f"Dissipative operator should have Re(λ) ≤ 0, got max = {max_real}"
+        
+        # Check: Non-trivial imaginary parts (from convection)
+        imag_range = np.max(eigenvalues.imag) - np.min(eigenvalues.imag)
+        assert imag_range > 5.0, \
+            f"Convection should produce spread in Im(λ), got range = {imag_range}"
+       
+        # Check: Non-normality (large resolvent norms)
+        resolvent_norm = result['resolvent_norm']
+        max_resolvent = np.nanmax(resolvent_norm)
+        
+        assert max_resolvent > 50, \
+            f"Non-normal operator should have large resolvent norm (got {max_resolvent})"
     
     # ========================================================================
     # TEST 6: Matrix consistency
