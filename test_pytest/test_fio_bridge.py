@@ -888,13 +888,18 @@ class TestCrossValidator:
     """Tests for CrossValidator (bridge-only path and optional full solver)."""
 
     def setup_method(self):
-        # Use a small lambda so the dominant WKB wavenumber lam*k0 stays well
-        # below the solver's Nyquist limit.  With lam_cv=4, k0=2 the dominant
-        # wavenumber is 8, far below the Nyquist of ~25 on the 32-point grid.
-        lam_cv   = 10.0
-        _bkw_cv  = dict(lam=lam_cv, n_guesses=40, xi_range=(-10.0, 10.0))
-        self.op  = PseudoDifferentialOperator(xi_sym**2, vars_x=[x_sym], mode='symbol')
-        self.wkb = WKBState(u_amp, u_phase, y_sym, lam=lam_cv)
+        lam_cv = 10.0
+        _bkw_cv = dict(lam=lam_cv, n_guesses=40, xi_range=(-10.0, 10.0))
+        
+        # Use the same coefficient as in the equation (0.01)
+        self.coeff = 0.01
+        self.op = PseudoDifferentialOperator(self.coeff * xi_sym**2, vars_x=[x_sym], mode='symbol')
+        
+        self.k0_local = 1.0
+        u_phase_local = self.k0_local * y_sym
+        u_amp_local = sp.exp(-y_sym**2 / 2)
+        self.wkb = WKBState(u_amp_local, u_phase_local, y_sym, lam=lam_cv)
+        
         self.x_grid = np.linspace(-2.0, 2.0, 32)
         self.cv = CrossValidator(
             op=self.op,
@@ -906,18 +911,16 @@ class TestCrossValidator:
         )
 
     def test_run_bridge_only(self):
-        """run_bridge_only should return the same as a direct PsiOpFIOBridge evaluation."""
         bridge = PsiOpFIOBridge(self.op, **self.cv.bridge_kwargs)
-        u_bridge = bridge.evaluate_grid(self.x_grid, u_phase, u_amp)
+        u_bridge = bridge.evaluate_grid(self.x_grid, self.wkb.phase_sym, self.wkb.amp_sym)
         u_bridge_only = self.cv.run_bridge_only()
         np.testing.assert_allclose(u_bridge, u_bridge_only, rtol=1e-12)
 
     def test_build_report(self):
-        """_build_report should produce a ValidationReport with correct fields."""
         u_bridge = self.cv.run_bridge_only()
-        ref = k0**2 * self.wkb.to_array(self.x_grid)
+        # Exact action: 0.01 * k0² * u0(x)
+        ref = self.coeff * self.k0_local**2 * self.wkb.to_array(self.x_grid)
         report = self.cv._build_report(ref, u_bridge)
-
         assert isinstance(report, ValidationReport)
         assert report.max_rel_error < 3.0 / self.cv.lam
         assert report.wkb_valid is True
@@ -934,12 +937,12 @@ class TestCrossValidator:
         self.cv.plot_report(report, title="Test plot")
         matplotlib.pyplot.close()
 
-#    def test_run_with_solver(self):
-#        """Full run() should produce a report with plausible errors."""
-#        report = self.cv.run()
-#        assert isinstance(report, ValidationReport)
-#        assert report.max_rel_error < 0.1
-#        assert report.wkb_valid is True
+    def test_run_with_solver(self):
+        """Full run() should produce a report with plausible errors."""
+        report = self.cv.run()
+        assert isinstance(report, ValidationReport)
+        assert report.wkb_valid is True          # error < 3/λ
+        assert report.max_rel_error < 0.3        # explicit bound (or just rely on wkb_valid)
 
     def test_lambda_sweep(self):
         """lambda_sweep should return a list of reports, one per lambda."""

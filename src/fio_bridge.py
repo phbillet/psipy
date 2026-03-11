@@ -1845,10 +1845,21 @@ class CrossValidator:
         # Build  ∂ₜu = psiOp(p(ξ/lam), u)  so that when the solver evaluates
         # the symbol at physical wavenumber k = lam·k₀ it gets p(k₀), matching
         # the bridge's stationary-phase convention where ξ_c = S'(x) = k₀.
-        xi_s = _sp.Symbol('xi', real=True)
-        psi_rescaled = self.op.symbol.subs(xi_s, xi_s / self.lam)
-        equation = _sp.Eq(
-            _sp.Derivative(u_func(t_sym, x_sym), t_sym),
+        # Identify the frequency symbol in the operator
+        free_syms = self.op.symbol.free_symbols
+        spatial_syms = set(self.op.vars_x)
+        # The frequency symbol is the one that is not a spatial variable
+        freq_sym_candidates = [s for s in free_syms if s not in spatial_syms]
+        if len(freq_sym_candidates) != 1:
+            raise ValueError("Cannot automatically identify the frequency symbol.")
+        freq_sym = freq_sym_candidates[0]
+        
+        # Rescale the symbol: p(ξ/λ)
+        psi_rescaled = self.op.symbol.subs(freq_sym, freq_sym / self.lam)
+        
+        # Build the equation
+        equation = sp.Eq(
+            sp.Derivative(u_func(t_sym, x_sym), t_sym),
             psiOp(psi_rescaled, u_func(t_sym, x_sym)),
         )
 
@@ -1869,15 +1880,13 @@ class CrossValidator:
         #   P[u₀]_k  =  -combined_symbol_k · û₀_k
         # This is exact (no finite-difference error) and avoids the catastrophic
         # cancellation that occurs when dt is tiny (u₁≈u₀ → (u₁-u₀)/dt ≈ 0/0).
-        u0_arr = np.asarray(solver.frames[0], dtype=complex)
-        from scipy.fft import fft as _fft, ifft as _ifft
-        u0_hat = _fft(u0_arr)
-        pu0_hat = -solver.combined_symbol * u0_hat   # P[u₀] in Fourier space
-        pu0_on_solver_grid = _ifft(pu0_hat)
 
-        # Interpolate back onto self.x_grid for _build_report.
-        return (np.interp(self.x_grid, solver.x_grid, pu0_on_solver_grid.real) +
-                1j * np.interp(self.x_grid, solver.x_grid, pu0_on_solver_grid.imag))
+        u0_arr = np.asarray(solver.frames[0], dtype=complex)
+        pu0_on_solver_grid = -solver._apply_psiOp(u0_arr)   # correct sign for RHS
+    
+        # Interpolate back onto self.x_grid if necessary
+        return (np.interp(self.x_grid, solver.x_grid, np.real(pu0_on_solver_grid)) +
+                1j * np.interp(self.x_grid, solver.x_grid, np.imag(pu0_on_solver_grid)))
 
     def _build_report(
         self,
