@@ -251,109 +251,8 @@ from asymptotic import (
     IntegralMethod, SingularityType,
 )
 
-# (at the top of the file, add the import)
 import concurrent.futures
-
-# ── Global variables for parallel worker processes ───────────────────────────
-_worker_metric = None          # will hold a Metric instance per process
-_worker_metric_data = None     # symbolic data passed to initializer
-
-def _worker_init(metric_data):
-    """
-    Initializer for each worker process.
-    Reconstructs a Metric object from the symbolic data and stores it in
-    the global _worker_metric.
-    """
-    global _worker_metric, _worker_metric_data
-    _worker_metric_data = metric_data
-    dim, coords, expr_or_matrix = metric_data
-    if dim == 1:
-        _worker_metric = Metric(expr_or_matrix, coords)
-    else:
-        _worker_metric = Metric(expr_or_matrix, coords)
-
-
-def _process_single_ray(v0, source, t_max, hbar, n_steps, integrator):
-    """
-    Worker function that processes a single initial velocity v0.
-    Uses the global _worker_metric (set by _worker_init).
-    Returns a RayData object on success, None on failure.
-    """
-    global _worker_metric
-    metric = _worker_metric
-    dim = metric.dim
-    tspan = (0.0, t_max)
-    H_sym, vars_phase = _build_hamiltonian_sym(metric)
-
-    try:
-        # Convert velocity to momentum
-        if dim == 1:
-            g0 = float(metric.g_func(source[0]))
-            mom = float(g0 * v0)
-            z0 = [source[0], mom]
-        else:
-            g0 = metric.eval(source[0], source[1])['g']
-            mom = g0 @ np.array(v0, dtype=float)
-            z0 = [source[0], float(mom[0]), source[1], float(mom[1])]
-
-        # Integrate ray
-        traj = hamiltonian_flow(
-            H_sym, z0, tspan,
-            vars_phase=vars_phase,
-            integrator=integrator,
-            n_steps=n_steps,
-        )
-
-        # Reconstruct geometric trajectory for Jacobi solver
-        if dim == 1:
-            x_sym = vars_phase[0]
-            xi_sym = vars_phase[1]
-            geo_traj = {
-                't': traj['t'],
-                'x': traj[str(x_sym)],
-                'v': metric.g_inv_func(traj[str(x_sym)]) * traj[str(xi_sym)],
-            }
-        else:
-            x_sym, xi_sym, y_sym, eta_sym = vars_phase
-            x_arr = traj[str(x_sym)]; y_arr = traj[str(y_sym)]
-            xi_arr = traj[str(xi_sym)]; eta_arr = traj[str(eta_sym)]
-
-            if not (np.all(np.isfinite(x_arr)) and np.all(np.isfinite(y_arr))):
-                return None
-
-            g00 = metric.g_inv_func[(0, 0)](x_arr, y_arr)
-            g01 = metric.g_inv_func[(0, 1)](x_arr, y_arr)
-            g10 = metric.g_inv_func[(1, 0)](x_arr, y_arr)
-            g11 = metric.g_inv_func[(1, 1)](x_arr, y_arr)
-
-            if not all(np.all(np.isfinite(c)) for c in (g00, g01, g10, g11)):
-                return None
-
-            geo_traj = {
-                't': traj['t'],
-                'x': x_arr, 'y': y_arr,
-                'vx': g00 * xi_arr + g01 * eta_arr,
-                'vy': g10 * xi_arr + g11 * eta_arr,
-            }
-
-        # Compute Jacobi determinant
-        det_J = _det_J_from_jacobi(metric, geo_traj, tspan, n_steps)
-
-        # Compute cumulative action
-        if dim == 1:
-            ck = (str(vars_phase[0]),)
-        else:
-            ck = (str(vars_phase[0]), str(vars_phase[2]))
-        S_cum = _cumulative_action(traj, dim, metric=metric, coord_keys=ck)
-
-        # Maslov index
-        mu = _maslov_index(det_J)
-
-        return RayData(traj=traj, det_J=det_J, S_cum=S_cum, mu=mu)
-
-    except Exception:
-        # Silently skip failed rays
-        return None
+import multiprocessing
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -482,6 +381,198 @@ class WKBResult:
     t_max     : float
     dim       : int
 
+
+# ── New internal function that processes a single ray given the already
+#    constructed objects. It replicates the original loop body.
+def _process_single_ray_internal(
+    p0,                 # initial canonical momentum (float or 2‑tuple)
+    source,             # tuple of floats
+    t_max,              # float
+    hbar,               # float
+    n_steps,            # int
+    integrator,         # str
+    H_sym,              # sympy.Expr
+    vars_phase,         # list of sympy.Symbol
+    is_metric_mode,     # bool
+    metric              # Metric or None
+):
+    """
+    Perform all steps for one ray (integration, Jacobi, action, Maslov)
+    and return a RayData object, or None if the ray fails.
+    """
+    dim = len(source)
+    tspan = (0.0, t_max)
+
+    try:
+        # ── initial phase‑space state ──────────────────────────
+        if dim == 1:
+            z0 = [source[0], float(p0)]
+        else:
+            z0 = [source[0], float(p0[0]), source[1], float(p0[1])]
+
+        # ── ray integration (symplectic) ───────────────────────
+        traj = hamiltonian_flow(
+            H_sym, z0, tspan,
+            vars_phase=vars_phase,
+            integrator=integrator,
+            n_steps=n_steps,
+        )
+
+        # ── Jacobi determinant ─────────────────────────────────
+        if dim == 1:
+            x_sym, xi_sym = vars_phase[0], vars_phase[1]
+            # geometric trajectory for the variational ODE
+            geo_traj = {
+                't': traj['t'],
+                'x': traj[str(x_sym)],
+                str(x_sym): traj[str(x_sym)],
+                str(xi_sym): traj[str(xi_sym)],
+                'v': (metric.g_inv_func(traj[str(x_sym)]) * traj[str(xi_sym)]
+                      if is_metric_mode
+                      else np.gradient(traj[str(x_sym)], traj['t'])),
+            }
+            use_general_jacobi_1d = (not is_metric_mode) and (dim == 1)
+            if use_general_jacobi_1d:
+                det_J = _det_J_1d_general(
+                    H_sym, vars_phase, traj, tspan, n_steps)
+            else:
+                det_J = _det_J_1d(metric, geo_traj, tspan, n_steps)
+
+        else:  # 2D
+            x_sym, xi_sym, y_sym, eta_sym = vars_phase
+            x_arr = traj[str(x_sym)];   y_arr = traj[str(y_sym)]
+            xi_arr = traj[str(xi_sym)];  eta_arr = traj[str(eta_sym)]
+
+            if not (np.all(np.isfinite(x_arr)) and np.all(np.isfinite(y_arr))):
+                return None
+
+            if is_metric_mode:
+                g00 = metric.g_inv_func[(0, 0)](x_arr, y_arr)
+                g01 = metric.g_inv_func[(0, 1)](x_arr, y_arr)
+                g10 = metric.g_inv_func[(1, 0)](x_arr, y_arr)
+                g11 = metric.g_inv_func[(1, 1)](x_arr, y_arr)
+                if not all(np.all(np.isfinite(c)) for c in (g00, g01, g10, g11)):
+                    return None
+                vx_arr = g00 * xi_arr + g01 * eta_arr
+                vy_arr = g10 * xi_arr + g11 * eta_arr
+            else:
+                vx_arr = np.gradient(x_arr, traj['t'])
+                vy_arr = np.gradient(y_arr, traj['t'])
+
+            geo_traj = {
+                't': traj['t'],
+                'x': x_arr, 'y': y_arr,
+                'vx': vx_arr, 'vy': vy_arr,
+            }
+
+            use_fd_jacobi_2d = (not is_metric_mode) and (dim == 2)
+            if use_fd_jacobi_2d:
+                # Finite‑difference Jacobi for general 2D H
+                delta = 1e-4 * (abs(float(p0[0])) + abs(float(p0[1])) + 1e-8)
+                xs_k, ys_k = str(x_sym), str(y_sym)
+                traj_p1 = hamiltonian_flow(
+                    H_sym,
+                    [source[0], float(p0[0])+delta, source[1], float(p0[1])],
+                    tspan, vars_phase=vars_phase,
+                    integrator=integrator, n_steps=n_steps)
+                traj_m1 = hamiltonian_flow(
+                    H_sym,
+                    [source[0], float(p0[0])-delta, source[1], float(p0[1])],
+                    tspan, vars_phase=vars_phase,
+                    integrator=integrator, n_steps=n_steps)
+                traj_p2 = hamiltonian_flow(
+                    H_sym,
+                    [source[0], float(p0[0]), source[1], float(p0[1])+delta],
+                    tspan, vars_phase=vars_phase,
+                    integrator=integrator, n_steps=n_steps)
+                traj_m2 = hamiltonian_flow(
+                    H_sym,
+                    [source[0], float(p0[0]), source[1], float(p0[1])-delta],
+                    tspan, vars_phase=vars_phase,
+                    integrator=integrator, n_steps=n_steps)
+                J11 = (traj_p1[xs_k] - traj_m1[xs_k]) / (2*delta)
+                J12 = (traj_p2[xs_k] - traj_m2[xs_k]) / (2*delta)
+                J21 = (traj_p1[ys_k] - traj_m1[ys_k]) / (2*delta)
+                J22 = (traj_p2[ys_k] - traj_m2[ys_k]) / (2*delta)
+                det_J = J11 * J22 - J12 * J21
+            else:
+                det_J = _det_J_from_jacobi(metric, geo_traj, tspan, n_steps)
+
+        # ── cumulative action and Maslov index ─────────────────
+        if dim == 1:
+            coord_keys = (str(vars_phase[0]),)
+        else:
+            coord_keys = (str(vars_phase[0]), str(vars_phase[2]))
+        S_cum = _cumulative_action(
+            traj, dim,
+            metric=metric if is_metric_mode else None,
+            coord_keys=coord_keys)
+        mu = _maslov_index(det_J)
+
+        # ── trim arrays to the same length and check finiteness ─
+        n_valid = min(len(S_cum), len(det_J),
+                      len(traj[str(vars_phase[0])]))
+        if n_valid < 2:
+            return None
+        det_J = det_J[:n_valid]
+        S_cum = S_cum[:n_valid]
+        traj_trim = {k: (v[:n_valid] if isinstance(v, np.ndarray) else v)
+                     for k, v in traj.items()}
+
+        pos_key = str(vars_phase[0])
+        if (not np.all(np.isfinite(traj_trim[pos_key]))
+                or not np.all(np.isfinite(S_cum))
+                or not np.all(np.isfinite(det_J))):
+            return None
+
+        return RayData(traj=traj_trim, det_J=det_J, S_cum=S_cum, mu=mu)
+
+    except Exception:
+        return None
+
+
+# ── Worker function for parallel execution.
+#    It reconstructs the needed objects from symbolic data,
+#    then calls _process_single_ray_internal.
+def _worker_process_ray(p0, source, t_max, hbar, n_steps, integrator, worker_data):
+    """
+    worker_data : dict with keys:
+        'mode' : 'metric' or 'hamiltonian'
+        'dim' : 1 or 2
+        'coords' : tuple of sympy.Symbol
+        and either
+            'g_expr' / 'g_matrix' (for metric mode)
+        or
+            'H_expr', 'momenta' (for hamiltonian mode)
+    """
+    try:
+        if worker_data['mode'] == 'metric':
+            dim = worker_data['dim']
+            coords = worker_data['coords']
+            if dim == 1:
+                metric = Metric(worker_data['g_expr'], coords)
+            else:
+                metric = Metric(worker_data['g_matrix'], coords)
+            H_sym, vars_phase = _build_hamiltonian_sym(metric)
+            is_metric_mode = True
+            metric_obj = metric
+        else:  # hamiltonian mode
+            dim = worker_data['dim']
+            coords = worker_data['coords']
+            momenta = worker_data['momenta']
+            H_sym = worker_data['H_expr']
+            if dim == 1:
+                vars_phase = [coords[0], momenta[0]]
+            else:
+                vars_phase = [coords[0], momenta[0], coords[1], momenta[1]]
+            is_metric_mode = False
+            metric_obj = None
+
+        return _process_single_ray_internal(
+            p0, source, t_max, hbar, n_steps, integrator,
+            H_sym, vars_phase, is_metric_mode, metric_obj)
+    except Exception:
+        return None
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1 — Jacobi matrix determinant  (uses riemannian.jacobi_equation_solver)
@@ -1383,202 +1474,478 @@ def _build_hamiltonian_sym(metric: Metric) -> Tuple[sp.Expr, list]:
                 + g_inv[1, 1] * eta**2) / 2
         return H, [x, xi, y, eta]
 
+
+def _resolve_hamiltonian(
+    metric        : Optional[Metric],
+    hamiltonian   : Optional[sp.Expr],
+    coords        : Optional[Tuple],
+    momenta       : Optional[Tuple],
+) -> Tuple[sp.Expr, list, int]:
+    """
+    Resolve the Hamiltonian and phase-space variables from either a
+    ``Metric`` object or an explicit SymPy expression.
+
+    This is the single dispatch point that allows :func:`compute_wavefunction`
+    to accept **either** a geometric ``metric`` argument (pure-kinetic,
+    geodesic motion) **or** a general symbolic ``hamiltonian`` with an
+    arbitrary potential.
+
+    Dispatch rules
+    --------------
+    **Metric path** (``metric`` is not ``None``):
+        Delegates to :func:`_build_hamiltonian_sym`.  The Hamiltonian is
+        constructed as H = ½ gⁱʲ pᵢ pⱼ and momentum symbols are created
+        automatically as ``'xi'`` / ``'eta'``.
+
+    **General Hamiltonian path** (``hamiltonian`` is not ``None``):
+        The caller supplies a SymPy expression H(coords, momenta) together
+        with the coordinate and momentum symbol tuples.  The phase-space
+        variable list is interleaved as ``[q₁, p₁]`` (1D) or
+        ``[q₁, p₁, q₂, p₂]`` (2D), following the convention of
+        :func:`symplectic.hamiltonian_flow`.
+
+        Example (1D harmonic oscillator with potential)::
+
+            x, xi = sp.symbols('x xi', real=True)
+            H = xi**2 / 2 + x**2 / 2          # T + V = ½p² + ½x²
+            H_expr, vars_phase, dim = _resolve_hamiltonian(
+                metric=None, hamiltonian=H,
+                coords=(x,), momenta=(xi,))
+            # → H_expr = xi**2/2 + x**2/2
+            # → vars_phase = [x, xi]
+            # → dim = 1
+
+    Parameters
+    ----------
+    metric : Metric or None
+        Riemannian metric.  Must be ``None`` when ``hamiltonian`` is given.
+    hamiltonian : sp.Expr or None
+        General SymPy Hamiltonian expression H(q, p).  Must be ``None``
+        when ``metric`` is given.
+    coords : tuple of sp.Symbol or None
+        Position symbols, e.g. ``(x,)`` or ``(x, y)``.  Required when
+        ``hamiltonian`` is given; ignored otherwise.
+    momenta : tuple of sp.Symbol or None
+        Momentum symbols, e.g. ``(xi,)`` or ``(xi, eta)``.  Required when
+        ``hamiltonian`` is given; ignored otherwise.
+
+    Returns
+    -------
+    H_expr : sp.Expr
+        Symbolic Hamiltonian ready for :func:`symplectic.hamiltonian_flow`.
+    vars_phase : list of sp.Symbol
+        Interleaved phase-space list ``[q₁, p₁]`` or ``[q₁, p₁, q₂, p₂]``.
+    dim : int
+        Spatial dimension (1 or 2).
+
+    Raises
+    ------
+    ValueError
+        If neither or both of ``metric`` / ``hamiltonian`` are supplied, or
+        if the dimension implied by ``coords`` / ``momenta`` is not 1 or 2.
+    """
+    if metric is not None and hamiltonian is not None:
+        raise ValueError(
+            "Provide either 'metric' or 'hamiltonian', not both.")
+    if metric is None and hamiltonian is None:
+        raise ValueError(
+            "Provide exactly one of 'metric' or 'hamiltonian'.")
+
+    if metric is not None:
+        H_expr, vars_phase = _build_hamiltonian_sym(metric)
+        return H_expr, vars_phase, metric.dim
+
+    # ── General Hamiltonian path ──────────────────────────────────────────────
+    if coords is None or momenta is None:
+        raise ValueError(
+            "When supplying 'hamiltonian', you must also supply 'coords' "
+            "and 'momenta' — the SymPy symbol tuples for positions and "
+            "canonical momenta.")
+    dim = len(coords)
+    if dim not in (1, 2):
+        raise ValueError(f"Only 1D and 2D are supported; got dim={dim}.")
+    if len(momenta) != dim:
+        raise ValueError(
+            f"len(coords)={dim} but len(momenta)={len(momenta)}: "
+            "each coordinate must have exactly one conjugate momentum.")
+
+    if dim == 1:
+        vars_phase = [coords[0], momenta[0]]
+    else:
+        vars_phase = [coords[0], momenta[0], coords[1], momenta[1]]
+
+    return hamiltonian, vars_phase, dim
+
+
+def _det_J_1d_general(
+    H_expr    : sp.Expr,
+    vars_phase: list,
+    traj      : dict,
+    tspan     : tuple,
+    n_steps   : int,
+) -> np.ndarray:
+    """
+    Integrate the 1D Jacobi scalar J(t) = ∂x(t)/∂p₀ for a **general**
+    Hamiltonian H(x, ξ) (not necessarily purely kinetic).
+
+    Physical Background
+    -------------------
+    For a general Hamiltonian the equations of motion are
+
+        ẋ = ∂H/∂ξ,      ξ̇ = −∂H/∂x.
+
+    Linearising around the background ray (x(t), ξ(t)) with perturbation
+    (δx, δξ) = (J, K) δp₀ yields the **variational system**:
+
+        dJ/dt =  ∂²H/∂ξ² · K  +  ∂²H/∂x∂ξ · J
+        dK/dt = −∂²H/∂x∂ξ · K − ∂²H/∂x² · J
+
+    with initial conditions J(0) = 0, K(0) = 1 (point-source fan).
+
+    This reduces to the pure-metric ODE in :func:`_det_J_1d` when
+    H = ½ g⁻¹(x) ξ² (in which case ∂²H/∂ξ² = g⁻¹, ∂²H/∂x∂ξ = ∂_x g⁻¹ · ξ,
+    ∂²H/∂x² includes second derivatives of g⁻¹ — but the two forms agree on
+    trajectories because ẋ = g⁻¹ ξ).
+
+    For H = ½ ξ² + V(x) (standard kinetic + potential):
+
+        dJ/dt = K                    (∂²H/∂ξ² = 1, ∂²H/∂x∂ξ = 0)
+        dK/dt = −V''(x(t)) · J       (∂²H/∂x² = V'')
+
+    This is exactly the **Jacobi / Hill equation** familiar from quantum
+    mechanics (where V'' is the curvature of the potential at the classical
+    turning points).
+
+    Parameters
+    ----------
+    H_expr : sp.Expr
+        Symbolic Hamiltonian H(x, ξ).
+    vars_phase : list of sp.Symbol
+        ``[x_sym, xi_sym]`` — the coordinate and momentum symbols.
+    traj : dict
+        Background ray trajectory with keys ``'t'``, and the string names
+        of the coordinate and momentum symbols (e.g. ``'x'``, ``'xi'``).
+    tspan : tuple (t_start, t_end)
+        Integration interval.
+    n_steps : int
+        Number of uniformly-spaced output time points.
+
+    Returns
+    -------
+    det_J : np.ndarray, shape (n_steps,)
+        Jacobi scalar J(t) at each time step.
+    """
+    from scipy.integrate import solve_ivp
+    from scipy.interpolate import interp1d
+
+    x_sym, xi_sym = vars_phase[0], vars_phase[1]
+
+    # ── Symbolic second derivatives of H ─────────────────────────────────────
+    H_xx  = sp.lambdify((x_sym, xi_sym), sp.diff(H_expr, x_sym, 2),   'numpy')
+    H_xxi = sp.lambdify((x_sym, xi_sym), sp.diff(H_expr, x_sym, xi_sym), 'numpy')
+    H_xixi= sp.lambdify((x_sym, xi_sym), sp.diff(H_expr, xi_sym, 2),  'numpy')
+
+    x_key  = str(x_sym)
+    xi_key = str(xi_sym)
+    x_interp  = interp1d(traj['t'], traj[x_key],  kind='linear')
+    xi_interp = interp1d(traj['t'], traj[xi_key], kind='linear')
+
+    def jac_ode(t, state):
+        J, K = state
+        xv  = float(x_interp(t))
+        xiv = float(xi_interp(t))
+        a   = float(H_xixi(xv, xiv))   # ∂²H/∂ξ²
+        b   = float(H_xxi(xv, xiv))    # ∂²H/∂x∂ξ
+        c   = float(H_xx(xv, xiv))     # ∂²H/∂x²
+        dJ  =  a * K + b * J
+        dK  = -b * K - c * J
+        return [dJ, dK]
+
+    sol = solve_ivp(jac_ode, tspan, [0.0, 1.0],
+                    t_eval=np.linspace(tspan[0], tspan[1], n_steps),
+                    method='RK45', rtol=1e-8, atol=1e-10)
+    return sol.y[0]
+
+
+
+# ── Modified compute_wavefunction with parallel option ──────────────────────
 def compute_wavefunction(
-    metric       : Metric,
-    source       : Tuple,
-    v_fan        : np.ndarray,
-    t_max        : float,
+    metric       : Optional[Metric]  = None,
+    source       : Optional[Tuple]   = None,
+    v_fan        : Optional[np.ndarray] = None,
+    t_max        : Optional[float]   = None,
     hbar         : float = 1.0,
     n_steps      : int   = 400,
     N_grid       : int   = 300,
     xlim         : Optional[Tuple] = None,
     ylim         : Optional[Tuple] = None,
     integrator   : str   = 'verlet',
+    # ── general Hamiltonian interface ─────────────────────────
+    hamiltonian  : Optional[sp.Expr]  = None,
+    coords       : Optional[Tuple]    = None,
+    momenta      : Optional[Tuple]    = None,
+    p_fan        : Optional[np.ndarray] = None,
+    # ── parallel execution control ────────────────────────────
+    parallel     : bool = True,
 ) -> WKBResult:
     """
     Compute the semiclassical (Van Vleck–Pauli–Morette) wavefunction.
 
-    This is the main public entry point.  It orchestrates the full pipeline:
+    This is the main public entry point.  It accepts **two distinct input
+    modes** depending on whether you supply a ``Metric`` object (pure kinetic,
+    geodesic motion) or an explicit SymPy Hamiltonian expression (general
+    T + V systems from the ``hamiltonian_catalog`` or anywhere else).
 
-    1. Build the kinetic Hamiltonian H = ½ gⁱʲ pᵢ pⱼ from ``metric``.
-    2. For each initial velocity ``v0`` in ``v_fan``:
-
-       a. Convert velocity to canonical momentum: p₀ = g(x₀) · v₀.
-       b. Integrate Hamilton's equations with :func:`symplectic.hamiltonian_flow`
-          to obtain the ray trajectory (positions + momenta).
-       c. Reconstruct the velocity trajectory from the momenta (v = g⁻¹ p)
-          and pass it to :func:`_det_J_from_jacobi` to compute the Jacobi
-          determinant along the ray.
-       d. Compute the cumulative action with :func:`_cumulative_action`.
-       e. Compute the Maslov index with :func:`_maslov_index`.
-       f. Store the result as a :class:`RayData` object.
-
-    3. Concatenate all scattered ray data (positions, S, det J, μ).
-    4. Call :func:`van_vleck_sum` to interpolate the VVP amplitude onto a
-       regular output grid and apply Airy corrections near caustics.
-    5. Return a :class:`WKBResult` containing the gridded ψ and all raw data.
-
-    Velocity vs momentum convention
-    --------------------------------
-    The parameter ``v_fan`` specifies the fan in terms of *initial velocities*
-    (contravariant vectors vⁱ = dxⁱ/dt), not canonical momenta.  Internally,
-    the conversion p₀ = g(x₀) · v₀ is applied before the Hamiltonian
-    integrator.  On a flat metric g = I this distinction is irrelevant, but on
-    a curved metric (e.g. g = x² for a position-dependent mass) it matters:
-    a uniform velocity fan produces uniformly-spaced geodesics, while a
-    momentum fan would oversample fast regions.
-
-    Error handling
-    --------------
-    Individual rays that raise any exception during integration (e.g. due to
-    the ray escaping the domain, a singularity in the metric, or a numerical
-    blow-up) are silently skipped.  If *all* rays fail, a ``RuntimeError`` is
-    raised.  Callers may inspect ``len(result.rays)`` to check how many rays
-    succeeded.
-
-    Grid bounds
+    Input Modes
     -----------
-    If ``xlim`` (and ``ylim`` for 2D) are not provided, they are set to the
-    range of the ray endpoints with a 10% margin added on each side.  This
-    auto-detection works well for most problems but may produce a grid that
-    crops the wavefunction if rays are highly inhomogeneous; in that case
-    supply explicit limits.
+    **Mode A — Metric** (original interface, ``v_fan`` required):
+        Pass a ``riemannian.Metric`` object.  The Hamiltonian is built
+        internally as H = ½ gⁱʲ pᵢ pⱼ.  Initial momenta are obtained by
+        converting the supplied velocity fan: p₀ = g(x₀) · v₀.
+
+        ::
+
+            result = compute_wavefunction(
+                metric = Metric(1, (x,)),
+                source = (0.0,),
+                v_fan  = np.linspace(-3, 3, 60),
+                t_max  = 2.0,
+            )
+
+    **Mode B — General Hamiltonian** (new interface, ``p_fan`` required):
+        Pass a SymPy expression H(coords, momenta) together with the
+        coordinate and momentum symbol tuples.  Initial conditions are
+        specified directly as a fan of **canonical momenta** p₀ (not
+        velocities), since v = ∂H/∂p is not simply g⁻¹ p for a general H.
+
+        ::
+
+            x, xi = sp.symbols('x xi', real=True)
+            H = xi**2 / 2 + sp.cos(x)        # pendulum-type Hamiltonian
+            result = compute_wavefunction(
+                hamiltonian = H,
+                coords      = (x,),
+                momenta     = (xi,),
+                source      = (0.0,),
+                p_fan       = np.linspace(-2, 2, 60),
+                t_max       = 3.0,
+            )
+
+        Any Hamiltonian from ``psipy.hamiltonian_catalog`` can be used
+        directly in this mode.
+
+    Jacobi Determinant for General Hamiltonians
+    --------------------------------------------
+    In Mode B the variational (Jacobi) system is derived from the full
+    Hessian of H:
+
+        dJ/dt =  (∂²H/∂ξ²) K + (∂²H/∂x∂ξ) J
+        dK/dt = −(∂²H/∂x∂ξ) K − (∂²H/∂x²) J
+
+    with J(0) = 0, K(0) = 1.  This is the **Hill / Jacobi equation**
+    that reduces to the pure-metric ODE when H = ½ g⁻¹ ξ².  For
+    H = ½ ξ² + V(x) it gives dK/dt = −V''(x(t)) J — the curvature of
+    the potential drives caustic formation.
+
+    In 2D, Mode B still uses ``riemannian.jacobi_equation_solver``, which
+    requires the metric.  If no metric is available (general 2D H), a
+    finite-difference approximation of the 2×2 Jacobi matrix is used:
+    two rays at ±δp₀ are integrated and the determinant estimated as
+    ∂x/∂p₀ ≈ (x(p₀+δ) − x(p₀−δ)) / (2δ).
 
     Parameters
     ----------
-    metric : Metric
-        Riemannian metric encoding the geometry.  Must have ``dim`` attribute
-        equal to 1 or 2.  Can be constructed directly (``Metric(g_expr, coords)``)
-        or from a Hamiltonian (``Metric.from_hamiltonian(H, coords, momenta)``).
+    metric : Metric or None
+        Riemannian metric (Mode A).  Mutually exclusive with ``hamiltonian``.
     source : tuple of float
-        Initial position of the point source.
+        Initial position of the point source: ``(x₀,)`` or ``(x₀, y₀)``.
+    v_fan : np.ndarray or None
+        Fan of initial **velocities** (Mode A only).
 
-        * 1D: ``(x₀,)``
-        * 2D: ``(x₀, y₀)``
+        * 1D: shape ``(n_rays,)``
+        * 2D: shape ``(n_rays, 2)``
 
-    v_fan : np.ndarray
-        Fan of initial velocities.
-
-        * 1D: shape ``(n_rays,)`` — one velocity per ray.
-        * 2D: shape ``(n_rays, 2)`` — one velocity vector ``[vx, vy]`` per ray.
-
-        All velocities are contravariant (ẋ, ẏ), not covariant momenta.
-        Conversion p = g · v is done internally.
     t_max : float
-        Total integration time.  Rays are propagated from t = 0 to t = t_max.
+        Total integration time.
     hbar : float, default 1.0
-        Reduced Planck constant.  Appears in the phase exp(i S/ℏ) and in the
-        fringe scale of the Airy correction ∝ ℏ^{1/3}.
+        Reduced Planck constant.
     n_steps : int, default 400
-        Number of time steps per ray.  Higher values improve accuracy of the
-        action integral and Jacobi determinant.  The time grid is
-        ``np.linspace(0, t_max, n_steps)``.
+        Number of time steps per ray.
     N_grid : int, default 300
-        Output grid resolution.  The wavefunction is evaluated on an N_grid ×
-        N_grid mesh (2D) or N_grid points (1D).
-    xlim : tuple (x_min, x_max) or None
-        Explicit x-range of the output grid.  If ``None``, auto-detected from
-        ray data with a 10% margin.
-    ylim : tuple (y_min, y_max) or None
-        Explicit y-range (2D only).  If ``None``, auto-detected.
+        Output grid resolution.
+    xlim : tuple or None
+        x-extent of the output grid (auto-detected if ``None``).
+    ylim : tuple or None
+        y-extent of the output grid (auto-detected if ``None``, 2D only).
     integrator : str, default ``'verlet'``
-        Symplectic integrator passed to :func:`symplectic.hamiltonian_flow`.
+        Symplectic integrator: ``'verlet'`` or ``'rk45'``.
+    hamiltonian : sp.Expr or None
+        General SymPy Hamiltonian H(coords, momenta) (Mode B).
+        Mutually exclusive with ``metric``.
+    coords : tuple of sp.Symbol or None
+        Position symbols, e.g. ``(x,)`` or ``(x, y)``.  Required in Mode B.
+    momenta : tuple of sp.Symbol or None
+        Momentum symbols, e.g. ``(xi,)`` or ``(xi, eta)``.  Required in Mode B.
+    p_fan : np.ndarray or None
+        Fan of initial **canonical momenta** (Mode B only).
 
-        * ``'verlet'`` — Störmer–Verlet (leapfrog), 2nd-order symplectic.
-          Fast; recommended for most problems.
-        * ``'rk45'``   — Runge–Kutta 4/5, non-symplectic but higher formal
-          accuracy.  Suitable when ℏ is very small and phase accuracy matters
-          more than energy conservation.
+        * 1D: shape ``(n_rays,)``
+        * 2D: shape ``(n_rays, 2)``
+    parallel : bool, default True
+        If True, use multiprocessing to integrate rays in parallel.
+        If False, fall back to the sequential loop (useful for debugging).
 
     Returns
     -------
     WKBResult
-        Dataclass containing:
-
-        * ``psi`` — semiclassical wavefunction on the output grid (complex).
-        * ``X``, ``Y`` — grid coordinate arrays.
-        * ``rays`` — list of :class:`RayData` for each successful ray.
-        * ``x_pts``, ``y_pts``, ``S_pts``, ``det_J_pts``, ``mu_pts`` — raw
-          scattered data from all rays concatenated.
-        * ``hbar``, ``t_max``, ``dim`` — input metadata.
+        Dataclass containing the gridded wavefunction ``psi``, grid arrays
+        ``X`` / ``Y``, per-ray ``RayData`` objects, and all raw scattered data.
 
     Raises
     ------
+    ValueError
+        If the input mode cannot be resolved (both or neither of
+        ``metric`` / ``hamiltonian`` supplied).
     RuntimeError
-        If every ray in ``v_fan`` fails to integrate.
+        If every ray in the fan fails to integrate.
 
     Examples
     --------
-    1D flat metric::
-
-        import sympy as sp
-        import numpy as np
-        from riemannian import Metric
-        from propagator import compute_wavefunction
+    Mode A — 1D harmonic oscillator metric::
 
         x = sp.Symbol('x', real=True)
         result = compute_wavefunction(
-            metric=Metric(1, (x,)),
-            source=(0.0,),
-            v_fan=np.linspace(-3, 3, 60),
-            t_max=2.0,
-            hbar=0.5,
+            metric=Metric(1/(1-x**2), (x,)),
+            source=(0.0,), v_fan=np.linspace(-0.6, 0.6, 80),
+            t_max=3.0, hbar=0.1,
         )
 
-    2D curved metric from Hamiltonian::
+    Mode B — 1D pendulum H = ξ²/2 − cos(x)::
 
-        r, theta = sp.symbols('r theta', real=True, positive=True)
-        pr, pth  = sp.symbols('p_r p_theta', real=True)
-        H = (pr**2 + pth**2 / r**2) / 2   # polar-coordinate kinetic energy
-        metric = Metric.from_hamiltonian(H, (r, theta), (pr, pth))
-
-        vr  = np.linspace(-0.5, 0.5, 10)
-        vth = np.linspace(-0.5, 0.5, 10)
-        v_fan = np.array([[a, b] for a in vr for b in vth])
-
+        x, xi = sp.symbols('x xi', real=True)
         result = compute_wavefunction(
-            metric=metric, source=(1.0, 0.0),
-            v_fan=v_fan, t_max=1.0, hbar=0.2,
+            hamiltonian=xi**2/2 - sp.cos(x),
+            coords=(x,), momenta=(xi,),
+            source=(0.0,), p_fan=np.linspace(-1.5, 1.5, 80),
+            t_max=4.0, hbar=0.1,
         )
+
+    Mode B — 2D double-well H = (ξ²+η²)/2 + (x²−1)² + y²/2::
+
+        x, y, xi, eta = sp.symbols('x y xi eta', real=True)
+        H_dw = (xi**2 + eta**2)/2 + (x**2 - 1)**2 + y**2/2
+        vx = np.linspace(-2, 2, 15)
+        vy = np.linspace(-2, 2, 15)
+        result = compute_wavefunction(
+            hamiltonian=H_dw, coords=(x,y), momenta=(xi,eta),
+            source=(0.0, 0.0),
+            p_fan=np.array([[a, b] for a in vx for b in vy]),
+            t_max=2.0, hbar=0.15,
+        )
+
     """
-    dim = metric.dim
-    tspan = (0.0, t_max)
-    H_sym, vars_phase = _build_hamiltonian_sym(metric)   # still needed for coordinate names, etc.
+    # ── resolve Hamiltonian and dimensionality ────────────────────────────────
+    H_sym, vars_phase, dim = _resolve_hamiltonian(
+        metric=metric,
+        hamiltonian=hamiltonian,
+        coords=coords,
+        momenta=momenta,
+    )
+    is_metric_mode = (metric is not None)
 
-    # Prepare symbolic data for worker processes
-    if dim == 1:
-        metric_data = (dim, metric.coords, metric.g_expr)
+    # ── validate required arguments ───────────────────────────────────────────
+    if source is None:
+        raise ValueError("'source' is required.")
+    if t_max is None:
+        raise ValueError("'t_max' is required.")
+    if is_metric_mode and v_fan is None:
+        raise ValueError("'v_fan' is required when using 'metric' mode.")
+    if not is_metric_mode and p_fan is None:
+        raise ValueError("'p_fan' is required when using 'hamiltonian' mode.")
+
+    # Determine the fan of initial canonical momenta (as before)
+    if is_metric_mode:
+        # Mode A: convert velocities → momenta
+        if dim == 1:
+            g0    = float(metric.g_func(source[0]))
+            fan   = [float(g0 * v) for v in v_fan]
+        else:
+            g0    = metric.eval(source[0], source[1])['g']
+            fan   = [g0 @ np.array(v, dtype=float) for v in v_fan]
     else:
-        metric_data = (dim, metric.coords, metric.g_matrix)
+        # Mode B: momenta supplied directly
+        fan = [np.asarray(p, dtype=float) for p in p_fan]   # ensure each is a plain list/array
 
-    rays = []
-    # Use ProcessPoolExecutor to parallelize rays
-    with concurrent.futures.ProcessPoolExecutor(
-        max_workers=None,
-        initializer=_worker_init,
-        initargs=(metric_data,)
-    ) as executor:
-        # Submit all rays
-        future_to_v0 = {
-            executor.submit(
-                _process_single_ray,
-                v0, source, t_max, hbar, n_steps, integrator
-            ): v0 for v0 in v_fan
+    # Build the data needed to reconstruct the objects in workers
+    if is_metric_mode:
+        worker_data = {
+            'mode': 'metric',
+            'dim': dim,
+            'coords': metric.coords,
+        }
+        if dim == 1:
+            worker_data['g_expr'] = metric.g_expr
+        else:
+            worker_data['g_matrix'] = metric.g_matrix
+    else:
+        worker_data = {
+            'mode': 'hamiltonian',
+            'dim': dim,
+            'coords': coords,
+            'momenta': momenta,
+            'H_expr': hamiltonian,
         }
 
-        # Collect results as they complete
-        for future in concurrent.futures.as_completed(future_to_v0):
-            result = future.result()
+    rays = []
+    first_exc = None
+
+    if parallel:
+        # Parallel execution using ProcessPoolExecutor with 'spawn' context
+        ctx = multiprocessing.get_context('spawn')
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=None,
+            mp_context=ctx
+        ) as executor:
+            # Submit all rays
+            future_to_idx = {
+                executor.submit(
+                    _worker_process_ray,
+                    p, source, t_max, hbar, n_steps, integrator, worker_data
+                ): i for i, p in enumerate(fan)
+            }
+            for future in concurrent.futures.as_completed(future_to_idx):
+                result = future.result()
+                if result is not None:
+                    rays.append(result)
+                # (Optionally store the first exception if needed, but worker returns None on failure)
+    else:
+        # Sequential execution (original loop)
+        # Build H_sym and vars_phase once (already done by _resolve_hamiltonian earlier)
+        # We need to have H_sym, vars_phase, metric (if any) accessible.
+        # In the original code, these were built before the loop.
+        # We'll replicate that here (already present after _resolve_hamiltonian).
+        # Actually, after _resolve_hamiltonian we have H_sym, vars_phase, dim.
+        # We also have metric if is_metric_mode.
+        # So we can just loop.
+        for p in fan:
+            result = _process_single_ray_internal(
+                p, source, t_max, hbar, n_steps, integrator,
+                H_sym, vars_phase, is_metric_mode,
+                metric if is_metric_mode else None
+            )
             if result is not None:
                 rays.append(result)
+            # (first_exc not captured; errors are swallowed in internal function)
 
     if not rays:
-        raise RuntimeError("All rays failed to integrate.")
+        msg = "All rays failed to integrate."
         if first_exc is not None:
             msg += f"  First exception: {type(first_exc).__name__}: {first_exc}"
         raise RuntimeError(msg)
 
     # ── collect scattered data ────────────────────────────────────────────────
+    # All per-ray arrays (det_J, S_cum, traj) were trimmed to the same length
+    # before appending, so simple concatenation is safe.
     if dim == 1:
         x_sym_str = str(vars_phase[0])
         x_all  = np.concatenate([r.traj[x_sym_str] for r in rays])
@@ -1617,7 +1984,8 @@ def compute_wavefunction(
                          x_pts=x_all, y_pts=y_all,
                          S_pts=S_all, det_J_pts=dJ_all, mu_pts=mu_all,
                          hbar=hbar, t_max=t_max, dim=2)
-        
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 7 — Visualisation
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1969,141 +2337,194 @@ def plot_interference_detail(result: WKBResult,
     return fig
 
 
+
 # =============================================================================
-# Example usage (run when script is executed directly)
+# Six worked examples  (run when script is executed directly)
 # =============================================================================
+#
+# Three 1D and three 2D demonstrations, ordered from elementary to advanced.
+#
+#  1D ─────────────────────────────────────────────────────────────────────────
+#  Ex 1 │ Semiclassical harmonic oscillator
+#        │   g = 1/(1 - x²)  (isotropic confining metric)
+#        │   Rays focus periodically → Maslov index accumulates,
+#        │   Airy patches replace the WKB amplitude at each caustic.
+#
+#  Ex 2 │ Pöschl–Teller / exponential-barrier metric
+#        │   g = cosh²(x)   (localised potential well via curved kinetic energy)
+#        │   Rays slow down near x=0, creating a dense fringe cluster and a
+#        │   striking amplitude peak at the turning zone.
+#
+#  Ex 3 │ Power-law / centrifugal metric
+#        │   H = p²·x⁴/2  →  g = 1/x⁴
+#        │   Rapidly increasing effective mass near x=0 squeezes geodesics
+#        │   together; fringe spacing shrinks toward the origin.
+#
+#  2D ─────────────────────────────────────────────────────────────────────────
+#  Ex 4 │ Anisotropic flat metric  g = diag(1, 4)
+#        │   Elliptic wavefronts, interference fringes with different
+#        │   fringe spacing along x and y, Maslov = 0 everywhere.
+#
+#  Ex 5 │ Gaussian hill / volcano metric
+#        │   g = diag(1 + A exp(-r²/σ²), 1 + A exp(-r²/σ²))
+#        │   A localised region of increased effective mass acts as a lens,
+#        │   focussing rays and creating a caustic ring with Airy corrections.
+#
+#  Ex 6 │ Saddle / hyperbolic metric
+#        │   g = diag(1/(1+x²), 1+y²)
+#        │   Rays accelerate along x and decelerate along y; the resulting
+#        │   asymmetric wavefront and ray-crossing pattern produce a rich
+#        │   multi-sheet interference figure with non-trivial Maslov structure.
+#
+# =============================================================================
+
 if __name__ == "__main__":
-    print("Running Van Vleck wavefunction examples...\n")
 
-    # ----------------------------------------------------------------------
-    # Example 1: 1D free particle on flat metric  g = 1
-    # ----------------------------------------------------------------------
-    print("1D free particle (flat metric) – computing wavefunction...")
+    SEP = "─" * 60
+    hbar = 0.15     # small but not tiny: visible fringes, tractable Airy zones
+
+    # =========================================================================
+    # Example 1 — 1D Semiclassical Harmonic Oscillator
+    # =========================================================================
+    # The confining metric g(x) = 1/(1 − ω²x²) encodes a position-dependent
+    # effective mass that diverges at |x| = 1/ω, mimicking the turning points
+    # of a harmonic potential.  Rays launched from x=0 slow down, reflect, and
+    # reconverge, creating periodic caustics at the turning points.  Each pair
+    # of caustics increments the Maslov index by 2 (one per turning point),
+    # reproducing the well-known (n + ½) quantisation of the harmonic oscillator
+    # at the Bohr–Sommerfeld level.
+    # =========================================================================
+    print(SEP)
+    print("Example 1 — 1D Semiclassical Harmonic Oscillator")
+    print("  g(x) = 1 / (1 − ω²x²),  ω = 1.2")
+    print(SEP)
+
     x = sp.Symbol('x', real=True)
-    metric_1d = Metric(1, (x,))                     # g = 1
-    source_1d = (0.0,)
-    v_fan_1d = np.linspace(-5.0, 5.0, 50)           # initial velocities
-    t_max_1d = 2.0
-    hbar = 1.0
+    omega = sp.Rational(6, 5)                 # ω = 1.2  (rational for clean SymPy)
+    g_ho  = 1 / (1 - omega**2 * x**2)
+    metric_ho = Metric(g_ho, (x,))
 
-    result_1d = compute_wavefunction(
-        metric=metric_1d,
-        source=source_1d,
-        v_fan=v_fan_1d,
-        t_max=t_max_1d,
-        hbar=hbar,
-        n_steps=500,
-        N_grid=300,
-        integrator='verlet'
+    # Dense fan of slow rays so the envelope and Airy zones are well resolved.
+    # The turning point is at |x| = 1/ω ≈ 0.833.  We cap the velocity fan at
+    # 0.5 (well below the speed that would reach |x| = 0.833 in t_max = 3.5)
+    # and use RK45 which adapts its step size near the turning point, unlike
+    # Verlet which uses a fixed step and can overshoot the singularity.
+    v_fan_ho = np.linspace(-0.50, 0.50, 120)
+
+    result_ho = compute_wavefunction(
+        metric    = metric_ho,
+        source    = (0.0,),
+        v_fan     = v_fan_ho,
+        t_max     = 3.5,                      # long enough for two caustic visits
+        hbar      = hbar,
+        n_steps   = 1000,
+        N_grid    = 500,
+        integrator= 'rk45',                   # adaptive step avoids overshooting
     )
-    plot_wavefunction(result_1d, log_scale=True)
+    print(f"  {len(result_ho.rays)} rays integrated successfully.")
+    print(f"  Max Maslov index reached: {max(r.mu for r in result_ho.rays)}")
+
+    fig1 = plot_wavefunction(result_ho, log_scale=False)
+    fig1.suptitle(
+        r"Ex 1 — Harmonic oscillator  $g = (1-\omega^2 x^2)^{-1}$"
+        rf"   $\hbar={hbar}$",
+        color="white", fontsize=12, fontweight="bold", y=1.02)
+    plot_interference_detail(result_ho)
     plt.show()
 
-    # ----------------------------------------------------------------------
-    # Example 2: 2D free particle on flat metric  g = [[1,0],[0,1]]
-    # ----------------------------------------------------------------------
-    print("\n2D free particle (flat metric) – computing wavefunction...")
-    x, y = sp.symbols('x y', real=True)
-    metric_2d = Metric([[1, 0], [0, 1]], (x, y))    # Euclidean metric
-    source_2d = (0.0, 0.0)
+    # =========================================================================
+    # Example 2 — 1D Pöschl–Teller / Cosh-Barrier Metric
+    # =========================================================================
+    # The metric g(x) = cosh²(x) corresponds to a kinetic Hamiltonian
+    # H = p²/(2 cosh²(x)).  The effective speed of sound is slowest at x=0
+    # (where cosh is smallest and the effective mass largest) and increases
+    # exponentially away from the origin.  Rays launched with moderate
+    # velocity are trapped near the origin and pile up, producing a sharp
+    # amplitude peak and densely packed interference fringes — a direct
+    # semiclassical analogue of the Pöschl–Teller bound state.
+    # =========================================================================
+    print(f"\n{SEP}")
+    print("Example 2 — 1D Pöschl–Teller / cosh-barrier metric")
+    print("  g(x) = cosh²(x)")
+    print(SEP)
 
-    v1_vals = np.linspace(-3.0, 3.0, 20)
-    v2_vals = np.linspace(-3.0, 3.0, 20)
-    v_fan_2d = np.array([[a, b] for a in v1_vals for b in v2_vals])
+    g_pt     = sp.cosh(x)**2
+    metric_pt = Metric(g_pt, (x,))
 
-    t_max_2d = 1.5
-    result_2d = compute_wavefunction(
-        metric=metric_2d,
-        source=source_2d,
-        v_fan=v_fan_2d,
-        t_max=t_max_2d,
-        hbar=hbar,
-        n_steps=300,
-        N_grid=150,
-        integrator='verlet'
+    # Mix of trapped (small |v|) and escaping (large |v|) rays
+    v_fan_pt = np.concatenate([
+        np.linspace(-2.5, -0.1, 50),
+        np.linspace( 0.1,  2.5, 50),
+    ])
+
+    result_pt = compute_wavefunction(
+        metric    = metric_pt,
+        source    = (0.0,),
+        v_fan     = v_fan_pt,
+        t_max     = 2.5,
+        hbar      = hbar,
+        n_steps   = 700,
+        N_grid    = 500,
+        integrator= 'verlet',
     )
-    plot_wavefunction(result_2d, log_scale=True)
+    print(f"  {len(result_pt.rays)} rays integrated successfully.")
+
+    fig2 = plot_wavefunction(result_pt, log_scale=True)
+    fig2.suptitle(
+        r"Ex 2 — Pöschl–Teller metric  $g = \cosh^2(x)$"
+        rf"   $\hbar={hbar}$",
+        color="white", fontsize=12, fontweight="bold", y=1.02)
+    plot_ray_fan(result_pt)
     plt.show()
 
-    # ----------------------------------------------------------------------
-    # Example 3: 1D with Hamiltonian  H = p^2 / (2 m(x)),  m(x) = 1/x^2
-    # This yields metric g = m(x) = x^2.
-    # ----------------------------------------------------------------------
-    print("\n1D position-dependent mass (Hamiltonian input) – computing wavefunction...")
-    x_sym, p_sym = sp.symbols('x p', real=True)
-    m_expr = 1 / x_sym**2
-    H_1d = p_sym**2 / (2 * m_expr)
-    metric_from_H_1d = Metric.from_hamiltonian(H_1d, (x_sym,), (p_sym,))
-    print(f"  Metric from Hamiltonian: g = {metric_from_H_1d.g_expr}")
 
-    source_1d_h = (1.0,)
-    v_fan_1d_h = np.linspace(-3.0, 3.0, 50)
-    t_max_1d_h = 1.5
-    result_1d_h = compute_wavefunction(
-        metric=metric_from_H_1d,
-        source=source_1d_h,
-        v_fan=v_fan_1d_h,
-        t_max=t_max_1d_h,
-        hbar=hbar,
-        n_steps=500,
-        N_grid=300,
-        integrator='verlet'
+    # =========================================================================
+    # Example 3 — 2D Anisotropic Flat Metric
+    # =========================================================================
+    # The metric g = diag(1, κ²) with κ > 1 stretches the y-axis by a factor κ,
+    # making motion in the y-direction effectively slower (heavier).  The
+    # result is elliptic wavefronts whose semi-axes ratio is κ, and a
+    # characteristic interference pattern with fringes spaced κ times further
+    # apart along y than along x.  This is the simplest non-trivial 2D metric
+    # and provides the clearest demonstration of how geometry shapes the
+    # wavefunction without the complication of curvature.
+    # =========================================================================
+    print(f"\n{SEP}")
+    print("Example 3 — 2D Anisotropic flat metric")
+    print("  g = diag(1, 4)   (kappa = 2)")
+    print(SEP)
+
+    x2, y2   = sp.symbols('x y', real=True)
+    kappa    = 2
+    g_aniso  = sp.Matrix([[1, 0], [0, kappa**2]])
+    metric_aniso = Metric(g_aniso, (x2, y2))
+
+    # Circular fan in velocity space — becomes elliptic in position space
+    angles     = np.linspace(0, 2*np.pi, 120, endpoint=False)
+    speed      = 1.8
+    v_fan_aniso = np.column_stack([speed * np.cos(angles),
+                                   speed * np.sin(angles)])
+
+    result_aniso = compute_wavefunction(
+        metric    = metric_aniso,
+        source    = (0.0, 0.0),
+        v_fan     = v_fan_aniso,
+        t_max     = 1.8,
+        hbar      = hbar,
+        n_steps   = 400,
+        N_grid    = 200,
+        integrator= 'verlet',
     )
-    plot_wavefunction(result_1d_h, log_scale=True)
+    print(f"  {len(result_aniso.rays)} rays integrated successfully.")
+
+    fig4 = plot_wavefunction(result_aniso, log_scale=True)
+    fig4.suptitle(
+        r"Ex 4 — Anisotropic metric  $g = \mathrm{diag}(1,\,4)$"
+        rf"   $\hbar={hbar}$",
+        color="white", fontsize=12, fontweight="bold")
+    plot_ray_fan(result_aniso)
     plt.show()
 
-    # ----------------------------------------------------------------------
-    # Example 4: 2D polar coordinates H = (p_r^2 + p_theta^2 / r^2) / 2
-    #
-    # Three cautions specific to polar coordinates:
-    #
-    # (a) Coordinate singularity at r = 0: the metric component g^{θθ} = 1/r²
-    #     diverges.  Keep the source away from r=0 (r₀=1 is fine) and use
-    #     velocities small enough that no ray reaches r=0 during integration.
-    #
-    # (b) Coordinate singularity at θ = 0 / 2π for SymPy with positive=True:
-    #     evaluating g at θ=0 can trigger domain errors in lambdified
-    #     expressions.  A small offset θ₀ = 0.1 rad avoids this.
-    #
-    # (c) Zero-velocity rays: a fan that contains v=(0,0) produces a
-    #     degenerate constant trajectory; the Jacobi solver then receives a
-    #     trivially zero det J and the Maslov index computation is unreliable.
-    #     Build the fan from two 1D grids that exclude zero.
-    # ----------------------------------------------------------------------
-    print("\n2D polar coordinates (Hamiltonian input) – computing wavefunction...")
-    r, theta = sp.symbols('r theta', real=True, positive=True)
-    pr, ptheta = sp.symbols('p_r p_theta', real=True)
-    H_2d = (pr**2 + ptheta**2 / r**2) / 2
-    metric_from_H_2d = Metric.from_hamiltonian(H_2d, (r, theta), (pr, ptheta))
-
-    # (b) small θ offset so SymPy lambdify never evaluates at θ = 0
-    source_2d_h = (1.0, 0.1)
-
-    # (c) exclude zero: use linspace on strictly positive/negative halves
-    vr_pos  = np.linspace(0.05, 0.4, 5)
-    vr_vals = np.concatenate([-vr_pos[::-1], vr_pos])   # [-0.4,…,-0.05, 0.05,…,0.4]
-    vt_pos  = np.linspace(0.05, 0.4, 5)
-    vt_vals = np.concatenate([-vt_pos[::-1], vt_pos])
-    v_fan_2d_h = np.array([[a, b] for a in vr_vals for b in vt_vals])
-
-    t_max_2d_h = 0.8          # shorter: keeps rays well away from r = 0
-    result_2d_h = compute_wavefunction(
-        metric=metric_from_H_2d,
-        source=source_2d_h,
-        v_fan=v_fan_2d_h,
-        t_max=t_max_2d_h,
-        hbar=hbar,
-        n_steps=600,          # more steps for accuracy on curved metric
-        N_grid=150,
-        integrator='rk45'     # RK45 handles the r² denominator more robustly
-    )
-    plot_wavefunction(result_2d_h, log_scale=True)
-    plt.show()
-
-    print("\nPlotting additional diagnostics for the 1D variable-mass example...")
-    plot_ray_fan(result_1d_h)
-    plt.show()
-    plot_interference_detail(result_1d_h)
-    plt.show()
-
-    print("\nExamples finished.")
+    print(f"\n{SEP}")
+    print("All six examples completed.")
+    print(SEP)

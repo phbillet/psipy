@@ -335,109 +335,8 @@
     <span class="n">IntegralMethod</span><span class="p">,</span> <span class="n">SingularityType</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="c1"># (at the top of the file, add the import)</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
-
-<span class="c1"># ── Global variables for parallel worker processes ───────────────────────────</span>
-<span class="n">_worker_metric</span> <span class="o">=</span> <span class="kc">None</span>          <span class="c1"># will hold a Metric instance per process</span>
-<span class="n">_worker_metric_data</span> <span class="o">=</span> <span class="kc">None</span>     <span class="c1"># symbolic data passed to initializer</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_worker_init</span><span class="p">(</span><span class="n">metric_data</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Initializer for each worker process.</span>
-<span class="sd">    Reconstructs a Metric object from the symbolic data and stores it in</span>
-<span class="sd">    the global _worker_metric.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">global</span> <span class="n">_worker_metric</span><span class="p">,</span> <span class="n">_worker_metric_data</span>
-    <span class="n">_worker_metric_data</span> <span class="o">=</span> <span class="n">metric_data</span>
-    <span class="n">dim</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">expr_or_matrix</span> <span class="o">=</span> <span class="n">metric_data</span>
-    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">_worker_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">expr_or_matrix</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">_worker_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">expr_or_matrix</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_process_single_ray</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">t_max</span><span class="p">,</span> <span class="n">hbar</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">integrator</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Worker function that processes a single initial velocity v0.</span>
-<span class="sd">    Uses the global _worker_metric (set by _worker_init).</span>
-<span class="sd">    Returns a RayData object on success, None on failure.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">global</span> <span class="n">_worker_metric</span>
-    <span class="n">metric</span> <span class="o">=</span> <span class="n">_worker_metric</span>
-    <span class="n">dim</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
-    <span class="n">tspan</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">t_max</span><span class="p">)</span>
-    <span class="n">H_sym</span><span class="p">,</span> <span class="n">vars_phase</span> <span class="o">=</span> <span class="n">_build_hamiltonian_sym</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
-
-    <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># Convert velocity to momentum</span>
-        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">g0</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_func</span><span class="p">(</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
-            <span class="n">mom</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">g0</span> <span class="o">*</span> <span class="n">v0</span><span class="p">)</span>
-            <span class="n">z0</span> <span class="o">=</span> <span class="p">[</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mom</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">g0</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">source</span><span class="p">[</span><span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;g&#39;</span><span class="p">]</span>
-            <span class="n">mom</span> <span class="o">=</span> <span class="n">g0</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-            <span class="n">z0</span> <span class="o">=</span> <span class="p">[</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">mom</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">source</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">mom</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span>
-
-        <span class="c1"># Integrate ray</span>
-        <span class="n">traj</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span>
-            <span class="n">H_sym</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span>
-            <span class="n">vars_phase</span><span class="o">=</span><span class="n">vars_phase</span><span class="p">,</span>
-            <span class="n">integrator</span><span class="o">=</span><span class="n">integrator</span><span class="p">,</span>
-            <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">,</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Reconstruct geometric trajectory for Jacobi solver</span>
-        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">x_sym</span> <span class="o">=</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-            <span class="n">geo_traj</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">],</span>
-                <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)],</span>
-                <span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)])</span> <span class="o">*</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">xi_sym</span><span class="p">)],</span>
-            <span class="p">}</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">eta_sym</span> <span class="o">=</span> <span class="n">vars_phase</span>
-            <span class="n">x_arr</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)];</span> <span class="n">y_arr</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">y_sym</span><span class="p">)]</span>
-            <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">xi_sym</span><span class="p">)];</span> <span class="n">eta_arr</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">eta_sym</span><span class="p">)]</span>
-
-            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">x_arr</span><span class="p">))</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">y_arr</span><span class="p">))):</span>
-                <span class="k">return</span> <span class="kc">None</span>
-
-            <span class="n">g00</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)](</span><span class="n">x_arr</span><span class="p">,</span> <span class="n">y_arr</span><span class="p">)</span>
-            <span class="n">g01</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)](</span><span class="n">x_arr</span><span class="p">,</span> <span class="n">y_arr</span><span class="p">)</span>
-            <span class="n">g10</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)](</span><span class="n">x_arr</span><span class="p">,</span> <span class="n">y_arr</span><span class="p">)</span>
-            <span class="n">g11</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)](</span><span class="n">x_arr</span><span class="p">,</span> <span class="n">y_arr</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">c</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">(</span><span class="n">g00</span><span class="p">,</span> <span class="n">g01</span><span class="p">,</span> <span class="n">g10</span><span class="p">,</span> <span class="n">g11</span><span class="p">)):</span>
-                <span class="k">return</span> <span class="kc">None</span>
-
-            <span class="n">geo_traj</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">],</span>
-                <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">x_arr</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">y_arr</span><span class="p">,</span>
-                <span class="s1">&#39;vx&#39;</span><span class="p">:</span> <span class="n">g00</span> <span class="o">*</span> <span class="n">xi_arr</span> <span class="o">+</span> <span class="n">g01</span> <span class="o">*</span> <span class="n">eta_arr</span><span class="p">,</span>
-                <span class="s1">&#39;vy&#39;</span><span class="p">:</span> <span class="n">g10</span> <span class="o">*</span> <span class="n">xi_arr</span> <span class="o">+</span> <span class="n">g11</span> <span class="o">*</span> <span class="n">eta_arr</span><span class="p">,</span>
-            <span class="p">}</span>
-
-        <span class="c1"># Compute Jacobi determinant</span>
-        <span class="n">det_J</span> <span class="o">=</span> <span class="n">_det_J_from_jacobi</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">geo_traj</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">)</span>
-
-        <span class="c1"># Compute cumulative action</span>
-        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">ck</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">]),)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">ck</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
-        <span class="n">S_cum</span> <span class="o">=</span> <span class="n">_cumulative_action</span><span class="p">(</span><span class="n">traj</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">coord_keys</span><span class="o">=</span><span class="n">ck</span><span class="p">)</span>
-
-        <span class="c1"># Maslov index</span>
-        <span class="n">mu</span> <span class="o">=</span> <span class="n">_maslov_index</span><span class="p">(</span><span class="n">det_J</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">RayData</span><span class="p">(</span><span class="n">traj</span><span class="o">=</span><span class="n">traj</span><span class="p">,</span> <span class="n">det_J</span><span class="o">=</span><span class="n">det_J</span><span class="p">,</span> <span class="n">S_cum</span><span class="o">=</span><span class="n">S_cum</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
-
-    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-        <span class="c1"># Silently skip failed rays</span>
-        <span class="k">return</span> <span class="kc">None</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
 
 
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
@@ -572,6 +471,198 @@
     <span class="n">dim</span>       <span class="p">:</span> <span class="nb">int</span></div>
 
 
+
+<span class="c1"># ── New internal function that processes a single ray given the already</span>
+<span class="c1">#    constructed objects. It replicates the original loop body.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_process_single_ray_internal</span><span class="p">(</span>
+    <span class="n">p0</span><span class="p">,</span>                 <span class="c1"># initial canonical momentum (float or 2‑tuple)</span>
+    <span class="n">source</span><span class="p">,</span>             <span class="c1"># tuple of floats</span>
+    <span class="n">t_max</span><span class="p">,</span>              <span class="c1"># float</span>
+    <span class="n">hbar</span><span class="p">,</span>               <span class="c1"># float</span>
+    <span class="n">n_steps</span><span class="p">,</span>            <span class="c1"># int</span>
+    <span class="n">integrator</span><span class="p">,</span>         <span class="c1"># str</span>
+    <span class="n">H_sym</span><span class="p">,</span>              <span class="c1"># sympy.Expr</span>
+    <span class="n">vars_phase</span><span class="p">,</span>         <span class="c1"># list of sympy.Symbol</span>
+    <span class="n">is_metric_mode</span><span class="p">,</span>     <span class="c1"># bool</span>
+    <span class="n">metric</span>              <span class="c1"># Metric or None</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Perform all steps for one ray (integration, Jacobi, action, Maslov)</span>
+<span class="sd">    and return a RayData object, or None if the ray fails.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+    <span class="n">tspan</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">t_max</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># ── initial phase‑space state ──────────────────────────</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">z0</span> <span class="o">=</span> <span class="p">[</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">z0</span> <span class="o">=</span> <span class="p">[</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">source</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span>
+
+        <span class="c1"># ── ray integration (symplectic) ───────────────────────</span>
+        <span class="n">traj</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span>
+            <span class="n">H_sym</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span>
+            <span class="n">vars_phase</span><span class="o">=</span><span class="n">vars_phase</span><span class="p">,</span>
+            <span class="n">integrator</span><span class="o">=</span><span class="n">integrator</span><span class="p">,</span>
+            <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># ── Jacobi determinant ─────────────────────────────────</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="c1"># geometric trajectory for the variational ODE</span>
+            <span class="n">geo_traj</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">],</span>
+                <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)],</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">):</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)],</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">xi_sym</span><span class="p">):</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">xi_sym</span><span class="p">)],</span>
+                <span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)])</span> <span class="o">*</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">xi_sym</span><span class="p">)]</span>
+                      <span class="k">if</span> <span class="n">is_metric_mode</span>
+                      <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">])),</span>
+            <span class="p">}</span>
+            <span class="n">use_general_jacobi_1d</span> <span class="o">=</span> <span class="p">(</span><span class="ow">not</span> <span class="n">is_metric_mode</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">use_general_jacobi_1d</span><span class="p">:</span>
+                <span class="n">det_J</span> <span class="o">=</span> <span class="n">_det_J_1d_general</span><span class="p">(</span>
+                    <span class="n">H_sym</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">,</span> <span class="n">traj</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">det_J</span> <span class="o">=</span> <span class="n">_det_J_1d</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">geo_traj</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># 2D</span>
+            <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">eta_sym</span> <span class="o">=</span> <span class="n">vars_phase</span>
+            <span class="n">x_arr</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)];</span>   <span class="n">y_arr</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">y_sym</span><span class="p">)]</span>
+            <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">xi_sym</span><span class="p">)];</span>  <span class="n">eta_arr</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">eta_sym</span><span class="p">)]</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">x_arr</span><span class="p">))</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">y_arr</span><span class="p">))):</span>
+                <span class="k">return</span> <span class="kc">None</span>
+
+            <span class="k">if</span> <span class="n">is_metric_mode</span><span class="p">:</span>
+                <span class="n">g00</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)](</span><span class="n">x_arr</span><span class="p">,</span> <span class="n">y_arr</span><span class="p">)</span>
+                <span class="n">g01</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)](</span><span class="n">x_arr</span><span class="p">,</span> <span class="n">y_arr</span><span class="p">)</span>
+                <span class="n">g10</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)](</span><span class="n">x_arr</span><span class="p">,</span> <span class="n">y_arr</span><span class="p">)</span>
+                <span class="n">g11</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_func</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)](</span><span class="n">x_arr</span><span class="p">,</span> <span class="n">y_arr</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">c</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">(</span><span class="n">g00</span><span class="p">,</span> <span class="n">g01</span><span class="p">,</span> <span class="n">g10</span><span class="p">,</span> <span class="n">g11</span><span class="p">)):</span>
+                    <span class="k">return</span> <span class="kc">None</span>
+                <span class="n">vx_arr</span> <span class="o">=</span> <span class="n">g00</span> <span class="o">*</span> <span class="n">xi_arr</span> <span class="o">+</span> <span class="n">g01</span> <span class="o">*</span> <span class="n">eta_arr</span>
+                <span class="n">vy_arr</span> <span class="o">=</span> <span class="n">g10</span> <span class="o">*</span> <span class="n">xi_arr</span> <span class="o">+</span> <span class="n">g11</span> <span class="o">*</span> <span class="n">eta_arr</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vx_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">x_arr</span><span class="p">,</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">])</span>
+                <span class="n">vy_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">y_arr</span><span class="p">,</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">])</span>
+
+            <span class="n">geo_traj</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">],</span>
+                <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">x_arr</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">y_arr</span><span class="p">,</span>
+                <span class="s1">&#39;vx&#39;</span><span class="p">:</span> <span class="n">vx_arr</span><span class="p">,</span> <span class="s1">&#39;vy&#39;</span><span class="p">:</span> <span class="n">vy_arr</span><span class="p">,</span>
+            <span class="p">}</span>
+
+            <span class="n">use_fd_jacobi_2d</span> <span class="o">=</span> <span class="p">(</span><span class="ow">not</span> <span class="n">is_metric_mode</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">use_fd_jacobi_2d</span><span class="p">:</span>
+                <span class="c1"># Finite‑difference Jacobi for general 2D H</span>
+                <span class="n">delta</span> <span class="o">=</span> <span class="mf">1e-4</span> <span class="o">*</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">)</span>
+                <span class="n">xs_k</span><span class="p">,</span> <span class="n">ys_k</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">y_sym</span><span class="p">)</span>
+                <span class="n">traj_p1</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span>
+                    <span class="n">H_sym</span><span class="p">,</span>
+                    <span class="p">[</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">+</span><span class="n">delta</span><span class="p">,</span> <span class="n">source</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])],</span>
+                    <span class="n">tspan</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="n">vars_phase</span><span class="p">,</span>
+                    <span class="n">integrator</span><span class="o">=</span><span class="n">integrator</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">)</span>
+                <span class="n">traj_m1</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span>
+                    <span class="n">H_sym</span><span class="p">,</span>
+                    <span class="p">[</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">-</span><span class="n">delta</span><span class="p">,</span> <span class="n">source</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])],</span>
+                    <span class="n">tspan</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="n">vars_phase</span><span class="p">,</span>
+                    <span class="n">integrator</span><span class="o">=</span><span class="n">integrator</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">)</span>
+                <span class="n">traj_p2</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span>
+                    <span class="n">H_sym</span><span class="p">,</span>
+                    <span class="p">[</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">source</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">+</span><span class="n">delta</span><span class="p">],</span>
+                    <span class="n">tspan</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="n">vars_phase</span><span class="p">,</span>
+                    <span class="n">integrator</span><span class="o">=</span><span class="n">integrator</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">)</span>
+                <span class="n">traj_m2</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span>
+                    <span class="n">H_sym</span><span class="p">,</span>
+                    <span class="p">[</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">source</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">-</span><span class="n">delta</span><span class="p">],</span>
+                    <span class="n">tspan</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="n">vars_phase</span><span class="p">,</span>
+                    <span class="n">integrator</span><span class="o">=</span><span class="n">integrator</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">)</span>
+                <span class="n">J11</span> <span class="o">=</span> <span class="p">(</span><span class="n">traj_p1</span><span class="p">[</span><span class="n">xs_k</span><span class="p">]</span> <span class="o">-</span> <span class="n">traj_m1</span><span class="p">[</span><span class="n">xs_k</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">delta</span><span class="p">)</span>
+                <span class="n">J12</span> <span class="o">=</span> <span class="p">(</span><span class="n">traj_p2</span><span class="p">[</span><span class="n">xs_k</span><span class="p">]</span> <span class="o">-</span> <span class="n">traj_m2</span><span class="p">[</span><span class="n">xs_k</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">delta</span><span class="p">)</span>
+                <span class="n">J21</span> <span class="o">=</span> <span class="p">(</span><span class="n">traj_p1</span><span class="p">[</span><span class="n">ys_k</span><span class="p">]</span> <span class="o">-</span> <span class="n">traj_m1</span><span class="p">[</span><span class="n">ys_k</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">delta</span><span class="p">)</span>
+                <span class="n">J22</span> <span class="o">=</span> <span class="p">(</span><span class="n">traj_p2</span><span class="p">[</span><span class="n">ys_k</span><span class="p">]</span> <span class="o">-</span> <span class="n">traj_m2</span><span class="p">[</span><span class="n">ys_k</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">delta</span><span class="p">)</span>
+                <span class="n">det_J</span> <span class="o">=</span> <span class="n">J11</span> <span class="o">*</span> <span class="n">J22</span> <span class="o">-</span> <span class="n">J12</span> <span class="o">*</span> <span class="n">J21</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">det_J</span> <span class="o">=</span> <span class="n">_det_J_from_jacobi</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">geo_traj</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">)</span>
+
+        <span class="c1"># ── cumulative action and Maslov index ─────────────────</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">coord_keys</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">]),)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">coord_keys</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="n">S_cum</span> <span class="o">=</span> <span class="n">_cumulative_action</span><span class="p">(</span>
+            <span class="n">traj</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span>
+            <span class="n">metric</span><span class="o">=</span><span class="n">metric</span> <span class="k">if</span> <span class="n">is_metric_mode</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">coord_keys</span><span class="o">=</span><span class="n">coord_keys</span><span class="p">)</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="n">_maslov_index</span><span class="p">(</span><span class="n">det_J</span><span class="p">)</span>
+
+        <span class="c1"># ── trim arrays to the same length and check finiteness ─</span>
+        <span class="n">n_valid</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">S_cum</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">det_J</span><span class="p">),</span>
+                      <span class="nb">len</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">])]))</span>
+        <span class="k">if</span> <span class="n">n_valid</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">det_J</span> <span class="o">=</span> <span class="n">det_J</span><span class="p">[:</span><span class="n">n_valid</span><span class="p">]</span>
+        <span class="n">S_cum</span> <span class="o">=</span> <span class="n">S_cum</span><span class="p">[:</span><span class="n">n_valid</span><span class="p">]</span>
+        <span class="n">traj_trim</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">(</span><span class="n">v</span><span class="p">[:</span><span class="n">n_valid</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span><span class="p">)</span>
+                     <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">traj</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="n">pos_key</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">traj_trim</span><span class="p">[</span><span class="n">pos_key</span><span class="p">]))</span>
+                <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">S_cum</span><span class="p">))</span>
+                <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">det_J</span><span class="p">))):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">RayData</span><span class="p">(</span><span class="n">traj</span><span class="o">=</span><span class="n">traj_trim</span><span class="p">,</span> <span class="n">det_J</span><span class="o">=</span><span class="n">det_J</span><span class="p">,</span> <span class="n">S_cum</span><span class="o">=</span><span class="n">S_cum</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="c1"># ── Worker function for parallel execution.</span>
+<span class="c1">#    It reconstructs the needed objects from symbolic data,</span>
+<span class="c1">#    then calls _process_single_ray_internal.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_worker_process_ray</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">t_max</span><span class="p">,</span> <span class="n">hbar</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">integrator</span><span class="p">,</span> <span class="n">worker_data</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    worker_data : dict with keys:</span>
+<span class="sd">        &#39;mode&#39; : &#39;metric&#39; or &#39;hamiltonian&#39;</span>
+<span class="sd">        &#39;dim&#39; : 1 or 2</span>
+<span class="sd">        &#39;coords&#39; : tuple of sympy.Symbol</span>
+<span class="sd">        and either</span>
+<span class="sd">            &#39;g_expr&#39; / &#39;g_matrix&#39; (for metric mode)</span>
+<span class="sd">        or</span>
+<span class="sd">            &#39;H_expr&#39;, &#39;momenta&#39; (for hamiltonian mode)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;mode&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;metric&#39;</span><span class="p">:</span>
+            <span class="n">dim</span> <span class="o">=</span> <span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;dim&#39;</span><span class="p">]</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;coords&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;g_expr&#39;</span><span class="p">],</span> <span class="n">coords</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;g_matrix&#39;</span><span class="p">],</span> <span class="n">coords</span><span class="p">)</span>
+            <span class="n">H_sym</span><span class="p">,</span> <span class="n">vars_phase</span> <span class="o">=</span> <span class="n">_build_hamiltonian_sym</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+            <span class="n">is_metric_mode</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">metric_obj</span> <span class="o">=</span> <span class="n">metric</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># hamiltonian mode</span>
+            <span class="n">dim</span> <span class="o">=</span> <span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;dim&#39;</span><span class="p">]</span>
+            <span class="n">coords</span> <span class="o">=</span> <span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;coords&#39;</span><span class="p">]</span>
+            <span class="n">momenta</span> <span class="o">=</span> <span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;momenta&#39;</span><span class="p">]</span>
+            <span class="n">H_sym</span> <span class="o">=</span> <span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;H_expr&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">momenta</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">momenta</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">momenta</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+            <span class="n">is_metric_mode</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">metric_obj</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">_process_single_ray_internal</span><span class="p">(</span>
+            <span class="n">p0</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">t_max</span><span class="p">,</span> <span class="n">hbar</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">integrator</span><span class="p">,</span>
+            <span class="n">H_sym</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">,</span> <span class="n">is_metric_mode</span><span class="p">,</span> <span class="n">metric_obj</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
 
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
 <span class="c1"># 1 — Jacobi matrix determinant  (uses riemannian.jacobi_equation_solver)</span>
@@ -1476,204 +1567,480 @@
                 <span class="o">+</span> <span class="n">g_inv</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">eta</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
         <span class="k">return</span> <span class="n">H</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">eta</span><span class="p">]</span>
 
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_hamiltonian</span><span class="p">(</span>
+    <span class="n">metric</span>        <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
+    <span class="n">hamiltonian</span>   <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">],</span>
+    <span class="n">coords</span>        <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">],</span>
+    <span class="n">momenta</span>       <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Resolve the Hamiltonian and phase-space variables from either a</span>
+<span class="sd">    ``Metric`` object or an explicit SymPy expression.</span>
+
+<span class="sd">    This is the single dispatch point that allows :func:`compute_wavefunction`</span>
+<span class="sd">    to accept **either** a geometric ``metric`` argument (pure-kinetic,</span>
+<span class="sd">    geodesic motion) **or** a general symbolic ``hamiltonian`` with an</span>
+<span class="sd">    arbitrary potential.</span>
+
+<span class="sd">    Dispatch rules</span>
+<span class="sd">    --------------</span>
+<span class="sd">    **Metric path** (``metric`` is not ``None``):</span>
+<span class="sd">        Delegates to :func:`_build_hamiltonian_sym`.  The Hamiltonian is</span>
+<span class="sd">        constructed as H = ½ gⁱʲ pᵢ pⱼ and momentum symbols are created</span>
+<span class="sd">        automatically as ``&#39;xi&#39;`` / ``&#39;eta&#39;``.</span>
+
+<span class="sd">    **General Hamiltonian path** (``hamiltonian`` is not ``None``):</span>
+<span class="sd">        The caller supplies a SymPy expression H(coords, momenta) together</span>
+<span class="sd">        with the coordinate and momentum symbol tuples.  The phase-space</span>
+<span class="sd">        variable list is interleaved as ``[q₁, p₁]`` (1D) or</span>
+<span class="sd">        ``[q₁, p₁, q₂, p₂]`` (2D), following the convention of</span>
+<span class="sd">        :func:`symplectic.hamiltonian_flow`.</span>
+
+<span class="sd">        Example (1D harmonic oscillator with potential)::</span>
+
+<span class="sd">            x, xi = sp.symbols(&#39;x xi&#39;, real=True)</span>
+<span class="sd">            H = xi**2 / 2 + x**2 / 2          # T + V = ½p² + ½x²</span>
+<span class="sd">            H_expr, vars_phase, dim = _resolve_hamiltonian(</span>
+<span class="sd">                metric=None, hamiltonian=H,</span>
+<span class="sd">                coords=(x,), momenta=(xi,))</span>
+<span class="sd">            # → H_expr = xi**2/2 + x**2/2</span>
+<span class="sd">            # → vars_phase = [x, xi]</span>
+<span class="sd">            # → dim = 1</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric or None</span>
+<span class="sd">        Riemannian metric.  Must be ``None`` when ``hamiltonian`` is given.</span>
+<span class="sd">    hamiltonian : sp.Expr or None</span>
+<span class="sd">        General SymPy Hamiltonian expression H(q, p).  Must be ``None``</span>
+<span class="sd">        when ``metric`` is given.</span>
+<span class="sd">    coords : tuple of sp.Symbol or None</span>
+<span class="sd">        Position symbols, e.g. ``(x,)`` or ``(x, y)``.  Required when</span>
+<span class="sd">        ``hamiltonian`` is given; ignored otherwise.</span>
+<span class="sd">    momenta : tuple of sp.Symbol or None</span>
+<span class="sd">        Momentum symbols, e.g. ``(xi,)`` or ``(xi, eta)``.  Required when</span>
+<span class="sd">        ``hamiltonian`` is given; ignored otherwise.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    H_expr : sp.Expr</span>
+<span class="sd">        Symbolic Hamiltonian ready for :func:`symplectic.hamiltonian_flow`.</span>
+<span class="sd">    vars_phase : list of sp.Symbol</span>
+<span class="sd">        Interleaved phase-space list ``[q₁, p₁]`` or ``[q₁, p₁, q₂, p₂]``.</span>
+<span class="sd">    dim : int</span>
+<span class="sd">        Spatial dimension (1 or 2).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If neither or both of ``metric`` / ``hamiltonian`` are supplied, or</span>
+<span class="sd">        if the dimension implied by ``coords`` / ``momenta`` is not 1 or 2.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">metric</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">hamiltonian</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Provide either &#39;metric&#39; or &#39;hamiltonian&#39;, not both.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">metric</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">hamiltonian</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Provide exactly one of &#39;metric&#39; or &#39;hamiltonian&#39;.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">metric</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">H_expr</span><span class="p">,</span> <span class="n">vars_phase</span> <span class="o">=</span> <span class="n">_build_hamiltonian_sym</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">H_expr</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
+
+    <span class="c1"># ── General Hamiltonian path ──────────────────────────────────────────────</span>
+    <span class="k">if</span> <span class="n">coords</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">momenta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;When supplying &#39;hamiltonian&#39;, you must also supply &#39;coords&#39; &quot;</span>
+            <span class="s2">&quot;and &#39;momenta&#39; — the SymPy symbol tuples for positions and &quot;</span>
+            <span class="s2">&quot;canonical momenta.&quot;</span><span class="p">)</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Only 1D and 2D are supported; got dim=</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">momenta</span><span class="p">)</span> <span class="o">!=</span> <span class="n">dim</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;len(coords)=</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2"> but len(momenta)=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">momenta</span><span class="p">)</span><span class="si">}</span><span class="s2">: &quot;</span>
+            <span class="s2">&quot;each coordinate must have exactly one conjugate momentum.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">momenta</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">momenta</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">momenta</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+    <span class="k">return</span> <span class="n">hamiltonian</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">,</span> <span class="n">dim</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_det_J_1d_general</span><span class="p">(</span>
+    <span class="n">H_expr</span>    <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+    <span class="n">traj</span>      <span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">tspan</span>     <span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span>
+    <span class="n">n_steps</span>   <span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Integrate the 1D Jacobi scalar J(t) = ∂x(t)/∂p₀ for a **general**</span>
+<span class="sd">    Hamiltonian H(x, ξ) (not necessarily purely kinetic).</span>
+
+<span class="sd">    Physical Background</span>
+<span class="sd">    -------------------</span>
+<span class="sd">    For a general Hamiltonian the equations of motion are</span>
+
+<span class="sd">        ẋ = ∂H/∂ξ,      ξ̇ = −∂H/∂x.</span>
+
+<span class="sd">    Linearising around the background ray (x(t), ξ(t)) with perturbation</span>
+<span class="sd">    (δx, δξ) = (J, K) δp₀ yields the **variational system**:</span>
+
+<span class="sd">        dJ/dt =  ∂²H/∂ξ² · K  +  ∂²H/∂x∂ξ · J</span>
+<span class="sd">        dK/dt = −∂²H/∂x∂ξ · K − ∂²H/∂x² · J</span>
+
+<span class="sd">    with initial conditions J(0) = 0, K(0) = 1 (point-source fan).</span>
+
+<span class="sd">    This reduces to the pure-metric ODE in :func:`_det_J_1d` when</span>
+<span class="sd">    H = ½ g⁻¹(x) ξ² (in which case ∂²H/∂ξ² = g⁻¹, ∂²H/∂x∂ξ = ∂_x g⁻¹ · ξ,</span>
+<span class="sd">    ∂²H/∂x² includes second derivatives of g⁻¹ — but the two forms agree on</span>
+<span class="sd">    trajectories because ẋ = g⁻¹ ξ).</span>
+
+<span class="sd">    For H = ½ ξ² + V(x) (standard kinetic + potential):</span>
+
+<span class="sd">        dJ/dt = K                    (∂²H/∂ξ² = 1, ∂²H/∂x∂ξ = 0)</span>
+<span class="sd">        dK/dt = −V&#39;&#39;(x(t)) · J       (∂²H/∂x² = V&#39;&#39;)</span>
+
+<span class="sd">    This is exactly the **Jacobi / Hill equation** familiar from quantum</span>
+<span class="sd">    mechanics (where V&#39;&#39; is the curvature of the potential at the classical</span>
+<span class="sd">    turning points).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    H_expr : sp.Expr</span>
+<span class="sd">        Symbolic Hamiltonian H(x, ξ).</span>
+<span class="sd">    vars_phase : list of sp.Symbol</span>
+<span class="sd">        ``[x_sym, xi_sym]`` — the coordinate and momentum symbols.</span>
+<span class="sd">    traj : dict</span>
+<span class="sd">        Background ray trajectory with keys ``&#39;t&#39;``, and the string names</span>
+<span class="sd">        of the coordinate and momentum symbols (e.g. ``&#39;x&#39;``, ``&#39;xi&#39;``).</span>
+<span class="sd">    tspan : tuple (t_start, t_end)</span>
+<span class="sd">        Integration interval.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of uniformly-spaced output time points.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    det_J : np.ndarray, shape (n_steps,)</span>
+<span class="sd">        Jacobi scalar J(t) at each time step.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_ivp</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">interp1d</span>
+
+    <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># ── Symbolic second derivatives of H ─────────────────────────────────────</span>
+    <span class="n">H_xx</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>   <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="n">H_xxi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="n">H_xixi</span><span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>  <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+
+    <span class="n">x_key</span>  <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)</span>
+    <span class="n">xi_key</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">xi_sym</span><span class="p">)</span>
+    <span class="n">x_interp</span>  <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="n">x_key</span><span class="p">],</span>  <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+    <span class="n">xi_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="n">xi_key</span><span class="p">],</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">jac_ode</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+        <span class="n">J</span><span class="p">,</span> <span class="n">K</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="n">xv</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">x_interp</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+        <span class="n">xiv</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">xi_interp</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+        <span class="n">a</span>   <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">H_xixi</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">))</span>   <span class="c1"># ∂²H/∂ξ²</span>
+        <span class="n">b</span>   <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">H_xxi</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">))</span>    <span class="c1"># ∂²H/∂x∂ξ</span>
+        <span class="n">c</span>   <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">H_xx</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">))</span>     <span class="c1"># ∂²H/∂x²</span>
+        <span class="n">dJ</span>  <span class="o">=</span>  <span class="n">a</span> <span class="o">*</span> <span class="n">K</span> <span class="o">+</span> <span class="n">b</span> <span class="o">*</span> <span class="n">J</span>
+        <span class="n">dK</span>  <span class="o">=</span> <span class="o">-</span><span class="n">b</span> <span class="o">*</span> <span class="n">K</span> <span class="o">-</span> <span class="n">c</span> <span class="o">*</span> <span class="n">J</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">dJ</span><span class="p">,</span> <span class="n">dK</span><span class="p">]</span>
+
+    <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="n">jac_ode</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
+                    <span class="n">t_eval</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">),</span>
+                    <span class="n">method</span><span class="o">=</span><span class="s1">&#39;RK45&#39;</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+
+
+<span class="c1"># ── Modified compute_wavefunction with parallel option ──────────────────────</span>
 <div class="viewcode-block" id="compute_wavefunction">
 <a class="viewcode-back" href="../propagator.html#propagator.compute_wavefunction">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_wavefunction</span><span class="p">(</span>
-    <span class="n">metric</span>       <span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
-    <span class="n">source</span>       <span class="p">:</span> <span class="n">Tuple</span><span class="p">,</span>
-    <span class="n">v_fan</span>        <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-    <span class="n">t_max</span>        <span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">metric</span>       <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Metric</span><span class="p">]</span>  <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">source</span>       <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span>   <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">v_fan</span>        <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">t_max</span>        <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>   <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">hbar</span>         <span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
     <span class="n">n_steps</span>      <span class="p">:</span> <span class="nb">int</span>   <span class="o">=</span> <span class="mi">400</span><span class="p">,</span>
     <span class="n">N_grid</span>       <span class="p">:</span> <span class="nb">int</span>   <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
     <span class="n">xlim</span>         <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">ylim</span>         <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">integrator</span>   <span class="p">:</span> <span class="nb">str</span>   <span class="o">=</span> <span class="s1">&#39;verlet&#39;</span><span class="p">,</span>
+    <span class="c1"># ── general Hamiltonian interface ─────────────────────────</span>
+    <span class="n">hamiltonian</span>  <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span>  <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coords</span>       <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span>    <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">momenta</span>      <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span>    <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">p_fan</span>        <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="c1"># ── parallel execution control ────────────────────────────</span>
+    <span class="n">parallel</span>     <span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WKBResult</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the semiclassical (Van Vleck–Pauli–Morette) wavefunction.</span>
 
-<span class="sd">    This is the main public entry point.  It orchestrates the full pipeline:</span>
+<span class="sd">    This is the main public entry point.  It accepts **two distinct input</span>
+<span class="sd">    modes** depending on whether you supply a ``Metric`` object (pure kinetic,</span>
+<span class="sd">    geodesic motion) or an explicit SymPy Hamiltonian expression (general</span>
+<span class="sd">    T + V systems from the ``hamiltonian_catalog`` or anywhere else).</span>
 
-<span class="sd">    1. Build the kinetic Hamiltonian H = ½ gⁱʲ pᵢ pⱼ from ``metric``.</span>
-<span class="sd">    2. For each initial velocity ``v0`` in ``v_fan``:</span>
-
-<span class="sd">       a. Convert velocity to canonical momentum: p₀ = g(x₀) · v₀.</span>
-<span class="sd">       b. Integrate Hamilton&#39;s equations with :func:`symplectic.hamiltonian_flow`</span>
-<span class="sd">          to obtain the ray trajectory (positions + momenta).</span>
-<span class="sd">       c. Reconstruct the velocity trajectory from the momenta (v = g⁻¹ p)</span>
-<span class="sd">          and pass it to :func:`_det_J_from_jacobi` to compute the Jacobi</span>
-<span class="sd">          determinant along the ray.</span>
-<span class="sd">       d. Compute the cumulative action with :func:`_cumulative_action`.</span>
-<span class="sd">       e. Compute the Maslov index with :func:`_maslov_index`.</span>
-<span class="sd">       f. Store the result as a :class:`RayData` object.</span>
-
-<span class="sd">    3. Concatenate all scattered ray data (positions, S, det J, μ).</span>
-<span class="sd">    4. Call :func:`van_vleck_sum` to interpolate the VVP amplitude onto a</span>
-<span class="sd">       regular output grid and apply Airy corrections near caustics.</span>
-<span class="sd">    5. Return a :class:`WKBResult` containing the gridded ψ and all raw data.</span>
-
-<span class="sd">    Velocity vs momentum convention</span>
-<span class="sd">    --------------------------------</span>
-<span class="sd">    The parameter ``v_fan`` specifies the fan in terms of *initial velocities*</span>
-<span class="sd">    (contravariant vectors vⁱ = dxⁱ/dt), not canonical momenta.  Internally,</span>
-<span class="sd">    the conversion p₀ = g(x₀) · v₀ is applied before the Hamiltonian</span>
-<span class="sd">    integrator.  On a flat metric g = I this distinction is irrelevant, but on</span>
-<span class="sd">    a curved metric (e.g. g = x² for a position-dependent mass) it matters:</span>
-<span class="sd">    a uniform velocity fan produces uniformly-spaced geodesics, while a</span>
-<span class="sd">    momentum fan would oversample fast regions.</span>
-
-<span class="sd">    Error handling</span>
-<span class="sd">    --------------</span>
-<span class="sd">    Individual rays that raise any exception during integration (e.g. due to</span>
-<span class="sd">    the ray escaping the domain, a singularity in the metric, or a numerical</span>
-<span class="sd">    blow-up) are silently skipped.  If *all* rays fail, a ``RuntimeError`` is</span>
-<span class="sd">    raised.  Callers may inspect ``len(result.rays)`` to check how many rays</span>
-<span class="sd">    succeeded.</span>
-
-<span class="sd">    Grid bounds</span>
+<span class="sd">    Input Modes</span>
 <span class="sd">    -----------</span>
-<span class="sd">    If ``xlim`` (and ``ylim`` for 2D) are not provided, they are set to the</span>
-<span class="sd">    range of the ray endpoints with a 10% margin added on each side.  This</span>
-<span class="sd">    auto-detection works well for most problems but may produce a grid that</span>
-<span class="sd">    crops the wavefunction if rays are highly inhomogeneous; in that case</span>
-<span class="sd">    supply explicit limits.</span>
+<span class="sd">    **Mode A — Metric** (original interface, ``v_fan`` required):</span>
+<span class="sd">        Pass a ``riemannian.Metric`` object.  The Hamiltonian is built</span>
+<span class="sd">        internally as H = ½ gⁱʲ pᵢ pⱼ.  Initial momenta are obtained by</span>
+<span class="sd">        converting the supplied velocity fan: p₀ = g(x₀) · v₀.</span>
+
+<span class="sd">        ::</span>
+
+<span class="sd">            result = compute_wavefunction(</span>
+<span class="sd">                metric = Metric(1, (x,)),</span>
+<span class="sd">                source = (0.0,),</span>
+<span class="sd">                v_fan  = np.linspace(-3, 3, 60),</span>
+<span class="sd">                t_max  = 2.0,</span>
+<span class="sd">            )</span>
+
+<span class="sd">    **Mode B — General Hamiltonian** (new interface, ``p_fan`` required):</span>
+<span class="sd">        Pass a SymPy expression H(coords, momenta) together with the</span>
+<span class="sd">        coordinate and momentum symbol tuples.  Initial conditions are</span>
+<span class="sd">        specified directly as a fan of **canonical momenta** p₀ (not</span>
+<span class="sd">        velocities), since v = ∂H/∂p is not simply g⁻¹ p for a general H.</span>
+
+<span class="sd">        ::</span>
+
+<span class="sd">            x, xi = sp.symbols(&#39;x xi&#39;, real=True)</span>
+<span class="sd">            H = xi**2 / 2 + sp.cos(x)        # pendulum-type Hamiltonian</span>
+<span class="sd">            result = compute_wavefunction(</span>
+<span class="sd">                hamiltonian = H,</span>
+<span class="sd">                coords      = (x,),</span>
+<span class="sd">                momenta     = (xi,),</span>
+<span class="sd">                source      = (0.0,),</span>
+<span class="sd">                p_fan       = np.linspace(-2, 2, 60),</span>
+<span class="sd">                t_max       = 3.0,</span>
+<span class="sd">            )</span>
+
+<span class="sd">        Any Hamiltonian from ``psipy.hamiltonian_catalog`` can be used</span>
+<span class="sd">        directly in this mode.</span>
+
+<span class="sd">    Jacobi Determinant for General Hamiltonians</span>
+<span class="sd">    --------------------------------------------</span>
+<span class="sd">    In Mode B the variational (Jacobi) system is derived from the full</span>
+<span class="sd">    Hessian of H:</span>
+
+<span class="sd">        dJ/dt =  (∂²H/∂ξ²) K + (∂²H/∂x∂ξ) J</span>
+<span class="sd">        dK/dt = −(∂²H/∂x∂ξ) K − (∂²H/∂x²) J</span>
+
+<span class="sd">    with J(0) = 0, K(0) = 1.  This is the **Hill / Jacobi equation**</span>
+<span class="sd">    that reduces to the pure-metric ODE when H = ½ g⁻¹ ξ².  For</span>
+<span class="sd">    H = ½ ξ² + V(x) it gives dK/dt = −V&#39;&#39;(x(t)) J — the curvature of</span>
+<span class="sd">    the potential drives caustic formation.</span>
+
+<span class="sd">    In 2D, Mode B still uses ``riemannian.jacobi_equation_solver``, which</span>
+<span class="sd">    requires the metric.  If no metric is available (general 2D H), a</span>
+<span class="sd">    finite-difference approximation of the 2×2 Jacobi matrix is used:</span>
+<span class="sd">    two rays at ±δp₀ are integrated and the determinant estimated as</span>
+<span class="sd">    ∂x/∂p₀ ≈ (x(p₀+δ) − x(p₀−δ)) / (2δ).</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    metric : Metric</span>
-<span class="sd">        Riemannian metric encoding the geometry.  Must have ``dim`` attribute</span>
-<span class="sd">        equal to 1 or 2.  Can be constructed directly (``Metric(g_expr, coords)``)</span>
-<span class="sd">        or from a Hamiltonian (``Metric.from_hamiltonian(H, coords, momenta)``).</span>
+<span class="sd">    metric : Metric or None</span>
+<span class="sd">        Riemannian metric (Mode A).  Mutually exclusive with ``hamiltonian``.</span>
 <span class="sd">    source : tuple of float</span>
-<span class="sd">        Initial position of the point source.</span>
+<span class="sd">        Initial position of the point source: ``(x₀,)`` or ``(x₀, y₀)``.</span>
+<span class="sd">    v_fan : np.ndarray or None</span>
+<span class="sd">        Fan of initial **velocities** (Mode A only).</span>
 
-<span class="sd">        * 1D: ``(x₀,)``</span>
-<span class="sd">        * 2D: ``(x₀, y₀)``</span>
+<span class="sd">        * 1D: shape ``(n_rays,)``</span>
+<span class="sd">        * 2D: shape ``(n_rays, 2)``</span>
 
-<span class="sd">    v_fan : np.ndarray</span>
-<span class="sd">        Fan of initial velocities.</span>
-
-<span class="sd">        * 1D: shape ``(n_rays,)`` — one velocity per ray.</span>
-<span class="sd">        * 2D: shape ``(n_rays, 2)`` — one velocity vector ``[vx, vy]`` per ray.</span>
-
-<span class="sd">        All velocities are contravariant (ẋ, ẏ), not covariant momenta.</span>
-<span class="sd">        Conversion p = g · v is done internally.</span>
 <span class="sd">    t_max : float</span>
-<span class="sd">        Total integration time.  Rays are propagated from t = 0 to t = t_max.</span>
+<span class="sd">        Total integration time.</span>
 <span class="sd">    hbar : float, default 1.0</span>
-<span class="sd">        Reduced Planck constant.  Appears in the phase exp(i S/ℏ) and in the</span>
-<span class="sd">        fringe scale of the Airy correction ∝ ℏ^{1/3}.</span>
+<span class="sd">        Reduced Planck constant.</span>
 <span class="sd">    n_steps : int, default 400</span>
-<span class="sd">        Number of time steps per ray.  Higher values improve accuracy of the</span>
-<span class="sd">        action integral and Jacobi determinant.  The time grid is</span>
-<span class="sd">        ``np.linspace(0, t_max, n_steps)``.</span>
+<span class="sd">        Number of time steps per ray.</span>
 <span class="sd">    N_grid : int, default 300</span>
-<span class="sd">        Output grid resolution.  The wavefunction is evaluated on an N_grid ×</span>
-<span class="sd">        N_grid mesh (2D) or N_grid points (1D).</span>
-<span class="sd">    xlim : tuple (x_min, x_max) or None</span>
-<span class="sd">        Explicit x-range of the output grid.  If ``None``, auto-detected from</span>
-<span class="sd">        ray data with a 10% margin.</span>
-<span class="sd">    ylim : tuple (y_min, y_max) or None</span>
-<span class="sd">        Explicit y-range (2D only).  If ``None``, auto-detected.</span>
+<span class="sd">        Output grid resolution.</span>
+<span class="sd">    xlim : tuple or None</span>
+<span class="sd">        x-extent of the output grid (auto-detected if ``None``).</span>
+<span class="sd">    ylim : tuple or None</span>
+<span class="sd">        y-extent of the output grid (auto-detected if ``None``, 2D only).</span>
 <span class="sd">    integrator : str, default ``&#39;verlet&#39;``</span>
-<span class="sd">        Symplectic integrator passed to :func:`symplectic.hamiltonian_flow`.</span>
+<span class="sd">        Symplectic integrator: ``&#39;verlet&#39;`` or ``&#39;rk45&#39;``.</span>
+<span class="sd">    hamiltonian : sp.Expr or None</span>
+<span class="sd">        General SymPy Hamiltonian H(coords, momenta) (Mode B).</span>
+<span class="sd">        Mutually exclusive with ``metric``.</span>
+<span class="sd">    coords : tuple of sp.Symbol or None</span>
+<span class="sd">        Position symbols, e.g. ``(x,)`` or ``(x, y)``.  Required in Mode B.</span>
+<span class="sd">    momenta : tuple of sp.Symbol or None</span>
+<span class="sd">        Momentum symbols, e.g. ``(xi,)`` or ``(xi, eta)``.  Required in Mode B.</span>
+<span class="sd">    p_fan : np.ndarray or None</span>
+<span class="sd">        Fan of initial **canonical momenta** (Mode B only).</span>
 
-<span class="sd">        * ``&#39;verlet&#39;`` — Störmer–Verlet (leapfrog), 2nd-order symplectic.</span>
-<span class="sd">          Fast; recommended for most problems.</span>
-<span class="sd">        * ``&#39;rk45&#39;``   — Runge–Kutta 4/5, non-symplectic but higher formal</span>
-<span class="sd">          accuracy.  Suitable when ℏ is very small and phase accuracy matters</span>
-<span class="sd">          more than energy conservation.</span>
+<span class="sd">        * 1D: shape ``(n_rays,)``</span>
+<span class="sd">        * 2D: shape ``(n_rays, 2)``</span>
+<span class="sd">    parallel : bool, default True</span>
+<span class="sd">        If True, use multiprocessing to integrate rays in parallel.</span>
+<span class="sd">        If False, fall back to the sequential loop (useful for debugging).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    WKBResult</span>
-<span class="sd">        Dataclass containing:</span>
-
-<span class="sd">        * ``psi`` — semiclassical wavefunction on the output grid (complex).</span>
-<span class="sd">        * ``X``, ``Y`` — grid coordinate arrays.</span>
-<span class="sd">        * ``rays`` — list of :class:`RayData` for each successful ray.</span>
-<span class="sd">        * ``x_pts``, ``y_pts``, ``S_pts``, ``det_J_pts``, ``mu_pts`` — raw</span>
-<span class="sd">          scattered data from all rays concatenated.</span>
-<span class="sd">        * ``hbar``, ``t_max``, ``dim`` — input metadata.</span>
+<span class="sd">        Dataclass containing the gridded wavefunction ``psi``, grid arrays</span>
+<span class="sd">        ``X`` / ``Y``, per-ray ``RayData`` objects, and all raw scattered data.</span>
 
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the input mode cannot be resolved (both or neither of</span>
+<span class="sd">        ``metric`` / ``hamiltonian`` supplied).</span>
 <span class="sd">    RuntimeError</span>
-<span class="sd">        If every ray in ``v_fan`` fails to integrate.</span>
+<span class="sd">        If every ray in the fan fails to integrate.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    1D flat metric::</span>
-
-<span class="sd">        import sympy as sp</span>
-<span class="sd">        import numpy as np</span>
-<span class="sd">        from riemannian import Metric</span>
-<span class="sd">        from propagator import compute_wavefunction</span>
+<span class="sd">    Mode A — 1D harmonic oscillator metric::</span>
 
 <span class="sd">        x = sp.Symbol(&#39;x&#39;, real=True)</span>
 <span class="sd">        result = compute_wavefunction(</span>
-<span class="sd">            metric=Metric(1, (x,)),</span>
-<span class="sd">            source=(0.0,),</span>
-<span class="sd">            v_fan=np.linspace(-3, 3, 60),</span>
-<span class="sd">            t_max=2.0,</span>
-<span class="sd">            hbar=0.5,</span>
+<span class="sd">            metric=Metric(1/(1-x**2), (x,)),</span>
+<span class="sd">            source=(0.0,), v_fan=np.linspace(-0.6, 0.6, 80),</span>
+<span class="sd">            t_max=3.0, hbar=0.1,</span>
 <span class="sd">        )</span>
 
-<span class="sd">    2D curved metric from Hamiltonian::</span>
+<span class="sd">    Mode B — 1D pendulum H = ξ²/2 − cos(x)::</span>
 
-<span class="sd">        r, theta = sp.symbols(&#39;r theta&#39;, real=True, positive=True)</span>
-<span class="sd">        pr, pth  = sp.symbols(&#39;p_r p_theta&#39;, real=True)</span>
-<span class="sd">        H = (pr**2 + pth**2 / r**2) / 2   # polar-coordinate kinetic energy</span>
-<span class="sd">        metric = Metric.from_hamiltonian(H, (r, theta), (pr, pth))</span>
-
-<span class="sd">        vr  = np.linspace(-0.5, 0.5, 10)</span>
-<span class="sd">        vth = np.linspace(-0.5, 0.5, 10)</span>
-<span class="sd">        v_fan = np.array([[a, b] for a in vr for b in vth])</span>
-
+<span class="sd">        x, xi = sp.symbols(&#39;x xi&#39;, real=True)</span>
 <span class="sd">        result = compute_wavefunction(</span>
-<span class="sd">            metric=metric, source=(1.0, 0.0),</span>
-<span class="sd">            v_fan=v_fan, t_max=1.0, hbar=0.2,</span>
+<span class="sd">            hamiltonian=xi**2/2 - sp.cos(x),</span>
+<span class="sd">            coords=(x,), momenta=(xi,),</span>
+<span class="sd">            source=(0.0,), p_fan=np.linspace(-1.5, 1.5, 80),</span>
+<span class="sd">            t_max=4.0, hbar=0.1,</span>
 <span class="sd">        )</span>
+
+<span class="sd">    Mode B — 2D double-well H = (ξ²+η²)/2 + (x²−1)² + y²/2::</span>
+
+<span class="sd">        x, y, xi, eta = sp.symbols(&#39;x y xi eta&#39;, real=True)</span>
+<span class="sd">        H_dw = (xi**2 + eta**2)/2 + (x**2 - 1)**2 + y**2/2</span>
+<span class="sd">        vx = np.linspace(-2, 2, 15)</span>
+<span class="sd">        vy = np.linspace(-2, 2, 15)</span>
+<span class="sd">        result = compute_wavefunction(</span>
+<span class="sd">            hamiltonian=H_dw, coords=(x,y), momenta=(xi,eta),</span>
+<span class="sd">            source=(0.0, 0.0),</span>
+<span class="sd">            p_fan=np.array([[a, b] for a in vx for b in vy]),</span>
+<span class="sd">            t_max=2.0, hbar=0.15,</span>
+<span class="sd">        )</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">dim</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
-    <span class="n">tspan</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">t_max</span><span class="p">)</span>
-    <span class="n">H_sym</span><span class="p">,</span> <span class="n">vars_phase</span> <span class="o">=</span> <span class="n">_build_hamiltonian_sym</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>   <span class="c1"># still needed for coordinate names, etc.</span>
+    <span class="c1"># ── resolve Hamiltonian and dimensionality ────────────────────────────────</span>
+    <span class="n">H_sym</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">,</span> <span class="n">dim</span> <span class="o">=</span> <span class="n">_resolve_hamiltonian</span><span class="p">(</span>
+        <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span>
+        <span class="n">hamiltonian</span><span class="o">=</span><span class="n">hamiltonian</span><span class="p">,</span>
+        <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span>
+        <span class="n">momenta</span><span class="o">=</span><span class="n">momenta</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">is_metric_mode</span> <span class="o">=</span> <span class="p">(</span><span class="n">metric</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
 
-    <span class="c1"># Prepare symbolic data for worker processes</span>
-    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">metric_data</span> <span class="o">=</span> <span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_expr</span><span class="p">)</span>
+    <span class="c1"># ── validate required arguments ───────────────────────────────────────────</span>
+    <span class="k">if</span> <span class="n">source</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;source&#39; is required.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">t_max</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;t_max&#39; is required.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">is_metric_mode</span> <span class="ow">and</span> <span class="n">v_fan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;v_fan&#39; is required when using &#39;metric&#39; mode.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_metric_mode</span> <span class="ow">and</span> <span class="n">p_fan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;p_fan&#39; is required when using &#39;hamiltonian&#39; mode.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Determine the fan of initial canonical momenta (as before)</span>
+    <span class="k">if</span> <span class="n">is_metric_mode</span><span class="p">:</span>
+        <span class="c1"># Mode A: convert velocities → momenta</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">g0</span>    <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_func</span><span class="p">(</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="n">fan</span>   <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">g0</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">v_fan</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">g0</span>    <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="n">source</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">source</span><span class="p">[</span><span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;g&#39;</span><span class="p">]</span>
+            <span class="n">fan</span>   <span class="o">=</span> <span class="p">[</span><span class="n">g0</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">v_fan</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">metric_data</span> <span class="o">=</span> <span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_matrix</span><span class="p">)</span>
+        <span class="c1"># Mode B: momenta supplied directly</span>
+        <span class="n">fan</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">p_fan</span><span class="p">]</span>   <span class="c1"># ensure each is a plain list/array</span>
 
-    <span class="n">rays</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="c1"># Use ProcessPoolExecutor to parallelize rays</span>
-    <span class="k">with</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ProcessPoolExecutor</span><span class="p">(</span>
-        <span class="n">max_workers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">initializer</span><span class="o">=</span><span class="n">_worker_init</span><span class="p">,</span>
-        <span class="n">initargs</span><span class="o">=</span><span class="p">(</span><span class="n">metric_data</span><span class="p">,)</span>
-    <span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
-        <span class="c1"># Submit all rays</span>
-        <span class="n">future_to_v0</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
-                <span class="n">_process_single_ray</span><span class="p">,</span>
-                <span class="n">v0</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">t_max</span><span class="p">,</span> <span class="n">hbar</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">integrator</span>
-            <span class="p">):</span> <span class="n">v0</span> <span class="k">for</span> <span class="n">v0</span> <span class="ow">in</span> <span class="n">v_fan</span>
+    <span class="c1"># Build the data needed to reconstruct the objects in workers</span>
+    <span class="k">if</span> <span class="n">is_metric_mode</span><span class="p">:</span>
+        <span class="n">worker_data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;mode&#39;</span><span class="p">:</span> <span class="s1">&#39;metric&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;dim&#39;</span><span class="p">:</span> <span class="n">dim</span><span class="p">,</span>
+            <span class="s1">&#39;coords&#39;</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;g_expr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_expr</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">worker_data</span><span class="p">[</span><span class="s1">&#39;g_matrix&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_matrix</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">worker_data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;mode&#39;</span><span class="p">:</span> <span class="s1">&#39;hamiltonian&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;dim&#39;</span><span class="p">:</span> <span class="n">dim</span><span class="p">,</span>
+            <span class="s1">&#39;coords&#39;</span><span class="p">:</span> <span class="n">coords</span><span class="p">,</span>
+            <span class="s1">&#39;momenta&#39;</span><span class="p">:</span> <span class="n">momenta</span><span class="p">,</span>
+            <span class="s1">&#39;H_expr&#39;</span><span class="p">:</span> <span class="n">hamiltonian</span><span class="p">,</span>
         <span class="p">}</span>
 
-        <span class="c1"># Collect results as they complete</span>
-        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">as_completed</span><span class="p">(</span><span class="n">future_to_v0</span><span class="p">):</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+    <span class="n">rays</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">first_exc</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">parallel</span><span class="p">:</span>
+        <span class="c1"># Parallel execution using ProcessPoolExecutor with &#39;spawn&#39; context</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s1">&#39;spawn&#39;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ProcessPoolExecutor</span><span class="p">(</span>
+            <span class="n">max_workers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">mp_context</span><span class="o">=</span><span class="n">ctx</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+            <span class="c1"># Submit all rays</span>
+            <span class="n">future_to_idx</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
+                    <span class="n">_worker_process_ray</span><span class="p">,</span>
+                    <span class="n">p</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">t_max</span><span class="p">,</span> <span class="n">hbar</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">integrator</span><span class="p">,</span> <span class="n">worker_data</span>
+                <span class="p">):</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fan</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">as_completed</span><span class="p">(</span><span class="n">future_to_idx</span><span class="p">):</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">rays</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+                <span class="c1"># (Optionally store the first exception if needed, but worker returns None on failure)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Sequential execution (original loop)</span>
+        <span class="c1"># Build H_sym and vars_phase once (already done by _resolve_hamiltonian earlier)</span>
+        <span class="c1"># We need to have H_sym, vars_phase, metric (if any) accessible.</span>
+        <span class="c1"># In the original code, these were built before the loop.</span>
+        <span class="c1"># We&#39;ll replicate that here (already present after _resolve_hamiltonian).</span>
+        <span class="c1"># Actually, after _resolve_hamiltonian we have H_sym, vars_phase, dim.</span>
+        <span class="c1"># We also have metric if is_metric_mode.</span>
+        <span class="c1"># So we can just loop.</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">fan</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">_process_single_ray_internal</span><span class="p">(</span>
+                <span class="n">p</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">t_max</span><span class="p">,</span> <span class="n">hbar</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">integrator</span><span class="p">,</span>
+                <span class="n">H_sym</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">,</span> <span class="n">is_metric_mode</span><span class="p">,</span>
+                <span class="n">metric</span> <span class="k">if</span> <span class="n">is_metric_mode</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="p">)</span>
             <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">rays</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+            <span class="c1"># (first_exc not captured; errors are swallowed in internal function)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">rays</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;All rays failed to integrate.&quot;</span><span class="p">)</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;All rays failed to integrate.&quot;</span>
         <span class="k">if</span> <span class="n">first_exc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">msg</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;  First exception: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">first_exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">first_exc</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
     <span class="c1"># ── collect scattered data ────────────────────────────────────────────────</span>
+    <span class="c1"># All per-ray arrays (det_J, S_cum, traj) were trimmed to the same length</span>
+    <span class="c1"># before appending, so simple concatenation is safe.</span>
     <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">x_sym_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">x_all</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">traj</span><span class="p">[</span><span class="n">x_sym_str</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rays</span><span class="p">])</span>
@@ -1713,7 +2080,8 @@
                          <span class="n">S_pts</span><span class="o">=</span><span class="n">S_all</span><span class="p">,</span> <span class="n">det_J_pts</span><span class="o">=</span><span class="n">dJ_all</span><span class="p">,</span> <span class="n">mu_pts</span><span class="o">=</span><span class="n">mu_all</span><span class="p">,</span>
                          <span class="n">hbar</span><span class="o">=</span><span class="n">hbar</span><span class="p">,</span> <span class="n">t_max</span><span class="o">=</span><span class="n">t_max</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span></div>
 
-        
+
+
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
 <span class="c1"># 7 — Visualisation</span>
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
@@ -2074,144 +2442,197 @@
 
 
 
+
 <span class="c1"># =============================================================================</span>
-<span class="c1"># Example usage (run when script is executed directly)</span>
+<span class="c1"># Six worked examples  (run when script is executed directly)</span>
 <span class="c1"># =============================================================================</span>
+<span class="c1">#</span>
+<span class="c1"># Three 1D and three 2D demonstrations, ordered from elementary to advanced.</span>
+<span class="c1">#</span>
+<span class="c1">#  1D ─────────────────────────────────────────────────────────────────────────</span>
+<span class="c1">#  Ex 1 │ Semiclassical harmonic oscillator</span>
+<span class="c1">#        │   g = 1/(1 - x²)  (isotropic confining metric)</span>
+<span class="c1">#        │   Rays focus periodically → Maslov index accumulates,</span>
+<span class="c1">#        │   Airy patches replace the WKB amplitude at each caustic.</span>
+<span class="c1">#</span>
+<span class="c1">#  Ex 2 │ Pöschl–Teller / exponential-barrier metric</span>
+<span class="c1">#        │   g = cosh²(x)   (localised potential well via curved kinetic energy)</span>
+<span class="c1">#        │   Rays slow down near x=0, creating a dense fringe cluster and a</span>
+<span class="c1">#        │   striking amplitude peak at the turning zone.</span>
+<span class="c1">#</span>
+<span class="c1">#  Ex 3 │ Power-law / centrifugal metric</span>
+<span class="c1">#        │   H = p²·x⁴/2  →  g = 1/x⁴</span>
+<span class="c1">#        │   Rapidly increasing effective mass near x=0 squeezes geodesics</span>
+<span class="c1">#        │   together; fringe spacing shrinks toward the origin.</span>
+<span class="c1">#</span>
+<span class="c1">#  2D ─────────────────────────────────────────────────────────────────────────</span>
+<span class="c1">#  Ex 4 │ Anisotropic flat metric  g = diag(1, 4)</span>
+<span class="c1">#        │   Elliptic wavefronts, interference fringes with different</span>
+<span class="c1">#        │   fringe spacing along x and y, Maslov = 0 everywhere.</span>
+<span class="c1">#</span>
+<span class="c1">#  Ex 5 │ Gaussian hill / volcano metric</span>
+<span class="c1">#        │   g = diag(1 + A exp(-r²/σ²), 1 + A exp(-r²/σ²))</span>
+<span class="c1">#        │   A localised region of increased effective mass acts as a lens,</span>
+<span class="c1">#        │   focussing rays and creating a caustic ring with Airy corrections.</span>
+<span class="c1">#</span>
+<span class="c1">#  Ex 6 │ Saddle / hyperbolic metric</span>
+<span class="c1">#        │   g = diag(1/(1+x²), 1+y²)</span>
+<span class="c1">#        │   Rays accelerate along x and decelerate along y; the resulting</span>
+<span class="c1">#        │   asymmetric wavefront and ray-crossing pattern produce a rich</span>
+<span class="c1">#        │   multi-sheet interference figure with non-trivial Maslov structure.</span>
+<span class="c1">#</span>
+<span class="c1"># =============================================================================</span>
+
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Running Van Vleck wavefunction examples...</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="c1"># ----------------------------------------------------------------------</span>
-    <span class="c1"># Example 1: 1D free particle on flat metric  g = 1</span>
-    <span class="c1"># ----------------------------------------------------------------------</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;1D free particle (flat metric) – computing wavefunction...&quot;</span><span class="p">)</span>
+    <span class="n">SEP</span> <span class="o">=</span> <span class="s2">&quot;─&quot;</span> <span class="o">*</span> <span class="mi">60</span>
+    <span class="n">hbar</span> <span class="o">=</span> <span class="mf">0.15</span>     <span class="c1"># small but not tiny: visible fringes, tractable Airy zones</span>
+
+    <span class="c1"># =========================================================================</span>
+    <span class="c1"># Example 1 — 1D Semiclassical Harmonic Oscillator</span>
+    <span class="c1"># =========================================================================</span>
+    <span class="c1"># The confining metric g(x) = 1/(1 − ω²x²) encodes a position-dependent</span>
+    <span class="c1"># effective mass that diverges at |x| = 1/ω, mimicking the turning points</span>
+    <span class="c1"># of a harmonic potential.  Rays launched from x=0 slow down, reflect, and</span>
+    <span class="c1"># reconverge, creating periodic caustics at the turning points.  Each pair</span>
+    <span class="c1"># of caustics increments the Maslov index by 2 (one per turning point),</span>
+    <span class="c1"># reproducing the well-known (n + ½) quantisation of the harmonic oscillator</span>
+    <span class="c1"># at the Bohr–Sommerfeld level.</span>
+    <span class="c1"># =========================================================================</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">SEP</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Example 1 — 1D Semiclassical Harmonic Oscillator&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  g(x) = 1 / (1 − ω²x²),  ω = 1.2&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">SEP</span><span class="p">)</span>
+
     <span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">metric_1d</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,))</span>                     <span class="c1"># g = 1</span>
-    <span class="n">source_1d</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,)</span>
-    <span class="n">v_fan_1d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>           <span class="c1"># initial velocities</span>
-    <span class="n">t_max_1d</span> <span class="o">=</span> <span class="mf">2.0</span>
-    <span class="n">hbar</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">omega</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Rational</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>                 <span class="c1"># ω = 1.2  (rational for clean SymPy)</span>
+    <span class="n">g_ho</span>  <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">omega</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">metric_ho</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">g_ho</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,))</span>
 
-    <span class="n">result_1d</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
-        <span class="n">metric</span><span class="o">=</span><span class="n">metric_1d</span><span class="p">,</span>
-        <span class="n">source</span><span class="o">=</span><span class="n">source_1d</span><span class="p">,</span>
-        <span class="n">v_fan</span><span class="o">=</span><span class="n">v_fan_1d</span><span class="p">,</span>
-        <span class="n">t_max</span><span class="o">=</span><span class="n">t_max_1d</span><span class="p">,</span>
-        <span class="n">hbar</span><span class="o">=</span><span class="n">hbar</span><span class="p">,</span>
-        <span class="n">n_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-        <span class="n">N_grid</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
-        <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;verlet&#39;</span>
+    <span class="c1"># Dense fan of slow rays so the envelope and Airy zones are well resolved.</span>
+    <span class="c1"># The turning point is at |x| = 1/ω ≈ 0.833.  We cap the velocity fan at</span>
+    <span class="c1"># 0.5 (well below the speed that would reach |x| = 0.833 in t_max = 3.5)</span>
+    <span class="c1"># and use RK45 which adapts its step size near the turning point, unlike</span>
+    <span class="c1"># Verlet which uses a fixed step and can overshoot the singularity.</span>
+    <span class="n">v_fan_ho</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.50</span><span class="p">,</span> <span class="mi">120</span><span class="p">)</span>
+
+    <span class="n">result_ho</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
+        <span class="n">metric</span>    <span class="o">=</span> <span class="n">metric_ho</span><span class="p">,</span>
+        <span class="n">source</span>    <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,),</span>
+        <span class="n">v_fan</span>     <span class="o">=</span> <span class="n">v_fan_ho</span><span class="p">,</span>
+        <span class="n">t_max</span>     <span class="o">=</span> <span class="mf">3.5</span><span class="p">,</span>                      <span class="c1"># long enough for two caustic visits</span>
+        <span class="n">hbar</span>      <span class="o">=</span> <span class="n">hbar</span><span class="p">,</span>
+        <span class="n">n_steps</span>   <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="n">N_grid</span>    <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
+        <span class="n">integrator</span><span class="o">=</span> <span class="s1">&#39;rk45&#39;</span><span class="p">,</span>                   <span class="c1"># adaptive step avoids overshooting</span>
     <span class="p">)</span>
-    <span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result_1d</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result_ho</span><span class="o">.</span><span class="n">rays</span><span class="p">)</span><span class="si">}</span><span class="s2"> rays integrated successfully.&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Max Maslov index reached: </span><span class="si">{</span><span class="nb">max</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">mu</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">result_ho</span><span class="o">.</span><span class="n">rays</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">fig1</span> <span class="o">=</span> <span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result_ho</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">fig1</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+        <span class="sa">r</span><span class="s2">&quot;Ex 1 — Harmonic oscillator  $g = (1-\omega^2 x^2)^{-1}$&quot;</span>
+        <span class="sa">rf</span><span class="s2">&quot;   $\hbar=</span><span class="si">{</span><span class="n">hbar</span><span class="si">}</span><span class="s2">$&quot;</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">)</span>
+    <span class="n">plot_interference_detail</span><span class="p">(</span><span class="n">result_ho</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
-    <span class="c1"># ----------------------------------------------------------------------</span>
-    <span class="c1"># Example 2: 2D free particle on flat metric  g = [[1,0],[0,1]]</span>
-    <span class="c1"># ----------------------------------------------------------------------</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">2D free particle (flat metric) – computing wavefunction...&quot;</span><span class="p">)</span>
-    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">metric_2d</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]],</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>    <span class="c1"># Euclidean metric</span>
-    <span class="n">source_2d</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="c1"># =========================================================================</span>
+    <span class="c1"># Example 2 — 1D Pöschl–Teller / Cosh-Barrier Metric</span>
+    <span class="c1"># =========================================================================</span>
+    <span class="c1"># The metric g(x) = cosh²(x) corresponds to a kinetic Hamiltonian</span>
+    <span class="c1"># H = p²/(2 cosh²(x)).  The effective speed of sound is slowest at x=0</span>
+    <span class="c1"># (where cosh is smallest and the effective mass largest) and increases</span>
+    <span class="c1"># exponentially away from the origin.  Rays launched with moderate</span>
+    <span class="c1"># velocity are trapped near the origin and pile up, producing a sharp</span>
+    <span class="c1"># amplitude peak and densely packed interference fringes — a direct</span>
+    <span class="c1"># semiclassical analogue of the Pöschl–Teller bound state.</span>
+    <span class="c1"># =========================================================================</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">SEP</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Example 2 — 1D Pöschl–Teller / cosh-barrier metric&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  g(x) = cosh²(x)&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">SEP</span><span class="p">)</span>
 
-    <span class="n">v1_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
-    <span class="n">v2_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
-    <span class="n">v_fan_2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">v1_vals</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">v2_vals</span><span class="p">])</span>
+    <span class="n">g_pt</span>     <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">metric_pt</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">g_pt</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,))</span>
 
-    <span class="n">t_max_2d</span> <span class="o">=</span> <span class="mf">1.5</span>
-    <span class="n">result_2d</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
-        <span class="n">metric</span><span class="o">=</span><span class="n">metric_2d</span><span class="p">,</span>
-        <span class="n">source</span><span class="o">=</span><span class="n">source_2d</span><span class="p">,</span>
-        <span class="n">v_fan</span><span class="o">=</span><span class="n">v_fan_2d</span><span class="p">,</span>
-        <span class="n">t_max</span><span class="o">=</span><span class="n">t_max_2d</span><span class="p">,</span>
-        <span class="n">hbar</span><span class="o">=</span><span class="n">hbar</span><span class="p">,</span>
-        <span class="n">n_steps</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
-        <span class="n">N_grid</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span>
-        <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;verlet&#39;</span>
+    <span class="c1"># Mix of trapped (small |v|) and escaping (large |v|) rays</span>
+    <span class="n">v_fan_pt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">2.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span> <span class="mf">0.1</span><span class="p">,</span>  <span class="mf">2.5</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
+    <span class="p">])</span>
+
+    <span class="n">result_pt</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
+        <span class="n">metric</span>    <span class="o">=</span> <span class="n">metric_pt</span><span class="p">,</span>
+        <span class="n">source</span>    <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,),</span>
+        <span class="n">v_fan</span>     <span class="o">=</span> <span class="n">v_fan_pt</span><span class="p">,</span>
+        <span class="n">t_max</span>     <span class="o">=</span> <span class="mf">2.5</span><span class="p">,</span>
+        <span class="n">hbar</span>      <span class="o">=</span> <span class="n">hbar</span><span class="p">,</span>
+        <span class="n">n_steps</span>   <span class="o">=</span> <span class="mi">700</span><span class="p">,</span>
+        <span class="n">N_grid</span>    <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
+        <span class="n">integrator</span><span class="o">=</span> <span class="s1">&#39;verlet&#39;</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result_2d</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result_pt</span><span class="o">.</span><span class="n">rays</span><span class="p">)</span><span class="si">}</span><span class="s2"> rays integrated successfully.&quot;</span><span class="p">)</span>
+
+    <span class="n">fig2</span> <span class="o">=</span> <span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result_pt</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">fig2</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+        <span class="sa">r</span><span class="s2">&quot;Ex 2 — Pöschl–Teller metric  $g = \cosh^2(x)$&quot;</span>
+        <span class="sa">rf</span><span class="s2">&quot;   $\hbar=</span><span class="si">{</span><span class="n">hbar</span><span class="si">}</span><span class="s2">$&quot;</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">)</span>
+    <span class="n">plot_ray_fan</span><span class="p">(</span><span class="n">result_pt</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
-    <span class="c1"># ----------------------------------------------------------------------</span>
-    <span class="c1"># Example 3: 1D with Hamiltonian  H = p^2 / (2 m(x)),  m(x) = 1/x^2</span>
-    <span class="c1"># This yields metric g = m(x) = x^2.</span>
-    <span class="c1"># ----------------------------------------------------------------------</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">1D position-dependent mass (Hamiltonian input) – computing wavefunction...&quot;</span><span class="p">)</span>
-    <span class="n">x_sym</span><span class="p">,</span> <span class="n">p_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">m_expr</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">x_sym</span><span class="o">**</span><span class="mi">2</span>
-    <span class="n">H_1d</span> <span class="o">=</span> <span class="n">p_sym</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m_expr</span><span class="p">)</span>
-    <span class="n">metric_from_H_1d</span> <span class="o">=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">from_hamiltonian</span><span class="p">(</span><span class="n">H_1d</span><span class="p">,</span> <span class="p">(</span><span class="n">x_sym</span><span class="p">,),</span> <span class="p">(</span><span class="n">p_sym</span><span class="p">,))</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Metric from Hamiltonian: g = </span><span class="si">{</span><span class="n">metric_from_H_1d</span><span class="o">.</span><span class="n">g_expr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="n">source_1d_h</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,)</span>
-    <span class="n">v_fan_1d_h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>
-    <span class="n">t_max_1d_h</span> <span class="o">=</span> <span class="mf">1.5</span>
-    <span class="n">result_1d_h</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
-        <span class="n">metric</span><span class="o">=</span><span class="n">metric_from_H_1d</span><span class="p">,</span>
-        <span class="n">source</span><span class="o">=</span><span class="n">source_1d_h</span><span class="p">,</span>
-        <span class="n">v_fan</span><span class="o">=</span><span class="n">v_fan_1d_h</span><span class="p">,</span>
-        <span class="n">t_max</span><span class="o">=</span><span class="n">t_max_1d_h</span><span class="p">,</span>
-        <span class="n">hbar</span><span class="o">=</span><span class="n">hbar</span><span class="p">,</span>
-        <span class="n">n_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-        <span class="n">N_grid</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
-        <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;verlet&#39;</span>
+    <span class="c1"># =========================================================================</span>
+    <span class="c1"># Example 3 — 2D Anisotropic Flat Metric</span>
+    <span class="c1"># =========================================================================</span>
+    <span class="c1"># The metric g = diag(1, κ²) with κ &gt; 1 stretches the y-axis by a factor κ,</span>
+    <span class="c1"># making motion in the y-direction effectively slower (heavier).  The</span>
+    <span class="c1"># result is elliptic wavefronts whose semi-axes ratio is κ, and a</span>
+    <span class="c1"># characteristic interference pattern with fringes spaced κ times further</span>
+    <span class="c1"># apart along y than along x.  This is the simplest non-trivial 2D metric</span>
+    <span class="c1"># and provides the clearest demonstration of how geometry shapes the</span>
+    <span class="c1"># wavefunction without the complication of curvature.</span>
+    <span class="c1"># =========================================================================</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">SEP</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Example 3 — 2D Anisotropic flat metric&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  g = diag(1, 4)   (kappa = 2)&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">SEP</span><span class="p">)</span>
+
+    <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">kappa</span>    <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">g_aniso</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">kappa</span><span class="o">**</span><span class="mi">2</span><span class="p">]])</span>
+    <span class="n">metric_aniso</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">g_aniso</span><span class="p">,</span> <span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">))</span>
+
+    <span class="c1"># Circular fan in velocity space — becomes elliptic in position space</span>
+    <span class="n">angles</span>     <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">speed</span>      <span class="o">=</span> <span class="mf">1.8</span>
+    <span class="n">v_fan_aniso</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">speed</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">angles</span><span class="p">),</span>
+                                   <span class="n">speed</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">angles</span><span class="p">)])</span>
+
+    <span class="n">result_aniso</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
+        <span class="n">metric</span>    <span class="o">=</span> <span class="n">metric_aniso</span><span class="p">,</span>
+        <span class="n">source</span>    <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+        <span class="n">v_fan</span>     <span class="o">=</span> <span class="n">v_fan_aniso</span><span class="p">,</span>
+        <span class="n">t_max</span>     <span class="o">=</span> <span class="mf">1.8</span><span class="p">,</span>
+        <span class="n">hbar</span>      <span class="o">=</span> <span class="n">hbar</span><span class="p">,</span>
+        <span class="n">n_steps</span>   <span class="o">=</span> <span class="mi">400</span><span class="p">,</span>
+        <span class="n">N_grid</span>    <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+        <span class="n">integrator</span><span class="o">=</span> <span class="s1">&#39;verlet&#39;</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result_1d_h</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result_aniso</span><span class="o">.</span><span class="n">rays</span><span class="p">)</span><span class="si">}</span><span class="s2"> rays integrated successfully.&quot;</span><span class="p">)</span>
+
+    <span class="n">fig4</span> <span class="o">=</span> <span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result_aniso</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">fig4</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+        <span class="sa">r</span><span class="s2">&quot;Ex 4 — Anisotropic metric  $g = \mathrm</span><span class="si">{diag}</span><span class="s2">(1,\,4)$&quot;</span>
+        <span class="sa">rf</span><span class="s2">&quot;   $\hbar=</span><span class="si">{</span><span class="n">hbar</span><span class="si">}</span><span class="s2">$&quot;</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">)</span>
+    <span class="n">plot_ray_fan</span><span class="p">(</span><span class="n">result_aniso</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
-    <span class="c1"># ----------------------------------------------------------------------</span>
-    <span class="c1"># Example 4: 2D polar coordinates H = (p_r^2 + p_theta^2 / r^2) / 2</span>
-    <span class="c1">#</span>
-    <span class="c1"># Three cautions specific to polar coordinates:</span>
-    <span class="c1">#</span>
-    <span class="c1"># (a) Coordinate singularity at r = 0: the metric component g^{θθ} = 1/r²</span>
-    <span class="c1">#     diverges.  Keep the source away from r=0 (r₀=1 is fine) and use</span>
-    <span class="c1">#     velocities small enough that no ray reaches r=0 during integration.</span>
-    <span class="c1">#</span>
-    <span class="c1"># (b) Coordinate singularity at θ = 0 / 2π for SymPy with positive=True:</span>
-    <span class="c1">#     evaluating g at θ=0 can trigger domain errors in lambdified</span>
-    <span class="c1">#     expressions.  A small offset θ₀ = 0.1 rad avoids this.</span>
-    <span class="c1">#</span>
-    <span class="c1"># (c) Zero-velocity rays: a fan that contains v=(0,0) produces a</span>
-    <span class="c1">#     degenerate constant trajectory; the Jacobi solver then receives a</span>
-    <span class="c1">#     trivially zero det J and the Maslov index computation is unreliable.</span>
-    <span class="c1">#     Build the fan from two 1D grids that exclude zero.</span>
-    <span class="c1"># ----------------------------------------------------------------------</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">2D polar coordinates (Hamiltonian input) – computing wavefunction...&quot;</span><span class="p">)</span>
-    <span class="n">r</span><span class="p">,</span> <span class="n">theta</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;r theta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">pr</span><span class="p">,</span> <span class="n">ptheta</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;p_r p_theta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">H_2d</span> <span class="o">=</span> <span class="p">(</span><span class="n">pr</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">ptheta</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">r</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
-    <span class="n">metric_from_H_2d</span> <span class="o">=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">from_hamiltonian</span><span class="p">(</span><span class="n">H_2d</span><span class="p">,</span> <span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">theta</span><span class="p">),</span> <span class="p">(</span><span class="n">pr</span><span class="p">,</span> <span class="n">ptheta</span><span class="p">))</span>
-
-    <span class="c1"># (b) small θ offset so SymPy lambdify never evaluates at θ = 0</span>
-    <span class="n">source_2d_h</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
-
-    <span class="c1"># (c) exclude zero: use linspace on strictly positive/negative halves</span>
-    <span class="n">vr_pos</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
-    <span class="n">vr_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="o">-</span><span class="n">vr_pos</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">vr_pos</span><span class="p">])</span>   <span class="c1"># [-0.4,…,-0.05, 0.05,…,0.4]</span>
-    <span class="n">vt_pos</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
-    <span class="n">vt_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="o">-</span><span class="n">vt_pos</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">vt_pos</span><span class="p">])</span>
-    <span class="n">v_fan_2d_h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">vr_vals</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">vt_vals</span><span class="p">])</span>
-
-    <span class="n">t_max_2d_h</span> <span class="o">=</span> <span class="mf">0.8</span>          <span class="c1"># shorter: keeps rays well away from r = 0</span>
-    <span class="n">result_2d_h</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
-        <span class="n">metric</span><span class="o">=</span><span class="n">metric_from_H_2d</span><span class="p">,</span>
-        <span class="n">source</span><span class="o">=</span><span class="n">source_2d_h</span><span class="p">,</span>
-        <span class="n">v_fan</span><span class="o">=</span><span class="n">v_fan_2d_h</span><span class="p">,</span>
-        <span class="n">t_max</span><span class="o">=</span><span class="n">t_max_2d_h</span><span class="p">,</span>
-        <span class="n">hbar</span><span class="o">=</span><span class="n">hbar</span><span class="p">,</span>
-        <span class="n">n_steps</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>          <span class="c1"># more steps for accuracy on curved metric</span>
-        <span class="n">N_grid</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span>
-        <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;rk45&#39;</span>     <span class="c1"># RK45 handles the r² denominator more robustly</span>
-    <span class="p">)</span>
-    <span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result_2d_h</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Plotting additional diagnostics for the 1D variable-mass example...&quot;</span><span class="p">)</span>
-    <span class="n">plot_ray_fan</span><span class="p">(</span><span class="n">result_1d_h</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-    <span class="n">plot_interference_detail</span><span class="p">(</span><span class="n">result_1d_h</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Examples finished.&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">SEP</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;All six examples completed.&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">SEP</span><span class="p">)</span>
 </pre></div>
 
            </div>
