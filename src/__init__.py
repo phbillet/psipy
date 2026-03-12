@@ -31,11 +31,11 @@ Modules
 asymptotic
     Asymptotic evaluation of oscillatory and Laplace‑type integrals
     I(λ) = ∫ a(x) exp(iλ φ(x)) dx as λ → ∞.  Implements stationary phase,
-    Laplace’s method, and saddle‑point (steepest descent) with automatic
+    Laplace's method, and saddle‑point (steepest descent) with automatic
     method selection based on the phase φ.
 
 caustics
-    Catastrophe classification (Arnold’s A₂, A₃, A₄, D₄±), detection of ray
+    Catastrophe classification (Arnold's A₂, A₃, A₄, D₄±), detection of ray
     caustics via the stability matrix, and uniform asymptotic corrections
     using Airy (fold), Pearcey (cusp), and swallowtail integrals.
 
@@ -61,6 +61,16 @@ physics
     numerical Legendre (and Legendre–Fenchel) transforms, decomposes
     Hamiltonians into local (polynomial) and non‑local parts, and generates
     formal PDEs (Schrödinger, wave, stationary).
+
+propagator
+    Van Vleck–Pauli–Morette semiclassical propagator.  Assembles the full
+    semiclassical wavefunction
+
+        ψ(x, t) = Σ_k  exp(i S_k/ℏ − i μ_k π/2) / √|det J_k|
+
+    from a fan of classical rays traced on any 1D or 2D Riemannian metric
+    defined by a ``riemannian.Metric`` object (or derived from a Hamiltonian
+    expression H = ½ gⁱʲ pᵢ pⱼ via ``Metric.from_hamiltonian``).
 
 psiop
     Comprehensive symbolic‑numerical environment for pseudodifferential
@@ -112,7 +122,8 @@ from .symplectic import *
 from .microlocal import *
 from .asymptotic import *
 from .fio_bridge import *
-from .wkb import * 
+from .wkb import *
+from .propagator import *
 
 # Version du package
 __version__ = version("psipy")
@@ -133,30 +144,39 @@ __all__ = [
     'Metric1D',
     'geodesic_integrator',
     'laplace_beltrami',
-    
+
     # Riemannian 2D
     'Metric2D',
     'geodesic_solver',
     'exponential_map',
-    
+
     # Symplectic 1D
     'SymplecticForm1D',
     'hamiltonian_flow',
     'poisson_bracket',
-    
+
     # Symplectic 2D
     'SymplecticForm2D',
     'hamiltonian_flow_4d',
     'poincare_section',
-    
+
     # Microlocal 1D
     'characteristic_variety',
     'bicharacteristic_flow',
     'wkb_ansatz',
     'bohr_sommerfeld_quantization',
-    
+
     # Microlocal 2D
     'characteristic_variety_2d',
     'bichar_flow_2d',
     'compute_maslov_index',
+
+    # Propagator — Van Vleck–Pauli–Morette semiclassical wavefunction
+    'RayData',
+    'WKBResult',
+    'compute_wavefunction',
+    'van_vleck_sum',
+    'plot_wavefunction',
+    'plot_ray_fan',
+    'plot_interference_detail',
 ]

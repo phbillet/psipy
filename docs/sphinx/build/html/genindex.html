@@ -49,6 +49,7 @@
 <li class="toctree-l1"><a class="reference internal" href="microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
 <li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="propagator.html">propagator</a></li>
 <li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="riemannian.html">riemannian</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solver.html">solver</a></li>
@@ -275,6 +276,8 @@
 </li>
       <li><a href="geometry.html#geometry.Utilities2D.compute_rotation_numbers">compute_rotation_numbers() (geometry.Utilities2D static method)</a>
 </li>
+      <li><a href="propagator.html#propagator.compute_wavefunction">compute_wavefunction() (in module propagator)</a>
+</li>
       <li><a href="geometry.html#geometry.Utilities2D.compute_winding_number">compute_winding_number() (geometry.Utilities2D static method)</a>
 </li>
       <li><a href="cotangent_bundle.html#cotangent_bundle.conceptual_architecture">conceptual_architecture() (in module cotangent_bundle)</a>
@@ -331,6 +334,12 @@
       <li><a href="geometry.html#geometry.Geodesic2D.det_caustic">det_caustic (geometry.Geodesic2D attribute)</a>
 </li>
       <li><a href="caustics.html#caustics.CausticEvent.det_J">det_J (caustics.CausticEvent attribute)</a>, <a href="caustics.html#id11">[1]</a>
+
+      <ul>
+        <li><a href="propagator.html#id3">(propagator.RayData attribute)</a>, <a href="propagator.html#propagator.RayData.det_J">[1]</a>
+</li>
+      </ul></li>
+      <li><a href="propagator.html#id9">det_J_pts (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.det_J_pts">[1]</a>
 </li>
       <li><a href="caustics.html#caustics.RayCausticDetector.detect">detect() (caustics.RayCausticDetector method)</a>
 </li>
@@ -345,6 +354,8 @@
       <li><a href="asymptotic.html#asymptotic.Analyzer.dim">dim (asymptotic.Analyzer attribute)</a>
 
       <ul>
+        <li><a href="propagator.html#id10">(propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.dim">[1]</a>
+</li>
         <li><a href="psiop.html#psiop.PseudoDifferentialOperator.dim">(psiop.PseudoDifferentialOperator attribute)</a>
 </li>
         <li><a href="riemannian.html#riemannian.Metric.dim">(riemannian.Metric attribute)</a>
@@ -559,11 +570,13 @@
 </li>
       <li><a href="physics.html#physics.HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde">hamiltonian_to_symbolic_pde() (physics.HamiltonianSymbolicConverter class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cotangent_bundle.html#cotangent_bundle.hamiltonian_vector_field">hamiltonian_vector_field() (in module cotangent_bundle)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="physics.html#physics.HamiltonianSymbolicConverter">HamiltonianSymbolicConverter (class in physics)</a>
+</li>
+      <li><a href="propagator.html#id11">hbar (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.hbar">[1]</a>
 </li>
       <li><a href="asymptotic.html#asymptotic.CriticalPoint.hess_amp">hess_amp (asymptotic.CriticalPoint attribute)</a>, <a href="asymptotic.html#id21">[1]</a>
 </li>
@@ -740,8 +753,6 @@
         <li><a href="misc.html#module-misc">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     module
 
@@ -766,6 +777,8 @@
 </li>
         <li><a href="physics.html#module-physics">physics</a>
 </li>
+        <li><a href="propagator.html#module-propagator">propagator</a>
+</li>
         <li><a href="psiop.html#module-psiop">psiop</a>
 </li>
         <li><a href="riemannian.html#module-riemannian">riemannian</a>
@@ -777,6 +790,8 @@
         <li><a href="wkb.html#module-wkb">wkb</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="caustics.html#caustics.CausticEvent.momentum">momentum (caustics.CausticEvent attribute)</a>, <a href="caustics.html#id13">[1]</a>
 </li>
       <li><a href="geometry.html#geometry.Geodesic2D.momentum_trajectory">momentum_trajectory (geometry.Geodesic2D property)</a>
@@ -784,6 +799,10 @@
       <li><a href="symplectic.html#symplectic.monodromy_matrix">monodromy_matrix() (in module symplectic)</a>
 </li>
       <li><a href="asymptotic.html#asymptotic.SingularityType.MORSE">MORSE (asymptotic.SingularityType attribute)</a>
+</li>
+      <li><a href="propagator.html#id4">mu (propagator.RayData attribute)</a>, <a href="propagator.html#propagator.RayData.mu">[1]</a>
+</li>
+      <li><a href="propagator.html#id12">mu_pts (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.mu_pts">[1]</a>
 </li>
   </ul></td>
 </tr></table>
@@ -876,21 +895,27 @@
 </li>
       <li><a href="psiop.html#psiop.PseudoDifferentialOperator.plot_hamiltonian_flow">plot_hamiltonian_flow() (psiop.PseudoDifferentialOperator method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="asymptotic.html#asymptotic.AsymptoticVisualizer.plot_integrand">plot_integrand() (asymptotic.AsymptoticVisualizer method)</a>
+</li>
+      <li><a href="propagator.html#propagator.plot_interference_detail">plot_interference_detail() (in module propagator)</a>
 </li>
       <li><a href="fio_bridge.html#fio_bridge.CrossValidator.plot_lambda_sweep">plot_lambda_sweep() (fio_bridge.CrossValidator static method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="asymptotic.html#asymptotic.AsymptoticVisualizer.plot_phase_landscape">plot_phase_landscape() (asymptotic.AsymptoticVisualizer method)</a>
 </li>
       <li><a href="wkb.html#wkb.plot_phase_space">plot_phase_space() (in module wkb)</a>
+</li>
+      <li><a href="propagator.html#propagator.plot_ray_fan">plot_ray_fan() (in module propagator)</a>
 </li>
       <li><a href="fio_bridge.html#fio_bridge.CrossValidator.plot_report">plot_report() (fio_bridge.CrossValidator static method)</a>
 </li>
       <li><a href="psiop.html#psiop.PseudoDifferentialOperator.plot_symplectic_vector_field">plot_symplectic_vector_field() (psiop.PseudoDifferentialOperator method)</a>
 </li>
       <li><a href="microlocal.html#microlocal.plot_wavefront_set">plot_wavefront_set() (in module microlocal)</a>
+</li>
+      <li><a href="propagator.html#propagator.plot_wavefunction">plot_wavefunction() (in module propagator)</a>
 </li>
       <li><a href="wkb.html#wkb.plot_with_caustics">plot_with_caustics() (in module wkb)</a>
 </li>
@@ -924,11 +949,20 @@
 </li>
       <li><a href="microlocal.html#microlocal.propagate_singularity">propagate_singularity() (in module microlocal)</a>
 </li>
+      <li>
+    propagator
+
+      <ul>
+        <li><a href="propagator.html#module-propagator">module</a>
+</li>
+      </ul></li>
       <li><a href="fio_bridge.html#fio_bridge.PropagatorBridge">PropagatorBridge (class in fio_bridge)</a>
 </li>
       <li><a href="psiop.html#psiop.PseudoDifferentialOperator">PseudoDifferentialOperator (class in psiop)</a>
 </li>
       <li><a href="psiop.html#psiop.PseudoDifferentialOperator.pseudospectrum_analysis">pseudospectrum_analysis() (psiop.PseudoDifferentialOperator method)</a>
+</li>
+      <li><a href="propagator.html#id13">psi (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.psi">[1]</a>
 </li>
       <li>
     psiop
@@ -963,16 +997,20 @@
 </li>
       <li><a href="caustics.html#caustics.RayCausticDetector">RayCausticDetector (class in caustics)</a>
 </li>
+      <li><a href="propagator.html#propagator.RayData">RayData (class in propagator)</a>
+</li>
+      <li><a href="propagator.html#id14">rays (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.rays">[1]</a>
+</li>
       <li><a href="misc.html#misc.rectangle_function">rectangle_function() (in module misc)</a>
 </li>
       <li><a href="fio_bridge.html#fio_bridge.ValidationReport.rel_error">rel_error (fio_bridge.ValidationReport attribute)</a>, <a href="fio_bridge.html#id22">[1]</a>
 </li>
       <li><a href="riemannian.html#riemannian.Metric.ricci_scalar">ricci_scalar() (riemannian.Metric method)</a>
 </li>
-      <li><a href="riemannian.html#riemannian.Metric.ricci_tensor">ricci_tensor() (riemannian.Metric method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="riemannian.html#riemannian.Metric.ricci_tensor">ricci_tensor() (riemannian.Metric method)</a>
+</li>
       <li><a href="riemannian.html#riemannian.Metric.riemann_tensor">riemann_tensor() (riemannian.Metric method)</a>
 </li>
       <li>
@@ -1000,6 +1038,10 @@
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="propagator.html#id0">S_cum (propagator.RayData attribute)</a>, <a href="propagator.html#propagator.RayData.S_cum">[1]</a>
+</li>
+      <li><a href="propagator.html#id6">S_pts (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.S_pts">[1]</a>
+</li>
       <li><a href="asymptotic.html#asymptotic.AsymptoticEvaluator.saddle_evaluator">saddle_evaluator (asymptotic.AsymptoticEvaluator attribute)</a>
 </li>
       <li><a href="asymptotic.html#asymptotic.IntegralMethod.SADDLE_POINT">SADDLE_POINT (asymptotic.IntegralMethod attribute)</a>
@@ -1055,10 +1097,10 @@
 </li>
       <li><a href="geometry.html#geometry.Spectrum">Spectrum (class in geometry)</a>
 </li>
-      <li><a href="fio_bridge.html#fio_bridge.SpectralSplitter.split">split() (fio_bridge.SpectralSplitter method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="fio_bridge.html#fio_bridge.SpectralSplitter.split">split() (fio_bridge.SpectralSplitter method)</a>
+</li>
       <li><a href="geometry.html#geometry.PeriodicOrbit1D.stability">stability (geometry.PeriodicOrbit1D attribute)</a>
 </li>
       <li><a href="geometry.html#geometry.PeriodicOrbit2D.stability_1">stability_1 (geometry.PeriodicOrbit2D attribute)</a>
@@ -1129,6 +1171,8 @@
 </li>
       </ul></li>
       <li><a href="geometry.html#geometry.PeriodicOrbitBase.t_cycle">t_cycle (geometry.PeriodicOrbitBase attribute)</a>
+</li>
+      <li><a href="propagator.html#id15">t_max (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.t_max">[1]</a>
 </li>
       <li><a href="misc.html#misc.tanh_ramp">tanh_ramp() (in module misc)</a>
 </li>
@@ -1210,6 +1254,8 @@
 </li>
       <li><a href="geometry.html#geometry.Spectrum.trace_t">trace_t (geometry.Spectrum attribute)</a>
 </li>
+      <li><a href="propagator.html#id5">traj (propagator.RayData attribute)</a>, <a href="propagator.html#propagator.RayData.traj">[1]</a>
+</li>
       <li><a href="geometry.html#geometry.CausticStructure.type">type (geometry.CausticStructure attribute)</a>
 </li>
   </ul></td>
@@ -1237,6 +1283,8 @@
       <li><a href="fio_bridge.html#fio_bridge.ValidationReport">ValidationReport (class in fio_bridge)</a>
 </li>
       <li><a href="fio_bridge.html#fio_bridge.EvalResult.value">value (fio_bridge.EvalResult attribute)</a>, <a href="fio_bridge.html#id5">[1]</a>
+</li>
+      <li><a href="propagator.html#propagator.van_vleck_sum">van_vleck_sum() (in module propagator)</a>
 </li>
       <li><a href="asymptotic.html#asymptotic.Analyzer.variables">variables (asymptotic.Analyzer attribute)</a>
 </li>
@@ -1307,15 +1355,17 @@
         <li><a href="wkb.html#module-wkb">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="wkb.html#wkb.wkb_approximation">wkb_approximation() (in module wkb)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="fio_bridge.html#fio_bridge.WKBState.wkb_phase_gradient">wkb_phase_gradient() (fio_bridge.WKBState method)</a>
 </li>
       <li><a href="fio_bridge.html#fio_bridge.ValidationReport.wkb_threshold">wkb_threshold (fio_bridge.ValidationReport attribute)</a>, <a href="fio_bridge.html#id25">[1]</a>
 </li>
       <li><a href="fio_bridge.html#fio_bridge.ValidationReport.wkb_valid">wkb_valid (fio_bridge.ValidationReport attribute)</a>, <a href="fio_bridge.html#id26">[1]</a>
+</li>
+      <li><a href="propagator.html#propagator.WKBResult">WKBResult (class in propagator)</a>
 </li>
       <li><a href="fio_bridge.html#fio_bridge.WKBState">WKBState (class in fio_bridge)</a>
 </li>
@@ -1333,6 +1383,8 @@
         <li><a href="geometry.html#geometry.Geodesic2D.x">(geometry.Geodesic2D attribute)</a>
 </li>
       </ul></li>
+      <li><a href="propagator.html#id7">X (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.X">[1]</a>
+</li>
       <li><a href="geometry.html#geometry.PeriodicOrbit1D.x0">x0 (geometry.PeriodicOrbit1D attribute)</a>
 
       <ul>
@@ -1345,6 +1397,8 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="propagator.html#id16">x_pts (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.x_pts">[1]</a>
+</li>
       <li><a href="fio_bridge.html#fio_bridge.EvalResult.x_val">x_val (fio_bridge.EvalResult attribute)</a>, <a href="fio_bridge.html#id7">[1]</a>
 
       <ul>
@@ -1377,11 +1431,15 @@
         <li><a href="geometry.html#geometry.Geodesic2D.y">(geometry.Geodesic2D attribute)</a>
 </li>
       </ul></li>
+      <li><a href="propagator.html#id8">Y (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.Y">[1]</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="geometry.html#geometry.PeriodicOrbit2D.y0">y0 (geometry.PeriodicOrbit2D attribute)</a>
 </li>
       <li><a href="geometry.html#geometry.PeriodicOrbit2D.y_cycle">y_cycle (geometry.PeriodicOrbit2D attribute)</a>
+</li>
+      <li><a href="propagator.html#id17">y_pts (propagator.WKBResult attribute)</a>, <a href="propagator.html#propagator.WKBResult.y_pts">[1]</a>
 </li>
   </ul></td>
 </tr></table>

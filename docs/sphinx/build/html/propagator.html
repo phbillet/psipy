@@ -1,0 +1,1160 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>propagator &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="psiop" href="psiop.html" />
+    <link rel="prev" title="physics" href="physics.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="geometry.html">geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="microlocal.html">microlocal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">propagator</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#propagator-py-semiclassical-van-vleckpaulimorette-wavefunction">propagator.py — Semiclassical (Van Vleck–Pauli–Morette) wavefunction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#physical-background">Physical Background</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#connection-to-the-metric">Connection to the Metric</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-architecture">Module Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#package-dependencies">Package Dependencies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#improvements-over-previous-version">Improvements over Previous Version</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#typical-usage">Typical Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#propagator.RayData"><code class="docutils literal notranslate"><span class="pre">RayData</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.RayData.traj"><code class="docutils literal notranslate"><span class="pre">RayData.traj</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.RayData.det_J"><code class="docutils literal notranslate"><span class="pre">RayData.det_J</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.RayData.S_cum"><code class="docutils literal notranslate"><span class="pre">RayData.S_cum</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.RayData.mu"><code class="docutils literal notranslate"><span class="pre">RayData.mu</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id0"><code class="docutils literal notranslate"><span class="pre">RayData.S_cum</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id3"><code class="docutils literal notranslate"><span class="pre">RayData.det_J</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id4"><code class="docutils literal notranslate"><span class="pre">RayData.mu</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id5"><code class="docutils literal notranslate"><span class="pre">RayData.traj</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#propagator.WKBResult"><code class="docutils literal notranslate"><span class="pre">WKBResult</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.rays"><code class="docutils literal notranslate"><span class="pre">WKBResult.rays</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.X"><code class="docutils literal notranslate"><span class="pre">WKBResult.X</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.Y"><code class="docutils literal notranslate"><span class="pre">WKBResult.Y</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.psi"><code class="docutils literal notranslate"><span class="pre">WKBResult.psi</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.x_pts"><code class="docutils literal notranslate"><span class="pre">WKBResult.x_pts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.y_pts"><code class="docutils literal notranslate"><span class="pre">WKBResult.y_pts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.S_pts"><code class="docutils literal notranslate"><span class="pre">WKBResult.S_pts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.det_J_pts"><code class="docutils literal notranslate"><span class="pre">WKBResult.det_J_pts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.mu_pts"><code class="docutils literal notranslate"><span class="pre">WKBResult.mu_pts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.hbar"><code class="docutils literal notranslate"><span class="pre">WKBResult.hbar</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.t_max"><code class="docutils literal notranslate"><span class="pre">WKBResult.t_max</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#propagator.WKBResult.dim"><code class="docutils literal notranslate"><span class="pre">WKBResult.dim</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id6"><code class="docutils literal notranslate"><span class="pre">WKBResult.S_pts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id7"><code class="docutils literal notranslate"><span class="pre">WKBResult.X</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id8"><code class="docutils literal notranslate"><span class="pre">WKBResult.Y</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id9"><code class="docutils literal notranslate"><span class="pre">WKBResult.det_J_pts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id10"><code class="docutils literal notranslate"><span class="pre">WKBResult.dim</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id11"><code class="docutils literal notranslate"><span class="pre">WKBResult.hbar</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id12"><code class="docutils literal notranslate"><span class="pre">WKBResult.mu_pts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id13"><code class="docutils literal notranslate"><span class="pre">WKBResult.psi</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id14"><code class="docutils literal notranslate"><span class="pre">WKBResult.rays</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id15"><code class="docutils literal notranslate"><span class="pre">WKBResult.t_max</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id16"><code class="docutils literal notranslate"><span class="pre">WKBResult.x_pts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id17"><code class="docutils literal notranslate"><span class="pre">WKBResult.y_pts</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#propagator.compute_wavefunction"><code class="docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#propagator.plot_interference_detail"><code class="docutils literal notranslate"><span class="pre">plot_interference_detail()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#propagator.plot_ray_fan"><code class="docutils literal notranslate"><span class="pre">plot_ray_fan()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#propagator.plot_wavefunction"><code class="docutils literal notranslate"><span class="pre">plot_wavefunction()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#propagator.van_vleck_sum"><code class="docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="riemannian.html">riemannian</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symplectic.html">symplectic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">propagator</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/propagator.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-propagator">
+<span id="propagator"></span><h1>propagator<a class="headerlink" href="#module-propagator" title="Link to this heading"></a></h1>
+<section id="propagator-py-semiclassical-van-vleckpaulimorette-wavefunction">
+<h2>propagator.py — Semiclassical (Van Vleck–Pauli–Morette) wavefunction<a class="headerlink" href="#propagator-py-semiclassical-van-vleckpaulimorette-wavefunction" title="Link to this heading"></a></h2>
+<section id="overview">
+<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
+<p>This module assembles a semiclassical (WKB / Van Vleck–Pauli–Morette)
+wavefunction from a fan of classical rays.  It is the top-level physics
+layer of the <em>psipy</em> package and depends exclusively on <code class="docutils literal notranslate"><span class="pre">riemannian.py</span></code>
+for geometry and Jacobi-field integration, and on <code class="docutils literal notranslate"><span class="pre">symplectic.py</span></code> for
+symplectic ray tracing and action accumulation.</p>
+<p>The public entry point is <a class="reference internal" href="#propagator.compute_wavefunction" title="propagator.compute_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a>.  The result is a
+<a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">WKBResult</span></code></a> dataclass that bundles the gridded wavefunction, all
+per-ray data, and the scattered raw data ready for plotting or further
+analysis.  Four visualisation helpers are provided:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#propagator.plot_wavefunction" title="propagator.plot_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_wavefunction()</span></code></a>       — master figure (density, phase, Re/Im, rays)</p></li>
+<li><p><a class="reference internal" href="#propagator.plot_ray_fan" title="propagator.plot_ray_fan"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_ray_fan()</span></code></a>            — rays coloured by action, caustics marked</p></li>
+<li><p><a class="reference internal" href="#propagator.plot_interference_detail" title="propagator.plot_interference_detail"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_interference_detail()</span></code></a>— fringes, density, and action scatter</p></li>
+</ul>
+</section>
+<section id="physical-background">
+<h3>Physical Background<a class="headerlink" href="#physical-background" title="Link to this heading"></a></h3>
+<p>The <strong>Van Vleck–Pauli–Morette</strong> (VVP) propagator gives the semiclassical
+approximation to the quantum propagator K(x, x₀; t) in the limit ℏ → 0.
+For a system whose classical Hamiltonian is H = ½ gⁱʲ(x) pᵢ pⱼ (geodesic
+motion on a Riemannian manifold with metric tensor g), the wavefunction
+emanating from a point source at x₀ is</p>
+<blockquote>
+<div><p>ψ(x, t) = Σ_k  A_k(x) · exp(i S_k(x, t)/ℏ − i μ_k π/2)</p>
+</div></blockquote>
+<p>where the sum runs over all classical paths (rays) k that connect x₀ to x
+in time t, and:</p>
+<blockquote>
+<div><dl class="simple">
+<dt>S_k(x, t) = ∫₀ᵗ p · ẋ dt’   (Hamilton’s principal function / action)</dt><dd><p>= ∫₀ᵗ g_{ij}(x) vⁱ vʲ dt’   (on a pure-metric Hamiltonian)</p>
+</dd>
+</dl>
+<p>A_k(x)    = 1 / √|det J_k(x, t)|       (Van Vleck amplitude)</p>
+<dl class="simple">
+<dt>det J_k   = det(∂x / ∂p₀)              (Jacobi determinant, a.k.a.</dt><dd><p>Van Vleck determinant)</p>
+</dd>
+<dt>μ_k       = number of caustic crossings (Maslov index)</dt><dd><p>Each sign change of det J contributes +1 to μ_k, adding a
+phase factor exp(−iπ/2) = −i per crossing.</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>The amplitude A_k diverges when det J = 0, i.e. at <strong>caustics</strong>, which are
+the envelopes of the ray family.  Near a caustic the WKB approximation
+breaks down and must be replaced by a uniform asymptotic approximation
+based on the Airy function (fold caustics) or the Pearcey integral (cusp
+caustics).</p>
+<section id="connection-to-the-metric">
+<h4>Connection to the Metric<a class="headerlink" href="#connection-to-the-metric" title="Link to this heading"></a></h4>
+<p>For a kinetic Hamiltonian H = ½ gⁱʲ pᵢ pⱼ the canonical momentum is
+pᵢ = g_{ij} vʲ (covariant, lowered by the metric), so the action becomes
+∫ p · v dt = ∫ g_{ij} vⁱ vʲ dt.  The inverse metric gⁱʲ governs the
+Hamiltonian equations of motion (Hamilton’s equations), while the metric
+g_{ij} maps velocities to momenta.  This distinction is crucial for the
+action fallback when no explicit momentum is stored in the trajectory.</p>
+<p>The Jacobi equation governing the evolution of the Jacobi field J = ∂x/∂p₀
+(sensitivity of position to initial momentum) along a geodesic is the
+geodesic deviation equation, which is curvature-dependent:</p>
+<blockquote>
+<div><p>D²J/dt² + R(J, ẋ)ẋ = 0</p>
+</div></blockquote>
+<p>where R is the Riemann curvature tensor.  On a flat metric (R = 0) the
+Jacobi field grows linearly: J(t) = t · K₀.  Curvature causes focussing
+(det J → 0) and defocussing.</p>
+</section>
+</section>
+<section id="module-architecture">
+<h3>Module Architecture<a class="headerlink" href="#module-architecture" title="Link to this heading"></a></h3>
+<p>Dependency tree:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>compute_wavefunction          ← public entry point
+├── _build_hamiltonian_sym    — builds H = ½ gⁱʲ pᵢ pⱼ symbolically
+├── hamiltonian_flow          — symplectic ray integration  (symplectic.py)
+├── _det_J_from_jacobi        — Jacobi determinant along each ray
+│   ├── _det_J_1d             — 1D: variational ODE via solve_ivp
+│   └── jacobi_equation_solver— 2D: two Jacobi fields (riemannian.py)
+├── _cumulative_action        — action integral ∫ p · v dt
+├── _maslov_index             — count sign changes of det J
+└── van_vleck_sum             — coherent sum onto output grid
+    ├── _asymptotic_correction_1d  — Airy patch at 1D fold caustics
+    │   └── _airy_argument         — ξ(x) = (α/2ℏ)^{1/3} (x − x_c)
+    └── _asymptotic_correction_2d  — Airy / Pearcey at 2D caustics
+</pre></div>
+</div>
+<p>Result dataclasses:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>RayData    — per-ray: trajectory dict, det J array, S array, Maslov μ
+WKBResult  — full output: gridded ψ, raw scattered data, all RayData
+</pre></div>
+</div>
+</section>
+<section id="package-dependencies">
+<h3>Package Dependencies<a class="headerlink" href="#package-dependencies" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">riemannian.py</span></code></dt><dd><dl class="simple">
+<dt><code class="xref py py-class docutils literal notranslate"><span class="pre">Metric</span></code></dt><dd><p>Encodes the Riemannian metric tensor g_{ij}(x) as a SymPy expression.
+Provides symbolic and numerical evaluation of g, g⁻¹, and their
+derivatives.  Used to convert velocities to momenta (p = g · v) and
+to build the kinetic Hamiltonian.</p>
+</dd>
+<dt><code class="xref py py-func docutils literal notranslate"><span class="pre">geodesic_solver()</span></code></dt><dd><p>Integrates the geodesic equations ẍ + Γ vv = 0 forward in time,
+returning position and velocity arrays.  Used as a lightweight
+alternative to <code class="docutils literal notranslate"><span class="pre">hamiltonian_flow</span></code> when symplectic accuracy is not
+required.</p>
+</dd>
+<dt><code class="xref py py-func docutils literal notranslate"><span class="pre">jacobi_equation_solver()</span></code></dt><dd><p>Integrates the Jacobi (geodesic deviation) equation along a given
+geodesic for a specified initial variation (J₀, DJ₀).  Returns the
+Jacobi field components J_x(t), J_y(t).  Called twice per ray in 2D
+to form the 2×2 Jacobi matrix whose determinant gives the Van Vleck
+amplitude.</p>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">symplectic.py</span></code></dt><dd><dl class="simple">
+<dt><code class="xref py py-func docutils literal notranslate"><span class="pre">hamiltonian_flow()</span></code></dt><dd><p>Integrates Hamilton’s equations (ẋ = ∂H/∂p, ṗ = −∂H/∂x) using a
+symplectic integrator (Störmer–Verlet by default, or RK45).  Returns
+a trajectory dict containing both positions and canonical momenta,
+which are used directly for the action integral.</p>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">asymptotic.py</span></code></dt><dd><dl class="simple">
+<dt><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code> / <code class="xref py py-class docutils literal notranslate"><span class="pre">AsymptoticEvaluator</span></code></dt><dd><p>Evaluate oscillatory integrals I(λ) = ∫ a(t) exp(iλφ(t)) dt via
+stationary-phase methods.  Used here only for cusp (Pearcey) caustics
+in 2D, where the quartic normal-form phase φ(t) = t⁴/4 requires the
+specialised Pearcey evaluator.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="improvements-over-previous-version">
+<h3>Improvements over Previous Version<a class="headerlink" href="#improvements-over-previous-version" title="Link to this heading"></a></h3>
+<ol class="arabic">
+<li><p><strong>API clarity</strong> — <code class="docutils literal notranslate"><span class="pre">v_fan</span></code> replaces the misleading <code class="docutils literal notranslate"><span class="pre">p_fan</span></code> parameter.
+The caller always supplies initial <em>velocities</em> (contravariant vectors
+vⁱ = dxⁱ/dt); the module converts to canonical momenta pᵢ = g_{ij} vʲ
+internally before passing them to the Hamiltonian integrator.</p></li>
+<li><p><strong>Correct spatial Airy profile at 1D fold caustics</strong> —
+<code class="xref py py-func docutils literal notranslate"><span class="pre">_asymptotic_correction_1d()</span></code> now evaluates the proper uniform Airy
+approximation pointwise:</p>
+<blockquote>
+<div><p>ψ(x) ≈ 2π a_c ℏ^{1/6} <a href="#id1"><span class="problematic" id="id2">|</span></a>α|^{-1/3} · Ai(ξ(x)) · exp(i S_c/ℏ)</p>
+</div></blockquote>
+<p>with ξ(x) = (α/2ℏ)^{1/3}(x − x_c).  The fringe spacing ∝ ℏ^{1/3} is
+now physically correct.  The previous implementation evaluated the Airy
+function only at the caustic point and spread a scalar value with a cosine
+taper, yielding the right amplitude order but the wrong spatial profile.</p>
+</li>
+<li><p><strong>Correct action fallback for curved metrics</strong> —
+<code class="xref py py-func docutils literal notranslate"><span class="pre">_cumulative_action()</span></code> no longer falls back to ∫ v² dt when explicit
+momentum arrays are absent.  Instead it evaluates pᵢ = g_{ij}(x) vʲ along
+the trajectory and integrates ∫ g_{ij} vⁱ vʲ dt, which is exact for any
+Riemannian metric.  The old ∫ v² dt fallback was only valid for the flat
+unit-mass case g_{ij} = δ_{ij}.</p></li>
+<li><p><strong>2D caustic patching</strong> — <a class="reference internal" href="#propagator.van_vleck_sum" title="propagator.van_vleck_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a> now applies asymptotic
+corrections in 2D as well as 1D.  For a fold caustic (<a href="#id26"><span class="problematic" id="id27">|∇det J|</span></a> ≠ 0) the
+Airy profile is applied along the transverse direction n̂ = ∇det J / <a href="#id28"><span class="problematic" id="id29">|∇det J|</span></a>
+and blended with a 2D Gaussian taper.  For a cusp caustic (<a href="#id30"><span class="problematic" id="id31">|∇det J|</span></a> ≈ 0)
+the <code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code> / <code class="xref py py-class docutils literal notranslate"><span class="pre">AsymptoticEvaluator</span></code> interface is invoked
+with the quartic normal-form phase, providing an O(ℏ^{1/4}) Pearcey scaling.</p></li>
+</ol>
+</section>
+<section id="typical-usage">
+<h3>Typical Usage<a class="headerlink" href="#typical-usage" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">riemannian</span><span class="w"> </span><span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">propagator</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_wavefunction</span><span class="p">,</span> <span class="n">plot_wavefunction</span>
+
+<span class="c1"># 1. Define the geometry via a Metric object</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,))</span>          <span class="c1"># flat 1D metric, g = 1</span>
+
+<span class="c1"># 2. Define the source point and a fan of initial velocities</span>
+<span class="n">source</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,)</span>
+<span class="n">v_fan</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mi">80</span><span class="p">)</span>
+
+<span class="c1"># 3. Run the full pipeline</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
+    <span class="n">metric</span>    <span class="o">=</span> <span class="n">metric</span><span class="p">,</span>
+    <span class="n">source</span>    <span class="o">=</span> <span class="n">source</span><span class="p">,</span>
+    <span class="n">v_fan</span>     <span class="o">=</span> <span class="n">v_fan</span><span class="p">,</span>
+    <span class="n">t_max</span>     <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">hbar</span>      <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">n_steps</span>   <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
+    <span class="n">N_grid</span>    <span class="o">=</span> <span class="mi">400</span><span class="p">,</span>
+    <span class="n">integrator</span><span class="o">=</span> <span class="s1">&#39;verlet&#39;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 4. Visualise</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>For a curved metric built from a Hamiltonian H = p²/(2 m(x)):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">from_hamiltonian</span><span class="p">(</span><span class="n">p</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="n">x</span><span class="p">,),</span> <span class="p">(</span><span class="n">p</span><span class="p">,))</span>
+<span class="c1"># metric.g_expr == x**2</span>
+</pre></div>
+</div>
+<p class="rubric">References</p>
+<ul class="simple">
+<li><p>Van Vleck, J.H. (1928). “The correspondence principle in the statistical
+interpretation of quantum mechanics”. Proc. Natl. Acad. Sci. 14, 178.</p></li>
+<li><p>Morette, C. (1951). “On the definition and approximation of Feynman’s path
+integrals”. Phys. Rev. 81, 848.</p></li>
+<li><p>Gutzwiller, M.C. (1990). <em>Chaos in Classical and Quantum Mechanics</em>.
+Springer, New York.  (Chapter 12: the semiclassical Green’s function.)</p></li>
+<li><p>Maslov, V.P. &amp; Fedoriuk, M.V. (1981). <em>Semi-Classical Approximation in
+Quantum Mechanics</em>. Reidel, Dordrecht.  (Maslov index and caustics.)</p></li>
+<li><p>Berry, M.V. &amp; Mount, K.E. (1972). “Semiclassical approximations in wave
+mechanics”. Rep. Prog. Phys. 35, 315.  (Uniform Airy approximation.)</p></li>
+</ul>
+</section>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="propagator.RayData">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">propagator.</span></span><span class="sig-name descname"><span class="pre">RayData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">traj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_J</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">S_cum</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/propagator.html#RayData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#propagator.RayData" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>All data associated with a single classical ray.</p>
+<p>A ray is a solution of Hamilton’s equations starting from the source
+point with one particular initial velocity v₀.  This dataclass bundles
+the raw trajectory together with the derived semiclassical quantities
+needed to evaluate the Van Vleck amplitude and phase.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.RayData.traj">
+<span class="sig-name descname"><span class="pre">traj</span></span><a class="headerlink" href="#propagator.RayData.traj" title="Link to this definition"></a></dt>
+<dd><p>Trajectory dictionary returned by <a class="reference internal" href="symplectic.html#symplectic.hamiltonian_flow" title="symplectic.hamiltonian_flow"><code class="xref py py-func docutils literal notranslate"><span class="pre">symplectic.hamiltonian_flow()</span></code></a>.
+Keys depend on dimension:</p>
+<ul class="simple">
+<li><p>1D: <code class="docutils literal notranslate"><span class="pre">'t'</span></code>, <code class="docutils literal notranslate"><span class="pre">'x'</span></code> (or the SymPy coord name), <code class="docutils literal notranslate"><span class="pre">'xi'</span></code>
+(canonical momentum p = g v).</p></li>
+<li><p>2D: <code class="docutils literal notranslate"><span class="pre">'t'</span></code>, <code class="docutils literal notranslate"><span class="pre">'x'</span></code>, <code class="docutils literal notranslate"><span class="pre">'y'</span></code> (or coord names), <code class="docutils literal notranslate"><span class="pre">'xi'</span></code>, <code class="docutils literal notranslate"><span class="pre">'eta'</span></code>.</p></li>
+</ul>
+<p>All values are 1D NumPy arrays of length <code class="docutils literal notranslate"><span class="pre">n_steps</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.RayData.det_J">
+<span class="sig-name descname"><span class="pre">det_J</span></span><a class="headerlink" href="#propagator.RayData.det_J" title="Link to this definition"></a></dt>
+<dd><p>Jacobi determinant det(∂x/∂p₀) along the ray.</p>
+<ul class="simple">
+<li><p>Positive away from caustics.</p></li>
+<li><p>Changes sign at each caustic crossing (focal point).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">det_J[0]</span> <span class="pre">=</span> <span class="pre">0</span></code> by construction (the ray fan starts at a point
+source, so all rays share the same initial position — the Jacobi
+field starts from zero separation).</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray, shape (n_steps,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.RayData.S_cum">
+<span class="sig-name descname"><span class="pre">S_cum</span></span><a class="headerlink" href="#propagator.RayData.S_cum" title="Link to this definition"></a></dt>
+<dd><p>Cumulative action S(t) = ∫₀ᵗ pᵢ ẋⁱ dt′, evaluated at each time step.
+For a pure-metric Hamiltonian this equals ∫₀ᵗ g_{ij} vⁱ vʲ dt′ = 2E t
+(twice the kinetic energy times elapsed time) on flat metrics, but
+differs in general on curved ones.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray, shape (n_steps,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.RayData.mu">
+<span class="sig-name descname"><span class="pre">mu</span></span><a class="headerlink" href="#propagator.RayData.mu" title="Link to this definition"></a></dt>
+<dd><p>Maslov index: the number of caustic crossings (sign changes of
+<code class="docutils literal notranslate"><span class="pre">det_J</span></code>) accumulated along the ray from t=0 to t=t_max.
+Each crossing contributes a phase factor exp(−iπ/2) = −i to the
+semiclassical amplitude.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">S_cum</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id0" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id3">
+<span class="sig-name descname"><span class="pre">det_J</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id3" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id4">
+<span class="sig-name descname"><span class="pre">mu</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#id4" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id5">
+<span class="sig-name descname"><span class="pre">traj</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></span><a class="headerlink" href="#id5" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="propagator.WKBResult">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">propagator.</span></span><span class="sig-name descname"><span class="pre">WKBResult</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rays</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#propagator.RayData" title="propagator.RayData"><span class="pre">RayData</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">S_pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_J_pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu_pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/propagator.html#WKBResult"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#propagator.WKBResult" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Full output of <a class="reference internal" href="#propagator.compute_wavefunction" title="propagator.compute_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a>.</p>
+<p>Bundles the gridded semiclassical wavefunction together with all
+per-ray data and the raw scattered point cloud, making it self-contained
+for plotting, post-processing, or archiving.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.rays">
+<span class="sig-name descname"><span class="pre">rays</span></span><a class="headerlink" href="#propagator.WKBResult.rays" title="Link to this definition"></a></dt>
+<dd><p>One <a class="reference internal" href="#propagator.RayData" title="propagator.RayData"><code class="xref py py-class docutils literal notranslate"><span class="pre">RayData</span></code></a> per successfully integrated ray.  Failed rays
+(e.g. due to numerical blow-up) are silently dropped.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of <a class="reference internal" href="#propagator.RayData" title="propagator.RayData">RayData</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.X">
+<span class="sig-name descname"><span class="pre">X</span></span><a class="headerlink" href="#propagator.WKBResult.X" title="Link to this definition"></a></dt>
+<dd><p>x-coordinates of the output grid.</p>
+<ul class="simple">
+<li><p>1D: shape <code class="docutils literal notranslate"><span class="pre">(N_grid,)</span></code> — a 1D array of x positions.</p></li>
+<li><p>2D: shape <code class="docutils literal notranslate"><span class="pre">(N_grid,</span> <span class="pre">N_grid)</span></code> — the x-component of a meshgrid,
+as returned by <code class="docutils literal notranslate"><span class="pre">np.meshgrid</span></code>.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.Y">
+<span class="sig-name descname"><span class="pre">Y</span></span><a class="headerlink" href="#propagator.WKBResult.Y" title="Link to this definition"></a></dt>
+<dd><p>y-coordinates of the output grid (2D only); <code class="docutils literal notranslate"><span class="pre">None</span></code> in 1D.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.psi">
+<span class="sig-name descname"><span class="pre">psi</span></span><a class="headerlink" href="#propagator.WKBResult.psi" title="Link to this definition"></a></dt>
+<dd><p>Semiclassical wavefunction on the output grid.</p>
+<ul class="simple">
+<li><p>1D: shape <code class="docutils literal notranslate"><span class="pre">(N_grid,)</span></code>.</p></li>
+<li><p>2D: shape <code class="docutils literal notranslate"><span class="pre">(N_grid,</span> <span class="pre">N_grid)</span></code>.</p></li>
+</ul>
+<p>Assembled by <a class="reference internal" href="#propagator.van_vleck_sum" title="propagator.van_vleck_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a> as the coherent sum over all rays,
+with Airy corrections applied near caustics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray (complex)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.x_pts">
+<span class="sig-name descname"><span class="pre">x_pts</span></span><a class="headerlink" href="#propagator.WKBResult.x_pts" title="Link to this definition"></a></dt>
+<dd><p>x-coordinates of all trajectory points from all rays, concatenated.
+These are the <em>scattered</em> source points fed to <code class="docutils literal notranslate"><span class="pre">scipy.interpolate.griddata</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray, shape (n_rays × n_steps,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.y_pts">
+<span class="sig-name descname"><span class="pre">y_pts</span></span><a class="headerlink" href="#propagator.WKBResult.y_pts" title="Link to this definition"></a></dt>
+<dd><p>y-coordinates of all trajectory points (2D only); <code class="docutils literal notranslate"><span class="pre">None</span></code> in 1D.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.S_pts">
+<span class="sig-name descname"><span class="pre">S_pts</span></span><a class="headerlink" href="#propagator.WKBResult.S_pts" title="Link to this definition"></a></dt>
+<dd><p>Cumulative action at each scattered point (concatenated from all rays).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray, shape (n_rays × n_steps,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.det_J_pts">
+<span class="sig-name descname"><span class="pre">det_J_pts</span></span><a class="headerlink" href="#propagator.WKBResult.det_J_pts" title="Link to this definition"></a></dt>
+<dd><p>Jacobi determinant at each scattered point.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray, shape (n_rays × n_steps,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.mu_pts">
+<span class="sig-name descname"><span class="pre">mu_pts</span></span><a class="headerlink" href="#propagator.WKBResult.mu_pts" title="Link to this definition"></a></dt>
+<dd><p>Maslov index broadcast to every step of each ray (constant per ray,
+since μ is the total caustic count for that ray’s trajectory).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray of int, shape (n_rays × n_steps,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.hbar">
+<span class="sig-name descname"><span class="pre">hbar</span></span><a class="headerlink" href="#propagator.WKBResult.hbar" title="Link to this definition"></a></dt>
+<dd><p>Reduced Planck constant used in the computation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.t_max">
+<span class="sig-name descname"><span class="pre">t_max</span></span><a class="headerlink" href="#propagator.WKBResult.t_max" title="Link to this definition"></a></dt>
+<dd><p>Integration time of the ray fan.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="propagator.WKBResult.dim">
+<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#propagator.WKBResult.dim" title="Link to this definition"></a></dt>
+<dd><p>Spatial dimension, 1 or 2.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id6">
+<span class="sig-name descname"><span class="pre">S_pts</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id6" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id7">
+<span class="sig-name descname"><span class="pre">X</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id7" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id8">
+<span class="sig-name descname"><span class="pre">Y</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#id8" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id9">
+<span class="sig-name descname"><span class="pre">det_J_pts</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id9" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id10">
+<span class="sig-name descname"><span class="pre">dim</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#id10" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id11">
+<span class="sig-name descname"><span class="pre">hbar</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id11" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id12">
+<span class="sig-name descname"><span class="pre">mu_pts</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id12" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id13">
+<span class="sig-name descname"><span class="pre">psi</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id13" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id14">
+<span class="sig-name descname"><span class="pre">rays</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#propagator.RayData" title="propagator.RayData"><span class="pre">RayData</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#id14" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id15">
+<span class="sig-name descname"><span class="pre">t_max</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id15" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id16">
+<span class="sig-name descname"><span class="pre">x_pts</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id16" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id17">
+<span class="sig-name descname"><span class="pre">y_pts</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#id17" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="propagator.compute_wavefunction">
+<span class="sig-prename descclassname"><span class="pre">propagator.</span></span><span class="sig-name descname"><span class="pre">compute_wavefunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="riemannian.html#riemannian.Metric" title="riemannian.Metric"><span class="pre">Metric</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_fan</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">400</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_grid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">integrator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'verlet'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><span class="pre">WKBResult</span></a></span></span><a class="reference internal" href="_modules/propagator.html#compute_wavefunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#propagator.compute_wavefunction" title="Link to this definition"></a></dt>
+<dd><p>Compute the semiclassical (Van Vleck–Pauli–Morette) wavefunction.</p>
+<p>This is the main public entry point.  It orchestrates the full pipeline:</p>
+<ol class="arabic simple">
+<li><p>Build the kinetic Hamiltonian H = ½ gⁱʲ pᵢ pⱼ from <code class="docutils literal notranslate"><span class="pre">metric</span></code>.</p></li>
+<li><p>For each initial velocity <code class="docutils literal notranslate"><span class="pre">v0</span></code> in <code class="docutils literal notranslate"><span class="pre">v_fan</span></code>:</p>
+<ol class="loweralpha simple">
+<li><p>Convert velocity to canonical momentum: p₀ = g(x₀) · v₀.</p></li>
+<li><p>Integrate Hamilton’s equations with <a class="reference internal" href="symplectic.html#symplectic.hamiltonian_flow" title="symplectic.hamiltonian_flow"><code class="xref py py-func docutils literal notranslate"><span class="pre">symplectic.hamiltonian_flow()</span></code></a>
+to obtain the ray trajectory (positions + momenta).</p></li>
+<li><p>Reconstruct the velocity trajectory from the momenta (v = g⁻¹ p)
+and pass it to <code class="xref py py-func docutils literal notranslate"><span class="pre">_det_J_from_jacobi()</span></code> to compute the Jacobi
+determinant along the ray.</p></li>
+<li><p>Compute the cumulative action with <code class="xref py py-func docutils literal notranslate"><span class="pre">_cumulative_action()</span></code>.</p></li>
+<li><p>Compute the Maslov index with <code class="xref py py-func docutils literal notranslate"><span class="pre">_maslov_index()</span></code>.</p></li>
+<li><p>Store the result as a <a class="reference internal" href="#propagator.RayData" title="propagator.RayData"><code class="xref py py-class docutils literal notranslate"><span class="pre">RayData</span></code></a> object.</p></li>
+</ol>
+</li>
+<li><p>Concatenate all scattered ray data (positions, S, det J, μ).</p></li>
+<li><p>Call <a class="reference internal" href="#propagator.van_vleck_sum" title="propagator.van_vleck_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a> to interpolate the VVP amplitude onto a
+regular output grid and apply Airy corrections near caustics.</p></li>
+<li><p>Return a <a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">WKBResult</span></code></a> containing the gridded ψ and all raw data.</p></li>
+</ol>
+<section id="velocity-vs-momentum-convention">
+<h2>Velocity vs momentum convention<a class="headerlink" href="#velocity-vs-momentum-convention" title="Link to this heading"></a></h2>
+<p>The parameter <code class="docutils literal notranslate"><span class="pre">v_fan</span></code> specifies the fan in terms of <em>initial velocities</em>
+(contravariant vectors vⁱ = dxⁱ/dt), not canonical momenta.  Internally,
+the conversion p₀ = g(x₀) · v₀ is applied before the Hamiltonian
+integrator.  On a flat metric g = I this distinction is irrelevant, but on
+a curved metric (e.g. g = x² for a position-dependent mass) it matters:
+a uniform velocity fan produces uniformly-spaced geodesics, while a
+momentum fan would oversample fast regions.</p>
+</section>
+<section id="error-handling">
+<h2>Error handling<a class="headerlink" href="#error-handling" title="Link to this heading"></a></h2>
+<p>Individual rays that raise any exception during integration (e.g. due to
+the ray escaping the domain, a singularity in the metric, or a numerical
+blow-up) are silently skipped.  If <em>all</em> rays fail, a <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> is
+raised.  Callers may inspect <code class="docutils literal notranslate"><span class="pre">len(result.rays)</span></code> to check how many rays
+succeeded.</p>
+</section>
+<section id="grid-bounds">
+<h2>Grid bounds<a class="headerlink" href="#grid-bounds" title="Link to this heading"></a></h2>
+<p>If <code class="docutils literal notranslate"><span class="pre">xlim</span></code> (and <code class="docutils literal notranslate"><span class="pre">ylim</span></code> for 2D) are not provided, they are set to the
+range of the ray endpoints with a 10% margin added on each side.  This
+auto-detection works well for most problems but may produce a grid that
+crops the wavefunction if rays are highly inhomogeneous; in that case
+supply explicit limits.</p>
+<dl class="field-list">
+<dt class="field-odd">param metric<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Riemannian metric encoding the geometry.  Must have <code class="docutils literal notranslate"><span class="pre">dim</span></code> attribute
+equal to 1 or 2.  Can be constructed directly (<code class="docutils literal notranslate"><span class="pre">Metric(g_expr,</span> <span class="pre">coords)</span></code>)
+or from a Hamiltonian (<code class="docutils literal notranslate"><span class="pre">Metric.from_hamiltonian(H,</span> <span class="pre">coords,</span> <span class="pre">momenta)</span></code>).</p>
+</dd>
+<dt class="field-even">type metric<span class="colon">:</span></dt>
+<dd class="field-even"><p>Metric</p>
+</dd>
+<dt class="field-odd">param source<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Initial position of the point source.</p>
+<ul class="simple">
+<li><p>1D: <code class="docutils literal notranslate"><span class="pre">(x₀,)</span></code></p></li>
+<li><p>2D: <code class="docutils literal notranslate"><span class="pre">(x₀,</span> <span class="pre">y₀)</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">type source<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple of float</p>
+</dd>
+<dt class="field-odd">param v_fan<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Fan of initial velocities.</p>
+<ul class="simple">
+<li><p>1D: shape <code class="docutils literal notranslate"><span class="pre">(n_rays,)</span></code> — one velocity per ray.</p></li>
+<li><p>2D: shape <code class="docutils literal notranslate"><span class="pre">(n_rays,</span> <span class="pre">2)</span></code> — one velocity vector <code class="docutils literal notranslate"><span class="pre">[vx,</span> <span class="pre">vy]</span></code> per ray.</p></li>
+</ul>
+<p>All velocities are contravariant (ẋ, ẏ), not covariant momenta.
+Conversion p = g · v is done internally.</p>
+</dd>
+<dt class="field-even">type v_fan<span class="colon">:</span></dt>
+<dd class="field-even"><p>np.ndarray</p>
+</dd>
+<dt class="field-odd">param t_max<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Total integration time.  Rays are propagated from t = 0 to t = t_max.</p>
+</dd>
+<dt class="field-even">type t_max<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param hbar<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Reduced Planck constant.  Appears in the phase exp(i S/ℏ) and in the
+fringe scale of the Airy correction ∝ ℏ^{1/3}.</p>
+</dd>
+<dt class="field-even">type hbar<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, default 1.0</p>
+</dd>
+<dt class="field-odd">param n_steps<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Number of time steps per ray.  Higher values improve accuracy of the
+action integral and Jacobi determinant.  The time grid is
+<code class="docutils literal notranslate"><span class="pre">np.linspace(0,</span> <span class="pre">t_max,</span> <span class="pre">n_steps)</span></code>.</p>
+</dd>
+<dt class="field-even">type n_steps<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, default 400</p>
+</dd>
+<dt class="field-odd">param N_grid<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Output grid resolution.  The wavefunction is evaluated on an N_grid ×
+N_grid mesh (2D) or N_grid points (1D).</p>
+</dd>
+<dt class="field-even">type N_grid<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, default 300</p>
+</dd>
+<dt class="field-odd">param xlim<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Explicit x-range of the output grid.  If <code class="docutils literal notranslate"><span class="pre">None</span></code>, auto-detected from
+ray data with a 10% margin.</p>
+</dd>
+<dt class="field-even">type xlim<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple (x_min, x_max) or None</p>
+</dd>
+<dt class="field-odd">param ylim<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Explicit y-range (2D only).  If <code class="docutils literal notranslate"><span class="pre">None</span></code>, auto-detected.</p>
+</dd>
+<dt class="field-even">type ylim<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple (y_min, y_max) or None</p>
+</dd>
+<dt class="field-odd">param integrator<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Symplectic integrator passed to <a class="reference internal" href="symplectic.html#symplectic.hamiltonian_flow" title="symplectic.hamiltonian_flow"><code class="xref py py-func docutils literal notranslate"><span class="pre">symplectic.hamiltonian_flow()</span></code></a>.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'verlet'</span></code> — Störmer–Verlet (leapfrog), 2nd-order symplectic.
+Fast; recommended for most problems.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'rk45'</span></code>   — Runge–Kutta 4/5, non-symplectic but higher formal
+accuracy.  Suitable when ℏ is very small and phase accuracy matters
+more than energy conservation.</p></li>
+</ul>
+</dd>
+<dt class="field-even">type integrator<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, default <code class="docutils literal notranslate"><span class="pre">'verlet'</span></code></p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dataclass containing:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">psi</span></code> — semiclassical wavefunction on the output grid (complex).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">X</span></code>, <code class="docutils literal notranslate"><span class="pre">Y</span></code> — grid coordinate arrays.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rays</span></code> — list of <a class="reference internal" href="#propagator.RayData" title="propagator.RayData"><code class="xref py py-class docutils literal notranslate"><span class="pre">RayData</span></code></a> for each successful ray.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x_pts</span></code>, <code class="docutils literal notranslate"><span class="pre">y_pts</span></code>, <code class="docutils literal notranslate"><span class="pre">S_pts</span></code>, <code class="docutils literal notranslate"><span class="pre">det_J_pts</span></code>, <code class="docutils literal notranslate"><span class="pre">mu_pts</span></code> — raw
+scattered data from all rays concatenated.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hbar</span></code>, <code class="docutils literal notranslate"><span class="pre">t_max</span></code>, <code class="docutils literal notranslate"><span class="pre">dim</span></code> — input metadata.</p></li>
+</ul>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>WKBResult</p>
+</dd>
+<dt class="field-odd">raises RuntimeError<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If every ray in <code class="docutils literal notranslate"><span class="pre">v_fan</span></code> fails to integrate.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>1D flat metric:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">riemannian</span><span class="w"> </span><span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">propagator</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_wavefunction</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
+    <span class="n">metric</span><span class="o">=</span><span class="n">Metric</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,)),</span>
+    <span class="n">source</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,),</span>
+    <span class="n">v_fan</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">60</span><span class="p">),</span>
+    <span class="n">t_max</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">hbar</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>2D curved metric from Hamiltonian:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">r</span><span class="p">,</span> <span class="n">theta</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;r theta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">pr</span><span class="p">,</span> <span class="n">pth</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;p_r p_theta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">H</span> <span class="o">=</span> <span class="p">(</span><span class="n">pr</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">pth</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">r</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>   <span class="c1"># polar-coordinate kinetic energy</span>
+<span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">from_hamiltonian</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">theta</span><span class="p">),</span> <span class="p">(</span><span class="n">pr</span><span class="p">,</span> <span class="n">pth</span><span class="p">))</span>
+
+<span class="n">vr</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="n">vth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="n">v_fan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">vr</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">vth</span><span class="p">])</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
+    <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+    <span class="n">v_fan</span><span class="o">=</span><span class="n">v_fan</span><span class="p">,</span> <span class="n">t_max</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">hbar</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="propagator.plot_interference_detail">
+<span class="sig-prename descclassname"><span class="pre">propagator.</span></span><span class="sig-name descname"><span class="pre">plot_interference_detail</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><span class="pre">WKBResult</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Figure</span></span></span><a class="reference internal" href="_modules/propagator.html#plot_interference_detail"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#propagator.plot_interference_detail" title="Link to this definition"></a></dt>
+<dd><p>Three-panel diagnostic figure focussing on interference and phase structure.</p>
+<section id="panels-left-to-right">
+<h2>Panels (left to right)<a class="headerlink" href="#panels-left-to-right" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>Re(ψ) — interference fringes</strong>
+The real part of the wavefunction, which directly shows the fringe
+pattern.  In 1D: line plot with filled area.  In 2D: pcolormesh with
+RdBu_r diverging colourmap.</p></li>
+<li><p><strong>|ψ|² — probability density</strong>
+The squared modulus, showing where the quantum particle is likely to be
+found.  In 1D: filled area with inferno colourmap.  In 2D: pcolormesh
+with inferno colourmap.</p></li>
+<li><p><strong>S(x) coloured by Maslov index μ</strong>
+A scatter plot of the raw action values S at each ray trajectory point
+versus position x, coloured by the Maslov index μ of the corresponding
+ray (RdYlGn colourmap: green = μ=0, yellow = μ=1, red = μ≥2).  This
+reveals how multiple sheets of the Lagrangian manifold (rays with the
+same x but different action) contribute to the interference pattern.</p></li>
+</ol>
+<dl class="field-list simple">
+<dt class="field-odd">param result<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Output of <a class="reference internal" href="#propagator.compute_wavefunction" title="propagator.compute_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a>.</p>
+</dd>
+<dt class="field-even">type result<span class="colon">:</span></dt>
+<dd class="field-even"><p>WKBResult</p>
+</dd>
+<dt class="field-odd">param save_path<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If given, save the figure to this path at 150 dpi.</p>
+</dd>
+<dt class="field-even">type save_path<span class="colon">:</span></dt>
+<dd class="field-even"><p>str or None, default None</p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>fig</strong> – Three-panel figure, 16 × 5 inches.</p>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="propagator.plot_ray_fan">
+<span class="sig-prename descclassname"><span class="pre">propagator.</span></span><span class="sig-name descname"><span class="pre">plot_ray_fan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><span class="pre">WKBResult</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Figure</span></span></span><a class="reference internal" href="_modules/propagator.html#plot_ray_fan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#propagator.plot_ray_fan" title="Link to this definition"></a></dt>
+<dd><p>Plot the ray fan coloured by accumulated action, with caustics highlighted.</p>
+<p>Each ray is drawn as a thin line whose colour is taken from the <em>viridis</em>
+colourmap, mapped linearly from the minimum to the maximum final action
+S(t_max) across all rays.  Points where det J changes sign (caustic
+crossings) are marked with yellow dots.</p>
+<p>In 1D the horizontal axis is time t and the vertical axis is position x(t).
+In 2D the axes are the spatial coordinates x and y, showing the geometric
+ray pattern in configuration space.</p>
+<p>A colourbar on the right indicates the action scale.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>result</strong> (<a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><em>WKBResult</em></a>) – Output of <a class="reference internal" href="#propagator.compute_wavefunction" title="propagator.compute_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a>.</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – If given, save the figure to this path at 150 dpi.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>fig</strong> – Single-panel figure, 10 × 6 inches.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="propagator.plot_wavefunction">
+<span class="sig-prename descclassname"><span class="pre">propagator.</span></span><span class="sig-name descname"><span class="pre">plot_wavefunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><span class="pre">WKBResult</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Figure</span></span></span><a class="reference internal" href="_modules/propagator.html#plot_wavefunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#propagator.plot_wavefunction" title="Link to this definition"></a></dt>
+<dd><p>Master visualisation figure for a <a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">WKBResult</span></code></a>.</p>
+<p>Dispatches to <code class="xref py py-func docutils literal notranslate"><span class="pre">_plot_1d()</span></code> or <code class="xref py py-func docutils literal notranslate"><span class="pre">_plot_2d()</span></code> based on
+<code class="docutils literal notranslate"><span class="pre">result.dim</span></code>.  Both produce a dark-themed multi-panel figure.</p>
+<section id="d-layout-4-panels-16-8-inches">
+<h2>1D layout (4 panels, 16 × 8 inches)<a class="headerlink" href="#d-layout-4-panels-16-8-inches" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Top-left</strong> — Probability density <a href="#id18"><span class="problematic" id="id19">|</span></a>ψ|² (or log(1 + <a href="#id20"><span class="problematic" id="id21">|</span></a>ψ|²)).</p></li>
+<li><p><strong>Top-right</strong> — Phase arg(ψ) in [−π, π].</p></li>
+<li><p><strong>Bottom-left</strong> — Re(ψ) and Im(ψ) overlaid.</p></li>
+<li><p><strong>Bottom-right</strong> — Ray fan x(t) coloured by mean <a href="#id32"><span class="problematic" id="id33">|det J|</span></a>.</p></li>
+</ul>
+</section>
+<section id="d-layout-5-panels-20-8-inches">
+<h2>2D layout (5 panels, 20 × 8 inches)<a class="headerlink" href="#d-layout-5-panels-20-8-inches" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Top-left</strong> — Probability density (pcolormesh, inferno colourmap).</p></li>
+<li><p><strong>Top-right</strong> — Phase map (pcolormesh, hsv colourmap, range [−π, π]).</p></li>
+<li><p><strong>Bottom-left</strong> — Ray fan in (x, y) space; caustic points in yellow.</p></li>
+<li><p><strong>Bottom-centre</strong> — Scatter of log(1 + <a href="#id34"><span class="problematic" id="id35">|det J|</span></a>) over all ray points.</p></li>
+<li><p><strong>Bottom-right</strong> — Maslov index μ scatter over all ray points.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">param result<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Output of <a class="reference internal" href="#propagator.compute_wavefunction" title="propagator.compute_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a>.</p>
+</dd>
+<dt class="field-even">type result<span class="colon">:</span></dt>
+<dd class="field-even"><p>WKBResult</p>
+</dd>
+<dt class="field-odd">param log_scale<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, display log(1 + <a href="#id22"><span class="problematic" id="id23">|</span></a>ψ|²) instead of <a href="#id24"><span class="problematic" id="id25">|</span></a>ψ|² to reveal
+low-amplitude features (shadow regions, secondary fringes).</p>
+</dd>
+<dt class="field-even">type log_scale<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, default True</p>
+</dd>
+<dt class="field-odd">param save_path<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If given, save the figure to this path at 150 dpi with tight bounding
+box.  The figure is returned regardless.</p>
+</dd>
+<dt class="field-even">type save_path<span class="colon">:</span></dt>
+<dd class="field-even"><p>str or None, default None</p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>fig</strong></p>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="propagator.van_vleck_sum">
+<span class="sig-prename descclassname"><span class="pre">propagator.</span></span><span class="sig-name descname"><span class="pre">van_vleck_sum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">S</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_J</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'linear'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">caustic_threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.05</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/propagator.html#van_vleck_sum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#propagator.van_vleck_sum" title="Link to this definition"></a></dt>
+<dd><p>Assemble the Van Vleck–Pauli–Morette wavefunction on a regular grid.</p>
+<p>This function takes the <em>scattered</em> output of the ray tracing (positions,
+actions, Jacobi determinants, and Maslov indices) and produces the gridded
+semiclassical wavefunction via a two-pass hybrid scheme:</p>
+<section id="pass-1-wkb-everywhere">
+<h2>Pass 1 — WKB everywhere<a class="headerlink" href="#pass-1-wkb-everywhere" title="Link to this heading"></a></h2>
+<p>For each scattered point k compute the complex WKB contribution:</p>
+<blockquote>
+<div><p>ψ_k = exp(i S_k/ℏ − i μ_k π/2) / √max(<a href="#id36"><span class="problematic" id="id37">|det J_k|</span></a>, reg)</p>
+</div></blockquote>
+<p>Then interpolate Re(ψ_k) and Im(ψ_k) separately onto the output grid.</p>
+<ul class="simple">
+<li><p><strong>1D</strong>: <code class="docutils literal notranslate"><span class="pre">np.interp</span></code> on the sorted ray positions (fast, O(M log M)).</p></li>
+<li><p><strong>2D</strong>: <code class="docutils literal notranslate"><span class="pre">scipy.interpolate.griddata</span></code> with Delaunay triangulation
+(<code class="docutils literal notranslate"><span class="pre">method='linear'</span></code> by default; <code class="docutils literal notranslate"><span class="pre">'cubic'</span></code> or <code class="docutils literal notranslate"><span class="pre">'nearest'</span></code> also
+supported).  Requires at least 3 non-collinear scattered points.</p></li>
+</ul>
+<p>The regularisation floor <code class="docutils literal notranslate"><span class="pre">reg</span></code> prevents division by zero at exact
+caustics; it has negligible effect away from caustics where <a href="#id38"><span class="problematic" id="id39">|det J|</span></a> ≫ reg.</p>
+</section>
+<section id="pass-2-airy-pearcey-corrections-at-caustics">
+<h2>Pass 2 — Airy / Pearcey corrections at caustics<a class="headerlink" href="#pass-2-airy-pearcey-corrections-at-caustics" title="Link to this heading"></a></h2>
+<p>Scattered points where <code class="docutils literal notranslate"><span class="pre">|det</span> <span class="pre">J|</span> <span class="pre">/</span> <span class="pre">max|det</span> <span class="pre">J|</span> <span class="pre">&lt;</span> <span class="pre">caustic_threshold</span></code> are
+classified as caustic points.  For these the WKB amplitude 1/√|det J| is
+unreliable (diverging) and is replaced by a physically correct asymptotic
+approximation:</p>
+<ul class="simple">
+<li><p><strong>1D fold</strong> — <code class="xref py py-func docutils literal notranslate"><span class="pre">_asymptotic_correction_1d()</span></code> evaluates the pointwise
+Airy profile Ai(ξ(x)) with ξ = (α/2ℏ)^{1/3}(x − x_c), where α is the
+local slope of det J.  The patch is blended into the WKB grid wherever
+<a href="#id40"><span class="problematic" id="id41">|patch|</span></a> &gt; 0.</p></li>
+<li><p><strong>2D fold</strong> — <code class="xref py py-func docutils literal notranslate"><span class="pre">_asymptotic_correction_2d()</span></code> applies the same Airy
+profile in the transverse direction n̂ = ∇det J / <a href="#id42"><span class="problematic" id="id43">|∇det J|</span></a>, with a 2D
+Gaussian taper.</p></li>
+<li><p><strong>2D cusp (Pearcey)</strong> — detected when <a href="#id44"><span class="problematic" id="id45">|∇det J|</span></a> &lt; 1e-10; handled via
+<a class="reference internal" href="asymptotic.html#asymptotic.Analyzer" title="asymptotic.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">asymptotic.Analyzer</span></code></a> with quartic normal-form phase.</p></li>
+</ul>
+<section id="performance-note">
+<h3>Performance note<a class="headerlink" href="#performance-note" title="Link to this heading"></a></h3>
+<p>The Delaunay triangulation in 2D is computed once per call and is O(M log M).
+The Airy corrections are applied only on the small caustic subset of
+scattered points, so the overhead is negligible for <code class="docutils literal notranslate"><span class="pre">caustic_threshold</span></code>
+≤ 0.1.  For problems with many dense caustic clusters, reducing
+<code class="docutils literal notranslate"><span class="pre">caustic_threshold</span></code> (e.g. to 0.01) limits the patching to the immediate
+caustic zones and speeds up Pass 2.</p>
+<dl class="field-list simple">
+<dt class="field-odd">param pts<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Scattered ray positions, shape <code class="docutils literal notranslate"><span class="pre">(M,</span> <span class="pre">1)</span></code> in 1D or <code class="docutils literal notranslate"><span class="pre">(M,</span> <span class="pre">2)</span></code> in 2D.
+These are the raw trajectory points from all rays, concatenated.</p>
+</dd>
+<dt class="field-even">type pts<span class="colon">:</span></dt>
+<dd class="field-even"><p>np.ndarray</p>
+</dd>
+<dt class="field-odd">param S<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Cumulative action at each scattered point.</p>
+</dd>
+<dt class="field-even">type S<span class="colon">:</span></dt>
+<dd class="field-even"><p>np.ndarray, shape (M,)</p>
+</dd>
+<dt class="field-odd">param det_J<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Jacobi determinant at each scattered point.  May be positive or
+negative; the WKB amplitude uses <code class="docutils literal notranslate"><span class="pre">|det_J|</span></code>.</p>
+</dd>
+<dt class="field-even">type det_J<span class="colon">:</span></dt>
+<dd class="field-even"><p>np.ndarray, shape (M,)</p>
+</dd>
+<dt class="field-odd">param mu<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Maslov index at each scattered point (constant within a ray).</p>
+</dd>
+<dt class="field-even">type mu<span class="colon">:</span></dt>
+<dd class="field-even"><p>np.ndarray of int, shape (M,)</p>
+</dd>
+<dt class="field-odd">param xlim<span class="colon">:</span></dt>
+<dd class="field-odd"><p>x-extent of the output grid.</p>
+</dd>
+<dt class="field-even">type xlim<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple (x_min, x_max)</p>
+</dd>
+<dt class="field-odd">param ylim<span class="colon">:</span></dt>
+<dd class="field-odd"><p>y-extent of the output grid.  <code class="docutils literal notranslate"><span class="pre">None</span></code> selects 1D mode.</p>
+</dd>
+<dt class="field-even">type ylim<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple (y_min, y_max) or None</p>
+</dd>
+<dt class="field-odd">param N<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Grid resolution.  Output has shape <code class="docutils literal notranslate"><span class="pre">(N,)</span></code> in 1D or <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N)</span></code> in 2D.</p>
+</dd>
+<dt class="field-even">type N<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, default 300</p>
+</dd>
+<dt class="field-odd">param hbar<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Reduced Planck constant, used in the phase and Airy argument.</p>
+</dd>
+<dt class="field-even">type hbar<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, default 1.0</p>
+</dd>
+<dt class="field-odd">param reg<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Regularisation floor for the WKB amplitude: <code class="docutils literal notranslate"><span class="pre">amp</span> <span class="pre">=</span> <span class="pre">1/√max(|det</span> <span class="pre">J|,</span> <span class="pre">reg)</span></code>.
+Should be much smaller than the typical <a href="#id46"><span class="problematic" id="id47">|det J|</span></a> away from caustics.</p>
+</dd>
+<dt class="field-even">type reg<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, default 1e-4</p>
+</dd>
+<dt class="field-odd">param method<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Interpolation method passed to <code class="docutils literal notranslate"><span class="pre">scipy.interpolate.griddata</span></code> (2D only).
+Options: <code class="docutils literal notranslate"><span class="pre">'linear'</span></code>, <code class="docutils literal notranslate"><span class="pre">'nearest'</span></code>, <code class="docutils literal notranslate"><span class="pre">'cubic'</span></code>.</p>
+</dd>
+<dt class="field-even">type method<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, default <code class="docutils literal notranslate"><span class="pre">'linear'</span></code></p>
+</dd>
+<dt class="field-odd">param caustic_threshold<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Relative threshold for caustic detection:
+<code class="docutils literal notranslate"><span class="pre">|det</span> <span class="pre">J|</span> <span class="pre">/</span> <span class="pre">max|det</span> <span class="pre">J|</span> <span class="pre">&lt;</span> <span class="pre">caustic_threshold</span></code> → apply Airy patch.
+Increase to broaden the caustic zone; decrease to restrict patching to
+the immediate singularity.</p>
+</dd>
+<dt class="field-even">type caustic_threshold<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, default 0.05</p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>psi</strong> (<em>np.ndarray (complex)</em>) – Semiclassical wavefunction.  Shape <code class="docutils literal notranslate"><span class="pre">(N,)</span></code> in 1D or <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N)</span></code> in 2D.</p></li>
+<li><p><strong>X</strong> (<em>np.ndarray</em>) – x-grid coordinates.  Shape <code class="docutils literal notranslate"><span class="pre">(N,)</span></code> in 1D or <code class="docutils literal notranslate"><span class="pre">(N,</span> <span class="pre">N)</span></code> in 2D
+(meshgrid).</p></li>
+<li><p><strong>Y</strong> (<em>np.ndarray or None</em>) – y-grid coordinates (2D only); <code class="docutils literal notranslate"><span class="pre">None</span></code> in 1D.</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+</section>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="physics.html" class="btn btn-neutral float-left" title="physics" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="psiop.html" class="btn btn-neutral float-right" title="psiop" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -14,6 +14,7 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 - Asymptotic evaluation of oscillatory integrals (stationary phase, Laplace, saddle point).
 - Rigorous caustic detection and Arnold classification via the stability matrix.
 - Multidimensional WKB approximations with uniform caustic corrections.
+- **Full semiclassical (Van Vleck–Pauli–Morette) wavefunction assembly from classical ray fans.**
 - Hamiltonian and Lagrangian mechanics (Legendre transforms, symbolic PDE generation).
 - A curated catalog of over 500 Hamiltonian systems for testing and research.
 - Geometric analysis of 1D/2D Hamiltonian flows, periodic orbits, and semiclassical spectra.
@@ -51,6 +52,15 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 - Uniform caustic corrections using Airy (fold) and Pearcey (cusp) functions.
 - Automatic interpolation onto regular grids for 1D/2D solutions.
 
+### 🔹 Van Vleck–Pauli–Morette Semiclassical Propagator *(new)*
+- Assemble the full semiclassical wavefunction $\psi(x,t) = \sum_k A_k \, e^{i S_k/\hbar - i\mu_k\pi/2}$ from a fan of classical rays.
+- Works for any Riemannian metric $g_{ij}(x)$ defined via a `Metric` object or derived directly from a Hamiltonian expression $H = \tfrac{1}{2}g^{ij}p_ip_j$.
+- Correct **pointwise Airy profile** at 1D fold caustics: $\psi(x) \propto \mathrm{Ai}(\xi(x))$ with $\xi = (\alpha/2\hbar)^{1/3}(x-x_c)$, giving physically correct fringe spacing $\propto\hbar^{1/3}$.
+- **2D caustic patching**: fold caustics treated with a transverse Airy profile; cusp (Pearcey) caustics handled via the `asymptotic` module with a quartic normal-form phase.
+- Correct **action integral on curved metrics**: $S = \int g_{ij}\dot{x}^i\dot{x}^j\,dt$ via metric-based momentum reconstruction when explicit canonical momenta are unavailable.
+- Automatic **Maslov index** tracking (sign changes of $\det J$) with the correct $e^{-i\mu\pi/2}$ phase per caustic crossing.
+- Rich diagnostics: multi-panel wavefunction figures, ray-fan plots coloured by action, and interference/phase detail panels.
+
 ### 🔹 Geometric and Dynamical Analysis
 - **Unified 1D/2D geometry engine** for Hamiltonian systems: compute geodesics, periodic orbits, Gutzwiller trace, semiclassical spectrum.
 - **Symplectic integration** (symplectic Euler, Verlet) for arbitrary degrees of freedom.
@@ -70,6 +80,7 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 - Rich plotting: phase‑space portraits, caustic overlays, convergence plots, amplitude decompositions.
 - **AsymptoticVisualizer** for stationary‑phase, Laplace, and saddle‑point integrals.
 - **Geometry visualizers** producing multi‑panel atlases (up to 18 panels) for any symbol.
+- **Wavefunction visualizers** (density, phase, Re/Im, ray fan, interference detail) from `propagator`.
 
 ---
 
@@ -82,6 +93,7 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 | `asymptotic`    | Large‑parameter asymptotics for oscillatory integrals. Detects method, finds critical points, and evaluates leading terms + corrections for Morse/Airy/Pearcey. |
 | `caustics`      | Arnold classification, adaptive critical‑point search, and ray‑based caustic detection with Maslov index. |
 | `wkb`           | Multidimensional WKB approximation with ray tracing, amplitude transport, and uniform caustic corrections. |
+| `propagator`    | **Van Vleck–Pauli–Morette semiclassical propagator.** Assembles the full semiclassical wavefunction from a classical ray fan on any 1D/2D Riemannian metric. Integrates rays symplectically, computes Jacobi determinants and Maslov indices, and applies pointwise Airy (fold) and Pearcey (cusp) caustic corrections onto a regular output grid. |
 | `microlocal`    | Unified microlocal toolkit: characteristic varieties, bicharacteristic flow, wavefront sets, and WKB integration. |
 | `fio_bridge`    | Fourier Integral Operator bridge: applies ΨDOs to WKB states via asymptotic evaluation, with precomputation for speed. Includes validation tools (CrossValidator). |
 | `symplectic`    | Hamiltonian mechanics for any number of degrees of freedom: symplectic integration, Poisson brackets, fixed points, action‑angle (1D), Poincaré sections (2D). |

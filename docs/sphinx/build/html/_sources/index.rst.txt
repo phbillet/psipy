@@ -20,11 +20,11 @@ Modules
 asymptotic
     Asymptotic evaluation of oscillatory and Laplace‑type integrals
     I(λ) = ∫ a(x) exp(iλ φ(x)) dx as λ → ∞.  Implements stationary phase,
-    Laplace’s method, and saddle‑point (steepest descent) with automatic
+    Laplace's method, and saddle‑point (steepest descent) with automatic
     method selection based on the phase φ.
 
 caustics
-    Catastrophe classification (Arnold’s A₂, A₃, A₄, D₄±), detection of ray
+    Catastrophe classification (Arnold's A₂, A₃, A₄, D₄±), detection of ray
     caustics via the stability matrix, and uniform asymptotic corrections
     using Airy (fold), Pearcey (cusp), and swallowtail integrals.
 
@@ -50,6 +50,16 @@ physics
     numerical Legendre (and Legendre–Fenchel) transforms, decomposes
     Hamiltonians into local (polynomial) and non‑local parts, and generates
     formal PDEs (Schrödinger, wave, stationary).
+
+propagator
+    Van Vleck–Pauli–Morette semiclassical propagator.  Assembles the full
+    semiclassical wavefunction
+
+        ψ(x, t) = Σ_k  exp(i S_k/ℏ − i μ_k π/2) / √|det J_k|
+
+    from a fan of classical rays traced on any 1D or 2D Riemannian metric
+    defined by a ``riemannian.Metric`` object (or derived from a Hamiltonian
+    expression H = ½ gⁱʲ pᵢ pⱼ via ``Metric.from_hamiltonian``).
 
 psiop
     Comprehensive symbolic‑numerical environment for pseudodifferential
@@ -100,6 +110,7 @@ module docstrings.
    microlocal
    misc
    physics
+   propagator
    psiop
    riemannian
    solver
