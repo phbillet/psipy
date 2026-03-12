@@ -575,6 +575,90 @@ class TestVanVleckSum:
                                         caustic_threshold=0.5)
         mock_patch_2d.assert_called()
 
+    def test_1d_two_ray_interference(self):
+        """
+        Two rays at x=0.3 and x=0.7, each with constant action along the ray,
+        produce a superposition at the intermediate grid point x=0.5.
+        The expected value is the average of the two ray contributions,
+        because the interpolation is linear between the scattered points.
+        """
+        # Scattered points: two positions, each with its own ray data.
+        pts = np.array([[0.3], [0.7]])           # (M,1)
+        S   = np.array([2.0, 3.0])               # actions
+        det_J = np.array([1.0, 1.0])              # unit Jacobians
+        mu    = np.array([0, 0], dtype=int)       # no Maslov shift
+    
+        psi_k = (1.0 / np.sqrt(np.abs(det_J))) * np.exp(1j * S / 1.0 - 1j * mu * np.pi/2)
+        # psi_k = [exp(2j), exp(3j)]
+    
+        psi, X, _ = prop.van_vleck_sum(pts, S, det_J, mu,
+                                       xlim=(0, 1), N=5, hbar=1.0)
+    
+        # At x=0.5, the interpolated value should be the average of the two
+        # neighbouring scattered points (linear interpolation between 0.3 and 0.7).
+        idx = np.argmin(np.abs(X - 0.5))
+        expected = 0.5 * (psi_k[0] + psi_k[1])   # because 0.5 is midway
+        assert np.isclose(psi[idx], expected, atol=1e-10)
+
+    def test_1d_interpolation_at_data_point(self):
+        """
+        Check that the interpolated value at a point that exactly matches
+        a scattered point is equal to that point's complex contribution.
+        """
+        pts = np.array([[0.0], [1.0], [2.0]])
+        S   = np.array([0.0, np.pi, 2*np.pi])
+        det_J = np.ones(3)
+        mu    = np.zeros(3, dtype=int)
+    
+        psi, X, _ = prop.van_vleck_sum(pts, S, det_J, mu,
+                                       xlim=(0, 2), N=3, hbar=1.0)  # grid = [0,1,2]
+    
+        # Check at x = 1.0 (index 1)
+        expected = np.exp(1j * np.pi)   # = -1
+        assert np.isclose(psi[1], expected, atol=1e-10)
+    
+    
+    def test_1d_linear_interpolation_of_complex(self):
+        """
+        Verify that linear interpolation of real and imaginary parts works correctly.
+        Use small phase values to avoid wrapping and test at a midpoint.
+        """
+        pts = np.array([[1.0], [2.0]])
+        S   = np.array([0.1, 0.2])
+        det_J = np.ones(2)
+        mu    = np.zeros(2, dtype=int)
+        hbar = 1.0
+    
+        psi, X, _ = prop.van_vleck_sum(pts, S, det_J, mu,
+                                       xlim=(1, 2), N=3, hbar=hbar)  # grid = [1, 1.5, 2]
+    
+        v1 = np.exp(1j * 0.1)
+        v2 = np.exp(1j * 0.2)
+        expected = 0.5 * (v1 + v2)   # at x=1.5
+    
+        # Index of 1.5 is 1 (since grid = [1, 1.5, 2])
+        assert np.isclose(psi[1], expected, atol=1e-10)
+    
+    
+    def test_2d_interpolation_at_data_point(self):
+        """
+        Check that the interpolated value at a point that exactly matches
+        a scattered point is equal to that point's complex contribution.
+        Uses three non-collinear points and a 3x3 grid.
+        """
+        pts = np.array([[0.5, 0.5], [0.2, 0.2], [0.8, 0.2]])  # not collinear
+        S   = np.array([2.0, 0.0, 0.0])
+        det_J = np.ones(3)
+        mu    = np.array([0, 0, 0], dtype=int)
+    
+        psi_k = (1.0 / np.sqrt(np.abs(det_J))) * np.exp(1j * S / 1.0 - 1j * mu * np.pi/2)
+    
+        psi, X, Y = prop.van_vleck_sum(pts, S, det_J, mu,
+                                       xlim=(0, 1), ylim=(0, 1), N=3, hbar=1.0)
+    
+        # Grid points: x = [0, 0.5, 1], y = [0, 0.5, 1]
+        # Index of (0.5,0.5) is iy=1, ix=1
+        assert np.isclose(psi[1, 1], psi_k[0], atol=1e-10)
 
 # ============================================================================
 # Compute wavefunction — integration tests
