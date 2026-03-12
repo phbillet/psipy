@@ -103,6 +103,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#id17"><code class="docutils literal notranslate"><span class="pre">WKBResult.y_pts</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#propagator.animate_wavefunction"><code class="docutils literal notranslate"><span class="pre">animate_wavefunction()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#propagator.compute_wavefunction"><code class="docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#propagator.plot_interference_detail"><code class="docutils literal notranslate"><span class="pre">plot_interference_detail()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#propagator.plot_ray_fan"><code class="docutils literal notranslate"><span class="pre">plot_ray_fan()</span></code></a></li>
@@ -300,9 +301,9 @@ the trajectory and integrates ∫ g_{ij} vⁱ vʲ dt, which is exact for any
 Riemannian metric.  The old ∫ v² dt fallback was only valid for the flat
 unit-mass case g_{ij} = δ_{ij}.</p></li>
 <li><p><strong>2D caustic patching</strong> — <a class="reference internal" href="#propagator.van_vleck_sum" title="propagator.van_vleck_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a> now applies asymptotic
-corrections in 2D as well as 1D.  For a fold caustic (<a href="#id26"><span class="problematic" id="id27">|∇det J|</span></a> ≠ 0) the
-Airy profile is applied along the transverse direction n̂ = ∇det J / <a href="#id28"><span class="problematic" id="id29">|∇det J|</span></a>
-and blended with a 2D Gaussian taper.  For a cusp caustic (<a href="#id30"><span class="problematic" id="id31">|∇det J|</span></a> ≈ 0)
+corrections in 2D as well as 1D.  For a fold caustic (<a href="#id28"><span class="problematic" id="id29">|∇det J|</span></a> ≠ 0) the
+Airy profile is applied along the transverse direction n̂ = ∇det J / <a href="#id30"><span class="problematic" id="id31">|∇det J|</span></a>
+and blended with a 2D Gaussian taper.  For a cusp caustic (<a href="#id32"><span class="problematic" id="id33">|∇det J|</span></a> ≈ 0)
 the <code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code> / <code class="xref py py-class docutils literal notranslate"><span class="pre">AsymptoticEvaluator</span></code> interface is invoked
 with the quartic normal-form phase, providing an O(ℏ^{1/4}) Pearcey scaling.</p></li>
 </ol>
@@ -673,6 +674,56 @@ since μ is the total caustic count for that ray’s trajectory).</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="propagator.animate_wavefunction">
+<span class="sig-prename descclassname"><span class="pre">propagator.</span></span><span class="sig-name descname"><span class="pre">animate_wavefunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><span class="pre">WKBResult</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_frames</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dpi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'both'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interp_kind</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'linear'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">caustic_threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.05</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">FuncAnimation</span></span></span><a class="reference internal" href="_modules/propagator.html#animate_wavefunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#propagator.animate_wavefunction" title="Link to this definition"></a></dt>
+<dd><p>Animate the semiclassical wavefunction as a function of time.</p>
+<p>The animation is built from the pre‑computed ray data stored in <cite>result</cite>.
+For each requested time, the scattered data (positions, action, Jacobian,
+Maslov index) are extracted (using nearest‑neighbour or linear interpolation)
+and fed to <a class="reference internal" href="#propagator.van_vleck_sum" title="propagator.van_vleck_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a> to obtain the gridded wavefunction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>result</strong> (<a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><em>WKBResult</em></a>) – Output of <a class="reference internal" href="#propagator.compute_wavefunction" title="propagator.compute_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a>. Must contain rays with full
+trajectories (time, positions, action, Jacobian) – this is always the case.</p></li>
+<li><p><strong>times</strong> (<em>array_like</em><em>, </em><em>optional</em>) – Specific times at which to create frames. If not given, <cite>n_frames</cite>
+equally spaced times between 0 and <cite>result.t_max</cite> are used.</p></li>
+<li><p><strong>n_frames</strong> (<em>int</em><em>, </em><em>default 50</em>) – Number of frames (ignored if <cite>times</cite> is provided).</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em>, </em><em>optional</em>) – If provided, save the animation to this file (supports .gif, .mp4, etc.).</p></li>
+<li><p><strong>fps</strong> (<em>int</em><em>, </em><em>default 10</em>) – Frames per second in the saved animation.</p></li>
+<li><p><strong>figsize</strong> (<em>tuple</em><em>, </em><em>optional</em>) – Figure size (width, height) in inches. If None, a suitable size is chosen.</p></li>
+<li><p><strong>dpi</strong> (<em>int</em><em>, </em><em>default 100</em>) – Resolution of the saved animation.</p></li>
+<li><p><strong>plot_type</strong> (<em>{'density'</em><em>, </em><em>'phase'</em><em>, </em><em>'both'}</em><em>, </em><em>default 'both'</em>) – <p>What to display:
+* ‘density’ : show only <a href="#id18"><span class="problematic" id="id19">|</span></a>ψ|² (1D) or log|ψ|² (2D).
+* ‘phase’   : show only arg ψ (1D line, 2D colours).
+* ‘both’    : show density and phase side by side (2D only – two subplots).</p>
+<blockquote>
+<div><p>For 1D, ‘both’ shows density and phase in the same axes.</p>
+</div></blockquote>
+</p></li>
+<li><p><strong>interp_kind</strong> (<em>{'nearest'</em><em>, </em><em>'linear'}</em><em>, </em><em>default 'linear'</em>) – How to obtain ray data at the exact frame time:
+* ‘nearest’ : use the value at the closest stored time step (fast).
+* ‘linear’  : linearly interpolate between stored time steps (smoother).</p></li>
+<li><p><strong>caustic_threshold</strong> (<em>float</em><em>, </em><em>default 0.05</em>) – Passed to <a class="reference internal" href="#propagator.van_vleck_sum" title="propagator.van_vleck_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a>; controls the width of Airy patches.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ani</strong> – The animation object. Call <cite>plt.show()</cite> to display it interactively,
+or use <cite>save_path</cite> to write to a file.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.animation.FuncAnimation</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">v_fan</span><span class="p">,</span> <span class="n">t_max</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<span class="n">ani</span> <span class="o">=</span> <span class="n">animate_wavefunction</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">n_frames</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="s1">&#39;wave.gif&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>   <span class="c1"># if you want to see it in the notebook/ GUI</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="propagator.compute_wavefunction">
 <span class="sig-prename descclassname"><span class="pre">propagator.</span></span><span class="sig-name descname"><span class="pre">compute_wavefunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="riemannian.html#riemannian.Metric" title="riemannian.Metric"><span class="pre">Metric</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_fan</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">400</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_grid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">integrator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'verlet'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hamiltonian</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">momenta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_fan</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><span class="pre">WKBResult</span></a></span></span><a class="reference internal" href="_modules/propagator.html#compute_wavefunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#propagator.compute_wavefunction" title="Link to this definition"></a></dt>
 <dd><p>Compute the semiclassical (Van Vleck–Pauli–Morette) wavefunction.</p>
@@ -967,10 +1018,10 @@ ray pattern in configuration space.</p>
 <section id="d-layout-4-panels-16-8-inches">
 <h2>1D layout (4 panels, 16 × 8 inches)<a class="headerlink" href="#d-layout-4-panels-16-8-inches" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p><strong>Top-left</strong> — Probability density <a href="#id18"><span class="problematic" id="id19">|</span></a>ψ|² (or log(1 + <a href="#id20"><span class="problematic" id="id21">|</span></a>ψ|²)).</p></li>
+<li><p><strong>Top-left</strong> — Probability density <a href="#id20"><span class="problematic" id="id21">|</span></a>ψ|² (or log(1 + <a href="#id22"><span class="problematic" id="id23">|</span></a>ψ|²)).</p></li>
 <li><p><strong>Top-right</strong> — Phase arg(ψ) in [−π, π].</p></li>
 <li><p><strong>Bottom-left</strong> — Re(ψ) and Im(ψ) overlaid.</p></li>
-<li><p><strong>Bottom-right</strong> — Ray fan x(t) coloured by mean <a href="#id32"><span class="problematic" id="id33">|det J|</span></a>.</p></li>
+<li><p><strong>Bottom-right</strong> — Ray fan x(t) coloured by mean <a href="#id34"><span class="problematic" id="id35">|det J|</span></a>.</p></li>
 </ul>
 </section>
 <section id="d-layout-5-panels-20-8-inches">
@@ -979,7 +1030,7 @@ ray pattern in configuration space.</p>
 <li><p><strong>Top-left</strong> — Probability density (pcolormesh, inferno colourmap).</p></li>
 <li><p><strong>Top-right</strong> — Phase map (pcolormesh, hsv colourmap, range [−π, π]).</p></li>
 <li><p><strong>Bottom-left</strong> — Ray fan in (x, y) space; caustic points in yellow.</p></li>
-<li><p><strong>Bottom-centre</strong> — Scatter of log(1 + <a href="#id34"><span class="problematic" id="id35">|det J|</span></a>) over all ray points.</p></li>
+<li><p><strong>Bottom-centre</strong> — Scatter of log(1 + <a href="#id36"><span class="problematic" id="id37">|det J|</span></a>) over all ray points.</p></li>
 <li><p><strong>Bottom-right</strong> — Maslov index μ scatter over all ray points.</p></li>
 </ul>
 <dl class="field-list simple">
@@ -990,7 +1041,7 @@ ray pattern in configuration space.</p>
 <dd class="field-even"><p>WKBResult</p>
 </dd>
 <dt class="field-odd">param log_scale<span class="colon">:</span></dt>
-<dd class="field-odd"><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, display log(1 + <a href="#id22"><span class="problematic" id="id23">|</span></a>ψ|²) instead of <a href="#id24"><span class="problematic" id="id25">|</span></a>ψ|² to reveal
+<dd class="field-odd"><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, display log(1 + <a href="#id24"><span class="problematic" id="id25">|</span></a>ψ|²) instead of <a href="#id26"><span class="problematic" id="id27">|</span></a>ψ|² to reveal
 low-amplitude features (shadow regions, secondary fringes).</p>
 </dd>
 <dt class="field-even">type log_scale<span class="colon">:</span></dt>
@@ -1024,7 +1075,7 @@ semiclassical wavefunction via a two-pass hybrid scheme:</p>
 <h2>Pass 1 — WKB everywhere<a class="headerlink" href="#pass-1-wkb-everywhere" title="Link to this heading"></a></h2>
 <p>For each scattered point k compute the complex WKB contribution:</p>
 <blockquote>
-<div><p>ψ_k = exp(i S_k/ℏ − i μ_k π/2) / √max(<a href="#id36"><span class="problematic" id="id37">|det J_k|</span></a>, reg)</p>
+<div><p>ψ_k = exp(i S_k/ℏ − i μ_k π/2) / √max(<a href="#id38"><span class="problematic" id="id39">|det J_k|</span></a>, reg)</p>
 </div></blockquote>
 <p>Then interpolate Re(ψ_k) and Im(ψ_k) separately onto the output grid.</p>
 <ul class="simple">
@@ -1034,7 +1085,7 @@ semiclassical wavefunction via a two-pass hybrid scheme:</p>
 supported).  Requires at least 3 non-collinear scattered points.</p></li>
 </ul>
 <p>The regularisation floor <code class="docutils literal notranslate"><span class="pre">reg</span></code> prevents division by zero at exact
-caustics; it has negligible effect away from caustics where <a href="#id38"><span class="problematic" id="id39">|det J|</span></a> ≫ reg.</p>
+caustics; it has negligible effect away from caustics where <a href="#id40"><span class="problematic" id="id41">|det J|</span></a> ≫ reg.</p>
 </section>
 <section id="pass-2-airy-pearcey-corrections-at-caustics">
 <h2>Pass 2 — Airy / Pearcey corrections at caustics<a class="headerlink" href="#pass-2-airy-pearcey-corrections-at-caustics" title="Link to this heading"></a></h2>
@@ -1046,11 +1097,11 @@ approximation:</p>
 <li><p><strong>1D fold</strong> — <code class="xref py py-func docutils literal notranslate"><span class="pre">_asymptotic_correction_1d()</span></code> evaluates the pointwise
 Airy profile Ai(ξ(x)) with ξ = (α/2ℏ)^{1/3}(x − x_c), where α is the
 local slope of det J.  The patch is blended into the WKB grid wherever
-<a href="#id40"><span class="problematic" id="id41">|patch|</span></a> &gt; 0.</p></li>
+<a href="#id42"><span class="problematic" id="id43">|patch|</span></a> &gt; 0.</p></li>
 <li><p><strong>2D fold</strong> — <code class="xref py py-func docutils literal notranslate"><span class="pre">_asymptotic_correction_2d()</span></code> applies the same Airy
-profile in the transverse direction n̂ = ∇det J / <a href="#id42"><span class="problematic" id="id43">|∇det J|</span></a>, with a 2D
+profile in the transverse direction n̂ = ∇det J / <a href="#id44"><span class="problematic" id="id45">|∇det J|</span></a>, with a 2D
 Gaussian taper.</p></li>
-<li><p><strong>2D cusp (Pearcey)</strong> — detected when <a href="#id44"><span class="problematic" id="id45">|∇det J|</span></a> &lt; 1e-10; handled via
+<li><p><strong>2D cusp (Pearcey)</strong> — detected when <a href="#id46"><span class="problematic" id="id47">|∇det J|</span></a> &lt; 1e-10; handled via
 <a class="reference internal" href="asymptotic.html#asymptotic.Analyzer" title="asymptotic.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">asymptotic.Analyzer</span></code></a> with quartic normal-form phase.</p></li>
 </ul>
 <section id="performance-note">
@@ -1114,7 +1165,7 @@ negative; the WKB amplitude uses <code class="docutils literal notranslate"><spa
 </dd>
 <dt class="field-odd">param reg<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Regularisation floor for the WKB amplitude: <code class="docutils literal notranslate"><span class="pre">amp</span> <span class="pre">=</span> <span class="pre">1/√max(|det</span> <span class="pre">J|,</span> <span class="pre">reg)</span></code>.
-Should be much smaller than the typical <a href="#id46"><span class="problematic" id="id47">|det J|</span></a> away from caustics.</p>
+Should be much smaller than the typical <a href="#id48"><span class="problematic" id="id49">|det J|</span></a> away from caustics.</p>
 </dd>
 <dt class="field-even">type reg<span class="colon">:</span></dt>
 <dd class="field-even"><p>float, default 1e-4</p>
