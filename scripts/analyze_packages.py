@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-analyze_packages.py
--------------------
+analyze_packages.py (enhanced)
+-------------------------------
 Static analysis of a collection of Python packages:
 - Dependency graph (imports between modules)
-- Inventory of public symbols (classes, functions)
-- Redundancy detection (similar names, similar patterns)
+- Inventory of public symbols (classes, functions, signatures)
+- Redundancy detection (similar names, duplicate symbols)
+- Naming inconsistency analysis (generic param names, style violations)
 - Suggested merge report
 """
 
@@ -15,17 +16,18 @@ import sys
 from pathlib import Path
 from collections import defaultdict
 from difflib import SequenceMatcher
+from typing import List, Dict, Any, Optional, Tuple, Set
 
 # ─────────────────────────────────────────────────────────────────
-# 1. PARSING
+# 1. PARSING (enhanced signatures)
 # ─────────────────────────────────────────────────────────────────
 
 def parse_module(filepath: Path) -> dict:
     """
     Extracts from a .py file:
     - imports (internal and external)
-    - defined classes
-    - defined functions
+    - defined classes (with methods, signatures)
+    - defined functions (with signatures)
     - top-level constants
     - module docstring
     """
@@ -41,7 +43,7 @@ def parse_module(filepath: Path) -> dict:
         'docstring' : ast.get_docstring(tree) or '',
         'imports'   : [],   # (module, [names], is_from)
         'classes'   : [],   # (name, methods, bases, lineno)
-        'functions' : [],   # (name, args, lineno)
+        'functions' : [],   # (name, signature_dict, signature_str, lineno)
         'constants' : [],   # name
         'lines'     : len(source.splitlines()),
     }
@@ -70,20 +72,19 @@ def parse_module(filepath: Path) -> dict:
 
         # ── classes ──────────────────────────────────────────────
         elif isinstance(node, ast.ClassDef):
-            # Only direct children of the class body (not inherited, not nested)
             methods = []
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    args = [a.arg for a in item.args.args if a.arg != 'self']
+                    sig_dict, sig_str = _extract_signature(item)
                     methods.append({
-                        'name'  : item.name,
-                        'args'  : args,
-                        'lineno': item.lineno,
-                        'doc'   : ast.get_docstring(item) or '',
+                        'name'       : item.name,
+                        'signature'  : sig_dict,
+                        'signature_str': sig_str,
+                        'lineno'     : item.lineno,
+                        'doc'        : ast.get_docstring(item) or '',
+                        'decorators' : [ast.unparse(d) for d in item.decorator_list],
                     })
-            bases = [
-                ast.unparse(b) for b in node.bases
-            ]
+            bases = [ast.unparse(b) for b in node.bases]
             info['classes'].append({
                 'name'   : node.name,
                 'methods': methods,
@@ -95,12 +96,14 @@ def parse_module(filepath: Path) -> dict:
         # ── top-level functions ──────────────────────────────────
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if not _is_nested(node, tree):
-                args = [a.arg for a in node.args.args]
+                sig_dict, sig_str = _extract_signature(node)
                 info['functions'].append({
-                    'name'  : node.name,
-                    'args'  : args,
-                    'lineno': node.lineno,
-                    'doc'   : ast.get_docstring(node) or '',
+                    'name'       : node.name,
+                    'signature'  : sig_dict,
+                    'signature_str': sig_str,
+                    'lineno'     : node.lineno,
+                    'doc'        : ast.get_docstring(node) or '',
+                    'decorators' : [ast.unparse(d) for d in node.decorator_list],
                 })
 
         # ── top-level constants ─────────────────────────────────
@@ -111,6 +114,82 @@ def parse_module(filepath: Path) -> dict:
                         info['constants'].append(t.id)
 
     return info
+
+def _extract_signature(node):
+    """
+    Return (dict, str) describing the function signature.
+    dict contains: args (list of names), defaults (dict name->value_str),
+                   vararg, kwarg, kwonlyargs, annotations (if any).
+    str is a readable signature like "func(a, b=1, *args, **kwargs) -> int".
+    """
+    args = node.args
+    # Collect all argument names and their default values
+    arg_names = []
+    defaults = {}
+    # positional args
+    pos_args = [a.arg for a in args.args]
+    arg_names.extend(pos_args)
+    # defaults for positional args
+    num_no_default = len(pos_args) - len(args.defaults)
+    for i, d in enumerate(args.defaults):
+        param_name = pos_args[num_no_default + i]
+        defaults[param_name] = ast.unparse(d)
+    # *vararg
+    vararg = args.vararg.arg if args.vararg else None
+    # keyword-only args
+    kwonly_args = [a.arg for a in args.kwonlyargs]
+    arg_names.extend(kwonly_args)
+    # defaults for keyword-only args
+    for i, d in enumerate(args.kw_defaults):
+        if d is not None:
+            param_name = kwonly_args[i]
+            defaults[param_name] = ast.unparse(d)
+    # **kwarg
+    kwarg = args.kwarg.arg if args.kwarg else None
+
+    # Annotations (if any)
+    annotations = {}
+    for a in args.args:
+        if a.annotation:
+            annotations[a.arg] = ast.unparse(a.annotation)
+    for a in args.kwonlyargs:
+        if a.annotation:
+            annotations[a.arg] = ast.unparse(a.annotation)
+    if args.vararg and args.vararg.annotation:
+        annotations[args.vararg.arg] = ast.unparse(args.vararg.annotation)
+    if args.kwarg and args.kwarg.annotation:
+        annotations[args.kwarg.arg] = ast.unparse(args.kwarg.annotation)
+    return_annotation = ast.unparse(node.returns) if node.returns else None
+
+    # Build readable signature string
+    parts = []
+    for a in pos_args:
+        if a in defaults:
+            parts.append(f"{a}={defaults[a]}")
+        else:
+            parts.append(a)
+    if vararg:
+        parts.append(f"*{vararg}")
+    for a in kwonly_args:
+        if a in defaults:
+            parts.append(f"{a}={defaults[a]}")
+        else:
+            parts.append(a)
+    if kwarg:
+        parts.append(f"**{kwarg}")
+
+    sig_str = f"{node.name}({', '.join(parts)})"
+    if return_annotation:
+        sig_str += f" -> {return_annotation}"
+
+    return {
+        'args'       : arg_names,
+        'defaults'   : defaults,
+        'vararg'     : vararg,
+        'kwarg'      : kwarg,
+        'annotations': annotations,
+        'return_ann' : return_annotation,
+    }, sig_str
 
 def _is_nested(node, tree) -> bool:
     """True if the node is inside a class or function."""
@@ -226,7 +305,94 @@ def find_redundancies(modules: list[dict]) -> dict:
     }
 
 # ─────────────────────────────────────────────────────────────────
-# 4. MERGE SUGGESTIONS
+# 4. NAMING INCONSISTENCY ANALYSIS
+# ─────────────────────────────────────────────────────────────────
+
+def analyze_naming_inconsistencies(modules: list[dict]) -> dict:
+    """
+    Detect:
+    - Generic parameter names (arg, param, value, x, y, etc.)
+    - Non-snake_case parameter names
+    - Methods with same name but different signatures (possible polymorphism issue)
+    """
+    generic_names = {'arg', 'args', 'param', 'params', 'val', 'value',
+                     'x', 'y', 'z', 'data', 'item', 'obj'}
+
+    issues = {
+        'generic_params': defaultdict(list),   # param -> [(func_path, signature)]
+        'non_snake_case': defaultdict(list),   # param -> [(func_path, signature)]
+        'mismatched_methods': []                # list of (method_name, class1_sig, class2_sig)
+    }
+
+    # Collect all methods for signature comparison
+    methods_by_name = defaultdict(list)   # method_name -> [(class_name, signature_dict, module_name)]
+
+    for mod in modules:
+        mod_name = mod['name']
+        for cls in mod['classes']:
+            for m in cls['methods']:
+                method_name = m['name']
+                # Check each parameter of this method
+                for param in m['signature']['args']:
+                    if param in generic_names:
+                        issues['generic_params'][param].append(
+                            f"{mod_name}.{cls['name']}.{method_name} (params: {', '.join(m['signature']['args'])})"
+                        )
+                    if not param.isidentifier() or (param.lower() != param and '_' in param):
+                        # Not snake_case: contains uppercase or not all lowercase (except single-letter)
+                        if not (len(param) == 1 or param.islower() and '_' not in param):
+                            issues['non_snake_case'][param].append(
+                                f"{mod_name}.{cls['name']}.{method_name}"
+                            )
+                # Store for cross-class comparison
+                methods_by_name[method_name].append({
+                    'class': cls['name'],
+                    'module': mod_name,
+                    'signature': m['signature'],
+                    'signature_str': m['signature_str']
+                })
+
+        # Also check top-level functions
+        for fn in mod['functions']:
+            fn_name = fn['name']
+            for param in fn['signature']['args']:
+                if param in generic_names:
+                    issues['generic_params'][param].append(
+                        f"{mod_name}.{fn_name} (params: {', '.join(fn['signature']['args'])})"
+                    )
+                if not param.isidentifier() or (param.lower() != param and '_' in param):
+                    if not (len(param) == 1 or param.islower() and '_' not in param):
+                        issues['non_snake_case'][param].append(
+                            f"{mod_name}.{fn_name}"
+                        )
+
+    # Compare methods with same name but different signatures
+    for method_name, occurrences in methods_by_name.items():
+        if len(occurrences) < 2:
+            continue
+        # Compare signatures: simple check on number of parameters (excluding 'self')
+        sigs = []
+        for occ in occurrences:
+            # Exclude 'self' if present (typical first param in methods)
+            params = [p for p in occ['signature']['args'] if p != 'self']
+            sigs.append((occ['class'], occ['module'], params))
+        # If any differ in parameter count, flag
+        base_params = sigs[0][2]
+        for cls, mod, params in sigs[1:]:
+            if params != base_params:
+                issues['mismatched_methods'].append({
+                    'method': method_name,
+                    'variants': [
+                        f"{mod}.{cls} ({', '.join(params)})"
+                        for cls, mod, params in sigs
+                    ]
+                })
+                break   # Only report once per method
+
+    return issues
+
+# ─────────────────────────────────────────────────────────────────
+# 5. MERGE SUGGESTIONS
 # ─────────────────────────────────────────────────────────────────
 
 def suggest_merges(modules, graph, redundancies) -> list[dict]:
@@ -296,16 +462,16 @@ def suggest_merges(modules, graph, redundancies) -> list[dict]:
     return unique
 
 # ─────────────────────────────────────────────────────────────────
-# 5. REPORT
+# 6. REPORT (enhanced with signatures and naming issues)
 # ─────────────────────────────────────────────────────────────────
 
-def print_report(modules, graph, redundancies, suggestions):
+def print_report(modules, graph, redundancies, naming_issues, suggestions):
 
     sep  = "=" * 65
     sep2 = "-" * 65
 
     print(f"\n{sep}")
-    print("  MODULE INVENTORY")
+    print("  MODULE INVENTORY (with signatures)")
     print(sep)
     for mod in sorted(modules, key=lambda m: -m['lines']):
         n_cls = len(mod['classes'])
@@ -317,11 +483,10 @@ def print_report(modules, graph, redundancies, suggestions):
                   f"({len(cls['methods'])} methods)")
             for method in cls['methods']:
                 if not method['name'].startswith('_'):
-                    args_str = ', '.join(method['args'])
-                    print(f"        def {method['name']}({args_str})")
+                    print(f"        {method['signature_str']}")
         for fn in mod['functions']:
             if not fn['name'].startswith('_'):
-                print(f"    def   {fn['name']}")
+                print(f"    def   {fn['signature_str']}")
 
     print(f"\n{sep}")
     print("  DEPENDENCY GRAPH")
@@ -363,6 +528,35 @@ def print_report(modules, graph, redundancies, suggestions):
             print(f"    {lib:20s} ← {', '.join(sorted(mods))}")
 
     print(f"\n{sep}")
+    print("  NAMING INCONSISTENCIES")
+    print(sep)
+
+    if naming_issues['generic_params']:
+        print("\n  Generic parameter names (maybe rename):")
+        for param, locations in sorted(naming_issues['generic_params'].items()):
+            print(f"    {param}:")
+            for loc in locations[:5]:
+                print(f"      {loc}")
+            if len(locations) > 5:
+                print(f"      ... and {len(locations)-5} more")
+
+    if naming_issues['non_snake_case']:
+        print("\n  Non-snake_case parameter names:")
+        for param, locations in sorted(naming_issues['non_snake_case'].items()):
+            print(f"    {param}:")
+            for loc in locations[:5]:
+                print(f"      {loc}")
+            if len(locations) > 5:
+                print(f"      ... and {len(locations)-5} more")
+
+    if naming_issues['mismatched_methods']:
+        print("\n  Methods with same name but different signatures:")
+        for issue in naming_issues['mismatched_methods']:
+            print(f"    {issue['method']}:")
+            for v in issue['variants']:
+                print(f"      {v}")
+
+    print(f"\n{sep}")
     print("  MERGE SUGGESTIONS")
     print(sep)
     if not suggestions:
@@ -389,7 +583,7 @@ def export_dot(graph: dict, output: Path):
     print(f"  Visualize: dot -Tpng {output} -o graph.png")
 
 # ─────────────────────────────────────────────────────────────────
-# 6. ENTRY POINT
+# 7. ENTRY POINT
 # ─────────────────────────────────────────────────────────────────
 
 def analyze(directory: str = '.', dot_output: str = 'packages.dot'):
@@ -401,14 +595,18 @@ def analyze(directory: str = '.', dot_output: str = 'packages.dot'):
         return
 
     print(f"Analyzing {len(py_files)} files in {directory}...")
-    modules = [parse_module(f) for f in py_files
-               if 'error' not in parse_module(f)]
+    modules = []
+    for f in py_files:
+        parsed = parse_module(f)
+        if 'error' not in parsed:
+            modules.append(parsed)
 
-    graph        = build_dependency_graph(modules)
-    redundancies = find_redundancies(modules)
-    suggestions  = suggest_merges(modules, graph, redundancies)
+    graph          = build_dependency_graph(modules)
+    redundancies   = find_redundancies(modules)
+    naming_issues  = analyze_naming_inconsistencies(modules)
+    suggestions    = suggest_merges(modules, graph, redundancies)
 
-    print_report(modules, graph, redundancies, suggestions)
+    print_report(modules, graph, redundancies, naming_issues, suggestions)
     export_dot(graph, Path(dot_output))
 
 if __name__ == '__main__':

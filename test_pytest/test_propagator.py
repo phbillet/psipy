@@ -26,7 +26,8 @@ from scipy.special import airy as scipy_airy
 from riemannian import Metric
 import propagator as prop
 from asymptotic import Analyzer, AsymptoticEvaluator, IntegralMethod, SingularityType
-
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
 
 # ============================================================================
 # Helpers
@@ -918,6 +919,20 @@ class TestVisualisation:
             S_pts=np.ones(20), det_J_pts=np.ones(20),
             mu_pts=np.zeros(20, dtype=int),
             hbar=1.0, t_max=1.0, dim=2)
+
+    def test_animate_wavefunction_smoke(self):
+        """Test that animate_wavefunction runs without error (minimal case)."""
+        # Create a minimal 1D result
+        m, _ = flat_1d()
+        result = prop.compute_wavefunction(
+            metric=m, source=(0.0,),
+            v_fan=np.linspace(-0.5, 0.5, 5),
+            t_max=1.0, hbar=1.0, n_steps=10, N_grid=10
+        )
+        # Just check that the animation object is created
+        ani = prop.animate_wavefunction(result, n_frames=3, plot_type='density')
+        assert isinstance(ani, animation.FuncAnimation)
+        plt.close(ani._fig)   # clean up
 
     @patch('matplotlib.pyplot.show')
     def test_plot_wavefunction_1d(self, _):

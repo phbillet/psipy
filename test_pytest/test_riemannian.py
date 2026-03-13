@@ -322,7 +322,131 @@ class TestLaplaceBeltrami:
         lb = m.laplace_beltrami_symbol()
         assert simplify(lb['subprincipal']) == 0
 
+# ============================================================================
+# Covariant derivative (2D only)
+# ============================================================================
 
+class TestCovariantDerivative:
+
+    def test_1d_raises(self):
+        m, _ = flat_1d()
+        with pytest.raises(NotImplementedError):
+            m.covariant_derivative_vector([0, 0])
+        with pytest.raises(NotImplementedError):
+            m.covariant_derivative_covector([0, 0])
+
+    def test_flat_vector(self):
+        """On flat metric, covariant derivative = partial derivative."""
+        m, _ = flat_2d()
+        x, y = m.coords
+        V = [x*y, x**2 + y]          # arbitrary vector field
+        nablaV = m.covariant_derivative_vector(V, do_simplify=True)
+
+        # Compute expected: ∂_x V^x = y, ∂_x V^y = 2x, ∂_y V^x = x, ∂_y V^y = 1
+        expected = Matrix([[y, 2*x],
+                           [x, 1]])
+        assert simplify(nablaV - expected) == zeros(2, 2)
+
+        # Also test numeric evaluation at a point
+        nablaV_func = lambdify((x, y), nablaV, 'numpy')
+        val = nablaV_func(2.0, 3.0)
+        assert np.allclose(val, [[3, 4], [2, 1]])
+
+    def test_flat_covector(self):
+        """On flat metric, covariant derivative of a covector = partial derivative."""
+        m, _ = flat_2d()
+        x, y = m.coords
+        ω = [x*y, x**2 + y]          # same components as above, but as covector
+        nablaω = m.covariant_derivative_covector(ω, do_simplify=True)
+
+        # Expected: ∂_i ω_j
+        expected = Matrix([[y, 2*x],
+                           [x, 1]])
+        assert simplify(nablaω - expected) == zeros(2, 2)
+
+    def test_polar_vector_field_radial(self):
+        """In polar coordinates (r,θ), test ∇ of V = ∂_r."""
+        m, (r, theta) = polar_2d()
+        # V = (1, 0)  (components of ∂_r)
+        V = [1, 0]
+        nablaV = m.covariant_derivative_vector(V, do_simplify=True)
+
+        expected = Matrix([[0, 0],
+                           [0, 1/r]])
+        assert simplify(nablaV - expected) == zeros(2, 2)
+
+    def test_polar_vector_field_azimuthal(self):
+        """Test ∇ of V = ∂_θ = (0, 1)."""
+        m, (r, theta) = polar_2d()
+        V = [0, 1]
+        nablaV = m.covariant_derivative_vector(V, do_simplify=True)
+
+        expected = Matrix([[0, 1/r],
+                           [-r, 0]])
+        assert simplify(nablaV - expected) == zeros(2, 2)
+
+    def test_polar_covector_field(self):
+        """Test covariant derivative of a covector (1‑form) in polar coordinates."""
+        m, (r, theta) = polar_2d()
+        # Take ω = dr  → components (ω_r, ω_θ) = (1, 0)
+        ω = [1, 0]
+        nablaω = m.covariant_derivative_covector(ω, do_simplify=True)
+    
+        # Expected: ∇_r ω_r = 0, ∇_r ω_θ = 0, ∇_θ ω_r = 0, ∇_θ ω_θ = r
+        expected = Matrix([[0, 0],
+                           [0, r]])
+        assert simplify(nablaω - expected) == zeros(2, 2)
+
+    def test_sphere_vector_field(self):
+        """Test on sphere: choose a simple vector field and verify using known formulas."""
+        theta, phi = symbols('theta phi', real=True)
+        m = Metric(Matrix([[1, 0], [0, sin(theta)**2]]), (theta, phi))
+        # Take V = ∂_φ = (0, 1)
+        V = [0, 1]
+        nablaV = m.covariant_derivative_vector(V, do_simplify=True)
+
+        # Using cot(theta) = cos(theta)/sin(theta)
+        expected = Matrix([[0, cos(theta)/sin(theta)],
+                           [-sin(theta)*cos(theta), 0]])
+        diff = simplify(nablaV - expected)
+        assert diff == zeros(2, 2)
+
+    def test_sphere_covector_field(self):
+        """Test covariant derivative of a covector on the sphere."""
+        theta, phi = symbols('theta phi', real=True)
+        m = Metric(Matrix([[1, 0], [0, sin(theta)**2]]), (theta, phi))
+        # Take ω = dθ → components (ω_θ, ω_φ) = (1, 0)
+        ω = [1, 0]
+        nablaω = m.covariant_derivative_covector(ω, do_simplify=True)
+    
+        # Expected: only non‑zero component is ∇_φ ω_φ = sinθ cosθ
+        expected = Matrix([[0, 0],
+                           [0, sin(theta)*cos(theta)]])
+        diff = simplify(nablaω - expected)
+        assert diff == zeros(2, 2)
+
+    def test_numerical_evaluation(self):
+        """Test that the symbolic matrices can be lambdified and evaluated numerically."""
+        m, _ = flat_2d()
+        x, y = m.coords
+        V = [x*y, x + y]
+        nablaV_sym = m.covariant_derivative_vector(V, do_simplify=True)
+        nablaV_func = lambdify((x, y), nablaV_sym, 'numpy')
+        val = nablaV_func(1.0, 2.0)
+        # Expected: ∂_x V^x = y = 2, ∂_x V^y = 1, ∂_y V^x = x = 1, ∂_y V^y = 1
+        expected = np.array([[2., 1.],
+                             [1., 1.]])
+        assert np.allclose(val, expected)
+
+    def test_simplify_option(self):
+        """Test that do_simplify=False returns unsimplified expressions (should not break)."""
+        m, (r, theta) = polar_2d()
+        V = [1, 0]
+        nabla_simple = m.covariant_derivative_vector(V, do_simplify=True)
+        nabla_raw   = m.covariant_derivative_vector(V, do_simplify=False)
+        # The raw version may contain factors like (r**2)/r etc., but after simplification they match.
+        assert simplify(nabla_simple - nabla_raw) == zeros(2, 2)
+        
 # ============================================================================
 # Riemannian volume and arc length
 # ============================================================================
