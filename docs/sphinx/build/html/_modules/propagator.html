@@ -326,7 +326,6 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.gridspec</span><span class="w"> </span><span class="kn">import</span> <span class="n">GridSpec</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial.qhull</span><span class="w"> </span><span class="kn">import</span> <span class="n">QhullError</span>
 
 <span class="c1"># ── psipy imports ─────────────────────────────────────────────────────────────</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">riemannian</span><span class="w"> </span><span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">geodesic_solver</span><span class="p">,</span> <span class="n">jacobi_equation_solver</span>
@@ -1462,14 +1461,8 @@
         <span class="n">X</span><span class="p">,</span> <span class="n">Y</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">)</span>
         <span class="n">grid</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">X</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">Y</span><span class="o">.</span><span class="n">ravel</span><span class="p">()]</span>
         <span class="n">kw</span>     <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">points</span><span class="o">=</span><span class="n">pts</span><span class="p">,</span> <span class="n">xi</span><span class="o">=</span><span class="n">grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">psi</span> <span class="o">=</span> <span class="p">(</span><span class="n">griddata</span><span class="p">(</span><span class="n">values</span><span class="o">=</span><span class="n">psi_k</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
-                   <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">griddata</span><span class="p">(</span><span class="n">values</span><span class="o">=</span><span class="n">psi_k</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">QhullError</span><span class="p">:</span>
-            <span class="c1"># Fallback to nearest neighbour if triangulation fails</span>
-            <span class="n">kw</span><span class="p">[</span><span class="s1">&#39;method&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;nearest&#39;</span>
-            <span class="n">psi</span> <span class="o">=</span> <span class="p">(</span><span class="n">griddata</span><span class="p">(</span><span class="n">values</span><span class="o">=</span><span class="n">psi_k</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
-                   <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">griddata</span><span class="p">(</span><span class="n">values</span><span class="o">=</span><span class="n">psi_k</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="n">psi</span>    <span class="o">=</span> <span class="p">(</span><span class="n">griddata</span><span class="p">(</span><span class="n">values</span><span class="o">=</span><span class="n">psi_k</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+                <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">griddata</span><span class="p">(</span><span class="n">values</span><span class="o">=</span><span class="n">psi_k</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
 
         <span class="c1"># ── 2D caustic patching (new) ─────────────────────────────────────</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">near_caus</span><span class="p">):</span>
@@ -2448,444 +2441,300 @@
     <span class="k">return</span> <span class="n">fig</span></div>
 
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.animation</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">animation</span>
 
 <div class="viewcode-block" id="animate_wavefunction">
 <a class="viewcode-back" href="../propagator.html#propagator.animate_wavefunction">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">animate_wavefunction</span><span class="p">(</span>
     <span class="n">result</span><span class="p">:</span> <span class="n">WKBResult</span><span class="p">,</span>
-    <span class="n">times</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">n_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
-    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">fps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
-    <span class="n">figsize</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">dpi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
-    <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;both&#39;</span><span class="p">,</span>
-    <span class="n">interp_kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;linear&#39;</span><span class="p">,</span>
-    <span class="n">caustic_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">animation</span><span class="o">.</span><span class="n">FuncAnimation</span><span class="p">:</span>
+    <span class="n">frame_times</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">n_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="n">interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">log_scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;matplotlib.animation.FuncAnimation&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Animate the semiclassical wavefunction as a function of time.</span>
+<span class="sd">    Animate the true time evolution of the semiclassical wavefunction by</span>
+<span class="sd">    re-assembling the Van Vleck sum at successive time slices from the already-</span>
+<span class="sd">    integrated ray data.</span>
 
-<span class="sd">    The animation is built from the pre‑computed ray data stored in `result`.</span>
-<span class="sd">    For each requested time, the scattered data (positions, action, Jacobian,</span>
-<span class="sd">    Maslov index) are extracted (using nearest‑neighbour or linear interpolation)</span>
-<span class="sd">    and fed to :func:`van_vleck_sum` to obtain the gridded wavefunction.</span>
+<span class="sd">    Unlike :func:`animate_wavefunction`, which applies a single global phase</span>
+<span class="sd">    rotation ``exp(−iEt/ℏ)`` to a frozen snapshot (leaving |ψ|² constant),</span>
+<span class="sd">    this function recomputes ψ(x, t) from scratch at each frame by calling</span>
+<span class="sd">    :func:`van_vleck_sum` on the per-ray data sliced at time index ``t_idx``.</span>
+<span class="sd">    This correctly captures the spreading, focusing, and caustic structure of</span>
+<span class="sd">    the evolving wavepacket, so |ψ|² is genuinely time-dependent.</span>
+
+<span class="sd">    The price is computational: :func:`van_vleck_sum` is called once per frame,</span>
+<span class="sd">    but no ray integration is repeated — only the cheap gridding step runs.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    result : WKBResult</span>
-<span class="sd">        Output of :func:`compute_wavefunction`. Must contain rays with full</span>
-<span class="sd">        trajectories (time, positions, action, Jacobian) – this is always the case.</span>
-<span class="sd">    times : array_like, optional</span>
-<span class="sd">        Specific times at which to create frames. If not given, `n_frames`</span>
-<span class="sd">        equally spaced times between 0 and `result.t_max` are used.</span>
-<span class="sd">    n_frames : int, default 50</span>
-<span class="sd">        Number of frames (ignored if `times` is provided).</span>
-<span class="sd">    save_path : str, optional</span>
-<span class="sd">        If provided, save the animation to this file (supports .gif, .mp4, etc.).</span>
-<span class="sd">    fps : int, default 10</span>
-<span class="sd">        Frames per second in the saved animation.</span>
-<span class="sd">    figsize : tuple, optional</span>
-<span class="sd">        Figure size (width, height) in inches. If None, a suitable size is chosen.</span>
-<span class="sd">    dpi : int, default 100</span>
-<span class="sd">        Resolution of the saved animation.</span>
-<span class="sd">    plot_type : {&#39;density&#39;, &#39;phase&#39;, &#39;both&#39;}, default &#39;both&#39;</span>
-<span class="sd">        What to display:</span>
-<span class="sd">        * &#39;density&#39; : show only |ψ|² (1D) or log|ψ|² (2D).</span>
-<span class="sd">        * &#39;phase&#39;   : show only arg ψ (1D line, 2D colours).</span>
-<span class="sd">        * &#39;both&#39;    : show density and phase side by side (2D only – two subplots).</span>
-<span class="sd">                      For 1D, &#39;both&#39; shows density and phase in the same axes.</span>
-<span class="sd">    interp_kind : {&#39;nearest&#39;, &#39;linear&#39;}, default &#39;linear&#39;</span>
-<span class="sd">        How to obtain ray data at the exact frame time:</span>
-<span class="sd">        * &#39;nearest&#39; : use the value at the closest stored time step (fast).</span>
-<span class="sd">        * &#39;linear&#39;  : linearly interpolate between stored time steps (smoother).</span>
-<span class="sd">    caustic_threshold : float, default 0.05</span>
-<span class="sd">        Passed to :func:`van_vleck_sum`; controls the width of Airy patches.</span>
+<span class="sd">        Output of :func:`compute_wavefunction`.  Must contain full per-ray</span>
+<span class="sd">        time series in ``result.rays[k].traj``, ``det_J``, and ``S_cum``.</span>
+<span class="sd">    frame_times : array-like or None</span>
+<span class="sd">        Physical times at which to render frames.  Each value is matched to</span>
+<span class="sd">        the nearest stored time step.  If ``None``, ``n_frames`` equally</span>
+<span class="sd">        spaced times between 0 and ``result.t_max`` are used.</span>
+<span class="sd">    n_frames : int, default 100</span>
+<span class="sd">        Number of frames (ignored when ``frame_times`` is supplied).</span>
+<span class="sd">    interval : int, default 50</span>
+<span class="sd">        Delay between frames in milliseconds.</span>
+<span class="sd">    save_path : str or None, default None</span>
+<span class="sd">        If given, save the animation to this path.  Format inferred from the</span>
+<span class="sd">        extension: ``.gif`` uses Pillow, ``.mp4`` uses ffmpeg.</span>
+<span class="sd">    log_scale : bool, default False</span>
+<span class="sd">        If ``True``, display ``log(1 + |ψ|²)`` in the density panel.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    ani : matplotlib.animation.FuncAnimation</span>
-<span class="sd">        The animation object. Call `plt.show()` to display it interactively,</span>
-<span class="sd">        or use `save_path` to write to a file.</span>
+<span class="sd">    anim : matplotlib.animation.FuncAnimation</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Axis limits for Re(ψ), Im(ψ), and |ψ|² are computed by scanning **all**</span>
+<span class="sd">    frames before the animation starts, so the scale remains stable throughout</span>
+<span class="sd">    and no clipping occurs.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    .. code-block:: python</span>
+<span class="sd">    ::</span>
 
-<span class="sd">        result = compute_wavefunction(metric, source, v_fan, t_max=2.0, ...)</span>
-<span class="sd">        ani = animate_wavefunction(result, n_frames=30, save_path=&#39;wave.gif&#39;)</span>
-<span class="sd">        plt.show()   # if you want to see it in the notebook/ GUI</span>
+<span class="sd">        result = compute_wavefunction(metric=metric, source=source,</span>
+<span class="sd">                                      v_fan=v_fan, t_max=3.0, hbar=0.1)</span>
+<span class="sd">        anim = animate_true_time_evolution(result, n_frames=80, interval=40)</span>
+<span class="sd">        plt.show()</span>
+
+<span class="sd">        # Save as GIF</span>
+<span class="sd">        animate_true_time_evolution(result, save_path=&quot;evolution.gif&quot;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">dim</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">dim</span>
-    <span class="n">t_min</span><span class="p">,</span> <span class="n">t_max</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">t_max</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.animation</span><span class="w"> </span><span class="kn">import</span> <span class="n">FuncAnimation</span>
 
-    <span class="c1"># ---- time grid ----</span>
-    <span class="k">if</span> <span class="n">times</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">t_min</span><span class="p">,</span> <span class="n">t_max</span><span class="p">,</span> <span class="n">n_frames</span><span class="p">)</span>
+    <span class="c1"># ── time index selection ──────────────────────────────────────────────────</span>
+    <span class="n">t_arr</span>   <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">rays</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>
+    <span class="n">n_steps</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_arr</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">frame_times</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_steps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_frames</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
-        <span class="n">n_frames</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">t_arr</span> <span class="o">-</span> <span class="n">t</span><span class="p">))</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">frame_times</span><span class="p">],</span>
+                           <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
 
-    <span class="c1"># ---- fixed grid limits (use the same as in result, or compute global range) ----</span>
-    <span class="c1"># Global min/max from all rays at all times ensures the wavefunction stays in view.</span>
-    <span class="n">x_all</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">x_pts</span>
-    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="n">y_all</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">y_pts</span>
-        <span class="n">xlim</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_all</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x_all</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
-        <span class="n">ylim</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_all</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">y_all</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    <span class="c1"># ── position key detection ────────────────────────────────────────────────</span>
+    <span class="c1"># Exclude time, energy, and momentum keys robustly by checking against</span>
+    <span class="c1"># the known momentum symbol names stored in vars_phase.  Fall back to the</span>
+    <span class="c1"># simple heuristic when vars_phase is unavailable.</span>
+    <span class="n">all_keys</span>  <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">rays</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">traj</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">_mom_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;t&#39;</span><span class="p">,</span> <span class="s1">&#39;energy&#39;</span><span class="p">}</span>
+    <span class="c1"># momentum keys are those whose string matches the second (and fourth) entry</span>
+    <span class="c1"># of the phase-space variable list; use a conservative pattern instead.</span>
+    <span class="n">_coord_keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">all_keys</span>
+                   <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_mom_keys</span>
+                   <span class="ow">and</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">k</span> <span class="o">==</span> <span class="n">mk</span> <span class="k">for</span> <span class="n">mk</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="s1">&#39;px&#39;</span><span class="p">,</span> <span class="s1">&#39;py&#39;</span><span class="p">))</span>
+                   <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">k</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;p&#39;</span> <span class="ow">and</span> <span class="n">k</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">isalpha</span><span class="p">())]</span>
+
+    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x_key</span> <span class="o">=</span> <span class="n">_coord_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">xlim</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_all</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x_all</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
-        <span class="n">ylim</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">x_key</span><span class="p">,</span> <span class="n">y_key</span> <span class="o">=</span> <span class="n">_coord_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">_coord_keys</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
-    <span class="c1"># Grid resolution from result (assume square in 2D)</span>
-    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">N_grid</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+    <span class="c1"># ── grid parameters ───────────────────────────────────────────────────────</span>
+    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x</span>      <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">X</span>
+        <span class="n">xlim</span>   <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">N_grid</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">ylim_grid</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">N_grid</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span>   <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">Y</span>
+        <span class="n">xlim</span>   <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>  <span class="nb">float</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">ylim_grid</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">Y</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span>  <span class="nb">float</span><span class="p">(</span><span class="n">Y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))</span>
+        <span class="n">N_grid</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
-    <span class="c1"># ---- pre‑compute scattered data for each frame ----</span>
-    <span class="n">frames_data</span> <span class="o">=</span> <span class="p">[]</span>          <span class="c1"># each element: (psi, X, Y)   Y may be None in 1D</span>
-    <span class="n">coord_names</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">sym</span><span class="p">)</span> <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">rays</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">traj</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
-                   <span class="k">if</span> <span class="n">sym</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;t&#39;</span><span class="p">,</span> <span class="s1">&#39;energy&#39;</span><span class="p">,</span> <span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">&#39;p&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sym</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">x_key</span> <span class="o">=</span> <span class="n">coord_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">y_key</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">x_key</span><span class="p">,</span> <span class="n">y_key</span> <span class="o">=</span> <span class="n">coord_names</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">coord_names</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">hbar</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">hbar</span>
 
-    <span class="k">for</span> <span class="n">t_target</span> <span class="ow">in</span> <span class="n">times</span><span class="p">:</span>
-        <span class="n">x_pts</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">y_pts</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="n">S_pts</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">det_J_pts</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">mu_pts</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="k">for</span> <span class="n">ray</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">rays</span><span class="p">:</span>
-            <span class="n">t_arr</span> <span class="o">=</span> <span class="n">ray</span><span class="o">.</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">interp_kind</span> <span class="o">==</span> <span class="s1">&#39;nearest&#39;</span><span class="p">:</span>
-                <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">t_arr</span> <span class="o">-</span> <span class="n">t_target</span><span class="p">))</span>
-                <span class="n">x_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ray</span><span class="o">.</span><span class="n">traj</span><span class="p">[</span><span class="n">x_key</span><span class="p">][</span><span class="n">idx</span><span class="p">])</span>
-                <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                    <span class="n">y_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ray</span><span class="o">.</span><span class="n">traj</span><span class="p">[</span><span class="n">y_key</span><span class="p">][</span><span class="n">idx</span><span class="p">])</span>
-                <span class="n">S_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ray</span><span class="o">.</span><span class="n">S_cum</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
-                <span class="n">det_J_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ray</span><span class="o">.</span><span class="n">det_J</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
-                <span class="n">mu_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ray</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>   <span class="c1"># linear interpolation</span>
-                <span class="c1"># Positions</span>
-                <span class="n">x_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t_target</span><span class="p">,</span> <span class="n">t_arr</span><span class="p">,</span> <span class="n">ray</span><span class="o">.</span><span class="n">traj</span><span class="p">[</span><span class="n">x_key</span><span class="p">])</span>
-                <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                    <span class="n">y_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t_target</span><span class="p">,</span> <span class="n">t_arr</span><span class="p">,</span> <span class="n">ray</span><span class="o">.</span><span class="n">traj</span><span class="p">[</span><span class="n">y_key</span><span class="p">])</span>
-                    <span class="n">y_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">y_val</span><span class="p">)</span>
-                <span class="n">x_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x_val</span><span class="p">)</span>
-                <span class="c1"># Action and Jacobian</span>
-                <span class="n">S_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t_target</span><span class="p">,</span> <span class="n">t_arr</span><span class="p">,</span> <span class="n">ray</span><span class="o">.</span><span class="n">S_cum</span><span class="p">)</span>
-                <span class="n">det_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t_target</span><span class="p">,</span> <span class="n">t_arr</span><span class="p">,</span> <span class="n">ray</span><span class="o">.</span><span class="n">det_J</span><span class="p">)</span>
-                <span class="n">S_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">S_val</span><span class="p">)</span>
-                <span class="n">det_J_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">det_val</span><span class="p">)</span>
-                <span class="n">mu_pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ray</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span>   <span class="c1"># mu is constant</span>
-
-        <span class="c1"># Build arrays</span>
-        <span class="n">x_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_pts</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">x_pts</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y_pts</span><span class="p">)])</span>
+    <span class="c1"># ── pre-scan all frames to get global amplitude limits ────────────────────</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_psi_at</span><span class="p">(</span><span class="n">t_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble ψ on the grid at a single time index.&quot;&quot;&quot;</span>
+        <span class="n">n_rays</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">rays</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">pts</span>      <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">ray</span><span class="o">.</span><span class="n">traj</span><span class="p">[</span><span class="n">x_key</span><span class="p">][</span><span class="n">t_idx</span><span class="p">]]</span> <span class="k">for</span> <span class="n">ray</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">rays</span><span class="p">])</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">pts</span> <span class="o">=</span> <span class="n">x_pts</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
-        <span class="n">S_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">S_pts</span><span class="p">)</span>
-        <span class="n">det_J_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">det_J_pts</span><span class="p">)</span>
-        <span class="n">mu_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">mu_pts</span><span class="p">)</span>
+            <span class="n">pts</span>      <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">ray</span><span class="o">.</span><span class="n">traj</span><span class="p">[</span><span class="n">x_key</span><span class="p">][</span><span class="n">t_idx</span><span class="p">],</span>
+                                  <span class="n">ray</span><span class="o">.</span><span class="n">traj</span><span class="p">[</span><span class="n">y_key</span><span class="p">][</span><span class="n">t_idx</span><span class="p">]]</span> <span class="k">for</span> <span class="n">ray</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">rays</span><span class="p">])</span>
+            <span class="c1"># tiny jitter to avoid Qhull coplanarity failures in degenerate configs</span>
+            <span class="n">pts</span>     <span class="o">+=</span> <span class="mf">1e-10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">(</span><span class="n">pts</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 
-        <span class="c1"># Compute gridded wavefunction for this frame</span>
-        <span class="n">psi</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">van_vleck_sum</span><span class="p">(</span>
-            <span class="n">pts</span><span class="p">,</span> <span class="n">S_pts</span><span class="p">,</span> <span class="n">det_J_pts</span><span class="p">,</span> <span class="n">mu_pts</span><span class="p">,</span>
-            <span class="n">xlim</span><span class="o">=</span><span class="n">xlim</span><span class="p">,</span> <span class="n">ylim</span><span class="o">=</span><span class="n">ylim</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N_grid</span><span class="p">,</span>
-            <span class="n">hbar</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">hbar</span><span class="p">,</span>
-            <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">,</span>
-            <span class="n">caustic_threshold</span><span class="o">=</span><span class="n">caustic_threshold</span><span class="p">,</span>
+        <span class="n">S_vals</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ray</span><span class="o">.</span><span class="n">S_cum</span><span class="p">[</span><span class="n">t_idx</span><span class="p">]</span>  <span class="k">for</span> <span class="n">ray</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">rays</span><span class="p">])</span>
+        <span class="n">detJ_vals</span><span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ray</span><span class="o">.</span><span class="n">det_J</span><span class="p">[</span><span class="n">t_idx</span><span class="p">]</span>  <span class="k">for</span> <span class="n">ray</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">rays</span><span class="p">])</span>
+        <span class="n">mu_vals</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ray</span><span class="o">.</span><span class="n">mu</span>             <span class="k">for</span> <span class="n">ray</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">rays</span><span class="p">])</span>
+
+        <span class="n">psi</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">van_vleck_sum</span><span class="p">(</span>
+            <span class="n">pts</span><span class="p">,</span> <span class="n">S_vals</span><span class="p">,</span> <span class="n">detJ_vals</span><span class="p">,</span> <span class="n">mu_vals</span><span class="p">,</span>
+            <span class="n">xlim</span><span class="o">=</span><span class="n">xlim</span><span class="p">,</span> <span class="n">ylim</span><span class="o">=</span><span class="n">ylim_grid</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N_grid</span><span class="p">,</span> <span class="n">hbar</span><span class="o">=</span><span class="n">hbar</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">frames_data</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">psi</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">psi</span>
 
-    <span class="c1"># ---- set up figure and artists ----</span>
-    <span class="k">if</span> <span class="n">figsize</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">plot_type</span> <span class="o">==</span> <span class="s1">&#39;both&#39;</span> <span class="k">else</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+    <span class="c1"># Sample a subset of frames (every 5th) to estimate limits without full scan</span>
+    <span class="n">sample_idx</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[::</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span> <span class="o">//</span> <span class="mi">20</span><span class="p">)]</span>
+    <span class="n">psi_samples</span> <span class="o">=</span> <span class="p">[</span><span class="n">_psi_at</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sample_idx</span><span class="p">]</span>
 
-    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;$x$&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Time = </span><span class="si">{</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-        <span class="n">_style</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span><span class="p">)</span>
+    <span class="n">psi_max</span>  <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">p</span><span class="p">)))</span>    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">psi_samples</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">1.0</span>
+    <span class="n">den_vals</span> <span class="o">=</span> <span class="p">[(</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="n">log_scale</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">psi_samples</span><span class="p">]</span>
+    <span class="n">den_max</span>  <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">d</span><span class="p">))</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">den_vals</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">1.0</span>
+    <span class="n">dlabel</span>   <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;$\log(1+|\psi|^2)$&quot;</span> <span class="k">if</span> <span class="n">log_scale</span> <span class="k">else</span> <span class="sa">r</span><span class="s2">&quot;$|\psi|^2$&quot;</span>
 
-        <span class="c1"># First frame to initialise lines</span>
-        <span class="n">psi0</span><span class="p">,</span> <span class="n">X0</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">frames_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">plot_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;density&#39;</span><span class="p">,</span> <span class="s1">&#39;both&#39;</span><span class="p">):</span>
-            <span class="n">dens0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
-            <span class="n">line_dens</span><span class="p">,</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">X0</span><span class="p">,</span> <span class="n">dens0</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;cyan&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;$|\psi|^2$&#39;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">plot_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;phase&#39;</span><span class="p">,</span> <span class="s1">&#39;both&#39;</span><span class="p">):</span>
-            <span class="n">phase0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">psi0</span><span class="p">)</span>
-            <span class="n">line_phase</span><span class="p">,</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">X0</span><span class="p">,</span> <span class="n">phase0</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;magenta&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;arg $\psi$&#39;</span><span class="p">)</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;white&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;upper right&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
-        <span class="n">artists</span> <span class="o">=</span> <span class="p">[</span><span class="n">line_dens</span><span class="p">]</span> <span class="k">if</span> <span class="n">plot_type</span> <span class="o">==</span> <span class="s1">&#39;density&#39;</span> <span class="k">else</span> <span class="p">([</span><span class="n">line_phase</span><span class="p">]</span> <span class="k">if</span> <span class="n">plot_type</span> <span class="o">==</span> <span class="s1">&#39;phase&#39;</span> <span class="k">else</span> <span class="p">[</span><span class="n">line_dens</span><span class="p">,</span> <span class="n">line_phase</span><span class="p">])</span>
+    <span class="c1"># ── build figure ──────────────────────────────────────────────────────────</span>
+    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">axes_2d</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+        <span class="n">axes</span> <span class="o">=</span> <span class="n">axes_2d</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">_style</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">hspace</span><span class="o">=</span><span class="mf">0.38</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=</span><span class="mf">0.35</span><span class="p">)</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">update_1d</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
-            <span class="n">psi</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">frames_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">plot_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;density&#39;</span><span class="p">,</span> <span class="s1">&#39;both&#39;</span><span class="p">):</span>
-                <span class="n">line_dens</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">plot_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;phase&#39;</span><span class="p">,</span> <span class="s1">&#39;both&#39;</span><span class="p">):</span>
-                <span class="n">line_phase</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">psi</span><span class="p">))</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Time = </span><span class="si">{</span><span class="n">times</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">artists</span>
+        <span class="n">psi0</span> <span class="o">=</span> <span class="n">_psi_at</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
 
-        <span class="n">ani</span> <span class="o">=</span> <span class="n">animation</span><span class="o">.</span><span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">update_1d</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="n">n_frames</span><span class="p">,</span>
-                                      <span class="n">interval</span><span class="o">=</span><span class="mi">1000</span><span class="o">/</span><span class="n">fps</span><span class="p">,</span> <span class="n">blit</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">line_re</span><span class="p">,)</span>    <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">psi0</span><span class="o">.</span><span class="n">real</span><span class="p">,</span>       <span class="n">lw</span><span class="o">=</span><span class="mf">1.1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#4fc3f7&quot;</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">line_im</span><span class="p">,)</span>    <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">psi0</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span>       <span class="n">lw</span><span class="o">=</span><span class="mf">1.1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#ef9a9a&quot;</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">line_den</span><span class="p">,)</span>   <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span>
+                                      <span class="n">alpha</span><span class="o">=</span><span class="mf">0.55</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">line_phase</span><span class="p">,)</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">psi0</span><span class="p">),</span>  <span class="n">lw</span><span class="o">=</span><span class="mf">1.1</span><span class="p">,</span>
+                                      <span class="n">color</span><span class="o">=</span><span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">hsv</span><span class="p">(</span><span class="mf">0.28</span><span class="p">))</span>
 
-    <span class="k">else</span><span class="p">:</span>   <span class="c1"># 2D</span>
-        <span class="k">if</span> <span class="n">plot_type</span> <span class="o">==</span> <span class="s1">&#39;both&#39;</span><span class="p">:</span>
-            <span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax_dens</span><span class="p">,</span> <span class="n">ax_phase</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
-            <span class="n">axes</span> <span class="o">=</span> <span class="p">[</span><span class="n">ax_dens</span><span class="p">,</span> <span class="n">ax_phase</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
-            <span class="n">axes</span> <span class="o">=</span> <span class="p">[</span><span class="n">ax</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="n">ydata</span><span class="p">,</span> <span class="n">color</span><span class="p">,</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">psi0</span><span class="o">.</span><span class="n">real</span><span class="p">,</span>       <span class="s2">&quot;#4fc3f7&quot;</span><span class="p">,</span>            <span class="mf">0.25</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">psi0</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span>       <span class="s2">&quot;#ef9a9a&quot;</span><span class="p">,</span>            <span class="mf">0.25</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">inferno</span><span class="p">(</span><span class="mf">0.65</span><span class="p">),</span> <span class="mf">0.75</span><span class="p">),</span>
+        <span class="p">]:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ydata</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">:</span>
-            <span class="n">a</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;$x$&#39;</span><span class="p">)</span>
-            <span class="n">a</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;$y$&#39;</span><span class="p">)</span>
-            <span class="n">a</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">[:</span><span class="mi">2</span><span class="p">]:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">xlim</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">-</span><span class="mf">1.35</span> <span class="o">*</span> <span class="n">psi_max</span><span class="p">,</span> <span class="mf">1.35</span> <span class="o">*</span> <span class="n">psi_max</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.4</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">xlim</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">1.25</span> <span class="o">*</span> <span class="n">den_max</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">xlim</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">-</span> <span class="mf">0.3</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">+</span> <span class="mf">0.3</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.4</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">([</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">])</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">([</span><span class="sa">r</span><span class="s2">&quot;$-\pi$&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;$-\pi/2$&quot;</span><span class="p">,</span> <span class="s2">&quot;$0$&quot;</span><span class="p">,</span>
+                                   <span class="sa">r</span><span class="s2">&quot;$\pi/2$&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;$\pi$&quot;</span><span class="p">])</span>
+
+        <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Re $\psi(x,t)$&quot;</span><span class="p">,</span>        <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Re $\psi$&quot;</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Im $\psi(x,t)$&quot;</span><span class="p">,</span>        <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Im $\psi$&quot;</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">dlabel</span><span class="p">,</span>                    <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="n">dlabel</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Phase $\arg\psi(x,t)$&quot;</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span>
+                    <span class="n">ylabel</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$\arg\psi$  [rad]&quot;</span><span class="p">)</span>
+
+        <span class="n">time_text</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+            <span class="sa">rf</span><span class="s2">&quot;Van Vleck wavefunction  ($\hbar=</span><span class="si">{</span><span class="n">hbar</span><span class="si">}</span><span class="s2">$,  $t=</span><span class="si">{</span><span class="n">t_arr</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">$)&quot;</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">)</span>
         <span class="n">_style</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span><span class="p">)</span>
 
-        <span class="c1"># Initialise images with first frame</span>
-        <span class="n">psi0</span><span class="p">,</span> <span class="n">X0</span><span class="p">,</span> <span class="n">Y0</span> <span class="o">=</span> <span class="n">frames_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">plot_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;density&#39;</span><span class="p">,</span> <span class="s1">&#39;both&#39;</span><span class="p">):</span>
-            <span class="n">dens0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>   <span class="c1"># log scale to see details</span>
-            <span class="n">im_dens</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X0</span><span class="p">,</span> <span class="n">Y0</span><span class="p">,</span> <span class="n">dens0</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;inferno&#39;</span><span class="p">,</span> <span class="n">shading</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">)</span>
-            <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im_dens</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;$\log(1+|\psi|^2)$&#39;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">plot_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;phase&#39;</span><span class="p">,</span> <span class="s1">&#39;both&#39;</span><span class="p">):</span>
-            <span class="n">phase0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">psi0</span><span class="p">)</span>
-            <span class="c1"># For both case, phase is second subplot; for &#39;phase&#39; alone it&#39;s the only axis</span>
-            <span class="n">ax_phase</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">plot_type</span> <span class="o">==</span> <span class="s1">&#39;both&#39;</span> <span class="k">else</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">im_phase</span> <span class="o">=</span> <span class="n">ax_phase</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X0</span><span class="p">,</span> <span class="n">Y0</span><span class="p">,</span> <span class="n">phase0</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;hsv&#39;</span><span class="p">,</span>
-                                            <span class="n">shading</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
-            <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im_phase</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax_phase</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;$\arg(\psi)$&#39;</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_update_1d</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
+            <span class="n">t_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="n">frame</span><span class="p">])</span>
+            <span class="n">psi</span>   <span class="o">=</span> <span class="n">_psi_at</span><span class="p">(</span><span class="n">t_idx</span><span class="p">)</span>
+            <span class="n">den</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="n">log_scale</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
 
-        <span class="c1"># Collect artists for blitting</span>
-        <span class="n">artists</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="n">plot_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;density&#39;</span><span class="p">,</span> <span class="s1">&#39;both&#39;</span><span class="p">):</span>
-            <span class="n">artists</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">im_dens</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">plot_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;phase&#39;</span><span class="p">,</span> <span class="s1">&#39;both&#39;</span><span class="p">):</span>
-            <span class="n">artists</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">im_phase</span><span class="p">)</span>
+            <span class="n">line_re</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">psi</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">coll</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">collections</span><span class="p">[:]:</span> <span class="n">coll</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+            <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">psi</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#4fc3f7&quot;</span><span class="p">)</span>
+            <span class="n">re_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi</span><span class="o">.</span><span class="n">real</span><span class="p">)))</span> <span class="ow">or</span> <span class="mf">1.0</span>
+            <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">-</span><span class="mf">1.35</span> <span class="o">*</span> <span class="n">re_max</span><span class="p">,</span> <span class="mf">1.35</span> <span class="o">*</span> <span class="n">re_max</span><span class="p">)</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">update_2d</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
-            <span class="n">psi</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">frames_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">plot_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;density&#39;</span><span class="p">,</span> <span class="s1">&#39;both&#39;</span><span class="p">):</span>
-                <span class="n">dens</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-                <span class="n">im_dens</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">dens</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
-            <span class="k">if</span> <span class="n">plot_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;phase&#39;</span><span class="p">,</span> <span class="s1">&#39;both&#39;</span><span class="p">):</span>
-                <span class="n">phase</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span>
-                <span class="n">im_phase</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">phase</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
-            <span class="k">return</span> <span class="n">artists</span>
+            <span class="n">line_im</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">psi</span><span class="o">.</span><span class="n">imag</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">coll</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">collections</span><span class="p">[:]:</span> <span class="n">coll</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+            <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">psi</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#ef9a9a&quot;</span><span class="p">)</span>
+            <span class="n">im_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi</span><span class="o">.</span><span class="n">imag</span><span class="p">)))</span> <span class="ow">or</span> <span class="mf">1.0</span>
+            <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">-</span><span class="mf">1.35</span> <span class="o">*</span> <span class="n">im_max</span><span class="p">,</span> <span class="mf">1.35</span> <span class="o">*</span> <span class="n">im_max</span><span class="p">)</span>
 
-        <span class="n">ani</span> <span class="o">=</span> <span class="n">animation</span><span class="o">.</span><span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">update_2d</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="n">n_frames</span><span class="p">,</span>
-                                      <span class="n">interval</span><span class="o">=</span><span class="mi">1000</span><span class="o">/</span><span class="n">fps</span><span class="p">,</span> <span class="n">blit</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">line_den</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">den</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">coll</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">collections</span><span class="p">[:]:</span> <span class="n">coll</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+            <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">den</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">inferno</span><span class="p">(</span><span class="mf">0.65</span><span class="p">))</span>
 
-    <span class="c1"># ---- save if requested ----</span>
+            <span class="n">line_phase</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">psi</span><span class="p">))</span>
+
+            <span class="n">time_text</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span>
+                <span class="sa">rf</span><span class="s2">&quot;Van Vleck wavefunction  ($\hbar=</span><span class="si">{</span><span class="n">hbar</span><span class="si">}</span><span class="s2">$,  $t=</span><span class="si">{</span><span class="n">t_arr</span><span class="p">[</span><span class="n">t_idx</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">$)&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">line_re</span><span class="p">,</span> <span class="n">line_im</span><span class="p">,</span> <span class="n">line_den</span><span class="p">,</span> <span class="n">line_phase</span>
+
+        <span class="n">anim</span> <span class="o">=</span> <span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">_update_1d</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">),</span>
+                             <span class="n">interval</span><span class="o">=</span><span class="n">interval</span><span class="p">,</span> <span class="n">blit</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># 2D</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">axes_2d</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">11</span><span class="p">))</span>
+        <span class="n">axes</span> <span class="o">=</span> <span class="n">axes_2d</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">_style</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">hspace</span><span class="o">=</span><span class="mf">0.32</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=</span><span class="mf">0.32</span><span class="p">)</span>
+
+        <span class="n">psi0</span> <span class="o">=</span> <span class="n">_psi_at</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="n">den0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="n">log_scale</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+
+        <span class="n">im_re</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">psi0</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+                                    <span class="n">shading</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="n">psi_max</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">psi_max</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im_re</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Re $\psi$&quot;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s2">&quot;equal&quot;</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Re $\psi(x,y,t)$&quot;</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;$y$&quot;</span><span class="p">)</span>
+
+        <span class="n">im_im</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">psi0</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span>
+                                    <span class="n">shading</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="n">psi_max</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">psi_max</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im_im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Im $\psi$&quot;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s2">&quot;equal&quot;</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Im $\psi(x,y,t)$&quot;</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;$y$&quot;</span><span class="p">)</span>
+
+        <span class="n">im_den</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">den0</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;inferno&quot;</span><span class="p">,</span>
+                                     <span class="n">shading</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">den_max</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im_den</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">dlabel</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s2">&quot;equal&quot;</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="n">dlabel</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;$y$&quot;</span><span class="p">)</span>
+
+        <span class="n">im_phase</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">psi0</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;hsv&quot;</span><span class="p">,</span>
+                                       <span class="n">shading</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+        <span class="n">cbar_phase</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im_phase</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+                                   <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$\arg\psi$  [rad]&quot;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>
+        <span class="n">cbar_phase</span><span class="o">.</span><span class="n">set_ticks</span><span class="p">([</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">])</span>
+        <span class="n">cbar_phase</span><span class="o">.</span><span class="n">set_ticklabels</span><span class="p">([</span><span class="sa">r</span><span class="s2">&quot;$-\pi$&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;$-\pi/2$&quot;</span><span class="p">,</span> <span class="s2">&quot;$0$&quot;</span><span class="p">,</span>
+                                    <span class="sa">r</span><span class="s2">&quot;$\pi/2$&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;$\pi$&quot;</span><span class="p">])</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s2">&quot;equal&quot;</span><span class="p">)</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Phase $\arg\psi(x,y,t)$&quot;</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;$y$&quot;</span><span class="p">)</span>
+
+        <span class="n">time_text</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+            <span class="sa">rf</span><span class="s2">&quot;Van Vleck wavefunction 2D  ($\hbar=</span><span class="si">{</span><span class="n">hbar</span><span class="si">}</span><span class="s2">$,  $t=</span><span class="si">{</span><span class="n">t_arr</span><span class="p">[</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">$)&quot;</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">)</span>
+        <span class="n">_style</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_update_2d</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
+            <span class="n">t_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="n">frame</span><span class="p">])</span>
+            <span class="n">psi</span>   <span class="o">=</span> <span class="n">_psi_at</span><span class="p">(</span><span class="n">t_idx</span><span class="p">)</span>
+            <span class="n">den</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="k">if</span> <span class="n">log_scale</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+
+            <span class="n">re_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi</span><span class="o">.</span><span class="n">real</span><span class="p">)))</span> <span class="ow">or</span> <span class="mf">1.0</span>
+            <span class="n">im_re</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">psi</span><span class="o">.</span><span class="n">real</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+            <span class="n">im_re</span><span class="o">.</span><span class="n">set_clim</span><span class="p">(</span><span class="o">-</span><span class="n">re_max</span><span class="p">,</span> <span class="n">re_max</span><span class="p">)</span>
+
+            <span class="n">im_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">psi</span><span class="o">.</span><span class="n">imag</span><span class="p">)))</span> <span class="ow">or</span> <span class="mf">1.0</span>
+            <span class="n">im_im</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">psi</span><span class="o">.</span><span class="n">imag</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+            <span class="n">im_im</span><span class="o">.</span><span class="n">set_clim</span><span class="p">(</span><span class="o">-</span><span class="n">im_max</span><span class="p">,</span> <span class="n">im_max</span><span class="p">)</span>
+
+            <span class="n">im_den</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">den</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+            <span class="n">im_phase</span><span class="o">.</span><span class="n">set_array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+
+            <span class="n">time_text</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span>
+                <span class="sa">rf</span><span class="s2">&quot;Van Vleck wavefunction 2D  ($\hbar=</span><span class="si">{</span><span class="n">hbar</span><span class="si">}</span><span class="s2">$,  $t=</span><span class="si">{</span><span class="n">t_arr</span><span class="p">[</span><span class="n">t_idx</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">$)&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">im_re</span><span class="p">,</span> <span class="n">im_im</span><span class="p">,</span> <span class="n">im_den</span><span class="p">,</span> <span class="n">im_phase</span>
+
+        <span class="n">anim</span> <span class="o">=</span> <span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">_update_2d</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">),</span>
+                             <span class="n">interval</span><span class="o">=</span><span class="n">interval</span><span class="p">,</span> <span class="n">blit</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># ── optional save ─────────────────────────────────────────────────────────</span>
     <span class="k">if</span> <span class="n">save_path</span><span class="p">:</span>
-        <span class="n">ani</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="n">writer</span><span class="o">=</span><span class="s1">&#39;pillow&#39;</span> <span class="k">if</span> <span class="n">save_path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.gif&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="s1">&#39;ffmpeg&#39;</span><span class="p">,</span>
-                 <span class="n">fps</span><span class="o">=</span><span class="n">fps</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="n">dpi</span><span class="p">)</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">save_path</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">writer</span> <span class="o">=</span> <span class="s1">&#39;pillow&#39;</span> <span class="k">if</span> <span class="n">ext</span> <span class="o">==</span> <span class="s1">&#39;gif&#39;</span> <span class="k">else</span> <span class="s1">&#39;ffmpeg&#39;</span>
+        <span class="n">anim</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="n">writer</span><span class="o">=</span><span class="n">writer</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
+                  <span class="n">savefig_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;facecolor&#39;</span><span class="p">:</span> <span class="n">fig</span><span class="o">.</span><span class="n">get_facecolor</span><span class="p">()})</span>
 
-    <span class="k">return</span> <span class="n">ani</span></div>
+    <span class="k">return</span> <span class="n">anim</span></div>
 
-
-<span class="c1"># =============================================================================</span>
-<span class="c1"># Six worked examples  (run when script is executed directly)</span>
-<span class="c1"># =============================================================================</span>
-<span class="c1">#</span>
-<span class="c1"># Three 1D and three 2D demonstrations, ordered from elementary to advanced.</span>
-<span class="c1">#</span>
-<span class="c1">#  1D ─────────────────────────────────────────────────────────────────────────</span>
-<span class="c1">#  Ex 1 │ Semiclassical harmonic oscillator</span>
-<span class="c1">#        │   g = 1/(1 - x²)  (isotropic confining metric)</span>
-<span class="c1">#        │   Rays focus periodically → Maslov index accumulates,</span>
-<span class="c1">#        │   Airy patches replace the WKB amplitude at each caustic.</span>
-<span class="c1">#</span>
-<span class="c1">#  Ex 2 │ Pöschl–Teller / exponential-barrier metric</span>
-<span class="c1">#        │   g = cosh²(x)   (localised potential well via curved kinetic energy)</span>
-<span class="c1">#        │   Rays slow down near x=0, creating a dense fringe cluster and a</span>
-<span class="c1">#        │   striking amplitude peak at the turning zone.</span>
-<span class="c1">#</span>
-<span class="c1">#  Ex 3 │ Power-law / centrifugal metric</span>
-<span class="c1">#        │   H = p²·x⁴/2  →  g = 1/x⁴</span>
-<span class="c1">#        │   Rapidly increasing effective mass near x=0 squeezes geodesics</span>
-<span class="c1">#        │   together; fringe spacing shrinks toward the origin.</span>
-<span class="c1">#</span>
-<span class="c1">#  2D ─────────────────────────────────────────────────────────────────────────</span>
-<span class="c1">#  Ex 4 │ Anisotropic flat metric  g = diag(1, 4)</span>
-<span class="c1">#        │   Elliptic wavefronts, interference fringes with different</span>
-<span class="c1">#        │   fringe spacing along x and y, Maslov = 0 everywhere.</span>
-<span class="c1">#</span>
-<span class="c1">#  Ex 5 │ Gaussian hill / volcano metric</span>
-<span class="c1">#        │   g = diag(1 + A exp(-r²/σ²), 1 + A exp(-r²/σ²))</span>
-<span class="c1">#        │   A localised region of increased effective mass acts as a lens,</span>
-<span class="c1">#        │   focussing rays and creating a caustic ring with Airy corrections.</span>
-<span class="c1">#</span>
-<span class="c1">#  Ex 6 │ Saddle / hyperbolic metric</span>
-<span class="c1">#        │   g = diag(1/(1+x²), 1+y²)</span>
-<span class="c1">#        │   Rays accelerate along x and decelerate along y; the resulting</span>
-<span class="c1">#        │   asymmetric wavefront and ray-crossing pattern produce a rich</span>
-<span class="c1">#        │   multi-sheet interference figure with non-trivial Maslov structure.</span>
-<span class="c1">#</span>
-<span class="c1"># =============================================================================</span>
-
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-
-    <span class="n">SEP</span> <span class="o">=</span> <span class="s2">&quot;─&quot;</span> <span class="o">*</span> <span class="mi">60</span>
-    <span class="n">hbar</span> <span class="o">=</span> <span class="mf">0.15</span>     <span class="c1"># small but not tiny: visible fringes, tractable Airy zones</span>
-
-    <span class="c1"># =========================================================================</span>
-    <span class="c1"># Example 1 — 1D Semiclassical Harmonic Oscillator</span>
-    <span class="c1"># =========================================================================</span>
-    <span class="c1"># The confining metric g(x) = 1/(1 − ω²x²) encodes a position-dependent</span>
-    <span class="c1"># effective mass that diverges at |x| = 1/ω, mimicking the turning points</span>
-    <span class="c1"># of a harmonic potential.  Rays launched from x=0 slow down, reflect, and</span>
-    <span class="c1"># reconverge, creating periodic caustics at the turning points.  Each pair</span>
-    <span class="c1"># of caustics increments the Maslov index by 2 (one per turning point),</span>
-    <span class="c1"># reproducing the well-known (n + ½) quantisation of the harmonic oscillator</span>
-    <span class="c1"># at the Bohr–Sommerfeld level.</span>
-    <span class="c1"># =========================================================================</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">SEP</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Example 1 — 1D Semiclassical Harmonic Oscillator&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  g(x) = 1 / (1 − ω²x²),  ω = 1.2&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">SEP</span><span class="p">)</span>
-
-    <span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">omega</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Rational</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>                 <span class="c1"># ω = 1.2  (rational for clean SymPy)</span>
-    <span class="n">g_ho</span>  <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">omega</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-    <span class="n">metric_ho</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">g_ho</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,))</span>
-
-    <span class="c1"># Dense fan of slow rays so the envelope and Airy zones are well resolved.</span>
-    <span class="c1"># The turning point is at |x| = 1/ω ≈ 0.833.  We cap the velocity fan at</span>
-    <span class="c1"># 0.5 (well below the speed that would reach |x| = 0.833 in t_max = 3.5)</span>
-    <span class="c1"># and use RK45 which adapts its step size near the turning point, unlike</span>
-    <span class="c1"># Verlet which uses a fixed step and can overshoot the singularity.</span>
-    <span class="n">v_fan_ho</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.50</span><span class="p">,</span> <span class="mi">120</span><span class="p">)</span>
-
-    <span class="n">result_ho</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
-        <span class="n">metric</span>    <span class="o">=</span> <span class="n">metric_ho</span><span class="p">,</span>
-        <span class="n">source</span>    <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,),</span>
-        <span class="n">v_fan</span>     <span class="o">=</span> <span class="n">v_fan_ho</span><span class="p">,</span>
-        <span class="n">t_max</span>     <span class="o">=</span> <span class="mf">3.5</span><span class="p">,</span>                      <span class="c1"># long enough for two caustic visits</span>
-        <span class="n">hbar</span>      <span class="o">=</span> <span class="n">hbar</span><span class="p">,</span>
-        <span class="n">n_steps</span>   <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
-        <span class="n">N_grid</span>    <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
-        <span class="n">integrator</span><span class="o">=</span> <span class="s1">&#39;rk45&#39;</span><span class="p">,</span>                   <span class="c1"># adaptive step avoids overshooting</span>
-    <span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result_ho</span><span class="o">.</span><span class="n">rays</span><span class="p">)</span><span class="si">}</span><span class="s2"> rays integrated successfully.&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Max Maslov index reached: </span><span class="si">{</span><span class="nb">max</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">mu</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">result_ho</span><span class="o">.</span><span class="n">rays</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-    <span class="n">fig1</span> <span class="o">=</span> <span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result_ho</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="n">fig1</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
-        <span class="sa">r</span><span class="s2">&quot;Ex 1 — Harmonic oscillator  $g = (1-\omega^2 x^2)^{-1}$&quot;</span>
-        <span class="sa">rf</span><span class="s2">&quot;   $\hbar=</span><span class="si">{</span><span class="n">hbar</span><span class="si">}</span><span class="s2">$&quot;</span><span class="p">,</span>
-        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">)</span>
-    <span class="n">plot_interference_detail</span><span class="p">(</span><span class="n">result_ho</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-    <span class="c1"># =========================================================================</span>
-    <span class="c1"># Example 2 — 1D Pöschl–Teller / Cosh-Barrier Metric</span>
-    <span class="c1"># =========================================================================</span>
-    <span class="c1"># The metric g(x) = cosh²(x) corresponds to a kinetic Hamiltonian</span>
-    <span class="c1"># H = p²/(2 cosh²(x)).  The effective speed of sound is slowest at x=0</span>
-    <span class="c1"># (where cosh is smallest and the effective mass largest) and increases</span>
-    <span class="c1"># exponentially away from the origin.  Rays launched with moderate</span>
-    <span class="c1"># velocity are trapped near the origin and pile up, producing a sharp</span>
-    <span class="c1"># amplitude peak and densely packed interference fringes — a direct</span>
-    <span class="c1"># semiclassical analogue of the Pöschl–Teller bound state.</span>
-    <span class="c1"># =========================================================================</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">SEP</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Example 2 — 1D Pöschl–Teller / cosh-barrier metric&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  g(x) = cosh²(x)&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">SEP</span><span class="p">)</span>
-
-    <span class="n">g_pt</span>     <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
-    <span class="n">metric_pt</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">g_pt</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,))</span>
-
-    <span class="c1"># Mix of trapped (small |v|) and escaping (large |v|) rays</span>
-    <span class="n">v_fan_pt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">2.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span> <span class="mf">0.1</span><span class="p">,</span>  <span class="mf">2.5</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
-    <span class="p">])</span>
-
-    <span class="n">result_pt</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
-        <span class="n">metric</span>    <span class="o">=</span> <span class="n">metric_pt</span><span class="p">,</span>
-        <span class="n">source</span>    <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,),</span>
-        <span class="n">v_fan</span>     <span class="o">=</span> <span class="n">v_fan_pt</span><span class="p">,</span>
-        <span class="n">t_max</span>     <span class="o">=</span> <span class="mf">2.5</span><span class="p">,</span>
-        <span class="n">hbar</span>      <span class="o">=</span> <span class="n">hbar</span><span class="p">,</span>
-        <span class="n">n_steps</span>   <span class="o">=</span> <span class="mi">700</span><span class="p">,</span>
-        <span class="n">N_grid</span>    <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
-        <span class="n">integrator</span><span class="o">=</span> <span class="s1">&#39;verlet&#39;</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result_pt</span><span class="o">.</span><span class="n">rays</span><span class="p">)</span><span class="si">}</span><span class="s2"> rays integrated successfully.&quot;</span><span class="p">)</span>
-
-    <span class="n">fig2</span> <span class="o">=</span> <span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result_pt</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">fig2</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
-        <span class="sa">r</span><span class="s2">&quot;Ex 2 — Pöschl–Teller metric  $g = \cosh^2(x)$&quot;</span>
-        <span class="sa">rf</span><span class="s2">&quot;   $\hbar=</span><span class="si">{</span><span class="n">hbar</span><span class="si">}</span><span class="s2">$&quot;</span><span class="p">,</span>
-        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">)</span>
-    <span class="n">plot_ray_fan</span><span class="p">(</span><span class="n">result_pt</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-
-    <span class="c1"># =========================================================================</span>
-    <span class="c1"># Example 3 — 2D Anisotropic Flat Metric</span>
-    <span class="c1"># =========================================================================</span>
-    <span class="c1"># The metric g = diag(1, κ²) with κ &gt; 1 stretches the y-axis by a factor κ,</span>
-    <span class="c1"># making motion in the y-direction effectively slower (heavier).  The</span>
-    <span class="c1"># result is elliptic wavefronts whose semi-axes ratio is κ, and a</span>
-    <span class="c1"># characteristic interference pattern with fringes spaced κ times further</span>
-    <span class="c1"># apart along y than along x.  This is the simplest non-trivial 2D metric</span>
-    <span class="c1"># and provides the clearest demonstration of how geometry shapes the</span>
-    <span class="c1"># wavefunction without the complication of curvature.</span>
-    <span class="c1"># =========================================================================</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">SEP</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Example 3 — 2D Anisotropic flat metric&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  g = diag(1, 4)   (kappa = 2)&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">SEP</span><span class="p">)</span>
-
-    <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">kappa</span>    <span class="o">=</span> <span class="mi">2</span>
-    <span class="n">g_aniso</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">kappa</span><span class="o">**</span><span class="mi">2</span><span class="p">]])</span>
-    <span class="n">metric_aniso</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">g_aniso</span><span class="p">,</span> <span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">))</span>
-
-    <span class="c1"># Circular fan in velocity space — becomes elliptic in position space</span>
-    <span class="n">angles</span>     <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="n">speed</span>      <span class="o">=</span> <span class="mf">1.8</span>
-    <span class="n">v_fan_aniso</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">speed</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">angles</span><span class="p">),</span>
-                                   <span class="n">speed</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">angles</span><span class="p">)])</span>
-
-    <span class="n">result_aniso</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
-        <span class="n">metric</span>    <span class="o">=</span> <span class="n">metric_aniso</span><span class="p">,</span>
-        <span class="n">source</span>    <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
-        <span class="n">v_fan</span>     <span class="o">=</span> <span class="n">v_fan_aniso</span><span class="p">,</span>
-        <span class="n">t_max</span>     <span class="o">=</span> <span class="mf">1.8</span><span class="p">,</span>
-        <span class="n">hbar</span>      <span class="o">=</span> <span class="n">hbar</span><span class="p">,</span>
-        <span class="n">n_steps</span>   <span class="o">=</span> <span class="mi">400</span><span class="p">,</span>
-        <span class="n">N_grid</span>    <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
-        <span class="n">integrator</span><span class="o">=</span> <span class="s1">&#39;verlet&#39;</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result_aniso</span><span class="o">.</span><span class="n">rays</span><span class="p">)</span><span class="si">}</span><span class="s2"> rays integrated successfully.&quot;</span><span class="p">)</span>
-
-    <span class="n">fig4</span> <span class="o">=</span> <span class="n">plot_wavefunction</span><span class="p">(</span><span class="n">result_aniso</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">fig4</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
-        <span class="sa">r</span><span class="s2">&quot;Ex 4 — Anisotropic metric  $g = \mathrm</span><span class="si">{diag}</span><span class="s2">(1,\,4)$&quot;</span>
-        <span class="sa">rf</span><span class="s2">&quot;   $\hbar=</span><span class="si">{</span><span class="n">hbar</span><span class="si">}</span><span class="s2">$&quot;</span><span class="p">,</span>
-        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">)</span>
-    <span class="n">plot_ray_fan</span><span class="p">(</span><span class="n">result_aniso</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">SEP</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;All six examples completed.&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">SEP</span><span class="p">)</span>
 </pre></div>
 
            </div>

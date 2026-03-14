@@ -2532,10 +2532,14 @@ def animate_wavefunction(
             line_re.set_ydata(psi.real)
             for coll in axes[0].collections[:]: coll.remove()
             axes[0].fill_between(x, psi.real, alpha=0.25, color="#4fc3f7")
+            re_max = float(np.max(np.abs(psi.real))) or 1.0
+            axes[0].set_ylim(-1.35 * re_max, 1.35 * re_max)
 
             line_im.set_ydata(psi.imag)
             for coll in axes[1].collections[:]: coll.remove()
             axes[1].fill_between(x, psi.imag, alpha=0.25, color="#ef9a9a")
+            im_max = float(np.max(np.abs(psi.imag))) or 1.0
+            axes[1].set_ylim(-1.35 * im_max, 1.35 * im_max)
 
             line_den.set_ydata(den)
             for coll in axes[2].collections[:]: coll.remove()
@@ -2597,8 +2601,14 @@ def animate_wavefunction(
             psi   = _psi_at(t_idx)
             den   = np.log1p(np.abs(psi)**2) if log_scale else np.abs(psi)**2
 
+            re_max = float(np.max(np.abs(psi.real))) or 1.0
             im_re.set_array(psi.real.ravel())
+            im_re.set_clim(-re_max, re_max)
+
+            im_max = float(np.max(np.abs(psi.imag))) or 1.0
             im_im.set_array(psi.imag.ravel())
+            im_im.set_clim(-im_max, im_max)
+
             im_den.set_array(den.ravel())
             im_phase.set_array(np.angle(psi).ravel())
 
