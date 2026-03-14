@@ -253,6 +253,69 @@ from asymptotic import (
 
 import concurrent.futures
 import multiprocessing
+from scipy.special import pbdv   # parabolic cylinder functions for heat-type caustics
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Equation-type selector
+# ─────────────────────────────────────────────────────────────────────────────
+
+class EquationType:
+    """
+    Selector for the type of PDE solved by :func:`compute_wavefunction`.
+
+    Three first-order-in-time (or second-order) equations are supported.
+    Pass one of these three string constants as the ``equation`` argument:
+
+    ``EquationType.SCHRODINGER``  (default, original behaviour)
+        −i ∂u/∂t = ψOp(p, u)
+
+        WKB ansatz:  u = A exp( i S/ℏ )
+        Phase factor at caustics: exp(−i μ π/2)  (Maslov).
+        Caustic correction: Airy function  Ai(ξ).
+
+    ``EquationType.PARABOLIC``
+        ∂u/∂t = ψOp(p, u)
+
+        WKB ansatz:  u = A exp( S/ℏ )   (real exponent — no i)
+        The action S is accumulated with the *same* classical rays but enters
+        the exponent without the imaginary unit.  Consequently:
+
+        * The solution is real-valued (when the initial data are real).
+        * There are no oscillatory fringes; instead, the solution concentrates
+          exponentially around rays with the largest action.
+        * Caustic corrections use the **parabolic cylinder function** D_{-1/2}
+          (the real-axis analogue of the Airy function for fold caustics).
+        * No Maslov phase — sign changes of det J contribute a real factor
+          |det J|^{-1/2} that diverges, patched by D_{-1/2}.
+
+    ``EquationType.WAVE``
+        ∂²u/∂t² = ψOp(p, u)
+
+        The dispersion relation is  ω² = H(x, p), giving **two branches**:
+        ω₊ = +√H  and  ω₋ = −√H.  For each initial ray direction the code
+        integrates two Hamiltonians, H₊ = +√H and H₋ = −√H, effectively
+        doubling the ray fan.  The wavefunction is the coherent sum:
+
+            u = Σ_{k,±}  A_k exp( i S_k^±/ℏ − i μ_k^± π/2 )
+
+        where S^± = ∫ p · ẋ dt along rays driven by H₊ / H₋.
+
+        This covers:
+        * The scalar wave equation  □u = 0  (H = −|p|²)
+        * Acoustics in an inhomogeneous medium  (H = −c²(x)|p|²)
+        * Any second-order hyperbolic operator.
+
+    Usage::
+
+        result = compute_wavefunction(
+            ...,
+            equation = EquationType.WAVE,
+        )
+    """
+    SCHRODINGER = 'schrodinger'
+    PARABOLIC   = 'parabolic'
+    WAVE        = 'wave'
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -380,6 +443,7 @@ class WKBResult:
     hbar      : float
     t_max     : float
     dim       : int
+    equation  : str = EquationType.SCHRODINGER   # which PDE was solved
 
 
 # ── New internal function that processes a single ray given the already
@@ -394,7 +458,8 @@ def _process_single_ray_internal(
     H_sym,              # sympy.Expr
     vars_phase,         # list of sympy.Symbol
     is_metric_mode,     # bool
-    metric              # Metric or None
+    metric,             # Metric or None
+    equation=EquationType.SCHRODINGER,   # NEW
 ):
     """
     Perform all steps for one ray (integration, Jacobi, action, Maslov)
@@ -540,12 +605,14 @@ def _worker_process_ray(p0, source, t_max, hbar, n_steps, integrator, worker_dat
         'mode' : 'metric' or 'hamiltonian'
         'dim' : 1 or 2
         'coords' : tuple of sympy.Symbol
+        'equation' : str  (EquationType constant)
         and either
             'g_expr' / 'g_matrix' (for metric mode)
         or
             'H_expr', 'momenta' (for hamiltonian mode)
     """
     try:
+        equation = worker_data.get('equation', EquationType.SCHRODINGER)
         if worker_data['mode'] == 'metric':
             dim = worker_data['dim']
             coords = worker_data['coords']
@@ -570,7 +637,8 @@ def _worker_process_ray(p0, source, t_max, hbar, n_steps, integrator, worker_dat
 
         return _process_single_ray_internal(
             p0, source, t_max, hbar, n_steps, integrator,
-            H_sym, vars_phase, is_metric_mode, metric_obj)
+            H_sym, vars_phase, is_metric_mode, metric_obj,
+            equation=equation)
     except Exception:
         return None
 
@@ -1406,6 +1474,331 @@ def van_vleck_sum(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 5b — Parabolic (heat-type) coherent sum   ∂u/∂t = ψOp u
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _pcf_argument(x_local: np.ndarray, hbar: float, alpha: float) -> np.ndarray:
+    """
+    Map the local coordinate x_local = x − x_c to the argument of the
+    parabolic cylinder function D_{-1/2}(ζ) used near a fold caustic of the
+    **parabolic (heat-type)** equation.
+
+    Background
+    ----------
+    For the heat-type PDE  ∂u/∂t = ψOp u  the WKB amplitude is
+    A = exp(S/ℏ) / √|det J|, real-valued.  Near a fold caustic the uniform
+    approximation replaces the singular √|det J| by the parabolic cylinder
+    function  D_{-1/2}(ζ)  (real axis), with argument
+
+        ζ(x) = (α / ℏ)^{1/4} · (x − x_c)
+
+    where α = d(det J)/dx is the local slope of the Jacobi determinant.
+    The ℏ^{1/4} fringe scale is coarser than the WKB scale ℏ, consistent
+    with the real (diffusive) nature of the equation.
+
+    Parameters
+    ----------
+    x_local : np.ndarray   (x − x_c)
+    hbar    : float
+    alpha   : float        (d det_J / dx at caustic)
+
+    Returns
+    -------
+    zeta : np.ndarray
+    """
+    scale = (abs(alpha) / hbar) ** 0.25
+    return np.sign(alpha) * scale * x_local
+
+
+def _parabolic_correction_1d(
+    x_caustic : float,
+    S_caustic : float,
+    a_caustic : float,
+    dJ_ds     : float,
+    hbar      : float,
+    x_grid    : np.ndarray,
+    width     : float,
+) -> np.ndarray:
+    """
+    Replace the real WKB amplitude near a 1D fold caustic with the uniform
+    **parabolic cylinder** approximation for the heat-type equation.
+
+    For ∂u/∂t = ψOp u the leading-order WKB approximation is
+
+        u(x) ≈ A_c · ℏ^{1/4} |α|^{-1/4} · D_{-1/2}(ζ(x)) · exp(S_c/ℏ)
+
+    where D_{-1/2} is the parabolic cylinder function of order −½ and
+    ζ(x) = (α/ℏ)^{1/4}(x − x_c).  There is no imaginary unit; the solution
+    remains real.
+
+    The scipy implementation ``pbdv(ν, ζ)`` returns (D_ν(ζ), D_ν'(ζ)); we
+    use ν = −½.
+
+    Parameters
+    ----------
+    (identical layout to :func:`_asymptotic_correction_1d`)
+
+    Returns
+    -------
+    patch : np.ndarray (real, cast to complex for uniform API)
+    """
+    patch = np.zeros_like(x_grid, dtype=complex)
+    mask  = np.abs(x_grid - x_caustic) < width
+    if not np.any(mask):
+        return patch
+
+    x_local = x_grid[mask] - x_caustic
+    alpha   = float(dJ_ds) if abs(dJ_ds) > 1e-12 else 1.0
+
+    zeta     = _pcf_argument(x_local, hbar, alpha)
+    D_vals, _ = pbdv(-0.5, zeta)          # D_{-1/2}(ζ)
+
+    # Uniform prefactor  A_c · ℏ^{1/4} |α|^{-1/4}
+    prefactor = a_caustic * (hbar ** 0.25) * (abs(alpha) ** (-0.25))
+    carrier   = np.exp(S_caustic / hbar)   # real exponential (no i)
+    taper     = np.cos(np.pi / 2.0 * x_local / width) ** 2
+
+    patch[mask] = (prefactor * D_vals * carrier * taper).astype(complex)
+    return patch
+
+
+def _parabolic_correction_2d(
+    x_caustic : float,
+    y_caustic : float,
+    S_caustic : float,
+    a_caustic : float,
+    dJ_dx     : float,
+    dJ_dy     : float,
+    hbar      : float,
+    X_grid    : np.ndarray,
+    Y_grid    : np.ndarray,
+    width     : float,
+) -> np.ndarray:
+    """
+    Apply the parabolic cylinder correction at a 2D fold caustic for the
+    heat-type equation.
+
+    Fold caustic: the correction is applied along the transverse direction
+    n̂ = ∇det J / |∇det J|, exactly as in the Schrödinger case, but using
+    D_{-1/2}(ζ) instead of Ai(ξ) and a real exponential carrier.
+
+    Cusp caustic (|∇det J| ≈ 0): a scalar D_{-1/2}(0) value spread with a
+    Gaussian taper (same strategy as the Pearcey fallback in Schrödinger).
+    """
+    patch = np.zeros_like(X_grid, dtype=complex)
+    r2    = (X_grid - x_caustic)**2 + (Y_grid - y_caustic)**2
+    mask  = r2 < width**2
+    if not np.any(mask):
+        return patch
+
+    grad_norm = np.hypot(dJ_dx, dJ_dy)
+    carrier   = float(np.exp(S_caustic / hbar))
+
+    if grad_norm < 1e-10:
+        # Cusp: scalar PCF value spread with Gaussian
+        D_val, _ = pbdv(-0.5, np.array([0.0]))
+        scalar   = float(a_caustic * (hbar ** 0.25) * D_val[0] * carrier)
+        gauss    = np.exp(-r2 / (0.5 * width)**2)
+        patch[mask] = (scalar * gauss[mask]).astype(complex)
+        return patch
+
+    # Fold: transverse direction
+    nx = dJ_dx / grad_norm
+    ny = dJ_dy / grad_norm
+    dx_arr = X_grid[mask] - x_caustic
+    dy_arr = Y_grid[mask] - y_caustic
+    r_perp  = nx * dx_arr + ny * dy_arr
+
+    alpha    = grad_norm
+    zeta     = _pcf_argument(r_perp, hbar, alpha)
+    D_vals, _ = pbdv(-0.5, zeta)
+
+    prefactor = a_caustic * (hbar ** 0.25) * (abs(alpha) ** (-0.25))
+    taper     = np.exp(-r2[mask] / (0.5 * width)**2)
+    patch[mask] = (prefactor * D_vals * carrier * taper).astype(complex)
+    return patch
+
+
+def parabolic_sum(
+    pts    : np.ndarray,
+    S      : np.ndarray,
+    det_J  : np.ndarray,
+    xlim   : Tuple[float, float],
+    ylim   : Optional[Tuple[float, float]] = None,
+    N      : int   = 300,
+    hbar   : float = 1.0,
+    reg    : float = 1e-4,
+    method : str   = 'linear',
+    caustic_threshold : float = 0.05,
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """
+    Assemble the semiclassical solution for the **parabolic (heat-type)**
+    equation  ∂u/∂t = ψOp u  on a regular grid.
+
+    WKB formula
+    -----------
+    Unlike the Schrödinger case there is no imaginary unit in the exponent:
+
+        u_k(x) = exp( S_k(x)/ℏ ) / √max(|det J_k|, reg)
+
+    The real exponential means:
+
+    * Rays with larger action dominate exponentially.
+    * There are no oscillatory fringes between ray contributions.
+    * At caustics the amplitude diverges as in the Schrödinger case, but is
+      patched with the parabolic cylinder function D_{-1/2} instead of Ai.
+    * The Maslov index is irrelevant (no phase); sign changes of det J are
+      handled by the absolute value and the caustic patch.
+
+    The interpolation strategy is identical to :func:`van_vleck_sum`.
+
+    Parameters
+    ----------
+    pts, S, det_J, xlim, ylim, N, hbar, reg, method, caustic_threshold :
+        Same meaning as in :func:`van_vleck_sum`.  Note: ``mu`` is not
+        required for the parabolic equation.
+
+    Returns
+    -------
+    u, X, Y : same layout as :func:`van_vleck_sum`.
+    """
+    abs_det = np.abs(det_J)
+    amp     = 1.0 / np.sqrt(np.maximum(abs_det, reg))
+    u_k     = amp * np.exp(S / hbar)          # real — no i, no Maslov
+
+    det_max   = abs_det.max() if abs_det.max() > 0 else 1.0
+    near_caus = abs_det < caustic_threshold * det_max
+
+    if ylim is None:
+        # ── 1D ───────────────────────────────────────────────────────────────
+        x_grid = np.linspace(*xlim, N)
+        order  = np.argsort(pts[:, 0])
+        xs, uk_ord = pts[order, 0], u_k[order]
+        u = (np.interp(x_grid, xs, uk_ord.real, left=0, right=0)
+           + 1j * np.interp(x_grid, xs, uk_ord.imag, left=0, right=0))
+
+        if np.any(near_caus):
+            caus_xs = pts[near_caus, 0]
+            span    = xlim[1] - xlim[0]
+            for xc in caus_xs[np.argsort(caus_xs)]:
+                idx_c = np.argmin(np.abs(pts[:, 0] - xc))
+                S_c   = float(S[idx_c])
+                a_c   = float(amp[idx_c]) * float(det_max) ** 0.5
+                nearby = np.abs(pts[:, 0] - xc) < 0.05 * span
+                dJ_ds = (float(np.gradient(det_J[nearby],
+                                           pts[nearby, 0]).mean())
+                         if nearby.sum() >= 2 else 1.0)
+                width = max(0.04 * span, 3 * (x_grid[1] - x_grid[0]))
+                patch = _parabolic_correction_1d(
+                    xc, S_c, a_c, dJ_ds, hbar, x_grid, width)
+                blend = np.abs(patch) > 0
+                u[blend] = patch[blend]
+        return u, x_grid, None
+
+    else:
+        # ── 2D ───────────────────────────────────────────────────────────────
+        xs, ys = np.linspace(*xlim, N), np.linspace(*ylim, N)
+        X, Y   = np.meshgrid(xs, ys)
+        grid   = np.c_[X.ravel(), Y.ravel()]
+        kw     = dict(points=pts, xi=grid, method=method, fill_value=0.0)
+        u      = (griddata(values=u_k.real, **kw)
+                + 1j * griddata(values=u_k.imag, **kw)).reshape(N, N)
+
+        if np.any(near_caus):
+            span_x = xlim[1] - xlim[0]
+            span_y = ylim[1] - ylim[0]
+            span   = min(span_x, span_y)
+            for idx_c in np.where(near_caus)[0]:
+                xc  = float(pts[idx_c, 0])
+                yc  = float(pts[idx_c, 1])
+                S_c = float(S[idx_c])
+                a_c = float(amp[idx_c]) * float(det_max) ** 0.5
+                nearby = ((np.abs(pts[:, 0] - xc) < 0.05 * span_x) &
+                          (np.abs(pts[:, 1] - yc) < 0.05 * span_y))
+                if nearby.sum() >= 3:
+                    dJ_dx = float(np.gradient(det_J[nearby],
+                                              pts[nearby, 0]).mean())
+                    dJ_dy = float(np.gradient(det_J[nearby],
+                                              pts[nearby, 1]).mean())
+                else:
+                    dJ_dx, dJ_dy = 1.0, 0.0
+                width = max(0.04 * span, 3 * (xs[1] - xs[0]))
+                patch = _parabolic_correction_2d(
+                    xc, yc, S_c, a_c, dJ_dx, dJ_dy, hbar, X, Y, width)
+                blend = np.abs(patch) > 0
+                u[blend] = patch[blend]
+        return u, X, Y
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5c — Wave (hyperbolic) coherent sum   ∂²u/∂t² = ψOp u
+# ─────────────────────────────────────────────────────────────────────────────
+
+def wave_sum(
+    pts_plus  : np.ndarray,
+    S_plus    : np.ndarray,
+    det_J_plus: np.ndarray,
+    mu_plus   : np.ndarray,
+    pts_minus : np.ndarray,
+    S_minus   : np.ndarray,
+    det_J_minus: np.ndarray,
+    mu_minus  : np.ndarray,
+    xlim      : Tuple[float, float],
+    ylim      : Optional[Tuple[float, float]] = None,
+    N         : int   = 300,
+    hbar      : float = 1.0,
+    reg       : float = 1e-4,
+    method    : str   = 'linear',
+    caustic_threshold : float = 0.05,
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """
+    Assemble the semiclassical wavefunction for the **wave (hyperbolic)**
+    equation  ∂²u/∂t² = ψOp u  on a regular grid.
+
+    Two-branch structure
+    --------------------
+    The dispersion relation ω² = H factors into two branches H₊ = +√H and
+    H₋ = −√H, each generating its own family of classical rays.  The
+    wavefunction is the coherent superposition:
+
+        u(x) = Σ_{k∈H₊}  A_k exp(i S_k⁺/ℏ − i μ_k⁺ π/2)
+             + Σ_{k∈H₋}  A_k exp(i S_k⁻/ℏ − i μ_k⁻ π/2)
+
+    where S_k^± = ∫₀ᵗ p · ẋ dt′ along the respective branch rays.  Each
+    branch is summed via :func:`van_vleck_sum`, then the two grids are added.
+
+    Caustic corrections (Airy / Pearcey) are applied independently on each
+    branch before superposition.
+
+    Parameters
+    ----------
+    pts_plus, S_plus, det_J_plus, mu_plus :
+        Scattered ray data for the H₊ = +√H branch.
+    pts_minus, S_minus, det_J_minus, mu_minus :
+        Scattered ray data for the H₋ = −√H branch.
+    xlim, ylim, N, hbar, reg, method, caustic_threshold :
+        Grid and numerical parameters (same as :func:`van_vleck_sum`).
+
+    Returns
+    -------
+    u, X, Y : same layout as :func:`van_vleck_sum`.
+    """
+    u_plus,  X, Y = van_vleck_sum(
+        pts_plus,  S_plus,  det_J_plus,  mu_plus,
+        xlim=xlim, ylim=ylim, N=N, hbar=hbar,
+        reg=reg, method=method,
+        caustic_threshold=caustic_threshold,
+    )
+    u_minus, _, _ = van_vleck_sum(
+        pts_minus, S_minus, det_J_minus, mu_minus,
+        xlim=xlim, ylim=ylim, N=N, hbar=hbar,
+        reg=reg, method=method,
+        caustic_threshold=caustic_threshold,
+    )
+    return u_plus + u_minus, X, Y
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 6 — Full pipeline
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1473,6 +1866,116 @@ def _build_hamiltonian_sym(metric: Metric) -> Tuple[sp.Expr, list]:
                 + 2 * g_inv[0, 1] * xi * eta
                 + g_inv[1, 1] * eta**2) / 2
         return H, [x, xi, y, eta]
+
+
+def _build_wave_hamiltonians(
+    H_sym      : sp.Expr,
+    vars_phase : list,
+) -> Tuple[sp.Expr, sp.Expr]:
+    """
+    Construct the two smooth dispersion branches H₊ and H₋ for the wave
+    equation  ∂²u/∂t² = ψOp(p, u).
+
+    Physical background
+    -------------------
+    The WKB ansatz u = A exp(i S/ℏ) reduces the wave PDE to the eikonal
+    equation  (∂S/∂t)² = H(x, ∇S), which factors into two branches:
+
+        H₊ =  +√H    (forward-propagating)
+        H₋ =  −√H    (backward-propagating)
+
+    The wavefunction is the coherent sum over both ray families.
+
+    The differentiability problem
+    -----------------------------
+    The naïve ``sp.sqrt(H)`` fails for the most common wave Hamiltonians.
+    For  H = f(x)·ξ²  (1D acoustic):  √H = √f·|ξ|, which is non-differentiable
+    at ξ = 0 — the symplectic integrator needs ∂H/∂ξ = √f·sign(ξ), which is
+    discontinuous.  This makes every ray fail with a numerical error near p = 0.
+
+    Solution — analytic factoring by momentum degree
+    -------------------------------------------------
+    1. **1D quadratic**  H = a(x)·ξ²:
+       Return  H± = ±√a(x)·ξ  (linear, smooth everywhere).
+       The signed form is correct because the ray fan covers both ξ > 0 and
+       ξ < 0, so both propagation directions are represented without |ξ|.
+
+    2. **2D quadratic form**  H = a·ξ² + 2b·ξη + c·η²:
+       Use sp.sqrt directly — SymPy often simplifies positive-definite forms.
+
+    3. **Perfect square**  H = expr²:
+       Return ±expr immediately.
+
+    4. **Fallback**: assume momenta positive, take sqrt, restore unsigned symbols.
+
+    Parameters
+    ----------
+    H_sym : sp.Expr
+        Spatial Hamiltonian H(x, p) ≥ 0 on the real phase space.
+    vars_phase : list of sp.Symbol
+        Phase-space variables [x, ξ] (1D) or [x, ξ, y, η] (2D).
+
+    Returns
+    -------
+    H_plus, H_minus : sp.Expr, sp.Expr
+        Smooth branch Hamiltonians for ``hamiltonian_flow``.
+    """
+    # Extract momentum symbols (every second entry of vars_phase)
+    mom_syms = vars_phase[1::2]   # [ξ] or [ξ, η]
+
+    # ── Step 1: simplify H ────────────────────────────────────────────────────
+    H_simplified = sp.powsimp(sp.expand(H_sym), force=True)
+
+    # ── Step 2: 1D purely-quadratic case  H = a(x)·ξ²  →  H± = ±√a(x)·ξ ────
+    # This is the most common wave Hamiltonian (acoustic, Schrödinger symbol).
+    # √(a·ξ²) = √a·|ξ| is NOT smooth; use ±√a·ξ (signed, linear in ξ).
+    # The fan covers both ξ>0 and ξ<0, so both propagation directions are
+    # represented without needing |ξ|.
+    if len(mom_syms) == 1:
+        xi = mom_syms[0]
+        try:
+            poly_H = sp.Poly(H_simplified, xi)
+            if poly_H.total_degree() == 2:
+                a = poly_H.nth(2)   # coeff of ξ²
+                b = poly_H.nth(1)   # coeff of ξ  (should be 0 for even H)
+                c = poly_H.nth(0)   # constant in ξ (should be 0)
+                if b == 0 and c == 0 and a != 0:
+                    sqrt_a  = sp.sqrt(sp.simplify(a))
+                    return sqrt_a * xi, -sqrt_a * xi
+        except Exception:
+            pass
+
+    # ── Step 3: 2D  H = a·ξ² + 2b·ξ·η + c·η²  →  use sp.sqrt(H) directly ──
+    # For the diagonal case H = a·ξ² + c·η² the branches are not linear in
+    # momenta, but sp.sqrt of a positive-definite quadratic form is smooth
+    # everywhere except the origin (which is never reached by non-trivial rays).
+    # SymPy can handle this symbolically when a, c are positive.
+    if len(mom_syms) == 2:
+        xi, eta = mom_syms
+        try:
+            poly_H = sp.Poly(H_simplified, xi, eta)
+            if poly_H.total_degree() == 2:
+                # Attempt direct sqrt — SymPy may simplify to a clean expression
+                sqrt_H = sp.sqrt(H_simplified)
+                sqrt_H_s = sp.simplify(sqrt_H)
+                return sqrt_H_s, -sqrt_H_s
+        except Exception:
+            pass
+
+    # ── Step 4: check if H is already a perfect square  (H = expr²) ─────────
+    H_factored = sp.factor(H_simplified)
+    if H_factored.is_Pow and H_factored.exp == 2:
+        base = H_factored.base
+        return base, -base
+
+    # ── Step 5: assume momenta positive, take sqrt, restore signs ────────────
+    # Replaces |p| by p in the final expression (valid since fan covers ±p).
+    pos_subs = {p: sp.Symbol(str(p), positive=True) for p in mom_syms}
+    H_pos    = H_simplified.subs(pos_subs)
+    sqrt_pos = sp.sqrt(H_pos)
+    inv_subs = {v: k for k, v in pos_subs.items()}
+    H_plus   = sqrt_pos.subs(inv_subs)
+    return H_plus, -H_plus
 
 
 def _resolve_hamiltonian(
@@ -1687,6 +2190,8 @@ def compute_wavefunction(
     p_fan        : Optional[np.ndarray] = None,
     # ── parallel execution control ────────────────────────────
     parallel     : bool = True,
+    # ── equation type ─────────────────────────────────────────
+    equation     : str  = EquationType.SCHRODINGER,
 ) -> WKBResult:
     """
     Compute the semiclassical (Van Vleck–Pauli–Morette) wavefunction.
@@ -1882,6 +2387,7 @@ def compute_wavefunction(
             'mode': 'metric',
             'dim': dim,
             'coords': metric.coords,
+            'equation': equation,
         }
         if dim == 1:
             worker_data['g_expr'] = metric.g_expr
@@ -1894,96 +2400,185 @@ def compute_wavefunction(
             'coords': coords,
             'momenta': momenta,
             'H_expr': hamiltonian,
+            'equation': equation,
         }
+
+    # ── For the wave equation: build the two branch Hamiltonians ─────────────
+    if equation == EquationType.WAVE:
+        H_plus_sym, H_minus_sym = _build_wave_hamiltonians(H_sym, vars_phase)
+        worker_data_plus  = dict(worker_data)
+        worker_data_minus = dict(worker_data)
+        if is_metric_mode:
+            # Replace with branch Hamiltonians in hamiltonian-mode worker format
+            worker_data_plus = {
+                'mode': 'hamiltonian', 'dim': dim,
+                'coords': tuple(vars_phase[::2]),
+                'momenta': tuple(vars_phase[1::2]),
+                'H_expr': H_plus_sym,
+                'equation': equation,
+            }
+            worker_data_minus = dict(worker_data_plus)
+            worker_data_minus['H_expr'] = H_minus_sym
+        else:
+            worker_data_plus['H_expr']  = H_plus_sym
+            worker_data_minus['H_expr'] = H_minus_sym
+
+    def _run_fan(wdata):
+        """Integrate a full ray fan with the given worker_data."""
+        result_rays = []
+        if parallel:
+            ctx = multiprocessing.get_context('spawn')
+            with concurrent.futures.ProcessPoolExecutor(
+                max_workers=None, mp_context=ctx
+            ) as executor:
+                future_to_idx = {
+                    executor.submit(
+                        _worker_process_ray,
+                        p, source, t_max, hbar, n_steps, integrator, wdata
+                    ): i for i, p in enumerate(fan)
+                }
+                for future in concurrent.futures.as_completed(future_to_idx):
+                    r = future.result()
+                    if r is not None:
+                        result_rays.append(r)
+        else:
+            # resolve H_sym for sequential run
+            if wdata['mode'] == 'metric':
+                if wdata['dim'] == 1:
+                    _m = Metric(wdata['g_expr'], wdata['coords'])
+                else:
+                    _m = Metric(wdata['g_matrix'], wdata['coords'])
+                _H, _vp = _build_hamiltonian_sym(_m)
+                _is_m, _m_obj = True, _m
+            else:
+                _dim = wdata['dim']
+                _c, _p = wdata['coords'], wdata['momenta']
+                _H = wdata['H_expr']
+                _vp = ([_c[0], _p[0]] if _dim == 1
+                       else [_c[0], _p[0], _c[1], _p[1]])
+                _is_m, _m_obj = False, None
+            for p in fan:
+                r = _process_single_ray_internal(
+                    p, source, t_max, hbar, n_steps, integrator,
+                    _H, _vp, _is_m, _m_obj,
+                    equation=wdata.get('equation', EquationType.SCHRODINGER))
+                if r is not None:
+                    result_rays.append(r)
+        return result_rays
 
     rays = []
     first_exc = None
 
-    if parallel:
-        # Parallel execution using ProcessPoolExecutor with 'spawn' context
-        ctx = multiprocessing.get_context('spawn')
-        with concurrent.futures.ProcessPoolExecutor(
-            max_workers=None,
-            mp_context=ctx
-        ) as executor:
-            # Submit all rays
-            future_to_idx = {
-                executor.submit(
-                    _worker_process_ray,
-                    p, source, t_max, hbar, n_steps, integrator, worker_data
-                ): i for i, p in enumerate(fan)
-            }
-            for future in concurrent.futures.as_completed(future_to_idx):
-                result = future.result()
-                if result is not None:
-                    rays.append(result)
-                # (Optionally store the first exception if needed, but worker returns None on failure)
+    if equation == EquationType.WAVE:
+        # Integrate both branches
+        rays_plus  = _run_fan(worker_data_plus)
+        rays_minus = _run_fan(worker_data_minus)
+        if not rays_plus and not rays_minus:
+            raise RuntimeError("All rays failed to integrate on both wave branches.")
+        # Keep all rays for result (tagged by sign attribute below)
+        rays = rays_plus + rays_minus
     else:
-        # Sequential execution (original loop)
-        # Build H_sym and vars_phase once (already done by _resolve_hamiltonian earlier)
-        # We need to have H_sym, vars_phase, metric (if any) accessible.
-        # In the original code, these were built before the loop.
-        # We'll replicate that here (already present after _resolve_hamiltonian).
-        # Actually, after _resolve_hamiltonian we have H_sym, vars_phase, dim.
-        # We also have metric if is_metric_mode.
-        # So we can just loop.
-        for p in fan:
-            result = _process_single_ray_internal(
-                p, source, t_max, hbar, n_steps, integrator,
-                H_sym, vars_phase, is_metric_mode,
-                metric if is_metric_mode else None
-            )
-            if result is not None:
-                rays.append(result)
-            # (first_exc not captured; errors are swallowed in internal function)
+        rays = _run_fan(worker_data)
 
     if not rays:
-        msg = "All rays failed to integrate."
-        if first_exc is not None:
-            msg += f"  First exception: {type(first_exc).__name__}: {first_exc}"
-        raise RuntimeError(msg)
+        raise RuntimeError("All rays failed to integrate.")
 
     # ── collect scattered data ────────────────────────────────────────────────
     # All per-ray arrays (det_J, S_cum, traj) were trimmed to the same length
     # before appending, so simple concatenation is safe.
+
+    def _collect_1d(ray_list, vp):
+        x_s = str(vp[0])
+        x_a  = np.concatenate([r.traj[x_s]              for r in ray_list])
+        S_a  = np.concatenate([r.S_cum                   for r in ray_list])
+        dJ_a = np.concatenate([r.det_J                   for r in ray_list])
+        mu_a = np.concatenate([np.full(len(r.det_J), r.mu) for r in ray_list])
+        return x_a, S_a, dJ_a, mu_a
+
+    def _collect_2d(ray_list, vp):
+        x_s, y_s = str(vp[0]), str(vp[2])
+        x_a  = np.concatenate([r.traj[x_s]              for r in ray_list])
+        y_a  = np.concatenate([r.traj[y_s]              for r in ray_list])
+        S_a  = np.concatenate([r.S_cum                   for r in ray_list])
+        dJ_a = np.concatenate([r.det_J                   for r in ray_list])
+        mu_a = np.concatenate([np.full(len(r.det_J), r.mu) for r in ray_list])
+        return x_a, y_a, S_a, dJ_a, mu_a
+
     if dim == 1:
-        x_sym_str = str(vars_phase[0])
-        x_all  = np.concatenate([r.traj[x_sym_str] for r in rays])
-        S_all  = np.concatenate([r.S_cum            for r in rays])
-        dJ_all = np.concatenate([r.det_J            for r in rays])
-        mu_all = np.concatenate([np.full(len(r.det_J), r.mu) for r in rays])
-        pts    = x_all[:, None]
-        if xlim is None:
-            m = 0.1 * (x_all.max() - x_all.min())
-            xlim = (x_all.min() - m, x_all.max() + m)
-        psi, X, Y = van_vleck_sum(pts, S_all, dJ_all, mu_all,
-                                   xlim=xlim, N=N_grid, hbar=hbar)
+        if equation == EquationType.WAVE:
+            x_p, S_p, dJ_p, mu_p = _collect_1d(rays_plus,  vars_phase)
+            x_m, S_m, dJ_m, mu_m = _collect_1d(rays_minus, vars_phase)
+            x_all  = np.concatenate([x_p, x_m])
+            S_all  = np.concatenate([S_p, S_m])
+            dJ_all = np.concatenate([dJ_p, dJ_m])
+            mu_all = np.concatenate([mu_p, mu_m])
+            pts_p  = x_p[:, None];  pts_m = x_m[:, None]
+            pts    = x_all[:, None]
+            if xlim is None:
+                m = 0.1 * (x_all.max() - x_all.min())
+                xlim = (x_all.min() - m, x_all.max() + m)
+            psi, X, Y = wave_sum(
+                pts_p, S_p, dJ_p, mu_p,
+                pts_m, S_m, dJ_m, mu_m,
+                xlim=xlim, N=N_grid, hbar=hbar)
+        else:
+            x_all, S_all, dJ_all, mu_all = _collect_1d(rays, vars_phase)
+            pts = x_all[:, None]
+            if xlim is None:
+                m = 0.1 * (x_all.max() - x_all.min())
+                xlim = (x_all.min() - m, x_all.max() + m)
+            if equation == EquationType.PARABOLIC:
+                psi, X, Y = parabolic_sum(
+                    pts, S_all, dJ_all, xlim=xlim, N=N_grid, hbar=hbar)
+            else:
+                psi, X, Y = van_vleck_sum(
+                    pts, S_all, dJ_all, mu_all, xlim=xlim, N=N_grid, hbar=hbar)
         return WKBResult(rays=rays, X=X, Y=Y, psi=psi,
                          x_pts=x_all, y_pts=None,
                          S_pts=S_all, det_J_pts=dJ_all, mu_pts=mu_all,
-                         hbar=hbar, t_max=t_max, dim=1)
+                         hbar=hbar, t_max=t_max, dim=1, equation=equation)
 
     else:
-        x_sym_str = str(vars_phase[0])
-        y_sym_str = str(vars_phase[2])
-        x_all  = np.concatenate([r.traj[x_sym_str] for r in rays])
-        y_all  = np.concatenate([r.traj[y_sym_str] for r in rays])
-        S_all  = np.concatenate([r.S_cum            for r in rays])
-        dJ_all = np.concatenate([r.det_J            for r in rays])
-        mu_all = np.concatenate([np.full(len(r.det_J), r.mu) for r in rays])
-        pts    = np.c_[x_all, y_all]
-        if xlim is None:
-            mx = 0.1 * (x_all.max() - x_all.min())
-            xlim = (x_all.min() - mx, x_all.max() + mx)
-        if ylim is None:
-            my = 0.1 * (y_all.max() - y_all.min())
-            ylim = (y_all.min() - my, y_all.max() + my)
-        psi, X, Y = van_vleck_sum(pts, S_all, dJ_all, mu_all,
-                                   xlim=xlim, ylim=ylim, N=N_grid, hbar=hbar)
+        if equation == EquationType.WAVE:
+            x_p, y_p, S_p, dJ_p, mu_p = _collect_2d(rays_plus,  vars_phase)
+            x_m, y_m, S_m, dJ_m, mu_m = _collect_2d(rays_minus, vars_phase)
+            x_all  = np.concatenate([x_p, x_m])
+            y_all  = np.concatenate([y_p, y_m])
+            S_all  = np.concatenate([S_p, S_m])
+            dJ_all = np.concatenate([dJ_p, dJ_m])
+            mu_all = np.concatenate([mu_p, mu_m])
+            pts_p  = np.c_[x_p, y_p];  pts_m = np.c_[x_m, y_m]
+            if xlim is None:
+                mx = 0.1 * (x_all.max() - x_all.min())
+                xlim = (x_all.min() - mx, x_all.max() + mx)
+            if ylim is None:
+                my = 0.1 * (y_all.max() - y_all.min())
+                ylim = (y_all.min() - my, y_all.max() + my)
+            psi, X, Y = wave_sum(
+                pts_p, S_p, dJ_p, mu_p,
+                pts_m, S_m, dJ_m, mu_m,
+                xlim=xlim, ylim=ylim, N=N_grid, hbar=hbar)
+        else:
+            x_all, y_all, S_all, dJ_all, mu_all = _collect_2d(rays, vars_phase)
+            pts = np.c_[x_all, y_all]
+            if xlim is None:
+                mx = 0.1 * (x_all.max() - x_all.min())
+                xlim = (x_all.min() - mx, x_all.max() + mx)
+            if ylim is None:
+                my = 0.1 * (y_all.max() - y_all.min())
+                ylim = (y_all.min() - my, y_all.max() + my)
+            if equation == EquationType.PARABOLIC:
+                psi, X, Y = parabolic_sum(
+                    pts, S_all, dJ_all,
+                    xlim=xlim, ylim=ylim, N=N_grid, hbar=hbar)
+            else:
+                psi, X, Y = van_vleck_sum(
+                    pts, S_all, dJ_all, mu_all,
+                    xlim=xlim, ylim=ylim, N=N_grid, hbar=hbar)
         return WKBResult(rays=rays, X=X, Y=Y, psi=psi,
                          x_pts=x_all, y_pts=y_all,
                          S_pts=S_all, det_J_pts=dJ_all, mu_pts=mu_all,
-                         hbar=hbar, t_max=t_max, dim=2)
+                         hbar=hbar, t_max=t_max, dim=2, equation=equation)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1992,6 +2587,52 @@ def compute_wavefunction(
 
 _BG   = "#0e0e1a"
 _DARK = "#444"
+
+# Known momentum / non-position trajectory keys that must never be mistaken
+# for coordinate keys.  This explicit set is used by every plotting and
+# animation function to detect the actual position keys stored in ray.traj,
+# regardless of what coordinate names the user chose (x, y, theta, phi, r, …).
+_KNOWN_NON_POS = frozenset({
+    't', 'energy',
+    'xi', 'eta',               # standard momentum symbols used internally
+    'px', 'py', 'pz',          # alternative momentum names
+    'p', 'p1', 'p2', 'p3',
+    'vx', 'vy', 'vz',          # velocity components stored by some integrators
+    'v',
+})
+
+
+def _pos_keys(traj: dict, dim: int):
+    """
+    Return the position key(s) from a trajectory dictionary.
+
+    Filters out all known non-position keys (momenta, velocities, time,
+    energy) by exact match against ``_KNOWN_NON_POS``.  The remaining keys
+    are returned in insertion order (Python 3.7+ dict ordering), which
+    matches the order in which ``hamiltonian_flow`` stores coordinates.
+
+    Unlike the previous ``'p' not in k`` substring test, this approach is
+    safe for coordinate names that contain the letter 'p' — most importantly
+    ``'phi'`` for spherical / polar coordinates.
+
+    Parameters
+    ----------
+    traj : dict
+        Trajectory dictionary from ``RayData.traj``.
+    dim : int
+        Expected spatial dimension (1 or 2).
+
+    Returns
+    -------
+    x_key : str          (always)
+    y_key : str or None  (None when dim == 1)
+    """
+    pos = [k for k in traj if k not in _KNOWN_NON_POS]
+    if dim == 1:
+        return (pos[0] if pos else 'x'), None
+    if len(pos) >= 2:
+        return pos[0], pos[1]
+    return 'x', 'y'   # last-resort fallback (should never be reached)
 
 def _style(fig, axes):
     """
@@ -2064,45 +2705,71 @@ def plot_wavefunction(result: WKBResult, log_scale=True,
 
 def _plot_1d(result: WKBResult, log_scale: bool, save_path) -> plt.Figure:
     x, psi = result.X, result.psi
-    den    = np.log1p(np.abs(psi)**2) if log_scale else np.abs(psi)**2
-    dlabel = r"$\log(1+|\psi|^2)$" if log_scale else r"$|\psi|^2$"
+    eq = result.equation
+
+    # ── choose display quantity based on equation type ────────────────────────
+    if eq == EquationType.PARABOLIC:
+        # Real-valued solution: display the real part as primary
+        primary     = psi.real
+        pri_label   = r"$u(x)$  [Re]"
+        density     = np.log1p(primary**2) if log_scale else primary**2
+        den_label   = (r"$\log(1+u^2)$" if log_scale else r"$u^2$")
+        phase_label = r"$\log|u|$"
+        phase_data  = np.log1p(np.abs(psi))
+    else:
+        primary     = psi
+        pri_label   = (r"$\log(1+|\psi|^2)$" if log_scale else r"$|\psi|^2$")
+        density     = np.log1p(np.abs(psi)**2) if log_scale else np.abs(psi)**2
+        den_label   = pri_label
+        phase_label = r"Phase $\arg(\psi)$"
+        phase_data  = np.angle(psi)
+
+    _EQ_TITLES = {
+        EquationType.SCHRODINGER: r"Van Vleck wavefunction  $-i\,\partial_t u = \psi\mathrm{Op}\,u$",
+        EquationType.PARABOLIC:   r"Semiclassical heat kernel  $\partial_t u = \psi\mathrm{Op}\,u$",
+        EquationType.WAVE:        r"Semiclassical wave solution  $\partial_{tt} u = \psi\mathrm{Op}\,u$",
+    }
 
     fig = plt.figure(figsize=(16, 8))
     gs  = GridSpec(2, 4, fig, hspace=0.45, wspace=0.38)
 
     ax0 = fig.add_subplot(gs[0, 0:2])
-    ax0.fill_between(x, den, alpha=0.8, color=plt.cm.inferno(0.65))
-    ax0.plot(x, den, lw=0.9, color="white", alpha=0.55)
-    ax0.set(title=dlabel, xlabel="$x$", ylabel=dlabel)
+    ax0.fill_between(x, density, alpha=0.8, color=plt.cm.inferno(0.65))
+    ax0.plot(x, density, lw=0.9, color="white", alpha=0.55)
+    ax0.set(title=den_label, xlabel="$x$", ylabel=den_label)
 
     ax1 = fig.add_subplot(gs[0, 2:4])
-    ax1.plot(x, np.angle(psi), color=plt.cm.hsv(0.28), lw=1.1)
-    ax1.axhline(0, color="white", lw=0.5, ls="--")
-    ax1.set(title=r"Phase $\arg(\psi)$", xlabel="$x$", ylabel="rad",
-            ylim=(-np.pi - 0.3, np.pi + 0.3))
+    if eq == EquationType.PARABOLIC:
+        ax1.fill_between(x, phase_data, alpha=0.7, color=plt.cm.plasma(0.5))
+        ax1.plot(x, phase_data, lw=1.1, color=plt.cm.plasma(0.8))
+    else:
+        ax1.plot(x, phase_data, color=plt.cm.hsv(0.28), lw=1.1)
+        ax1.axhline(0, color="white", lw=0.5, ls="--")
+        ax1.set_ylim(-np.pi - 0.3, np.pi + 0.3)
+    ax1.set(title=phase_label, xlabel="$x$", ylabel=phase_label)
 
     ax2 = fig.add_subplot(gs[1, 0:2])
     ax2.plot(x, psi.real, lw=1.0, color="#4fc3f7", label=r"Re $\psi$")
-    ax2.plot(x, psi.imag, lw=1.0, color="#ef9a9a", label=r"Im $\psi$", alpha=0.8)
+    if eq != EquationType.PARABOLIC:
+        ax2.plot(x, psi.imag, lw=1.0, color="#ef9a9a",
+                 label=r"Im $\psi$", alpha=0.8)
     ax2.axhline(0, color="white", lw=0.4, ls="--")
     ax2.legend(fontsize=8, framealpha=0.3)
-    ax2.set(title=r"Re / Im $\psi$", xlabel="$x$")
+    ax2.set(title=r"Re / Im", xlabel="$x$")
 
     ax3 = fig.add_subplot(gs[1, 2:4])
-    exclude = {'t', 'energy', 'xi', 'eta'}
-    pos_keys = [k for k in result.rays[0].traj.keys()
-                if k not in exclude and 'p' not in k]
-    x_key = pos_keys[0] if pos_keys else 'x'
+    x_key, _ = _pos_keys(result.rays[0].traj, dim=1)
     for ray in result.rays:
         c = plt.cm.plasma(0.3 + 0.5 * float(np.mean(np.abs(ray.det_J)))
                           / (float(np.mean(np.abs(ray.det_J))) + 1.0))
         ax3.plot(ray.traj['t'], ray.traj[x_key], lw=0.5, alpha=0.3, color=c)
-    ax3.set(title="Ray fan  $x(t)$", xlabel="$t$", ylabel="$x$")
+    branch_note = "  (+/− branches)" if eq == EquationType.WAVE else ""
+    ax3.set(title=f"Ray fan  $x(t)${branch_note}", xlabel="$t$", ylabel="$x$")
 
     fig.suptitle(
-        rf"Van Vleck wavefunction  ($\hbar={result.hbar}$, "
+        rf"{_EQ_TITLES[eq]}  ($\hbar={result.hbar}$, "
         rf"$t_{{max}}={result.t_max}$, {len(result.rays)} rays)",
-        color="white", fontsize=11, fontweight="bold", y=1.01)
+        color="white", fontsize=10, fontweight="bold", y=1.01)
     _style(fig, fig.axes)
     if save_path:
         fig.savefig(save_path, dpi=150, bbox_inches="tight",
@@ -2112,8 +2779,15 @@ def _plot_1d(result: WKBResult, log_scale: bool, save_path) -> plt.Figure:
 
 def _plot_2d(result: WKBResult, log_scale: bool, save_path) -> plt.Figure:
     X, Y, psi = result.X, result.Y, result.psi
+    eq = result.equation
     den    = np.log1p(np.abs(psi)**2) if log_scale else np.abs(psi)**2
     dlabel = r"$\log(1+|\psi|^2)$" if log_scale else r"$|\psi|^2$"
+
+    _EQ_TITLES_2D = {
+        EquationType.SCHRODINGER: r"Van Vleck 2D  $-i\,\partial_t u = \psi\mathrm{Op}\,u$",
+        EquationType.PARABOLIC:   r"Heat kernel 2D  $\partial_t u = \psi\mathrm{Op}\,u$",
+        EquationType.WAVE:        r"Wave 2D  $\partial_{tt} u = \psi\mathrm{Op}\,u$",
+    }
 
     fig = plt.figure(figsize=(20, 8))
     gs  = GridSpec(2, 3, fig, hspace=0.42, wspace=0.32)
@@ -2132,13 +2806,7 @@ def _plot_2d(result: WKBResult, log_scale: bool, save_path) -> plt.Figure:
     ax1.set(title=r"Phase  $\arg(\psi)$", xlabel="$x$", ylabel="$y$")
 
     ax2 = fig.add_subplot(gs[1, 0])
-    exclude = {'t', 'energy', 'xi', 'eta'}
-    pos_keys = [k for k in result.rays[0].traj.keys()
-                if k not in exclude and 'p' not in k]
-    if len(pos_keys) >= 2:
-        x_key, y_key = pos_keys[0], pos_keys[1]
-    else:
-        x_key, y_key = 'x', 'y'
+    x_key, y_key = _pos_keys(result.rays[0].traj, dim=2)
     cmap_r = plt.cm.cool
     n_r = max(len(result.rays) - 1, 1)
     for i, ray in enumerate(result.rays):
@@ -2169,9 +2837,10 @@ def _plot_2d(result: WKBResult, log_scale: bool, save_path) -> plt.Figure:
     ax4.set_aspect("equal")
     ax4.set(title=r"Maslov index $\mu$", xlabel="$x$", ylabel="$y$")
 
+    branch_note = "  (+/− branches)" if eq == EquationType.WAVE else ""
     fig.suptitle(
-        rf"Van Vleck wavefunction 2D  ($\hbar={result.hbar}$, "
-        rf"$t_{{max}}={result.t_max}$, {len(result.rays)} rays)",
+        rf"{_EQ_TITLES_2D[eq]}  ($\hbar={result.hbar}$, "
+        rf"$t_{{max}}={result.t_max}$, {len(result.rays)} rays{branch_note})",
         color="white", fontsize=11, fontweight="bold")
     _style(fig, fig.axes)
     if save_path:
@@ -2214,15 +2883,7 @@ def plot_ray_fan(result: WKBResult, save_path=None) -> plt.Figure:
     S_norm   = (S_finals - S_finals.min()) / (np.ptp(S_finals) + 1e-30)
 
     exclude = {'t', 'energy', 'xi', 'eta'}
-    pos_keys = [k for k in result.rays[0].traj.keys()
-                if k not in exclude and 'p' not in k]
-    if is2d:
-        if len(pos_keys) >= 2:
-            x_key, y_key = pos_keys[0], pos_keys[1]
-        else:
-            x_key, y_key = 'x', 'y'
-    else:
-        x_key = pos_keys[0] if pos_keys else 'x'
+    x_key, y_key = _pos_keys(result.rays[0].traj, dim=result.dim)
 
     for i, ray in enumerate(result.rays):
         c = plt.cm.viridis(S_norm[i])
@@ -2343,7 +3004,7 @@ def animate_wavefunction(
     n_frames: int = 100,
     interval: int = 50,
     save_path: str | None = None,
-    log_scale: bool = False,
+    log_scale: bool = True,
 ) -> "matplotlib.animation.FuncAnimation":
     """
     Animate the true time evolution of the semiclassical wavefunction by
@@ -2414,22 +3075,7 @@ def animate_wavefunction(
                            dtype=int)
 
     # ── position key detection ────────────────────────────────────────────────
-    # Exclude time, energy, and momentum keys robustly by checking against
-    # the known momentum symbol names stored in vars_phase.  Fall back to the
-    # simple heuristic when vars_phase is unavailable.
-    all_keys  = list(result.rays[0].traj.keys())
-    _mom_keys = {'t', 'energy'}
-    # momentum keys are those whose string matches the second (and fourth) entry
-    # of the phase-space variable list; use a conservative pattern instead.
-    _coord_keys = [k for k in all_keys
-                   if k not in _mom_keys
-                   and not any(k == mk for mk in ('xi', 'eta', 'px', 'py'))
-                   and not (len(k) > 1 and k[0] == 'p' and k[1:].isalpha())]
-
-    if result.dim == 1:
-        x_key = _coord_keys[0]
-    else:
-        x_key, y_key = _coord_keys[0], _coord_keys[1]
+    x_key, y_key = _pos_keys(result.rays[0].traj, dim=result.dim)
 
     # ── grid parameters ───────────────────────────────────────────────────────
     if result.dim == 1:
@@ -2444,38 +3090,87 @@ def animate_wavefunction(
         N_grid = X.shape[0]
 
     hbar = result.hbar
+    eq   = result.equation
+
+    _ANIM_TITLES = {
+        EquationType.SCHRODINGER: "Van Vleck wavefunction",
+        EquationType.PARABOLIC:   "Semiclassical heat kernel",
+        EquationType.WAVE:        "Semiclassical wave",
+    }
+    anim_title = _ANIM_TITLES.get(eq, "Semiclassical wavefunction")
 
     # ── pre-scan all frames to get global amplitude limits ────────────────────
     def _psi_at(t_idx: int) -> np.ndarray:
-        """Assemble ψ on the grid at a single time index."""
-        n_rays = len(result.rays)
+        """Assemble u on the grid at a single time index, equation-aware."""
         if result.dim == 1:
-            pts      = np.array([[ray.traj[x_key][t_idx]] for ray in result.rays])
+            pts = np.array([[ray.traj[x_key][t_idx]] for ray in result.rays])
         else:
-            pts      = np.array([[ray.traj[x_key][t_idx],
-                                  ray.traj[y_key][t_idx]] for ray in result.rays])
-            # tiny jitter to avoid Qhull coplanarity failures in degenerate configs
-            pts     += 1e-10 * np.random.default_rng(0).standard_normal(pts.shape)
+            pts = np.array([[ray.traj[x_key][t_idx],
+                             ray.traj[y_key][t_idx]] for ray in result.rays])
+            pts += 1e-10 * np.random.default_rng(0).standard_normal(pts.shape)
 
-        S_vals   = np.array([ray.S_cum[t_idx]  for ray in result.rays])
-        detJ_vals= np.array([ray.det_J[t_idx]  for ray in result.rays])
-        mu_vals  = np.array([ray.mu             for ray in result.rays])
+        S_vals    = np.array([ray.S_cum[t_idx]  for ray in result.rays])
+        detJ_vals = np.array([ray.det_J[t_idx]  for ray in result.rays])
+        mu_vals   = np.array([ray.mu             for ray in result.rays])
 
-        psi, _, _ = van_vleck_sum(
-            pts, S_vals, detJ_vals, mu_vals,
-            xlim=xlim, ylim=ylim_grid, N=N_grid, hbar=hbar,
-        )
+        if eq == EquationType.PARABOLIC:
+            psi, _, _ = parabolic_sum(
+                pts, S_vals, detJ_vals,
+                xlim=xlim, ylim=ylim_grid, N=N_grid, hbar=hbar,
+            )
+        elif eq == EquationType.WAVE:
+            # For animation the rays are already interleaved (+ and − branches);
+            # split them by the sign of their final action derivative as a proxy
+            # — or simply use the full pool for both branches (conservative).
+            half = len(result.rays) // 2
+            rays_p = result.rays[:half]
+            rays_m = result.rays[half:]
+            def _pts_S_dJ_mu(rlist):
+                if result.dim == 1:
+                    _pts = np.array([[r.traj[x_key][t_idx]] for r in rlist])
+                else:
+                    _pts = np.array([[r.traj[x_key][t_idx],
+                                      r.traj[y_key][t_idx]] for r in rlist])
+                    _pts += 1e-10 * np.random.default_rng(1).standard_normal(_pts.shape)
+                return (_pts,
+                        np.array([r.S_cum[t_idx]  for r in rlist]),
+                        np.array([r.det_J[t_idx]  for r in rlist]),
+                        np.array([r.mu             for r in rlist]))
+            pp, sp, djp, mup = _pts_S_dJ_mu(rays_p)
+            pm, sm, djm, mum = _pts_S_dJ_mu(rays_m)
+            psi, _, _ = wave_sum(
+                pp, sp, djp, mup,
+                pm, sm, djm, mum,
+                xlim=xlim, ylim=ylim_grid, N=N_grid, hbar=hbar,
+            )
+        else:
+            psi, _, _ = van_vleck_sum(
+                pts, S_vals, detJ_vals, mu_vals,
+                xlim=xlim, ylim=ylim_grid, N=N_grid, hbar=hbar,
+            )
         return psi
 
     # Sample a subset of frames (every 5th) to estimate limits without full scan
     sample_idx = indices[::max(1, len(indices) // 20)]
     psi_samples = [_psi_at(int(i)) for i in sample_idx]
 
-    psi_max  = max(float(np.max(np.abs(p)))    for p in psi_samples) or 1.0
+    # ── pre-scan limits ───────────────────────────────────────────────────────
+    # psi_max = max of |Re| and |Im| separately (not |ψ|, which over-inflates
+    # the Re/Im axes when the wavefunction is nearly real or nearly imaginary).
+    re_max_global = max(float(np.max(np.abs(p.real))) for p in psi_samples) or 1.0
+    im_max_global = max(float(np.max(np.abs(p.imag))) for p in psi_samples) or 1.0
+    psi_max  = max(re_max_global, im_max_global)     # kept for 2D colourbar init
     den_vals = [(np.log1p(np.abs(p)**2) if log_scale else np.abs(p)**2)
                 for p in psi_samples]
     den_max  = max(float(np.max(d)) for d in den_vals) or 1.0
-    dlabel   = r"$\log(1+|\psi|^2)$" if log_scale else r"$|\psi|^2$"
+
+    # Equation-aware labels (mirrors _plot_1d / _plot_2d)
+    if eq == EquationType.PARABOLIC:
+        dlabel      = r"$\log(1+u^2)$"   if log_scale else r"$u^2$"
+        phase_label = r"$\log|u|$"
+    else:
+        dlabel      = r"$\log(1+|\psi|^2)$" if log_scale else r"$|\psi|^2$"
+        phase_label = r"Phase $\arg\psi(x,t)$"
 
     # ── build figure ──────────────────────────────────────────────────────────
     if result.dim == 1:
@@ -2485,42 +3180,49 @@ def animate_wavefunction(
         fig.subplots_adjust(hspace=0.38, wspace=0.35)
 
         psi0 = _psi_at(int(indices[0]))
+        den0 = np.log1p(np.abs(psi0)**2) if log_scale else np.abs(psi0)**2
+        if eq == EquationType.PARABOLIC:
+            phase0 = np.log1p(np.abs(psi0))
+        else:
+            phase0 = np.angle(psi0)
 
-        (line_re,)    = axes[0].plot(x, psi0.real,       lw=1.1, color="#4fc3f7")
-        (line_im,)    = axes[1].plot(x, psi0.imag,       lw=1.1, color="#ef9a9a")
-        (line_den,)   = axes[2].plot(x, np.abs(psi0)**2, lw=0.9, color="white",
-                                      alpha=0.55)
-        (line_phase,) = axes[3].plot(x, np.angle(psi0),  lw=1.1,
-                                      color=plt.cm.hsv(0.28))
+        # Panel layout — identical to _plot_1d:
+        #   axes[0] = density  |ψ|²  (or u²)
+        #   axes[1] = phase    arg ψ  (or log|u|)
+        #   axes[2] = Re ψ
+        #   axes[3] = Im ψ  (hidden for PARABOLIC)
+        (line_den,)   = axes[0].plot(x, den0,        lw=0.9, color="white",  alpha=0.55)
+        (line_phase,) = axes[1].plot(x, phase0,       lw=1.1, color=plt.cm.hsv(0.28))
+        (line_re,)    = axes[2].plot(x, psi0.real,    lw=1.1, color="#4fc3f7")
+        (line_im,)    = axes[3].plot(x, psi0.imag,    lw=1.1, color="#ef9a9a")
 
-        for ax, ydata, color, alpha in [
-            (axes[0], psi0.real,       "#4fc3f7",            0.25),
-            (axes[1], psi0.imag,       "#ef9a9a",            0.25),
-            (axes[2], np.abs(psi0)**2, plt.cm.inferno(0.65), 0.75),
-        ]:
-            ax.fill_between(x, ydata, alpha=alpha, color=color)
+        axes[0].fill_between(x, den0,     alpha=0.75, color=plt.cm.inferno(0.65))
+        axes[2].fill_between(x, psi0.real, alpha=0.25, color="#4fc3f7")
+        axes[3].fill_between(x, psi0.imag, alpha=0.25, color="#ef9a9a")
 
-        for ax in axes[:2]:
+        axes[0].set_xlim(xlim);  axes[0].set_ylim(0, 1.25 * den_max)
+        axes[1].set_xlim(xlim)
+        if eq != EquationType.PARABOLIC:
+            axes[1].set_ylim(-np.pi - 0.3, np.pi + 0.3)
+            axes[1].axhline(0, color="white", lw=0.4, ls="--", alpha=0.4)
+            axes[1].set_yticks([-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi])
+            axes[1].set_yticklabels([r"$-\pi$", r"$-\pi/2$", "$0$",
+                                      r"$\pi/2$", r"$\pi$"])
+        for ax in axes[2:]:
             ax.set_xlim(xlim)
             ax.set_ylim(-1.35 * psi_max, 1.35 * psi_max)
             ax.axhline(0, color="white", lw=0.4, ls="--", alpha=0.4)
-        axes[2].set_xlim(xlim)
-        axes[2].set_ylim(0, 1.25 * den_max)
-        axes[3].set_xlim(xlim)
-        axes[3].set_ylim(-np.pi - 0.3, np.pi + 0.3)
-        axes[3].axhline(0, color="white", lw=0.4, ls="--", alpha=0.4)
-        axes[3].set_yticks([-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi])
-        axes[3].set_yticklabels([r"$-\pi$", r"$-\pi/2$", "$0$",
-                                   r"$\pi/2$", r"$\pi$"])
 
-        axes[0].set(title=r"Re $\psi(x,t)$",        xlabel="$x$", ylabel=r"Re $\psi$")
-        axes[1].set(title=r"Im $\psi(x,t)$",        xlabel="$x$", ylabel=r"Im $\psi$")
-        axes[2].set(title=dlabel,                    xlabel="$x$", ylabel=dlabel)
-        axes[3].set(title=r"Phase $\arg\psi(x,t)$", xlabel="$x$",
-                    ylabel=r"$\arg\psi$  [rad]")
+        axes[0].set(title=dlabel,      xlabel="$x$", ylabel=dlabel)
+        axes[1].set(title=phase_label, xlabel="$x$", ylabel=phase_label)
+        axes[2].set(title=r"Re $\psi(x,t)$", xlabel="$x$", ylabel=r"Re $\psi$")
+        axes[3].set(title=r"Im $\psi(x,t)$", xlabel="$x$", ylabel=r"Im $\psi$")
+
+        if eq == EquationType.PARABOLIC:
+            axes[3].set_visible(False)   # Im ≡ 0 for parabolic
 
         time_text = fig.suptitle(
-            rf"Van Vleck wavefunction  ($\hbar={hbar}$,  $t={t_arr[indices[0]]:.3f}$)",
+            rf"{anim_title}  ($\hbar={hbar}$,  $t={t_arr[indices[0]]:.3f}$)",
             color="white", fontsize=10, fontweight="bold")
         _style(fig, axes)
 
@@ -2528,28 +3230,41 @@ def animate_wavefunction(
             t_idx = int(indices[frame])
             psi   = _psi_at(t_idx)
             den   = np.log1p(np.abs(psi)**2) if log_scale else np.abs(psi)**2
+            if eq == EquationType.PARABOLIC:
+                phase = np.log1p(np.abs(psi))
+            else:
+                phase = np.angle(psi)
 
-            line_re.set_ydata(psi.real)
-            for coll in axes[0].collections[:]: coll.remove()
-            axes[0].fill_between(x, psi.real, alpha=0.25, color="#4fc3f7")
-            re_max = float(np.max(np.abs(psi.real))) or 1.0
-            axes[0].set_ylim(-1.35 * re_max, 1.35 * re_max)
-
-            line_im.set_ydata(psi.imag)
-            for coll in axes[1].collections[:]: coll.remove()
-            axes[1].fill_between(x, psi.imag, alpha=0.25, color="#ef9a9a")
-            im_max = float(np.max(np.abs(psi.imag))) or 1.0
-            axes[1].set_ylim(-1.35 * im_max, 1.35 * im_max)
-
+            # ── axes[0]: density ─────────────────────────────────────────────
             line_den.set_ydata(den)
-            for coll in axes[2].collections[:]: coll.remove()
-            axes[2].fill_between(x, den, alpha=0.75, color=plt.cm.inferno(0.65))
+            for coll in axes[0].collections[:]: coll.remove()       # ← Bug 2 fix
+            axes[0].fill_between(x, den, alpha=0.75, color=plt.cm.inferno(0.65))
+            _den_max = float(np.max(den)) or 1.0
+            axes[0].set_ylim(0, 1.25 * _den_max)                    # ← Bug 1 fix
 
-            line_phase.set_ydata(np.angle(psi))
+            # ── axes[1]: phase / log|u| ──────────────────────────────────────
+            line_phase.set_ydata(phase)
+            if eq != EquationType.PARABOLIC:
+                axes[1].set_ylim(-np.pi - 0.3, np.pi + 0.3)         # ← Bug 3 fix
+
+            # ── axes[2]: Re ψ ─────────────────────────────────────────────────
+            line_re.set_ydata(psi.real)
+            for coll in axes[2].collections[:]: coll.remove()
+            axes[2].fill_between(x, psi.real, alpha=0.25, color="#4fc3f7")
+            _re_max = float(np.max(np.abs(psi.real))) or 1.0
+            axes[2].set_ylim(-1.35 * _re_max, 1.35 * _re_max)
+
+            # ── axes[3]: Im ψ  (skipped for PARABOLIC) ───────────────────────
+            if eq != EquationType.PARABOLIC:
+                line_im.set_ydata(psi.imag)
+                for coll in axes[3].collections[:]: coll.remove()
+                axes[3].fill_between(x, psi.imag, alpha=0.25, color="#ef9a9a")
+                _im_max = float(np.max(np.abs(psi.imag))) or 1.0
+                axes[3].set_ylim(-1.35 * _im_max, 1.35 * _im_max)
 
             time_text.set_text(
-                rf"Van Vleck wavefunction  ($\hbar={hbar}$,  $t={t_arr[t_idx]:.3f}$)")
-            return line_re, line_im, line_den, line_phase
+                rf"{anim_title}  ($\hbar={hbar}$,  $t={t_arr[t_idx]:.3f}$)")
+            return line_den, line_phase, line_re, line_im
 
         anim = FuncAnimation(fig, _update_1d, frames=len(indices),
                              interval=interval, blit=False)
@@ -2562,15 +3277,17 @@ def animate_wavefunction(
 
         psi0 = _psi_at(int(indices[0]))
         den0 = np.log1p(np.abs(psi0)**2) if log_scale else np.abs(psi0)**2
+        psi_max_2d = max(float(np.max(np.abs(psi0.real))),
+                         float(np.max(np.abs(psi0.imag)))) or 1.0
 
         im_re = axes[0].pcolormesh(X, Y, psi0.real, cmap="RdBu_r",
-                                    shading="auto", vmin=-psi_max, vmax=psi_max)
+                                    shading="auto", vmin=-psi_max_2d, vmax=psi_max_2d)
         fig.colorbar(im_re, ax=axes[0], label=r"Re $\psi$", pad=0.02)
         axes[0].set_aspect("equal")
         axes[0].set(title=r"Re $\psi(x,y,t)$", xlabel="$x$", ylabel="$y$")
 
         im_im = axes[1].pcolormesh(X, Y, psi0.imag, cmap="RdBu_r",
-                                    shading="auto", vmin=-psi_max, vmax=psi_max)
+                                    shading="auto", vmin=-psi_max_2d, vmax=psi_max_2d)
         fig.colorbar(im_im, ax=axes[1], label=r"Im $\psi$", pad=0.02)
         axes[1].set_aspect("equal")
         axes[1].set(title=r"Im $\psi(x,y,t)$", xlabel="$x$", ylabel="$y$")
@@ -2581,18 +3298,28 @@ def animate_wavefunction(
         axes[2].set_aspect("equal")
         axes[2].set(title=dlabel, xlabel="$x$", ylabel="$y$")
 
-        im_phase = axes[3].pcolormesh(X, Y, np.angle(psi0), cmap="hsv",
-                                       shading="auto", vmin=-np.pi, vmax=np.pi)
-        cbar_phase = fig.colorbar(im_phase, ax=axes[3],
-                                   label=r"$\arg\psi$  [rad]", pad=0.02)
-        cbar_phase.set_ticks([-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi])
-        cbar_phase.set_ticklabels([r"$-\pi$", r"$-\pi/2$", "$0$",
-                                    r"$\pi/2$", r"$\pi$"])
+        if eq == EquationType.PARABOLIC:
+            phase0_2d = np.log1p(np.abs(psi0))
+            im_phase = axes[3].pcolormesh(X, Y, phase0_2d, cmap="plasma",
+                                           shading="auto")
+            fig.colorbar(im_phase, ax=axes[3], label=r"$\log|u|$", pad=0.02)
+            axes[3].set(title=r"$\log|u(x,y,t)|$", xlabel="$x$", ylabel="$y$")
+        else:
+            im_phase = axes[3].pcolormesh(X, Y, np.angle(psi0), cmap="hsv",
+                                           shading="auto", vmin=-np.pi, vmax=np.pi)
+            cbar_phase = fig.colorbar(im_phase, ax=axes[3],
+                                       label=r"$\arg\psi$  [rad]", pad=0.02)
+            cbar_phase.set_ticks([-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi])
+            cbar_phase.set_ticklabels([r"$-\pi$", r"$-\pi/2$", "$0$",
+                                        r"$\pi/2$", r"$\pi$"])
+            axes[3].set(title=r"Phase $\arg\psi(x,y,t)$", xlabel="$x$", ylabel="$y$")
         axes[3].set_aspect("equal")
-        axes[3].set(title=r"Phase $\arg\psi(x,y,t)$", xlabel="$x$", ylabel="$y$")
+
+        if eq == EquationType.PARABOLIC:
+            axes[1].set_visible(False)   # Im ≡ 0
 
         time_text = fig.suptitle(
-            rf"Van Vleck wavefunction 2D  ($\hbar={hbar}$,  $t={t_arr[indices[0]]:.3f}$)",
+            rf"{anim_title} 2D  ($\hbar={hbar}$,  $t={t_arr[indices[0]]:.3f}$)",
             color="white", fontsize=10, fontweight="bold")
         _style(fig, axes)
 
@@ -2601,19 +3328,26 @@ def animate_wavefunction(
             psi   = _psi_at(t_idx)
             den   = np.log1p(np.abs(psi)**2) if log_scale else np.abs(psi)**2
 
-            re_max = float(np.max(np.abs(psi.real))) or 1.0
+            _re_max = float(np.max(np.abs(psi.real))) or 1.0
             im_re.set_array(psi.real.ravel())
-            im_re.set_clim(-re_max, re_max)
+            im_re.set_clim(-_re_max, _re_max)
 
-            im_max = float(np.max(np.abs(psi.imag))) or 1.0
-            im_im.set_array(psi.imag.ravel())
-            im_im.set_clim(-im_max, im_max)
+            if eq != EquationType.PARABOLIC:
+                _im_max = float(np.max(np.abs(psi.imag))) or 1.0
+                im_im.set_array(psi.imag.ravel())
+                im_im.set_clim(-_im_max, _im_max)
 
+            _den_max = float(np.max(den)) or 1.0          # ← Bug 6 fix
             im_den.set_array(den.ravel())
-            im_phase.set_array(np.angle(psi).ravel())
+            im_den.set_clim(0, _den_max)
+
+            if eq == EquationType.PARABOLIC:
+                im_phase.set_array(np.log1p(np.abs(psi)).ravel())
+            else:
+                im_phase.set_array(np.angle(psi).ravel())
 
             time_text.set_text(
-                rf"Van Vleck wavefunction 2D  ($\hbar={hbar}$,  $t={t_arr[t_idx]:.3f}$)")
+                rf"{anim_title} 2D  ($\hbar={hbar}$,  $t={t_arr[t_idx]:.3f}$)")
             return im_re, im_im, im_den, im_phase
 
         anim = FuncAnimation(fig, _update_2d, frames=len(indices),
