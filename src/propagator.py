@@ -235,41 +235,21 @@ from __future__ import annotations
 
 import numpy as np
 import sympy as sp
-from scipy.interpolate import griddata, LinearNDInterpolator, NearestNDInterpolator
+from scipy.interpolate import griddata
+from scipy.special import airy as scipy_airy
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.gridspec import GridSpec
-from dataclasses import dataclass, field, field
+from dataclasses import dataclass
 from typing import List, Tuple, Optional
-from scipy.spatial import QhullError
 
 # ── psipy imports ─────────────────────────────────────────────────────────────
 from riemannian import Metric, geodesic_solver, jacobi_equation_solver
 from symplectic import hamiltonian_flow
-
-# ── caustics: optional but strongly recommended ───────────────────────────────
-# When present, caustics.py replaces the inline Airy/Pearcey helpers and the
-# hand-rolled Maslov counter with the authoritative implementations from that
-# module (DRY / KISS).  If caustics.py is absent the module falls back to its
-# own scipy-based implementations so that nothing breaks.
-try:
-    from caustics import (
-        CausticEvent,
-        CausticFunctions,
-        RayCausticDetector,
-        classify_arnold_1d,
-        classify_arnold_2d,
-    )
-    _HAS_CAUSTICS = True
-except ImportError:
-    _HAS_CAUSTICS = False
-    # Minimal stubs so the rest of the module can reference the names safely.
-    CausticEvent = None          # type: ignore[assignment,misc]
-    CausticFunctions = None      # type: ignore[assignment,misc]
-    RayCausticDetector = None    # type: ignore[assignment,misc]
-
-# scipy.special.airy is still needed as the fallback when caustics.py is absent
-from scipy.special import airy as _scipy_airy
+from asymptotic import (
+    Analyzer, AsymptoticEvaluator,
+    IntegralMethod, SingularityType,
+)
 
 import concurrent.futures
 import multiprocessing
@@ -322,14 +302,10 @@ class RayData:
         Each crossing contributes a phase factor exp(−iπ/2) = −i to the
         semiclassical amplitude.
     """
-    traj            : dict
-    det_J           : np.ndarray
-    S_cum           : np.ndarray
-    mu              : int
-    # Per-crossing metadata produced by RayCausticDetector when caustics.py is
-    # available.  Each entry is a CausticEvent (time, position, Arnold type …).
-    # Empty list when caustics.py is absent or no caustics were found.
-    caustic_events  : list = field(default_factory=list)
+    traj    : dict
+    det_J   : np.ndarray
+    S_cum   : np.ndarray
+    mu      : int
 
 
 @dataclass
@@ -531,8 +507,7 @@ def _process_single_ray_internal(
             traj, dim,
             metric=metric if is_metric_mode else None,
             coord_keys=coord_keys)
-        mu             = _maslov_index(det_J)
-        caustic_events = _maslov_events(det_J, t_arr=traj['t'])
+        mu = _maslov_index(det_J)
 
         # ── trim arrays to the same length and check finiteness ─
         n_valid = min(len(S_cum), len(det_J),
@@ -550,8 +525,7 @@ def _process_single_ray_internal(
                 or not np.all(np.isfinite(det_J))):
             return None
 
-        return RayData(traj=traj_trim, det_J=det_J, S_cum=S_cum, mu=mu,
-                       caustic_events=caustic_events)
+        return RayData(traj=traj_trim, det_J=det_J, S_cum=S_cum, mu=mu)
 
     except Exception:
         return None
@@ -894,72 +868,107 @@ def _maslov_index(det_J: np.ndarray) -> int:
     """
     Count the number of caustic crossings (sign changes of det J) along a ray.
 
-    Returns a plain ``int`` (the Maslov index μ).  Use :func:`_maslov_events`
-    when the per-crossing :class:`caustics.CausticEvent` metadata is also
-    needed.
+    Physical meaning
+    ----------------
+    The Maslov index μ counts how many times the ray has passed through a
+    caustic (a point where det J = 0, i.e. where neighbouring rays focus).
+    At each crossing, det J changes sign and the semiclassical wavefunction
+    accumulates an extra phase factor exp(−iπ/2) = −i, corresponding to a
+    phase advance of −π/2.  The total Maslov correction to the phase is
+    −μ π/2.
 
-    The algorithm strips exact zeros then counts sign flips, which is robust
-    even when ``det_J[0] ≈ 0`` (point-source initial condition).
-    """
-    signs = np.sign(det_J)
-    signs = signs[signs != 0]
-    return int(np.sum(np.abs(np.diff(signs)) > 0))
+    For a 1D free particle starting from a point source, det J = t > 0 always
+    (no caustics), giving μ = 0.  For a harmonic oscillator the ray fan
+    focuses at t = π/ω, T = 2π/ω, ..., incrementing μ by 1 at each focus.
 
+    Algorithm
+    ---------
+    1. Compute ``signs = np.sign(det_J)``.
+    2. Remove exact zeros (the ray is at a caustic; the sign is ill-defined).
+    3. Count the number of sign flips in the reduced array.
 
-def _maslov_events(det_J: np.ndarray,
-                   t_arr: np.ndarray,
-                   det_threshold: float = 0.05) -> list:
-    """
-    Return per-crossing :class:`caustics.CausticEvent` objects for one ray.
-
-    Delegates to :class:`caustics.RayCausticDetector` when ``caustics.py`` is
-    available; returns an empty list otherwise.  The *scalar* Maslov index is
-    always computed by :func:`_maslov_index` (sign-change counter) rather than
-    from ``len(events)`` so that the two are never inconsistent.
+    A sign flip (+1 → −1 or −1 → +1) corresponds to a single caustic
+    crossing.  Multiple consecutive zeros between two non-zero values of the
+    same sign are treated as a single pass through the caustic locus, not
+    multiple crossings.
 
     Parameters
     ----------
     det_J : np.ndarray
-        Jacobi determinant along the ray.
-    t_arr : np.ndarray
-        Time axis matching ``det_J``.
-    det_threshold : float
-        Relative threshold forwarded to ``RayCausticDetector``.
+        Jacobi determinant values along the ray, shape (n_steps,).
 
     Returns
     -------
-    list of CausticEvent  (empty when caustics.py is absent)
+    mu : int
+        Non-negative integer Maslov index.  Equal to the number of sign
+        changes of the non-zero elements of ``det_J``.
     """
-    if not _HAS_CAUSTICS:
-        return []
-    fake_ray = {
-        't':  t_arr,
-        'x':  np.zeros_like(det_J),
-        'xi': np.zeros_like(det_J),
-        'J':  det_J,
-    }
-    detector = RayCausticDetector(
-        ray_bundle    = [fake_ray],
-        dimension     = 1,
-        det_threshold = det_threshold,
-    )
-    return detector.detect()
+    signs = np.sign(det_J)
+    signs = signs[signs != 0]              # ignore exact zeros
+    return int(np.sum(np.abs(np.diff(signs)) > 0))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4 — Caustic corrections  (delegated to caustics.CausticFunctions when
-#     available; scipy-based fallback otherwise)
+# 4 — Caustic corrections using proper Airy / Pearcey profiles
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _airy_argument(x_local: np.ndarray, hbar: float, alpha: float) -> np.ndarray:
     """
-    Map local coordinate x_local = x − x_c to the Airy argument ξ(x).
+    Map the local coordinate x_local = x − x_c to the Airy argument ξ(x).
 
-    Near a 1D fold caustic at x_c the uniform approximation gives
-        ξ(x) = sign(α) · (|α| / 2ℏ)^{1/3} · (x − x_c)
-    where α = d(det J)/ds is the local slope of the Jacobi determinant.
+    Derivation
+    ----------
+    Near a 1D fold caustic at x = x_c, the classical phase is stationary at
+    momentum p = p_c.  Expanding the phase to cubic order in the momentum
+    deviation δp = p − p_c gives the **cubic normal form**:
+
+        φ(p) = S_c/ℏ + α (p − p_c)³ / 3
+
+    where α = dJ/ds is the slope of the Jacobi determinant with respect to
+    the ray-parameter (or equivalently, the coefficient of the cubic term in
+    the Legendre transform).
+
+    Performing the stationary-phase integral of exp(i λ φ(p)) over p with
+    λ = 1/ℏ, and mapping the result to a function of position x (via the
+    inverse Legendre transform), yields the uniform Airy approximation
+
+        ψ(x) ∝ Ai(ξ(x))  with  ξ(x) = (α / (2ℏ))^{1/3} · (x − x_c)
+
+    The factor (α / 2ℏ)^{1/3} sets the correct fringe scale: fringes on the
+    illuminated side of the caustic have spacing ∝ ℏ^{1/3}, which is
+    parametrically larger than the WKB wavelength ∝ ℏ.
+
+    Sign convention
+    ---------------
+    Following Berry & Mount (1972), the sign of ξ is chosen so that:
+
+    * ξ > 0  on the shadow side (det J < 0 after the caustic) — Ai(ξ) decays
+      exponentially, representing the evanescent tail.
+    * ξ < 0  on the illuminated side (det J > 0) — Ai(ξ) oscillates with
+      increasing frequency, reproducing the classical interference fringes.
+
+    The factor ``np.sign(alpha)`` implements this convention.
+
+    Parameters
+    ----------
+    x_local : np.ndarray
+        Coordinate relative to the caustic: x_local = x − x_c.  May be
+        positive (shadow side) or negative (illuminated side), depending on
+        the sign of α.
+    hbar : float
+        Reduced Planck constant.  The fringe scale ∝ ℏ^{1/3}.
+    alpha : float
+        Cubic coefficient α = dJ/ds.  Controls the direction of oscillations
+        (via its sign) and the fringe frequency (via its magnitude).
+
+    Returns
+    -------
+    xi : np.ndarray, same shape as x_local
+        Airy argument ξ(x), dimensionless.  Zero at the caustic (x_local = 0)
+        by construction.
     """
     scale = (abs(alpha) / (2.0 * hbar)) ** (1.0 / 3.0)
+    # sign of α controls which side of the caustic has oscillations
     return np.sign(alpha) * scale * x_local
 
 
@@ -973,40 +982,88 @@ def _asymptotic_correction_1d(
     width     : float,
 ) -> np.ndarray:
     """
-    Uniform Airy correction near a 1D fold caustic.
+    Replace the WKB amplitude near a 1D fold caustic with the pointwise
+    uniform Airy approximation.
 
-    Delegates to :func:`caustics.CausticFunctions.fold_uniform` when
-    ``caustics.py`` is available, otherwise uses the inline scipy fallback.
+    Background
+    ----------
+    The WKB amplitude A(x) = 1/√|det J| diverges as det J → 0 at a caustic.
+    Near a fold caustic the stationary-phase integral can be evaluated
+    uniformly in terms of the Airy function (Berry & Mount 1972):
 
-    The patch is non-zero only within ``|x - x_caustic| < width`` and is
-    multiplied by a cos² taper to suppress Gibbs ringing at the boundary.
+        ψ(x) ≈ P(ℏ, α) · Ai(ξ(x)) · exp(i S_c/ℏ)
+
+    where:
+
+    * ``P(ℏ, α) = 2π a_c ℏ^{1/6} |α|^{-1/3}`` is the uniform prefactor,
+      derived by matching the WKB and Airy asymptotics away from the caustic.
+    * ``Ai(ξ)`` is the real Airy function evaluated at ``ξ(x)`` given by
+      :func:`_airy_argument`.
+    * ``exp(i S_c/ℏ)`` is the carrier phase at the caustic position.
+
+    The patch is multiplied by a cosine² taper to avoid Gibbs-like
+    discontinuities at the patch boundary, while preserving the Airy
+    zero-crossings and fringe structure deep inside the window.
+
+    This replaces the previous implementation, which evaluated the Airy
+    function only once at ξ = 0 and spread the resulting scalar value with
+    a cosine taper.  That approach gave the correct O(ℏ^{1/6}) amplitude
+    order but the wrong spatial fringe pattern.
+
+    Parameters
+    ----------
+    x_caustic : float
+        Position x_c of the caustic (centre of the correction window).
+    S_caustic : float
+        Accumulated action S(x_c) at the caustic; determines the carrier
+        phase exp(i S_c/ℏ).
+    a_caustic : float
+        Physical (unregularised) WKB amplitude at the caustic, i.e. the
+        value of 1/√|det J| · √|det J_max| recovered by undoing the
+        ``reg``-floor applied in :func:`van_vleck_sum`.
+    dJ_ds : float
+        Local slope of the Jacobi determinant with respect to position at
+        the caustic, α = d(det J)/dx.  Used to compute the Airy argument
+        and the prefactor amplitude.  Guarded against zero: if ``|dJ_ds|
+        < 1e-12`` a fallback value of 1.0 is used.
+    hbar : float
+        Reduced Planck constant.
+    x_grid : np.ndarray, shape (N,)
+        Output grid on which to evaluate the Airy correction.
+    width : float
+        Half-width of the correction window in physical units.  Points
+        outside ``|x - x_caustic| >= width`` receive a zero patch.
+
+    Returns
+    -------
+    patch : np.ndarray (complex), shape (N,)
+        Airy-corrected wavefunction contribution near the caustic.
+        Zero outside the window ``|x - x_caustic| < width``.
+        The caller in :func:`van_vleck_sum` replaces the WKB value wherever
+        ``|patch| > 0``.
     """
     patch = np.zeros_like(x_grid, dtype=complex)
     mask  = np.abs(x_grid - x_caustic) < width
     if not np.any(mask):
         return patch
 
-    alpha   = float(dJ_ds) if abs(dJ_ds) > 1e-12 else 1.0
     x_local = x_grid[mask] - x_caustic
-    taper   = np.cos(np.pi / 2.0 * x_local / width) ** 2
+    alpha   = float(dJ_ds) if abs(dJ_ds) > 1e-12 else 1.0
 
-    if _HAS_CAUSTICS:
-        # Borrow only the Airy function evaluation from CausticFunctions,
-        # keeping our own prefactor formula (2π a_c ℏ^{1/6} |α|^{-1/3}).
-        # CausticFunctions.fold_uniform uses a different prefactor convention
-        # (2√π · ε^{1/6} · |dJ_ds|^{-1/2}) that does not match the tests.
-        xi_arr  = _airy_argument(x_local, hbar, alpha)
-        Ai_vals = np.array([CausticFunctions.airy_Ai(xi) for xi in xi_arr])
-    else:
-        xi_arr  = _airy_argument(x_local, hbar, alpha)
-        Ai_vals, _, _, _ = _scipy_airy(xi_arr)
+    # Airy argument — physically correct pointwise mapping
+    xi_arr  = _airy_argument(x_local, hbar, alpha)
+    Ai_vals, _, _, _ = scipy_airy(xi_arr)   # real Airy function
 
-    prefactor = (2.0 * np.pi * a_caustic
-                 * hbar ** (1.0 / 6.0)
-                 * abs(alpha) ** (-1.0 / 3.0))
-    carrier   = np.exp(1j * S_caustic / hbar)
+    # Uniform amplitude prefactor  2π a_c ℏ^{1/6} |α|^{-1/3}
+    prefactor = 2.0 * np.pi * a_caustic * (hbar ** (1.0 / 6.0)) * (abs(alpha) ** (-1.0 / 3.0))
+
+    # Carrier phase from accumulated action at the caustic
+    carrier = np.exp(1j * S_caustic / hbar)
+
+    # Smooth edge taper to avoid Gibbs ringing at the patch boundary
+    taper = np.cos(np.pi / 2.0 * x_local / width) ** 2
+
     patch[mask] = prefactor * Ai_vals * carrier * taper
-
     return patch
 
 
@@ -1023,68 +1080,132 @@ def _asymptotic_correction_2d(
     width     : float,
 ) -> np.ndarray:
     """
-    Uniform asymptotic correction on a 2D grid near a caustic point.
+    Apply an asymptotic caustic correction on a 2D grid.
 
-    * **Fold** (|∇det J| > 1e-10): Airy profile along the transverse
-      direction n̂ = ∇det J / |∇det J|, Gaussian taper in 2D.
-      Delegates to :func:`caustics.CausticFunctions.fold_uniform` when
-      available.
-    * **Cusp** (|∇det J| ≤ 1e-10): Pearcey-scaled correction.
-      Delegates to :func:`caustics.CausticFunctions.cusp_uniform` when
-      available, otherwise uses a simpler Gaussian-weighted scalar fallback.
+    Handles two topologically distinct caustic types based on the gradient
+    of the Jacobi determinant at the caustic point:
+
+    Fold caustic (|∇det J| > threshold)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    A generic fold caustic in 2D is locally a cylindrical surface: the
+    wavefield factorises as
+
+        ψ(x,y) ≈ ψ_Airy(r_⊥) · ψ_WKB(r_∥)
+
+    where r_⊥ is the coordinate transverse to the caustic surface (in the
+    direction of ∇det J) and r_∥ is the coordinate along the caustic.
+
+    Algorithm:
+
+    1. Compute the unit normal n̂ = ∇det J / |∇det J|.
+    2. For each masked grid point (x, y), compute the signed transverse
+       distance r_⊥ = n̂ · (x − x_c, y − y_c).
+    3. Evaluate the Airy argument ξ = (|∇det J| / (2ℏ))^{1/3} · r_⊥  via
+       :func:`_airy_argument` with α = |∇det J|.
+    4. Apply the uniform Airy formula:
+       patch = 2π a_c ℏ^{1/6} |α|^{-1/3} · Ai(ξ) · exp(i S_c/ℏ) · taper(r²).
+    5. Blend with a radial Gaussian taper exp(−r²/(0.5 width)²) to smoothly
+       join the WKB background outside the correction zone.
+
+    Cusp caustic (|∇det J| ≈ 0, ``grad_norm < 1e-10``)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    When both partial derivatives ∂_x det J and ∂_y det J vanish
+    simultaneously, the caustic is a cusp (Pearcey-type singularity).  The
+    fold approximation breaks down and a higher-order treatment is required.
+
+    The phase near a cusp has the **quartic normal form** φ(t) = t⁴/4.
+    :class:`asymptotic.Analyzer` is initialised with this phase and
+    :class:`asymptotic.AsymptoticEvaluator` returns an O(ℏ^{1/4}) Pearcey
+    scaling.  Because the full 2D Pearcey integral is expensive to evaluate
+    on a grid, the scalar result is spread with a 2D Gaussian taper, which
+    gives the correct amplitude order near the cusp but not the exact Pearcey
+    fringe pattern.  A full pointwise Pearcey correction is noted as a future
+    extension.
+
+    Parameters
+    ----------
+    x_caustic, y_caustic : float
+        Position (x_c, y_c) of the caustic point.
+    S_caustic : float
+        Accumulated action S(x_c, y_c) at the caustic; sets carrier phase.
+    a_caustic : float
+        Physical WKB amplitude at the caustic (after undoing regularisation).
+    dJ_dx, dJ_dy : float
+        Components of the gradient of det J at the caustic point, estimated
+        from nearby scattered ray data in :func:`van_vleck_sum`.
+    hbar : float
+        Reduced Planck constant.
+    X_grid, Y_grid : np.ndarray, shape (N, N)
+        Meshgrid arrays (output of ``np.meshgrid``) on which to evaluate the
+        correction.
+    width : float
+        Radius of the correction disk in physical units.  Points outside
+        ``r = sqrt((x-x_c)² + (y-y_c)²) >= width`` receive a zero patch.
+
+    Returns
+    -------
+    patch : np.ndarray (complex), shape (N, N)
+        Caustic correction on the 2D grid.  Zero outside the disk of radius
+        ``width`` centred on ``(x_caustic, y_caustic)``.
     """
     patch = np.zeros_like(X_grid, dtype=complex)
     r2    = (X_grid - x_caustic)**2 + (Y_grid - y_caustic)**2
     mask  = r2 < width**2
+
     if not np.any(mask):
         return patch
 
     grad_norm = np.hypot(dJ_dx, dJ_dy)
 
-    # ── Cusp (Pearcey) ───────────────────────────────────────────────────────
+    # ── Cusp (Pearcey) caustic: both partial derivatives vanish ──────────────
     if grad_norm < 1e-10:
-        if _HAS_CAUSTICS:
-            patch[mask] = CausticFunctions.cusp_uniform(
-                x   = X_grid[mask],
-                y   = Y_grid[mask],
-                x_c = x_caustic,
-                y_c = y_caustic,
-                epsilon = hbar,
-                a_c = a_caustic,
-                S_c = S_caustic,
+        # Use the asymptotic.Analyzer scalar approach (as documented)
+        t_sym  = sp.Symbol('t', real=True)
+        phase_sym = sp.Rational(1, 4) * t_sym**4   # quartic normal form
+
+        try:
+            analyzer  = Analyzer(
+                phase_expr     = phase_sym,
+                amplitude_expr = sp.Integer(1),
+                variables      = [t_sym],
+                method         = IntegralMethod.STATIONARY_PHASE,
             )
-        else:
-            # Scalar Gaussian fallback (correct amplitude order, no Pearcey
-            # fringe pattern — same behaviour as the old inline code).
-            scalar  = a_caustic * np.exp(1j * S_caustic / hbar)
-            gauss   = np.exp(-r2 / (0.5 * width)**2)
-            patch[mask] = scalar * gauss[mask]
+            evaluator = AsymptoticEvaluator()
+            xc_pt     = np.array([0.0])
+            cp        = analyzer.analyze_point(xc_pt)
+            contrib   = evaluator.evaluate(cp, 1.0 / hbar)
+            scalar    = contrib.total_value * a_caustic * np.exp(1j * S_caustic / hbar)
+        except Exception:
+            scalar = a_caustic * np.exp(1j * S_caustic / hbar)
+
+        gauss = np.exp(-r2 / (0.5 * width)**2)
+        patch[mask] = scalar * gauss[mask]
         return patch
 
-    # ── Fold: Airy along the transverse direction ────────────────────────────
+    # ── Fold caustic: Airy along transverse direction ─────────────────────────
+    # Unit normal to the caustic (direction of det-J gradient)
     nx = dJ_dx / grad_norm
     ny = dJ_dy / grad_norm
 
+    # Transverse coordinate of each masked grid point
     dx_arr = X_grid[mask] - x_caustic
     dy_arr = Y_grid[mask] - y_caustic
-    r_perp = nx * dx_arr + ny * dy_arr          # signed transverse distance
-    taper  = np.exp(-r2[mask] / (0.5 * width)**2)
+    r_perp  = nx * dx_arr + ny * dy_arr    # signed transverse distance
 
-    if _HAS_CAUSTICS:
-        # Use CausticFunctions only for the Airy function value; keep our
-        # prefactor convention consistent with the 1D correction.
-        xi_arr  = _airy_argument(r_perp, hbar, grad_norm)
-        Ai_vals = np.array([CausticFunctions.airy_Ai(xi) for xi in xi_arr])
-    else:
-        xi_arr  = _airy_argument(r_perp, hbar, grad_norm)
-        Ai_vals, _, _, _ = _scipy_airy(xi_arr)
+    # Airy argument along the transverse direction
+    alpha   = grad_norm                    # |∇det J| acts as the cubic coefficient
+    xi_arr  = _airy_argument(r_perp, hbar, alpha)
+    Ai_vals, _, _, _ = scipy_airy(xi_arr)
 
     prefactor = (2.0 * np.pi * a_caustic
-                 * hbar ** (1.0 / 6.0)
-                 * abs(grad_norm) ** (-1.0 / 3.0))
+                 * (hbar ** (1.0 / 6.0))
+                 * (abs(alpha) ** (-1.0 / 3.0)))
     carrier   = np.exp(1j * S_caustic / hbar)
-    patch[mask] = prefactor * Ai_vals * carrier * taper
 
+    # Gaussian taper in 2D (radial)
+    taper = np.exp(-r2[mask] / (0.5 * width)**2)
+
+    patch[mask] = prefactor * Ai_vals * carrier * taper
     return patch
 
 
@@ -1248,14 +1369,8 @@ def van_vleck_sum(
         X, Y   = np.meshgrid(xs, ys)
         grid   = np.c_[X.ravel(), Y.ravel()]
         kw     = dict(points=pts, xi=grid, method=method, fill_value=0.0)
-        try:
-            psi = (griddata(values=psi_k.real, **kw)
-                   + 1j * griddata(values=psi_k.imag, **kw)).reshape(N, N)
-        except QhullError:
-            # Fallback to nearest neighbour if triangulation fails
-            kw['method'] = 'nearest'
-            psi = (griddata(values=psi_k.real, **kw)
-                   + 1j * griddata(values=psi_k.imag, **kw)).reshape(N, N)
+        psi    = (griddata(values=psi_k.real, **kw)
+                + 1j * griddata(values=psi_k.imag, **kw)).reshape(N, N)
 
         # ── 2D caustic patching (new) ─────────────────────────────────────
         if np.any(near_caus):
@@ -1553,241 +1668,6 @@ def _det_J_1d_general(
 
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 6b — Pre-compiled ray integrator  (avoids per-ray SymPy work)
-# ─────────────────────────────────────────────────────────────────────────────
-
-class _CompiledHamiltonianIntegrator:
-    """
-    Pre-compile all SymPy→NumPy lambdifications once, then integrate any
-    number of rays without touching SymPy again.
-
-    For a 2D general Hamiltonian H(x, px, y, py) the standard code calls
-    ``hamiltonian_flow`` (which re-lambdifies H internally) **five times per
-    ray**: once for the main trajectory and four times for finite-difference
-    Jacobi columns.  This class eliminates all of that by:
-
-    1. Lambdifying H and all required partial derivatives **once** at
-       construction time.
-    2. Building an **augmented ODE** that integrates the Hamiltonian
-       equations *and* the 2×2 variational (Jacobi) system simultaneously
-       in a single ``solve_ivp`` call per ray.
-
-    The augmented state vector is:
-        1D (dim=1): [x, px, J, K]
-            x, px  — Hamilton's equations
-            J, K   — variational system  dJ/dt = H_pp K + H_xp J
-                                          dK/dt = −H_xp K − H_xx J
-
-        2D (dim=2): [x, px, y, py, J11, J12, J21, J22, K11, K12, K21, K22]
-            x,px,y,py — Hamilton's equations
-            Jij, Kij  — two independent Jacobi columns (ij = column index)
-
-    The cumulative action is integrated as an additional state component
-    (dS/dt = px ẋ + py ẏ = px H_px + py H_py), so no post-hoc gradient
-    approximation is needed.
-
-    Parallelism
-    -----------
-    Once lambdified, the NumPy callables release the GIL during numerical
-    evaluation.  ``ThreadPoolExecutor`` is therefore sufficient and avoids
-    the heavy ``spawn`` overhead of ``ProcessPoolExecutor`` (which would
-    re-import SymPy and re-lambdify in every worker process).
-    """
-
-    def __init__(self, H_sym, vars_phase, dim,
-                 is_metric_mode=False, metric=None):
-        from scipy.integrate import solve_ivp as _solve_ivp
-        self._solve_ivp = _solve_ivp
-        self.dim = dim
-        self.is_metric_mode = is_metric_mode
-        self.metric = metric
-
-        if dim == 1:
-            x_s, p_s = vars_phase[0], vars_phase[1]
-            # Hamilton's equations
-            self._dH_dp = sp.lambdify((x_s, p_s), sp.diff(H_sym, p_s), 'numpy')
-            self._dH_dx = sp.lambdify((x_s, p_s), sp.diff(H_sym, x_s), 'numpy')
-            # Hessian for variational system
-            self._H_pp  = sp.lambdify((x_s, p_s), sp.diff(H_sym, p_s, 2), 'numpy')
-            self._H_xp  = sp.lambdify((x_s, p_s), sp.diff(H_sym, x_s, p_s), 'numpy')
-            self._H_xx  = sp.lambdify((x_s, p_s), sp.diff(H_sym, x_s, 2), 'numpy')
-            self._x_key = str(x_s)
-            self._p_key = str(p_s)
-
-        else:  # dim == 2
-            x_s, px_s, y_s, py_s = vars_phase
-            # Hamilton's equations (first-order partials)
-            self._dH_dpx = sp.lambdify((x_s, px_s, y_s, py_s),
-                                        sp.diff(H_sym, px_s), 'numpy')
-            self._dH_dpy = sp.lambdify((x_s, px_s, y_s, py_s),
-                                        sp.diff(H_sym, py_s), 'numpy')
-            self._dH_dx  = sp.lambdify((x_s, px_s, y_s, py_s),
-                                        sp.diff(H_sym, x_s),  'numpy')
-            self._dH_dy  = sp.lambdify((x_s, px_s, y_s, py_s),
-                                        sp.diff(H_sym, y_s),  'numpy')
-            # Hessian blocks for the variational system:
-            #   A = ∂²H/∂p∂p,  B = ∂²H/∂x∂p,  C = ∂²H/∂x∂x
-            # (each is a 2×2 block; only the 4 independent entries are needed)
-            def _lam(expr):
-                return sp.lambdify((x_s, px_s, y_s, py_s), expr, 'numpy')
-            self._H_pxpx = _lam(sp.diff(H_sym, px_s, 2))
-            self._H_pxpy = _lam(sp.diff(H_sym, px_s, py_s))
-            self._H_pypy = _lam(sp.diff(H_sym, py_s, 2))
-            self._H_xpx  = _lam(sp.diff(H_sym, x_s, px_s))
-            self._H_xpy  = _lam(sp.diff(H_sym, x_s, py_s))
-            self._H_ypx  = _lam(sp.diff(H_sym, y_s, px_s))
-            self._H_ypy  = _lam(sp.diff(H_sym, y_s, py_s))
-            self._H_xx   = _lam(sp.diff(H_sym, x_s, 2))
-            self._H_xy   = _lam(sp.diff(H_sym, x_s, y_s))
-            self._H_yy   = _lam(sp.diff(H_sym, y_s, 2))
-            self._x_key  = str(x_s)
-            self._px_key = str(px_s)
-            self._y_key  = str(y_s)
-            self._py_key = str(py_s)
-
-    # ------------------------------------------------------------------
-    def _augmented_ode_1d(self, t, state):
-        """Augmented ODE for 1D: [x, p, J, K, S]."""
-        x, p, J, K, S = state
-        dxdt  =  self._dH_dp(x, p)
-        dpdt  = -self._dH_dx(x, p)
-        H_pp  =  self._H_pp(x, p)
-        H_xp  =  self._H_xp(x, p)
-        H_xx  =  self._H_xx(x, p)
-        dJ    =  H_pp * K  + H_xp * J
-        dK    = -H_xp * K  - H_xx * J
-        dS    =  p * dxdt                 # d/dt ∫ p ẋ dt
-        return [dxdt, dpdt, dJ, dK, dS]
-
-    def _augmented_ode_2d(self, t, state):
-        """Augmented ODE for 2D: [x, px, y, py, J11,J12,J21,J22,
-                                                   K11,K12,K21,K22, S]."""
-        x, px, y, py = state[0], state[1], state[2], state[3]
-        J11, J12 = state[4],  state[5]
-        J21, J22 = state[6],  state[7]
-        K11, K12 = state[8],  state[9]
-        K21, K22 = state[10], state[11]
-
-        # Hamilton's equations
-        dxdt  =  self._dH_dpx(x, px, y, py)
-        dydt  =  self._dH_dpy(x, px, y, py)
-        dpxdt = -self._dH_dx (x, px, y, py)
-        dpydt = -self._dH_dy (x, px, y, py)
-
-        # Hessian blocks evaluated at current phase-space point
-        # A = ∂²H/∂p∂p   (2×2, symmetric)
-        A11 = self._H_pxpx(x, px, y, py);  A12 = self._H_pxpy(x, px, y, py)
-        A21 = A12;                           A22 = self._H_pypy(x, px, y, py)
-        # B = ∂²H/∂x∂p   (maps position variation to momentum-equation variation)
-        B11 = self._H_xpx(x, px, y, py);   B12 = self._H_xpy(x, px, y, py)
-        B21 = self._H_ypx(x, px, y, py);   B22 = self._H_ypy(x, px, y, py)
-        # C = ∂²H/∂x∂x   (2×2, symmetric)
-        C11 = self._H_xx(x, px, y, py);    C12 = self._H_xy(x, px, y, py)
-        C21 = C12;                           C22 = self._H_yy(x, px, y, py)
-
-        # Variational system: d/dt [J; K] = [[B, A]; [-C, -B^T]] [J; K]
-        # Column 1  (perturbation in px direction)
-        dJ11 =  A11*K11 + A12*K21  +  B11*J11 + B12*J21
-        dJ21 =  A21*K11 + A22*K21  +  B21*J11 + B22*J21
-        dK11 = -C11*J11 - C12*J21  - (B11*K11 + B21*K21)
-        dK21 = -C21*J11 - C22*J21  - (B12*K11 + B22*K21)
-        # Column 2  (perturbation in py direction)
-        dJ12 =  A11*K12 + A12*K22  +  B11*J12 + B12*J22
-        dJ22 =  A21*K12 + A22*K22  +  B21*J12 + B22*J22
-        dK12 = -C11*J12 - C12*J22  - (B11*K12 + B21*K22)
-        dK22 = -C21*J12 - C22*J22  - (B12*K12 + B22*K22)
-
-        # Action integrand  dS/dt = px ẋ + py ẏ
-        dS = px * dxdt + py * dydt
-
-        return [dxdt, dpxdt, dydt, dpydt,
-                dJ11, dJ12, dJ21, dJ22,
-                dK11, dK12, dK21, dK22,
-                dS]
-
-    # ------------------------------------------------------------------
-    def integrate_ray(self, p0, source, t_max, n_steps,
-                      integrator='rk45', rtol=1e-8, atol=1e-10):
-        """
-        Integrate one ray from *source* with initial momentum *p0*.
-
-        Always uses RK45 (the augmented ODE is not in the form expected by
-        the Verlet integrator).  For Verlet accuracy, pass ``rtol=1e-10``.
-
-        Returns a RayData, or None on failure.
-        """
-        from scipy.integrate import solve_ivp
-        t_eval = np.linspace(0.0, t_max, n_steps)
-        try:
-            if self.dim == 1:
-                z0 = [source[0], float(p0), 0.0, 1.0, 0.0]
-                sol = solve_ivp(self._augmented_ode_1d,
-                                (0.0, t_max), z0,
-                                t_eval=t_eval, method='RK45',
-                                rtol=rtol, atol=atol, dense_output=False)
-                if not sol.success:
-                    return None
-                x_arr  = sol.y[0]
-                px_arr = sol.y[1]
-                det_J  = sol.y[2]          # J scalar in 1D
-                S_cum  = sol.y[4]
-                if not (np.all(np.isfinite(x_arr)) and
-                        np.all(np.isfinite(S_cum))  and
-                        np.all(np.isfinite(det_J))):
-                    return None
-                traj = {'t': sol.t,
-                        self._x_key: x_arr,
-                        self._p_key: px_arr,
-                        'xi': px_arr}
-            else:  # dim == 2
-                z0 = [source[0], float(p0[0]),
-                      source[1], float(p0[1]),
-                      # J matrix (identity → dJ/dp0 starts at 0 for point source,
-                      # but K starts at identity)
-                      0.0, 0.0,   # J11, J12
-                      0.0, 0.0,   # J21, J22
-                      1.0, 0.0,   # K11, K12
-                      0.0, 1.0,   # K21, K22
-                      0.0]        # S
-                sol = solve_ivp(self._augmented_ode_2d,
-                                (0.0, t_max), z0,
-                                t_eval=t_eval, method='RK45',
-                                rtol=rtol, atol=atol, dense_output=False)
-                if not sol.success:
-                    return None
-                x_arr  = sol.y[0];  px_arr = sol.y[1]
-                y_arr  = sol.y[2];  py_arr = sol.y[3]
-                J11    = sol.y[4];  J12    = sol.y[5]
-                J21    = sol.y[6];  J22    = sol.y[7]
-                det_J  = J11 * J22 - J12 * J21
-                S_cum  = sol.y[12]
-                if not (np.all(np.isfinite(x_arr)) and
-                        np.all(np.isfinite(y_arr))  and
-                        np.all(np.isfinite(det_J))  and
-                        np.all(np.isfinite(S_cum))):
-                    return None
-                traj = {'t':           sol.t,
-                        self._x_key:  x_arr,
-                        self._px_key: px_arr,
-                        self._y_key:  y_arr,
-                        self._py_key: py_arr,
-                        'xi':  px_arr,
-                        'eta': py_arr}
-
-            mu             = _maslov_index(det_J)
-            caustic_events = _maslov_events(det_J, t_arr=sol.t)
-            return RayData(traj=traj, det_J=det_J, S_cum=S_cum, mu=mu,
-                           caustic_events=caustic_events)
-
-        except Exception:
-            return None
-
-    def __call__(self, p0, source, t_max, n_steps,
-                 integrator='rk45', rtol=1e-8, atol=1e-10):
-        return self.integrate_ray(p0, source, t_max, n_steps,
-                                  integrator, rtol, atol)
-        
 # ── Modified compute_wavefunction with parallel option ──────────────────────
 def compute_wavefunction(
     metric       : Optional[Metric]  = None,
@@ -2019,71 +1899,43 @@ def compute_wavefunction(
     rays = []
     first_exc = None
 
-    # ── Build a pre-compiled integrator (lambdify once, integrate many) ───────
-    # For the general-Hamiltonian path (Mode B) the old code called
-    # hamiltonian_flow — which re-lambdifies H internally — plus four extra
-    # finite-difference trajectories per ray for the 2D Jacobi matrix.
-    # _CompiledHamiltonianIntegrator does all lambdification once here, then
-    # solves the augmented ODE (Hamilton + variational system + action) in a
-    # single solve_ivp call per ray.
-    #
-    # For the metric path (Mode A) we keep the existing _process_single_ray_internal
-    # route unchanged (it uses the Riemannian jacobi_equation_solver which is
-    # already efficient for curved metrics).
-    use_compiled = (not is_metric_mode)
-
-    if use_compiled:
-        compiled = _CompiledHamiltonianIntegrator(
-            H_sym, vars_phase, dim,
-            is_metric_mode=False, metric=None)
-
     if parallel:
-        if use_compiled:
-            # Threads are sufficient: lambdified NumPy functions release the GIL,
-            # so no subprocess spawn overhead (no re-import of SymPy per worker).
-            import os
-            n_workers = min(len(fan), os.cpu_count() or 4)
-            with concurrent.futures.ThreadPoolExecutor(
-                    max_workers=n_workers) as executor:
-                futures = [
-                    executor.submit(compiled.integrate_ray,
-                                    p, source, t_max, n_steps, integrator)
-                    for p in fan
-                ]
-                for fut in concurrent.futures.as_completed(futures):
-                    r = fut.result()
-                    if r is not None:
-                        rays.append(r)
-        else:
-            # Metric mode: keep the original spawn-based ProcessPoolExecutor
-            # (metric path has heavier Python objects that benefit from isolation)
-            ctx = multiprocessing.get_context('spawn')
-            with concurrent.futures.ProcessPoolExecutor(
-                max_workers=None,
-                mp_context=ctx
-            ) as executor:
-                future_to_idx = {
-                    executor.submit(
-                        _worker_process_ray,
-                        p, source, t_max, hbar, n_steps, integrator, worker_data
-                    ): i for i, p in enumerate(fan)
-                }
-                for future in concurrent.futures.as_completed(future_to_idx):
-                    result_ray = future.result()
-                    if result_ray is not None:
-                        rays.append(result_ray)
+        # Parallel execution using ProcessPoolExecutor with 'spawn' context
+        ctx = multiprocessing.get_context('spawn')
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=None,
+            mp_context=ctx
+        ) as executor:
+            # Submit all rays
+            future_to_idx = {
+                executor.submit(
+                    _worker_process_ray,
+                    p, source, t_max, hbar, n_steps, integrator, worker_data
+                ): i for i, p in enumerate(fan)
+            }
+            for future in concurrent.futures.as_completed(future_to_idx):
+                result = future.result()
+                if result is not None:
+                    rays.append(result)
+                # (Optionally store the first exception if needed, but worker returns None on failure)
     else:
-        # Sequential execution
+        # Sequential execution (original loop)
+        # Build H_sym and vars_phase once (already done by _resolve_hamiltonian earlier)
+        # We need to have H_sym, vars_phase, metric (if any) accessible.
+        # In the original code, these were built before the loop.
+        # We'll replicate that here (already present after _resolve_hamiltonian).
+        # Actually, after _resolve_hamiltonian we have H_sym, vars_phase, dim.
+        # We also have metric if is_metric_mode.
+        # So we can just loop.
         for p in fan:
-            if use_compiled:
-                r = compiled.integrate_ray(p, source, t_max, n_steps, integrator)
-            else:
-                r = _process_single_ray_internal(
-                    p, source, t_max, hbar, n_steps, integrator,
-                    H_sym, vars_phase, is_metric_mode,
-                    metric if is_metric_mode else None)
-            if r is not None:
-                rays.append(r)
+            result = _process_single_ray_internal(
+                p, source, t_max, hbar, n_steps, integrator,
+                H_sym, vars_phase, is_metric_mode,
+                metric if is_metric_mode else None
+            )
+            if result is not None:
+                rays.append(result)
+            # (first_exc not captured; errors are swallowed in internal function)
 
     if not rays:
         msg = "All rays failed to integrate."
@@ -2484,690 +2336,284 @@ def plot_interference_detail(result: WKBResult,
                     facecolor=fig.get_facecolor())
     return fig
 
-import matplotlib.animation as animation
 
 def animate_wavefunction(
     result: WKBResult,
-    times: Optional[np.ndarray] = None,
-    n_frames: int = 50,
-    save_path: Optional[str] = None,
-    fps: int = 10,
-    figsize: Optional[Tuple[float, float]] = None,
-    dpi: int = 100,
-    plot_type: str = 'both',
-    interp_kind: str = 'linear',
-    caustic_threshold: float = 0.05,
-    stride: int = 1,
-) -> animation.FuncAnimation:
+    frame_times=None,
+    n_frames: int = 100,
+    interval: int = 50,
+    save_path: str | None = None,
+    log_scale: bool = False,
+) -> "matplotlib.animation.FuncAnimation":
     """
-    Animate the semiclassical wavefunction as a function of time.
+    Animate the true time evolution of the semiclassical wavefunction by
+    re-assembling the Van Vleck sum at successive time slices from the already-
+    integrated ray data.
 
-    The animation is built from the pre‑computed ray data stored in `result`.
-    For each requested time, the scattered data (positions, action, Jacobian,
-    Maslov index) are extracted (using nearest‑neighbour or linear interpolation)
-    and fed to :func:`van_vleck_sum` to obtain the gridded wavefunction.
+    Unlike :func:`animate_wavefunction`, which applies a single global phase
+    rotation ``exp(−iEt/ℏ)`` to a frozen snapshot (leaving |ψ|² constant),
+    this function recomputes ψ(x, t) from scratch at each frame by calling
+    :func:`van_vleck_sum` on the per-ray data sliced at time index ``t_idx``.
+    This correctly captures the spreading, focusing, and caustic structure of
+    the evolving wavepacket, so |ψ|² is genuinely time-dependent.
+
+    The price is computational: :func:`van_vleck_sum` is called once per frame,
+    but no ray integration is repeated — only the cheap gridding step runs.
 
     Parameters
     ----------
     result : WKBResult
-        Output of :func:`compute_wavefunction`. Must contain rays with full
-        trajectories (time, positions, action, Jacobian) – this is always the case.
-    times : array_like, optional
-        Specific times at which to create frames. If not given, `n_frames`
-        equally spaced times between 0 and `result.t_max` are used.
-    n_frames : int, default 50
-        Number of frames (ignored if `times` is provided).
-    save_path : str, optional
-        If provided, save the animation to this file (supports .gif, .mp4, etc.).
-    fps : int, default 10
-        Frames per second in the saved animation.
-    figsize : tuple, optional
-        Figure size (width, height) in inches. If None, a suitable size is chosen.
-    dpi : int, default 100
-        Resolution of the saved animation.
-    plot_type : {'density', 'phase', 'both'}, default 'both'
-        What to display:
-        * 'density' : show only |ψ|² (1D) or log|ψ|² (2D).
-        * 'phase'   : show only arg ψ (1D line, 2D colours).
-        * 'both'    : show density and phase side by side (2D only – two subplots).
-                      For 1D, 'both' shows density and phase in the same axes.
-    interp_kind : {'nearest', 'linear'}, default 'linear'
-        How to obtain ray data at the exact frame time:
-        * 'nearest' : use the value at the closest stored time step (fast).
-        * 'linear'  : linearly interpolate between stored time steps (smoother).
-    caustic_threshold : float, default 0.05
-        Passed to :func:`van_vleck_sum`; controls the width of Airy patches.
-    stride : int, default 1
-        Sub-sampling stride applied to each ray's trajectory when building the
-        scattered point cloud for each frame.  ``stride=1`` keeps every time
-        step (most accurate); ``stride=4`` keeps every 4th step, reducing the
-        number of scattered points by 4× and making ``griddata`` ~4–16× faster
-        with little visual loss.  Values between 2 and 8 are recommended for
-        interactive use.
+        Output of :func:`compute_wavefunction`.  Must contain full per-ray
+        time series in ``result.rays[k].traj``, ``det_J``, and ``S_cum``.
+    frame_times : array-like or None
+        Physical times at which to render frames.  Each value is matched to
+        the nearest stored time step.  If ``None``, ``n_frames`` equally
+        spaced times between 0 and ``result.t_max`` are used.
+    n_frames : int, default 100
+        Number of frames (ignored when ``frame_times`` is supplied).
+    interval : int, default 50
+        Delay between frames in milliseconds.
+    save_path : str or None, default None
+        If given, save the animation to this path.  Format inferred from the
+        extension: ``.gif`` uses Pillow, ``.mp4`` uses ffmpeg.
+    log_scale : bool, default False
+        If ``True``, display ``log(1 + |ψ|²)`` in the density panel.
 
     Returns
     -------
-    ani : matplotlib.animation.FuncAnimation
-        The animation object. Call `plt.show()` to display it interactively,
-        or use `save_path` to write to a file.
+    anim : matplotlib.animation.FuncAnimation
+
+    Notes
+    -----
+    Axis limits for Re(ψ), Im(ψ), and |ψ|² are computed by scanning **all**
+    frames before the animation starts, so the scale remains stable throughout
+    and no clipping occurs.
 
     Examples
     --------
-    .. code-block:: python
+    ::
 
-        result = compute_wavefunction(metric, source, v_fan, t_max=2.0, ...)
-        ani = animate_wavefunction(result, n_frames=30, save_path='wave.gif')
-        plt.show()   # if you want to see it in the notebook/ GUI
+        result = compute_wavefunction(metric=metric, source=source,
+                                      v_fan=v_fan, t_max=3.0, hbar=0.1)
+        anim = animate_true_time_evolution(result, n_frames=80, interval=40)
+        plt.show()
+
+        # Save as GIF
+        animate_true_time_evolution(result, save_path="evolution.gif")
     """
-    dim = result.dim
-    t_min, t_max = 0.0, result.t_max
+    from matplotlib.animation import FuncAnimation
 
-    # ---- time grid ----
-    if times is None:
-        times = np.linspace(t_min, t_max, n_frames)
+    # ── time index selection ──────────────────────────────────────────────────
+    t_arr   = result.rays[0].traj['t']
+    n_steps = len(t_arr)
+
+    if frame_times is None:
+        indices = np.linspace(0, n_steps - 1, n_frames, dtype=int)
     else:
-        times = np.asarray(times)
-        n_frames = len(times)
+        indices = np.array([np.argmin(np.abs(t_arr - t)) for t in frame_times],
+                           dtype=int)
 
-    # ---- fixed grid limits (use the same as in result, or compute global range) ----
-    # Global min/max from all rays at all times ensures the wavefunction stays in view.
-    x_all = result.x_pts
-    if dim == 2:
-        y_all = result.y_pts
-        xlim = (x_all.min(), x_all.max())
-        ylim = (y_all.min(), y_all.max())
+    # ── position key detection ────────────────────────────────────────────────
+    # Exclude time, energy, and momentum keys robustly by checking against
+    # the known momentum symbol names stored in vars_phase.  Fall back to the
+    # simple heuristic when vars_phase is unavailable.
+    all_keys  = list(result.rays[0].traj.keys())
+    _mom_keys = {'t', 'energy'}
+    # momentum keys are those whose string matches the second (and fourth) entry
+    # of the phase-space variable list; use a conservative pattern instead.
+    _coord_keys = [k for k in all_keys
+                   if k not in _mom_keys
+                   and not any(k == mk for mk in ('xi', 'eta', 'px', 'py'))
+                   and not (len(k) > 1 and k[0] == 'p' and k[1:].isalpha())]
+
+    if result.dim == 1:
+        x_key = _coord_keys[0]
     else:
-        xlim = (x_all.min(), x_all.max())
-        ylim = None
+        x_key, y_key = _coord_keys[0], _coord_keys[1]
 
-    # Grid resolution from result (assume square in 2D)
-    if dim == 1:
-        N_grid = len(result.X)
+    # ── grid parameters ───────────────────────────────────────────────────────
+    if result.dim == 1:
+        x      = result.X
+        xlim   = (float(x[0]), float(x[-1]))
+        N_grid = len(x)
+        ylim_grid = None
     else:
-        N_grid = result.X.shape[0]
+        X, Y   = result.X, result.Y
+        xlim   = (float(X[0, 0]),  float(X[0, -1]))
+        ylim_grid = (float(Y[0, 0]),  float(Y[-1, 0]))
+        N_grid = X.shape[0]
 
-    # ---- pre-stack all ray arrays into matrices (n_rays × n_steps) ----
-    # Determine coordinate keys by reading them from result.rays[0].traj.
-    # Strategy: exclude the known non-position keys ('t', 'energy') and the
-    # known momentum keys (those whose string representation matches a momentum
-    # symbol).  Using a hard-coded string filter like "'p' not in sym" is
-    # fragile (it would drop coords named 'phi', 'rho', etc.).
-    # Instead we infer coord keys as those keys in the traj dict that are
-    # neither the time key 't', 'energy', nor the momentum keys identified by
-    # matching against the vars_phase symbols (every odd entry in 2D, or the
-    # second entry in 1D).
-    _traj0   = result.rays[0].traj
-    _all_keys = list(_traj0.keys())
-    # Non-position keys are always 't' and 'energy', plus any momentum keys.
-    # Momentum keys: for hamiltonian_flow they are the string of vars_phase[1]
-    # (1D) or vars_phase[1] and vars_phase[3] (2D).  We don't have vars_phase
-    # here, so we exclude 't', 'energy', and any key that is *not* a position
-    # by checking whether it also appears as a trajectory array that starts
-    # near the source point (positions start at source; momenta generally don't).
-    # Simpler heuristic: exclude 't', 'energy', 'xi', 'eta', 'v', 'vx', 'vy',
-    # and any key whose first character is not a letter in 'xyqr' or the key
-    # contains the substring 'xi' or 'eta'.  This covers all built-in cases.
-    _EXCLUDE = {'t', 'energy', 'v', 'vx', 'vy', 'xi', 'eta'}
-    coord_names = [k for k in _all_keys
-                   if k not in _EXCLUDE
-                   and 'xi' not in k and 'eta' not in k
-                   and not k.startswith('p')]   # excludes 'px', 'py', etc.
-    if dim == 1:
-        x_key = coord_names[0]
-        y_key = None
-    else:
-        x_key, y_key = coord_names[0], coord_names[1]
+    hbar = result.hbar
 
-    # This is done ONCE before the frame loop so that each frame can extract
-    # its data with pure NumPy slicing rather than a Python loop over rays.
-    #
-    # All rays are padded to the same length (the length of the longest ray)
-    # with NaN so that the matrices are rectangular.  Padded entries are
-    # masked out when building each frame's point cloud.
-    rays = result.rays
-    n_rays = len(rays)
-    n_steps_per_ray = [len(r.traj['t']) for r in rays]
-    n_steps_max = max(n_steps_per_ray)
+    # ── pre-scan all frames to get global amplitude limits ────────────────────
+    def _psi_at(t_idx: int) -> np.ndarray:
+        """Assemble ψ on the grid at a single time index."""
+        n_rays = len(result.rays)
+        if result.dim == 1:
+            pts      = np.array([[ray.traj[x_key][t_idx]] for ray in result.rays])
+        else:
+            pts      = np.array([[ray.traj[x_key][t_idx],
+                                  ray.traj[y_key][t_idx]] for ray in result.rays])
+            # tiny jitter to avoid Qhull coplanarity failures in degenerate configs
+            pts     += 1e-10 * np.random.default_rng(0).standard_normal(pts.shape)
 
-    # Shared time grid — assumed identical across rays (same integrator / n_steps).
-    # Use the longest ray's time axis as the reference.
-    t_ref = max(rays, key=lambda r: len(r.traj['t'])).traj['t']
+        S_vals   = np.array([ray.S_cum[t_idx]  for ray in result.rays])
+        detJ_vals= np.array([ray.det_J[t_idx]  for ray in result.rays])
+        mu_vals  = np.array([ray.mu             for ray in result.rays])
 
-    # Stack trajectory arrays: shape (n_rays, n_steps_max)
-    def _pad(arr, length, fill=np.nan):
-        out = np.full(length, fill)
-        out[:len(arr)] = arr
-        return out
-
-    t_mat   = np.vstack([_pad(r.traj['t'],   n_steps_max) for r in rays])
-    x_mat   = np.vstack([_pad(r.traj[x_key], n_steps_max) for r in rays])
-    S_mat   = np.vstack([_pad(r.S_cum,        n_steps_max) for r in rays])
-    dJ_mat  = np.vstack([_pad(r.det_J,        n_steps_max) for r in rays])
-    if dim == 2:
-        y_mat = np.vstack([_pad(r.traj[y_key], n_steps_max) for r in rays])
-
-    # ---- pre‑compute scattered data for each frame ----
-    frames_data = []          # each element: (psi, X, Y)   Y may be None in 1D
-
-    # Fixed output grid (built once)
-    xs_grid = np.linspace(*xlim, N_grid)
-    if dim == 2:
-        ys_grid = np.linspace(*ylim, N_grid)
-        X_grid, Y_grid = np.meshgrid(xs_grid, ys_grid)
-        grid_pts = np.c_[X_grid.ravel(), Y_grid.ravel()]
-
-    for t_target in times:
-        # -- For each ray find the last stored step index <= t_target ----------
-        # t_mat rows are sorted ascending; searchsorted gives the insertion
-        # point, subtract 1 to get the last index <= t_target.
-        # Clamp to [0, n_steps_per_ray[i]-1] per ray.
-        idx_vec = np.minimum(
-            np.searchsorted(t_ref, t_target, side='right') - 1,
-            n_steps_max - 1,
+        psi, _, _ = van_vleck_sum(
+            pts, S_vals, detJ_vals, mu_vals,
+            xlim=xlim, ylim=ylim_grid, N=N_grid, hbar=hbar,
         )
-        idx_vec = max(idx_vec, 0)   # scalar: same idx for all rays (shared grid)
+        return psi
 
-        # -- Stride-subsampled slice 0 : idx_vec+1 : stride --------------------
-        sl = slice(0, idx_vec + 1, max(1, int(stride)))
+    # Sample a subset of frames (every 5th) to estimate limits without full scan
+    sample_idx = indices[::max(1, len(indices) // 20)]
+    psi_samples = [_psi_at(int(i)) for i in sample_idx]
 
-        x_seg   = x_mat[:, sl]          # (n_rays, n_pts)
-        S_seg   = S_mat[:, sl]
-        dJ_seg  = dJ_mat[:, sl]
-        if dim == 2:
-            y_seg = y_mat[:, sl]
+    psi_max  = max(float(np.max(np.abs(p)))    for p in psi_samples) or 1.0
+    den_vals = [(np.log1p(np.abs(p)**2) if log_scale else np.abs(p)**2)
+                for p in psi_samples]
+    den_max  = max(float(np.max(d)) for d in den_vals) or 1.0
+    dlabel   = r"$\log(1+|\psi|^2)$" if log_scale else r"$|\psi|^2$"
 
-        # -- Maslov index per ray at t_target (count sign changes up to idx) --
-        # Delegate to _maslov_index so this stays consistent with the main
-        # pipeline.  The scalar counter is robust for det_J starting near 0.
-        mu_vec = np.zeros(n_rays, dtype=int)
-        for i in range(n_rays):
-            dj_row = dJ_mat[i, sl]
-            finite = np.isfinite(dj_row)
-            if finite.sum() >= 2:
-                mu_vec[i] = _maslov_index(dj_row[finite])
+    # ── build figure ──────────────────────────────────────────────────────────
+    if result.dim == 1:
+        fig, axes_2d = plt.subplots(2, 2, figsize=(12, 8))
+        axes = axes_2d.flatten()
+        _style(fig, axes)
+        fig.subplots_adjust(hspace=0.38, wspace=0.35)
 
-        # -- Flatten to 1-D point clouds, dropping NaN padding ----------------
-        x_flat  = x_seg.ravel()
-        S_flat  = S_seg.ravel()
-        dJ_flat = dJ_seg.ravel()
-        valid   = np.isfinite(x_flat) & np.isfinite(S_flat) & np.isfinite(dJ_flat)
-        x_flat, S_flat, dJ_flat = x_flat[valid], S_flat[valid], dJ_flat[valid]
+        psi0 = _psi_at(int(indices[0]))
 
-        # Broadcast mu to every point of its ray.
-        # Build the full-length repeated array first (n_rays * n_pts_sl), then
-        # apply the same `valid` mask so its length matches x_flat exactly.
-        # The old code did np.repeat(...)[valid] but computed n_pts_sl *before*
-        # the valid mask, so on padded rows the repeat count was correct yet the
-        # final index could silently be off when NaN-padding varied per ray.
-        n_pts_sl    = x_seg.shape[1]                   # cols per ray after stride
-        mu_unmasked = np.repeat(mu_vec, n_pts_sl)      # shape: (n_rays * n_pts_sl,)
-        mu_flat     = mu_unmasked[valid]               # same length as x_flat
+        (line_re,)    = axes[0].plot(x, psi0.real,       lw=1.1, color="#4fc3f7")
+        (line_im,)    = axes[1].plot(x, psi0.imag,       lw=1.1, color="#ef9a9a")
+        (line_den,)   = axes[2].plot(x, np.abs(psi0)**2, lw=0.9, color="white",
+                                      alpha=0.55)
+        (line_phase,) = axes[3].plot(x, np.angle(psi0),  lw=1.1,
+                                      color=plt.cm.hsv(0.28))
 
-        if dim == 1:
-            pts = x_flat[:, None]
-        else:
-            y_flat = y_seg.ravel()[valid]
-            pts    = np.column_stack([x_flat, y_flat])
+        for ax, ydata, color, alpha in [
+            (axes[0], psi0.real,       "#4fc3f7",            0.25),
+            (axes[1], psi0.imag,       "#ef9a9a",            0.25),
+            (axes[2], np.abs(psi0)**2, plt.cm.inferno(0.65), 0.75),
+        ]:
+            ax.fill_between(x, ydata, alpha=alpha, color=color)
 
-        # -- WKB complex amplitude at each scattered point --------------------
-        abs_det  = np.abs(dJ_flat)
-        reg      = 1e-4
-        amp      = 1.0 / np.sqrt(np.maximum(abs_det, reg))
-        psi_k    = amp * np.exp(1j * S_flat / result.hbar
-                                - 1j * mu_flat * np.pi / 2)
+        for ax in axes[:2]:
+            ax.set_xlim(xlim)
+            ax.set_ylim(-1.35 * psi_max, 1.35 * psi_max)
+            ax.axhline(0, color="white", lw=0.4, ls="--", alpha=0.4)
+        axes[2].set_xlim(xlim)
+        axes[2].set_ylim(0, 1.25 * den_max)
+        axes[3].set_xlim(xlim)
+        axes[3].set_ylim(-np.pi - 0.3, np.pi + 0.3)
+        axes[3].axhline(0, color="white", lw=0.4, ls="--", alpha=0.4)
+        axes[3].set_yticks([-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi])
+        axes[3].set_yticklabels([r"$-\pi$", r"$-\pi/2$", "$0$",
+                                   r"$\pi/2$", r"$\pi$"])
 
-        # -- Grid interpolation: use LinearNDInterpolator in 2D so the
-        #    Delaunay triangulation is built once and evaluation is fast -------
-        if dim == 1:
-            order = np.argsort(pts[:, 0])
-            xs_s  = pts[order, 0]
-            pk_s  = psi_k[order]
-            psi   = (np.interp(xs_grid, xs_s, pk_s.real, left=0, right=0)
-                   + 1j * np.interp(xs_grid, xs_s, pk_s.imag, left=0, right=0))
-            X_out, Y_out = xs_grid, None
-        else:
-            try:
-                interp_r = LinearNDInterpolator(pts, psi_k.real, fill_value=0.0)
-                interp_i = LinearNDInterpolator(pts, psi_k.imag, fill_value=0.0)
-                # Share the triangulation object by copying it
-                interp_i.tri = interp_r.tri
-                psi = (interp_r(grid_pts) + 1j * interp_i(grid_pts)).reshape(N_grid, N_grid)
-            except Exception:
-                # Fallback to nearest-neighbour if triangulation fails
-                interp_r = NearestNDInterpolator(pts, psi_k.real)
-                interp_i = NearestNDInterpolator(pts, psi_k.imag)
-                psi = (interp_r(grid_pts) + 1j * interp_i(grid_pts)).reshape(N_grid, N_grid)
-            X_out, Y_out = X_grid, Y_grid
+        axes[0].set(title=r"Re $\psi(x,t)$",        xlabel="$x$", ylabel=r"Re $\psi$")
+        axes[1].set(title=r"Im $\psi(x,t)$",        xlabel="$x$", ylabel=r"Im $\psi$")
+        axes[2].set(title=dlabel,                    xlabel="$x$", ylabel=dlabel)
+        axes[3].set(title=r"Phase $\arg\psi(x,t)$", xlabel="$x$",
+                    ylabel=r"$\arg\psi$  [rad]")
 
-        frames_data.append((psi, X_out, Y_out))
-
-    # ---- set up figure and artists ----
-    if figsize is None:
-        figsize = (12, 5) if dim == 2 and plot_type == 'both' else (8, 5)
-
-    if dim == 1:
-        fig, ax = plt.subplots(figsize=figsize)
-        ax.set_xlabel('$x$')
-        ax.set_ylabel('')
-        ax.set_title(f'Time = {times[0]:.3f}')
-        _style(fig, ax)
-
-        # First frame to initialise lines
-        psi0, X0, _ = frames_data[0]
-        if plot_type in ('density', 'both'):
-            dens0 = np.abs(psi0)**2
-            line_dens, = ax.plot(X0, dens0, lw=1.5, color='cyan', label=r'$|\psi|^2$')
-        if plot_type in ('phase', 'both'):
-            phase0 = np.angle(psi0)
-            line_phase, = ax.plot(X0, phase0, lw=1.0, color='magenta', alpha=0.7, label=r'arg $\psi$')
-            ax.axhline(0, color='white', lw=0.5, ls='--')
-        ax.legend(loc='upper right', fontsize=8)
-        artists = [line_dens] if plot_type == 'density' else ([line_phase] if plot_type == 'phase' else [line_dens, line_phase])
-
-        def update_1d(i):
-            psi, X, _ = frames_data[i]
-            if plot_type in ('density', 'both'):
-                line_dens.set_ydata(np.abs(psi)**2)
-            if plot_type in ('phase', 'both'):
-                line_phase.set_ydata(np.angle(psi))
-            ax.set_title(f'Time = {times[i]:.3f}')
-            return artists
-
-        ani = animation.FuncAnimation(fig, update_1d, frames=n_frames,
-                                      interval=1000/fps, blit=True)
-
-    else:   # 2D
-        if plot_type == 'both':
-            fig, (ax_dens, ax_phase) = plt.subplots(1, 2, figsize=figsize)
-            axes = [ax_dens, ax_phase]
-        else:
-            fig, ax = plt.subplots(figsize=figsize)
-            axes = [ax]
-
-        for a in axes:
-            a.set_xlabel('$x$')
-            a.set_ylabel('$y$')
-            a.set_aspect('equal')
+        time_text = fig.suptitle(
+            rf"Van Vleck wavefunction  ($\hbar={hbar}$,  $t={t_arr[indices[0]]:.3f}$)",
+            color="white", fontsize=10, fontweight="bold")
         _style(fig, axes)
 
-        # Initialise images with first frame
-        psi0, X0, Y0 = frames_data[0]
-        if plot_type in ('density', 'both'):
-            dens0 = np.log1p(np.abs(psi0)**2)   # log scale to see details
-            im_dens = axes[0].pcolormesh(X0, Y0, dens0, cmap='inferno', shading='auto')
-            fig.colorbar(im_dens, ax=axes[0], label=r'$\log(1+|\psi|^2)$')
-        if plot_type in ('phase', 'both'):
-            phase0 = np.angle(psi0)
-            # For both case, phase is second subplot; for 'phase' alone it's the only axis
-            ax_phase = axes[1] if plot_type == 'both' else axes[0]
-            im_phase = ax_phase.pcolormesh(X0, Y0, phase0, cmap='hsv',
-                                            shading='auto', vmin=-np.pi, vmax=np.pi)
-            fig.colorbar(im_phase, ax=ax_phase, label=r'$\arg(\psi)$')
+        def _update_1d(frame):
+            t_idx = int(indices[frame])
+            psi   = _psi_at(t_idx)
+            den   = np.log1p(np.abs(psi)**2) if log_scale else np.abs(psi)**2
 
-        # Collect artists for blitting
-        artists = []
-        if plot_type in ('density', 'both'):
-            artists.append(im_dens)
-        if plot_type in ('phase', 'both'):
-            artists.append(im_phase)
+            line_re.set_ydata(psi.real)
+            for coll in axes[0].collections[:]: coll.remove()
+            axes[0].fill_between(x, psi.real, alpha=0.25, color="#4fc3f7")
 
-        def update_2d(i):
-            psi, X, Y = frames_data[i]
-            if plot_type in ('density', 'both'):
-                dens = np.log1p(np.abs(psi)**2)
-                im_dens.set_array(dens.ravel())
-            if plot_type in ('phase', 'both'):
-                phase = np.angle(psi)
-                im_phase.set_array(phase.ravel())
-            return artists
+            line_im.set_ydata(psi.imag)
+            for coll in axes[1].collections[:]: coll.remove()
+            axes[1].fill_between(x, psi.imag, alpha=0.25, color="#ef9a9a")
 
-        ani = animation.FuncAnimation(fig, update_2d, frames=n_frames,
-                                      interval=1000/fps, blit=True)
+            line_den.set_ydata(den)
+            for coll in axes[2].collections[:]: coll.remove()
+            axes[2].fill_between(x, den, alpha=0.75, color=plt.cm.inferno(0.65))
 
-    # ---- save if requested ----
+            line_phase.set_ydata(np.angle(psi))
+
+            time_text.set_text(
+                rf"Van Vleck wavefunction  ($\hbar={hbar}$,  $t={t_arr[t_idx]:.3f}$)")
+            return line_re, line_im, line_den, line_phase
+
+        anim = FuncAnimation(fig, _update_1d, frames=len(indices),
+                             interval=interval, blit=False)
+
+    else:  # 2D
+        fig, axes_2d = plt.subplots(2, 2, figsize=(13, 11))
+        axes = axes_2d.flatten()
+        _style(fig, axes)
+        fig.subplots_adjust(hspace=0.32, wspace=0.32)
+
+        psi0 = _psi_at(int(indices[0]))
+        den0 = np.log1p(np.abs(psi0)**2) if log_scale else np.abs(psi0)**2
+
+        im_re = axes[0].pcolormesh(X, Y, psi0.real, cmap="RdBu_r",
+                                    shading="auto", vmin=-psi_max, vmax=psi_max)
+        fig.colorbar(im_re, ax=axes[0], label=r"Re $\psi$", pad=0.02)
+        axes[0].set_aspect("equal")
+        axes[0].set(title=r"Re $\psi(x,y,t)$", xlabel="$x$", ylabel="$y$")
+
+        im_im = axes[1].pcolormesh(X, Y, psi0.imag, cmap="RdBu_r",
+                                    shading="auto", vmin=-psi_max, vmax=psi_max)
+        fig.colorbar(im_im, ax=axes[1], label=r"Im $\psi$", pad=0.02)
+        axes[1].set_aspect("equal")
+        axes[1].set(title=r"Im $\psi(x,y,t)$", xlabel="$x$", ylabel="$y$")
+
+        im_den = axes[2].pcolormesh(X, Y, den0, cmap="inferno",
+                                     shading="auto", vmin=0, vmax=den_max)
+        fig.colorbar(im_den, ax=axes[2], label=dlabel, pad=0.02)
+        axes[2].set_aspect("equal")
+        axes[2].set(title=dlabel, xlabel="$x$", ylabel="$y$")
+
+        im_phase = axes[3].pcolormesh(X, Y, np.angle(psi0), cmap="hsv",
+                                       shading="auto", vmin=-np.pi, vmax=np.pi)
+        cbar_phase = fig.colorbar(im_phase, ax=axes[3],
+                                   label=r"$\arg\psi$  [rad]", pad=0.02)
+        cbar_phase.set_ticks([-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi])
+        cbar_phase.set_ticklabels([r"$-\pi$", r"$-\pi/2$", "$0$",
+                                    r"$\pi/2$", r"$\pi$"])
+        axes[3].set_aspect("equal")
+        axes[3].set(title=r"Phase $\arg\psi(x,y,t)$", xlabel="$x$", ylabel="$y$")
+
+        time_text = fig.suptitle(
+            rf"Van Vleck wavefunction 2D  ($\hbar={hbar}$,  $t={t_arr[indices[0]]:.3f}$)",
+            color="white", fontsize=10, fontweight="bold")
+        _style(fig, axes)
+
+        def _update_2d(frame):
+            t_idx = int(indices[frame])
+            psi   = _psi_at(t_idx)
+            den   = np.log1p(np.abs(psi)**2) if log_scale else np.abs(psi)**2
+
+            im_re.set_array(psi.real.ravel())
+            im_im.set_array(psi.imag.ravel())
+            im_den.set_array(den.ravel())
+            im_phase.set_array(np.angle(psi).ravel())
+
+            time_text.set_text(
+                rf"Van Vleck wavefunction 2D  ($\hbar={hbar}$,  $t={t_arr[t_idx]:.3f}$)")
+            return im_re, im_im, im_den, im_phase
+
+        anim = FuncAnimation(fig, _update_2d, frames=len(indices),
+                             interval=interval, blit=False)
+
+    # ── optional save ─────────────────────────────────────────────────────────
     if save_path:
-        ani.save(save_path, writer='pillow' if save_path.endswith('.gif') else 'ffmpeg',
-                 fps=fps, dpi=dpi)
+        ext = save_path.rsplit('.', 1)[-1].lower()
+        writer = 'pillow' if ext == 'gif' else 'ffmpeg'
+        anim.save(save_path, writer=writer, dpi=120,
+                  savefig_kwargs={'facecolor': fig.get_facecolor()})
 
-    return ani
-
-# =============================================================================
-# Six worked examples  (run when script is executed directly)
-# =============================================================================
-#
-# Three 1D and three 2D demonstrations, ordered from elementary to advanced.
-#
-#  1D ─────────────────────────────────────────────────────────────────────────
-#  Ex 1 │ Semiclassical harmonic oscillator
-#        │   g = 1/(1 - x²)  (isotropic confining metric)
-#        │   Rays focus periodically → Maslov index accumulates,
-#        │   Airy patches replace the WKB amplitude at each caustic.
-#
-#  Ex 2 │ Pöschl–Teller / exponential-barrier metric
-#        │   g = cosh²(x)   (localised potential well via curved kinetic energy)
-#        │   Rays slow down near x=0, creating a dense fringe cluster and a
-#        │   striking amplitude peak at the turning zone.
-#
-#  Ex 3 │ Power-law / centrifugal metric
-#        │   H = p²·x⁴/2  →  g = 1/x⁴
-#        │   Rapidly increasing effective mass near x=0 squeezes geodesics
-#        │   together; fringe spacing shrinks toward the origin.
-#
-#  2D ─────────────────────────────────────────────────────────────────────────
-#  Ex 4 │ Anisotropic flat metric  g = diag(1, 4)
-#        │   Elliptic wavefronts, interference fringes with different
-#        │   fringe spacing along x and y, Maslov = 0 everywhere.
-#
-#  Ex 5 │ Gaussian hill / volcano metric
-#        │   g = diag(1 + A exp(-r²/σ²), 1 + A exp(-r²/σ²))
-#        │   A localised region of increased effective mass acts as a lens,
-#        │   focussing rays and creating a caustic ring with Airy corrections.
-#
-#  Ex 6 │ Saddle / hyperbolic metric
-#        │   g = diag(1/(1+x²), 1+y²)
-#        │   Rays accelerate along x and decelerate along y; the resulting
-#        │   asymmetric wavefront and ray-crossing pattern produce a rich
-#        │   multi-sheet interference figure with non-trivial Maslov structure.
-#
-# =============================================================================
-
-if __name__ == "__main__":
- 
-    SEP = "─" * 60
-    hbar = 0.15     # small but not tiny: visible fringes, tractable Airy zones
- 
-    # =========================================================================
-    # Example 1 — 1D Semiclassical Harmonic Oscillator
-    # =========================================================================
-    # The confining metric g(x) = 1/(1 − ω²x²) encodes a position-dependent
-    # effective mass that diverges at |x| = 1/ω, mimicking the turning points
-    # of a harmonic potential.  Rays launched from x=0 slow down, reflect, and
-    # reconverge, creating periodic caustics at the turning points.  Each pair
-    # of caustics increments the Maslov index by 2 (one per turning point),
-    # reproducing the well-known (n + ½) quantisation of the harmonic oscillator
-    # at the Bohr–Sommerfeld level.
-    # =========================================================================
-    print(SEP)
-    print("Example 1 — 1D Semiclassical Harmonic Oscillator")
-    print("  g(x) = 1 / (1 − ω²x²),  ω = 1.2")
-    print(SEP)
- 
-    x = sp.Symbol('x', real=True)
-    omega = sp.Rational(6, 5)                 # ω = 1.2  (rational for clean SymPy)
-    g_ho  = 1 / (1 - omega**2 * x**2)
-    metric_ho = Metric(g_ho, (x,))
- 
-    # Dense fan of slow rays so the envelope and Airy zones are well resolved.
-    # The turning point is at |x| = 1/ω ≈ 0.833.  We cap the velocity fan at
-    # 0.5 (well below the speed that would reach |x| = 0.833 in t_max = 3.5)
-    # and use RK45 which adapts its step size near the turning point, unlike
-    # Verlet which uses a fixed step and can overshoot the singularity.
-    v_fan_ho = np.linspace(-0.50, 0.50, 50)
- 
-    result_ho = compute_wavefunction(
-        metric    = metric_ho,
-        source    = (0.0,),
-        v_fan     = v_fan_ho,
-        t_max     = 3.5,                      # long enough for two caustic visits
-        hbar      = hbar,
-        n_steps   = 200,
-        N_grid    = 100,
-        integrator= 'rk45',                   # adaptive step avoids overshooting
-    )
-    print(f"  {len(result_ho.rays)} rays integrated successfully.")
-    print(f"  Max Maslov index reached: {max(r.mu for r in result_ho.rays)}")
- 
-    fig1 = plot_wavefunction(result_ho, log_scale=False)
-    fig1.suptitle(
-        r"Ex 1 — Harmonic oscillator  $g = (1-\omega^2 x^2)^{-1}$"
-        rf"   $\hbar={hbar}$",
-        color="white", fontsize=12, fontweight="bold", y=1.02)
-    plot_interference_detail(result_ho)
-    plt.show()
- 
-    # =========================================================================
-    # Example 2 — 1D Pöschl–Teller / Cosh-Barrier Metric
-    # =========================================================================
-    # The metric g(x) = cosh²(x) corresponds to a kinetic Hamiltonian
-    # H = p²/(2 cosh²(x)).  The effective speed of sound is slowest at x=0
-    # (where cosh is smallest and the effective mass largest) and increases
-    # exponentially away from the origin.  Rays launched with moderate
-    # velocity are trapped near the origin and pile up, producing a sharp
-    # amplitude peak and densely packed interference fringes — a direct
-    # semiclassical analogue of the Pöschl–Teller bound state.
-    # =========================================================================
-    print(f"\n{SEP}")
-    print("Example 2 — 1D Pöschl–Teller / cosh-barrier metric")
-    print("  g(x) = cosh²(x)")
-    print(SEP)
- 
-    g_pt     = sp.cosh(x)**2
-    metric_pt = Metric(g_pt, (x,))
- 
-    # Mix of trapped (small |v|) and escaping (large |v|) rays
-    v_fan_pt = np.concatenate([
-        np.linspace(-2.5, -0.1, 20),
-        np.linspace( 0.1,  2.5, 20),
-    ])
- 
-    result_pt = compute_wavefunction(
-        metric    = metric_pt,
-        source    = (0.0,),
-        v_fan     = v_fan_pt,
-        t_max     = 2.5,
-        hbar      = hbar,
-        n_steps   = 200,
-        N_grid    = 100,
-        integrator= 'verlet',
-    )
-    print(f"  {len(result_pt.rays)} rays integrated successfully.")
- 
-    fig2 = plot_wavefunction(result_pt, log_scale=True)
-    fig2.suptitle(
-        r"Ex 2 — Pöschl–Teller metric  $g = \cosh^2(x)$"
-        rf"   $\hbar={hbar}$",
-        color="white", fontsize=12, fontweight="bold", y=1.02)
-    plot_ray_fan(result_pt)
-    plt.show()
- 
-    # =========================================================================
-    # Example 3 — 1D Power-Law Centrifugal Metric
-    # =========================================================================
-    # Hamiltonian H = p² x⁴ / 2 corresponds to metric g = 1/x⁴.  The
-    # effective mass m(x) = x⁴ grows rapidly away from the origin, forcing
-    # rays to slow down and turn back.  The steep gradient of the metric
-    # produces a rapid change in the local de Broglie wavelength, compressing
-    # fringes dramatically near x=0 and stretching them at large |x|.  The
-    # non-constant curvature of this metric also drives caustic formation at
-    # intermediate distances, visible as amplitude spikes decorated with the
-    # characteristic Airy-function fringe pattern.
-    # =========================================================================
-#    print(f"\n{SEP}")
-#    print("Example 3 — 1D power-law centrifugal metric")
-#    print("  H = p² x⁴ / 2   →   g(x) = 1/x⁴")
-#    print(SEP)
-# 
-#    x_s, p_s  = sp.symbols('x p', real=True, positive=True)
-#    H_pl      = p_s**2 * x_s**4 / 2
-#    metric_pl = Metric.from_hamiltonian(H_pl, (x_s,), (p_s,))
-#    print(f"  Derived metric: g = {metric_pl.g_expr}")
-# 
-#    v_fan_pl = np.concatenate([
-#        np.linspace(-4.0, -0.2, 20),
-#        np.linspace( 0.2,  4.0, 20),
-#    ])
-# 
-#    result_pl = compute_wavefunction(
-#        metric    = metric_pl,
-#        source    = (1.0,),           # source at x=1 to avoid g singularity at 0
-#        v_fan     = v_fan_pl,
-#        t_max     = 1.2,
-#        hbar      = hbar,
-#        n_steps   = 200,
-#        N_grid    = 100,
-#        integrator= 'verlet',
-#    )
-#    print(f"  {len(result_pl.rays)} rays integrated successfully.")
-# 
-#    fig3 = plot_wavefunction(result_pl, log_scale=True)
-#    fig3.suptitle(
-#        r"Ex 3 — Power-law metric  $H = p^2 x^4/2$"
-#        rf"   $\hbar={hbar}$",
-#        color="white", fontsize=12, fontweight="bold", y=1.02)
-#    plot_interference_detail(result_pl)
-#    plt.show()
- 
-    # =========================================================================
-    # Example 4 — 2D Anisotropic Flat Metric
-    # =========================================================================
-    # The metric g = diag(1, κ²) with κ > 1 stretches the y-axis by a factor κ,
-    # making motion in the y-direction effectively slower (heavier).  The
-    # result is elliptic wavefronts whose semi-axes ratio is κ, and a
-    # characteristic interference pattern with fringes spaced κ times further
-    # apart along y than along x.  This is the simplest non-trivial 2D metric
-    # and provides the clearest demonstration of how geometry shapes the
-    # wavefunction without the complication of curvature.
-    # =========================================================================
-    print(f"\n{SEP}")
-    print("Example 4 — 2D Anisotropic flat metric")
-    print("  g = diag(1, 4)   (kappa = 2)")
-    print(SEP)
- 
-    x2, y2   = sp.symbols('x y', real=True)
-    kappa    = 2
-    g_aniso  = sp.Matrix([[1, 0], [0, kappa**2]])
-    metric_aniso = Metric(g_aniso, (x2, y2))
- 
-    # Circular fan in velocity space — becomes elliptic in position space
-    angles     = np.linspace(0, 2*np.pi, 100, endpoint=False)
-    speed      = 1.8
-    v_fan_aniso = np.column_stack([speed * np.cos(angles),
-                                   speed * np.sin(angles)])
- 
-    result_aniso = compute_wavefunction(
-        metric    = metric_aniso,
-        source    = (0.0, 0.0),
-        v_fan     = v_fan_aniso,
-        t_max     = 1.8,
-        hbar      = hbar,
-        n_steps   = 200,
-        N_grid    = 100,
-        integrator= 'verlet',
-    )
-    print(f"  {len(result_aniso.rays)} rays integrated successfully.")
- 
-    fig4 = plot_wavefunction(result_aniso, log_scale=True)
-    fig4.suptitle(
-        r"Ex 4 — Anisotropic metric  $g = \mathrm{diag}(1,\,4)$"
-        rf"   $\hbar={hbar}$",
-        color="white", fontsize=12, fontweight="bold")
-    plot_ray_fan(result_aniso)
-    plt.show()
- 
-    # =========================================================================
-    # Example 5 — 2D Gaussian Hill / Gravitational Lens Metric
-    # =========================================================================
-    # A localised bump in the metric, g = (1 + A exp(−(x²+y²)/σ²)) I₂, acts
-    # as a refractive index hill: rays entering the bump slow down, bend, and
-    # converge on the far side.  The resulting caustic ring is a 2D analogue
-    # of the Einstein ring in gravitational lensing.  Rays that pass through
-    # the centre of the bump are most strongly deflected; those far from the
-    # bump travel essentially as free particles.  The wavefunction shows a
-    # bright annular caustic decorated with pointwise Airy fringes (courtesy
-    # of the 2D caustic correction), surrounded by concentric WKB interference
-    # rings.
-    # =========================================================================
-    print(f"\n{SEP}")
-    print("Example 5 — 2D Gaussian hill / gravitational lens metric")
-    print("  g = (1 + 3 exp(-(x²+y²)/0.4)) I₂")
-    print(SEP)
- 
-    x5, y5 = sp.symbols('x y', real=True)
-    A5, sigma5 = 3, sp.Rational(2, 5)          # bump amplitude and width
-    bump = 1 + A5 * sp.exp(-(x5**2 + y5**2) / sigma5)
-    g_lens = sp.Matrix([[bump, 0], [0, bump]])
-    metric_lens = Metric(g_lens, (x5, y5))
- 
-    # Fan launched from well outside the bump so rays cross the lens region
-    angles5 = np.linspace(0, 2*np.pi, 100, endpoint=False)
-    v_fan_lens = np.column_stack([2.5 * np.cos(angles5),
-                                  2.5 * np.sin(angles5)])
- 
-    result_lens = compute_wavefunction(
-        metric    = metric_lens,
-        source    = (0.0, 0.0),
-        v_fan     = v_fan_lens,
-        t_max     = 1.4,
-        hbar      = hbar,
-        n_steps   = 200,
-        N_grid    = 100,
-        integrator= 'rk45',       # RK45 for the stiff bump region
-    )
-    print(f"  {len(result_lens.rays)} rays integrated successfully.")
-    print(f"  Maslov index range: 0 – {max(r.mu for r in result_lens.rays)}")
- 
-    fig5 = plot_wavefunction(result_lens, log_scale=True)
-    fig5.suptitle(
-        r"Ex 5 — Gaussian lens  $g = (1+3e^{-r^2/0.4})\,I_2$"
-        rf"   $\hbar={hbar}$",
-        color="white", fontsize=12, fontweight="bold")
-    plot_ray_fan(result_lens)
-    plot_interference_detail(result_lens)
-    plt.show()
- 
-    # =========================================================================
-    # Example 6 — 2D Saddle / Hyperbolic Metric
-    # =========================================================================
-    # The metric g = diag(1/(1+x²), 1+y²) combines a confining factor in x
-    # (effective mass decreasing away from 0, so rays accelerate along x) and
-    # a growing factor in y (effective mass increasing, so rays decelerate along
-    # y).  The competition between these two effects produces a saddle-shaped
-    # phase surface with a non-trivial Lagrangian manifold: rays that start
-    # in the same direction but with slightly different angles cross each other
-    # at a caustic curve, and the wavefunction accumulates Maslov phases
-    # asymmetrically.  The resulting interference figure is visibly asymmetric
-    # between x and y, with compressed fringes along x and stretched fringes
-    # along y, decorated by Airy patches where the saddle-shaped caustic
-    # intersects the output grid.
-    # =========================================================================
-    print(f"\n{SEP}")
-    print("Example 6 — 2D Saddle / hyperbolic metric")
-    print("  g = diag(1/(1+x²),  1+y²)")
-    print(SEP)
- 
-    x6, y6 = sp.symbols('x y', real=True)
-    g_saddle = sp.Matrix([[1 / (1 + x6**2), 0],
-                           [0,               1 + y6**2]])
-    metric_saddle = Metric(g_saddle, (x6, y6))
- 
-    # Dense fan covering all directions, biased toward the saddle axes
-    angles6 = np.linspace(0, 2*np.pi, 100, endpoint=False)
-    speed6  = 1.6
-    v_fan_saddle = np.column_stack([speed6 * np.cos(angles6),
-                                    speed6 * np.sin(angles6)])
- 
-    result_saddle = compute_wavefunction(
-        metric    = metric_saddle,
-        source    = (0.0, 0.0),
-        v_fan     = v_fan_saddle,
-        t_max     = 1.6,
-        hbar      = hbar,
-        n_steps   = 200,
-        N_grid    = 100,
-        integrator= 'verlet',
-    )
-    print(f"  {len(result_saddle.rays)} rays integrated successfully.")
-    print(f"  Maslov index range: 0 – {max(r.mu for r in result_saddle.rays)}")
- 
-    fig6 = plot_wavefunction(result_saddle, log_scale=True)
-    fig6.suptitle(
-        r"Ex 6 — Saddle metric  $g = \mathrm{diag}\!\left(\frac{1}{1+x^2},\,1+y^2\right)$"
-        rf"   $\hbar={hbar}$",
-        color="white", fontsize=12, fontweight="bold")
-    plot_ray_fan(result_saddle)
-    plot_interference_detail(result_saddle)
-    plt.show()
- 
-    print(f"\n{SEP}")
-    print("All six examples completed.")
-    print(SEP)
+    return anim

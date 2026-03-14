@@ -930,7 +930,7 @@ class TestVisualisation:
             t_max=1.0, hbar=1.0, n_steps=10, N_grid=10
         )
         # Just check that the animation object is created
-        ani = prop.animate_wavefunction(result, n_frames=3, plot_type='density')
+        ani = prop.animate_wavefunction(result, n_frames=120, interval=30)
         assert isinstance(ani, animation.FuncAnimation)
         plt.close(ani._fig)   # clean up
 
