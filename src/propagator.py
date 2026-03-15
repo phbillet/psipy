@@ -2199,7 +2199,11 @@ def compute_wavefunction(
     This is the main public entry point.  It accepts **two distinct input
     modes** depending on whether you supply a ``Metric`` object (pure kinetic,
     geodesic motion) or an explicit SymPy Hamiltonian expression (general
-    T + V systems from the ``hamiltonian_catalog`` or anywhere else).
+    T + V systems).
+
+    The returned wavefunction `psi` is evaluated **only at the final time**
+    `t = t_max` using the **endpoint** of each classical ray.  (Full ray
+    histories are stored in `result.rays` and can be used for animation.)
 
     Input Modes
     -----------
@@ -2220,8 +2224,7 @@ def compute_wavefunction(
     **Mode B — General Hamiltonian** (new interface, ``p_fan`` required):
         Pass a SymPy expression H(coords, momenta) together with the
         coordinate and momentum symbol tuples.  Initial conditions are
-        specified directly as a fan of **canonical momenta** p₀ (not
-        velocities), since v = ∂H/∂p is not simply g⁻¹ p for a general H.
+        specified directly as a fan of **canonical momenta** p₀.
 
         ::
 
@@ -2235,28 +2238,6 @@ def compute_wavefunction(
                 p_fan       = np.linspace(-2, 2, 60),
                 t_max       = 3.0,
             )
-
-        Any Hamiltonian from ``psipy.hamiltonian_catalog`` can be used
-        directly in this mode.
-
-    Jacobi Determinant for General Hamiltonians
-    --------------------------------------------
-    In Mode B the variational (Jacobi) system is derived from the full
-    Hessian of H:
-
-        dJ/dt =  (∂²H/∂ξ²) K + (∂²H/∂x∂ξ) J
-        dK/dt = −(∂²H/∂x∂ξ) K − (∂²H/∂x²) J
-
-    with J(0) = 0, K(0) = 1.  This is the **Hill / Jacobi equation**
-    that reduces to the pure-metric ODE when H = ½ g⁻¹ ξ².  For
-    H = ½ ξ² + V(x) it gives dK/dt = −V''(x(t)) J — the curvature of
-    the potential drives caustic formation.
-
-    In 2D, Mode B still uses ``riemannian.jacobi_equation_solver``, which
-    requires the metric.  If no metric is available (general 2D H), a
-    finite-difference approximation of the 2×2 Jacobi matrix is used:
-    two rays at ±δp₀ are integrated and the determinant estimated as
-    ∂x/∂p₀ ≈ (x(p₀+δ) − x(p₀−δ)) / (2δ).
 
     Parameters
     ----------
@@ -2298,56 +2279,29 @@ def compute_wavefunction(
         * 2D: shape ``(n_rays, 2)``
     parallel : bool, default True
         If True, use multiprocessing to integrate rays in parallel.
-        If False, fall back to the sequential loop (useful for debugging).
+    equation : str, default ``EquationType.SCHRODINGER``
+        Type of PDE: ``'schrodinger'``, ``'parabolic'``, or ``'wave'``.
 
     Returns
     -------
     WKBResult
-        Dataclass containing the gridded wavefunction ``psi``, grid arrays
-        ``X`` / ``Y``, per-ray ``RayData`` objects, and all raw scattered data.
+        Dataclass containing:
+        - ``psi`` : wavefunction on the grid at `t = t_max`.
+        - ``X``, ``Y`` : grid coordinates.
+        - ``rays`` : list of :class:`RayData` with full time histories.
+        - ``x_pts``, ``y_pts`` : scattered positions of **all** ray points
+          (useful for debugging, but note that the static ``psi`` uses
+          only the final points).
+        - ``S_pts``, ``det_J_pts``, ``mu_pts`` : corresponding action,
+          Jacobi determinant and Maslov index.
+        - ``hbar``, ``t_max``, ``dim``, ``equation``.
 
     Raises
     ------
     ValueError
-        If the input mode cannot be resolved (both or neither of
-        ``metric`` / ``hamiltonian`` supplied).
+        If the input mode cannot be resolved.
     RuntimeError
         If every ray in the fan fails to integrate.
-
-    Examples
-    --------
-    Mode A — 1D harmonic oscillator metric::
-
-        x = sp.Symbol('x', real=True)
-        result = compute_wavefunction(
-            metric=Metric(1/(1-x**2), (x,)),
-            source=(0.0,), v_fan=np.linspace(-0.6, 0.6, 80),
-            t_max=3.0, hbar=0.1,
-        )
-
-    Mode B — 1D pendulum H = ξ²/2 − cos(x)::
-
-        x, xi = sp.symbols('x xi', real=True)
-        result = compute_wavefunction(
-            hamiltonian=xi**2/2 - sp.cos(x),
-            coords=(x,), momenta=(xi,),
-            source=(0.0,), p_fan=np.linspace(-1.5, 1.5, 80),
-            t_max=4.0, hbar=0.1,
-        )
-
-    Mode B — 2D double-well H = (ξ²+η²)/2 + (x²−1)² + y²/2::
-
-        x, y, xi, eta = sp.symbols('x y xi eta', real=True)
-        H_dw = (xi**2 + eta**2)/2 + (x**2 - 1)**2 + y**2/2
-        vx = np.linspace(-2, 2, 15)
-        vy = np.linspace(-2, 2, 15)
-        result = compute_wavefunction(
-            hamiltonian=H_dw, coords=(x,y), momenta=(xi,eta),
-            source=(0.0, 0.0),
-            p_fan=np.array([[a, b] for a in vx for b in vy]),
-            t_max=2.0, hbar=0.15,
-        )
-
     """
     # ── resolve Hamiltonian and dimensionality ────────────────────────────────
     H_sym, vars_phase, dim = _resolve_hamiltonian(
@@ -2379,7 +2333,7 @@ def compute_wavefunction(
             fan   = [g0 @ np.array(v, dtype=float) for v in v_fan]
     else:
         # Mode B: momenta supplied directly
-        fan = [np.asarray(p, dtype=float) for p in p_fan]   # ensure each is a plain list/array
+        fan = [np.asarray(p, dtype=float) for p in p_fan]
 
     # Build the data needed to reconstruct the objects in workers
     if is_metric_mode:
@@ -2475,7 +2429,6 @@ def compute_wavefunction(
         rays_minus = _run_fan(worker_data_minus)
         if not rays_plus and not rays_minus:
             raise RuntimeError("All rays failed to integrate on both wave branches.")
-        # Keep all rays for result (tagged by sign attribute below)
         rays = rays_plus + rays_minus
     else:
         rays = _run_fan(worker_data)
@@ -2483,103 +2436,153 @@ def compute_wavefunction(
     if not rays:
         raise RuntimeError("All rays failed to integrate.")
 
-    # ── collect scattered data ────────────────────────────────────────────────
-    # All per-ray arrays (det_J, S_cum, traj) were trimmed to the same length
-    # before appending, so simple concatenation is safe.
-
-    def _collect_1d(ray_list, vp):
-        x_s = str(vp[0])
-        x_a  = np.concatenate([r.traj[x_s]              for r in ray_list])
-        S_a  = np.concatenate([r.S_cum                   for r in ray_list])
-        dJ_a = np.concatenate([r.det_J                   for r in ray_list])
-        mu_a = np.concatenate([np.full(len(r.det_J), r.mu) for r in ray_list])
-        return x_a, S_a, dJ_a, mu_a
-
-    def _collect_2d(ray_list, vp):
-        x_s, y_s = str(vp[0]), str(vp[2])
-        x_a  = np.concatenate([r.traj[x_s]              for r in ray_list])
-        y_a  = np.concatenate([r.traj[y_s]              for r in ray_list])
-        S_a  = np.concatenate([r.S_cum                   for r in ray_list])
-        dJ_a = np.concatenate([r.det_J                   for r in ray_list])
-        mu_a = np.concatenate([np.full(len(r.det_J), r.mu) for r in ray_list])
-        return x_a, y_a, S_a, dJ_a, mu_a
+    # ── collect scattered data (only the final time step) ─────────────────────
+    # For animation we keep the full ray data in result.rays, but the static
+    # wavefunction psi is built exclusively from the endpoints at t = t_max.
+    # This makes the static result identical to the last frame of the animation.
 
     if dim == 1:
+        x_key = str(vars_phase[0])
+
         if equation == EquationType.WAVE:
-            x_p, S_p, dJ_p, mu_p = _collect_1d(rays_plus,  vars_phase)
-            x_m, S_m, dJ_m, mu_m = _collect_1d(rays_minus, vars_phase)
-            x_all  = np.concatenate([x_p, x_m])
-            S_all  = np.concatenate([S_p, S_m])
-            dJ_all = np.concatenate([dJ_p, dJ_m])
-            mu_all = np.concatenate([mu_p, mu_m])
-            pts_p  = x_p[:, None];  pts_m = x_m[:, None]
-            pts    = x_all[:, None]
+            # Plus branch
+            x_p_last = np.array([r.traj[x_key][-1] for r in rays_plus])
+            S_p_last = np.array([r.S_cum[-1] for r in rays_plus])
+            dJ_p_last = np.array([r.det_J[-1] for r in rays_plus])
+            mu_p_last = np.array([r.mu for r in rays_plus])
+
+            # Minus branch
+            x_m_last = np.array([r.traj[x_key][-1] for r in rays_minus])
+            S_m_last = np.array([r.S_cum[-1] for r in rays_minus])
+            dJ_m_last = np.array([r.det_J[-1] for r in rays_minus])
+            mu_m_last = np.array([r.mu for r in rays_minus])
+
+            pts_p = x_p_last[:, None]
+            pts_m = x_m_last[:, None]
+
             if xlim is None:
-                m = 0.1 * (x_all.max() - x_all.min())
-                xlim = (x_all.min() - m, x_all.max() + m)
+                all_x = np.concatenate([x_p_last, x_m_last])
+                m = 0.1 * (all_x.max() - all_x.min())
+                xlim = (all_x.min() - m, all_x.max() + m)
+
             psi, X, Y = wave_sum(
-                pts_p, S_p, dJ_p, mu_p,
-                pts_m, S_m, dJ_m, mu_m,
-                xlim=xlim, N=N_grid, hbar=hbar)
+                pts_p, S_p_last, dJ_p_last, mu_p_last,
+                pts_m, S_m_last, dJ_m_last, mu_m_last,
+                xlim=xlim, N=N_grid, hbar=hbar,
+            )
         else:
-            x_all, S_all, dJ_all, mu_all = _collect_1d(rays, vars_phase)
-            pts = x_all[:, None]
+            # Non‑wave: Schrödinger or parabolic
+            x_last = np.array([r.traj[x_key][-1] for r in rays])
+            S_last = np.array([r.S_cum[-1] for r in rays])
+            dJ_last = np.array([r.det_J[-1] for r in rays])
+            mu_last = np.array([r.mu for r in rays])
+
+            pts = x_last[:, None]   # shape (n_rays, 1)
+
             if xlim is None:
-                m = 0.1 * (x_all.max() - x_all.min())
-                xlim = (x_all.min() - m, x_all.max() + m)
+                m = 0.1 * (x_last.max() - x_last.min())
+                xlim = (x_last.min() - m, x_last.max() + m)
+
             if equation == EquationType.PARABOLIC:
                 psi, X, Y = parabolic_sum(
-                    pts, S_all, dJ_all, xlim=xlim, N=N_grid, hbar=hbar)
+                    pts, S_last, dJ_last,
+                    xlim=xlim, N=N_grid, hbar=hbar,
+                )
             else:
                 psi, X, Y = van_vleck_sum(
-                    pts, S_all, dJ_all, mu_all, xlim=xlim, N=N_grid, hbar=hbar)
-        return WKBResult(rays=rays, X=X, Y=Y, psi=psi,
-                         x_pts=x_all, y_pts=None,
-                         S_pts=S_all, det_J_pts=dJ_all, mu_pts=mu_all,
-                         hbar=hbar, t_max=t_max, dim=1, equation=equation)
+                    pts, S_last, dJ_last, mu_last,
+                    xlim=xlim, N=N_grid, hbar=hbar,
+                )
 
-    else:
+        # For completeness, also collect all points (used for scatter data)
+        x_all = np.concatenate([r.traj[x_key] for r in rays])
+        S_all = np.concatenate([r.S_cum for r in rays])
+        dJ_all = np.concatenate([r.det_J for r in rays])
+        mu_all = np.concatenate([np.full(len(r.det_J), r.mu) for r in rays])
+
+        return WKBResult(
+            rays=rays, X=X, Y=None, psi=psi,
+            x_pts=x_all, y_pts=None,
+            S_pts=S_all, det_J_pts=dJ_all, mu_pts=mu_all,
+            hbar=hbar, t_max=t_max, dim=1, equation=equation,
+        )
+
+    else:  # dim == 2
+        x_key, y_key = str(vars_phase[0]), str(vars_phase[2])
+
         if equation == EquationType.WAVE:
-            x_p, y_p, S_p, dJ_p, mu_p = _collect_2d(rays_plus,  vars_phase)
-            x_m, y_m, S_m, dJ_m, mu_m = _collect_2d(rays_minus, vars_phase)
-            x_all  = np.concatenate([x_p, x_m])
-            y_all  = np.concatenate([y_p, y_m])
-            S_all  = np.concatenate([S_p, S_m])
-            dJ_all = np.concatenate([dJ_p, dJ_m])
-            mu_all = np.concatenate([mu_p, mu_m])
-            pts_p  = np.c_[x_p, y_p];  pts_m = np.c_[x_m, y_m]
+            # Plus branch
+            x_p_last = np.array([r.traj[x_key][-1] for r in rays_plus])
+            y_p_last = np.array([r.traj[y_key][-1] for r in rays_plus])
+            S_p_last = np.array([r.S_cum[-1] for r in rays_plus])
+            dJ_p_last = np.array([r.det_J[-1] for r in rays_plus])
+            mu_p_last = np.array([r.mu for r in rays_plus])
+
+            # Minus branch
+            x_m_last = np.array([r.traj[x_key][-1] for r in rays_minus])
+            y_m_last = np.array([r.traj[y_key][-1] for r in rays_minus])
+            S_m_last = np.array([r.S_cum[-1] for r in rays_minus])
+            dJ_m_last = np.array([r.det_J[-1] for r in rays_minus])
+            mu_m_last = np.array([r.mu for r in rays_minus])
+
+            pts_p = np.c_[x_p_last, y_p_last]
+            pts_m = np.c_[x_m_last, y_m_last]
+
             if xlim is None:
-                mx = 0.1 * (x_all.max() - x_all.min())
-                xlim = (x_all.min() - mx, x_all.max() + mx)
+                all_x = np.concatenate([x_p_last, x_m_last])
+                mx = 0.1 * (all_x.max() - all_x.min())
+                xlim = (all_x.min() - mx, all_x.max() + mx)
             if ylim is None:
-                my = 0.1 * (y_all.max() - y_all.min())
-                ylim = (y_all.min() - my, y_all.max() + my)
+                all_y = np.concatenate([y_p_last, y_m_last])
+                my = 0.1 * (all_y.max() - all_y.min())
+                ylim = (all_y.min() - my, all_y.max() + my)
+
             psi, X, Y = wave_sum(
-                pts_p, S_p, dJ_p, mu_p,
-                pts_m, S_m, dJ_m, mu_m,
-                xlim=xlim, ylim=ylim, N=N_grid, hbar=hbar)
+                pts_p, S_p_last, dJ_p_last, mu_p_last,
+                pts_m, S_m_last, dJ_m_last, mu_m_last,
+                xlim=xlim, ylim=ylim, N=N_grid, hbar=hbar,
+            )
         else:
-            x_all, y_all, S_all, dJ_all, mu_all = _collect_2d(rays, vars_phase)
-            pts = np.c_[x_all, y_all]
+            # Non‑wave
+            x_last = np.array([r.traj[x_key][-1] for r in rays])
+            y_last = np.array([r.traj[y_key][-1] for r in rays])
+            S_last = np.array([r.S_cum[-1] for r in rays])
+            dJ_last = np.array([r.det_J[-1] for r in rays])
+            mu_last = np.array([r.mu for r in rays])
+
+            pts = np.c_[x_last, y_last]
+
             if xlim is None:
-                mx = 0.1 * (x_all.max() - x_all.min())
-                xlim = (x_all.min() - mx, x_all.max() + mx)
+                mx = 0.1 * (x_last.max() - x_last.min())
+                xlim = (x_last.min() - mx, x_last.max() + mx)
             if ylim is None:
-                my = 0.1 * (y_all.max() - y_all.min())
-                ylim = (y_all.min() - my, y_all.max() + my)
+                my = 0.1 * (y_last.max() - y_last.min())
+                ylim = (y_last.min() - my, y_last.max() + my)
+
             if equation == EquationType.PARABOLIC:
                 psi, X, Y = parabolic_sum(
-                    pts, S_all, dJ_all,
-                    xlim=xlim, ylim=ylim, N=N_grid, hbar=hbar)
+                    pts, S_last, dJ_last,
+                    xlim=xlim, ylim=ylim, N=N_grid, hbar=hbar,
+                )
             else:
                 psi, X, Y = van_vleck_sum(
-                    pts, S_all, dJ_all, mu_all,
-                    xlim=xlim, ylim=ylim, N=N_grid, hbar=hbar)
-        return WKBResult(rays=rays, X=X, Y=Y, psi=psi,
-                         x_pts=x_all, y_pts=y_all,
-                         S_pts=S_all, det_J_pts=dJ_all, mu_pts=mu_all,
-                         hbar=hbar, t_max=t_max, dim=2, equation=equation)
+                    pts, S_last, dJ_last, mu_last,
+                    xlim=xlim, ylim=ylim, N=N_grid, hbar=hbar,
+                )
 
+        # Collect all points for scatter data
+        x_all = np.concatenate([r.traj[x_key] for r in rays])
+        y_all = np.concatenate([r.traj[y_key] for r in rays])
+        S_all = np.concatenate([r.S_cum for r in rays])
+        dJ_all = np.concatenate([r.det_J for r in rays])
+        mu_all = np.concatenate([np.full(len(r.det_J), r.mu) for r in rays])
+
+        return WKBResult(
+            rays=rays, X=X, Y=Y, psi=psi,
+            x_pts=x_all, y_pts=y_all,
+            S_pts=S_all, det_J_pts=dJ_all, mu_pts=mu_all,
+            hbar=hbar, t_max=t_max, dim=2, equation=equation,
+        )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 7 — Visualisation

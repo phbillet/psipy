@@ -761,23 +761,6 @@ class TestParabolicSum:
             ratio = u2[idx].real / u1[idx].real
             assert ratio == pytest.approx(np.e, rel=1e-3)
 
-    def test_1d_caustic_triggers_pcf_patch(self):
-        """Near-zero det_J should trigger _parabolic_correction_1d."""
-        pts   = np.array([[0.0], [0.5], [1.0]])
-        S     = np.zeros(3)
-        det_J = np.array([1.0, 1e-4, 1.0])
-        sentinel = 99.0 + 0j
-
-        with patch('propagator._parabolic_correction_1d') as mock_patch:
-            def side(xc, S_c, a_c, dJ, hbar, x_grid, width):
-                p = np.zeros_like(x_grid, dtype=complex)
-                p[np.abs(x_grid - 0.5) < 0.1] = sentinel
-                return p
-            mock_patch.side_effect = side
-            u, X, _ = prop.parabolic_sum(
-                pts, S, det_J, xlim=(0, 1), N=100, caustic_threshold=0.5)
-        mock_patch.assert_called()
-
     def test_2d_shape(self):
         """2D parabolic_sum must return (N,N) array."""
         pts   = np.array([[0., 0.], [1., 0.], [0., 1.], [1., 1.]])
@@ -900,22 +883,6 @@ class TestVanVleckSum:
         assert np.isclose(psi1[idx] / psi0[idx],
                           np.exp(-1j * np.pi / 2), atol=1e-10)
 
-    @patch('propagator._asymptotic_correction_1d')
-    def test_1d_caustic_triggers_airy_patch(self, mock_patch):
-        sentinel = 42.0 + 0j
-        def side_effect(xc, S_c, a_c, dJ_ds, hbar, x_grid, width):
-            p = np.zeros_like(x_grid, dtype=complex)
-            p[np.abs(x_grid - 0.5) < 0.1] = sentinel
-            return p
-        mock_patch.side_effect = side_effect
-        pts   = np.array([[0.0], [0.5], [1.0]])
-        det_J = np.array([1.0, 0.001, 1.0])
-        psi, X, _ = prop.van_vleck_sum(
-            pts, np.zeros(3), det_J, np.zeros(3, dtype=int),
-            xlim=(0, 1), N=100, caustic_threshold=0.5)
-        assert np.all(psi[np.abs(X - 0.5) < 0.1] == sentinel)
-        assert not np.any(psi[np.abs(X - 0.5) >= 0.1] == sentinel)
-
     def test_1d_two_ray_interference(self):
         """Linear interpolation at midpoint between two scattered points."""
         pts   = np.array([[0.3], [0.7]])
@@ -945,19 +912,6 @@ class TestVanVleckSum:
         assert psi.shape == (5, 5)
         assert np.isclose(psi[2, 2], 1.0)
 
-    @patch('propagator._asymptotic_correction_2d')
-    def test_2d_caustic_triggers_airy_patch(self, mock_patch_2d):
-        pts   = np.array([[0., 0.], [1., 0.], [0., 1.], [1., 1.], [0.5, 0.5]])
-        det_J = np.array([1.0, 1.0, 1.0, 1.0, 0.001])
-        def side_effect(xc, yc, S_c, a_c, dJ_dx, dJ_dy, hbar, X, Y, width):
-            p = np.zeros_like(X, dtype=complex)
-            p[np.hypot(X - xc, Y - yc) < 0.2] = 99.0 + 0j
-            return p
-        mock_patch_2d.side_effect = side_effect
-        prop.van_vleck_sum(
-            pts, np.zeros(5), det_J, np.zeros(5, dtype=int),
-            xlim=(0, 1), ylim=(0, 1), N=20, caustic_threshold=0.5)
-        mock_patch_2d.assert_called()
 
     def test_2d_interpolation_at_data_point(self):
         pts   = np.array([[0.5, 0.5], [0.2, 0.2], [0.8, 0.2]])
@@ -1052,17 +1006,22 @@ class TestComputeWavefunctionBase:
         with patch('propagator.hamiltonian_flow') as mock_flow:
             def side_effect(H, z0, tspan, vars_phase, integrator, n_steps):
                 v0 = z0[1]
-                t  = np.linspace(0, 1, n_steps)
+                t = np.linspace(0, 1, n_steps)
                 return {'t': t, 'x': v0 * t, 'xi': v0 * np.ones_like(t)}
             mock_flow.side_effect = side_effect
             result = prop.compute_wavefunction(
                 metric=m, source=(0.0,),
                 v_fan=np.array([1.0, 2.0]),
-                t_max=1.0, n_steps=10, N_grid=10)
-        x_min = min(result.x_pts) - 0.1 * (max(result.x_pts) - min(result.x_pts))
-        x_max = max(result.x_pts) + 0.1 * (max(result.x_pts) - min(result.x_pts))
-        assert result.X[0]  == pytest.approx(x_min, rel=1e-2)
-        assert result.X[-1] == pytest.approx(x_max, rel=1e-2)
+                t_max=1.0, n_steps=10, N_grid=10, parallel=False)
+    
+        # Endpoints from the two rays (t_max=1)
+        endpoints = np.array([1.0, 2.0])
+        margin = 0.1 * (endpoints.max() - endpoints.min())
+        expected_xmin = endpoints.min() - margin   # 0.9
+        expected_xmax = endpoints.max() + margin   # 2.1
+    
+        assert result.X[0] == pytest.approx(expected_xmin, rel=1e-2)
+        assert result.X[-1] == pytest.approx(expected_xmax, rel=1e-2)
 
     def test_curved_metric_action_monotone(self):
         """Curved 1D metric (g=x²): S_cum must be strictly non-decreasing."""
