@@ -665,7 +665,7 @@
             <span class="n">traj</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span>
             <span class="n">metric</span><span class="o">=</span><span class="n">metric</span> <span class="k">if</span> <span class="n">is_metric_mode</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">coord_keys</span><span class="o">=</span><span class="n">coord_keys</span><span class="p">)</span>
-        <span class="n">mu</span> <span class="o">=</span> <span class="n">_maslov_index</span><span class="p">(</span><span class="n">det_J</span><span class="p">)</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="n">_maslov_index</span><span class="p">(</span><span class="n">det_J</span><span class="p">,</span> <span class="n">traj</span><span class="p">)</span>
 
         <span class="c1"># ── trim arrays to the same length and check finiteness ─</span>
         <span class="n">n_valid</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">S_cum</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">det_J</span><span class="p">),</span>
@@ -883,8 +883,17 @@
         <span class="n">initial_variation</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;J0&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="s1">&#39;DJ0&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)},</span>
         <span class="n">tspan</span><span class="o">=</span><span class="n">tspan</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="k">return</span> <span class="n">jac1</span><span class="p">[</span><span class="s1">&#39;J_x&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">jac2</span><span class="p">[</span><span class="s1">&#39;J_y&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">jac1</span><span class="p">[</span><span class="s1">&#39;J_y&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">jac2</span><span class="p">[</span><span class="s1">&#39;J_x&#39;</span><span class="p">]</span>
-
+    
+    <span class="n">det_J</span> <span class="o">=</span> <span class="n">jac1</span><span class="p">[</span><span class="s1">&#39;J_x&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">jac2</span><span class="p">[</span><span class="s1">&#39;J_y&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">jac1</span><span class="p">[</span><span class="s1">&#39;J_y&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">jac2</span><span class="p">[</span><span class="s1">&#39;J_x&#39;</span><span class="p">]</span>
+    
+    <span class="c1"># NEW: Store individual Jacobi field components for Maslov counting</span>
+    <span class="c1"># This allows proper counting even when det_J doesn&#39;t change sign</span>
+    <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;_J1_x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">jac1</span><span class="p">[</span><span class="s1">&#39;J_x&#39;</span><span class="p">]</span>
+    <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;_J1_y&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">jac1</span><span class="p">[</span><span class="s1">&#39;J_y&#39;</span><span class="p">]</span>
+    <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;_J2_x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">jac2</span><span class="p">[</span><span class="s1">&#39;J_x&#39;</span><span class="p">]</span>
+    <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;_J2_y&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">jac2</span><span class="p">[</span><span class="s1">&#39;J_y&#39;</span><span class="p">]</span>
+    
+    <span class="k">return</span> <span class="n">det_J</span>
 
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
 <span class="c1"># 2 — Cumulative action  (uses symplectic.hamiltonian_flow momentum arrays)</span>
@@ -1025,7 +1034,7 @@
 <span class="c1"># 3 — Maslov index  (sign-change count on det J)</span>
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_maslov_index</span><span class="p">(</span><span class="n">det_J</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_maslov_index</span><span class="p">(</span><span class="n">det_J</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">traj</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Count the number of caustic crossings (sign changes of det J) along a ray.</span>
 
@@ -1064,8 +1073,23 @@
 <span class="sd">        Non-negative integer Maslov index.  Equal to the number of sign</span>
 <span class="sd">        changes of the non-zero elements of ``det_J``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># If trajectory has individual Jacobi fields, count their zeros</span>
+    <span class="k">if</span> <span class="n">traj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s1">&#39;_J1_x&#39;</span> <span class="ow">in</span> <span class="n">traj</span><span class="p">:</span>
+        <span class="c1"># 2D case: count zeros of each Jacobi field component</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;_J1_x&#39;</span><span class="p">,</span> <span class="s1">&#39;_J1_y&#39;</span><span class="p">,</span> <span class="s1">&#39;_J2_x&#39;</span><span class="p">,</span> <span class="s1">&#39;_J2_y&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">traj</span><span class="p">:</span>
+                <span class="n">field</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="n">signs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+                <span class="n">signs</span> <span class="o">=</span> <span class="n">signs</span><span class="p">[</span><span class="n">signs</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+                <span class="n">mu</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">signs</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="c1"># Each focus in 2D contributes 2 (one per dimension)</span>
+        <span class="c1"># But we counted each field separately, so divide by 2</span>
+        <span class="k">return</span> <span class="n">mu</span> <span class="o">//</span> <span class="mi">2</span>
+    
+    <span class="c1"># Fallback: original sign-change counting for det_J</span>
     <span class="n">signs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">det_J</span><span class="p">)</span>
-    <span class="n">signs</span> <span class="o">=</span> <span class="n">signs</span><span class="p">[</span><span class="n">signs</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>              <span class="c1"># ignore exact zeros</span>
+    <span class="n">signs</span> <span class="o">=</span> <span class="n">signs</span><span class="p">[</span><span class="n">signs</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
     <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">signs</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
 
 
@@ -2940,13 +2964,27 @@
     <span class="n">ax3</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Jacobian $|\det J|$&quot;</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;$y$&quot;</span><span class="p">)</span>
 
     <span class="n">ax4</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
-    <span class="n">mu</span>  <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">mu_pts</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
-    <span class="n">sc4</span> <span class="o">=</span> <span class="n">ax4</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x_pts</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">y_pts</span><span class="p">,</span>
-                      <span class="n">c</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.45</span><span class="p">,</span>
-                      <span class="n">vmin</span><span class="o">=</span><span class="n">mu</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">vmax</span><span class="o">=</span><span class="n">mu</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">rasterized</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">sc4</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax4</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Maslov $\mu$&quot;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>
-    <span class="n">ax4</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s2">&quot;equal&quot;</span><span class="p">)</span>
-    <span class="n">ax4</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Maslov index $\mu$&quot;</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;$y$&quot;</span><span class="p">)</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">mu_pts</span>
+    
+    <span class="c1"># Check if mu is integer-valued (it should be!)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">mu</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">mu</span><span class="p">)):</span>
+        <span class="c1"># Use discrete coloring for integer Maslov index</span>
+        <span class="n">unique_mu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="n">sc4</span> <span class="o">=</span> <span class="n">ax4</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x_pts</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">y_pts</span><span class="p">,</span>
+                          <span class="n">c</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span> <span class="s2">&quot;RdYlGn&quot;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.45</span><span class="p">,</span>
+                          <span class="n">vmin</span><span class="o">=</span><span class="n">unique_mu</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">vmax</span><span class="o">=</span><span class="n">unique_mu</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+                          <span class="n">rasterized</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        
+        <span class="c1"># Force integer ticks on colorbar</span>
+        <span class="n">cbar</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">sc4</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax4</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Maslov $\mu$&quot;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>
+        <span class="n">cbar</span><span class="o">.</span><span class="n">set_ticks</span><span class="p">(</span><span class="n">unique_mu</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+        <span class="n">cbar</span><span class="o">.</span><span class="n">set_ticklabels</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="p">))</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">unique_mu</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Fallback for non-integer (shouldn&#39;t happen)</span>
+        <span class="n">sc4</span> <span class="o">=</span> <span class="n">ax4</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x_pts</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">y_pts</span><span class="p">,</span>
+                          <span class="n">c</span><span class="o">=</span><span class="n">mu</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span> <span class="s2">&quot;RdBu_r&quot;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.45</span><span class="p">,</span>
+                          <span class="n">rasterized</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">sc4</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax4</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;Maslov $\mu$&quot;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>
 
     <span class="n">branch_note</span> <span class="o">=</span> <span class="s2">&quot;  (+/− branches)&quot;</span> <span class="k">if</span> <span class="n">eq</span> <span class="o">==</span> <span class="n">EquationType</span><span class="o">.</span><span class="n">WAVE</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
     <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
