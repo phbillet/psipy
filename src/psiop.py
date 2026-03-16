@@ -3395,8 +3395,7 @@ def kohn_nirenberg_nonperiodic(
     **2D implementation**
         To avoid forming a full 4D array, the computation is split into blocks
         along the first spatial dimension (x₁). Each block is processed independently
-        by a worker thread. The number of workers is taken from `solver.FFT_WORKERS`.
-        Memory usage scales as O(block_size × Nx₂ × Nxi₁ × Nxi₂).
+        by a worker thread. Memory usage scales as O(block_size × Nx₂ × Nxi₁ × Nxi₂).
 
     Examples
     --------
@@ -3493,7 +3492,6 @@ def kohn_nirenberg_nonperiodic(
     # 2-D  — block‑parallel, memory‑efficient 
     # =========================================================================
     elif u_vals.ndim == 2:
-        from solver import FFT_WORKERS
         from concurrent.futures import ThreadPoolExecutor
 
         x1, x2 = x_grid
