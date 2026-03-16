@@ -572,7 +572,7 @@ def _process_single_ray_internal(
             traj, dim,
             metric=metric if is_metric_mode else None,
             coord_keys=coord_keys)
-        mu = _maslov_index(det_J)
+        mu = _maslov_index(det_J, traj)
 
         # ── trim arrays to the same length and check finiteness ─
         n_valid = min(len(S_cum), len(det_J),
@@ -790,8 +790,17 @@ def _det_J_from_jacobi(metric: Metric, traj: dict,
         initial_variation={'J0': (0.0, 0.0), 'DJ0': (0.0, 1.0)},
         tspan=tspan, n_steps=n_steps,
     )
-    return jac1['J_x'] * jac2['J_y'] - jac1['J_y'] * jac2['J_x']
-
+    
+    det_J = jac1['J_x'] * jac2['J_y'] - jac1['J_y'] * jac2['J_x']
+    
+    # NEW: Store individual Jacobi field components for Maslov counting
+    # This allows proper counting even when det_J doesn't change sign
+    traj['_J1_x'] = jac1['J_x']
+    traj['_J1_y'] = jac1['J_y']
+    traj['_J2_x'] = jac2['J_x']
+    traj['_J2_y'] = jac2['J_y']
+    
+    return det_J
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2 — Cumulative action  (uses symplectic.hamiltonian_flow momentum arrays)
@@ -932,7 +941,7 @@ def _cumulative_action(traj: dict, dim: int,
 # 3 — Maslov index  (sign-change count on det J)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _maslov_index(det_J: np.ndarray) -> int:
+def _maslov_index(det_J: np.ndarray, traj: Optional[dict] = None) -> int:
     """
     Count the number of caustic crossings (sign changes of det J) along a ray.
 
@@ -971,8 +980,23 @@ def _maslov_index(det_J: np.ndarray) -> int:
         Non-negative integer Maslov index.  Equal to the number of sign
         changes of the non-zero elements of ``det_J``.
     """
+    # If trajectory has individual Jacobi fields, count their zeros
+    if traj is not None and '_J1_x' in traj:
+        # 2D case: count zeros of each Jacobi field component
+        mu = 0
+        for key in ['_J1_x', '_J1_y', '_J2_x', '_J2_y']:
+            if key in traj:
+                field = traj[key]
+                signs = np.sign(field)
+                signs = signs[signs != 0]
+                mu += int(np.sum(np.abs(np.diff(signs)) > 0))
+        # Each focus in 2D contributes 2 (one per dimension)
+        # But we counted each field separately, so divide by 2
+        return mu // 2
+    
+    # Fallback: original sign-change counting for det_J
     signs = np.sign(det_J)
-    signs = signs[signs != 0]              # ignore exact zeros
+    signs = signs[signs != 0]
     return int(np.sum(np.abs(np.diff(signs)) > 0))
 
 
@@ -2832,13 +2856,27 @@ def _plot_2d(result: WKBResult, log_scale: bool, save_path) -> plt.Figure:
     ax3.set(title=r"Jacobian $|\det J|$", xlabel="$x$", ylabel="$y$")
 
     ax4 = fig.add_subplot(gs[1, 2])
-    mu  = result.mu_pts.astype(float)
-    sc4 = ax4.scatter(result.x_pts, result.y_pts,
-                      c=mu, cmap="RdBu_r", s=0.8, alpha=0.45,
-                      vmin=mu.min(), vmax=mu.max(), rasterized=True)
-    fig.colorbar(sc4, ax=ax4, label=r"Maslov $\mu$", pad=0.02)
-    ax4.set_aspect("equal")
-    ax4.set(title=r"Maslov index $\mu$", xlabel="$x$", ylabel="$y$")
+    mu = result.mu_pts
+    
+    # Check if mu is integer-valued (it should be!)
+    if np.all(mu == np.round(mu)):
+        # Use discrete coloring for integer Maslov index
+        unique_mu = np.unique(mu)
+        sc4 = ax4.scatter(result.x_pts, result.y_pts,
+                          c=mu, cmap= "RdYlGn", s=0.8, alpha=0.45,
+                          vmin=unique_mu.min(), vmax=unique_mu.max(),
+                          rasterized=True)
+        
+        # Force integer ticks on colorbar
+        cbar = fig.colorbar(sc4, ax=ax4, label=r"Maslov $\mu$", pad=0.02)
+        cbar.set_ticks(unique_mu.astype(int))
+        cbar.set_ticklabels([str(int(m)) for m in unique_mu])
+    else:
+        # Fallback for non-integer (shouldn't happen)
+        sc4 = ax4.scatter(result.x_pts, result.y_pts,
+                          c=mu.astype(float), cmap= "RdBu_r", s=0.8, alpha=0.45,
+                          rasterized=True)
+        fig.colorbar(sc4, ax=ax4, label=r"Maslov $\mu$", pad=0.02)
 
     branch_note = "  (+/− branches)" if eq == EquationType.WAVE else ""
     fig.suptitle(
