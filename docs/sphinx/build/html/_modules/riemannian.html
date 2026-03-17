@@ -173,93 +173,84 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">Metric</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Riemannian metric on a 1D or 2D manifold.</span>
-
+<span class="sd">    </span>
 <span class="sd">    The dimension is inferred automatically from the supplied inputs:</span>
-
+<span class="sd">    </span>
 <span class="sd">    - **1D**: ``g_input`` is a scalar SymPy expression in one coordinate;</span>
 <span class="sd">      ``coords`` is a 1-tuple ``(x,)`` or a bare symbol.</span>
 <span class="sd">    - **2D**: ``g_input`` is a 2×2 SymPy ``Matrix`` (or a nested list that</span>
 <span class="sd">      will be promoted to one); ``coords`` is a 2-tuple ``(x, y)``.</span>
-
+<span class="sd">    </span>
 <span class="sd">    On construction the metric is simplified once, and all derived symbolic</span>
 <span class="sd">    quantities — inverse metric, determinant, square-root of the determinant,</span>
-<span class="sd">    and Christoffel symbols — are computed and stored.  Numerical callables</span>
+<span class="sd">    and Christoffel symbols — are computed and stored. Numerical callables</span>
 <span class="sd">    (``lambdify``-produced functions) are also built and cached so that</span>
-<span class="sd">    integration and visualisation routines have zero symbolic overhead at</span>
+<span class="sd">    integration and visualization routines have zero symbolic overhead at</span>
 <span class="sd">    run-time.</span>
-
+<span class="sd">    </span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    g_input : sympy.Expr or sympy.Matrix or list</span>
-<span class="sd">        Metric tensor.  A scalar SymPy expression for 1D, or a 2×2 SymPy</span>
+<span class="sd">        Metric tensor. A scalar SymPy expression for 1D, or a 2×2 SymPy</span>
 <span class="sd">        Matrix (or equivalent nested list of expressions) for 2D.</span>
 <span class="sd">    coords : tuple of sympy.Symbol or sympy.Symbol</span>
-<span class="sd">        Coordinate symbols in order.  The length determines the manifold</span>
-<span class="sd">        dimension (1 or 2).  A bare symbol is accepted for the 1D case.</span>
-
+<span class="sd">        Coordinate symbols in order. The length determines the manifold</span>
+<span class="sd">        dimension (1 or 2). A bare symbol is accepted for the 1D case.</span>
+<span class="sd">    </span>
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    dim : int</span>
 <span class="sd">        Manifold dimension, either 1 or 2.</span>
 <span class="sd">    coords : tuple of sympy.Symbol</span>
 <span class="sd">        Coordinate symbols, always stored as a tuple.</span>
-
-<span class="sd">    **1D-specific attributes**</span>
-
 <span class="sd">    g_expr : sympy.Expr</span>
-<span class="sd">        Simplified metric component g₁₁(x).</span>
+<span class="sd">        (1D only) Simplified metric component g₁₁(x).</span>
 <span class="sd">    g_inv_expr : sympy.Expr</span>
-<span class="sd">        Inverse metric component g¹¹(x) = 1/g₁₁(x).</span>
+<span class="sd">        (1D only) Inverse metric component g¹¹(x) = 1/g₁₁(x).</span>
 <span class="sd">    sqrt_det_expr : sympy.Expr</span>
-<span class="sd">        Square root of the metric determinant, √|g₁₁(x)|.</span>
-<span class="sd">    christoffel_sym : sympy.Expr</span>
-<span class="sd">        Symbolic Christoffel symbol Γ¹₁₁ = ½ (log g₁₁)′.</span>
-<span class="sd">    g_func : callable</span>
-<span class="sd">        Numerical function g₁₁(x_val) → float or ndarray.</span>
-<span class="sd">    g_inv_func : callable</span>
-<span class="sd">        Numerical function g¹¹(x_val) → float or ndarray.</span>
+<span class="sd">        (1D only) Square root of the metric determinant, √|g₁₁(x)|.</span>
+<span class="sd">    christoffel_sym : sympy.Expr or dict</span>
+<span class="sd">        Symbolic Christoffel symbols. </span>
+<span class="sd">        - 1D: Expression for Γ¹₁₁ = ½ (log g₁₁)′.</span>
+<span class="sd">        - 2D: Nested dict ``christoffel_sym[i][j][k]`` → SymPy expression.</span>
+<span class="sd">    g_func : callable or dict</span>
+<span class="sd">        Numerical metric function.</span>
+<span class="sd">        - 1D: ``g₁₁(x_val)`` → float or ndarray.</span>
+<span class="sd">        - 2D: Dict ``{(i, j): callable}`` of component functions.</span>
+<span class="sd">    g_inv_func : callable or dict</span>
+<span class="sd">        Numerical inverse-metric function.</span>
+<span class="sd">        - 1D: ``g¹¹(x_val)`` → float or ndarray.</span>
+<span class="sd">        - 2D: Dict ``{(i, j): callable}`` of component functions.</span>
 <span class="sd">    sqrt_det_func : callable</span>
-<span class="sd">        Numerical function √|g₁₁|(x_val) → float or ndarray.</span>
-<span class="sd">    christoffel_func : callable</span>
-<span class="sd">        Numerical function Γ¹₁₁(x_val) → float or ndarray.</span>
-
-<span class="sd">    **2D-specific attributes**</span>
-
-<span class="sd">    g_matrix : sympy.Matrix</span>
-<span class="sd">        Simplified 2×2 metric tensor matrix.</span>
-<span class="sd">    det_g : sympy.Expr</span>
-<span class="sd">        Determinant of the metric, det(g).</span>
-<span class="sd">    sqrt_det_g : sympy.Expr</span>
-<span class="sd">        Square root of the absolute determinant, √|det(g)|.</span>
-<span class="sd">    g_inv_matrix : sympy.Matrix</span>
-<span class="sd">        Symbolic inverse metric g⁻¹.</span>
-<span class="sd">    christoffel_sym : dict</span>
-<span class="sd">        Nested dict ``christoffel_sym[i][j][k]`` → SymPy expression for Γⁱⱼₖ.</span>
-<span class="sd">    g_func : dict</span>
-<span class="sd">        Dict ``{(i, j): callable}`` of numerical metric component functions</span>
-<span class="sd">        g_{ij}(x_val, y_val).</span>
-<span class="sd">    g_inv_func : dict</span>
-<span class="sd">        Dict ``{(i, j): callable}`` of numerical inverse-metric component</span>
-<span class="sd">        functions g^{ij}(x_val, y_val).</span>
-<span class="sd">    det_g_func : callable</span>
-<span class="sd">        Numerical function det(g)(x_val, y_val).</span>
+<span class="sd">        (1D only) Numerical function √|g₁₁|(x_val) → float or ndarray.</span>
 <span class="sd">    sqrt_det_g_func : callable</span>
-<span class="sd">        Numerical function √|det(g)|(x_val, y_val).</span>
-<span class="sd">    christoffel_func : dict</span>
-<span class="sd">        Nested dict ``christoffel_func[i][j][k]`` of numerical Christoffel</span>
-<span class="sd">        callables Γⁱⱼₖ(x_val, y_val).</span>
-
+<span class="sd">        (2D only) Numerical function √|det(g)|(x_val, y_val).</span>
+<span class="sd">    christoffel_func : callable or dict</span>
+<span class="sd">        Numerical Christoffel callables.</span>
+<span class="sd">        - 1D: ``Γ¹₁₁(x_val)`` → float or ndarray.</span>
+<span class="sd">        - 2D: Nested dict of callables ``Γⁱⱼₖ(x_val, y_val)``.</span>
+<span class="sd">    g_matrix : sympy.Matrix</span>
+<span class="sd">        (2D only) Simplified 2×2 metric tensor matrix.</span>
+<span class="sd">    det_g : sympy.Expr</span>
+<span class="sd">        (2D only) Determinant of the metric, det(g).</span>
+<span class="sd">    sqrt_det_g : sympy.Expr</span>
+<span class="sd">        (2D only) Square root of the absolute determinant, √|det(g)|.</span>
+<span class="sd">    g_inv_matrix : sympy.Matrix</span>
+<span class="sd">        (2D only) Symbolic inverse metric g⁻¹.</span>
+<span class="sd">    det_g_func : callable</span>
+<span class="sd">        (2D only) Numerical function det(g)(x_val, y_val).</span>
+<span class="sd">    </span>
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
 <span class="sd">        If the number of coordinate symbols is neither 1 nor 2.</span>
 <span class="sd">    ValueError</span>
 <span class="sd">        If ``g_input`` is not a 2×2 matrix when ``len(coords) == 2``.</span>
-
+<span class="sd">    </span>
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
 <span class="sd">    **1D — cone-like metric** g = x²:</span>
-
+<span class="sd">    </span>
 <span class="sd">    &gt;&gt;&gt; from sympy import symbols, Matrix, sin, simplify</span>
 <span class="sd">    &gt;&gt;&gt; x = symbols(&#39;x&#39;, real=True, positive=True)</span>
 <span class="sd">    &gt;&gt;&gt; m = Metric(x**2, (x,))</span>
@@ -269,9 +260,9 @@
 <span class="sd">    1/x</span>
 <span class="sd">    &gt;&gt;&gt; m.gauss_curvature()        # intrinsic curvature of a curve is 0</span>
 <span class="sd">    0</span>
-
+<span class="sd">    </span>
 <span class="sd">    **2D — unit sphere** ds² = dθ² + sin²θ dφ²:</span>
-
+<span class="sd">    </span>
 <span class="sd">    &gt;&gt;&gt; theta, phi = symbols(&#39;theta phi&#39;, real=True)</span>
 <span class="sd">    &gt;&gt;&gt; g = Matrix([[1, 0], [0, sin(theta)**2]])</span>
 <span class="sd">    &gt;&gt;&gt; m = Metric(g, (theta, phi))</span>
@@ -279,15 +270,14 @@
 <span class="sd">    2</span>
 <span class="sd">    &gt;&gt;&gt; simplify(m.gauss_curvature())   # K = 1 everywhere on the unit sphere</span>
 <span class="sd">    1</span>
-
+<span class="sd">    </span>
 <span class="sd">    **2D — Poincaré half-plane** g = diag(1/y², 1/y²):</span>
-
+<span class="sd">    </span>
 <span class="sd">    &gt;&gt;&gt; x, y = symbols(&#39;x y&#39;, real=True)</span>
 <span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1/y**2, 0], [0, 1/y**2]]), (x, y))</span>
 <span class="sd">    &gt;&gt;&gt; simplify(m.gauss_curvature())   # constant negative curvature</span>
 <span class="sd">    -1</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Construction</span>
     <span class="c1"># ------------------------------------------------------------------</span>
@@ -849,10 +839,6 @@
 <span class="sd">        approximations.</span>
 
 <span class="sd">        Works for both 1D and 2D metrics.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        (none — operates on ``self``)</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>

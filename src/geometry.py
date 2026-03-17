@@ -262,6 +262,7 @@ class SymbolGeometryBase(ABC):
     Abstract base class for the geometry engines.
 
     Provides shared helpers:
+    
     - _remove_duplicate_orbits: generic orbit deduplication
     - _wrap_solve_ivp: stability computation wrapper
     """
@@ -374,10 +375,11 @@ class SymbolGeometry(SymbolGeometryBase):
         Integrate the Hamiltonian flow with variational (Jacobi) equations.
 
         System:
-          dx/dt  =  ∂H/∂ξ
-          dξ/dt  = -∂H/∂x
-          dJ/dt  =  ∂²H/∂ξ² J + ∂²H/∂x∂ξ K
-          dK/dt  = -∂²H/∂x∂ξ J - ∂²H/∂x² K
+        
+        - dx/dt  =  ∂H/∂ξ
+        - dξ/dt  = -∂H/∂x
+        - dJ/dt  =  ∂²H/∂ξ² J + ∂²H/∂x∂ξ K
+        - dK/dt  = -∂²H/∂x∂ξ J - ∂²H/∂x² K
 
         Initial conditions: J(0)=0, K(0)=1.
         """
@@ -992,14 +994,28 @@ class SymbolVisualizer(SymbolVisualizerBase):
     1D symbol visualizer — 15-panel geometric and spectral atlas.
 
     Panels:
-     1  Hamiltonian surface (3D)       9  Periodic orbits (phase space)
-     2  Level sets (foliation)         10 Period-energy diagram
-     3  Hamiltonian vector field       11 EBK quantization
-     4  Group velocity ∂H/∂ξ           12 Gutzwiller trace formula
-     5  Spatial projection + caustics  13 Semiclassical spectrum
-     6  Jacobian J(t)                  14 Orbit stability
-     7  Sectional curvature            15 Level spacing distribution
-     8  Energy conservation
+    
+    .. list-table::
+       :widths: 50 50
+       :header-rows: 0
+    
+       * - 1. Hamiltonian surface (3D)
+         - 9. Periodic orbits (phase space)
+       * - 2. Level sets (foliation)
+         - 10. Period-energy diagram
+       * - 3. Hamiltonian vector field
+         - 11. EBK quantization
+       * - 4. Group velocity ∂H/∂ξ
+         - 12. Gutzwiller trace formula
+       * - 5. Spatial projection + caustics
+         - 13. Semiclassical spectrum
+       * - 6. Jacobian J(t)
+         - 14. Orbit stability
+       * - 7. Sectional curvature
+         - 15. Level spacing distribution
+       * - 8. Energy conservation
+         -
+
     """
 
     def visualize_complete(self,

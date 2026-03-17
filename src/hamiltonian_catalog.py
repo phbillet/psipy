@@ -791,6 +791,7 @@ def get_tree():
 def export_latex_table(category=None, filename='hamiltonians.tex'):
     """
     Exports a LaTeX table of Hamiltonians.
+    
     Parameters
     ----------
     category : str, optional
@@ -841,6 +842,7 @@ def export_latex_table(category=None, filename='hamiltonians.tex'):
 def get_dimensional_analysis(name: str):
     """
     Basic dimensional analysis of a Hamiltonian.
+    
     Parameters
     ----------
     name : str
@@ -898,6 +900,7 @@ def get_dimensional_analysis(name: str):
 def find_similar_hamiltonians(name: str, top_n=5):
     """
     Finds similar Hamiltonians by structural analysis.
+    
     Parameters
     ----------
     name : str
@@ -937,6 +940,7 @@ def find_similar_hamiltonians(name: str, top_n=5):
 def validate_hamiltonians():
     """
     Validates all Hamiltonians to detect common errors.
+    
     Returns
     -------
     dict
@@ -977,6 +981,7 @@ def validate_hamiltonians():
 def batch_export_hamiltonians(output_dir='hamiltonians_export', formats=['json', 'yaml', 'csv']):
     """
     Exports the entire catalog in multiple formats.
+    
     Parameters
     ----------
     output_dir : str

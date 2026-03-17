@@ -178,6 +178,7 @@ class FourierIntegralOperator:
     where φ is an arbitrary non-degenerate phase in the sense of Hörmander.
 
     This class is responsible for:
+    
     * Storing the symbolic phase and amplitude.
     * Computing the canonical relation (∇_θ φ, ∇_x φ, ∇_y φ).
     * Checking Hörmander's non-degeneracy condition (mixed Hessian ∂²φ/∂x∂θ).
@@ -468,11 +469,11 @@ class PsiOpFIOBridge(FourierIntegralOperator):
     The original bottleneck was that every call to ``evaluate_at(x_val, ...)``
     triggered a full SymPy rebuild:
 
-        build_kernel    → sp.subs  (new x_val substituted into phase)
-        _make_guesses   → sp.diff + sp.solve  (analytical ξ_c guess)
-        _build_analyzer → Analyzer.__init__
-                            → _prepare_derivatives  (20+ sp.diff calls)
-                            → _create_numerical_functions  (8 lambdify calls)
+    - build_kernel      → sp.subs  (new x_val substituted into phase)
+    - _make_guesses     → sp.diff + sp.solve  (analytical ξ_c guess)
+    - _build_analyzer   → Analyzer.__init__
+                        → _prepare_derivatives  (20+ sp.diff calls)
+                        → _create_numerical_functions  (8 lambdify calls)
 
     All of that work is *identical across x_val* except for the numerical
     value of x_val itself, because the phase is linear in x_val:
@@ -2098,11 +2099,11 @@ def run_test_suite(verbose: bool = True, plot: bool = True) -> Dict[str, Any]:
     the semi-classical result at leading order is:
         (Pu)(x) = p(k_0) · u_0(x)
 
-    Test 1 -- Elliptic    P = ξ²       → p(k0)  = k0²
-    Test 2 -- Transport   P = c·ξ      → p(k0)  = c·k0
-    Test 3 -- Composition P∘Q, P=ξ², Q=ξ → PQ=ξ³, p(k0) = k0³
-    Test 4 -- Right-inverse  P=ξ²+1, R=P⁻¹ → (Ru)(x) = u(x)/p(k0)
-    Test 5 -- Propagator  exp(it·ξ)    → phase shift exp(i·t·k0)
+    - Test 1 -- Elliptic    P = ξ²       → p(k0)  = k0²
+    - Test 2 -- Transport   P = c·ξ      → p(k0)  = c·k0
+    - Test 3 -- Composition P∘Q, P=ξ², Q=ξ → PQ=ξ³, p(k0) = k0³
+    - Test 4 -- Right-inverse  P=ξ²+1, R=P⁻¹ → (Ru)(x) = u(x)/p(k0)
+    - Test 5 -- Propagator  exp(it·ξ)    → phase shift exp(i·t·k0)
 
     Error tolerance: O(1/λ) for simple operators, O(5/λ) for compositions.
 

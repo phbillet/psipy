@@ -610,14 +610,14 @@ respects the physical domain.</p>
 <div><p>F[u](x) = (2π)^{-n_θ} ∫∫ exp(iλ φ(x, y, θ)) · a(x, y, θ) · u(y) dy dθ</p>
 </div></blockquote>
 <p>where φ is an arbitrary non-degenerate phase in the sense of Hörmander.</p>
-<p>This class is responsible for:
-* Storing the symbolic phase and amplitude.
-* Computing the canonical relation (∇_θ φ, ∇_x φ, ∇_y φ).
-* Checking Hörmander’s non-degeneracy condition (mixed Hessian ∂²φ/∂x∂θ).
-* Evaluating the integral asymptotically by delegating entirely to</p>
-<blockquote>
-<div><p>asymptotic.Analyzer and asymptotic.AsymptoticEvaluator (DRY).</p>
-</div></blockquote>
+<p>This class is responsible for:</p>
+<ul class="simple">
+<li><p>Storing the symbolic phase and amplitude.</p></li>
+<li><p>Computing the canonical relation (∇_θ φ, ∇_x φ, ∇_y φ).</p></li>
+<li><p>Checking Hörmander’s non-degeneracy condition (mixed Hessian ∂²φ/∂x∂θ).</p></li>
+<li><p>Evaluating the integral asymptotically by delegating entirely to
+asymptotic.Analyzer and asymptotic.AsymptoticEvaluator (DRY).</p></li>
+</ul>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -732,15 +732,16 @@ via the stationary-phase / saddle-point method.</p>
 <h2>Performance design<a class="headerlink" href="#performance-design" title="Link to this heading"></a></h2>
 <p>The original bottleneck was that every call to <code class="docutils literal notranslate"><span class="pre">evaluate_at(x_val,</span> <span class="pre">...)</span></code>
 triggered a full SymPy rebuild:</p>
-<blockquote>
-<div><p>build_kernel    → sp.subs  (new x_val substituted into phase)
-_make_guesses   → sp.diff + sp.solve  (analytical ξ_c guess)
-_build_analyzer → Analyzer.__init__</p>
-<blockquote>
-<div><p>→ _prepare_derivatives  (20+ sp.diff calls)
+<ul class="simple">
+<li><p>build_kernel      → sp.subs  (new x_val substituted into phase)</p></li>
+<li><p>_make_guesses     → sp.diff + sp.solve  (analytical ξ_c guess)</p></li>
+<li><dl class="simple">
+<dt>_build_analyzer   → Analyzer.__init__</dt><dd><p>→ _prepare_derivatives  (20+ sp.diff calls)
 → _create_numerical_functions  (8 lambdify calls)</p>
-</div></blockquote>
-</div></blockquote>
+</dd>
+</dl>
+</li>
+</ul>
 <p>All of that work is <em>identical across x_val</em> except for the numerical
 value of x_val itself, because the phase is linear in x_val:</p>
 <blockquote>
@@ -1277,11 +1278,13 @@ useful for choosing the SpectralSplitter cut-off.</p>
 <dt>the semi-classical result at leading order is:</dt><dd><p>(Pu)(x) = p(k_0) · u_0(x)</p>
 </dd>
 </dl>
-<p>Test 1 – Elliptic    P = ξ²       → p(k0)  = k0²
-Test 2 – Transport   P = c·ξ      → p(k0)  = c·k0
-Test 3 – Composition P∘Q, P=ξ², Q=ξ → PQ=ξ³, p(k0) = k0³
-Test 4 – Right-inverse  P=ξ²+1, R=P⁻¹ → (Ru)(x) = u(x)/p(k0)
-Test 5 – Propagator  exp(it·ξ)    → phase shift exp(i·t·k0)</p>
+<ul class="simple">
+<li><p>Test 1 – Elliptic    P = ξ²       → p(k0)  = k0²</p></li>
+<li><p>Test 2 – Transport   P = c·ξ      → p(k0)  = c·k0</p></li>
+<li><p>Test 3 – Composition P∘Q, P=ξ², Q=ξ → PQ=ξ³, p(k0) = k0³</p></li>
+<li><p>Test 4 – Right-inverse  P=ξ²+1, R=P⁻¹ → (Ru)(x) = u(x)/p(k0)</p></li>
+<li><p>Test 5 – Propagator  exp(it·ξ)    → phase shift exp(i·t·k0)</p></li>
+</ul>
 <p>Error tolerance: O(1/λ) for simple operators, O(5/λ) for compositions.</p>
 <dl class="field-list simple">
 <dt class="field-odd">returns<span class="colon">:</span></dt>

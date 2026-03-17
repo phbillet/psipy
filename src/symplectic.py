@@ -75,21 +75,55 @@ from imports import *
 # -----------------------------------------------------------------------------
 # Utility functions for variable inference and dimension handling
 # -----------------------------------------------------------------------------
+
 def _infer_variables(H, expected_ndof=None):
     """
-    Attempt to infer phase space variables from Hamiltonian expression.
-    Heuristic: look for symbols named 'x1','p1','x2','p2',... or 'x','p' for 1‑DOF.
-    If ambiguous, raise ValueError.
-
+    Infer phase space canonical variables from a Hamiltonian expression.
+    
+    This function uses naming conventions to automatically identify position and
+    momentum variables, eliminating the need for manual specification in common cases.
+    
+    Heuristics applied:
+    - For 1-DOF: Looks for exactly 2 symbols where one contains 'x' or 'q' 
+      (position) and one contains 'p' (momentum)
+    - For multi-DOF: Pairs symbols like x1/p1, x2/p2, ... or q1/p1, q2/p2, ...
+    - Indices must match between position and momentum variables
+    
     Parameters
     ----------
-    H : sympy expression
+    H : sympy.Expr
+        Hamiltonian expression containing phase space variables as free symbols.
     expected_ndof : int, optional
-        If provided, check that the inferred number of DOF matches.
-
+        Expected number of degrees of freedom. If provided, validates that the
+        inferred variables match this expectation.
+    
     Returns
     -------
-    list of sympy symbols in order [x1, p1, x2, p2, ...]
+    list of sympy.Symbol
+        Ordered list of canonical variables [x₁, p₁, x₂, p₂, ...].
+    
+    Raises
+    ------
+    ValueError
+        If no free symbols exist in H, if position/momentum cannot be 
+        unambiguously identified, or if inferred ndof doesn't match expected_ndof.
+    
+    Examples
+    --------
+    >>> x, p = symbols('x p', real=True)
+    >>> H = p**2/2 + x**2/2
+    >>> _infer_variables(H)
+    [x, p]
+    
+    >>> x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    >>> H = p1**2/2 + p2**2/2 + x1**2/2 + x2**2/2
+    >>> _infer_variables(H)
+    [x1, p1, x2, p2]
+    
+    Notes
+    -----
+    If automatic inference fails, provide vars_phase explicitly to functions
+    that accept this parameter.
     """
     free_syms = list(H.free_symbols)
     if not free_syms:
@@ -160,19 +194,68 @@ def _check_ndof(vars_phase, expected):
 
 class SymplecticForm:
     """
-    Symplectic structure for an arbitrary number of degrees of freedom.
-
-    Represents the symplectic 2‑form ω = Σ dxᵢ ∧ dpᵢ (canonical) on a 2n‑dimensional
-    phase space. The matrix representation is block‑diagonal with 2×2 blocks [[0,-1],[1,0]].
-
+    Represents the symplectic structure on a 2n-dimensional phase space.
+    
+    The symplectic form ω is a closed, non-degenerate 2-form that defines the
+    geometric structure of Hamiltonian mechanics. In canonical coordinates, it
+    takes the standard form:
+    
+        ω = Σᵢ dxᵢ ∧ dpᵢ
+    
+    The matrix representation J (also called the symplectic matrix) satisfies:
+    - Jᵀ = -J (antisymmetric)
+    - J² = -I (for canonical form)
+    - det(J) = 1
+    
+    This matrix is used to convert gradients of the Hamiltonian into the
+    Hamiltonian vector field: ż = J · ∇H
+    
     Parameters
     ----------
     n : int, optional
-        Number of degrees of freedom. If not given, inferred from vars_phase.
-    vars_phase : list of symbols, optional
-        Ordered list of canonical variables (x1, p1, x2, p2, ...).
-    omega_matrix : sympy Matrix, optional
-        Custom 2n×2n antisymmetric matrix. If None, canonical form is used.
+        Number of degrees of freedom. Used to generate generic variables if
+        vars_phase is not provided.
+    vars_phase : list of sympy.Symbol, optional
+        Ordered list of canonical variables [x₁, p₁, x₂, p₂, ...]. If provided,
+        n is inferred from the length of this list.
+    omega_matrix : sympy.Matrix, optional
+        Custom 2n×2n symplectic matrix. If None, the canonical form is used:
+        J = [[0, -I], [I, 0]] where I is the n×n identity.
+    
+    Attributes
+    ----------
+    n : int
+        Number of degrees of freedom.
+    vars_phase : list
+        Phase space variables.
+    omega_matrix : sympy.Matrix
+        The symplectic matrix J.
+    omega_inv : sympy.Matrix
+        The inverse J⁻¹ (Poisson tensor), used for computing Poisson brackets.
+    
+    Raises
+    ------
+    ValueError
+        If neither n nor vars_phase is provided, if omega_matrix has incorrect
+        dimensions, or if omega_matrix is not antisymmetric.
+    
+    Examples
+    --------
+    >>> # 1-DOF canonical form
+    >>> sf = SymplecticForm(n=1)
+    >>> sf.omega_matrix
+    Matrix([[0, -1], [1, 0]])
+    
+    >>> # 2-DOF with explicit variables
+    >>> x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    >>> sf = SymplecticForm(vars_phase=[x1, p1, x2, p2])
+    >>> sf.n
+    2
+    
+    See Also
+    --------
+    poisson_bracket : Uses omega_inv to compute {f, g}
+    hamiltonian_flow : Uses the symplectic structure for integration
     """
     def __init__(self, n=None, vars_phase=None, omega_matrix=None):
         if vars_phase is not None:
@@ -234,30 +317,69 @@ class SymplecticForm:
 # Hamiltonian flow (generic)
 # -----------------------------------------------------------------------------
 
-def hamiltonian_flow(H, z0, tspan, vars_phase=None, integrator='symplectic', n_steps=1000):
+def hamiltonian_flow(H, z0, tspan, vars_phase=None, integrator='symplectic', 
+                     n_steps=1000):
     """
-    Integrate Hamilton's equations for any number of degrees of freedom.
-
+    Numerically integrate Hamilton's equations of motion.
+    
+    Solves the system:
+        ẋᵢ = ∂H/∂pᵢ
+        ṗᵢ = -∂H/∂xᵢ
+    
+    for i = 1, ..., n degrees of freedom.
+    
+    Integrator options and their properties:
+    - 'symplectic' (Symplectic Euler): First-order, exactly preserves symplectic
+      structure, good long-term energy behavior, computationally efficient
+    - 'verlet' (Velocity Verlet): Second-order, time-reversible, excellent for
+      oscillatory systems, preserves symplectic structure
+    - 'rk45' (Runge-Kutta 4/5): Fourth-order adaptive, not symplectic, better
+      short-term accuracy but may drift in energy over long simulations
+    
     Parameters
     ----------
-    H : sympy expression
-        Hamiltonian H(x₁, p₁, x₂, p₂, ...).
+    H : sympy.Expr
+        Hamiltonian function H(x₁, p₁, ..., xₙ, pₙ).
     z0 : array_like
-        Initial condition, length 2n.
-    tspan : (float, float)
-        Time interval (t_start, t_end).
-    vars_phase : list of symbols, optional
-        Phase space variables in order [x₁, p₁, x₂, p₂, ...].
-        If None, attempt to infer from H.
+        Initial conditions as [x₁₀, p₁₀, x₂₀, p₂₀, ...], length 2n.
+    tspan : tuple of float
+        Time integration interval (t_start, t_end).
+    vars_phase : list of sympy.Symbol, optional
+        Phase space variables in canonical order. If None, inferred from H.
     integrator : {'symplectic', 'verlet', 'rk45'}
-        Integration method.
+        Numerical integration method (default: 'symplectic').
     n_steps : int
-        Number of time steps.
-
+        Number of discrete time steps (default: 1000).
+    
     Returns
     -------
     dict
-        Trajectory with keys 't', each variable name (e.g., 'x1', 'p1', ...), and 'energy'.
+        Dictionary containing:
+        - 't' : ndarray, time points
+        - '<var_name>' : ndarray, trajectory for each phase space variable
+        - 'energy' : ndarray, H evaluated along the trajectory
+    
+    Raises
+    ------
+    ValueError
+        If integrator is not recognized, if variables cannot be inferred, or
+        if z0 has incorrect dimension.
+    
+    Examples
+    --------
+    >>> x, p = symbols('x p', real=True)
+    >>> H = p**2/2 + x**2/2  # Harmonic oscillator
+    >>> traj = hamiltonian_flow(H, z0=[1, 0], tspan=(0, 10), 
+    ...                         vars_phase=[x, p], integrator='verlet')
+    >>> traj['energy'].std()  # Should be very small for symplectic integrators
+    < 1e-3
+    
+    Notes
+    -----
+    For long-time simulations, prefer 'symplectic' or 'verlet' integrators to
+    preserve the geometric structure of phase space and maintain bounded energy
+    errors. Use 'rk45' for short-time high-accuracy requirements or when
+    comparing with non-symplectic methods.
     """
     from scipy.integrate import solve_ivp
 
@@ -716,8 +838,69 @@ def action_integral(H, E, vars_phase=None, method='numerical', x_bounds=None):
         raise ValueError("method must be 'symbolic' or 'numerical'")
 
 
-def phase_portrait(H, x_range, p_range, vars_phase=None, resolution=50, levels=20):
-    """Generate phase portrait for 1‑DOF system."""
+def phase_portrait(H, x_range, p_range, vars_phase=None, resolution=50, 
+                   levels=20):
+    """
+    Generate a 2D phase portrait for a 1-DOF Hamiltonian system.
+    
+    Creates a visualization showing:
+    1. Energy contour lines (level sets of H)
+    2. Hamiltonian vector field arrows indicating flow direction
+    
+    For 1-DOF systems, trajectories lie on energy contours, making this an
+    effective tool for identifying:
+    - Fixed points (where vector field vanishes)
+    - Periodic orbits (closed contours)
+    - Separatrices (boundaries between different types of motion)
+    - Allowed vs. forbidden regions
+    
+    Parameters
+    ----------
+    H : sympy.Expr
+        Hamiltonian H(x, p) for a 1-degree-of-freedom system.
+    x_range : tuple of float
+        Position axis limits (x_min, x_max).
+    p_range : tuple of float
+        Momentum axis limits (p_min, p_max).
+    vars_phase : list of sympy.Symbol, optional
+        Variables [x, p]. If None, inferred from H.
+    resolution : int
+        Grid resolution for contour and vector field computation (default: 50).
+        Higher values give smoother plots but increase computation time.
+    levels : int
+        Number of energy contour levels to display (default: 20).
+    
+    Returns
+    -------
+    None
+        Displays a matplotlib figure with the phase portrait.
+    
+    Raises
+    ------
+    ValueError
+        If the system is not 1-DOF or variables cannot be inferred.
+    
+    Examples
+    --------
+    >>> x, p = symbols('x p', real=True)
+    >>> H = p**2/2 + x**2/2  # Harmonic oscillator
+    >>> phase_portrait(H, x_range=(-2, 2), p_range=(-2, 2))
+    
+    >>> # Pendulum
+    >>> H = p**2/2 - cos(x)
+    >>> phase_portrait(H, x_range=(-2*pi, 2*pi), p_range=(-3, 3))
+    
+    Notes
+    -----
+    The vector field is subsampled (every resolution//20 points) to avoid
+    visual clutter. Energy contours are labeled with their H values.
+    
+    See Also
+    --------
+    visualize_phase_space_structure : More comprehensive visualization with
+        fixed points and separatrices
+    separatrix_analysis : Detailed analysis near saddle points
+    """
     if vars_phase is None:
         vars_phase = _infer_variables(H, expected_ndof=1)
     _check_ndof(vars_phase, 1)
@@ -1042,8 +1225,76 @@ def hamiltonian_flow_4d(H, z0, tspan, integrator='symplectic', n_steps=1000):
                             integrator=integrator, n_steps=n_steps)
 
 
-def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000, integrator='symplectic'):
-    """Poincaré section for 2‑DOF systems."""
+def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000, 
+                     integrator='symplectic'):
+    """
+    Compute a Poincaré section for a 2-DOF Hamiltonian system.
+    
+    A Poincaré section reduces the 4D continuous flow to a 2D discrete map by
+    recording intersections of trajectories with a specified surface Σ in phase
+    space. This reveals the underlying structure of the dynamics:
+    - Regular motion appears as closed curves (KAM tori)
+    - Chaotic motion appears as scattered points
+    - Periodic orbits appear as fixed points or finite sets
+    
+    The section surface is defined by Σ = {(x₁, p₁, x₂, p₂) : variable = value}
+    with an optional crossing direction.
+    
+    Parameters
+    ----------
+    H : sympy.Expr
+        Hamiltonian for a 2-degree-of-freedom system.
+    Sigma_def : dict
+        Section surface definition with keys:
+        - 'variable' : str, name of the section variable (e.g., 'x2', 'p1')
+        - 'value' : float, the constant value defining the surface
+        - 'direction' : str, optional, 'positive' or 'negative' crossing 
+          (default: 'positive')
+    z0 : array_like
+        Initial condition [x₁₀, p₁₀, x₂₀, p₂₀].
+    tmax : float
+        Maximum integration time.
+    vars_phase : list of sympy.Symbol, optional
+        Variables [x1, p1, x2, p2]. If None, uses default canonical names.
+    n_returns : int
+        Maximum number of section crossings to collect (default: 1000).
+    integrator : {'symplectic', 'verlet', 'rk45'}
+        Integration method (default: 'symplectic').
+    
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 't_crossings' : ndarray, times at which the section was crossed
+        - 'section_points' : list of dict, phase space coordinates at each
+          crossing (interpolated to the exact crossing time)
+    
+    Raises
+    ------
+    ValueError
+        If the system is not 2-DOF, if the section variable is not found, or
+        if insufficient crossings are detected.
+    
+    Examples
+    --------
+    >>> x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    >>> H = (p1**2 + p2**2 + x1**2 + x2**2)/2  # Coupled oscillators
+    >>> Sigma = {'variable': 'x2', 'value': 0, 'direction': 'positive'}
+    >>> ps = poincare_section(H, Sigma, z0=[1, 0, 0, 0.5], tmax=100)
+    >>> len(ps['section_points'])
+    > 0
+    
+    Notes
+    -----
+    Crossing times are linearly interpolated between integration steps for
+    accuracy. Use high n_steps in the underlying integration for precise
+    section points. For chaotic systems, increase tmax and n_returns.
+    
+    See Also
+    --------
+    visualize_poincare_section : Plot multiple sections together
+    first_return_map : Analyze the discrete map from section points
+    """
     if vars_phase is None:
         vars_phase = [symbols('x1 p1 x2 p2', real=True)]  # assume canonical
     _check_ndof(vars_phase, 2)
@@ -1110,7 +1361,73 @@ def first_return_map(section_points, plot_variables=('x1', 'p1')):
 
 
 def monodromy_matrix(H, periodic_orbit, vars_phase=None, method='finite_difference'):
-    """Monodromy matrix for a periodic orbit (2‑DOF)."""
+    """
+    Compute the monodromy matrix for a periodic orbit in a 2-DOF system.
+    
+    The monodromy matrix M is the linearized Poincaré return map around a
+    periodic orbit. It describes how infinitesimal perturbations evolve over
+    one period T:
+    
+        δz(T) = M · δz(0)
+    
+    The eigenvalues of M (Floquet multipliers) determine orbital stability:
+    - |λ| = 1 for all λ: neutrally stable (typical for Hamiltonian systems)
+    - Any |λ| > 1: unstable orbit
+    - All |λ| < 1: stable (not possible in conservative Hamiltonian systems)
+    
+    For Hamiltonian systems, eigenvalues come in reciprocal pairs (λ, 1/λ)
+    and/or complex conjugate pairs on the unit circle.
+    
+    Parameters
+    ----------
+    H : sympy.Expr
+        Hamiltonian for a 2-degree-of-freedom system.
+    periodic_orbit : dict
+        A trajectory dictionary (from hamiltonian_flow) representing one complete
+        period, with keys 't' and variable names.
+    vars_phase : list of sympy.Symbol, optional
+        Variables [x1, p1, x2, p2]. If None, uses default canonical names.
+    method : {'finite_difference'}
+        Computation method (default: 'finite_difference').
+        Currently only finite difference perturbations are implemented.
+    
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'M' : ndarray, 4×4 monodromy matrix
+        - 'eigenvalues' : ndarray, Floquet multipliers
+        - 'floquet_multipliers' : ndarray, same as eigenvalues
+        - 'stable' : bool, True if all |λ| ≤ 1 (within tolerance)
+    
+    Raises
+    ------
+    NotImplementedError
+        If method is not 'finite_difference'.
+    ValueError
+        If the system is not 2-DOF.
+    
+    Examples
+    --------
+    >>> x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    >>> H = (p1**2 + p2**2 + x1**2 + x2**2)/2
+    >>> orbit = hamiltonian_flow(H, [1, 0, 0, 0], (0, 2*pi), 
+    ...                          vars_phase=[x1, p1, x2, p2])
+    >>> mono = monodromy_matrix(H, orbit, vars_phase=[x1, p1, x2, p2])
+    >>> np.allclose(np.abs(mono['eigenvalues']), 1.0, atol=1e-3)
+    True
+    
+    Notes
+    -----
+    The finite difference method perturbs each coordinate by ε = 1e-6 and
+    integrates forward one period. For higher accuracy, consider implementing
+    variational equations directly.
+    
+    See Also
+    --------
+    lyapunov_exponents : Long-term stability characterization
+    linearize_at_fixed_point : Stability analysis for equilibria
+    """
     if vars_phase is None:
         vars_phase = [symbols('x1 p1 x2 p2', real=True)]
     _check_ndof(vars_phase, 2)
@@ -1151,8 +1468,76 @@ def monodromy_matrix(H, periodic_orbit, vars_phase=None, method='finite_differen
         raise NotImplementedError("Only finite_difference method implemented.")
 
 
-def lyapunov_exponents(trajectory, dt, vars_phase=None, n_vectors=4, renorm_interval=10):
-    """Estimate Lyapunov exponents (simplified) for 4D trajectory."""
+def lyapunov_exponents(trajectory, dt, vars_phase=None, n_vectors=4, 
+                       renorm_interval=10):
+    """
+    Estimate Lyapunov exponents from a trajectory in a 2-DOF system.
+    
+    Lyapunov exponents quantify the average exponential rate of separation
+    between nearby trajectories. For a 2n-dimensional phase space, there are
+    2n exponents λ₁ ≥ λ₂ ≥ ... ≥ λ₂ₙ.
+    
+    Interpretation:
+    - λ₁ > 0: Chaotic dynamics (sensitive dependence on initial conditions)
+    - λ₁ = 0: Regular/periodic motion (marginal stability)
+    - Sum of all λᵢ = 0 for Hamiltonian systems (phase space volume preservation)
+    - Exponents come in pairs (λ, -λ) for Hamiltonian systems
+    
+    This implementation uses a simplified QR-based algorithm with periodic
+    renormalization to prevent numerical overflow.
+    
+    Parameters
+    ----------
+    trajectory : dict
+        Trajectory dictionary from hamiltonian_flow with keys 't' and variable
+        names containing the time series.
+    dt : float
+        Time step between trajectory points.
+    vars_phase : list of sympy.Symbol, optional
+        Variables [x1, p1, x2, p2]. If None, uses default canonical names.
+    n_vectors : int
+        Number of tangent vectors to evolve (default: 4 for 2-DOF).
+    renorm_interval : int
+        Number of steps between QR renormalization (default: 10).
+        Smaller values improve accuracy but increase computation.
+    
+    Returns
+    -------
+    ndarray
+        Lyapunov exponents sorted in descending order [λ₁, λ₂, λ₃, λ₄].
+    
+    Raises
+    ------
+    ValueError
+        If the system is not 2-DOF or trajectory is too short.
+    
+    Examples
+    --------
+    >>> # Regular motion (coupled oscillators)
+    >>> traj = hamiltonian_flow(H, z0, (0, 100), integrator='rk45')
+    >>> lyap = lyapunov_exponents(traj, dt=0.01)
+    >>> lyap[0]  # Should be approximately 0 for regular motion
+    ≈ 0
+    
+    >>> # Chaotic motion (e.g., Hénon-Heiles)
+    >>> lyap = lyapunov_exponents(chaotic_traj, dt=0.01)
+    >>> lyap[0]  # Should be positive for chaos
+    > 0
+    
+    Notes
+    -----
+    This is a simplified implementation using finite-difference Jacobian
+    approximation. For production use, consider implementing the full
+    variational equations alongside the trajectory integration.
+    
+    Convergence requires long trajectories (tmax >> 1/λ₁). The largest
+    exponent λ₁ converges fastest; smaller exponents require longer runs.
+    
+    See Also
+    --------
+    monodromy_matrix : Stability of periodic orbits
+    poincare_section : Visual detection of chaos vs. regularity
+    """
     if vars_phase is None:
         vars_phase = [symbols('x1 p1 x2 p2', real=True)]
     _check_ndof(vars_phase, 2)
@@ -1184,7 +1569,65 @@ def lyapunov_exponents(trajectory, dt, vars_phase=None, n_vectors=4, renorm_inte
 
 
 def project(trajectory, plane='xy', vars_phase=None):
-    """Project a 4D trajectory onto a 2D plane."""
+    """
+    Project a 4D trajectory onto a 2D plane for visualization.
+    
+    For 2-DOF systems, the full phase space is 4-dimensional (x₁, p₁, x₂, p₂),
+    which cannot be directly visualized. This function extracts 2D projections
+    suitable for plotting.
+    
+    Available projection planes:
+    - 'xy' or 'config': Configuration space (x₁, x₂)
+    - 'xp': Phase space of first DOF (x₁, p₁)
+    - 'pp' or 'momentum': Momentum space (p₁, p₂)
+    - 'x1p2': Mixed coordinates (x₁, p₂)
+    - 'x2p1': Mixed coordinates (x₂, p₁)
+    
+    Parameters
+    ----------
+    trajectory : dict
+        Trajectory dictionary from hamiltonian_flow with variable name keys.
+    plane : str
+        Projection plane specification (default: 'xy').
+        Options: 'xy', 'config', 'xp', 'pp', 'momentum', 'x1p2', 'x2p1'
+    vars_phase : list of sympy.Symbol, optional
+        Variables [x1, p1, x2, p2]. If None, uses default canonical names.
+    
+    Returns
+    -------
+    tuple
+        (x_data, y_data, labels) where:
+        - x_data : ndarray, coordinates for horizontal axis
+        - y_data : ndarray, coordinates for vertical axis
+        - labels : tuple of str, axis label strings
+    
+    Raises
+    ------
+    ValueError
+        If the system is not 2-DOF or if plane is not recognized.
+    
+    Examples
+    --------
+    >>> traj = hamiltonian_flow(H, z0, (0, 100), vars_phase=[x1, p1, x2, p2])
+    >>> x, y, labels = project(traj, plane='xy')
+    >>> plt.plot(x, y)
+    >>> plt.xlabel(labels[0]); plt.ylabel(labels[1])
+    
+    >>> # Phase space of first oscillator
+    >>> x, p, labels = project(traj, plane='xp')
+    
+    Notes
+    -----
+    Different projections reveal different aspects of the dynamics:
+    - Configuration space shows spatial trajectories
+    - Phase space projections show energy exchange between DOFs
+    - Mixed projections can reveal correlations between variables
+    
+    See Also
+    --------
+    visualize_poincare_section : 2D section visualization
+    phase_portrait : 1-DOF phase space visualization
+    """
     if vars_phase is None:
         vars_phase = [symbols('x1 p1 x2 p2', real=True)]
     _check_ndof(vars_phase, 2)

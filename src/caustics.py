@@ -1076,8 +1076,7 @@ class CausticFunctions:
         Uniform approximation near a fold caustic (A2).
 
         Formula (Duistermaat 1974, eq. 2.4):
-            u(x) = 2√π · ε^{1/6} · a_c · |dJ/ds|^{-1/2}
-                   · Ai(-ε^{-2/3} (x - x_c)) · exp(i S_c / ε)
+            u(x) = 2√π · ε^{1/6} · a_c · |dJ/ds|^{-1/2} · Ai(-ε^{-2/3} (x - x_c)) · exp(i S_c / ε)
 
         Parameters
         ----------
@@ -1155,8 +1154,7 @@ class CausticFunctions:
         Uniform approximation near a cusp caustic (A3).
 
         Scaled Pearcey:
-            u(x,y) ≈ ε^{1/4} · a_c · P(ε^{-1/2}(x-x_c), ε^{-3/4}(y-y_c))
-                     · exp(i S_c / ε)
+            u(x,y) ≈ ε^{1/4} · a_c · P(ε^{-1/2}(x-x_c), ε^{-3/4}(y-y_c)) · exp(i S_c / ε)
 
         Returns
         -------

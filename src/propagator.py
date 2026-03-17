@@ -1673,18 +1673,19 @@ def parabolic_sum(
       patched with the parabolic cylinder function D_{-1/2} instead of Ai.
     * The Maslov index is irrelevant (no phase); sign changes of det J are
       handled by the absolute value and the caustic patch.
+    * ``mu`` is not required for the parabolic equation.
 
     The interpolation strategy is identical to :func:`van_vleck_sum`.
 
     Parameters
     ----------
     pts, S, det_J, xlim, ylim, N, hbar, reg, method, caustic_threshold :
-        Same meaning as in :func:`van_vleck_sum`.  Note: ``mu`` is not
-        required for the parabolic equation.
+        Same meaning as in :func:`van_vleck_sum`.
 
     Returns
     -------
     u, X, Y : same layout as :func:`van_vleck_sum`.
+
     """
     abs_det = np.abs(det_J)
     amp     = 1.0 / np.sqrt(np.maximum(abs_det, reg))
@@ -1785,8 +1786,7 @@ def wave_sum(
     H₋ = −√H, each generating its own family of classical rays.  The
     wavefunction is the coherent superposition:
 
-        u(x) = Σ_{k∈H₊}  A_k exp(i S_k⁺/ℏ − i μ_k⁺ π/2)
-             + Σ_{k∈H₋}  A_k exp(i S_k⁻/ℏ − i μ_k⁻ π/2)
+        u(x) = Σ_{k∈H₊}  A_k exp(i S_k⁺/ℏ − i μ_k⁺ π/2) + Σ_{k∈H₋}  A_k exp(i S_k⁻/ℏ − i μ_k⁻ π/2)
 
     where S_k^± = ∫₀ᵗ p · ẋ dt′ along the respective branch rays.  Each
     branch is summed via :func:`van_vleck_sum`, then the two grids are added.

@@ -270,6 +270,7 @@
 <span class="sd">    where φ is an arbitrary non-degenerate phase in the sense of Hörmander.</span>
 
 <span class="sd">    This class is responsible for:</span>
+<span class="sd">    </span>
 <span class="sd">    * Storing the symbolic phase and amplitude.</span>
 <span class="sd">    * Computing the canonical relation (∇_θ φ, ∇_x φ, ∇_y φ).</span>
 <span class="sd">    * Checking Hörmander&#39;s non-degeneracy condition (mixed Hessian ∂²φ/∂x∂θ).</span>
@@ -569,11 +570,11 @@
 <span class="sd">    The original bottleneck was that every call to ``evaluate_at(x_val, ...)``</span>
 <span class="sd">    triggered a full SymPy rebuild:</span>
 
-<span class="sd">        build_kernel    → sp.subs  (new x_val substituted into phase)</span>
-<span class="sd">        _make_guesses   → sp.diff + sp.solve  (analytical ξ_c guess)</span>
-<span class="sd">        _build_analyzer → Analyzer.__init__</span>
-<span class="sd">                            → _prepare_derivatives  (20+ sp.diff calls)</span>
-<span class="sd">                            → _create_numerical_functions  (8 lambdify calls)</span>
+<span class="sd">    - build_kernel      → sp.subs  (new x_val substituted into phase)</span>
+<span class="sd">    - _make_guesses     → sp.diff + sp.solve  (analytical ξ_c guess)</span>
+<span class="sd">    - _build_analyzer   → Analyzer.__init__</span>
+<span class="sd">                        → _prepare_derivatives  (20+ sp.diff calls)</span>
+<span class="sd">                        → _create_numerical_functions  (8 lambdify calls)</span>
 
 <span class="sd">    All of that work is *identical across x_val* except for the numerical</span>
 <span class="sd">    value of x_val itself, because the phase is linear in x_val:</span>
@@ -2289,11 +2290,11 @@
 <span class="sd">    the semi-classical result at leading order is:</span>
 <span class="sd">        (Pu)(x) = p(k_0) · u_0(x)</span>
 
-<span class="sd">    Test 1 -- Elliptic    P = ξ²       → p(k0)  = k0²</span>
-<span class="sd">    Test 2 -- Transport   P = c·ξ      → p(k0)  = c·k0</span>
-<span class="sd">    Test 3 -- Composition P∘Q, P=ξ², Q=ξ → PQ=ξ³, p(k0) = k0³</span>
-<span class="sd">    Test 4 -- Right-inverse  P=ξ²+1, R=P⁻¹ → (Ru)(x) = u(x)/p(k0)</span>
-<span class="sd">    Test 5 -- Propagator  exp(it·ξ)    → phase shift exp(i·t·k0)</span>
+<span class="sd">    - Test 1 -- Elliptic    P = ξ²       → p(k0)  = k0²</span>
+<span class="sd">    - Test 2 -- Transport   P = c·ξ      → p(k0)  = c·k0</span>
+<span class="sd">    - Test 3 -- Composition P∘Q, P=ξ², Q=ξ → PQ=ξ³, p(k0) = k0³</span>
+<span class="sd">    - Test 4 -- Right-inverse  P=ξ²+1, R=P⁻¹ → (Ru)(x) = u(x)/p(k0)</span>
+<span class="sd">    - Test 5 -- Propagator  exp(it·ξ)    → phase shift exp(i·t·k0)</span>
 
 <span class="sd">    Error tolerance: O(1/λ) for simple operators, O(5/λ) for compositions.</span>
 

@@ -624,7 +624,7 @@ def test_compute_maslov_index():
     
     traj = bicharacteristic_flow(p, z0, (0, T), method='symplectic', n_steps=100)
     
-    maslov = compute_maslov_index(traj, p)
+    maslov = compute_maslov_index(traj)
     assert isinstance(maslov, (int, np.integer))
 
 
@@ -636,7 +636,7 @@ def test_compute_maslov_index_non_closed():
     z0 = (0, 0, 1, 1)
     traj = bicharacteristic_flow(p, z0, (0, 3), method='symplectic', n_steps=50)
     
-    maslov = compute_maslov_index(traj, p)
+    maslov = compute_maslov_index(traj)
     assert maslov is not None
 
 
@@ -815,7 +815,7 @@ def test_maslov_index_harmonic_2d():
     
     traj = bicharacteristic_flow(H, z0, (0, T), method='symplectic', n_steps=200)
     
-    maslov = compute_maslov_index(traj, H)
+    maslov = compute_maslov_index(traj)
     
     # For 2D harmonic oscillator, typical value is 2
     assert maslov in [0, 1, 2, 3, 4]

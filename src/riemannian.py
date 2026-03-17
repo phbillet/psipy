@@ -87,93 +87,84 @@ from scipy.optimize import minimize
 class Metric:
     """
     Riemannian metric on a 1D or 2D manifold.
-
+    
     The dimension is inferred automatically from the supplied inputs:
-
+    
     - **1D**: ``g_input`` is a scalar SymPy expression in one coordinate;
       ``coords`` is a 1-tuple ``(x,)`` or a bare symbol.
     - **2D**: ``g_input`` is a 2×2 SymPy ``Matrix`` (or a nested list that
       will be promoted to one); ``coords`` is a 2-tuple ``(x, y)``.
-
+    
     On construction the metric is simplified once, and all derived symbolic
     quantities — inverse metric, determinant, square-root of the determinant,
-    and Christoffel symbols — are computed and stored.  Numerical callables
+    and Christoffel symbols — are computed and stored. Numerical callables
     (``lambdify``-produced functions) are also built and cached so that
-    integration and visualisation routines have zero symbolic overhead at
+    integration and visualization routines have zero symbolic overhead at
     run-time.
-
+    
     Parameters
     ----------
     g_input : sympy.Expr or sympy.Matrix or list
-        Metric tensor.  A scalar SymPy expression for 1D, or a 2×2 SymPy
+        Metric tensor. A scalar SymPy expression for 1D, or a 2×2 SymPy
         Matrix (or equivalent nested list of expressions) for 2D.
     coords : tuple of sympy.Symbol or sympy.Symbol
-        Coordinate symbols in order.  The length determines the manifold
-        dimension (1 or 2).  A bare symbol is accepted for the 1D case.
-
+        Coordinate symbols in order. The length determines the manifold
+        dimension (1 or 2). A bare symbol is accepted for the 1D case.
+    
     Attributes
     ----------
     dim : int
         Manifold dimension, either 1 or 2.
     coords : tuple of sympy.Symbol
         Coordinate symbols, always stored as a tuple.
-
-    **1D-specific attributes**
-
     g_expr : sympy.Expr
-        Simplified metric component g₁₁(x).
+        (1D only) Simplified metric component g₁₁(x).
     g_inv_expr : sympy.Expr
-        Inverse metric component g¹¹(x) = 1/g₁₁(x).
+        (1D only) Inverse metric component g¹¹(x) = 1/g₁₁(x).
     sqrt_det_expr : sympy.Expr
-        Square root of the metric determinant, √|g₁₁(x)|.
-    christoffel_sym : sympy.Expr
-        Symbolic Christoffel symbol Γ¹₁₁ = ½ (log g₁₁)′.
-    g_func : callable
-        Numerical function g₁₁(x_val) → float or ndarray.
-    g_inv_func : callable
-        Numerical function g¹¹(x_val) → float or ndarray.
+        (1D only) Square root of the metric determinant, √|g₁₁(x)|.
+    christoffel_sym : sympy.Expr or dict
+        Symbolic Christoffel symbols. 
+        - 1D: Expression for Γ¹₁₁ = ½ (log g₁₁)′.
+        - 2D: Nested dict ``christoffel_sym[i][j][k]`` → SymPy expression.
+    g_func : callable or dict
+        Numerical metric function.
+        - 1D: ``g₁₁(x_val)`` → float or ndarray.
+        - 2D: Dict ``{(i, j): callable}`` of component functions.
+    g_inv_func : callable or dict
+        Numerical inverse-metric function.
+        - 1D: ``g¹¹(x_val)`` → float or ndarray.
+        - 2D: Dict ``{(i, j): callable}`` of component functions.
     sqrt_det_func : callable
-        Numerical function √|g₁₁|(x_val) → float or ndarray.
-    christoffel_func : callable
-        Numerical function Γ¹₁₁(x_val) → float or ndarray.
-
-    **2D-specific attributes**
-
-    g_matrix : sympy.Matrix
-        Simplified 2×2 metric tensor matrix.
-    det_g : sympy.Expr
-        Determinant of the metric, det(g).
-    sqrt_det_g : sympy.Expr
-        Square root of the absolute determinant, √|det(g)|.
-    g_inv_matrix : sympy.Matrix
-        Symbolic inverse metric g⁻¹.
-    christoffel_sym : dict
-        Nested dict ``christoffel_sym[i][j][k]`` → SymPy expression for Γⁱⱼₖ.
-    g_func : dict
-        Dict ``{(i, j): callable}`` of numerical metric component functions
-        g_{ij}(x_val, y_val).
-    g_inv_func : dict
-        Dict ``{(i, j): callable}`` of numerical inverse-metric component
-        functions g^{ij}(x_val, y_val).
-    det_g_func : callable
-        Numerical function det(g)(x_val, y_val).
+        (1D only) Numerical function √|g₁₁|(x_val) → float or ndarray.
     sqrt_det_g_func : callable
-        Numerical function √|det(g)|(x_val, y_val).
-    christoffel_func : dict
-        Nested dict ``christoffel_func[i][j][k]`` of numerical Christoffel
-        callables Γⁱⱼₖ(x_val, y_val).
-
+        (2D only) Numerical function √|det(g)|(x_val, y_val).
+    christoffel_func : callable or dict
+        Numerical Christoffel callables.
+        - 1D: ``Γ¹₁₁(x_val)`` → float or ndarray.
+        - 2D: Nested dict of callables ``Γⁱⱼₖ(x_val, y_val)``.
+    g_matrix : sympy.Matrix
+        (2D only) Simplified 2×2 metric tensor matrix.
+    det_g : sympy.Expr
+        (2D only) Determinant of the metric, det(g).
+    sqrt_det_g : sympy.Expr
+        (2D only) Square root of the absolute determinant, √|det(g)|.
+    g_inv_matrix : sympy.Matrix
+        (2D only) Symbolic inverse metric g⁻¹.
+    det_g_func : callable
+        (2D only) Numerical function det(g)(x_val, y_val).
+    
     Raises
     ------
     ValueError
         If the number of coordinate symbols is neither 1 nor 2.
     ValueError
         If ``g_input`` is not a 2×2 matrix when ``len(coords) == 2``.
-
+    
     Examples
     --------
     **1D — cone-like metric** g = x²:
-
+    
     >>> from sympy import symbols, Matrix, sin, simplify
     >>> x = symbols('x', real=True, positive=True)
     >>> m = Metric(x**2, (x,))
@@ -183,9 +174,9 @@ class Metric:
     1/x
     >>> m.gauss_curvature()        # intrinsic curvature of a curve is 0
     0
-
+    
     **2D — unit sphere** ds² = dθ² + sin²θ dφ²:
-
+    
     >>> theta, phi = symbols('theta phi', real=True)
     >>> g = Matrix([[1, 0], [0, sin(theta)**2]])
     >>> m = Metric(g, (theta, phi))
@@ -193,15 +184,14 @@ class Metric:
     2
     >>> simplify(m.gauss_curvature())   # K = 1 everywhere on the unit sphere
     1
-
+    
     **2D — Poincaré half-plane** g = diag(1/y², 1/y²):
-
+    
     >>> x, y = symbols('x y', real=True)
     >>> m = Metric(Matrix([[1/y**2, 0], [0, 1/y**2]]), (x, y))
     >>> simplify(m.gauss_curvature())   # constant negative curvature
     -1
     """
-
     # ------------------------------------------------------------------
     # Construction
     # ------------------------------------------------------------------
@@ -743,10 +733,6 @@ class Metric:
         approximations.
 
         Works for both 1D and 2D metrics.
-
-        Parameters
-        ----------
-        (none — operates on ``self``)
 
         Returns
         -------

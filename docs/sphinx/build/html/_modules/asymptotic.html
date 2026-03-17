@@ -209,41 +209,45 @@
 <span class="sd">    The three concrete methods correspond to the three possible natures of</span>
 <span class="sd">    the phase function φ(x) appearing in the exponential exp(iλφ(x)):</span>
 
-<span class="sd">    - STATIONARY_PHASE: φ is purely real.</span>
+<span class="sd">    - STATIONARY_PHASE: </span>
+<span class="sd">        φ is purely real.</span>
 <span class="sd">        I(λ) = ∫ a(x) exp(iλφ(x)) dx,  φ ∈ ℝ,  λ → +∞</span>
-<span class="sd">      The integrand oscillates with unit modulus; contributions arise from</span>
-<span class="sd">      stationary points ∇φ = 0.  Decay rate: O(λ^(-n/2)).</span>
-<span class="sd">      Typical applications: wave optics, quantum mechanics, Fourier integrals.</span>
+<span class="sd">        The integrand oscillates with unit modulus; contributions arise from</span>
+<span class="sd">        stationary points ∇φ = 0.  Decay rate: O(λ^(-n/2)).</span>
+<span class="sd">        Typical applications: wave optics, quantum mechanics, Fourier integrals.</span>
 
-<span class="sd">    - LAPLACE: φ is purely imaginary, i.e. φ(x) = i·ψ(x) with ψ ∈ ℝ.</span>
+<span class="sd">    - LAPLACE: </span>
+<span class="sd">        φ is purely imaginary, i.e. φ(x) = i·ψ(x) with ψ ∈ ℝ.</span>
 <span class="sd">        I(λ) = ∫ a(x) exp(iλ·iψ(x)) dx = ∫ a(x) exp(-λψ(x)) dx,  λ → +∞</span>
-<span class="sd">      The integrand is real and exponentially damped; contributions arise</span>
-<span class="sd">      from minima of ψ where ∇ψ = 0 and ∇²ψ &gt; 0.</span>
-<span class="sd">      Typical applications: large deviations, Bayesian inference,</span>
-<span class="sd">      statistical mechanics partition functions.</span>
+<span class="sd">        The integrand is real and exponentially damped; contributions arise</span>
+<span class="sd">        from minima of ψ where ∇ψ = 0 and ∇²ψ &gt; 0.</span>
+<span class="sd">        Typical applications: large deviations, Bayesian inference,</span>
+<span class="sd">        statistical mechanics partition functions.</span>
 
-<span class="sd">    - SADDLE_POINT: φ is genuinely complex, φ = φ_R + i·φ_I with both</span>
-<span class="sd">      φ_R ≠ 0 and φ_I ≠ 0.</span>
+<span class="sd">    - SADDLE_POINT: </span>
+<span class="sd">        φ is genuinely complex, φ = φ_R + i·φ_I with both</span>
+<span class="sd">        φ_R ≠ 0 and φ_I ≠ 0.</span>
 <span class="sd">        I(λ) = ∫ a(x) exp(iλφ_R(x)) exp(-λφ_I(x)) dx,  λ → +∞</span>
-<span class="sd">      The integrand both oscillates and is exponentially modulated.</span>
-<span class="sd">      Contributions come from saddle points in ℂⁿ found by analytically</span>
-<span class="sd">      continuing ∇φ(z) = 0 into the complex plane.  The integration contour</span>
-<span class="sd">      must be deformed to pass through these saddle points along the</span>
-<span class="sd">      steepest-descent direction.</span>
-<span class="sd">      Note: this implementation uses a naive continuation strategy; see</span>
-<span class="sd">      SaddlePointEvaluator for limitations.</span>
+<span class="sd">        The integrand both oscillates and is exponentially modulated.</span>
+<span class="sd">        Contributions come from saddle points in ℂⁿ found by analytically</span>
+<span class="sd">        continuing ∇φ(z) = 0 into the complex plane.  The integration contour</span>
+<span class="sd">        must be deformed to pass through these saddle points along the</span>
+<span class="sd">        steepest-descent direction.</span>
+<span class="sd">        Note: this implementation uses a naive continuation strategy; see</span>
+<span class="sd">        SaddlePointEvaluator for limitations.</span>
 
-<span class="sd">    - AUTO: automatic detection (default).</span>
-<span class="sd">      The analyzer inspects φ symbolically (via sympy.im / sympy.re) and</span>
-<span class="sd">      falls back to a numerical test if the symbolic check is inconclusive.</span>
-<span class="sd">      The detected method is stored back in Analyzer.method</span>
-<span class="sd">      after __init__ so the user can always query which method was chosen.</span>
+<span class="sd">    - AUTO: </span>
+<span class="sd">        automatic detection (default).</span>
+<span class="sd">        The analyzer inspects φ symbolically (via sympy.im / sympy.re) and</span>
+<span class="sd">        falls back to a numerical test if the symbolic check is inconclusive.</span>
+<span class="sd">        The detected method is stored back in Analyzer.method</span>
+<span class="sd">        after __init__ so the user can always query which method was chosen.</span>
 
 <span class="sd">    Hierarchy</span>
 <span class="sd">    ---------</span>
-<span class="sd">    SADDLE_POINT is the general case; the other two are special cases:</span>
-<span class="sd">        SADDLE_POINT with φ_I ≡ 0  →  STATIONARY_PHASE</span>
-<span class="sd">        SADDLE_POINT with φ_R ≡ 0  →  LAPLACE</span>
+<span class="sd">    - SADDLE_POINT is the general case; the other two are special cases:</span>
+<span class="sd">    - SADDLE_POINT with φ_I ≡ 0  →  STATIONARY_PHASE</span>
+<span class="sd">    - SADDLE_POINT with φ_R ≡ 0  →  LAPLACE</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">STATIONARY_PHASE</span> <span class="o">=</span> <span class="s2">&quot;stationary_phase&quot;</span>
     <span class="n">LAPLACE</span>          <span class="o">=</span> <span class="s2">&quot;laplace&quot;</span>
@@ -349,14 +353,14 @@
 <span class="sd">    is computed, as correction terms require more sophisticated analysis.</span>
 <span class="sd">    </span>
 <span class="sd">    Attributes:</span>
-<span class="sd">        leading_term (complex): The dominant term, O(λ^(-order_leading)).</span>
-<span class="sd">            For Morse in 2D: O(λ^(-1))</span>
-<span class="sd">            For Airy 1D: O(λ^(-1/3))</span>
-<span class="sd">            For Airy 2D: O(λ^(-5/6))</span>
-<span class="sd">            For Pearcey: O(λ^(-3/4))</span>
-<span class="sd">        correction_term (complex): The next-order correction term.</span>
-<span class="sd">            For Morse: O(λ^(-n/2-1))</span>
-<span class="sd">            For degenerate cases: typically 0j (not computed)</span>
+<span class="sd">        leading_term (complex): The dominant term, O(λ^(-order_leading)):</span>
+<span class="sd">            for Morse in 2D: O(λ^(-1)), </span>
+<span class="sd">            for Airy 1D: O(λ^(-1/3)), </span>
+<span class="sd">            for Airy 2D: O(λ^(-5/6)),</span>
+<span class="sd">            for Pearcey: O(λ^(-3/4))</span>
+<span class="sd">        correction_term (complex): The next-order correction term: </span>
+<span class="sd">            for Morse: O(λ^(-n/2-1)), </span>
+<span class="sd">            for degenerate cases: typically 0j (not computed)</span>
 <span class="sd">        total_value (complex): Sum of leading_term + correction_term.</span>
 <span class="sd">        point (CriticalPoint): The source critical point for this contribution.</span>
 <span class="sd">        order_leading (float): The exponent p in the scaling λ^(-p) of the leading term.</span>
@@ -664,6 +668,7 @@
 
 <span class="sd">        Computes all geometric and analytical properties needed for asymptotic</span>
 <span class="sd">        evaluation:</span>
+<span class="sd">        </span>
 <span class="sd">        - Phase value φ(x_c) and amplitude value a(x_c)</span>
 <span class="sd">        - Hessian matrix ∇²φ and its properties (determinant, eigenvalues,</span>
 <span class="sd">          signature)</span>
@@ -1421,8 +1426,7 @@
 <span class="sd">    3. Accept a point z_c if |∇φ(z_c)|² &lt; tolerance.</span>
 <span class="sd">    4. Apply the standard Morse formula with the complex Hessian:</span>
 
-<span class="sd">       I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c))</span>
-<span class="sd">                             · 1/√det(∇²φ(z_c))</span>
+<span class="sd">       I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c)) · 1/√det(∇²φ(z_c))</span>
 
 <span class="sd">       where the complex square root is chosen with positive real part</span>
 <span class="sd">       (principal branch convention).</span>
@@ -1537,8 +1541,7 @@
 <span class="sd">        Uses the standard multi-dimensional Morse formula extended to a</span>
 <span class="sd">        complex critical point z_c:</span>
 
-<span class="sd">            I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c))</span>
-<span class="sd">                                 · 1/√det(∇²φ(z_c))</span>
+<span class="sd">            I(λ) ≈ (2π/λ)^(n/2) · a(z_c) · exp(iλφ(z_c)) · 1/√det(∇²φ(z_c))</span>
 
 <span class="sd">        The complex determinant det(∇²φ(z_c)) is evaluated with numpy&#39;s</span>
 <span class="sd">        principal square root.</span>
@@ -1629,9 +1632,9 @@
 
 <span class="sd">    This is the recommended entry point for end users.  Routing table:</span>
 
-<span class="sd">        cp.method == STATIONARY_PHASE  →  StationaryPhaseEvaluator</span>
-<span class="sd">        cp.method == LAPLACE           →  LaplaceEvaluator</span>
-<span class="sd">        cp.method == SADDLE_POINT      →  SaddlePointEvaluator</span>
+<span class="sd">    - cp.method == STATIONARY_PHASE  →  StationaryPhaseEvaluator</span>
+<span class="sd">    - cp.method == LAPLACE           →  LaplaceEvaluator</span>
+<span class="sd">    - cp.method == SADDLE_POINT      →  SaddlePointEvaluator</span>
 
 <span class="sd">    The method is determined automatically when the analyzer is constructed</span>
 <span class="sd">    with method=AUTO (the default).</span>
@@ -1672,9 +1675,13 @@
 <span class="sd">        Evaluate the asymptotic contribution at parameter λ.</span>
 
 <span class="sd">        The evaluation method is selected from ``cp.method``:</span>
-<span class="sd">        - STATIONARY_PHASE → full singularity-type dispatch (Morse, Airy, Pearcey …)</span>
-<span class="sd">        - LAPLACE          → Laplace formula with O(1/λ) corrections</span>
-<span class="sd">        - SADDLE_POINT     → complex Morse formula (naive; see SaddlePointEvaluator)</span>
+<span class="sd">        </span>
+<span class="sd">        - ``STATIONARY_PHASE``</span>
+<span class="sd">          Full singularity-type dispatch (Morse, Airy, Pearcey …)</span>
+<span class="sd">        - ``LAPLACE``</span>
+<span class="sd">          Laplace formula with O(1/λ) corrections</span>
+<span class="sd">        - ``SADDLE_POINT``</span>
+<span class="sd">          Complex Morse formula (naive; see SaddlePointEvaluator)</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1720,33 +1727,37 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Visualization toolkit for asymptotic analysis — supports all three integration</span>
 <span class="sd">    methods (STATIONARY_PHASE, LAPLACE, SADDLE_POINT).</span>
-
+<span class="sd">    </span>
 <span class="sd">    Provides three diagnostic plots, each adapted to the nature of the phase φ:</span>
-
-<span class="sd">    plot_phase_landscape</span>
-<span class="sd">        2D contour map of φ with critical / saddle-point overlay.</span>
-<span class="sd">        - φ real   (STATIONARY_PHASE) : single panel, Re(φ).</span>
-<span class="sd">        - φ imag   (LAPLACE)          : single panel, Im(φ) = ψ (the damping potential).</span>
-<span class="sd">        - φ complex (SADDLE_POINT)    : two panels side-by-side, Re(φ) and Im(φ).</span>
-<span class="sd">        The ``display`` parameter overrides the automatic choice</span>
-<span class="sd">        (&#39;real&#39;, &#39;imag&#39;, &#39;both&#39;, &#39;abs&#39;, &#39;arg&#39;).</span>
-
-<span class="sd">    plot_integrand</span>
-<span class="sd">        2D map of the integrand f(x,y) = a(x,y)·exp(iλφ(x,y)) at a given λ.</span>
-<span class="sd">        - STATIONARY_PHASE : single panel, Re(f)  — pure oscillation, |f| = const.</span>
-<span class="sd">        - LAPLACE          : single panel, Re(f) = a·exp(-λψ)  — exponential envelope.</span>
-<span class="sd">        - SADDLE_POINT     : two panels, Re(f) and |f| = |a|·exp(-λ Im φ), revealing</span>
-<span class="sd">                             both the oscillation pattern and the exponential damping.</span>
-
-<span class="sd">    plot_asymptotic_convergence</span>
-<span class="sd">        Log-log plot of |I₀(λ)| and |I₁(λ)| vs λ for any dimension and any method.</span>
-<span class="sd">        Overlays the theoretical decay slope λ^(-p) for verification.</span>
-
+<span class="sd">    </span>
+<span class="sd">    - **plot_phase_landscape**</span>
+<span class="sd">      2D contour map of φ with critical/saddle-point overlay.</span>
+<span class="sd">    </span>
+<span class="sd">      - φ real (``STATIONARY_PHASE``): single panel, Re(φ).</span>
+<span class="sd">      - φ imag (``LAPLACE``): single panel, Im(φ) = ψ (the damping potential).</span>
+<span class="sd">      - φ complex (``SADDLE_POINT``): two panels side-by-side, Re(φ) and Im(φ).</span>
+<span class="sd">    </span>
+<span class="sd">      The ``display`` parameter overrides the automatic choice</span>
+<span class="sd">      (``&#39;real&#39;``, ``&#39;imag&#39;``, ``&#39;both&#39;``, ``&#39;abs&#39;``, ``&#39;arg&#39;``).</span>
+<span class="sd">    </span>
+<span class="sd">    - **plot_integrand**</span>
+<span class="sd">      2D map of the integrand f(x,y) = a(x,y)·exp(iλφ(x,y)) at a given λ.</span>
+<span class="sd">    </span>
+<span class="sd">      - ``STATIONARY_PHASE``: single panel, Re(f) — pure oscillation, |f| = const.</span>
+<span class="sd">      - ``LAPLACE``: single panel, Re(f) = a·exp(-λψ) — exponential envelope.</span>
+<span class="sd">      - ``SADDLE_POINT``: two panels, Re(f) and |f| = |a|·exp(-λ Im φ),</span>
+<span class="sd">        revealing both the oscillation pattern and the exponential damping.</span>
+<span class="sd">    </span>
+<span class="sd">    - **plot_asymptotic_convergence**</span>
+<span class="sd">      Log-log plot of |I₀(λ)| and |I₁(λ)| vs λ for any dimension and any method.</span>
+<span class="sd">      Overlays the theoretical decay slope λ^(-p) for verification.</span>
+<span class="sd">    </span>
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    plot_phase_landscape and plot_integrand require dim = 2.</span>
-<span class="sd">    plot_asymptotic_convergence works for any dimension.</span>
+<span class="sd">    - ``plot_phase_landscape`` and ``plot_integrand`` require dim = 2.</span>
+<span class="sd">    - ``plot_asymptotic_convergence`` works for any dimension.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Marker / colour convention for critical-point overlay (shared)</span>
@@ -1881,45 +1892,57 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Visualize the phase function φ(x,y) with critical/saddle-point overlay.</span>
-
+<span class="sd">        </span>
 <span class="sd">        The panels shown depend on the integration method (or on ``display``):</span>
-
-<span class="sd">        +--------------------+---------------------------------------------------+</span>
-<span class="sd">        | Method / display   | Panels                                            |</span>
-<span class="sd">        +====================+===================================================+</span>
-<span class="sd">        | STATIONARY_PHASE   | Re(φ)                                             |</span>
-<span class="sd">        | display=&#39;real&#39;     |                                                   |</span>
-<span class="sd">        +--------------------+---------------------------------------------------+</span>
-<span class="sd">        | LAPLACE            | Im(φ) = ψ  (the damping potential)                |</span>
-<span class="sd">        | display=&#39;imag&#39;     |                                                   |</span>
-<span class="sd">        +--------------------+---------------------------------------------------+</span>
-<span class="sd">        | SADDLE_POINT       | Re(φ)  |  Im(φ)  side-by-side                    |</span>
-<span class="sd">        | display=&#39;both&#39;     |                                                   |</span>
-<span class="sd">        +--------------------+---------------------------------------------------+</span>
-<span class="sd">        | display=&#39;abs&#39;      | |φ|                                               |</span>
-<span class="sd">        +--------------------+---------------------------------------------------+</span>
-<span class="sd">        | display=&#39;arg&#39;      | arg(φ)                                            |</span>
-<span class="sd">        +--------------------+---------------------------------------------------+</span>
-
+<span class="sd">        </span>
+<span class="sd">        .. list-table::</span>
+<span class="sd">           :widths: 20 80</span>
+<span class="sd">           :header-rows: 1</span>
+<span class="sd">        </span>
+<span class="sd">           * - Method / display</span>
+<span class="sd">             - Panels</span>
+<span class="sd">           * - ``STATIONARY_PHASE``</span>
+<span class="sd">             -</span>
+<span class="sd">               Re(φ)</span>
+<span class="sd">           * - ``display=&#39;real&#39;``</span>
+<span class="sd">             -</span>
+<span class="sd">           * - ``LAPLACE``</span>
+<span class="sd">             -</span>
+<span class="sd">               Im(φ) = ψ (the damping potential)</span>
+<span class="sd">           * - ``display=&#39;imag&#39;``</span>
+<span class="sd">             -</span>
+<span class="sd">           * - ``SADDLE_POINT``</span>
+<span class="sd">             -</span>
+<span class="sd">               Re(φ) | Im(φ) side-by-side</span>
+<span class="sd">           * - ``display=&#39;both&#39;``</span>
+<span class="sd">             -</span>
+<span class="sd">           * - ``display=&#39;abs&#39;``</span>
+<span class="sd">             -</span>
+<span class="sd">               |φ|</span>
+<span class="sd">           * - ``display=&#39;arg&#39;``</span>
+<span class="sd">             -</span>
+<span class="sd">               arg(φ)</span>
+<span class="sd">        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        critical_points : list of CriticalPoint</span>
 <span class="sd">            Points to overlay (real or complex coordinates accepted).</span>
 <span class="sd">        bounds : pair of (min, max) pairs</span>
-<span class="sd">            Spatial domain  ((x_min, x_max), (y_min, y_max)).</span>
+<span class="sd">            Spatial domain ((x_min, x_max), (y_min, y_max)).</span>
 <span class="sd">        points_per_axis : int</span>
 <span class="sd">            Grid resolution (default 120).</span>
 <span class="sd">        display : str or None</span>
-<span class="sd">            Override automatic panel selection.  One of</span>
-<span class="sd">            &#39;real&#39;, &#39;imag&#39;, &#39;both&#39;, &#39;abs&#39;, &#39;arg&#39;.</span>
-
+<span class="sd">            Override automatic panel selection. One of:</span>
+<span class="sd">            ``&#39;real&#39;``, ``&#39;imag&#39;``, ``&#39;both&#39;``, ``&#39;abs&#39;``, ``&#39;arg&#39;``.</span>
+<span class="sd">        </span>
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        Marker conventions (shared with plot_integrand):</span>
-<span class="sd">        ○ red    — Morse (non-degenerate)</span>
-<span class="sd">        ★ orange — Airy  (corank 1, cubic)</span>
-<span class="sd">        ◆ magenta — Pearcey (corank 1, quartic)</span>
-<span class="sd">        □ gray   — Higher-order / unclassified</span>
+<span class="sd">        - **Marker conventions** (shared with plot_integrand):</span>
+<span class="sd">        </span>
+<span class="sd">          - ○ red — Morse (non-degenerate)</span>
+<span class="sd">          - ★ orange — Airy (corank 1, cubic)</span>
+<span class="sd">          - ◆ magenta — Pearcey (corank 1, quartic)</span>
+<span class="sd">          - □ gray — Higher-order / unclassified</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">analyzer</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;plot_phase_landscape requires dim=2.&quot;</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">)</span>
@@ -1984,44 +2007,43 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Visualize the structure of the integrand f = a(x,y)·exp(iλφ(x,y)) at</span>
 <span class="sd">        a given parameter λ.</span>
-
+<span class="sd">        </span>
 <span class="sd">        The panels shown depend on the integration method:</span>
-
-<span class="sd">        +--------------------+---------------------------------------------------+</span>
-<span class="sd">        | Method             | Panels                                            |</span>
-<span class="sd">        +====================+===================================================+</span>
-<span class="sd">        | STATIONARY_PHASE   | Re(f)  — oscillation with unit-modulus envelope   |</span>
-<span class="sd">        +--------------------+---------------------------------------------------+</span>
-<span class="sd">        | LAPLACE            | f = a·exp(-λψ)  — real exponential concentration  |</span>
-<span class="sd">        +--------------------+---------------------------------------------------+</span>
-<span class="sd">        | SADDLE_POINT       | Re(f)  |  |f| = |a|·exp(-λ Im φ) side-by-side:   |</span>
-<span class="sd">        |                    | left shows oscillations, right shows the          |</span>
-<span class="sd">        |                    | exponential damping envelope                      |</span>
-<span class="sd">        +--------------------+---------------------------------------------------+</span>
-
+<span class="sd">        </span>
+<span class="sd">        .. list-table::</span>
+<span class="sd">           :widths: 20 80</span>
+<span class="sd">           :header-rows: 1</span>
+<span class="sd">        </span>
+<span class="sd">           * - Method</span>
+<span class="sd">             - Panels</span>
+<span class="sd">           * - ``STATIONARY_PHASE``</span>
+<span class="sd">             - Re(f) — oscillation with unit-modulus envelope</span>
+<span class="sd">           * - ``LAPLACE``</span>
+<span class="sd">             - f = a·exp(-λψ) — real exponential concentration</span>
+<span class="sd">           * - ``SADDLE_POINT``</span>
+<span class="sd">             - Re(f) | |f| = |a|·exp(-λ Im φ) side-by-side:</span>
+<span class="sd">               left shows oscillations, right shows the exponential damping envelope</span>
+<span class="sd">        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        lam_value : float</span>
-<span class="sd">            Parameter λ.  Larger values produce finer oscillations / sharper</span>
-<span class="sd">            concentration.</span>
+<span class="sd">            Parameter λ. Larger values produce finer oscillations / sharper concentration.</span>
 <span class="sd">        bounds : pair of (min, max) pairs</span>
-<span class="sd">            Spatial domain  ((x_min, x_max), (y_min, y_max)).</span>
+<span class="sd">            Spatial domain ((x_min, x_max), (y_min, y_max)).</span>
 <span class="sd">        points_per_axis : int</span>
-<span class="sd">            Grid resolution (default 200).  Increase for large λ to resolve</span>
-<span class="sd">            fine oscillations.</span>
-
+<span class="sd">            Grid resolution (default 200). Increase for large λ to resolve fine oscillations.</span>
+<span class="sd">        </span>
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        For STATIONARY_PHASE, as λ increases the oscillations become finer</span>
-<span class="sd">        everywhere *except* near stationary points (∇φ = 0), where the phase</span>
-<span class="sd">        is locally flat — this is the geometric core of the method.</span>
-
-<span class="sd">        For LAPLACE, the integrand concentrates sharply around the minimum of</span>
-<span class="sd">        Im(φ) = ψ, illustrating why only a small neighbourhood contributes.</span>
-
-<span class="sd">        For SADDLE_POINT, |f| reveals the exponential ridge structure while</span>
-<span class="sd">        Re(f) shows the additional rapid oscillations along the ridge.</span>
+<span class="sd">        - For ``STATIONARY_PHASE``, as λ increases the oscillations become finer</span>
+<span class="sd">          everywhere *except* near stationary points (∇φ = 0), where the phase</span>
+<span class="sd">          is locally flat — this is the geometric core of the method.</span>
+<span class="sd">        - For ``LAPLACE``, the integrand concentrates sharply around the minimum of</span>
+<span class="sd">          Im(φ) = ψ, illustrating why only a small neighbourhood contributes.</span>
+<span class="sd">        - For ``SADDLE_POINT``, |f| reveals the exponential ridge structure while</span>
+<span class="sd">          Re(f) shows the additional rapid oscillations along the ridge.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">analyzer</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;plot_integrand requires dim=2.&quot;</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">)</span>
             <span class="k">return</span>
@@ -2088,21 +2110,29 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Log-log convergence diagnostic for any method and any dimension.</span>
-
+<span class="sd">        </span>
 <span class="sd">        Plots |I₀(λ)| and |I₁(λ)| vs λ and compares the empirical slope</span>
 <span class="sd">        with the theoretical decay exponent −p:</span>
-
-<span class="sd">        +--------------------+------------------------------------------+</span>
-<span class="sd">        | Method / type      | Theoretical slope  −p                   |</span>
-<span class="sd">        +====================+==========================================+</span>
-<span class="sd">        | Morse (any dim n)  | −n/2                                     |</span>
-<span class="sd">        | Airy 1D            | −1/3                                     |</span>
-<span class="sd">        | Airy 2D            | −5/6                                     |</span>
-<span class="sd">        | Pearcey            | −3/4                                     |</span>
-<span class="sd">        | Laplace (any n)    | −n/2                                     |</span>
-<span class="sd">        | Saddle-point       | −n/2  (complex Morse)                    |</span>
-<span class="sd">        +--------------------+------------------------------------------+</span>
-
+<span class="sd">        </span>
+<span class="sd">        .. list-table::</span>
+<span class="sd">           :widths: 25 75</span>
+<span class="sd">           :header-rows: 1</span>
+<span class="sd">        </span>
+<span class="sd">           * - Method / type</span>
+<span class="sd">             - Theoretical slope −p</span>
+<span class="sd">           * - Morse (any dim n)</span>
+<span class="sd">             - −n/2</span>
+<span class="sd">           * - Airy 1D</span>
+<span class="sd">             - −1/3</span>
+<span class="sd">           * - Airy 2D</span>
+<span class="sd">             - −5/6</span>
+<span class="sd">           * - Pearcey</span>
+<span class="sd">             - −3/4</span>
+<span class="sd">           * - Laplace (any n)</span>
+<span class="sd">             - −n/2</span>
+<span class="sd">           * - Saddle-point</span>
+<span class="sd">             - −n/2 (complex Morse)</span>
+<span class="sd">        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        cp : CriticalPoint</span>
@@ -2113,14 +2143,15 @@
 <span class="sd">            Maximum λ (default 1000).</span>
 <span class="sd">        num_points : int</span>
 <span class="sd">            Number of log-spaced λ samples (default 50).</span>
-
+<span class="sd">        </span>
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        A straight line on the log-log plot confirms the asymptotic regime.</span>
-<span class="sd">        Deviations at small λ indicate pre-asymptotic behaviour.</span>
-<span class="sd">        The correction term |I₁| should be parallel to |I₀| but shifted</span>
-<span class="sd">        down by slope −1 for Morse / Laplace points.</span>
+<span class="sd">        - A straight line on the log-log plot confirms the asymptotic regime.</span>
+<span class="sd">        - Deviations at small λ indicate pre-asymptotic behaviour.</span>
+<span class="sd">        - The correction term |I₁| should be parallel to |I₀| but shifted</span>
+<span class="sd">          down by slope −1 for Morse / Laplace points.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="c1"># Use the unified evaluator so all three methods are handled.</span>
         <span class="n">evaluator</span> <span class="o">=</span> <span class="n">AsymptoticEvaluator</span><span class="p">()</span>
         <span class="n">lams</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">lambda_start</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">lambda_end</span><span class="p">),</span> <span class="n">num_points</span><span class="p">)</span>

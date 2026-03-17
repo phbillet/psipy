@@ -159,21 +159,55 @@
 <span class="c1"># -----------------------------------------------------------------------------</span>
 <span class="c1"># Utility functions for variable inference and dimension handling</span>
 <span class="c1"># -----------------------------------------------------------------------------</span>
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_infer_variables</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">expected_ndof</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Attempt to infer phase space variables from Hamiltonian expression.</span>
-<span class="sd">    Heuristic: look for symbols named &#39;x1&#39;,&#39;p1&#39;,&#39;x2&#39;,&#39;p2&#39;,... or &#39;x&#39;,&#39;p&#39; for 1‑DOF.</span>
-<span class="sd">    If ambiguous, raise ValueError.</span>
-
+<span class="sd">    Infer phase space canonical variables from a Hamiltonian expression.</span>
+<span class="sd">    </span>
+<span class="sd">    This function uses naming conventions to automatically identify position and</span>
+<span class="sd">    momentum variables, eliminating the need for manual specification in common cases.</span>
+<span class="sd">    </span>
+<span class="sd">    Heuristics applied:</span>
+<span class="sd">    - For 1-DOF: Looks for exactly 2 symbols where one contains &#39;x&#39; or &#39;q&#39; </span>
+<span class="sd">      (position) and one contains &#39;p&#39; (momentum)</span>
+<span class="sd">    - For multi-DOF: Pairs symbols like x1/p1, x2/p2, ... or q1/p1, q2/p2, ...</span>
+<span class="sd">    - Indices must match between position and momentum variables</span>
+<span class="sd">    </span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H : sympy expression</span>
+<span class="sd">    H : sympy.Expr</span>
+<span class="sd">        Hamiltonian expression containing phase space variables as free symbols.</span>
 <span class="sd">    expected_ndof : int, optional</span>
-<span class="sd">        If provided, check that the inferred number of DOF matches.</span>
-
+<span class="sd">        Expected number of degrees of freedom. If provided, validates that the</span>
+<span class="sd">        inferred variables match this expectation.</span>
+<span class="sd">    </span>
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    list of sympy symbols in order [x1, p1, x2, p2, ...]</span>
+<span class="sd">    list of sympy.Symbol</span>
+<span class="sd">        Ordered list of canonical variables [x₁, p₁, x₂, p₂, ...].</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If no free symbols exist in H, if position/momentum cannot be </span>
+<span class="sd">        unambiguously identified, or if inferred ndof doesn&#39;t match expected_ndof.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, p = symbols(&#39;x p&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; H = p**2/2 + x**2/2</span>
+<span class="sd">    &gt;&gt;&gt; _infer_variables(H)</span>
+<span class="sd">    [x, p]</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt; x1, p1, x2, p2 = symbols(&#39;x1 p1 x2 p2&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; H = p1**2/2 + p2**2/2 + x1**2/2 + x2**2/2</span>
+<span class="sd">    &gt;&gt;&gt; _infer_variables(H)</span>
+<span class="sd">    [x1, p1, x2, p2]</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    If automatic inference fails, provide vars_phase explicitly to functions</span>
+<span class="sd">    that accept this parameter.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">free_syms</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">H</span><span class="o">.</span><span class="n">free_symbols</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">free_syms</span><span class="p">:</span>
@@ -246,19 +280,68 @@
 <a class="viewcode-back" href="../symplectic.html#symplectic.SymplecticForm">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SymplecticForm</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Symplectic structure for an arbitrary number of degrees of freedom.</span>
-
-<span class="sd">    Represents the symplectic 2‑form ω = Σ dxᵢ ∧ dpᵢ (canonical) on a 2n‑dimensional</span>
-<span class="sd">    phase space. The matrix representation is block‑diagonal with 2×2 blocks [[0,-1],[1,0]].</span>
-
+<span class="sd">    Represents the symplectic structure on a 2n-dimensional phase space.</span>
+<span class="sd">    </span>
+<span class="sd">    The symplectic form ω is a closed, non-degenerate 2-form that defines the</span>
+<span class="sd">    geometric structure of Hamiltonian mechanics. In canonical coordinates, it</span>
+<span class="sd">    takes the standard form:</span>
+<span class="sd">    </span>
+<span class="sd">        ω = Σᵢ dxᵢ ∧ dpᵢ</span>
+<span class="sd">    </span>
+<span class="sd">    The matrix representation J (also called the symplectic matrix) satisfies:</span>
+<span class="sd">    - Jᵀ = -J (antisymmetric)</span>
+<span class="sd">    - J² = -I (for canonical form)</span>
+<span class="sd">    - det(J) = 1</span>
+<span class="sd">    </span>
+<span class="sd">    This matrix is used to convert gradients of the Hamiltonian into the</span>
+<span class="sd">    Hamiltonian vector field: ż = J · ∇H</span>
+<span class="sd">    </span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    n : int, optional</span>
-<span class="sd">        Number of degrees of freedom. If not given, inferred from vars_phase.</span>
-<span class="sd">    vars_phase : list of symbols, optional</span>
-<span class="sd">        Ordered list of canonical variables (x1, p1, x2, p2, ...).</span>
-<span class="sd">    omega_matrix : sympy Matrix, optional</span>
-<span class="sd">        Custom 2n×2n antisymmetric matrix. If None, canonical form is used.</span>
+<span class="sd">        Number of degrees of freedom. Used to generate generic variables if</span>
+<span class="sd">        vars_phase is not provided.</span>
+<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">        Ordered list of canonical variables [x₁, p₁, x₂, p₂, ...]. If provided,</span>
+<span class="sd">        n is inferred from the length of this list.</span>
+<span class="sd">    omega_matrix : sympy.Matrix, optional</span>
+<span class="sd">        Custom 2n×2n symplectic matrix. If None, the canonical form is used:</span>
+<span class="sd">        J = [[0, -I], [I, 0]] where I is the n×n identity.</span>
+<span class="sd">    </span>
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n : int</span>
+<span class="sd">        Number of degrees of freedom.</span>
+<span class="sd">    vars_phase : list</span>
+<span class="sd">        Phase space variables.</span>
+<span class="sd">    omega_matrix : sympy.Matrix</span>
+<span class="sd">        The symplectic matrix J.</span>
+<span class="sd">    omega_inv : sympy.Matrix</span>
+<span class="sd">        The inverse J⁻¹ (Poisson tensor), used for computing Poisson brackets.</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If neither n nor vars_phase is provided, if omega_matrix has incorrect</span>
+<span class="sd">        dimensions, or if omega_matrix is not antisymmetric.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # 1-DOF canonical form</span>
+<span class="sd">    &gt;&gt;&gt; sf = SymplecticForm(n=1)</span>
+<span class="sd">    &gt;&gt;&gt; sf.omega_matrix</span>
+<span class="sd">    Matrix([[0, -1], [1, 0]])</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt; # 2-DOF with explicit variables</span>
+<span class="sd">    &gt;&gt;&gt; x1, p1, x2, p2 = symbols(&#39;x1 p1 x2 p2&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; sf = SymplecticForm(vars_phase=[x1, p1, x2, p2])</span>
+<span class="sd">    &gt;&gt;&gt; sf.n</span>
+<span class="sd">    2</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    poisson_bracket : Uses omega_inv to compute {f, g}</span>
+<span class="sd">    hamiltonian_flow : Uses the symplectic structure for integration</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">omega_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">vars_phase</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -326,30 +409,69 @@
 
 <div class="viewcode-block" id="hamiltonian_flow">
 <a class="viewcode-back" href="../symplectic.html#symplectic.hamiltonian_flow">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">hamiltonian_flow</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;symplectic&#39;</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">hamiltonian_flow</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;symplectic&#39;</span><span class="p">,</span> 
+                     <span class="n">n_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Integrate Hamilton&#39;s equations for any number of degrees of freedom.</span>
-
+<span class="sd">    Numerically integrate Hamilton&#39;s equations of motion.</span>
+<span class="sd">    </span>
+<span class="sd">    Solves the system:</span>
+<span class="sd">        ẋᵢ = ∂H/∂pᵢ</span>
+<span class="sd">        ṗᵢ = -∂H/∂xᵢ</span>
+<span class="sd">    </span>
+<span class="sd">    for i = 1, ..., n degrees of freedom.</span>
+<span class="sd">    </span>
+<span class="sd">    Integrator options and their properties:</span>
+<span class="sd">    - &#39;symplectic&#39; (Symplectic Euler): First-order, exactly preserves symplectic</span>
+<span class="sd">      structure, good long-term energy behavior, computationally efficient</span>
+<span class="sd">    - &#39;verlet&#39; (Velocity Verlet): Second-order, time-reversible, excellent for</span>
+<span class="sd">      oscillatory systems, preserves symplectic structure</span>
+<span class="sd">    - &#39;rk45&#39; (Runge-Kutta 4/5): Fourth-order adaptive, not symplectic, better</span>
+<span class="sd">      short-term accuracy but may drift in energy over long simulations</span>
+<span class="sd">    </span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H : sympy expression</span>
-<span class="sd">        Hamiltonian H(x₁, p₁, x₂, p₂, ...).</span>
+<span class="sd">    H : sympy.Expr</span>
+<span class="sd">        Hamiltonian function H(x₁, p₁, ..., xₙ, pₙ).</span>
 <span class="sd">    z0 : array_like</span>
-<span class="sd">        Initial condition, length 2n.</span>
-<span class="sd">    tspan : (float, float)</span>
-<span class="sd">        Time interval (t_start, t_end).</span>
-<span class="sd">    vars_phase : list of symbols, optional</span>
-<span class="sd">        Phase space variables in order [x₁, p₁, x₂, p₂, ...].</span>
-<span class="sd">        If None, attempt to infer from H.</span>
+<span class="sd">        Initial conditions as [x₁₀, p₁₀, x₂₀, p₂₀, ...], length 2n.</span>
+<span class="sd">    tspan : tuple of float</span>
+<span class="sd">        Time integration interval (t_start, t_end).</span>
+<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">        Phase space variables in canonical order. If None, inferred from H.</span>
 <span class="sd">    integrator : {&#39;symplectic&#39;, &#39;verlet&#39;, &#39;rk45&#39;}</span>
-<span class="sd">        Integration method.</span>
+<span class="sd">        Numerical integration method (default: &#39;symplectic&#39;).</span>
 <span class="sd">    n_steps : int</span>
-<span class="sd">        Number of time steps.</span>
-
+<span class="sd">        Number of discrete time steps (default: 1000).</span>
+<span class="sd">    </span>
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    dict</span>
-<span class="sd">        Trajectory with keys &#39;t&#39;, each variable name (e.g., &#39;x1&#39;, &#39;p1&#39;, ...), and &#39;energy&#39;.</span>
+<span class="sd">        Dictionary containing:</span>
+<span class="sd">        - &#39;t&#39; : ndarray, time points</span>
+<span class="sd">        - &#39;&lt;var_name&gt;&#39; : ndarray, trajectory for each phase space variable</span>
+<span class="sd">        - &#39;energy&#39; : ndarray, H evaluated along the trajectory</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If integrator is not recognized, if variables cannot be inferred, or</span>
+<span class="sd">        if z0 has incorrect dimension.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, p = symbols(&#39;x p&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; H = p**2/2 + x**2/2  # Harmonic oscillator</span>
+<span class="sd">    &gt;&gt;&gt; traj = hamiltonian_flow(H, z0=[1, 0], tspan=(0, 10), </span>
+<span class="sd">    ...                         vars_phase=[x, p], integrator=&#39;verlet&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; traj[&#39;energy&#39;].std()  # Should be very small for symplectic integrators</span>
+<span class="sd">    &lt; 1e-3</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    For long-time simulations, prefer &#39;symplectic&#39; or &#39;verlet&#39; integrators to</span>
+<span class="sd">    preserve the geometric structure of phase space and maintain bounded energy</span>
+<span class="sd">    errors. Use &#39;rk45&#39; for short-time high-accuracy requirements or when</span>
+<span class="sd">    comparing with non-symplectic methods.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_ivp</span>
 
@@ -823,8 +945,69 @@
 
 <div class="viewcode-block" id="phase_portrait">
 <a class="viewcode-back" href="../symplectic.html#symplectic.phase_portrait">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">phase_portrait</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">p_range</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate phase portrait for 1‑DOF system.&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">phase_portrait</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">p_range</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> 
+                   <span class="n">levels</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a 2D phase portrait for a 1-DOF Hamiltonian system.</span>
+<span class="sd">    </span>
+<span class="sd">    Creates a visualization showing:</span>
+<span class="sd">    1. Energy contour lines (level sets of H)</span>
+<span class="sd">    2. Hamiltonian vector field arrows indicating flow direction</span>
+<span class="sd">    </span>
+<span class="sd">    For 1-DOF systems, trajectories lie on energy contours, making this an</span>
+<span class="sd">    effective tool for identifying:</span>
+<span class="sd">    - Fixed points (where vector field vanishes)</span>
+<span class="sd">    - Periodic orbits (closed contours)</span>
+<span class="sd">    - Separatrices (boundaries between different types of motion)</span>
+<span class="sd">    - Allowed vs. forbidden regions</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    H : sympy.Expr</span>
+<span class="sd">        Hamiltonian H(x, p) for a 1-degree-of-freedom system.</span>
+<span class="sd">    x_range : tuple of float</span>
+<span class="sd">        Position axis limits (x_min, x_max).</span>
+<span class="sd">    p_range : tuple of float</span>
+<span class="sd">        Momentum axis limits (p_min, p_max).</span>
+<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">        Variables [x, p]. If None, inferred from H.</span>
+<span class="sd">    resolution : int</span>
+<span class="sd">        Grid resolution for contour and vector field computation (default: 50).</span>
+<span class="sd">        Higher values give smoother plots but increase computation time.</span>
+<span class="sd">    levels : int</span>
+<span class="sd">        Number of energy contour levels to display (default: 20).</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">        Displays a matplotlib figure with the phase portrait.</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the system is not 1-DOF or variables cannot be inferred.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, p = symbols(&#39;x p&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; H = p**2/2 + x**2/2  # Harmonic oscillator</span>
+<span class="sd">    &gt;&gt;&gt; phase_portrait(H, x_range=(-2, 2), p_range=(-2, 2))</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt; # Pendulum</span>
+<span class="sd">    &gt;&gt;&gt; H = p**2/2 - cos(x)</span>
+<span class="sd">    &gt;&gt;&gt; phase_portrait(H, x_range=(-2*pi, 2*pi), p_range=(-3, 3))</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The vector field is subsampled (every resolution//20 points) to avoid</span>
+<span class="sd">    visual clutter. Energy contours are labeled with their H values.</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    visualize_phase_space_structure : More comprehensive visualization with</span>
+<span class="sd">        fixed points and separatrices</span>
+<span class="sd">    separatrix_analysis : Detailed analysis near saddle points</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">vars_phase</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">vars_phase</span> <span class="o">=</span> <span class="n">_infer_variables</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">expected_ndof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
@@ -1167,8 +1350,76 @@
 
 <div class="viewcode-block" id="poincare_section">
 <a class="viewcode-back" href="../symplectic.html#symplectic.poincare_section">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">poincare_section</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">Sigma_def</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tmax</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_returns</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;symplectic&#39;</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Poincaré section for 2‑DOF systems.&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">poincare_section</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">Sigma_def</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tmax</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_returns</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> 
+                     <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;symplectic&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute a Poincaré section for a 2-DOF Hamiltonian system.</span>
+<span class="sd">    </span>
+<span class="sd">    A Poincaré section reduces the 4D continuous flow to a 2D discrete map by</span>
+<span class="sd">    recording intersections of trajectories with a specified surface Σ in phase</span>
+<span class="sd">    space. This reveals the underlying structure of the dynamics:</span>
+<span class="sd">    - Regular motion appears as closed curves (KAM tori)</span>
+<span class="sd">    - Chaotic motion appears as scattered points</span>
+<span class="sd">    - Periodic orbits appear as fixed points or finite sets</span>
+<span class="sd">    </span>
+<span class="sd">    The section surface is defined by Σ = {(x₁, p₁, x₂, p₂) : variable = value}</span>
+<span class="sd">    with an optional crossing direction.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    H : sympy.Expr</span>
+<span class="sd">        Hamiltonian for a 2-degree-of-freedom system.</span>
+<span class="sd">    Sigma_def : dict</span>
+<span class="sd">        Section surface definition with keys:</span>
+<span class="sd">        - &#39;variable&#39; : str, name of the section variable (e.g., &#39;x2&#39;, &#39;p1&#39;)</span>
+<span class="sd">        - &#39;value&#39; : float, the constant value defining the surface</span>
+<span class="sd">        - &#39;direction&#39; : str, optional, &#39;positive&#39; or &#39;negative&#39; crossing </span>
+<span class="sd">          (default: &#39;positive&#39;)</span>
+<span class="sd">    z0 : array_like</span>
+<span class="sd">        Initial condition [x₁₀, p₁₀, x₂₀, p₂₀].</span>
+<span class="sd">    tmax : float</span>
+<span class="sd">        Maximum integration time.</span>
+<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">        Variables [x1, p1, x2, p2]. If None, uses default canonical names.</span>
+<span class="sd">    n_returns : int</span>
+<span class="sd">        Maximum number of section crossings to collect (default: 1000).</span>
+<span class="sd">    integrator : {&#39;symplectic&#39;, &#39;verlet&#39;, &#39;rk45&#39;}</span>
+<span class="sd">        Integration method (default: &#39;symplectic&#39;).</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary containing:</span>
+<span class="sd">        - &#39;t_crossings&#39; : ndarray, times at which the section was crossed</span>
+<span class="sd">        - &#39;section_points&#39; : list of dict, phase space coordinates at each</span>
+<span class="sd">          crossing (interpolated to the exact crossing time)</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the system is not 2-DOF, if the section variable is not found, or</span>
+<span class="sd">        if insufficient crossings are detected.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x1, p1, x2, p2 = symbols(&#39;x1 p1 x2 p2&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; H = (p1**2 + p2**2 + x1**2 + x2**2)/2  # Coupled oscillators</span>
+<span class="sd">    &gt;&gt;&gt; Sigma = {&#39;variable&#39;: &#39;x2&#39;, &#39;value&#39;: 0, &#39;direction&#39;: &#39;positive&#39;}</span>
+<span class="sd">    &gt;&gt;&gt; ps = poincare_section(H, Sigma, z0=[1, 0, 0, 0.5], tmax=100)</span>
+<span class="sd">    &gt;&gt;&gt; len(ps[&#39;section_points&#39;])</span>
+<span class="sd">    &gt; 0</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Crossing times are linearly interpolated between integration steps for</span>
+<span class="sd">    accuracy. Use high n_steps in the underlying integration for precise</span>
+<span class="sd">    section points. For chaotic systems, increase tmax and n_returns.</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    visualize_poincare_section : Plot multiple sections together</span>
+<span class="sd">    first_return_map : Analyze the discrete map from section points</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">vars_phase</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x1 p1 x2 p2&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>  <span class="c1"># assume canonical</span>
     <span class="n">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
@@ -1241,7 +1492,73 @@
 <div class="viewcode-block" id="monodromy_matrix">
 <a class="viewcode-back" href="../symplectic.html#symplectic.monodromy_matrix">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">monodromy_matrix</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">periodic_orbit</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;finite_difference&#39;</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Monodromy matrix for a periodic orbit (2‑DOF).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the monodromy matrix for a periodic orbit in a 2-DOF system.</span>
+<span class="sd">    </span>
+<span class="sd">    The monodromy matrix M is the linearized Poincaré return map around a</span>
+<span class="sd">    periodic orbit. It describes how infinitesimal perturbations evolve over</span>
+<span class="sd">    one period T:</span>
+<span class="sd">    </span>
+<span class="sd">        δz(T) = M · δz(0)</span>
+<span class="sd">    </span>
+<span class="sd">    The eigenvalues of M (Floquet multipliers) determine orbital stability:</span>
+<span class="sd">    - |λ| = 1 for all λ: neutrally stable (typical for Hamiltonian systems)</span>
+<span class="sd">    - Any |λ| &gt; 1: unstable orbit</span>
+<span class="sd">    - All |λ| &lt; 1: stable (not possible in conservative Hamiltonian systems)</span>
+<span class="sd">    </span>
+<span class="sd">    For Hamiltonian systems, eigenvalues come in reciprocal pairs (λ, 1/λ)</span>
+<span class="sd">    and/or complex conjugate pairs on the unit circle.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    H : sympy.Expr</span>
+<span class="sd">        Hamiltonian for a 2-degree-of-freedom system.</span>
+<span class="sd">    periodic_orbit : dict</span>
+<span class="sd">        A trajectory dictionary (from hamiltonian_flow) representing one complete</span>
+<span class="sd">        period, with keys &#39;t&#39; and variable names.</span>
+<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">        Variables [x1, p1, x2, p2]. If None, uses default canonical names.</span>
+<span class="sd">    method : {&#39;finite_difference&#39;}</span>
+<span class="sd">        Computation method (default: &#39;finite_difference&#39;).</span>
+<span class="sd">        Currently only finite difference perturbations are implemented.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary containing:</span>
+<span class="sd">        - &#39;M&#39; : ndarray, 4×4 monodromy matrix</span>
+<span class="sd">        - &#39;eigenvalues&#39; : ndarray, Floquet multipliers</span>
+<span class="sd">        - &#39;floquet_multipliers&#39; : ndarray, same as eigenvalues</span>
+<span class="sd">        - &#39;stable&#39; : bool, True if all |λ| ≤ 1 (within tolerance)</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If method is not &#39;finite_difference&#39;.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the system is not 2-DOF.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x1, p1, x2, p2 = symbols(&#39;x1 p1 x2 p2&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; H = (p1**2 + p2**2 + x1**2 + x2**2)/2</span>
+<span class="sd">    &gt;&gt;&gt; orbit = hamiltonian_flow(H, [1, 0, 0, 0], (0, 2*pi), </span>
+<span class="sd">    ...                          vars_phase=[x1, p1, x2, p2])</span>
+<span class="sd">    &gt;&gt;&gt; mono = monodromy_matrix(H, orbit, vars_phase=[x1, p1, x2, p2])</span>
+<span class="sd">    &gt;&gt;&gt; np.allclose(np.abs(mono[&#39;eigenvalues&#39;]), 1.0, atol=1e-3)</span>
+<span class="sd">    True</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The finite difference method perturbs each coordinate by ε = 1e-6 and</span>
+<span class="sd">    integrates forward one period. For higher accuracy, consider implementing</span>
+<span class="sd">    variational equations directly.</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    lyapunov_exponents : Long-term stability characterization</span>
+<span class="sd">    linearize_at_fixed_point : Stability analysis for equilibria</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">vars_phase</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x1 p1 x2 p2&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
     <span class="n">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
@@ -1285,8 +1602,76 @@
 
 <div class="viewcode-block" id="lyapunov_exponents">
 <a class="viewcode-back" href="../symplectic.html#symplectic.lyapunov_exponents">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">lyapunov_exponents</span><span class="p">(</span><span class="n">trajectory</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_vectors</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">renorm_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate Lyapunov exponents (simplified) for 4D trajectory.&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">lyapunov_exponents</span><span class="p">(</span><span class="n">trajectory</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_vectors</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> 
+                       <span class="n">renorm_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Estimate Lyapunov exponents from a trajectory in a 2-DOF system.</span>
+<span class="sd">    </span>
+<span class="sd">    Lyapunov exponents quantify the average exponential rate of separation</span>
+<span class="sd">    between nearby trajectories. For a 2n-dimensional phase space, there are</span>
+<span class="sd">    2n exponents λ₁ ≥ λ₂ ≥ ... ≥ λ₂ₙ.</span>
+<span class="sd">    </span>
+<span class="sd">    Interpretation:</span>
+<span class="sd">    - λ₁ &gt; 0: Chaotic dynamics (sensitive dependence on initial conditions)</span>
+<span class="sd">    - λ₁ = 0: Regular/periodic motion (marginal stability)</span>
+<span class="sd">    - Sum of all λᵢ = 0 for Hamiltonian systems (phase space volume preservation)</span>
+<span class="sd">    - Exponents come in pairs (λ, -λ) for Hamiltonian systems</span>
+<span class="sd">    </span>
+<span class="sd">    This implementation uses a simplified QR-based algorithm with periodic</span>
+<span class="sd">    renormalization to prevent numerical overflow.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    trajectory : dict</span>
+<span class="sd">        Trajectory dictionary from hamiltonian_flow with keys &#39;t&#39; and variable</span>
+<span class="sd">        names containing the time series.</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time step between trajectory points.</span>
+<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">        Variables [x1, p1, x2, p2]. If None, uses default canonical names.</span>
+<span class="sd">    n_vectors : int</span>
+<span class="sd">        Number of tangent vectors to evolve (default: 4 for 2-DOF).</span>
+<span class="sd">    renorm_interval : int</span>
+<span class="sd">        Number of steps between QR renormalization (default: 10).</span>
+<span class="sd">        Smaller values improve accuracy but increase computation.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        Lyapunov exponents sorted in descending order [λ₁, λ₂, λ₃, λ₄].</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the system is not 2-DOF or trajectory is too short.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # Regular motion (coupled oscillators)</span>
+<span class="sd">    &gt;&gt;&gt; traj = hamiltonian_flow(H, z0, (0, 100), integrator=&#39;rk45&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; lyap = lyapunov_exponents(traj, dt=0.01)</span>
+<span class="sd">    &gt;&gt;&gt; lyap[0]  # Should be approximately 0 for regular motion</span>
+<span class="sd">    ≈ 0</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt; # Chaotic motion (e.g., Hénon-Heiles)</span>
+<span class="sd">    &gt;&gt;&gt; lyap = lyapunov_exponents(chaotic_traj, dt=0.01)</span>
+<span class="sd">    &gt;&gt;&gt; lyap[0]  # Should be positive for chaos</span>
+<span class="sd">    &gt; 0</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This is a simplified implementation using finite-difference Jacobian</span>
+<span class="sd">    approximation. For production use, consider implementing the full</span>
+<span class="sd">    variational equations alongside the trajectory integration.</span>
+<span class="sd">    </span>
+<span class="sd">    Convergence requires long trajectories (tmax &gt;&gt; 1/λ₁). The largest</span>
+<span class="sd">    exponent λ₁ converges fastest; smaller exponents require longer runs.</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    monodromy_matrix : Stability of periodic orbits</span>
+<span class="sd">    poincare_section : Visual detection of chaos vs. regularity</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">vars_phase</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x1 p1 x2 p2&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
     <span class="n">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
@@ -1321,7 +1706,65 @@
 <div class="viewcode-block" id="project">
 <a class="viewcode-back" href="../symplectic.html#symplectic.project">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">project</span><span class="p">(</span><span class="n">trajectory</span><span class="p">,</span> <span class="n">plane</span><span class="o">=</span><span class="s1">&#39;xy&#39;</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Project a 4D trajectory onto a 2D plane.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Project a 4D trajectory onto a 2D plane for visualization.</span>
+<span class="sd">    </span>
+<span class="sd">    For 2-DOF systems, the full phase space is 4-dimensional (x₁, p₁, x₂, p₂),</span>
+<span class="sd">    which cannot be directly visualized. This function extracts 2D projections</span>
+<span class="sd">    suitable for plotting.</span>
+<span class="sd">    </span>
+<span class="sd">    Available projection planes:</span>
+<span class="sd">    - &#39;xy&#39; or &#39;config&#39;: Configuration space (x₁, x₂)</span>
+<span class="sd">    - &#39;xp&#39;: Phase space of first DOF (x₁, p₁)</span>
+<span class="sd">    - &#39;pp&#39; or &#39;momentum&#39;: Momentum space (p₁, p₂)</span>
+<span class="sd">    - &#39;x1p2&#39;: Mixed coordinates (x₁, p₂)</span>
+<span class="sd">    - &#39;x2p1&#39;: Mixed coordinates (x₂, p₁)</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    trajectory : dict</span>
+<span class="sd">        Trajectory dictionary from hamiltonian_flow with variable name keys.</span>
+<span class="sd">    plane : str</span>
+<span class="sd">        Projection plane specification (default: &#39;xy&#39;).</span>
+<span class="sd">        Options: &#39;xy&#39;, &#39;config&#39;, &#39;xp&#39;, &#39;pp&#39;, &#39;momentum&#39;, &#39;x1p2&#39;, &#39;x2p1&#39;</span>
+<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">        Variables [x1, p1, x2, p2]. If None, uses default canonical names.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple</span>
+<span class="sd">        (x_data, y_data, labels) where:</span>
+<span class="sd">        - x_data : ndarray, coordinates for horizontal axis</span>
+<span class="sd">        - y_data : ndarray, coordinates for vertical axis</span>
+<span class="sd">        - labels : tuple of str, axis label strings</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the system is not 2-DOF or if plane is not recognized.</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; traj = hamiltonian_flow(H, z0, (0, 100), vars_phase=[x1, p1, x2, p2])</span>
+<span class="sd">    &gt;&gt;&gt; x, y, labels = project(traj, plane=&#39;xy&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; plt.plot(x, y)</span>
+<span class="sd">    &gt;&gt;&gt; plt.xlabel(labels[0]); plt.ylabel(labels[1])</span>
+<span class="sd">    </span>
+<span class="sd">    &gt;&gt;&gt; # Phase space of first oscillator</span>
+<span class="sd">    &gt;&gt;&gt; x, p, labels = project(traj, plane=&#39;xp&#39;)</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Different projections reveal different aspects of the dynamics:</span>
+<span class="sd">    - Configuration space shows spatial trajectories</span>
+<span class="sd">    - Phase space projections show energy exchange between DOFs</span>
+<span class="sd">    - Mixed projections can reveal correlations between variables</span>
+<span class="sd">    </span>
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    visualize_poincare_section : 2D section visualization</span>
+<span class="sd">    phase_portrait : 1-DOF phase space visualization</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">vars_phase</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x1 p1 x2 p2&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
     <span class="n">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>

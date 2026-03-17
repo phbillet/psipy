@@ -871,11 +871,15 @@ def plot_wavefront_set(symbol, initial_sing_support, tspan,
     return fig, axes
 
 
-def compute_maslov_index(traj, p=None):
+def compute_maslov_index(traj):
     """
     Compute the Maslov index for a single trajectory.
-    traj : dict returned by bicharacteristic_flow (must contain J11..J22 or J)
-    p    : unused (kept for compatibility)
+
+    Parameters
+    ----------
+    
+    traj : dict 
+           returned by bicharacteristic_flow (must contain J11..J22 or J)
     """
     dim = 2 if 'J22' in traj else 1
     detector = RayCausticDetector([traj], dimension=dim, det_threshold=0.05)
