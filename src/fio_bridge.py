@@ -1818,6 +1818,7 @@ class CrossValidator:
             self.wkb_state.amp_sym,
         )
 
+        
     def _run_solver(self) -> np.ndarray:
         """
         Apply the operator P to u₀ via PDESolver.
