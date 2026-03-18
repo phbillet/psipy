@@ -88,38 +88,42 @@ def test_wave_equation_1d():
 
 
 def test_kdv_equation():
-    from sympy import symbols, Function, diff, simplify, cosh, sqrt, Eq, trigsimp, N
+    from sympy import symbols, Function, diff, cosh, sqrt, Eq, lambdify
     import numpy as np
-    # Symbols
+
     t, x = symbols('t x')
     c, x0 = symbols('c x0')
 
-    # Exact solution
     u_exact_func = c / 2 * (1 / cosh(sqrt(c) / 2 * (x - c * t - x0)))**2
 
-    # KdV equation with correct sign
     u = Function('u')(t, x)
     kdv_eq = Eq(diff(u, t) + 6 * u * diff(u, x) - diff(u, x, x, x), 0)
 
-    # Substitute solution
+    # Build the residual expression (do NOT simplify symbolically if not needed)
     u_t = diff(u_exact_func, t)
     u_x = diff(u_exact_func, x)
     u_xxx = diff(u_exact_func, x, x, x)
     lhs_kdv = u_t + 6 * u_exact_func * u_x - u_xxx
-    lhs_simpl = simplify(trigsimp(lhs_kdv))
 
+    # Optional: if you want to simplify, do it once here, but it may not be necessary
+    # from sympy import trigsimp
+    # lhs_kdv = trigsimp(lhs_kdv)
+
+    # Create a fast numeric function
+    residual_func = lambdify((t, x, c, x0), lhs_kdv, modules='numpy')
+
+    # Test parameters
     x_vals = np.linspace(-10, 10, 5)
-    t_val = 0  # Test à t=0
-    x0_val = 0
-    c_val = 1
+    t_val = 0.0
+    x0_val = 0.0
+    c_val = 1.0
     tolerance = 5e-2
-    all_pass = True
-    for x_test in x_vals:
-        res_num = lhs_simpl.subs({c: c_val, x: x_test, t: t_val, x0: x0_val})
-        res_val = N(res_num)
-        if abs(res_val) > tolerance:
-            all_pass = False
 
+    # Vectorised evaluation – all x values at once
+    res_vals = residual_func(t_val, x_vals, c_val, x0_val)
+
+    # Check if all residuals are within tolerance
+    all_pass = np.all(np.abs(res_vals) < tolerance)
     assert all_pass
 
 

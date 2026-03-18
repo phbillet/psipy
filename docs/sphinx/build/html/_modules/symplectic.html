@@ -1819,6 +1819,302 @@
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 
 
+<div class="viewcode-block" id="rectangle_region">
+<a class="viewcode-back" href="../symplectic.html#symplectic.rectangle_region">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rectangle_region</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">n_points</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a closed rectangular region in phase space.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    center : (float, float)</span>
+<span class="sd">        Coordinates (x0, p0) of the rectangle centre.</span>
+<span class="sd">    width : float</span>
+<span class="sd">        Total width in the x direction.</span>
+<span class="sd">    height : float</span>
+<span class="sd">        Total height in the p direction.</span>
+<span class="sd">    n_points : int, optional</span>
+<span class="sd">        Number of distinct points on the perimeter (default 50). Must be at least 4.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (N,2) ndarray</span>
+<span class="sd">        Ordered points forming a closed rectangle (first and last point identical).</span>
+<span class="sd">        The array has shape (n_points + 1, 2).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">n_points</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">n_points</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">x0</span><span class="p">,</span> <span class="n">p0</span> <span class="o">=</span> <span class="n">center</span>
+    <span class="n">half_w</span> <span class="o">=</span> <span class="n">width</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">half_h</span> <span class="o">=</span> <span class="n">height</span> <span class="o">/</span> <span class="mi">2</span>
+
+    <span class="c1"># Distribute points as evenly as possible among the four edges</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="n">n_points</span> <span class="o">//</span> <span class="mi">4</span>
+    <span class="n">rem</span> <span class="o">=</span> <span class="n">n_points</span> <span class="o">%</span> <span class="mi">4</span>
+    <span class="n">pts_per_edge</span> <span class="o">=</span> <span class="p">[</span><span class="n">base</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rem</span><span class="p">):</span>
+        <span class="n">pts_per_edge</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="c1"># Build each edge, using endpoint=False to avoid duplicating corners</span>
+    <span class="c1"># Bottom edge: left → right</span>
+    <span class="n">bottom_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x0</span> <span class="o">-</span> <span class="n">half_w</span><span class="p">,</span> <span class="n">x0</span> <span class="o">+</span> <span class="n">half_w</span><span class="p">,</span> <span class="n">pts_per_edge</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">bottom_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">pts_per_edge</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p0</span> <span class="o">-</span> <span class="n">half_h</span><span class="p">)</span>
+    <span class="n">bottom</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">bottom_x</span><span class="p">,</span> <span class="n">bottom_y</span><span class="p">])</span>
+
+    <span class="c1"># Right edge: bottom → top</span>
+    <span class="n">right_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">p0</span> <span class="o">-</span> <span class="n">half_h</span><span class="p">,</span> <span class="n">p0</span> <span class="o">+</span> <span class="n">half_h</span><span class="p">,</span> <span class="n">pts_per_edge</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">right_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">pts_per_edge</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">x0</span> <span class="o">+</span> <span class="n">half_w</span><span class="p">)</span>
+    <span class="n">right</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">right_x</span><span class="p">,</span> <span class="n">right_y</span><span class="p">])</span>
+
+    <span class="c1"># Top edge: right → left (reverse x)</span>
+    <span class="n">top_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">half_w</span><span class="p">,</span> <span class="n">x0</span> <span class="o">-</span> <span class="n">half_w</span><span class="p">,</span> <span class="n">pts_per_edge</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">top_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">pts_per_edge</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">p0</span> <span class="o">+</span> <span class="n">half_h</span><span class="p">)</span>
+    <span class="n">top</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">top_x</span><span class="p">,</span> <span class="n">top_y</span><span class="p">])</span>
+
+    <span class="c1"># Left edge: top → bottom (reverse y)</span>
+    <span class="n">left_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">p0</span> <span class="o">+</span> <span class="n">half_h</span><span class="p">,</span> <span class="n">p0</span> <span class="o">-</span> <span class="n">half_h</span><span class="p">,</span> <span class="n">pts_per_edge</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">left_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">pts_per_edge</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">x0</span> <span class="o">-</span> <span class="n">half_w</span><span class="p">)</span>
+    <span class="n">left</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">left_x</span><span class="p">,</span> <span class="n">left_y</span><span class="p">])</span>
+
+    <span class="c1"># Concatenate edges and close the polygon</span>
+    <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">bottom</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">top</span><span class="p">,</span> <span class="n">left</span><span class="p">])</span>
+    <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">points</span><span class="p">,</span> <span class="n">points</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>   <span class="c1"># close the loop</span>
+    <span class="k">return</span> <span class="n">points</span></div>
+
+
+
+<div class="viewcode-block" id="evolve_phase_space_region">
+<a class="viewcode-back" href="../symplectic.html#symplectic.evolve_phase_space_region">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">evolve_phase_space_region</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">initial_region</span><span class="p">,</span> <span class="n">t_eval</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                              <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;verlet&#39;</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
+                              <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Evolve a closed region in phase space under the Hamiltonian flow and</span>
+<span class="sd">    optionally visualise its deformation and area conservation.</span>
+
+<span class="sd">    The function integrates each vertex of the polygon defined by</span>
+<span class="sd">    `initial_region` forward to the times specified in `t_eval`, computes</span>
+<span class="sd">    the enclosed area at each time (using the shoelace formula), and plots</span>
+<span class="sd">    the evolved regions if requested.</span>
+
+<span class="sd">    This provides a direct visual demonstration of Liouville&#39;s theorem:</span>
+<span class="sd">    the symplectic area is preserved by the Hamiltonian flow (up to numerical</span>
+<span class="sd">    errors, especially when using a symplectic integrator).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    H : sympy.Expr</span>
+<span class="sd">        Hamiltonian for a 1‑degree‑of‑freedom system H(x, p).</span>
+<span class="sd">    initial_region : (N,2) array_like</span>
+<span class="sd">        Ordered points defining a closed polygon (first and last point should</span>
+<span class="sd">        be identical). The region is typically a simple shape such as a</span>
+<span class="sd">        rectangle or an ellipse.</span>
+<span class="sd">    t_eval : float or list of float</span>
+<span class="sd">        Times at which to record the evolved region. If a single float is given,</span>
+<span class="sd">        it is treated as the final time and the region is evaluated at t=0 and</span>
+<span class="sd">        that time. Use a list to obtain intermediate snapshots.</span>
+<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">        Phase space variables [x, p]. If not provided, they are inferred from H.</span>
+<span class="sd">    integrator : {&#39;symplectic&#39;, &#39;verlet&#39;, &#39;rk45&#39;}, optional</span>
+<span class="sd">        Numerical integrator passed to `hamiltonian_flow` (default &#39;verlet&#39;).</span>
+<span class="sd">        Symplectic integrators are recommended for accurate long‑term area</span>
+<span class="sd">        preservation.</span>
+<span class="sd">    n_steps : int, optional</span>
+<span class="sd">        Number of integration steps used by `hamiltonian_flow` over the whole</span>
+<span class="sd">        time interval [0, max(t_eval)]. A high value ensures accurate point</span>
+<span class="sd">        positions at the requested times (default 10000).</span>
+<span class="sd">    plot : bool, optional</span>
+<span class="sd">        If True, generate a plot showing the region at each time in `t_eval`</span>
+<span class="sd">        (default True).</span>
+<span class="sd">    ax : matplotlib.axes.Axes, optional</span>
+<span class="sd">        Axes on which to draw the plot. If None and plot=True, a new figure</span>
+<span class="sd">        and axes are created.</span>
+<span class="sd">    **plot_kwargs</span>
+<span class="sd">        Additional keyword arguments passed to the plotting call (e.g.,</span>
+<span class="sd">        `colors`, `alpha`, `linewidth`). Useful for customising the appearance</span>
+<span class="sd">        of the evolved regions.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary with the following keys:</span>
+<span class="sd">        - &#39;times&#39; : ndarray</span>
+<span class="sd">            The evaluation times (sorted, unique).</span>
+<span class="sd">        - &#39;region_at_t&#39; : list of (N,2) ndarrays</span>
+<span class="sd">            Evolved polygon for each time, in the same vertex order as input.</span>
+<span class="sd">        - &#39;areas&#39; : ndarray</span>
+<span class="sd">            Area enclosed by the polygon at each time (computed with the</span>
+<span class="sd">            shoelace formula).</span>
+<span class="sd">        - &#39;plot_handles&#39; : list, optional</span>
+<span class="sd">            If plot=True, a list of handles to the plotted lines/fills for</span>
+<span class="sd">            each time (useful for further customisation or legends).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the system is not 1‑DOF, if the initial region has fewer than 3 points,</span>
+<span class="sd">        or if the polygon is not closed (first and last point differ beyond a</span>
+<span class="sd">        small tolerance).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, p = symbols(&#39;x p&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; H = p**2/2 + x**2/2          # harmonic oscillator</span>
+<span class="sd">    &gt;&gt;&gt; region = rectangle_region(center=(0, 1), width=0.5, height=0.3)</span>
+<span class="sd">    &gt;&gt;&gt; result = evolve_phase_space_region(H, region, t_eval=[0, 2*np.pi, 4*np.pi],</span>
+<span class="sd">    ...                                    integrator=&#39;verlet&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; result[&#39;areas&#39;]</span>
+<span class="sd">    array([0.15, 0.15, 0.15])        # area conserved (up to numerical errors)</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    rectangle_region : Convenience function to generate a rectangular region.</span>
+<span class="sd">    phase_portrait : Plot energy contours and vector fields.</span>
+<span class="sd">    hamiltonian_flow : Underlying numerical integration routine.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="c1"># Preliminary checks and variable inference</span>
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="k">if</span> <span class="n">vars_phase</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">vars_phase</span> <span class="o">=</span> <span class="n">_infer_variables</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">expected_ndof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">vars_phase</span>
+
+    <span class="n">region</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">initial_region</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">region</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">region</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;initial_region must be an (N,2) array&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">region</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Region must have at least three points&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that the polygon is closed (first point ≈ last point)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">region</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">region</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Region is not closed – automatically closing by adding first point at the end.&quot;</span><span class="p">)</span>
+        <span class="n">region</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">region</span><span class="p">,</span> <span class="n">region</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+
+    <span class="c1"># Normalise t_eval to a sorted list of unique times</span>
+    <span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">t_eval</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">t_eval</span><span class="p">)</span>
+    <span class="n">t_eval</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+    <span class="n">t_max</span> <span class="o">=</span> <span class="n">t_eval</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="c1"># Evolve each vertex</span>
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="n">n_vertices</span> <span class="o">=</span> <span class="n">region</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># We will store, for each vertex, its trajectory as a dict from hamiltonian_flow</span>
+    <span class="n">trajectories</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">pi</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">region</span><span class="p">):</span>
+        <span class="n">traj</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">pi</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">t_max</span><span class="p">),</span>
+                                <span class="n">vars_phase</span><span class="o">=</span><span class="n">vars_phase</span><span class="p">,</span>
+                                <span class="n">integrator</span><span class="o">=</span><span class="n">integrator</span><span class="p">,</span>
+                                <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">trajectories</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">traj</span><span class="p">)</span>
+
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="c1"># Extract vertex positions at each requested time</span>
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="c1"># For each time in t_eval, we need the (x,p) for all vertices.</span>
+    <span class="c1"># We&#39;ll build a list of arrays: region_at_t[k] is an (n_vertices,2) array for time t_eval[k].</span>
+    <span class="n">times_available</span> <span class="o">=</span> <span class="n">trajectories</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>   <span class="c1"># same for all vertices</span>
+    <span class="n">region_at_t</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">target_t</span> <span class="ow">in</span> <span class="n">t_eval</span><span class="p">:</span>
+        <span class="c1"># find index in times_available closest to target_t</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">times_available</span> <span class="o">-</span> <span class="n">target_t</span><span class="p">))</span>
+        <span class="n">vertices_at_t</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">traj</span> <span class="ow">in</span> <span class="n">trajectories</span><span class="p">:</span>
+            <span class="n">x_val</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)][</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">p_val</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)][</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">vertices_at_t</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">x_val</span><span class="p">,</span> <span class="n">p_val</span><span class="p">])</span>
+        <span class="n">region_at_t</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vertices_at_t</span><span class="p">))</span>
+
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="c1"># Compute area at each time using the shoelace formula</span>
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="n">areas</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">vertices</span> <span class="ow">in</span> <span class="n">region_at_t</span><span class="p">:</span>
+        <span class="n">x_vals</span> <span class="o">=</span> <span class="n">vertices</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">y_vals</span> <span class="o">=</span> <span class="n">vertices</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># shoelace: A = 0.5 * |Σ (x_i y_{i+1} - x_{i+1} y_i)|</span>
+        <span class="c1"># (vertices are closed, so last and first already connected)</span>
+        <span class="n">area</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x_vals</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">y_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">x_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">*</span> <span class="n">y_vals</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">areas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">area</span><span class="p">)</span>
+    <span class="n">areas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">areas</span><span class="p">)</span>
+
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="c1"># Plotting (optional)</span>
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="n">plot_handles</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fig</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">figure</span>
+
+        <span class="c1"># Choose a colormap if colors are not provided</span>
+        <span class="k">if</span> <span class="s1">&#39;color&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">plot_kwargs</span> <span class="ow">and</span> <span class="s1">&#39;colors&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">plot_kwargs</span><span class="p">:</span>
+            <span class="n">colors</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">viridis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_eval</span><span class="p">)))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">plot_kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;color&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_eval</span><span class="p">)</span>
+
+        <span class="n">plot_handles</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">t_val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">t_eval</span><span class="p">):</span>
+            <span class="n">verts</span> <span class="o">=</span> <span class="n">region_at_t</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="c1"># Plot the polygon outline</span>
+            <span class="n">line</span><span class="p">,</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">verts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">verts</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
+                            <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                            <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;t=</span><span class="si">{</span><span class="n">t_val</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">, A=</span><span class="si">{</span><span class="n">areas</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+                            <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">)</span>
+            <span class="c1"># Fill the polygon with low opacity</span>
+            <span class="n">fill</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">verts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">verts</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
+                           <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+            <span class="n">plot_handles</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">line</span><span class="p">,</span> <span class="n">fill</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+        <span class="c1"># Optionally overlay energy contours for context</span>
+        <span class="c1"># (reusing code from phase_portrait but without cluttering)</span>
+        <span class="n">x_range</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">([</span><span class="n">v</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">region_at_t</span><span class="p">]),</span>
+                   <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">([</span><span class="n">v</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">region_at_t</span><span class="p">]))</span>
+        <span class="n">p_range</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">([</span><span class="n">v</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">region_at_t</span><span class="p">]),</span>
+                   <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">([</span><span class="n">v</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">region_at_t</span><span class="p">]))</span>
+        <span class="c1"># Add some margin</span>
+        <span class="n">x_margin</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="p">(</span><span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">p_margin</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="p">(</span><span class="n">p_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p_range</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">x_range</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_margin</span><span class="p">,</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">x_margin</span><span class="p">)</span>
+        <span class="n">p_range</span> <span class="o">=</span> <span class="p">(</span><span class="n">p_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">p_margin</span><span class="p">,</span> <span class="n">p_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">p_margin</span><span class="p">)</span>
+
+        <span class="n">X_grid</span><span class="p">,</span> <span class="n">P_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">50</span><span class="p">),</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">p_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">50</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">H_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="n">H</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="n">H_vals</span> <span class="o">=</span> <span class="n">H_func</span><span class="p">(</span><span class="n">X_grid</span><span class="p">,</span> <span class="n">P_grid</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">X_grid</span><span class="p">,</span> <span class="n">P_grid</span><span class="p">,</span> <span class="n">H_vals</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+                   <span class="n">colors</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">linewidths</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Phase space region evolution</span><span class="se">\n</span><span class="s1">(A₀ = </span><span class="si">{</span><span class="n">areas</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">,</span>
+                     <span class="n">fontsize</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;best&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="c1"># Build result dictionary</span>
+    <span class="c1"># ----------------------------------------------------------------------</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;times&#39;</span><span class="p">:</span> <span class="n">t_eval</span><span class="p">,</span>
+        <span class="s1">&#39;region_at_t&#39;</span><span class="p">:</span> <span class="n">region_at_t</span><span class="p">,</span>
+        <span class="s1">&#39;areas&#39;</span><span class="p">:</span> <span class="n">areas</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+        <span class="n">result</span><span class="p">[</span><span class="s1">&#39;plot_handles&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">plot_handles</span>
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
 
 <span class="c1"># -----------------------------------------------------------------------------</span>
 <span class="c1"># Backward compatibility aliases</span>
@@ -1921,7 +2217,6 @@
     <span class="n">multipliers</span> <span class="o">=</span> <span class="n">mono</span><span class="p">[</span><span class="s1">&#39;floquet_multipliers&#39;</span><span class="p">]</span>
     <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">multipliers</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✓ Monodromy matrix test passed&quot;</span><span class="p">)</span></div>
-
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>

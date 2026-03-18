@@ -644,28 +644,40 @@ symplectic vector fields, symbol amplitude/phase, cotangent fiber structure, cha
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.is_elliptic_numerically">
 <span class="sig-name descname"><span class="pre">is_elliptic_numerically</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.is_elliptic_numerically"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.is_elliptic_numerically" title="Link to this definition"></a></dt>
-<dd><p>Check if the pseudo-differential symbol p(x, ξ) is elliptic over a given grid.</p>
-<p>A symbol is considered elliptic if its magnitude <a href="#id26"><span class="problematic" id="id27">|p(x, ξ)|</span></a> remains bounded away from zero
-across all points in the spatial-frequency domain. This method evaluates the symbol on a
-grid of spatial and frequency coordinates and checks whether its minimum absolute value
-exceeds a specified threshold.</p>
-<p>Resampling is applied to large grids to prevent excessive memory usage, particularly in 2D.</p>
+<dd><p>Check ellipticity by random sampling of phase space plus an explicit check at zero frequency.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grid: either a 1D array (x) or a tuple of two 1D arrays (x, y).</p></li>
-<li><p><strong>xi_grid</strong> (<em>ndarray</em>) – Frequency grid: either a 1D array (ξ) or a tuple of two 1D arrays (ξ, η).</p></li>
-<li><p><strong>threshold</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum acceptable value for <a href="#id28"><span class="problematic" id="id29">|p(x, ξ)|</span></a>. If the smallest evaluated symbol value falls below this,
-the symbol is not considered elliptic.</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em><em> or </em><em>tuple</em><em> of </em><em>ndarray</em>) – Spatial grid(s). For 1D: a 1D array of x coordinates.
+For 2D: a tuple (x, y) of two 1D arrays.</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em><em> or </em><em>tuple</em><em> of </em><em>ndarray</em>) – Frequency grid(s). For 1D: a 1D array of ξ coordinates.
+For 2D: a tuple (ξ, η) of two 1D arrays.</p></li>
+<li><p><strong>threshold</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum acceptable value for <a href="#id26"><span class="problematic" id="id27">|p(x,ξ)|</span></a>. If any evaluated point falls below this,
+the symbol is considered non‑elliptic.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>True if the symbol is elliptic on the resampled grid, False otherwise.</p>
+<dd class="field-even"><p>True if all sampled points satisfy <a href="#id28"><span class="problematic" id="id29">|p|</span></a> &gt; threshold, otherwise False.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>bool</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<dl class="simple">
+<dt>This method uses two sampling strategies to keep memory usage low:</dt><dd><ol class="arabic simple">
+<li><p><strong>Random sampling</strong> – <cite>N_RANDOM</cite> points are drawn uniformly from the
+hyperrectangle defined by the extremes of the input grids.</p></li>
+<li><p><strong>Zero‑frequency sampling</strong> – the symbol is evaluated at ξ=0 (and η=0 in 2D)
+on a coarse spatial grid of <cite>N_ZERO</cite> points per spatial dimension.</p></li>
+</ol>
+</dd>
+</dl>
+<p>If any evaluated value falls below <cite>threshold</cite>, the method returns False immediately.
+Because random sampling is probabilistic, a True result does not guarantee
+ellipticity in the strict mathematical sense – it only indicates that no sampled
+point violated the condition. For rigorous analysis, combine this with symbolic
+methods (e.g., <a class="reference internal" href="#psiop.PseudoDifferentialOperator.principal_symbol" title="psiop.PseudoDifferentialOperator.principal_symbol"><code class="xref py py-meth docutils literal notranslate"><span class="pre">principal_symbol()</span></code></a> and <a class="reference internal" href="#psiop.PseudoDifferentialOperator.is_homogeneous" title="psiop.PseudoDifferentialOperator.is_homogeneous"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_homogeneous()</span></code></a>).</p>
 </dd></dl>
 
 <dl class="py method">

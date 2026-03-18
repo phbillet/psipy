@@ -1678,6 +1678,296 @@ def visualize_poincare_section(H, z0_list, Sigma_def, vars_phase=None,
     plt.tight_layout()
     plt.show()
 
+def rectangle_region(center, width, height, n_points=50):
+    """
+    Generate a closed rectangular region in phase space.
+
+    Parameters
+    ----------
+    center : (float, float)
+        Coordinates (x0, p0) of the rectangle centre.
+    width : float
+        Total width in the x direction.
+    height : float
+        Total height in the p direction.
+    n_points : int, optional
+        Number of distinct points on the perimeter (default 50). Must be at least 4.
+
+    Returns
+    -------
+    (N,2) ndarray
+        Ordered points forming a closed rectangle (first and last point identical).
+        The array has shape (n_points + 1, 2).
+    """
+    if n_points < 4:
+        n_points = 4
+    x0, p0 = center
+    half_w = width / 2
+    half_h = height / 2
+
+    # Distribute points as evenly as possible among the four edges
+    base = n_points // 4
+    rem = n_points % 4
+    pts_per_edge = [base] * 4
+    for i in range(rem):
+        pts_per_edge[i] += 1
+
+    # Build each edge, using endpoint=False to avoid duplicating corners
+    # Bottom edge: left → right
+    bottom_x = np.linspace(x0 - half_w, x0 + half_w, pts_per_edge[0], endpoint=False)
+    bottom_y = np.full(pts_per_edge[0], p0 - half_h)
+    bottom = np.column_stack([bottom_x, bottom_y])
+
+    # Right edge: bottom → top
+    right_y = np.linspace(p0 - half_h, p0 + half_h, pts_per_edge[1], endpoint=False)
+    right_x = np.full(pts_per_edge[1], x0 + half_w)
+    right = np.column_stack([right_x, right_y])
+
+    # Top edge: right → left (reverse x)
+    top_x = np.linspace(x0 + half_w, x0 - half_w, pts_per_edge[2], endpoint=False)
+    top_y = np.full(pts_per_edge[2], p0 + half_h)
+    top = np.column_stack([top_x, top_y])
+
+    # Left edge: top → bottom (reverse y)
+    left_y = np.linspace(p0 + half_h, p0 - half_h, pts_per_edge[3], endpoint=False)
+    left_x = np.full(pts_per_edge[3], x0 - half_w)
+    left = np.column_stack([left_x, left_y])
+
+    # Concatenate edges and close the polygon
+    points = np.vstack([bottom, right, top, left])
+    points = np.vstack([points, points[0]])   # close the loop
+    return points
+
+
+def evolve_phase_space_region(H, initial_region, t_eval, vars_phase=None,
+                              integrator='verlet', n_steps=10000,
+                              plot=True, ax=None, **plot_kwargs):
+    """
+    Evolve a closed region in phase space under the Hamiltonian flow and
+    optionally visualise its deformation and area conservation.
+
+    The function integrates each vertex of the polygon defined by
+    `initial_region` forward to the times specified in `t_eval`, computes
+    the enclosed area at each time (using the shoelace formula), and plots
+    the evolved regions if requested.
+
+    This provides a direct visual demonstration of Liouville's theorem:
+    the symplectic area is preserved by the Hamiltonian flow (up to numerical
+    errors, especially when using a symplectic integrator).
+
+    Parameters
+    ----------
+    H : sympy.Expr
+        Hamiltonian for a 1‑degree‑of‑freedom system H(x, p).
+    initial_region : (N,2) array_like
+        Ordered points defining a closed polygon (first and last point should
+        be identical). The region is typically a simple shape such as a
+        rectangle or an ellipse.
+    t_eval : float or list of float
+        Times at which to record the evolved region. If a single float is given,
+        it is treated as the final time and the region is evaluated at t=0 and
+        that time. Use a list to obtain intermediate snapshots.
+    vars_phase : list of sympy.Symbol, optional
+        Phase space variables [x, p]. If not provided, they are inferred from H.
+    integrator : {'symplectic', 'verlet', 'rk45'}, optional
+        Numerical integrator passed to `hamiltonian_flow` (default 'verlet').
+        Symplectic integrators are recommended for accurate long‑term area
+        preservation.
+    n_steps : int, optional
+        Number of integration steps used by `hamiltonian_flow` over the whole
+        time interval [0, max(t_eval)]. A high value ensures accurate point
+        positions at the requested times (default 10000).
+    plot : bool, optional
+        If True, generate a plot showing the region at each time in `t_eval`
+        (default True).
+    ax : matplotlib.axes.Axes, optional
+        Axes on which to draw the plot. If None and plot=True, a new figure
+        and axes are created.
+    **plot_kwargs
+        Additional keyword arguments passed to the plotting call (e.g.,
+        `colors`, `alpha`, `linewidth`). Useful for customising the appearance
+        of the evolved regions.
+
+    Returns
+    -------
+    dict
+        A dictionary with the following keys:
+        - 'times' : ndarray
+            The evaluation times (sorted, unique).
+        - 'region_at_t' : list of (N,2) ndarrays
+            Evolved polygon for each time, in the same vertex order as input.
+        - 'areas' : ndarray
+            Area enclosed by the polygon at each time (computed with the
+            shoelace formula).
+        - 'plot_handles' : list, optional
+            If plot=True, a list of handles to the plotted lines/fills for
+            each time (useful for further customisation or legends).
+
+    Raises
+    ------
+    ValueError
+        If the system is not 1‑DOF, if the initial region has fewer than 3 points,
+        or if the polygon is not closed (first and last point differ beyond a
+        small tolerance).
+
+    Examples
+    --------
+    >>> x, p = symbols('x p', real=True)
+    >>> H = p**2/2 + x**2/2          # harmonic oscillator
+    >>> region = rectangle_region(center=(0, 1), width=0.5, height=0.3)
+    >>> result = evolve_phase_space_region(H, region, t_eval=[0, 2*np.pi, 4*np.pi],
+    ...                                    integrator='verlet')
+    >>> result['areas']
+    array([0.15, 0.15, 0.15])        # area conserved (up to numerical errors)
+
+    See Also
+    --------
+    rectangle_region : Convenience function to generate a rectangular region.
+    phase_portrait : Plot energy contours and vector fields.
+    hamiltonian_flow : Underlying numerical integration routine.
+    """
+    import warnings
+    # ----------------------------------------------------------------------
+    # Preliminary checks and variable inference
+    # ----------------------------------------------------------------------
+    if vars_phase is None:
+        vars_phase = _infer_variables(H, expected_ndof=1)
+    _check_ndof(vars_phase, 1)
+    x, p = vars_phase
+
+    region = np.asarray(initial_region)
+    if region.ndim != 2 or region.shape[1] != 2:
+        raise ValueError("initial_region must be an (N,2) array")
+    if region.shape[0] < 3:
+        raise ValueError("Region must have at least three points")
+
+    # Check that the polygon is closed (first point ≈ last point)
+    if not np.allclose(region[0], region[-1], atol=1e-12):
+        warnings.warn("Region is not closed – automatically closing by adding first point at the end.")
+        region = np.vstack([region, region[0]])
+
+    # Normalise t_eval to a sorted list of unique times
+    t_eval = np.atleast_1d(t_eval).flatten()
+    t_eval = np.unique(t_eval)
+    t_eval.sort()
+    t_max = t_eval[-1]
+
+    # ----------------------------------------------------------------------
+    # Evolve each vertex
+    # ----------------------------------------------------------------------
+    n_vertices = region.shape[0]
+    # We will store, for each vertex, its trajectory as a dict from hamiltonian_flow
+    trajectories = []
+    for i, (xi, pi) in enumerate(region):
+        traj = hamiltonian_flow(H, (xi, pi), (0, t_max),
+                                vars_phase=vars_phase,
+                                integrator=integrator,
+                                n_steps=n_steps)
+        trajectories.append(traj)
+
+    # ----------------------------------------------------------------------
+    # Extract vertex positions at each requested time
+    # ----------------------------------------------------------------------
+    # For each time in t_eval, we need the (x,p) for all vertices.
+    # We'll build a list of arrays: region_at_t[k] is an (n_vertices,2) array for time t_eval[k].
+    times_available = trajectories[0]['t']   # same for all vertices
+    region_at_t = []
+    for target_t in t_eval:
+        # find index in times_available closest to target_t
+        idx = np.argmin(np.abs(times_available - target_t))
+        vertices_at_t = []
+        for traj in trajectories:
+            x_val = traj[str(x)][idx]
+            p_val = traj[str(p)][idx]
+            vertices_at_t.append([x_val, p_val])
+        region_at_t.append(np.array(vertices_at_t))
+
+    # ----------------------------------------------------------------------
+    # Compute area at each time using the shoelace formula
+    # ----------------------------------------------------------------------
+    areas = []
+    for vertices in region_at_t:
+        x_vals = vertices[:, 0]
+        y_vals = vertices[:, 1]
+        # shoelace: A = 0.5 * |Σ (x_i y_{i+1} - x_{i+1} y_i)|
+        # (vertices are closed, so last and first already connected)
+        area = 0.5 * np.abs(np.sum(x_vals[:-1] * y_vals[1:] - x_vals[1:] * y_vals[:-1]))
+        areas.append(area)
+    areas = np.array(areas)
+
+    # ----------------------------------------------------------------------
+    # Plotting (optional)
+    # ----------------------------------------------------------------------
+    plot_handles = None
+    if plot:
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8, 6))
+        else:
+            fig = ax.figure
+
+        # Choose a colormap if colors are not provided
+        if 'color' not in plot_kwargs and 'colors' not in plot_kwargs:
+            colors = plt.cm.viridis(np.linspace(0, 1, len(t_eval)))
+        else:
+            colors = [plot_kwargs.pop('color', None)] * len(t_eval)
+
+        plot_handles = []
+        for k, t_val in enumerate(t_eval):
+            verts = region_at_t[k]
+            # Plot the polygon outline
+            line, = ax.plot(verts[:, 0], verts[:, 1],
+                            color=colors[k], linewidth=2,
+                            label=f't={t_val:.2f}, A={areas[k]:.4f}',
+                            **plot_kwargs)
+            # Fill the polygon with low opacity
+            fill = ax.fill(verts[:, 0], verts[:, 1],
+                           color=colors[k], alpha=0.2)
+            plot_handles.append((line, fill[0]))
+
+        # Optionally overlay energy contours for context
+        # (reusing code from phase_portrait but without cluttering)
+        x_range = (np.min([v[:,0].min() for v in region_at_t]),
+                   np.max([v[:,0].max() for v in region_at_t]))
+        p_range = (np.min([v[:,1].min() for v in region_at_t]),
+                   np.max([v[:,1].max() for v in region_at_t]))
+        # Add some margin
+        x_margin = 0.1 * (x_range[1] - x_range[0])
+        p_margin = 0.1 * (p_range[1] - p_range[0])
+        x_range = (x_range[0] - x_margin, x_range[1] + x_margin)
+        p_range = (p_range[0] - p_margin, p_range[1] + p_margin)
+
+        X_grid, P_grid = np.meshgrid(
+            np.linspace(x_range[0], x_range[1], 50),
+            np.linspace(p_range[0], p_range[1], 50)
+        )
+        H_func = lambdify((x, p), H, 'numpy')
+        H_vals = H_func(X_grid, P_grid)
+        ax.contour(X_grid, P_grid, H_vals, levels=15,
+                   colors='gray', alpha=0.3, linewidths=0.5)
+
+        ax.set_xlabel(str(x), fontsize=12)
+        ax.set_ylabel(str(p), fontsize=12)
+        ax.set_title(f'Phase space region evolution\n(A₀ = {areas[0]:.4f})',
+                     fontsize=13)
+        ax.legend(loc='best', fontsize=8)
+        ax.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        if ax is None:
+            plt.show()
+
+    # ----------------------------------------------------------------------
+    # Build result dictionary
+    # ----------------------------------------------------------------------
+    result = {
+        'times': t_eval,
+        'region_at_t': region_at_t,
+        'areas': areas,
+    }
+    if plot:
+        result['plot_handles'] = plot_handles
+    return result
+
 
 # -----------------------------------------------------------------------------
 # Backward compatibility aliases
@@ -1766,7 +2056,6 @@ def test_monodromy_simple():
     multipliers = mono['floquet_multipliers']
     assert np.allclose(np.abs(multipliers), 1.0, atol=1e-3)
     print("✓ Monodromy matrix test passed")
-
 
 if __name__ == "__main__":
     print("Running unified symplectic tests...\n")

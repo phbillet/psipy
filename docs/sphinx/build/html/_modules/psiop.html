@@ -2100,78 +2100,106 @@
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.is_elliptic_numerically">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_elliptic_numerically</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Check if the pseudo-differential symbol p(x, ξ) is elliptic over a given grid.</span>
-<span class="sd">    </span>
-<span class="sd">        A symbol is considered elliptic if its magnitude |p(x, ξ)| remains bounded away from zero  </span>
-<span class="sd">        across all points in the spatial-frequency domain. This method evaluates the symbol on a </span>
-<span class="sd">        grid of spatial and frequency coordinates and checks whether its minimum absolute value </span>
-<span class="sd">        exceeds a specified threshold.</span>
-<span class="sd">    </span>
-<span class="sd">        Resampling is applied to large grids to prevent excessive memory usage, particularly in 2D.</span>
+<span class="sd">        Check ellipticity by random sampling of phase space plus an explicit check at zero frequency.</span>
 <span class="sd">    </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        x_grid : ndarray</span>
-<span class="sd">            Spatial grid: either a 1D array (x) or a tuple of two 1D arrays (x, y).</span>
-<span class="sd">        xi_grid : ndarray</span>
-<span class="sd">            Frequency grid: either a 1D array (ξ) or a tuple of two 1D arrays (ξ, η).</span>
+<span class="sd">        x_grid : ndarray or tuple of ndarray</span>
+<span class="sd">            Spatial grid(s). For 1D: a 1D array of x coordinates.</span>
+<span class="sd">            For 2D: a tuple (x, y) of two 1D arrays.</span>
+<span class="sd">        xi_grid : ndarray or tuple of ndarray</span>
+<span class="sd">            Frequency grid(s). For 1D: a 1D array of ξ coordinates.</span>
+<span class="sd">            For 2D: a tuple (ξ, η) of two 1D arrays.</span>
 <span class="sd">        threshold : float, optional</span>
-<span class="sd">            Minimum acceptable value for |p(x, ξ)|. If the smallest evaluated symbol value falls below this,</span>
-<span class="sd">            the symbol is not considered elliptic.</span>
+<span class="sd">            Minimum acceptable value for |p(x,ξ)|. If any evaluated point falls below this,</span>
+<span class="sd">            the symbol is considered non‑elliptic.</span>
 <span class="sd">    </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        bool</span>
-<span class="sd">            True if the symbol is elliptic on the resampled grid, False otherwise.</span>
+<span class="sd">            True if all sampled points satisfy |p| &gt; threshold, otherwise False.</span>
+<span class="sd">    </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This method uses two sampling strategies to keep memory usage low:</span>
+<span class="sd">            1. **Random sampling** – `N_RANDOM` points are drawn uniformly from the</span>
+<span class="sd">               hyperrectangle defined by the extremes of the input grids.</span>
+<span class="sd">            2. **Zero‑frequency sampling** – the symbol is evaluated at ξ=0 (and η=0 in 2D)</span>
+<span class="sd">               on a coarse spatial grid of `N_ZERO` points per spatial dimension.</span>
+<span class="sd">        If any evaluated value falls below `threshold`, the method returns False immediately.</span>
+<span class="sd">        Because random sampling is probabilistic, a True result does not guarantee</span>
+<span class="sd">        ellipticity in the strict mathematical sense – it only indicates that no sampled</span>
+<span class="sd">        point violated the condition. For rigorous analysis, combine this with symbolic</span>
+<span class="sd">        methods (e.g., :meth:`principal_symbol` and :meth:`is_homogeneous`).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">RESAMPLE_SIZE</span> <span class="o">=</span> <span class="mi">32</span>
-        
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">x_vals</span> <span class="o">=</span> <span class="n">x_grid</span>
-            <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">xi_grid</span>
-            
-            <span class="c1"># Resampling if necessary</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_vals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">RESAMPLE_SIZE</span><span class="p">:</span>
-                <span class="n">x_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_vals</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x_vals</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">RESAMPLE_SIZE</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi_vals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">RESAMPLE_SIZE</span><span class="p">:</span>
-                <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xi_vals</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">xi_vals</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">RESAMPLE_SIZE</span><span class="p">)</span>
-            
-            <span class="c1"># Ensure grid includes zero for frequency variable (critical for ellipticity check)</span>
-            <span class="k">if</span> <span class="mi">0</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xi_vals</span><span class="p">:</span>
-                <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xi_vals</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-                <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">xi_vals</span><span class="p">)</span>
-        
-            <span class="n">X</span><span class="p">,</span> <span class="n">XI</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_vals</span><span class="p">,</span> <span class="n">xi_vals</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
-            <span class="n">symbol_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">XI</span><span class="p">)</span>
-        
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">x_vals</span><span class="p">,</span> <span class="n">y_vals</span> <span class="o">=</span> <span class="n">x_grid</span>
-            <span class="n">xi_vals</span><span class="p">,</span> <span class="n">eta_vals</span> <span class="o">=</span> <span class="n">xi_grid</span>
-        
-            <span class="c1"># Spatial resampling</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_vals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">RESAMPLE_SIZE</span><span class="p">:</span>
-                <span class="n">x_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_vals</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x_vals</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">RESAMPLE_SIZE</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_vals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">RESAMPLE_SIZE</span><span class="p">:</span>
-                <span class="n">y_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">y_vals</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">y_vals</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">RESAMPLE_SIZE</span><span class="p">)</span>
-        
-            <span class="c1"># Frequency resampling - ensure zero is included</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi_vals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">RESAMPLE_SIZE</span><span class="p">:</span>
-                <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xi_vals</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">xi_vals</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">RESAMPLE_SIZE</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">eta_vals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">RESAMPLE_SIZE</span><span class="p">:</span>
-                <span class="n">eta_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">eta_vals</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">eta_vals</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">RESAMPLE_SIZE</span><span class="p">)</span>
-            
-            <span class="k">if</span> <span class="mi">0</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xi_vals</span><span class="p">:</span>
-                <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xi_vals</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-                <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">xi_vals</span><span class="p">)</span>
-            <span class="k">if</span> <span class="mi">0</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">eta_vals</span><span class="p">:</span>
-                <span class="n">eta_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">eta_vals</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-                <span class="n">eta_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">eta_vals</span><span class="p">)</span>
-        
-            <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">XI</span><span class="p">,</span> <span class="n">ETA</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_vals</span><span class="p">,</span> <span class="n">y_vals</span><span class="p">,</span> <span class="n">xi_vals</span><span class="p">,</span> <span class="n">eta_vals</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
-            <span class="n">symbol_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">XI</span><span class="p">,</span> <span class="n">ETA</span><span class="p">)</span>
-        
-        <span class="n">min_abs_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">symbol_vals</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">min_abs_val</span> <span class="o">&gt;</span> <span class="n">threshold</span></div>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span><span class="p">,</span> <span class="n">as_completed</span>
+    
+        <span class="c1"># Constants controlling the sampling size</span>
+        <span class="n">N_RANDOM</span> <span class="o">=</span> <span class="mi">100_000</span>          <span class="c1"># number of random points in full phase space</span>
+        <span class="n">N_ZERO</span> <span class="o">=</span> <span class="mi">32</span>                 <span class="c1"># number of spatial points per dimension at zero frequency</span>
+    
+        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
+    
+        <span class="c1"># ----------------------------------------------------------------------</span>
+        <span class="c1"># Extract bounds from the input grids</span>
+        <span class="c1"># ----------------------------------------------------------------------</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span> <span class="o">=</span> <span class="n">x_grid</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x_grid</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="n">xi_min</span><span class="p">,</span> <span class="n">xi_max</span> <span class="o">=</span> <span class="n">xi_grid</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">xi_grid</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="n">bounds</span> <span class="o">=</span> <span class="p">[(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">),</span> <span class="p">(</span><span class="n">xi_min</span><span class="p">,</span> <span class="n">xi_max</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># dim == 2</span>
+            <span class="n">x_arr</span><span class="p">,</span> <span class="n">y_arr</span> <span class="o">=</span> <span class="n">x_grid</span>
+            <span class="n">xi_arr</span><span class="p">,</span> <span class="n">eta_arr</span> <span class="o">=</span> <span class="n">xi_grid</span>
+            <span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span> <span class="o">=</span> <span class="n">x_arr</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x_arr</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span> <span class="o">=</span> <span class="n">y_arr</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">y_arr</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="n">xi_min</span><span class="p">,</span> <span class="n">xi_max</span> <span class="o">=</span> <span class="n">xi_arr</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">xi_arr</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="n">eta_min</span><span class="p">,</span> <span class="n">eta_max</span> <span class="o">=</span> <span class="n">eta_arr</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">eta_arr</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="n">bounds</span> <span class="o">=</span> <span class="p">[(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">),</span> <span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">),</span> <span class="p">(</span><span class="n">xi_min</span><span class="p">,</span> <span class="n">xi_max</span><span class="p">),</span> <span class="p">(</span><span class="n">eta_min</span><span class="p">,</span> <span class="n">eta_max</span><span class="p">)]</span>
+    
+        <span class="c1"># ----------------------------------------------------------------------</span>
+        <span class="c1"># 1. Random sampling over the whole hyperrectangle</span>
+        <span class="c1"># ----------------------------------------------------------------------</span>
+        <span class="c1"># Generate random points uniformly within bounds</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x_rand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">N_RANDOM</span><span class="p">)</span>
+            <span class="n">xi_rand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">xi_min</span><span class="p">,</span> <span class="n">xi_max</span><span class="p">,</span> <span class="n">N_RANDOM</span><span class="p">)</span>
+            <span class="c1"># Vectorised evaluation</span>
+            <span class="n">vals_rand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="n">x_rand</span><span class="p">,</span> <span class="n">xi_rand</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># dim == 2</span>
+            <span class="n">x_rand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">N_RANDOM</span><span class="p">)</span>
+            <span class="n">y_rand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">,</span> <span class="n">N_RANDOM</span><span class="p">)</span>
+            <span class="n">xi_rand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">xi_min</span><span class="p">,</span> <span class="n">xi_max</span><span class="p">,</span> <span class="n">N_RANDOM</span><span class="p">)</span>
+            <span class="n">eta_rand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">eta_min</span><span class="p">,</span> <span class="n">eta_max</span><span class="p">,</span> <span class="n">N_RANDOM</span><span class="p">)</span>
+            <span class="n">vals_rand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="n">x_rand</span><span class="p">,</span> <span class="n">y_rand</span><span class="p">,</span> <span class="n">xi_rand</span><span class="p">,</span> <span class="n">eta_rand</span><span class="p">))</span>
+    
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">vals_rand</span> <span class="o">&lt;</span> <span class="n">threshold</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+    
+        <span class="c1"># ----------------------------------------------------------------------</span>
+        <span class="c1"># 2. Explicit check at zero frequency (ξ = 0, η = 0)</span>
+        <span class="c1"># ----------------------------------------------------------------------</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">N_ZERO</span><span class="p">)</span>
+            <span class="n">xi_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x_zero</span><span class="p">)</span>
+            <span class="n">vals_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="n">x_zero</span><span class="p">,</span> <span class="n">xi_zero</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">vals_zero</span> <span class="o">&lt;</span> <span class="n">threshold</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># dim == 2</span>
+            <span class="n">x_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">N_ZERO</span><span class="p">)</span>
+            <span class="n">y_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">,</span> <span class="n">N_ZERO</span><span class="p">)</span>
+            <span class="c1"># Create a small grid at (ξ=0, η=0)</span>
+            <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_zero</span><span class="p">,</span> <span class="n">y_zero</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+            <span class="n">X_flat</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">Y_flat</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+            <span class="n">xi_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">X_flat</span><span class="p">)</span>
+            <span class="n">eta_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">Y_flat</span><span class="p">)</span>
+            <span class="n">vals_zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="n">X_flat</span><span class="p">,</span> <span class="n">Y_flat</span><span class="p">,</span> <span class="n">xi_zero</span><span class="p">,</span> <span class="n">eta_zero</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">vals_zero</span> <span class="o">&lt;</span> <span class="n">threshold</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+    
+        <span class="c1"># All checks passed</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
 
     
 

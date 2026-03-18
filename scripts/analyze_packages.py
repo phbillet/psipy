@@ -1,25 +1,30 @@
 #!/usr/bin/env python3
 """
-analyze_packages.py (enhanced)
--------------------------------
+analyze_packages.py (enhanced with parallel parsing)
+-----------------------------------------------------
 Static analysis of a collection of Python packages:
 - Dependency graph (imports between modules)
 - Inventory of public symbols (classes, functions, signatures)
 - Redundancy detection (similar names, duplicate symbols)
 - Naming inconsistency analysis (generic param names, style violations)
+- Documentation volume estimation (lines of docstrings)
 - Suggested merge report
+
+Parallel parsing speeds up analysis of many files.
 """
 
 import ast
 import os
 import sys
+import argparse
 from pathlib import Path
 from collections import defaultdict
 from difflib import SequenceMatcher
 from typing import List, Dict, Any, Optional, Tuple, Set
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # ─────────────────────────────────────────────────────────────────
-# 1. PARSING (enhanced signatures)
+# 1. PARSING (enhanced signatures + doc volume)
 # ─────────────────────────────────────────────────────────────────
 
 def parse_module(filepath: Path) -> dict:
@@ -30,6 +35,7 @@ def parse_module(filepath: Path) -> dict:
     - defined functions (with signatures)
     - top-level constants
     - module docstring
+    - total lines of docstrings (documentation volume)
     """
     source = filepath.read_text(encoding='utf-8')
     try:
@@ -46,7 +52,12 @@ def parse_module(filepath: Path) -> dict:
         'functions' : [],   # (name, signature_dict, signature_str, lineno)
         'constants' : [],   # name
         'lines'     : len(source.splitlines()),
+        'doc_lines' : 0,    # total lines of docstrings in this module
     }
+
+    # Add module docstring lines
+    if info['docstring']:
+        info['doc_lines'] += len(info['docstring'].splitlines())
 
     for node in ast.walk(tree):
 
@@ -72,16 +83,23 @@ def parse_module(filepath: Path) -> dict:
 
         # ── classes ──────────────────────────────────────────────
         elif isinstance(node, ast.ClassDef):
+            class_doc = ast.get_docstring(node) or ''
+            if class_doc:
+                info['doc_lines'] += len(class_doc.splitlines())
+
             methods = []
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     sig_dict, sig_str = _extract_signature(item)
+                    method_doc = ast.get_docstring(item) or ''
+                    if method_doc:
+                        info['doc_lines'] += len(method_doc.splitlines())
                     methods.append({
                         'name'       : item.name,
                         'signature'  : sig_dict,
                         'signature_str': sig_str,
                         'lineno'     : item.lineno,
-                        'doc'        : ast.get_docstring(item) or '',
+                        'doc'        : method_doc,
                         'decorators' : [ast.unparse(d) for d in item.decorator_list],
                     })
             bases = [ast.unparse(b) for b in node.bases]
@@ -90,19 +108,22 @@ def parse_module(filepath: Path) -> dict:
                 'methods': methods,
                 'bases'  : bases,
                 'lineno' : node.lineno,
-                'doc'    : ast.get_docstring(node) or '',
+                'doc'    : class_doc,
             })
 
         # ── top-level functions ──────────────────────────────────
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if not _is_nested(node, tree):
                 sig_dict, sig_str = _extract_signature(node)
+                func_doc = ast.get_docstring(node) or ''
+                if func_doc:
+                    info['doc_lines'] += len(func_doc.splitlines())
                 info['functions'].append({
                     'name'       : node.name,
                     'signature'  : sig_dict,
                     'signature_str': sig_str,
                     'lineno'     : node.lineno,
-                    'doc'        : ast.get_docstring(node) or '',
+                    'doc'        : func_doc,
                     'decorators' : [ast.unparse(d) for d in node.decorator_list],
                 })
 
@@ -462,22 +483,153 @@ def suggest_merges(modules, graph, redundancies) -> list[dict]:
     return unique
 
 # ─────────────────────────────────────────────────────────────────
-# 6. REPORT (enhanced with signatures and naming issues)
+# 6. REPORT (enhanced with doc volume)
 # ─────────────────────────────────────────────────────────────────
 
 def print_report(modules, graph, redundancies, naming_issues, suggestions):
 
-    sep  = "=" * 65
-    sep2 = "-" * 65
+    sep  = "=" * 75
+    sep2 = "-" * 75
 
+    # ── Summary table ─────────────────────────────────────────────
     print(f"\n{sep}")
-    print("  MODULE INVENTORY (with signatures)")
+    print("  MODULE SUMMARY (lines, documentation, counts)")
     print(sep)
+    header = f"  {'Module':30s} {'Lines':>6s} {'Doc':>6s} {'D/C':>6s}  {'Classes':>7s}  {'Functions':>9s}"
+    print(header)
+    print(sep2)
     for mod in sorted(modules, key=lambda m: -m['lines']):
         n_cls = len(mod['classes'])
         n_fn  = len(mod['functions'])
-        print(f"\n  {mod['name']:30s}  {mod['lines']:4d} lines  "
-              f"{n_cls} classes  {n_fn} functions")
+        doc_lines = mod['doc_lines']
+        ratio = doc_lines / mod['lines'] if mod['lines'] > 0 else 0
+        print(f"  {mod['name']:30s} {mod['lines']:6d} {doc_lines:6d} {ratio:5.2f}   {n_cls:7d}  {n_fn:9d}")
+    print(sep)
+
+    # ── Collect detailed inventory (classes & functions) ─────────
+    detailed_lines = []
+    for mod in sorted(modules, key=lambda m: m['name']):
+        detailed_lines.append(f"\n  {mod['name']} ({mod['lines']} lines)")
+        for cls in mod['classes']:
+            detailed_lines.append(f"    class {cls['name']:30s} ({len(cls['methods'])} methods)")
+            for method in cls['methods']:
+                if not method['name'].startswith('_'):
+                    detailed_lines.append(f"        {method['signature_str']}")
+        for fn in mod['functions']:
+            if not fn['name'].startswith('_'):
+                detailed_lines.append(f"    def   {fn['signature_str']}")
+
+    # ── Dependency graph ─────────────────────────────────────────
+    print("\n  DEPENDENCY GRAPH")
+    print(sep)
+    if not graph:
+        print("  No local dependencies detected.")
+    for mod, deps in sorted(graph.items()):
+        print(f"  {mod:30s} → {', '.join(sorted(deps))}")
+
+    cycles = find_cycles(graph)
+    if cycles:
+        print(f"\n  ⚠ CYCLES DETECTED:")
+        for c in cycles:
+            print(f"    {' → '.join(c)}")
+
+    # ── Redundancies ─────────────────────────────────────────────
+    print(f"\n{sep}")
+    print("  REDUNDANCIES")
+    print(sep)
+
+    dups = redundancies['exact_duplicates']
+    if dups:
+        print(f"\n  Duplicated symbols ({len(dups)}):")
+        for name, locs in sorted(dups.items()):
+            locations = ', '.join(f"{m}({t})" for m, t in locs)
+            print(f"    {name:35s} ← {locations}")
+
+    sim = redundancies['similar_pairs']
+    if sim:
+        print(f"\n  Similar names ({len(sim)}):")
+        for n1, n2, ratio, l1, l2 in sorted(sim, key=lambda x: -x[2])[:15]:
+            m1 = ', '.join(m for m, _ in l1)
+            m2 = ', '.join(m for m, _ in l2)
+            print(f"    {n1} ≈ {n2}  ({ratio:.0%})  [{m1}] ↔ [{m2}]")
+
+    shared = redundancies['shared_imports']
+    if shared:
+        print(f"\n  Shared external imports:")
+        for lib, mods in sorted(shared.items()):
+            print(f"    {lib:20s} ← {', '.join(sorted(mods))}")
+
+    # ── Naming inconsistencies ───────────────────────────────────
+    print(f"\n{sep}")
+    print("  NAMING INCONSISTENCIES")
+    print(sep)
+
+    if naming_issues['generic_params']:
+        print("\n  Generic parameter names (maybe rename):")
+        for param, locations in sorted(naming_issues['generic_params'].items()):
+            print(f"    {param}:")
+            for loc in locations[:5]:
+                print(f"      {loc}")
+            if len(locations) > 5:
+                print(f"      ... and {len(locations)-5} more")
+
+    if naming_issues['non_snake_case']:
+        print("\n  Non-snake_case parameter names:")
+        for param, locations in sorted(naming_issues['non_snake_case'].items()):
+            print(f"    {param}:")
+            for loc in locations[:5]:
+                print(f"      {loc}")
+            if len(locations) > 5:
+                print(f"      ... and {len(locations)-5} more")
+
+    if naming_issues['mismatched_methods']:
+        print("\n  Methods with same name but different signatures:")
+        for issue in naming_issues['mismatched_methods']:
+            print(f"    {issue['method']}:")
+            for v in issue['variants']:
+                print(f"      {v}")
+
+    # ── Merge suggestions ────────────────────────────────────────
+    print(f"\n{sep}")
+    print("  MERGE SUGGESTIONS")
+    print(sep)
+    if not suggestions:
+        print("  No merge suggestions.")
+    for i, s in enumerate(suggestions, 1):
+        mods = ' + '.join(s['modules'])
+        print(f"\n  [{i}] {s['type'].upper()}")
+        print(f"       Modules: {mods}")
+        print(f"       Reason:  {s['reason']}")
+
+    # ── Detailed inventory (printed at the end) ──────────────────
+    print(f"\n{sep}")
+    print("  DETAILED INVENTORY (classes and functions)")
+    print(sep)
+    for line in detailed_lines:
+        print(line)
+
+    print(f"\n{sep}\n")
+    
+def print_report_old(modules, graph, redundancies, naming_issues, suggestions):
+
+    sep  = "=" * 75
+    sep2 = "-" * 75
+
+    print(f"\n{sep}")
+    print("  MODULE INVENTORY (with signatures and doc volume)")
+    print(sep)
+    # Print header with columns: Module, Lines, Doc, Doc/Code, Classes, Functions
+    header = f"  {'Module':30s} {'Lines':>6s} {'Doc':>6s} {'D/C':>6s}  {'Classes':>7s}  {'Functions':>9s}"
+    print(header)
+    print(sep2)
+    for mod in sorted(modules, key=lambda m: -m['lines']):
+        n_cls = len(mod['classes'])
+        n_fn  = len(mod['functions'])
+        doc_lines = mod['doc_lines']
+        ratio = doc_lines / mod['lines'] if mod['lines'] > 0 else 0
+        print(f"  {mod['name']:30s} {mod['lines']:6d} {doc_lines:6d} {ratio:5.2f}   {n_cls:7d}  {n_fn:9d}")
+
+        # Optionally show class/function details
         for cls in mod['classes']:
             print(f"    class {cls['name']:30s} "
                   f"({len(cls['methods'])} methods)")
@@ -583,10 +735,10 @@ def export_dot(graph: dict, output: Path):
     print(f"  Visualize: dot -Tpng {output} -o graph.png")
 
 # ─────────────────────────────────────────────────────────────────
-# 7. ENTRY POINT
+# 7. ENTRY POINT (with parallel parsing)
 # ─────────────────────────────────────────────────────────────────
 
-def analyze(directory: str = '.', dot_output: str = 'packages.dot'):
+def analyze(directory: str = '.', dot_output: str = 'packages.dot', jobs: int = None):
     directory = Path(directory)
     py_files  = sorted(directory.glob('*.py'))
 
@@ -595,11 +747,28 @@ def analyze(directory: str = '.', dot_output: str = 'packages.dot'):
         return
 
     print(f"Analyzing {len(py_files)} files in {directory}...")
+    if jobs is None:
+        jobs = os.cpu_count() or 1
+    print(f"Using {jobs} parallel worker(s) for parsing.")
+
     modules = []
-    for f in py_files:
-        parsed = parse_module(f)
-        if 'error' not in parsed:
-            modules.append(parsed)
+    with ProcessPoolExecutor(max_workers=jobs) as executor:
+        future_to_file = {executor.submit(parse_module, f): f for f in py_files}
+        for future in as_completed(future_to_file):
+            f = future_to_file[future]
+            try:
+                parsed = future.result()
+            except Exception as e:
+                print(f"Error parsing {f}: {e}", file=sys.stderr)
+                continue
+            if 'error' in parsed:
+                print(f"Syntax error in {f}: {parsed['error']}", file=sys.stderr)
+            else:
+                modules.append(parsed)
+
+    if not modules:
+        print("No modules could be parsed successfully.")
+        return
 
     graph          = build_dependency_graph(modules)
     redundancies   = find_redundancies(modules)
@@ -610,5 +779,12 @@ def analyze(directory: str = '.', dot_output: str = 'packages.dot'):
     export_dot(graph, Path(dot_output))
 
 if __name__ == '__main__':
-    directory = sys.argv[1] if len(sys.argv) > 1 else '.'
-    analyze(directory)
+    parser = argparse.ArgumentParser(description="Analyze Python packages in a directory.")
+    parser.add_argument('directory', nargs='?', default='.',
+                        help='Directory containing .py files (default: current directory)')
+    parser.add_argument('-o', '--dot-output', default='packages.dot',
+                        help='Output file for Graphviz .dot (default: packages.dot)')
+    parser.add_argument('-j', '--jobs', type=int, default=None,
+                        help='Number of parallel workers (default: CPU count)')
+    args = parser.parse_args()
+    analyze(args.directory, args.dot_output, args.jobs)

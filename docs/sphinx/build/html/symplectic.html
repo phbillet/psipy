@@ -74,6 +74,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.SymplecticForm2D"><code class="docutils literal notranslate"><span class="pre">SymplecticForm2D()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.action_angle_transform"><code class="docutils literal notranslate"><span class="pre">action_angle_transform()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.action_integral"><code class="docutils literal notranslate"><span class="pre">action_integral()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#symplectic.evolve_phase_space_region"><code class="docutils literal notranslate"><span class="pre">evolve_phase_space_region()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.find_fixed_points"><code class="docutils literal notranslate"><span class="pre">find_fixed_points()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.first_return_map"><code class="docutils literal notranslate"><span class="pre">first_return_map()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.frequency"><code class="docutils literal notranslate"><span class="pre">frequency()</span></code></a></li>
@@ -86,6 +87,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.poincare_section"><code class="docutils literal notranslate"><span class="pre">poincare_section()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.poisson_bracket"><code class="docutils literal notranslate"><span class="pre">poisson_bracket()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.project"><code class="docutils literal notranslate"><span class="pre">project()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#symplectic.rectangle_region"><code class="docutils literal notranslate"><span class="pre">rectangle_region()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.separatrix_analysis"><code class="docutils literal notranslate"><span class="pre">separatrix_analysis()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.test_coupled_oscillators"><code class="docutils literal notranslate"><span class="pre">test_coupled_oscillators()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.test_fixed_points_1d"><code class="docutils literal notranslate"><span class="pre">test_fixed_points_1d()</span></code></a></li>
@@ -375,6 +377,103 @@ For canonical form, it’s independent of coordinates.</p>
 <dd class="field-odd"><p>float or sympy expression</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="symplectic.evolve_phase_space_region">
+<span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">evolve_phase_space_region</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_region</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_eval</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">integrator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'verlet'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">plot_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#evolve_phase_space_region"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.evolve_phase_space_region" title="Link to this definition"></a></dt>
+<dd><p>Evolve a closed region in phase space under the Hamiltonian flow and
+optionally visualise its deformation and area conservation.</p>
+<p>The function integrates each vertex of the polygon defined by
+<cite>initial_region</cite> forward to the times specified in <cite>t_eval</cite>, computes
+the enclosed area at each time (using the shoelace formula), and plots
+the evolved regions if requested.</p>
+<p>This provides a direct visual demonstration of Liouville’s theorem:
+the symplectic area is preserved by the Hamiltonian flow (up to numerical
+errors, especially when using a symplectic integrator).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>H</strong> (<em>sympy.Expr</em>) – Hamiltonian for a 1‑degree‑of‑freedom system H(x, p).</p></li>
+<li><p><strong>initial_region</strong> (<em>(</em><em>N</em><em>,</em><em>2</em><em>) </em><em>array_like</em>) – Ordered points defining a closed polygon (first and last point should
+be identical). The region is typically a simple shape such as a
+rectangle or an ellipse.</p></li>
+<li><p><strong>t_eval</strong> (<em>float</em><em> or </em><em>list</em><em> of </em><em>float</em>) – Times at which to record the evolved region. If a single float is given,
+it is treated as the final time and the region is evaluated at t=0 and
+that time. Use a list to obtain intermediate snapshots.</p></li>
+<li><p><strong>vars_phase</strong> (<em>list</em><em> of </em><em>sympy.Symbol</em><em>, </em><em>optional</em>) – Phase space variables [x, p]. If not provided, they are inferred from H.</p></li>
+<li><p><strong>integrator</strong> (<em>{'symplectic'</em><em>, </em><em>'verlet'</em><em>, </em><em>'rk45'}</em><em>, </em><em>optional</em>) – Numerical integrator passed to <cite>hamiltonian_flow</cite> (default ‘verlet’).
+Symplectic integrators are recommended for accurate long‑term area
+preservation.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of integration steps used by <cite>hamiltonian_flow</cite> over the whole
+time interval [0, max(t_eval)]. A high value ensures accurate point
+positions at the requested times (default 10000).</p></li>
+<li><p><strong>plot</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, generate a plot showing the region at each time in <cite>t_eval</cite>
+(default True).</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em>, </em><em>optional</em>) – Axes on which to draw the plot. If None and plot=True, a new figure
+and axes are created.</p></li>
+<li><p><strong>**plot_kwargs</strong> – Additional keyword arguments passed to the plotting call (e.g.,
+<cite>colors</cite>, <cite>alpha</cite>, <cite>linewidth</cite>). Useful for customising the appearance
+of the evolved regions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>A dictionary with the following keys:
+- ‘times’ : ndarray</p>
+<blockquote>
+<div><p>The evaluation times (sorted, unique).</p>
+</div></blockquote>
+<ul class="simple">
+<li><dl class="simple">
+<dt>’region_at_t’<span class="classifier">list of (N,2) ndarrays</span></dt><dd><p>Evolved polygon for each time, in the same vertex order as input.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’areas’<span class="classifier">ndarray</span></dt><dd><p>Area enclosed by the polygon at each time (computed with the
+shoelace formula).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’plot_handles’<span class="classifier">list, optional</span></dt><dd><p>If plot=True, a list of handles to the plotted lines/fills for
+each time (useful for further customisation or legends).</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If the system is not 1‑DOF, if the initial region has fewer than 3 points,
+    or if the polygon is not closed (first and last point differ beyond a
+    small tolerance).</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span> <span class="o">=</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span>          <span class="c1"># harmonic oscillator</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">region</span> <span class="o">=</span> <span class="n">rectangle_region</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">evolve_phase_space_region</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">region</span><span class="p">,</span> <span class="n">t_eval</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">4</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">],</span>
+<span class="gp">... </span>                                   <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;verlet&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;areas&#39;</span><span class="p">]</span>
+<span class="go">array([0.15, 0.15, 0.15])        # area conserved (up to numerical errors)</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#symplectic.rectangle_region" title="symplectic.rectangle_region"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rectangle_region</span></code></a></dt><dd><p>Convenience function to generate a rectangular region.</p>
+</dd>
+<dt><a class="reference internal" href="#symplectic.phase_portrait" title="symplectic.phase_portrait"><code class="xref py py-obj docutils literal notranslate"><span class="pre">phase_portrait</span></code></a></dt><dd><p>Plot energy contours and vector fields.</p>
+</dd>
+<dt><a class="reference internal" href="#symplectic.hamiltonian_flow" title="symplectic.hamiltonian_flow"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hamiltonian_flow</span></code></a></dt><dd><p>Underlying numerical integration routine.</p>
+</dd>
+</dl>
+</div>
 </dd></dl>
 
 <dl class="py function">
@@ -872,6 +971,29 @@ Options: ‘xy’, ‘config’, ‘xp’, ‘pp’, ‘momentum’, ‘x1p2’,
 </dd>
 </dl>
 </div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="symplectic.rectangle_region">
+<span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">rectangle_region</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#rectangle_region"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.rectangle_region" title="Link to this definition"></a></dt>
+<dd><p>Generate a closed rectangular region in phase space.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>center</strong> (<em>(</em><em>float</em><em>, </em><em>float</em><em>)</em>) – Coordinates (x0, p0) of the rectangle centre.</p></li>
+<li><p><strong>width</strong> (<em>float</em>) – Total width in the x direction.</p></li>
+<li><p><strong>height</strong> (<em>float</em>) – Total height in the p direction.</p></li>
+<li><p><strong>n_points</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of distinct points on the perimeter (default 50). Must be at least 4.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Ordered points forming a closed rectangle (first and last point identical).
+The array has shape (n_points + 1, 2).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(N,2) ndarray</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">

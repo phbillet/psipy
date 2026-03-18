@@ -880,9 +880,9 @@ class TestSemiclassicalCorrector:
         assert mag > 0.05
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  23. CrossValidator (with xfail for solver‑dependent tests)
-# ─────────────────────────────────────────────────────────────────────────────
+# ────────────────────
+#  23. CrossValidator 
+# ────────────────────
 
 class TestCrossValidator:
     """Tests for CrossValidator (bridge-only path and optional full solver)."""

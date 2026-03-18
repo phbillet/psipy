@@ -1964,78 +1964,106 @@ class PseudoDifferentialOperator:
 
     def is_elliptic_numerically(self, x_grid, xi_grid, threshold=1e-8):
         """
-        Check if the pseudo-differential symbol p(x, ξ) is elliptic over a given grid.
-    
-        A symbol is considered elliptic if its magnitude |p(x, ξ)| remains bounded away from zero  
-        across all points in the spatial-frequency domain. This method evaluates the symbol on a 
-        grid of spatial and frequency coordinates and checks whether its minimum absolute value 
-        exceeds a specified threshold.
-    
-        Resampling is applied to large grids to prevent excessive memory usage, particularly in 2D.
+        Check ellipticity by random sampling of phase space plus an explicit check at zero frequency.
     
         Parameters
         ----------
-        x_grid : ndarray
-            Spatial grid: either a 1D array (x) or a tuple of two 1D arrays (x, y).
-        xi_grid : ndarray
-            Frequency grid: either a 1D array (ξ) or a tuple of two 1D arrays (ξ, η).
+        x_grid : ndarray or tuple of ndarray
+            Spatial grid(s). For 1D: a 1D array of x coordinates.
+            For 2D: a tuple (x, y) of two 1D arrays.
+        xi_grid : ndarray or tuple of ndarray
+            Frequency grid(s). For 1D: a 1D array of ξ coordinates.
+            For 2D: a tuple (ξ, η) of two 1D arrays.
         threshold : float, optional
-            Minimum acceptable value for |p(x, ξ)|. If the smallest evaluated symbol value falls below this,
-            the symbol is not considered elliptic.
+            Minimum acceptable value for |p(x,ξ)|. If any evaluated point falls below this,
+            the symbol is considered non‑elliptic.
     
         Returns
         -------
         bool
-            True if the symbol is elliptic on the resampled grid, False otherwise.
+            True if all sampled points satisfy |p| > threshold, otherwise False.
+    
+        Notes
+        -----
+        This method uses two sampling strategies to keep memory usage low:
+            1. **Random sampling** – `N_RANDOM` points are drawn uniformly from the
+               hyperrectangle defined by the extremes of the input grids.
+            2. **Zero‑frequency sampling** – the symbol is evaluated at ξ=0 (and η=0 in 2D)
+               on a coarse spatial grid of `N_ZERO` points per spatial dimension.
+        If any evaluated value falls below `threshold`, the method returns False immediately.
+        Because random sampling is probabilistic, a True result does not guarantee
+        ellipticity in the strict mathematical sense – it only indicates that no sampled
+        point violated the condition. For rigorous analysis, combine this with symbolic
+        methods (e.g., :meth:`principal_symbol` and :meth:`is_homogeneous`).
         """
-        RESAMPLE_SIZE = 32
-        
-        if self.dim == 1:
-            x_vals = x_grid
-            xi_vals = xi_grid
-            
-            # Resampling if necessary
-            if len(x_vals) > RESAMPLE_SIZE:
-                x_vals = np.linspace(x_vals.min(), x_vals.max(), RESAMPLE_SIZE)
-            if len(xi_vals) > RESAMPLE_SIZE:
-                xi_vals = np.linspace(xi_vals.min(), xi_vals.max(), RESAMPLE_SIZE)
-            
-            # Ensure grid includes zero for frequency variable (critical for ellipticity check)
-            if 0 not in xi_vals:
-                xi_vals = np.append(xi_vals, 0.0)
-                xi_vals = np.sort(xi_vals)
-        
-            X, XI = np.meshgrid(x_vals, xi_vals, indexing='ij')
-            symbol_vals = self.p_func(X, XI)
-        
-        elif self.dim == 2:
-            x_vals, y_vals = x_grid
-            xi_vals, eta_vals = xi_grid
-        
-            # Spatial resampling
-            if len(x_vals) > RESAMPLE_SIZE:
-                x_vals = np.linspace(x_vals.min(), x_vals.max(), RESAMPLE_SIZE)
-            if len(y_vals) > RESAMPLE_SIZE:
-                y_vals = np.linspace(y_vals.min(), y_vals.max(), RESAMPLE_SIZE)
-        
-            # Frequency resampling - ensure zero is included
-            if len(xi_vals) > RESAMPLE_SIZE:
-                xi_vals = np.linspace(xi_vals.min(), xi_vals.max(), RESAMPLE_SIZE)
-            if len(eta_vals) > RESAMPLE_SIZE:
-                eta_vals = np.linspace(eta_vals.min(), eta_vals.max(), RESAMPLE_SIZE)
-            
-            if 0 not in xi_vals:
-                xi_vals = np.append(xi_vals, 0.0)
-                xi_vals = np.sort(xi_vals)
-            if 0 not in eta_vals:
-                eta_vals = np.append(eta_vals, 0.0)
-                eta_vals = np.sort(eta_vals)
-        
-            X, Y, XI, ETA = np.meshgrid(x_vals, y_vals, xi_vals, eta_vals, indexing='ij')
-            symbol_vals = self.p_func(X, Y, XI, ETA)
-        
-        min_abs_val = np.min(np.abs(symbol_vals))
-        return min_abs_val > threshold
+        import numpy as np
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+        # Constants controlling the sampling size
+        N_RANDOM = 100_000          # number of random points in full phase space
+        N_ZERO = 32                 # number of spatial points per dimension at zero frequency
+    
+        dim = self.dim
+    
+        # ----------------------------------------------------------------------
+        # Extract bounds from the input grids
+        # ----------------------------------------------------------------------
+        if dim == 1:
+            x_min, x_max = x_grid.min(), x_grid.max()
+            xi_min, xi_max = xi_grid.min(), xi_grid.max()
+            bounds = [(x_min, x_max), (xi_min, xi_max)]
+        else:  # dim == 2
+            x_arr, y_arr = x_grid
+            xi_arr, eta_arr = xi_grid
+            x_min, x_max = x_arr.min(), x_arr.max()
+            y_min, y_max = y_arr.min(), y_arr.max()
+            xi_min, xi_max = xi_arr.min(), xi_arr.max()
+            eta_min, eta_max = eta_arr.min(), eta_arr.max()
+            bounds = [(x_min, x_max), (y_min, y_max), (xi_min, xi_max), (eta_min, eta_max)]
+    
+        # ----------------------------------------------------------------------
+        # 1. Random sampling over the whole hyperrectangle
+        # ----------------------------------------------------------------------
+        # Generate random points uniformly within bounds
+        if dim == 1:
+            x_rand = np.random.uniform(x_min, x_max, N_RANDOM)
+            xi_rand = np.random.uniform(xi_min, xi_max, N_RANDOM)
+            # Vectorised evaluation
+            vals_rand = np.abs(self.p_func(x_rand, xi_rand))
+        else:  # dim == 2
+            x_rand = np.random.uniform(x_min, x_max, N_RANDOM)
+            y_rand = np.random.uniform(y_min, y_max, N_RANDOM)
+            xi_rand = np.random.uniform(xi_min, xi_max, N_RANDOM)
+            eta_rand = np.random.uniform(eta_min, eta_max, N_RANDOM)
+            vals_rand = np.abs(self.p_func(x_rand, y_rand, xi_rand, eta_rand))
+    
+        if np.any(vals_rand < threshold):
+            return False
+    
+        # ----------------------------------------------------------------------
+        # 2. Explicit check at zero frequency (ξ = 0, η = 0)
+        # ----------------------------------------------------------------------
+        if dim == 1:
+            x_zero = np.linspace(x_min, x_max, N_ZERO)
+            xi_zero = np.zeros_like(x_zero)
+            vals_zero = np.abs(self.p_func(x_zero, xi_zero))
+            if np.any(vals_zero < threshold):
+                return False
+        else:  # dim == 2
+            x_zero = np.linspace(x_min, x_max, N_ZERO)
+            y_zero = np.linspace(y_min, y_max, N_ZERO)
+            # Create a small grid at (ξ=0, η=0)
+            X, Y = np.meshgrid(x_zero, y_zero, indexing='ij')
+            X_flat = X.ravel()
+            Y_flat = Y.ravel()
+            xi_zero = np.zeros_like(X_flat)
+            eta_zero = np.zeros_like(Y_flat)
+            vals_zero = np.abs(self.p_func(X_flat, Y_flat, xi_zero, eta_zero))
+            if np.any(vals_zero < threshold):
+                return False
+    
+        # All checks passed
+        return True
     
 
     def is_self_adjoint(self, tol=1e-10):

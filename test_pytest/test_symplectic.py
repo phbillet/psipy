@@ -45,6 +45,8 @@ from symplectic import (
     _infer_variables,
     _get_ndof,
     _check_ndof,
+    rectangle_region,
+    evolve_phase_space_region
 )
 
 # -----------------------------------------------------------------------------
@@ -711,3 +713,114 @@ def test_visualize_poincare_section_execution():
         vars_phase=[x1, p1, x2, p2],
         tmax=10, n_returns=5, plot_vars=('x1', 'p1'),
     )
+
+# -----------------------------------------------------------------------------
+# Tests for new region‑evolution functions
+# -----------------------------------------------------------------------------
+
+def test_rectangle_region():
+    """Check that rectangle_region produces a closed polygon with correct bounds."""
+    center = (0, 0)
+    width = 2.0
+    height = 1.0
+    n_points = 10
+    region = rectangle_region(center, width, height, n_points)
+
+    # Shape: n_points + 1 (closure)
+    assert region.shape == (n_points + 1, 2)
+
+    # First and last point must be identical
+    assert np.allclose(region[0], region[-1])
+
+    # Bounding box should match the specified width and height
+    xmin, xmax = region[:, 0].min(), region[:, 0].max()
+    pmin, pmax = region[:, 1].min(), region[:, 1].max()
+    assert np.isclose(xmin, center[0] - width/2)
+    assert np.isclose(xmax, center[0] + width/2)
+    assert np.isclose(pmin, center[1] - height/2)
+    assert np.isclose(pmax, center[1] + height/2)
+
+
+def test_evolve_phase_space_region_basic():
+    """Basic run of evolve_phase_space_region with area conservation check."""
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2          # harmonic oscillator
+    # Small rectangle near (1,0)
+    region = rectangle_region(center=(1, 0), width=0.2, height=0.2, n_points=4)
+    t_eval = [0, 1]                 # short integration
+    result = evolve_phase_space_region(
+        H, region, t_eval,
+        vars_phase=[x, p],
+        integrator='verlet',
+        n_steps=500,
+        plot=False
+    )
+
+    # Expected keys
+    assert 'times' in result
+    assert 'region_at_t' in result
+    assert 'areas' in result
+
+    # Times should match t_eval (sorted)
+    np.testing.assert_array_equal(result['times'], t_eval)
+
+    # Number of regions and areas must equal len(t_eval)
+    assert len(result['region_at_t']) == len(t_eval)
+    assert len(result['areas']) == len(t_eval)
+
+    # Each region should have the same shape as the input
+    for reg in result['region_at_t']:
+        assert reg.shape == region.shape
+
+    # Area conservation: initial area = width*height = 0.04
+    expected_area = 0.2 * 0.2
+    assert np.allclose(result['areas'], expected_area, rtol=0.05)
+
+
+def test_evolve_phase_space_region_invalid_dim():
+    """Calling evolve_phase_space_region on a 2‑DOF system should raise."""
+    x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+    region = rectangle_region(center=(0, 0), width=1, height=1, n_points=4)
+    with pytest.raises(ValueError, match="requires 1 DOF"):
+        evolve_phase_space_region(
+            H, region, [0, 1],
+            vars_phase=[x1, p1, x2, p2]
+        )
+
+def test_evolve_phase_space_region_not_closed():
+    """If the input polygon is not closed, a warning is issued and it is closed automatically."""
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    # Open polygon: first and last points differ
+    open_region = np.array([[0, 0], [1, 0], [1, 1]])
+    with pytest.warns(UserWarning, match="Region is not closed"):
+        result = evolve_phase_space_region(
+            H, open_region, [0, 0.5],
+            vars_phase=[x, p],
+            integrator='verlet',
+            n_steps=200,
+            plot=False
+        )
+    # After automatic closure, the region should have one extra point
+    assert result['region_at_t'][0].shape[0] == open_region.shape[0] + 1
+
+
+def test_evolve_phase_space_region_plot(monkeypatch):
+    """Test that plot=True runs without displaying an actual window."""
+    import matplotlib.pyplot as plt
+    # Prevent plt.show from blocking (already using Agg, but this adds safety)
+    monkeypatch.setattr(plt, 'show', lambda: None)
+
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    region = rectangle_region(center=(1, 0), width=0.2, height=0.2, n_points=4)
+    result = evolve_phase_space_region(
+        H, region, [0, 0.5],
+        vars_phase=[x, p],
+        integrator='verlet',
+        n_steps=200,
+        plot=True
+    )
+    assert 'plot_handles' in result
+    assert len(result['plot_handles']) == len(result['times'])
