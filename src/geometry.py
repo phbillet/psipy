@@ -460,7 +460,7 @@ class SymbolGeometry(SymbolGeometryBase):
                             xi_cyc = geo.xi[:idx_p+1]
                             t_cyc  = geo.t[:idx_p+1]
                             dx_dt  = np.gradient(x_cyc, t_cyc)
-                            action = np.trapz(xi_cyc * dx_dt, t_cyc)
+                            action = np.trapezoid(xi_cyc * dx_dt, t_cyc)
                             stab   = self._compute_stability_1d(
                                 x0_test, xi0, period)
                             orbits.append(PeriodicOrbit1D(
@@ -763,7 +763,7 @@ class SymbolGeometry2D(SymbolGeometryBase):
                                     t_cyc   = geo.t[:idx+1]
                                     dx_dt   = np.gradient(x_cyc,  t_cyc)
                                     dy_dt   = np.gradient(y_cyc,  t_cyc)
-                                    action  = np.trapz(
+                                    action  = np.trapezoid(
                                         xi_cyc*dx_dt + eta_cyc*dy_dt, t_cyc)
                                     maslov  = int(np.sum(
                                         geo.caustic_indices < idx))

@@ -155,6 +155,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#asymptotic.StationaryPhaseVisualizer"><code class="docutils literal notranslate"><span class="pre">StationaryPhaseVisualizer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#asymptotic.plot_contribution_decomposition"><code class="docutils literal notranslate"><span class="pre">plot_contribution_decomposition()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="caustics.html">caustics</a></li>
@@ -1532,6 +1533,108 @@ with a warning.</p>
 <dt class="sig sig-object py" id="asymptotic.StationaryPhaseVisualizer">
 <span class="sig-prename descclassname"><span class="pre">asymptotic.</span></span><span class="sig-name descname"><span class="pre">StationaryPhaseVisualizer</span></span><a class="headerlink" href="#asymptotic.StationaryPhaseVisualizer" title="Link to this definition"></a></dt>
 <dd><p>alias of <a class="reference internal" href="#asymptotic.AsymptoticVisualizer" title="asymptotic.AsymptoticVisualizer"><code class="xref py py-class docutils literal notranslate"><span class="pre">AsymptoticVisualizer</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="asymptotic.plot_contribution_decomposition">
+<span class="sig-prename descclassname"><span class="pre">asymptotic.</span></span><span class="sig-name descname"><span class="pre">plot_contribution_decomposition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">critical_points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">analyzer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambda_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_correction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_coherent_sum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/asymptotic.html#plot_contribution_decomposition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#asymptotic.plot_contribution_decomposition" title="Link to this definition"></a></dt>
+<dd><p>Decompose the asymptotic expansion I(λ) into its per-critical-point
+contributions and plot how each term scales with the large parameter λ.</p>
+<p>This is the <code class="docutils literal notranslate"><span class="pre">asymptotic.py</span></code> counterpart of <code class="docutils literal notranslate"><span class="pre">wkb.plot_amplitude_decomposition</span></code>.
+While the WKB version displays spatial amplitude orders aₖ(x) on a grid,
+the asymptotic expansion has no spatial structure: its “terms” are complex
+numbers indexed by critical point and by expansion order (leading / correction).
+The natural display axis is therefore λ, shown on a log scale.</p>
+<p>The function produces a figure with three stacked panels:</p>
+<dl class="simple">
+<dt><strong>Panel 1 — Leading terms</strong> (one curve per critical point)</dt><dd><p><a href="#id67"><span class="problematic" id="id68">|I₀ⱼ(λ)|</span></a> = <a href="#id69"><span class="problematic" id="id70">|leading_term|</span></a> for each critical point j, plotted on a
+log-log scale.  A theoretical reference line λ^(-p) is overlaid using
+the <code class="docutils literal notranslate"><span class="pre">order_leading</span></code> attribute of the first evaluated contribution.
+The label includes the critical-point coordinates, its singularity type,
+and its integration method.</p>
+</dd>
+<dt><strong>Panel 2 — Correction terms</strong> (one curve per critical point, optional)</dt><dd><p><a href="#id71"><span class="problematic" id="id72">|I₁ⱼ(λ)|</span></a> = <a href="#id73"><span class="problematic" id="id74">|correction_term|</span></a>.  For degenerate singularities (Airy,
+Pearcey) where the correction is not computed the curve is omitted and
+a note is added to the legend.  Shown only when <code class="docutils literal notranslate"><span class="pre">show_correction=True</span></code>.</p>
+</dd>
+<dt><strong>Panel 3 — Coherent total sum</strong> (optional)</dt><dd><p><a href="#id75"><span class="problematic" id="id76">|I(λ)|</span></a> = <a href="#id77"><span class="problematic" id="id78">|Σⱼ (leading_termⱼ + correction_termⱼ)|</span></a> — the coherent sum
+of all contributions, including interference between critical points.
+A second curve shows the incoherent upper bound Σⱼ <a href="#id79"><span class="problematic" id="id80">|total_valueⱼ|</span></a>.
+Shown only when <code class="docutils literal notranslate"><span class="pre">show_coherent_sum=True</span></code>.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>critical_points</strong> (<em>list</em><em> of </em><a class="reference internal" href="#asymptotic.CriticalPoint" title="asymptotic.CriticalPoint"><em>CriticalPoint</em></a>) – Critical (or saddle) points obtained from <code class="docutils literal notranslate"><span class="pre">Analyzer.analyze_point()</span></code>.
+Each element must have its <code class="docutils literal notranslate"><span class="pre">method</span></code> attribute set to a concrete
+<code class="docutils literal notranslate"><span class="pre">IntegralMethod</span></code> (not AUTO).  Pass a single-element list for a
+one-critical-point problem.</p></li>
+<li><p><strong>analyzer</strong> (<a class="reference internal" href="#asymptotic.Analyzer" title="asymptotic.Analyzer"><em>Analyzer</em></a>) – The <code class="docutils literal notranslate"><span class="pre">Analyzer</span></code> instance that produced the critical points.  Its
+<code class="docutils literal notranslate"><span class="pre">method</span></code> attribute is used to label the figure title and to
+dispatch evaluation through <code class="docutils literal notranslate"><span class="pre">AsymptoticEvaluator</span></code>.</p></li>
+<li><p><strong>lambda_values</strong> (<em>array_like</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – Sequence of positive λ values at which to evaluate all contributions.
+If None, defaults to <code class="docutils literal notranslate"><span class="pre">np.logspace(0,</span> <span class="pre">4,</span> <span class="pre">60)</span></code> (i.e. λ ∈ [1, 10000]).
+Values must be strictly positive.</p></li>
+<li><p><strong>show_correction</strong> (<em>bool</em><em>, </em><em>default True</em>) – If True, Panel 2 (correction terms) is included in the figure.
+Set to False when all critical points are degenerate (Airy/Pearcey)
+and correction terms are identically zero.</p></li>
+<li><p><strong>show_coherent_sum</strong> (<em>bool</em><em>, </em><em>default True</em>) – If True, Panel 3 (coherent sum) is included.  Set to False when only
+one critical point is present and the total is already shown in Panel 1.</p></li>
+<li><p><strong>figsize</strong> (<em>tuple</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – Passed directly to <code class="docutils literal notranslate"><span class="pre">matplotlib.pyplot.subplots</span></code>.  If None, the
+height is chosen automatically as 4 inches per panel.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>fig</strong> (<em>matplotlib.figure.Figure</em>) – The figure object, so the caller can save or further customise it.</p></li>
+<li><p><strong>axes</strong> (<em>list of matplotlib.axes.Axes</em>) – The axes objects for each panel (length 1, 2, or 3 depending on the
+flags).</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ValueError</strong> – If <code class="docutils literal notranslate"><span class="pre">critical_points</span></code> is empty.</p></li>
+<li><p><strong>ValueError</strong> – If any <code class="docutils literal notranslate"><span class="pre">CriticalPoint.method</span></code> is None or AUTO.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>Basic usage with two stationary-phase critical points:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">phi</span>   <span class="o">=</span> <span class="n">x</span><span class="o">**</span><span class="mi">4</span> <span class="o">-</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span>          <span class="c1"># two minima at x = ±1/√2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">amp</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">analyzer</span> <span class="o">=</span> <span class="n">Analyzer</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="n">method</span><span class="o">=</span><span class="n">IntegralMethod</span><span class="o">.</span><span class="n">STATIONARY_PHASE</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pts</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">find_critical_points</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span> <span class="mf">0.7</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">0.7</span><span class="p">])]</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cps</span> <span class="o">=</span> <span class="p">[</span><span class="n">analyzer</span><span class="o">.</span><span class="n">analyze_point</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pts</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plot_contribution_decomposition</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">cps</span><span class="p">,</span> <span class="n">analyzer</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">lambda_values</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">80</span><span class="p">),</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;decomposition.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Suppress the correction panel (all Airy singularities):</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plot_contribution_decomposition</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">cps</span><span class="p">,</span> <span class="n">analyzer</span><span class="p">,</span> <span class="n">show_correction</span><span class="o">=</span><span class="kc">False</span>
+<span class="gp">... </span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#asymptotic.AsymptoticVisualizer.plot_asymptotic_convergence" title="asymptotic.AsymptoticVisualizer.plot_asymptotic_convergence"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AsymptoticVisualizer.plot_asymptotic_convergence</span></code></a></dt><dd><p>Single-critical-point log-log decay plot (simpler but less informative when multiple critical points are present).</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_amplitude_decomposition</span></code></dt><dd><p>(in wkb.py) Spatial WKB analogue — plots amplitude orders aₖ(x) on a grid.</p>
+</dd>
+</dl>
+</div>
 </dd></dl>
 
 </section>

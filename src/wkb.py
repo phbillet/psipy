@@ -1201,20 +1201,20 @@ def compare_orders(symbol, initial_phase, max_order=3, **kwargs):
         # Sample at center
         idx_center = len(solutions[0]['x']) // 2
         
-        print(f"\nAt x = {solutions[0]['x'][idx_center]:.3f}:")
+        print(f"\nAt x = {float(solutions[0]['x'][idx_center]):.3f}:")
         for order in range(n_orders):
-            u_val = solutions[order]['u'][idx_center]
-            print(f"  Order {order}: u = {u_val:.6f}, |u| = {np.abs(u_val):.6f}")
+            u_val = complex(solutions[order]['u'][idx_center])
+            print(f"  Order {order}: u = {u_val:.6f}, |u| = {abs(u_val):.6f}")
     else:
         # Sample at center
         nx, ny = solutions[0]['x'].shape
         idx_x, idx_y = nx//2, ny//2
         
-        print(f"\nAt (x,y) = ({solutions[0]['x'][idx_x, idx_y]:.3f}, "
-              f"{solutions[0]['y'][idx_x, idx_y]:.3f}):")
+        print(f"\nAt (x,y) = ({float(solutions[0]['x'][idx_x, idx_y]):.3f}, "
+              f"{float(solutions[0]['y'][idx_x, idx_y]):.3f}):")
         for order in range(n_orders):
-            u_val = solutions[order]['u'][idx_x, idx_y]
-            print(f"  Order {order}: u = {u_val:.6f}, |u| = {np.abs(u_val):.6f}")
+            u_val = complex(solutions[order]['u'][idx_x, idx_y])
+            print(f"  Order {order}: u = {u_val:.6f}, |u| = {abs(u_val):.6f}")
     
     # Compute differences between consecutive orders
     print("\nRelative differences between orders:")

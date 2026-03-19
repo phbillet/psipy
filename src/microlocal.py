@@ -425,7 +425,7 @@ def _bichar_flow_2d(symbol, z0, tspan, method, n_steps):
 # 1D‑specific functions (Bohr–Sommerfeld, caustic detection)
 # ----------------------------------------------------------------------
 def bohr_sommerfeld_quantization(H, n_max=10, x_range=(-10,10),
-                                 hbar=1.0, method='fast'):
+                                 hbar=1.0, E_range=(1e-6, 50.0)):
     """
     Bohr–Sommerfeld quantisation for 1D bound states.
 
@@ -479,7 +479,7 @@ def bohr_sommerfeld_quantization(H, n_max=10, x_range=(-10,10),
         return I / np.pi
 
     targets = [hbar*(n + alpha) for n in range(n_max)]
-    E_scan = np.linspace(1e-6, 50, 200)
+    E_scan = np.linspace(E_range[0], E_range[1], 200) 
     I_scan = [action(E) for E in E_scan]
 
     energies = []

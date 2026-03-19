@@ -14,8 +14,9 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 - Asymptotic evaluation of oscillatory integrals (stationary phase, Laplace, saddle point).
 - Rigorous caustic detection and Arnold classification via the stability matrix.
 - Multidimensional WKB approximations with uniform caustic corrections.
-- **Full semiclassical (Van Vleck–Pauli–Morette) wavefunction assembly from classical ray fans.**
+- Full semiclassical (Van Vleck–Pauli–Morette) wavefunction assembly from classical ray fans.
 - Hamiltonian and Lagrangian mechanics (Legendre transforms, symbolic PDE generation).
+- Symplectic geometry toolkit for Hamiltonian mechanics: integrators, Poisson brackets, and stability analysis for arbitrary degrees of freedom (DOF).
 - A curated catalog of over 500 Hamiltonian systems for testing and research.
 - Geometric analysis of 1D/2D Hamiltonian flows, periodic orbits, and semiclassical spectra.
 
@@ -25,8 +26,8 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 
 ### 🔹 Pseudo‑Differential Operators (ΨDOs)
 - Define operators from a symbol $p(x,\xi)$ or derive them automatically from differential expressions.
-- Symbolic calculus: asymptotic expansion, composition, commutators, formal adjoints, exponential, and left/right inverses.
-- Microlocal analysis: ellipticity checks, characteristic sets, Hamiltonian flows, and pseudospectrum.
+- **Symbolic calculus**: asymptotic expansion, composition, commutators, formal adjoints, exponential, and left/right inverses.
+- **Microlocal analysis**: ellipticity checks, characteristic sets, Hamiltonian flows, and pseudospectrum.
 
 ### 🔹 PDE Solving with Spectral Methods
 - Solve **1D & 2D** linear/nonlinear time‑dependent or stationary PDEs.
@@ -42,17 +43,17 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 - **Saddle‑point** continuation for complex phases (with cautionary warnings).
 
 ### 🔹 Caustic Detection and Arnold Classification
-- **Algebraic classification** of 1D and 2D catastrophes up to \(A_5\) and \(D_4^\pm\).
+- **Algebraic classification** of 1D and 2D catastrophes up to $A_5$ and $D_4^\pm$.
 - **Adaptive critical‑point solver** that combines symbolic solving and grid‑based Newton refinement.
-- **Ray‑based caustic detection** using the stability matrix \(J(t)\) (corrected method); computes Maslov index and Arnold type.
+- **Ray‑based caustic detection** using the stability matrix $J(t)$ (corrected method); computes Maslov index and Arnold type.
 
 ### 🔹 Multidimensional WKB Approximation
-- Ray tracing for eikonal and transport equations up to third order.
-- Co‑integration of the **stability matrix** \(J\) for rigorous caustic detection.
+- Ray tracing for **eikonal** and **transport equations** up to third order.
+- Co‑integration of the **stability matrix** $J$ for rigorous caustic detection.
 - Uniform caustic corrections using Airy (fold) and Pearcey (cusp) functions.
 - Automatic interpolation onto regular grids for 1D/2D solutions.
 
-### 🔹 Van Vleck–Pauli–Morette Semiclassical Propagator *(new)*
+### 🔹 Van Vleck–Pauli–Morette Semiclassical Propagator
 - Assemble the full semiclassical wavefunction $\psi(x,t) = \sum_k A_k \, e^{i S_k/\hbar - i\mu_k\pi/2}$ from a fan of classical rays.
 - Works for any Riemannian metric $g_{ij}(x)$ defined via a `Metric` object or derived directly from a Hamiltonian expression $H = \tfrac{1}{2}g^{ij}p_ip_j$.
 - Correct **pointwise Airy profile** at 1D fold caustics: $\psi(x) \propto \mathrm{Ai}(\xi(x))$ with $\xi = (\alpha/2\hbar)^{1/3}(x-x_c)$, giving physically correct fringe spacing $\propto\hbar^{1/3}$.
@@ -72,6 +73,13 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 - Automatic generation of formal PDEs (Schrödinger, wave, stationary) from a Hamiltonian symbol via ΨDOs.
 - Decomposition of Hamiltonians into local (polynomial) and nonlocal (e.g., sqrt, Abs) parts.
 
+#### 🔹 Symplectic Geometry & Hamiltonian Dynamics
+- **Symplectic Integrators**: Energy-preserving solvers (Symplectic Euler, Velocity Verlet) that maintain the geometric structure of phase space for long-term simulations.
+- **Symbolic & Numerical Analysis**: Automatic phase-space variable inference, symbolic Poisson brackets, and Hamiltonian vector field (symplectic gradient) computation.
+- **Equilibria & Stability**: Automated fixed-point detection and linearization to classify orbits as elliptic (stable), hyperbolic (unstable), or mixed.
+- **DOF-Specific Utilities**: Tools for 1-DOF action-angle variables and phase portraits, alongside 2-DOF Poincaré sections, monodromy matrices, and Lyapunov exponents.
+- **Integrability & Chaos**: Advanced classification of motion using level-spacing statistics (Berry–Tabor/BGS), KAM tori detection, and rotation numbers.
+
 ### 🔹 Extensive Hamiltonian Catalog
 - Over **500 pre‑defined symbolic Hamiltonians** covering classical mechanics, quantum systems, field theory, astrophysics, condensed matter, biophysics, and many interdisciplinary domains.
 - Search, filter, and export utilities for systematic exploration and benchmarking.
@@ -86,21 +94,21 @@ The library provides a comprehensive toolkit for researchers in mathematical phy
 
 ## Core Modules
 
-| Module          | Description |
-| :-------------- | :---------- |
-| `psiop`         | Symbolic and numerical framework for pseudo‑differential operators. Defines operators, performs symbolic calculus, and applies them via FFT/Kohn‑Nirenberg. |
-| `solver`        | Spectral PDE solver with automatic term classification, support for ΨDOs, and ETD‑RK4 time stepping. Solves both time‑dependent and stationary equations. |
-| `asymptotic`    | Large‑parameter asymptotics for oscillatory integrals. Detects method, finds critical points, and evaluates leading terms + corrections for Morse/Airy/Pearcey. |
-| `caustics`      | Arnold classification, adaptive critical‑point search, and ray‑based caustic detection with Maslov index. |
-| `wkb`           | Multidimensional WKB approximation with ray tracing, amplitude transport, and uniform caustic corrections. |
-| `propagator`    | **Van Vleck–Pauli–Morette semiclassical propagator.** Assembles the full semiclassical wavefunction from a classical ray fan on any 1D/2D Riemannian metric. Integrates rays symplectically, computes Jacobi determinants and Maslov indices, and applies pointwise Airy (fold) and Pearcey (cusp) caustic corrections onto a regular output grid. |
-| `microlocal`    | Unified microlocal toolkit: characteristic varieties, bicharacteristic flow, wavefront sets, and WKB integration. |
-| `fio_bridge`    | Fourier Integral Operator bridge: applies ΨDOs to WKB states via asymptotic evaluation, with precomputation for speed. Includes validation tools (CrossValidator). |
-| `symplectic`    | Hamiltonian mechanics for any number of degrees of freedom: symplectic integration, Poisson brackets, fixed points, action‑angle (1D), Poincaré sections (2D). |
-| `riemannian`    | Riemannian geometry in 1D/2D: metric, geodesics, curvature, Laplace–Beltrami, exponential map, and visualisation. |
-| `geometry`      | Comprehensive visualisation and analysis of 1D/2D Hamiltonian systems: geodesics, periodic orbits, caustics, Gutzwiller trace, semiclassical spectrum, KAM tori. |
-| `physics`       | Symbolic toolkit for Lagrangian–Hamiltonian conversion (Legendre transforms, Legendre–Fenchel with numeric fallback) and automatic PDE generation from Hamiltonian symbols. |
+| Module              | Description |
+| :------------------ | :---------- |
+| `asymptotic`        | Large‑parameter asymptotics for oscillatory integrals. Detects method, finds critical points, and evaluates leading terms + corrections for Morse/Airy/Pearcey. |
+| `caustics`          | Arnold classification, adaptive critical‑point search, and ray‑based caustic detection with Maslov index. |
+| `fio_bridge`        | Fourier Integral Operator bridge: applies ΨDOs to WKB states via asymptotic evaluation, with precomputation for speed. Includes validation tools (CrossValidator). |
+| `geometry`          | Comprehensive visualisation and analysis of 1D/2D Hamiltonian systems: geodesics, periodic orbits, caustics, Gutzwiller trace, semiclassical spectrum, KAM tori. |
 | `hamiltonian_catalog` | Curated collection of over 500 symbolic Hamiltonians across many domains, with search, filtering, export, and metadata. |
+| `microlocal`        | Unified microlocal toolkit: characteristic varieties, bicharacteristic flow, wavefront sets, and WKB integration. |
+| `physics`           | Symbolic toolkit for Lagrangian–Hamiltonian conversion (Legendre transforms, Legendre–Fenchel with numeric fallback) and automatic PDE generation from Hamiltonian symbols. |
+| `propagator`        | Van Vleck–Pauli–Morette semiclassical propagator. Assembles the full semiclassical wavefunction from a classical ray fan on any 1D/2D Riemannian metric. Integrates rays symplectically, computes Jacobi determinants and Maslov indices, and applies pointwise Airy (fold) and Pearcey (cusp) caustic corrections onto a regular output grid. |
+| `psiop`             | Symbolic and numerical framework for pseudo‑differential operators. Defines operators, performs symbolic calculus, and applies them via FFT/Kohn‑Nirenberg. |
+| `riemannian`        | Riemannian geometry in 1D/2D: metric, geodesics, curvature, Laplace–Beltrami, exponential map, and visualisation. |
+| `solver`            | Spectral PDE solver with automatic term classification, support for ΨDOs, and ETD‑RK4 time stepping. Solves both time‑dependent and stationary equations. |
+| `symplectic`        | Unified toolkit for Hamiltonian mechanics: symplectic integration (Euler/Verlet), Poisson brackets, fixed-point stability, and advanced integrability/chaos diagnostics. |
+| `wkb`               | Multidimensional WKB approximation with ray tracing, amplitude transport, and uniform caustic corrections. |
 
 ---
 

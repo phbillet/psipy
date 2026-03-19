@@ -2093,7 +2093,308 @@ class AsymptoticVisualizer:
         plt.tight_layout()
         plt.show()
 
+def plot_contribution_decomposition(
+    critical_points,
+    analyzer,
+    lambda_values=None,
+    show_correction=True,
+    show_coherent_sum=True,
+    figsize=None,
+):
+    """
+    Decompose the asymptotic expansion I(λ) into its per-critical-point
+    contributions and plot how each term scales with the large parameter λ.
 
+    This is the ``asymptotic.py`` counterpart of ``wkb.plot_amplitude_decomposition``.
+    While the WKB version displays spatial amplitude orders aₖ(x) on a grid,
+    the asymptotic expansion has no spatial structure: its "terms" are complex
+    numbers indexed by critical point and by expansion order (leading / correction).
+    The natural display axis is therefore λ, shown on a log scale.
+
+    The function produces a figure with three stacked panels:
+
+    **Panel 1 — Leading terms** (one curve per critical point)
+        |I₀ⱼ(λ)| = |leading_term| for each critical point j, plotted on a
+        log-log scale.  A theoretical reference line λ^(-p) is overlaid using
+        the ``order_leading`` attribute of the first evaluated contribution.
+        The label includes the critical-point coordinates, its singularity type,
+        and its integration method.
+
+    **Panel 2 — Correction terms** (one curve per critical point, optional)
+        |I₁ⱼ(λ)| = |correction_term|.  For degenerate singularities (Airy,
+        Pearcey) where the correction is not computed the curve is omitted and
+        a note is added to the legend.  Shown only when ``show_correction=True``.
+
+    **Panel 3 — Coherent total sum** (optional)
+        |I(λ)| = |Σⱼ (leading_termⱼ + correction_termⱼ)| — the coherent sum
+        of all contributions, including interference between critical points.
+        A second curve shows the incoherent upper bound Σⱼ |total_valueⱼ|.
+        Shown only when ``show_coherent_sum=True``.
+
+    Parameters
+    ----------
+    critical_points : list of CriticalPoint
+        Critical (or saddle) points obtained from ``Analyzer.analyze_point()``.
+        Each element must have its ``method`` attribute set to a concrete
+        ``IntegralMethod`` (not AUTO).  Pass a single-element list for a
+        one-critical-point problem.
+
+    analyzer : Analyzer
+        The ``Analyzer`` instance that produced the critical points.  Its
+        ``method`` attribute is used to label the figure title and to
+        dispatch evaluation through ``AsymptoticEvaluator``.
+
+    lambda_values : array_like or None, default None
+        Sequence of positive λ values at which to evaluate all contributions.
+        If None, defaults to ``np.logspace(0, 4, 60)`` (i.e. λ ∈ [1, 10000]).
+        Values must be strictly positive.
+
+    show_correction : bool, default True
+        If True, Panel 2 (correction terms) is included in the figure.
+        Set to False when all critical points are degenerate (Airy/Pearcey)
+        and correction terms are identically zero.
+
+    show_coherent_sum : bool, default True
+        If True, Panel 3 (coherent sum) is included.  Set to False when only
+        one critical point is present and the total is already shown in Panel 1.
+
+    figsize : tuple or None, default None
+        Passed directly to ``matplotlib.pyplot.subplots``.  If None, the
+        height is chosen automatically as 4 inches per panel.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The figure object, so the caller can save or further customise it.
+
+    axes : list of matplotlib.axes.Axes
+        The axes objects for each panel (length 1, 2, or 3 depending on the
+        flags).
+
+    Raises
+    ------
+    ValueError
+        If ``critical_points`` is empty.
+    ValueError
+        If any ``CriticalPoint.method`` is None or AUTO.
+
+    Examples
+    --------
+    Basic usage with two stationary-phase critical points:
+
+    >>> import sympy as sp
+    >>> import numpy as np
+    >>> x = sp.Symbol('x')
+    >>> phi   = x**4 - x**2          # two minima at x = ±1/√2
+    >>> amp   = sp.Integer(1)
+    >>> analyzer = Analyzer(phi, amp, [x],
+    ...                     method=IntegralMethod.STATIONARY_PHASE)
+    >>> pts = analyzer.find_critical_points(
+    ...     [np.array([ 0.7]), np.array([-0.7])]
+    ... )
+    >>> cps = [analyzer.analyze_point(p) for p in pts]
+    >>> fig, axes = plot_contribution_decomposition(
+    ...     cps, analyzer,
+    ...     lambda_values=np.logspace(1, 4, 80),
+    ... )
+    >>> fig.savefig("decomposition.png", dpi=150)
+
+    Suppress the correction panel (all Airy singularities):
+
+    >>> fig, axes = plot_contribution_decomposition(
+    ...     cps, analyzer, show_correction=False
+    ... )
+
+    See Also
+    --------
+    AsymptoticVisualizer.plot_asymptotic_convergence :
+        Single-critical-point log-log decay plot (simpler but less informative
+        when multiple critical points are present).
+    plot_amplitude_decomposition :  (in wkb.py)
+        Spatial WKB analogue — plots amplitude orders aₖ(x) on a grid.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+    import warnings
+
+    # ------------------------------------------------------------------
+    # 0. Validate inputs
+    # ------------------------------------------------------------------
+    if not critical_points:
+        raise ValueError("critical_points must contain at least one CriticalPoint.")
+
+    if lambda_values is None:
+        lambda_values = np.logspace(0, 4, 60)
+    lambda_values = np.asarray(lambda_values, dtype=float)
+
+    n_pts = len(critical_points)
+    evaluator = AsymptoticEvaluator()
+
+    # Choose a color for each critical point
+    colors = [cm.tab10(i % 10) for i in range(n_pts)]
+
+    # ------------------------------------------------------------------
+    # 1. Evaluate all contributions over the λ grid
+    #    results[j][k] = AsymptoticContribution for point j at lambda_values[k]
+    # ------------------------------------------------------------------
+    results = []
+    for cp in critical_points:
+        row = []
+        for lam in lambda_values:
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", RuntimeWarning)
+                    row.append(evaluator.evaluate(cp, lam))
+            except Exception:
+                row.append(None)
+        results.append(row)
+
+    # ------------------------------------------------------------------
+    # 2. Build figure layout
+    # ------------------------------------------------------------------
+    n_panels = 1 + int(show_correction) + int(show_coherent_sum)
+    if figsize is None:
+        figsize = (10, 4 * n_panels)
+
+    fig, axes_arr = plt.subplots(n_panels, 1, figsize=figsize)
+    if n_panels == 1:
+        axes_arr = [axes_arr]
+    axes_list = list(axes_arr)
+
+    panel_idx = 0
+    ax_lead = axes_list[panel_idx]; panel_idx += 1
+    ax_corr = axes_list[panel_idx] if show_correction else None
+    if show_correction:
+        panel_idx += 1
+    ax_sum  = axes_list[panel_idx] if show_coherent_sum else None
+
+    # ------------------------------------------------------------------
+    # 3. Helper: build a human-readable label for a critical point
+    # ------------------------------------------------------------------
+    def _cp_label(j, cp):
+        pos_str = ", ".join(f"{float(np.real(v)):.3g}" for v in cp.position)
+        stype   = cp.singularity_type.value.capitalize()
+        method  = cp.method.value.replace("_", " ").title()
+        return f"Point {j+1}  x=({pos_str})  [{stype}, {method}]"
+
+    # ------------------------------------------------------------------
+    # 4. Panel 1 — Leading terms
+    # ------------------------------------------------------------------
+    reference_plotted = False
+    for j, (cp, row) in enumerate(zip(critical_points, results)):
+        lead_vals = np.array([
+            abs(r.leading_term) if r is not None else np.nan for r in row
+        ])
+        ax_lead.loglog(lambda_values, lead_vals,
+                       color=colors[j], linewidth=2.0, marker="o",
+                       markersize=3, label=_cp_label(j, cp))
+
+        # Overlay one theoretical reference line (from the first valid result)
+        if not reference_plotted:
+            valid_rows = [r for r in row if r is not None]
+            if valid_rows:
+                p = valid_rows[0].order_leading
+                ref = lead_vals[np.isfinite(lead_vals)]
+                if len(ref):
+                    idx0 = np.where(np.isfinite(lead_vals))[0][0]
+                    ref_curve = (lead_vals[idx0]
+                                 * (lambda_values / lambda_values[idx0]) ** (-p))
+                    ax_lead.loglog(lambda_values, ref_curve,
+                                   "k:", linewidth=1.3, alpha=0.55,
+                                   label=rf"Ref. slope $\lambda^{{-{p:.3g}}}$")
+                    reference_plotted = True
+
+    ax_lead.set_xlabel(r"$\lambda$", fontsize=12)
+    ax_lead.set_ylabel(r"$|I_0^{(j)}(\lambda)|$", fontsize=12)
+    ax_lead.set_title("Leading-term contributions per critical point", fontsize=12)
+    ax_lead.legend(fontsize=8, loc="best")
+    ax_lead.grid(True, which="both", ls=":", alpha=0.5)
+
+    # ------------------------------------------------------------------
+    # 5. Panel 2 — Correction terms (optional)
+    # ------------------------------------------------------------------
+    if show_correction and ax_corr is not None:
+        any_correction = False
+        for j, (cp, row) in enumerate(zip(critical_points, results)):
+            corr_vals = np.array([
+                abs(r.correction_term) if r is not None else np.nan for r in row
+            ])
+            # Check whether correction is non-trivially zero
+            lead_vals = np.array([
+                abs(r.leading_term) if r is not None else np.nan for r in row
+            ])
+            finite_corr = corr_vals[np.isfinite(corr_vals)]
+            finite_lead = lead_vals[np.isfinite(lead_vals)]
+            threshold = (1e-14 * np.max(finite_lead)
+                         if len(finite_lead) else 1e-14)
+
+            if len(finite_corr) and np.max(finite_corr) > threshold:
+                ax_corr.loglog(lambda_values, corr_vals,
+                               color=colors[j], linewidth=2.0,
+                               linestyle="--", marker="s", markersize=3,
+                               label=_cp_label(j, cp))
+                any_correction = True
+            else:
+                # Degenerate singularity — correction not computed
+                ax_corr.plot([], [],
+                             color=colors[j], linestyle="--",
+                             label=_cp_label(j, cp) + "  [correction N/A]")
+
+        ax_corr.set_xlabel(r"$\lambda$", fontsize=12)
+        ax_corr.set_ylabel(r"$|I_1^{(j)}(\lambda)|$", fontsize=12)
+        ax_corr.set_title("Correction-term contributions per critical point",
+                          fontsize=12)
+        ax_corr.legend(fontsize=8, loc="best")
+        ax_corr.grid(True, which="both", ls=":", alpha=0.5)
+        if not any_correction:
+            ax_corr.text(0.5, 0.5,
+                         "No correction terms available\n(degenerate singularities)",
+                         transform=ax_corr.transAxes,
+                         ha="center", va="center", fontsize=11,
+                         bbox=dict(boxstyle="round", facecolor="lightyellow",
+                                   alpha=0.8))
+
+    # ------------------------------------------------------------------
+    # 6. Panel 3 — Coherent sum (optional)
+    # ------------------------------------------------------------------
+    if show_coherent_sum and ax_sum is not None:
+        coherent  = np.zeros(len(lambda_values), dtype=complex)
+        incoherent = np.zeros(len(lambda_values), dtype=float)
+
+        for j, row in enumerate(results):
+            for k, r in enumerate(row):
+                if r is not None:
+                    coherent[k]   += r.total_value
+                    incoherent[k] += abs(r.total_value)
+
+        ax_sum.loglog(lambda_values, np.abs(coherent),
+                      "b-", linewidth=2.5, label=r"Coherent sum $|\sum_j I^{(j)}|$")
+        ax_sum.loglog(lambda_values, incoherent,
+                      "r--", linewidth=1.8,
+                      label=r"Incoherent bound $\sum_j |I^{(j)}|$")
+
+        ax_sum.set_xlabel(r"$\lambda$", fontsize=12)
+        ax_sum.set_ylabel(r"$|I(\lambda)|$", fontsize=12)
+        ax_sum.set_title("Total asymptotic approximation (all critical points)",
+                         fontsize=12)
+        ax_sum.legend(fontsize=10, loc="best")
+        ax_sum.grid(True, which="both", ls=":", alpha=0.5)
+
+    # ------------------------------------------------------------------
+    # 7. Overall title
+    # ------------------------------------------------------------------
+    method_label = analyzer.method.value.replace("_", " ").title()
+    dim_label    = f"{analyzer.dim}D"
+    fig.suptitle(
+        f"Asymptotic contribution decomposition — {method_label} / {dim_label}"
+        f"  ({n_pts} critical point{'s' if n_pts > 1 else ''})",
+        fontsize=13, fontweight="bold", y=1.01,
+    )
+    plt.tight_layout()
+
+    return fig, axes_list
+    
 # Backward-compatible alias so that existing code using StationaryPhaseVisualizer
 # continues to work without modification.
 StationaryPhaseVisualizer = AsymptoticVisualizer

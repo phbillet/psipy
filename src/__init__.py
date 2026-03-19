@@ -91,10 +91,13 @@ solver
     spectral methods and exponential time‑stepping (ETD‑RK4).
 
 symplectic
-    Symplectic geometry toolkit for Hamiltonian mechanics with arbitrary
-    degrees of freedom.  Provides symplectic integrators (Euler, Verlet),
-    Poisson brackets, fixed‑point analysis, action‑angle variables (1‑DOF),
-    and Poincaré sections / monodromy matrices (2‑DOF).
+    Symplectic geometry toolkit for Hamiltonian mechanics with arbitrary 
+    degrees of freedom. Provides energy-preserving integrators and symbolic 
+    Poisson brackets. Includes fixed-point stability analysis, 1-DOF 
+    action-angle/separatrix tools, and 2-DOF Poincaré sections, 
+    Lyapunov exponents, and monodromy matrices. 
+    Features advanced integrability diagnostics including KAM tori detection, 
+    level-spacing statistics (Berry–Tabor and BGS distributions), and rotation numbers.
 
 wkb
     Multidimensional WKB (Wentzel–Kramers–Brillouin) approximation with
@@ -129,7 +132,7 @@ from .propagator import *
 __version__ = version("psipy")
 
 # Liste des noms exposés par `from psipy import *`
-__all__ = [
+__allZZZZZZZ__ = [
     "PseudoDifferentialOperator",
     "PDESolver",
     "LagrangianHamiltonianConverter",
