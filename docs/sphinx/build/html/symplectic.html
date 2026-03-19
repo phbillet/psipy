@@ -62,6 +62,15 @@
 <li class="toctree-l3"><a class="reference internal" href="#mathematical-background">Mathematical background</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.analyze_integrability"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.analyze_integrability()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.berry_tabor_formula"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.berry_tabor_formula()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.detect_kam_tori"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.detect_kam_tori()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.rotation_numbers"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.rotation_numbers()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.weyl_law"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.weyl_law()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.winding_number"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.winding_number()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.SymplecticForm"><code class="docutils literal notranslate"><span class="pre">SymplecticForm</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#symplectic.SymplecticForm.n"><code class="docutils literal notranslate"><span class="pre">SymplecticForm.n</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#symplectic.SymplecticForm.vars_phase"><code class="docutils literal notranslate"><span class="pre">SymplecticForm.vars_phase</span></code></a></li>
@@ -89,9 +98,11 @@
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.project"><code class="docutils literal notranslate"><span class="pre">project()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.rectangle_region"><code class="docutils literal notranslate"><span class="pre">rectangle_region()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.separatrix_analysis"><code class="docutils literal notranslate"><span class="pre">separatrix_analysis()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#symplectic.symplectic_gradient"><code class="docutils literal notranslate"><span class="pre">symplectic_gradient()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.test_coupled_oscillators"><code class="docutils literal notranslate"><span class="pre">test_coupled_oscillators()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.test_fixed_points_1d"><code class="docutils literal notranslate"><span class="pre">test_fixed_points_1d()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.test_harmonic_oscillator"><code class="docutils literal notranslate"><span class="pre">test_harmonic_oscillator()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#symplectic.test_integrability_analysis"><code class="docutils literal notranslate"><span class="pre">test_integrability_analysis()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.test_monodromy_simple"><code class="docutils literal notranslate"><span class="pre">test_monodromy_simple()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.test_poincare_section"><code class="docutils literal notranslate"><span class="pre">test_poincare_section()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.visualize_phase_space_structure"><code class="docutils literal notranslate"><span class="pre">visualize_phase_space_structure()</span></code></a></li>
@@ -140,8 +151,11 @@
 <li><p><strong>1‑DOF specific</strong> utilities: action‑angle variables, phase portraits, separatrix analysis.</p></li>
 <li><p><strong>2‑DOF specific</strong> utilities: Poincaré sections, first‑return maps, monodromy matrix, Lyapunov exponents.</p></li>
 <li><p>Automatic inference of phase‑space variables from the Hamiltonian expression.</p></li>
+<li><p><strong>Integrability classification</strong> utilities: level-spacing statistics (Berry-Tabor /
+BGS), Weyl’s law, Berry-Tabor smoothed density of states, KAM tori detection,
+and winding / rotation numbers (<code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis</span></code> class).</p></li>
 </ul>
-<p>The module is designed to be both a pedagogical tool for exploring Hamiltonian dynamics and a practical library for more advanced studies (e.g., computing monodromy matrices of periodic orbits).</p>
+<p>The module is designed to be both a pedagogical tool for exploring Hamiltonian dynamics and a practical library for more advanced studies (e.g., computing monodromy matrices of periodic orbits, classifying systems as integrable or chaotic).</p>
 </section>
 <section id="mathematical-background">
 <h3>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h3>
@@ -192,9 +206,303 @@
 <span class="label"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></span>
 <p>Meyer, K. R., Hall, G. R., &amp; Offin, D.  <em>Introduction to Hamiltonian Dynamical Systems and the N‑Body Problem</em>, Springer, 2009 (2nd ed.).</p>
 </aside>
+<aside class="footnote brackets" id="id6" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>6<span class="fn-bracket">]</span></span>
+<p>Berry, M. V. &amp; Tabor, M.  “Level clustering in the regular spectrum”, <em>Proc. R. Soc. Lond. A</em> 356, 375–394, 1977.</p>
+</aside>
+<aside class="footnote brackets" id="id7" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>7<span class="fn-bracket">]</span></span>
+<p>Bohigas, O., Giannoni, M. J., &amp; Schmit, C.  “Characterization of chaotic quantum spectra and universality of level fluctuation laws”, <em>Phys. Rev. Lett.</em> 52, 1–4, 1984.</p>
+</aside>
 </aside>
 </section>
 </section>
+<dl class="py class">
+<dt class="sig sig-object py" id="symplectic.IntegrabilityAnalysis">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">IntegrabilityAnalysis</span></span><a class="reference internal" href="_modules/symplectic.html#IntegrabilityAnalysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.IntegrabilityAnalysis" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Spectral and topological tools for classifying Hamiltonian systems as
+integrable, chaotic, or intermediate.</p>
+<p>These methods are the symplectic counterparts of the geometric indicators
+computed in geometry.py (Poincaré sections, Lyapunov exponents, monodromy
+matrices).  Together they provide a complete picture of the regular/chaotic
+nature of a system:</p>
+<ul class="simple">
+<li><p><strong>Level-spacing statistics</strong> (<code class="docutils literal notranslate"><span class="pre">analyze_integrability</span></code>) — quantum/semiclassical
+fingerprint: Poisson distribution for integrable systems (Berry-Tabor
+conjecture, 1977), Wigner surmise for chaotic ones (BGS conjecture, 1984).</p></li>
+<li><p><strong>Weyl’s law</strong> (<code class="docutils literal notranslate"><span class="pre">weyl_law</span></code>) — asymptotic count of states N(E) ~ Vol{H≤E}/(2πℏ)^n.</p></li>
+<li><p><strong>Berry-Tabor smoothed density</strong> (<code class="docutils literal notranslate"><span class="pre">berry_tabor_formula</span></code>) — semiclassical
+density of states built from a list of periodic orbits.</p></li>
+<li><p><strong>KAM tori detection</strong> (<code class="docutils literal notranslate"><span class="pre">detect_kam_tori</span></code>) — clusters periodic orbits by
+action proximity; each cluster corresponds to a KAM torus.</p></li>
+<li><p><strong>Winding / rotation numbers</strong> (<code class="docutils literal notranslate"><span class="pre">winding_number</span></code>, <code class="docutils literal notranslate"><span class="pre">rotation_numbers</span></code>) —
+topological invariants that distinguish resonant and quasi-periodic motion.</p></li>
+</ul>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="bt77" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>BT77<span class="fn-bracket">]</span></span>
+<p>Berry, M. V. &amp; Tabor, M., “Level clustering in the regular
+spectrum”, <em>Proc. R. Soc. Lond. A</em> 356, 375–394 (1977).</p>
+</div>
+<div class="citation" id="bgs84" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>BGS84<span class="fn-bracket">]</span></span>
+<p>Bohigas, O., Giannoni, M. J., &amp; Schmit, C., “Characterization of
+chaotic quantum spectra and universality of level fluctuation laws”,
+<em>Phys. Rev. Lett.</em> 52, 1–4 (1984).</p>
+</div>
+<div class="citation" id="ar89" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Ar89<span class="fn-bracket">]</span></span>
+<p>Arnold, V. I., <em>Mathematical Methods of Classical Mechanics</em>,
+Springer-Verlag, 1989, Chapters 10–11.</p>
+</div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="symplectic.IntegrabilityAnalysis.analyze_integrability">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">analyze_integrability</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spacings</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/symplectic.html#IntegrabilityAnalysis.analyze_integrability"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.IntegrabilityAnalysis.analyze_integrability" title="Link to this definition"></a></dt>
+<dd><p>Classify a Hamiltonian system via level-spacing statistics.</p>
+<p>Given the sequence of nearest-neighbour level spacings s_i = E_{i+1} - E_i
+(normalised so that the mean spacing is 1), the ratio</p>
+<blockquote>
+<div><p>R = &lt;s²&gt; / &lt;s&gt;²</p>
+</div></blockquote>
+<p>distinguishes the two universal classes:</p>
+<ul class="simple">
+<li><p><strong>Integrable</strong> (Berry-Tabor): spacings follow a Poisson distribution
+P(s) = e^{-s}, giving R ≈ 2.0.</p></li>
+<li><p><strong>Chaotic</strong> (BGS / GOE): spacings follow the Wigner surmise
+P(s) = (π/2) s e^{-πs²/4}, giving R ≈ 1.273.</p></li>
+</ul>
+<p>The threshold values used here (R &gt; 1.7 → integrable, R &lt; 1.4 → chaotic)
+are conventional; intermediate values indicate a mixed phase space.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>spacings</strong> (<em>ndarray</em><em> of </em><em>shape</em><em> (</em><em>N</em><em>,</em><em>)</em>) – Raw (un-normalised) nearest-neighbour energy-level spacings.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ratio</span></code>          – &lt;s²&gt;/&lt;s&gt;² of normalised spacings</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mean_spacing</span></code>   – mean of raw spacings</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">std_spacing</span></code>    – standard deviation of raw spacings</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">classification</span></code> – one of
+<code class="docutils literal notranslate"><span class="pre">'Integrable</span> <span class="pre">(Poisson-like)'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'Chaotic</span> <span class="pre">(Wigner-like)'</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">'Intermediate'</span></code></p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict with keys</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poisson_spacings</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">exponential</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">info</span> <span class="o">=</span> <span class="n">IntegrabilityAnalysis</span><span class="o">.</span><span class="n">analyze_integrability</span><span class="p">(</span><span class="n">poisson_spacings</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;classification&#39;</span><span class="p">]</span>
+<span class="go">&#39;Integrable (Poisson-like)&#39;</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<p>For meaningful statistics at least ~50 spacings are recommended.
+Unfolding the spectrum (mapping raw spacings to a unit-mean sequence)
+before calling this function improves the accuracy of the classification.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="symplectic.IntegrabilityAnalysis.berry_tabor_formula">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">berry_tabor_formula</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">orbits</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">energy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/symplectic.html#IntegrabilityAnalysis.berry_tabor_formula"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.IntegrabilityAnalysis.berry_tabor_formula" title="Link to this definition"></a></dt>
+<dd><p>Berry-Tabor smoothed density of states from a collection of periodic orbits.</p>
+<p>Each orbit contributes a Gaussian peak centred at its energy:</p>
+<blockquote>
+<div><p>ρ(E) = Σ_γ  T_γ · exp(-(E_γ - E)² / 2σ²) / (σ√(2π) · 2π)</p>
+</div></blockquote>
+<p>where T_γ is the period and σ = <code class="docutils literal notranslate"><span class="pre">window</span></code> is the energy smoothing width.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>orbits</strong> (<em>iterable</em>) – Each element must expose <code class="docutils literal notranslate"><span class="pre">.energy</span></code> and <code class="docutils literal notranslate"><span class="pre">.period</span></code> attributes <strong>or</strong>
+be a dict with <code class="docutils literal notranslate"><span class="pre">'energy'</span></code> and <code class="docutils literal notranslate"><span class="pre">'period'</span></code> keys (as returned, e.g.,
+by the monodromy / periodic-orbit routines in this module).</p></li>
+<li><p><strong>energy</strong> (<em>float</em>) – Evaluation energy E.</p></li>
+<li><p><strong>window</strong> (<em>float</em>) – Gaussian smoothing width σ in energy units (default 1.0).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Smoothed density of states ρ(E).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Using plain dicts (compatible with symplectic.py orbit dicts)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">orbits</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;energy&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s1">&#39;period&#39;</span><span class="p">:</span> <span class="mf">6.28</span><span class="p">},</span>
+<span class="gp">... </span>          <span class="p">{</span><span class="s1">&#39;energy&#39;</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span> <span class="s1">&#39;period&#39;</span><span class="p">:</span> <span class="mf">6.28</span><span class="p">}]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">IntegrabilityAnalysis</span><span class="o">.</span><span class="n">berry_tabor_formula</span><span class="p">(</span><span class="n">orbits</span><span class="p">,</span> <span class="n">energy</span><span class="o">=</span><span class="mf">1.5</span><span class="p">)</span>
+<span class="gp">...</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<p>For integrable systems the smoothed density converges to the Weyl term
+plus Berry-Tabor oscillatory corrections.  For chaotic systems use the
+Gutzwiller trace formula instead (implemented in geometry.py).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="symplectic.IntegrabilityAnalysis.detect_kam_tori">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">detect_kam_tori</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">orbits</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/symplectic.html#IntegrabilityAnalysis.detect_kam_tori"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.IntegrabilityAnalysis.detect_kam_tori" title="Link to this definition"></a></dt>
+<dd><p>Cluster periodic orbits into KAM tori by action proximity.</p>
+<p>In an integrable (or near-integrable) system, periodic orbits of nearby
+action lie on the same KAM torus.  This function uses Ward hierarchical
+clustering on the action values to group orbits accordingly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>orbits</strong> (<em>iterable</em>) – Each element must expose <code class="docutils literal notranslate"><span class="pre">.action</span></code>, <code class="docutils literal notranslate"><span class="pre">.energy</span></code>, <code class="docutils literal notranslate"><span class="pre">.period</span></code> and
+<code class="docutils literal notranslate"><span class="pre">.stability</span></code> / <code class="docutils literal notranslate"><span class="pre">'stability'</span></code> (or <code class="docutils literal notranslate"><span class="pre">'stability_1'</span></code> for 2-DOF
+objects) <strong>or</strong> be a dict with the same keys.</p></li>
+<li><p><strong>tolerance</strong> (<em>float</em>) – Maximum within-cluster action distance for the Ward linkage cut
+(default 0.1).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">n_tori</span></code> – number of detected tori</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tori</span></code>   – list of dicts, one per torus, each containing:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code>       : cluster id (int)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_orbits</span></code> : number of member orbits</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">action</span></code>   : mean action of member orbits</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">energy</span></code>   : mean energy of member orbits</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">period</span></code>   : mean period of member orbits</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stable</span></code>   : True if mean stability exponent &lt; 0</p></li>
+</ul>
+</li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict with keys</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">IntegrabilityAnalysis</span><span class="o">.</span><span class="n">detect_kam_tori</span><span class="p">(</span><span class="n">orbits</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_tori&#39;</span><span class="p">],</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;tori&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;action&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<p>At least two orbits are required for clustering; a single orbit is
+returned as a degenerate torus.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="symplectic.IntegrabilityAnalysis.rotation_numbers">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">rotation_numbers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">traj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'x1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'p1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'x2'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'p2'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="reference internal" href="_modules/symplectic.html#IntegrabilityAnalysis.rotation_numbers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.IntegrabilityAnalysis.rotation_numbers" title="Link to this definition"></a></dt>
+<dd><p>Rotation numbers (ω_1, ω_2) of a 2-DOF trajectory.</p>
+<p>Each rotation number is the average angular velocity in the corresponding
+(xᵢ, pᵢ) phase-space plane:</p>
+<blockquote>
+<div><p>ωᵢ = (θᵢ(T) - θᵢ(0)) / (2π · T),   θᵢ = arctan2(pᵢ, xᵢ).</p>
+</div></blockquote>
+<p>Their ratio ω_1/ω_2 is the frequency ratio; rational values indicate
+resonant (periodic) orbits, irrational values indicate quasi-periodic
+motion on a KAM torus.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>traj</strong> (<em>dict</em>) – Trajectory dict as returned by <code class="docutils literal notranslate"><span class="pre">hamiltonian_flow</span></code>.</p></li>
+<li><p><strong>x_key</strong> (<em>str</em>) – Keys for the first position and momentum (default <code class="docutils literal notranslate"><span class="pre">'x1'</span></code>, <code class="docutils literal notranslate"><span class="pre">'p1'</span></code>).</p></li>
+<li><p><strong>p_key</strong> (<em>str</em>) – Keys for the first position and momentum (default <code class="docutils literal notranslate"><span class="pre">'x1'</span></code>, <code class="docutils literal notranslate"><span class="pre">'p1'</span></code>).</p></li>
+<li><p><strong>y_key</strong> (<em>str</em>) – Keys for the second position and momentum (default <code class="docutils literal notranslate"><span class="pre">'x2'</span></code>, <code class="docutils literal notranslate"><span class="pre">'p2'</span></code>).</p></li>
+<li><p><strong>q_key</strong> (<em>str</em>) – Keys for the second position and momentum (default <code class="docutils literal notranslate"><span class="pre">'x2'</span></code>, <code class="docutils literal notranslate"><span class="pre">'p2'</span></code>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Rotation numbers (ω_1, ω_2).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(float, float)</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x1</span><span class="p">,</span><span class="n">p1</span><span class="p">,</span><span class="n">x2</span><span class="p">,</span><span class="n">p2</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x1 p1 x2 p2&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">p2</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x2</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>   <span class="c1"># isotropic oscillator</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">traj</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span>
+<span class="gp">... </span>                        <span class="n">vars_phase</span><span class="o">=</span><span class="p">[</span><span class="n">x1</span><span class="p">,</span><span class="n">p1</span><span class="p">,</span><span class="n">x2</span><span class="p">,</span><span class="n">p2</span><span class="p">],</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">IntegrabilityAnalysis</span><span class="o">.</span><span class="n">rotation_numbers</span><span class="p">(</span><span class="n">traj</span><span class="p">)</span>
+<span class="go">(0.5, 0.5)   # both oscillators at frequency 1/2π</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<p>For short trajectories the rotation number estimate may be noisy; use
+longer integration times for robust results.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="symplectic.IntegrabilityAnalysis.weyl_law">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">weyl_law</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">energy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndof</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/symplectic.html#IntegrabilityAnalysis.weyl_law"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.IntegrabilityAnalysis.weyl_law" title="Link to this definition"></a></dt>
+<dd><p>Weyl’s asymptotic law: number of quantum states below energy E.</p>
+<p>The simplified form assumes that the phase-space volume scales as E^n
+(valid, e.g., for harmonic-oscillator-like Hamiltonians):</p>
+<blockquote>
+<div><p>N(E) ≈ (1 / (2πℏ))^n · E^n</p>
+</div></blockquote>
+<p>For a general Hamiltonian use <code class="docutils literal notranslate"><span class="pre">phase_space_volume</span></code> from this module to
+compute Vol{H ≤ E} and then divide by (2πℏ)^n.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>energy</strong> (<em>float</em>) – Energy threshold E.</p></li>
+<li><p><strong>ndof</strong> (<em>int</em>) – Number of degrees of freedom n.</p></li>
+<li><p><strong>hbar</strong> (<em>float</em>) – Reduced Planck constant (default 1.0).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Approximate number of states N(E).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">IntegrabilityAnalysis</span><span class="o">.</span><span class="n">weyl_law</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">ndof</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">hbar</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="go">0.477...</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="symplectic.IntegrabilityAnalysis.winding_number">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">winding_number</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">traj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'x'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'y'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/symplectic.html#IntegrabilityAnalysis.winding_number"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.IntegrabilityAnalysis.winding_number" title="Link to this definition"></a></dt>
+<dd><p>Winding number of a 2-DOF trajectory around the origin in configuration space.</p>
+<p>The winding number counts how many times the spatial projection
+(x(t), y(t)) winds around the origin:</p>
+<blockquote>
+<div><p>W = (θ(T) - θ(0)) / 2π,   θ = arctan2(y, x).</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>traj</strong> (<em>dict</em>) – Trajectory dict as returned by <code class="docutils literal notranslate"><span class="pre">hamiltonian_flow</span></code>.</p></li>
+<li><p><strong>x_key</strong> (<em>str</em>) – Keys for the two configuration-space coordinates (default <code class="docutils literal notranslate"><span class="pre">'x'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'y'</span></code>).  Adjust if your variable names differ (e.g. <code class="docutils literal notranslate"><span class="pre">'x1'</span></code>, <code class="docutils literal notranslate"><span class="pre">'x2'</span></code>).</p></li>
+<li><p><strong>y_key</strong> (<em>str</em>) – Keys for the two configuration-space coordinates (default <code class="docutils literal notranslate"><span class="pre">'x'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'y'</span></code>).  Adjust if your variable names differ (e.g. <code class="docutils literal notranslate"><span class="pre">'x1'</span></code>, <code class="docutils literal notranslate"><span class="pre">'x2'</span></code>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Winding number (positive = counter-clockwise).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="py class">
 <dt class="sig sig-object py" id="symplectic.SymplecticForm">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">SymplecticForm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#SymplecticForm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.SymplecticForm" title="Link to this definition"></a></dt>
@@ -699,9 +1007,9 @@ one period T:</p>
 <div><p>δz(T) = M · δz(0)</p>
 </div></blockquote>
 <p>The eigenvalues of M (Floquet multipliers) determine orbital stability:
-- <a href="#id6"><span class="problematic" id="id7">|λ|</span></a> = 1 for all λ: neutrally stable (typical for Hamiltonian systems)
-- Any <a href="#id8"><span class="problematic" id="id9">|λ|</span></a> &gt; 1: unstable orbit
-- All <a href="#id10"><span class="problematic" id="id11">|λ|</span></a> &lt; 1: stable (not possible in conservative Hamiltonian systems)</p>
+- <a href="#id10"><span class="problematic" id="id11">|λ|</span></a> = 1 for all λ: neutrally stable (typical for Hamiltonian systems)
+- Any <a href="#id12"><span class="problematic" id="id13">|λ|</span></a> &gt; 1: unstable orbit
+- All <a href="#id14"><span class="problematic" id="id15">|λ|</span></a> &lt; 1: stable (not possible in conservative Hamiltonian systems)</p>
 <p>For Hamiltonian systems, eigenvalues come in reciprocal pairs (λ, 1/λ)
 and/or complex conjugate pairs on the unit circle.</p>
 <dl class="field-list simple">
@@ -720,7 +1028,7 @@ Currently only finite difference perturbations are implemented.</p></li>
 - ‘M’ : ndarray, 4×4 monodromy matrix
 - ‘eigenvalues’ : ndarray, Floquet multipliers
 - ‘floquet_multipliers’ : ndarray, same as eigenvalues
-- ‘stable’ : bool, True if all <a href="#id12"><span class="problematic" id="id13">|λ|</span></a> ≤ 1 (within tolerance)</p>
+- ‘stable’ : bool, True if all <a href="#id16"><span class="problematic" id="id17">|λ|</span></a> ≤ 1 (within tolerance)</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>dict</p>
@@ -1020,6 +1328,84 @@ The array has shape (n_points + 1, 2).</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="symplectic.symplectic_gradient">
+<span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">symplectic_gradient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">numeric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#symplectic_gradient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.symplectic_gradient" title="Link to this definition"></a></dt>
+<dd><p>Compute the Hamiltonian vector field (symplectic gradient) of a function f.</p>
+<p>For a function f on a 2n‑dimensional phase space with canonical coordinates
+(x₁, p₁, …, xₙ, pₙ), the symplectic gradient X_f is the unique vector field
+satisfying ω(X_f, ·) = df, where ω = Σ dxᵢ ∧ dpᵢ is the symplectic form.
+In coordinates, X_f = J⁻¹·∇f, with J⁻¹ the Poisson tensor (the inverse of
+the symplectic matrix).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>f</strong> (<em>sympy.Expr</em>) – Function defined on phase space.</p></li>
+<li><p><strong>vars_phase</strong> (<em>list</em><em> of </em><em>sympy.Symbol</em><em>, </em><em>optional</em>) – Ordered list of canonical variables [x₁, p₁, x₂, p₂, …].
+If None, the variables are inferred automatically from f.</p></li>
+<li><p><strong>numeric</strong> (<em>bool</em><em>, </em><em>default False</em>) – If True, return a callable function that evaluates the vector field
+numerically at a given point. If False, return a list of sympy
+expressions representing each component of X_f.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>If numeric=False</strong> (<em>list of sympy.Expr</em>) – Components of the Hamiltonian vector field in the same order as
+vars_phase, i.e., [X_f_x₁, X_f_p₁, X_f_x₂, X_f_p₂, …].</p></li>
+<li><p><strong>If numeric=True</strong> (<em>callable</em>) – A function X(z) that takes a phase space point z (array‑like of length
+2n) and returns a numpy array of the vector field components at that point.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>For large‑scale evaluations (e.g., plotting on a grid), it is more efficient
+to create vectorized functions from the symbolic components manually:</p>
+<blockquote>
+<div><p>X_components = symplectic_gradient(f, vars_phase, numeric=False)
+funcs = [lambdify(vars_phase, expr, ‘numpy’) for expr in X_components]</p>
+</div></blockquote>
+<p>Then evaluate on entire arrays:</p>
+<blockquote>
+<div><p>results = [func(<a href="#id8"><span class="problematic" id="id9">*</span></a>(grid_arrays)) for func in funcs]</p>
+</div></blockquote>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span> <span class="o">=</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">symplectic_gradient</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">])</span>
+<span class="go">[p, -x]   # dx/dt = p, dp/dt = -x</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Numeric evaluation at a single point</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="n">symplectic_gradient</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">],</span> <span class="n">numeric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span>
+<span class="go">array([ 0.5, -1. ])</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Vectorized evaluation for a grid (fast)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X_x</span><span class="p">,</span> <span class="n">X_p</span> <span class="o">=</span> <span class="n">symplectic_gradient</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">],</span> <span class="n">numeric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X_x_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="n">X_x</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X_p_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="n">X_p</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">q_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Q</span><span class="p">,</span> <span class="n">P</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">q_vals</span><span class="p">,</span> <span class="n">p_vals</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">U</span> <span class="o">=</span> <span class="n">X_x_func</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">P</span><span class="p">)</span>   <span class="c1"># entire array at once</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">V</span> <span class="o">=</span> <span class="n">X_p_func</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">P</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#symplectic.poisson_bracket" title="symplectic.poisson_bracket"><code class="xref py py-obj docutils literal notranslate"><span class="pre">poisson_bracket</span></code></a></dt><dd><p>{f, g} = X_f(g) = -X_g(f)</p>
+</dd>
+<dt><a class="reference internal" href="#symplectic.hamiltonian_flow" title="symplectic.hamiltonian_flow"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hamiltonian_flow</span></code></a></dt><dd><p>integrates the Hamiltonian vector field of H</p>
+</dd>
+<dt><a class="reference internal" href="#symplectic.SymplecticForm" title="symplectic.SymplecticForm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SymplecticForm</span></code></a></dt><dd><p>the underlying symplectic structure</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="symplectic.test_coupled_oscillators">
 <span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">test_coupled_oscillators</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#test_coupled_oscillators"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.test_coupled_oscillators" title="Link to this definition"></a></dt>
 <dd><p>Test 2‑DOF coupled oscillators.</p>
@@ -1035,6 +1421,12 @@ The array has shape (n_points + 1, 2).</p>
 <dt class="sig sig-object py" id="symplectic.test_harmonic_oscillator">
 <span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">test_harmonic_oscillator</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#test_harmonic_oscillator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.test_harmonic_oscillator" title="Link to this definition"></a></dt>
 <dd><p>Test 1‑DOF harmonic oscillator.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="symplectic.test_integrability_analysis">
+<span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">test_integrability_analysis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#test_integrability_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.test_integrability_analysis" title="Link to this definition"></a></dt>
+<dd><p>Test IntegrabilityAnalysis utilities.</p>
 </dd></dl>
 
 <dl class="py function">

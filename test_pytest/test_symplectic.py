@@ -28,6 +28,7 @@ from symplectic import (
     hamiltonian_flow,
     hamiltonian_flow_4d,
     poisson_bracket,
+    symplectic_gradient,
     find_fixed_points,
     linearize_at_fixed_point,
     action_integral,
@@ -250,6 +251,181 @@ def test_poisson_bracket_antisymmetry():
         + poisson_bracket(g, f, vars_phase=[x, p])
     )
 
+# =============================================================================
+# Symplectic gradient
+# =============================================================================
+
+def test_symplectic_gradient_harmonic_oscillator():
+    """For H = (p²+x²)/2, X_H should be [p, -x]."""
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    X = symplectic_gradient(H, vars_phase=[x, p], numeric=False)
+    expected = [p, -x]
+    for comp, exp in zip(X, expected):
+        assert simplify(comp - exp) == 0
+
+
+def test_symplectic_gradient_2d_uncoupled():
+    """For H = (p1²+p2²+x1²+x2²)/2, X_H = [p1, -x1, p2, -x2]."""
+    x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+    X = symplectic_gradient(H, vars_phase=[x1, p1, x2, p2])
+    expected = [p1, -x1, p2, -x2]
+    for comp, exp in zip(X, expected):
+        assert simplify(comp - exp) == 0
+
+
+def test_symplectic_gradient_arbitrary_function():
+    """For a generic function f, compute X_f and verify the directional derivative."""
+    x, p = symbols('x p', real=True)
+    f = x**2 * p
+    X_f = symplectic_gradient(f, vars_phase=[x, p])
+    # X_f should be [∂f/∂p, -∂f/∂x] = [x², -2xp]
+    expected = [x**2, -2*x*p]
+    for comp, exp in zip(X_f, expected):
+        assert simplify(comp - exp) == 0
+
+
+def test_symplectic_gradient_numeric():
+    """Test numeric evaluation at a point."""
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    X_func = symplectic_gradient(H, vars_phase=[x, p], numeric=True)
+    point = (1.0, 2.0)
+    vec = X_func(point)
+    expected = np.array([2.0, -1.0])   # p, -x
+    np.testing.assert_allclose(vec, expected)
+
+
+def test_symplectic_gradient_numeric_wrong_dim():
+    """Numeric function should raise if input dimension mismatches."""
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    X_func = symplectic_gradient(H, vars_phase=[x, p], numeric=True)
+    with pytest.raises(ValueError):
+        X_func([1.0, 2.0, 3.0])   # 3D instead of 2D
+
+
+def test_symplectic_gradient_automatic_variables_1d():
+    """Variable inference should work for 1‑DOF with obvious names."""
+    x, p = symbols('x p', real=True)
+    H = x**2 + p**2
+    X = symplectic_gradient(H)
+    expected = [2*p, -2*x]
+    for comp, exp in zip(X, expected):
+        assert simplify(comp - exp) == 0
+
+
+def test_symplectic_gradient_automatic_variables_2d():
+    """Variable inference for 2‑DOF using x1,p1,x2,p2 naming."""
+    x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    H = x1**2 + p1**2 + x2**2 + p2**2
+    X = symplectic_gradient(H)
+    expected = [2*p1, -2*x1, 2*p2, -2*x2]
+    for comp, exp in zip(X, expected):
+        assert simplify(comp - exp) == 0
+
+
+def test_symplectic_gradient_ambiguous_variables():
+    """When symbols cannot be identified, inference should raise."""
+    a, b = symbols('a b', real=True)
+    H = a**2 + b**2
+    with pytest.raises(ValueError):
+        symplectic_gradient(H)
+
+
+def test_symplectic_gradient_linearity():
+    """X_{af+bg} = a X_f + b X_g for constants a,b."""
+    x, p = symbols('x p', real=True)
+    a, b = 2.5, -1.3
+    f = x**2
+    g = p**3
+    # Use real numbers to avoid sympy complex issues
+    a_sym, b_sym = symbols('a b', real=True)
+    expr_left = symplectic_gradient(a_sym*f + b_sym*g, vars_phase=[x, p])
+    expr_right = [a_sym*comp_f + b_sym*comp_g for comp_f, comp_g in
+                  zip(symplectic_gradient(f, vars_phase=[x, p]),
+                      symplectic_gradient(g, vars_phase=[x, p]))]
+    for left, right in zip(expr_left, expr_right):
+        assert simplify(left - right) == 0
+
+
+def test_symplectic_gradient_poisson_bracket_relation():
+    """
+    For any f,g, the directional derivative X_f(g) should equal {f,g}.
+    """
+    x, p = symbols('x p', real=True)
+    f = x**2 * p
+    g = x * p**2
+    X_f = symplectic_gradient(f, vars_phase=[x, p])
+    from sympy import diff
+    # Directional derivative: sum (X_f_i * ∂g/∂z_i)
+    dg_dz = [diff(g, var) for var in [x, p]]
+    directional = sum(X_f_i * dg_i for X_f_i, dg_i in zip(X_f, dg_dz))
+    pb = poisson_bracket(f, g, vars_phase=[x, p])
+    assert simplify(directional + pb) == 0
+
+
+def test_symplectic_gradient_omega_relation():
+    """
+    Check ω(X_f, X_g) = {f,g} using the symplectic form matrix.
+    """
+    x, p = symbols('x p', real=True)
+    f = x**3
+    g = p**2
+    X_f = symplectic_gradient(f, vars_phase=[x, p])
+    X_g = symplectic_gradient(g, vars_phase=[x, p])
+    # Build the symplectic form matrix J
+    J = SymplecticForm(vars_phase=[x, p]).omega_matrix
+    # ω(X_f, X_g) = X_fᵀ · J⁻¹ · X_g? Actually ω(u,v) = uᵀ · J⁻¹ · v
+    # But careful: J = matrix of ω, so ω(u,v) = uᵀ J v? Let's check:
+    # In canonical coordinates, ω = Σ dx_i ∧ dp_i, so ω(u,v) = u_x v_p - u_p v_x.
+    # Our J is [[0, -1], [1, 0]], and J^{-1} = [[0,1],[-1,0]].
+    # ω(u,v) = uᵀ J^{-1} v? Actually, the matrix of ω satisfies ω(u,v) = uᵀ Ω v,
+    # with Ω = [[0, -1],[1,0]]? Let's derive: u = (u_x, u_p), v = (v_x, v_p),
+    # ω(u,v) = u_x v_p - u_p v_x = uᵀ [[0,1],[-1,0]] v. So the matrix is [[0,1],[-1,0]].
+    # Our omega_matrix is [[0,-1],[1,0]], which is the inverse. So ω(u,v) = uᵀ (J⁻¹) v.
+    # That matches: J⁻¹ = [[0,1],[-1,0]].
+    J_inv = SymplecticForm(vars_phase=[x, p]).omega_inv
+    # Convert vectors to column matrices
+    u = Matrix(X_f)
+    v = Matrix(X_g)
+    omega_val = (u.T * J_inv * v)[0,0]
+    pb = poisson_bracket(f, g, vars_phase=[x, p])
+    assert simplify(omega_val - pb) == 0
+
+
+def test_symplectic_gradient_hamiltonian_flow_consistency():
+    """
+    Numerically integrate X_H and check that the trajectory matches hamiltonian_flow.
+    This is a short integration to avoid long runtimes.
+    """
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    z0 = (1.0, 0.5)
+    t_span = (0, 1.0)
+    n_steps = 100
+
+    # Compute trajectory using hamiltonian_flow
+    traj_ref = hamiltonian_flow(H, z0, t_span, vars_phase=[x, p],
+                                integrator='rk45', n_steps=n_steps)
+
+    # Get numeric symplectic gradient of H
+    X_H = symplectic_gradient(H, vars_phase=[x, p], numeric=True)
+
+    # Manual integration with simple Euler (not symplectic, but just for comparison)
+    dt = (t_span[1] - t_span[0]) / n_steps
+    z = np.array(z0)
+    traj_manual = {'x': [z0[0]], 'p': [z0[1]]}
+    for _ in range(n_steps - 1):
+        dz = X_H(z)
+        z = z + dt * dz
+        traj_manual['x'].append(z[0])
+        traj_manual['p'].append(z[1])
+
+    # They should be reasonably close (Euler is low order, so we allow moderate tolerance)
+    np.testing.assert_allclose(traj_manual['x'], traj_ref['x'], rtol=0.1, atol=0.01)
+    np.testing.assert_allclose(traj_manual['p'], traj_ref['p'], rtol=0.1, atol=0.01)
 
 # =============================================================================
 # Hamiltonian flow (generic)

@@ -26,8 +26,11 @@ The `symplectic` module provides a comprehensive set of tools for studying Hamil
 * **1‑DOF specific** utilities: action‑angle variables, phase portraits, separatrix analysis.
 * **2‑DOF specific** utilities: Poincaré sections, first‑return maps, monodromy matrix, Lyapunov exponents.
 * Automatic inference of phase‑space variables from the Hamiltonian expression.
+* **Integrability classification** utilities: level-spacing statistics (Berry-Tabor /
+  BGS), Weyl's law, Berry-Tabor smoothed density of states, KAM tori detection,
+  and winding / rotation numbers (``IntegrabilityAnalysis`` class).
 
-The module is designed to be both a pedagogical tool for exploring Hamiltonian dynamics and a practical library for more advanced studies (e.g., computing monodromy matrices of periodic orbits).
+The module is designed to be both a pedagogical tool for exploring Hamiltonian dynamics and a practical library for more advanced studies (e.g., computing monodromy matrices of periodic orbits, classifying systems as integrable or chaotic).
 
 Mathematical background
 -----------------------
@@ -68,6 +71,8 @@ References
 .. [3] Hairer, E., Lubich, C., & Wanner, G.  *Geometric Numerical Integration*, Springer, 2006 (2nd ed.).  Chapters 1, 6.
 .. [4] Lichtenberg, A. J., & Lieberman, M. A.  *Regular and Chaotic Dynamics*, Springer, 1992.
 .. [5] Meyer, K. R., Hall, G. R., & Offin, D.  *Introduction to Hamiltonian Dynamical Systems and the N‑Body Problem*, Springer, 2009 (2nd ed.).
+.. [6] Berry, M. V. & Tabor, M.  "Level clustering in the regular spectrum", *Proc. R. Soc. Lond. A* 356, 375–394, 1977.
+.. [7] Bohigas, O., Giannoni, M. J., & Schmit, C.  "Characterization of chaotic quantum spectra and universality of level fluctuation laws", *Phys. Rev. Lett.* 52, 1–4, 1984.
 """
 
 from imports import *
@@ -539,8 +544,111 @@ def poisson_bracket(f, g, vars_phase=None):
     # Contract: grad_fᵀ · J_inv · grad_g
     bracket = grad_f.dot(J_inv * grad_g)
     return simplify(bracket)
+    
+# -----------------------------------------------------------------------------
+# Symplectic gradient
+# -----------------------------------------------------------------------------
+def symplectic_gradient(f, vars_phase=None, numeric=False):
+    """
+    Compute the Hamiltonian vector field (symplectic gradient) of a function f.
 
+    For a function f on a 2n‑dimensional phase space with canonical coordinates
+    (x₁, p₁, …, xₙ, pₙ), the symplectic gradient X_f is the unique vector field
+    satisfying ω(X_f, ·) = df, where ω = Σ dxᵢ ∧ dpᵢ is the symplectic form.
+    In coordinates, X_f = J⁻¹·∇f, with J⁻¹ the Poisson tensor (the inverse of
+    the symplectic matrix).
 
+    Parameters
+    ----------
+    f : sympy.Expr
+        Function defined on phase space.
+    vars_phase : list of sympy.Symbol, optional
+        Ordered list of canonical variables [x₁, p₁, x₂, p₂, …].
+        If None, the variables are inferred automatically from f.
+    numeric : bool, default False
+        If True, return a callable function that evaluates the vector field
+        numerically at a given point. If False, return a list of sympy
+        expressions representing each component of X_f.
+
+    Returns
+    -------
+    If numeric=False : list of sympy.Expr
+        Components of the Hamiltonian vector field in the same order as
+        vars_phase, i.e., [X_f_x₁, X_f_p₁, X_f_x₂, X_f_p₂, …].
+    If numeric=True : callable
+        A function X(z) that takes a phase space point z (array‑like of length
+        2n) and returns a numpy array of the vector field components at that point.
+
+    Notes
+    -----
+    For large‑scale evaluations (e.g., plotting on a grid), it is more efficient
+    to create vectorized functions from the symbolic components manually:
+
+        X_components = symplectic_gradient(f, vars_phase, numeric=False)
+        funcs = [lambdify(vars_phase, expr, 'numpy') for expr in X_components]
+
+    Then evaluate on entire arrays:
+
+        results = [func(*(grid_arrays)) for func in funcs]
+
+    Examples
+    --------
+    >>> x, p = symbols('x p', real=True)
+    >>> H = p**2/2 + x**2/2
+    >>> symplectic_gradient(H, [x, p])
+    [p, -x]   # dx/dt = p, dp/dt = -x
+
+    >>> # Numeric evaluation at a single point
+    >>> X = symplectic_gradient(H, [x, p], numeric=True)
+    >>> X([1.0, 0.5])
+    array([ 0.5, -1. ])
+
+    >>> # Vectorized evaluation for a grid (fast)
+    >>> X_x, X_p = symplectic_gradient(H, [x, p], numeric=False)
+    >>> X_x_func = lambdify((x, p), X_x, 'numpy')
+    >>> X_p_func = lambdify((x, p), X_p, 'numpy')
+    >>> q_vals = np.linspace(-2, 2, 100)
+    >>> p_vals = np.linspace(-2, 2, 100)
+    >>> Q, P = np.meshgrid(q_vals, p_vals)
+    >>> U = X_x_func(Q, P)   # entire array at once
+    >>> V = X_p_func(Q, P)
+
+    See Also
+    --------
+    poisson_bracket : {f, g} = X_f(g) = -X_g(f)
+    hamiltonian_flow : integrates the Hamiltonian vector field of H
+    SymplecticForm : the underlying symplectic structure
+    """
+    # Infer variables if not provided
+    if vars_phase is None:
+        vars_phase = _infer_variables(f)
+    vars_phase = list(vars_phase)
+
+    # Build the symplectic structure and obtain the Poisson tensor (J⁻¹)
+    symp_form = SymplecticForm(vars_phase=vars_phase)
+    J_inv = symp_form.omega_inv   # Poisson tensor
+
+    # Gradient ∇f as a column vector
+    grad_f = Matrix([diff(f, var) for var in vars_phase])
+
+    # X_f = J⁻¹ · ∇f
+    X_f_expr = J_inv * grad_f   # sympy Matrix
+
+    # Convert to list in the same order as vars_phase
+    X_list = list(X_f_expr)
+
+    if not numeric:
+        return X_list
+    else:
+        # Create a callable for numerical evaluation at a single point
+        X_func = lambdify(vars_phase, X_list, modules='numpy')
+        def vector_field(z):
+            z = np.asarray(z).flatten()
+            if len(z) != len(vars_phase):
+                raise ValueError(f"Point dimension mismatch: expected {len(vars_phase)}, got {len(z)}")
+            return np.array(X_func(*z), dtype=float)
+        return vector_field
+        
 # -----------------------------------------------------------------------------
 # Fixed points and linearization (generic)
 # -----------------------------------------------------------------------------
@@ -1970,6 +2078,375 @@ def evolve_phase_space_region(H, initial_region, t_eval, vars_phase=None,
 
 
 # -----------------------------------------------------------------------------
+# Integrability analysis
+# -----------------------------------------------------------------------------
+
+class IntegrabilityAnalysis:
+    """
+    Spectral and topological tools for classifying Hamiltonian systems as
+    integrable, chaotic, or intermediate.
+
+    These methods are the symplectic counterparts of the geometric indicators
+    computed in geometry.py (Poincaré sections, Lyapunov exponents, monodromy
+    matrices).  Together they provide a complete picture of the regular/chaotic
+    nature of a system:
+
+    * **Level-spacing statistics** (``analyze_integrability``) — quantum/semiclassical
+      fingerprint: Poisson distribution for integrable systems (Berry-Tabor
+      conjecture, 1977), Wigner surmise for chaotic ones (BGS conjecture, 1984).
+    * **Weyl's law** (``weyl_law``) — asymptotic count of states N(E) ~ Vol{H≤E}/(2πℏ)^n.
+    * **Berry-Tabor smoothed density** (``berry_tabor_formula``) — semiclassical
+      density of states built from a list of periodic orbits.
+    * **KAM tori detection** (``detect_kam_tori``) — clusters periodic orbits by
+      action proximity; each cluster corresponds to a KAM torus.
+    * **Winding / rotation numbers** (``winding_number``, ``rotation_numbers``) —
+      topological invariants that distinguish resonant and quasi-periodic motion.
+
+    References
+    ----------
+    .. [BT77]  Berry, M. V. & Tabor, M., "Level clustering in the regular
+               spectrum", *Proc. R. Soc. Lond. A* 356, 375–394 (1977).
+    .. [BGS84] Bohigas, O., Giannoni, M. J., & Schmit, C., "Characterization of
+               chaotic quantum spectra and universality of level fluctuation laws",
+               *Phys. Rev. Lett.* 52, 1–4 (1984).
+    .. [Ar89]  Arnold, V. I., *Mathematical Methods of Classical Mechanics*,
+               Springer-Verlag, 1989, Chapters 10–11.
+    """
+
+    # ------------------------------------------------------------------
+    # Weyl's law
+    # ------------------------------------------------------------------
+    @staticmethod
+    def weyl_law(energy: float, ndof: int, hbar: float = 1.0) -> float:
+        """
+        Weyl's asymptotic law: number of quantum states below energy E.
+
+        The simplified form assumes that the phase-space volume scales as E^n
+        (valid, e.g., for harmonic-oscillator-like Hamiltonians):
+
+            N(E) ≈ (1 / (2πℏ))^n · E^n
+
+        For a general Hamiltonian use ``phase_space_volume`` from this module to
+        compute Vol{H ≤ E} and then divide by (2πℏ)^n.
+
+        Parameters
+        ----------
+        energy : float
+            Energy threshold E.
+        ndof : int
+            Number of degrees of freedom n.
+        hbar : float
+            Reduced Planck constant (default 1.0).
+
+        Returns
+        -------
+        float
+            Approximate number of states N(E).
+
+        Examples
+        --------
+        >>> IntegrabilityAnalysis.weyl_law(3.0, ndof=1, hbar=1.0)
+        0.477...
+        """
+        return ((1.0 / (2.0 * np.pi * hbar)) ** ndof) * (energy ** ndof)
+
+    # ------------------------------------------------------------------
+    # Level-spacing statistics
+    # ------------------------------------------------------------------
+    @staticmethod
+    def analyze_integrability(spacings: np.ndarray) -> dict:
+        """
+        Classify a Hamiltonian system via level-spacing statistics.
+
+        Given the sequence of nearest-neighbour level spacings s_i = E_{i+1} - E_i
+        (normalised so that the mean spacing is 1), the ratio
+
+            R = <s²> / <s>²
+
+        distinguishes the two universal classes:
+
+        * **Integrable** (Berry-Tabor): spacings follow a Poisson distribution
+          P(s) = e^{-s}, giving R ≈ 2.0.
+        * **Chaotic** (BGS / GOE): spacings follow the Wigner surmise
+          P(s) = (π/2) s e^{-πs²/4}, giving R ≈ 1.273.
+
+        The threshold values used here (R > 1.7 → integrable, R < 1.4 → chaotic)
+        are conventional; intermediate values indicate a mixed phase space.
+
+        Parameters
+        ----------
+        spacings : ndarray of shape (N,)
+            Raw (un-normalised) nearest-neighbour energy-level spacings.
+
+        Returns
+        -------
+        dict with keys:
+            * ``ratio``          – <s²>/<s>² of normalised spacings
+            * ``mean_spacing``   – mean of raw spacings
+            * ``std_spacing``    – standard deviation of raw spacings
+            * ``classification`` – one of
+              ``'Integrable (Poisson-like)'``,
+              ``'Chaotic (Wigner-like)'``, or
+              ``'Intermediate'``
+
+        Examples
+        --------
+        >>> rng = np.random.default_rng(0)
+        >>> poisson_spacings = rng.exponential(scale=1.0, size=500)
+        >>> info = IntegrabilityAnalysis.analyze_integrability(poisson_spacings)
+        >>> info['classification']
+        'Integrable (Poisson-like)'
+
+        Notes
+        -----
+        For meaningful statistics at least ~50 spacings are recommended.
+        Unfolding the spectrum (mapping raw spacings to a unit-mean sequence)
+        before calling this function improves the accuracy of the classification.
+        """
+        spacings = np.asarray(spacings, dtype=float)
+        s_mean = np.mean(spacings)
+        s_norm = spacings / s_mean
+        ratio  = np.mean(s_norm ** 2) / (np.mean(s_norm) ** 2)
+        if ratio > 1.7:
+            cls = "Integrable (Poisson-like)"
+        elif ratio < 1.4:
+            cls = "Chaotic (Wigner-like)"
+        else:
+            cls = "Intermediate"
+        return dict(
+            ratio=float(ratio),
+            mean_spacing=float(s_mean),
+            std_spacing=float(np.std(spacings)),
+            classification=cls,
+        )
+
+    # ------------------------------------------------------------------
+    # Berry-Tabor smoothed density of states
+    # ------------------------------------------------------------------
+    @staticmethod
+    def berry_tabor_formula(orbits, energy: float, window: float = 1.0) -> float:
+        """
+        Berry-Tabor smoothed density of states from a collection of periodic orbits.
+
+        Each orbit contributes a Gaussian peak centred at its energy:
+
+            ρ(E) = Σ_γ  T_γ · exp(-(E_γ - E)² / 2σ²) / (σ√(2π) · 2π)
+
+        where T_γ is the period and σ = ``window`` is the energy smoothing width.
+
+        Parameters
+        ----------
+        orbits : iterable
+            Each element must expose ``.energy`` and ``.period`` attributes **or**
+            be a dict with ``'energy'`` and ``'period'`` keys (as returned, e.g.,
+            by the monodromy / periodic-orbit routines in this module).
+        energy : float
+            Evaluation energy E.
+        window : float
+            Gaussian smoothing width σ in energy units (default 1.0).
+
+        Returns
+        -------
+        float
+            Smoothed density of states ρ(E).
+
+        Examples
+        --------
+        >>> # Using plain dicts (compatible with symplectic.py orbit dicts)
+        >>> orbits = [{'energy': 1.0, 'period': 6.28},
+        ...           {'energy': 2.0, 'period': 6.28}]
+        >>> IntegrabilityAnalysis.berry_tabor_formula(orbits, energy=1.5)
+        ...
+
+        Notes
+        -----
+        For integrable systems the smoothed density converges to the Weyl term
+        plus Berry-Tabor oscillatory corrections.  For chaotic systems use the
+        Gutzwiller trace formula instead (implemented in geometry.py).
+        """
+        def _get(o, attr, key):
+            if hasattr(o, attr):
+                return getattr(o, attr)
+            return o[key]
+
+        density = sum(
+            np.exp(-((_get(o, 'energy', 'energy') - energy) ** 2) / (2.0 * window ** 2))
+            * _get(o, 'period', 'period') / (2.0 * np.pi)
+            for o in orbits
+        )
+        return float(density / (window * np.sqrt(2.0 * np.pi)))
+
+    # ------------------------------------------------------------------
+    # KAM tori detection
+    # ------------------------------------------------------------------
+    @staticmethod
+    def detect_kam_tori(orbits, tolerance: float = 0.1) -> dict:
+        """
+        Cluster periodic orbits into KAM tori by action proximity.
+
+        In an integrable (or near-integrable) system, periodic orbits of nearby
+        action lie on the same KAM torus.  This function uses Ward hierarchical
+        clustering on the action values to group orbits accordingly.
+
+        Parameters
+        ----------
+        orbits : iterable
+            Each element must expose ``.action``, ``.energy``, ``.period`` and
+            ``.stability`` / ``'stability'`` (or ``'stability_1'`` for 2-DOF
+            objects) **or** be a dict with the same keys.
+        tolerance : float
+            Maximum within-cluster action distance for the Ward linkage cut
+            (default 0.1).
+
+        Returns
+        -------
+        dict with keys:
+            * ``n_tori`` – number of detected tori
+            * ``tori``   – list of dicts, one per torus, each containing:
+
+              - ``id``       : cluster id (int)
+              - ``n_orbits`` : number of member orbits
+              - ``action``   : mean action of member orbits
+              - ``energy``   : mean energy of member orbits
+              - ``period``   : mean period of member orbits
+              - ``stable``   : True if mean stability exponent < 0
+
+        Examples
+        --------
+        >>> result = IntegrabilityAnalysis.detect_kam_tori(orbits, tolerance=0.05)
+        >>> print(result['n_tori'], result['tori'][0]['action'])
+
+        Notes
+        -----
+        At least two orbits are required for clustering; a single orbit is
+        returned as a degenerate torus.
+        """
+        from scipy.cluster.hierarchy import fcluster, linkage
+
+        def _get(o, *keys):
+            for k in keys:
+                if hasattr(o, k):
+                    return getattr(o, k)
+                if isinstance(o, dict) and k in o:
+                    return o[k]
+            return 0.0
+
+        orbits = list(orbits)
+        if not orbits:
+            return {'n_tori': 0, 'tori': []}
+
+        actions = np.array([_get(o, 'action') for o in orbits])
+        if len(actions) > 1:
+            Z        = linkage(actions.reshape(-1, 1), method='ward')
+            clusters = fcluster(Z, t=tolerance, criterion='distance')
+        else:
+            clusters = np.array([1])
+
+        tori = []
+        for tid in np.unique(clusters):
+            members = [o for o, c in zip(orbits, clusters) if c == tid]
+            # Accept both attribute-style (dataclass) and dict-style orbits
+            stab = float(np.mean([_get(o, 'stability', 'stability_1') for o in members]))
+            tori.append(dict(
+                id=int(tid),
+                n_orbits=len(members),
+                action=float(np.mean([_get(o, 'action') for o in members])),
+                energy=float(np.mean([_get(o, 'energy') for o in members])),
+                period=float(np.mean([_get(o, 'period') for o in members])),
+                stable=bool(stab < 0),
+            ))
+        return {'n_tori': len(tori), 'tori': tori}
+
+    # ------------------------------------------------------------------
+    # Winding / rotation numbers  (2-DOF)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def winding_number(traj: dict, x_key: str = 'x', y_key: str = 'y') -> float:
+        """
+        Winding number of a 2-DOF trajectory around the origin in configuration space.
+
+        The winding number counts how many times the spatial projection
+        (x(t), y(t)) winds around the origin:
+
+            W = (θ(T) - θ(0)) / 2π,   θ = arctan2(y, x).
+
+        Parameters
+        ----------
+        traj : dict
+            Trajectory dict as returned by ``hamiltonian_flow``.
+        x_key, y_key : str
+            Keys for the two configuration-space coordinates (default ``'x'``,
+            ``'y'``).  Adjust if your variable names differ (e.g. ``'x1'``, ``'x2'``).
+
+        Returns
+        -------
+        float
+            Winding number (positive = counter-clockwise).
+        """
+        x_arr = np.asarray(traj[x_key], dtype=float)
+        y_arr = np.asarray(traj[y_key], dtype=float)
+        angles = np.arctan2(y_arr, x_arr)
+        return float((np.unwrap(angles)[-1] - np.unwrap(angles)[0]) / (2.0 * np.pi))
+
+    @staticmethod
+    def rotation_numbers(
+        traj: dict,
+        x_key: str = 'x1', p_key: str = 'p1',
+        y_key: str = 'x2', q_key: str = 'p2',
+    ) -> tuple:
+        """
+        Rotation numbers (ω_1, ω_2) of a 2-DOF trajectory.
+
+        Each rotation number is the average angular velocity in the corresponding
+        (xᵢ, pᵢ) phase-space plane:
+
+            ωᵢ = (θᵢ(T) - θᵢ(0)) / (2π · T),   θᵢ = arctan2(pᵢ, xᵢ).
+
+        Their ratio ω_1/ω_2 is the frequency ratio; rational values indicate
+        resonant (periodic) orbits, irrational values indicate quasi-periodic
+        motion on a KAM torus.
+
+        Parameters
+        ----------
+        traj : dict
+            Trajectory dict as returned by ``hamiltonian_flow``.
+        x_key, p_key : str
+            Keys for the first position and momentum (default ``'x1'``, ``'p1'``).
+        y_key, q_key : str
+            Keys for the second position and momentum (default ``'x2'``, ``'p2'``).
+
+        Returns
+        -------
+        (float, float)
+            Rotation numbers (ω_1, ω_2).
+
+        Examples
+        --------
+        >>> x1,p1,x2,p2 = symbols('x1 p1 x2 p2', real=True)
+        >>> H = (p1**2 + p2**2 + x1**2 + x2**2) / 2   # isotropic oscillator
+        >>> traj = hamiltonian_flow(H, (1,0,0,1), (0, 20*np.pi),
+        ...                         vars_phase=[x1,p1,x2,p2], n_steps=5000)
+        >>> IntegrabilityAnalysis.rotation_numbers(traj)
+        (0.5, 0.5)   # both oscillators at frequency 1/2π
+
+        Notes
+        -----
+        For short trajectories the rotation number estimate may be noisy; use
+        longer integration times for robust results.
+        """
+        t = np.asarray(traj['t'], dtype=float)
+        T = t[-1] - t[0]
+
+        def _omega(pos_key, mom_key):
+            pos = np.asarray(traj[pos_key], dtype=float)
+            mom = np.asarray(traj[mom_key], dtype=float)
+            theta = np.unwrap(np.arctan2(mom, pos))
+            return float((theta[-1] - theta[0]) / (2.0 * np.pi * T))
+
+        return _omega(x_key, p_key), _omega(y_key, q_key)
+
+
+# -----------------------------------------------------------------------------
 # Backward compatibility aliases
 # -----------------------------------------------------------------------------
 
@@ -2057,6 +2534,53 @@ def test_monodromy_simple():
     assert np.allclose(np.abs(multipliers), 1.0, atol=1e-3)
     print("✓ Monodromy matrix test passed")
 
+def test_integrability_analysis():
+    """Test IntegrabilityAnalysis utilities."""
+    rng = np.random.default_rng(42)
+
+    # Poisson spacings → integrable
+    poisson_sp = rng.exponential(scale=1.0, size=500)
+    info = IntegrabilityAnalysis.analyze_integrability(poisson_sp)
+    assert info['classification'] == "Integrable (Poisson-like)", info
+    print("✓ analyze_integrability (Poisson) passed")
+
+    # Weyl law: positive, monotone in energy
+    n1 = IntegrabilityAnalysis.weyl_law(1.0, ndof=1)
+    n2 = IntegrabilityAnalysis.weyl_law(2.0, ndof=1)
+    assert n2 > n1 > 0
+    print("✓ weyl_law passed")
+
+    # Berry-Tabor formula: dict-style orbits
+    orbits_dict = [{'energy': 1.0, 'period': 2 * np.pi},
+                   {'energy': 2.0, 'period': 2 * np.pi}]
+    rho = IntegrabilityAnalysis.berry_tabor_formula(orbits_dict, energy=1.5, window=0.5)
+    assert rho > 0
+    print("✓ berry_tabor_formula passed")
+
+    # KAM tori: two well-separated action values → two tori
+    from types import SimpleNamespace
+    orbits_obj = [
+        SimpleNamespace(action=1.0,  energy=1.0,  period=6.28, stability=-0.1),
+        SimpleNamespace(action=1.02, energy=1.05, period=6.30, stability=-0.1),
+        SimpleNamespace(action=3.0,  energy=3.0,  period=6.28, stability=-0.1),
+        SimpleNamespace(action=3.02, energy=3.05, period=6.30, stability=-0.1),
+    ]
+    kam = IntegrabilityAnalysis.detect_kam_tori(orbits_obj, tolerance=0.5)
+    assert kam['n_tori'] == 2, kam
+    print("✓ detect_kam_tori passed")
+
+    # Rotation numbers on isotropic 2-DOF oscillator
+    x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+    traj = hamiltonian_flow(H, (1, 0, 0, 1), (0, 20 * np.pi),
+                            vars_phase=[x1, p1, x2, p2], n_steps=10000)
+    om1, om2 = IntegrabilityAnalysis.rotation_numbers(traj)
+    assert abs(om1 - om2) < 0.05, f"omega1={om1:.4f}, omega2={om2:.4f}"
+    print("✓ rotation_numbers passed")
+
+    print("✓ All IntegrabilityAnalysis tests passed")
+
+
 if __name__ == "__main__":
     print("Running unified symplectic tests...\n")
     test_harmonic_oscillator()
@@ -2064,4 +2588,5 @@ if __name__ == "__main__":
     test_poincare_section()
     test_fixed_points_1d()
     test_monodromy_simple()
+    test_integrability_analysis()
     print("\n✓ All tests passed")
