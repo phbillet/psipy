@@ -155,8 +155,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#fio_bridge.WKBState.wkb_phase_gradient"><code class="docutils literal notranslate"><span class="pre">WKBState.wkb_phase_gradient()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#fio_bridge.fft_reference"><code class="docutils literal notranslate"><span class="pre">fft_reference()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#fio_bridge.run_test_suite"><code class="docutils literal notranslate"><span class="pre">run_test_suite()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="geometry.html">geometry</a></li>
@@ -1254,47 +1252,6 @@ wavenumber for use as <code class="docutils literal notranslate"><span class="pr
 useful for choosing the SpectralSplitter cut-off.</p>
 </dd></dl>
 
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="fio_bridge.fft_reference">
-<span class="sig-prename descclassname"><span class="pre">fio_bridge.</span></span><span class="sig-name descname"><span class="pre">fft_reference</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><span class="pre">PseudoDifferentialOperator</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_vals</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/fio_bridge.html#fft_reference"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fio_bridge.fft_reference" title="Link to this definition"></a></dt>
-<dd><p>Exact numerical reference via FFT for a 1D constant-coefficient psiOp.</p>
-<blockquote>
-<div><p>(Pu)(x) = IFFT[ p(ξ) · FFT[u](ξ) ]</p>
-</div></blockquote>
-<p>Used only to validate the asymptotic bridge against a spectral solver.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="fio_bridge.run_test_suite">
-<span class="sig-prename descclassname"><span class="pre">fio_bridge.</span></span><span class="sig-name descname"><span class="pre">run_test_suite</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/fio_bridge.html#run_test_suite"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fio_bridge.run_test_suite" title="Link to this definition"></a></dt>
-<dd><p>Run 5 tests covering the main use cases of the bridge.</p>
-<section id="wkb-reference">
-<h2>WKB reference<a class="headerlink" href="#wkb-reference" title="Link to this heading"></a></h2>
-<dl class="simple">
-<dt>For a psiOp with constant symbol p(ξ) applied to</dt><dd><p>u_0(y) = a_u(y) · exp(iλ k_0 y)</p>
-</dd>
-<dt>the semi-classical result at leading order is:</dt><dd><p>(Pu)(x) = p(k_0) · u_0(x)</p>
-</dd>
-</dl>
-<ul class="simple">
-<li><p>Test 1 – Elliptic    P = ξ²       → p(k0)  = k0²</p></li>
-<li><p>Test 2 – Transport   P = c·ξ      → p(k0)  = c·k0</p></li>
-<li><p>Test 3 – Composition P∘Q, P=ξ², Q=ξ → PQ=ξ³, p(k0) = k0³</p></li>
-<li><p>Test 4 – Right-inverse  P=ξ²+1, R=P⁻¹ → (Ru)(x) = u(x)/p(k0)</p></li>
-<li><p>Test 5 – Propagator  exp(it·ξ)    → phase shift exp(i·t·k0)</p></li>
-</ul>
-<p>Error tolerance: O(1/λ) for simple operators, O(5/λ) for compositions.</p>
-<dl class="field-list simple">
-<dt class="field-odd">returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>‘max_rel_error’, ‘values_bridge’, ‘values_ref’.</p>
-</dd>
-<dt class="field-even">rtype<span class="colon">:</span></dt>
-<dd class="field-even"><p>dict  –  keys ‘test1’…’test5’; each a dict with ‘passed’,</p>
-</dd>
-</dl>
-</section>
 </dd></dl>
 
 </section>

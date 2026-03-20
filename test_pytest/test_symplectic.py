@@ -47,7 +47,8 @@ from symplectic import (
     _get_ndof,
     _check_ndof,
     rectangle_region,
-    evolve_phase_space_region
+    evolve_phase_space_region,
+    IntegrabilityAnalysis
 )
 
 # -----------------------------------------------------------------------------
@@ -703,12 +704,20 @@ def test_frequency_derivative():
     assert np.isclose(omega, 1.0)
 
 
-def test_frequency_period_not_implemented():
-    """The 'period' method must raise NotImplementedError."""
-    I_sym = symbols('I', real=True, positive=True)
-    H = I_sym
-    with pytest.raises(NotImplementedError):
-        frequency(H, 1.0, method='period')
+def test_frequency_period_harmonic_oscillator():
+    """For H=(x²+p²)/2 at energy E=1, the period is 2π so ω=1."""
+    x, p = symbols('x p', real=True)
+    H = (x**2 + p**2) / 2
+    omega = frequency(H, 1.0, method='period')
+    assert np.isclose(omega, 1.0, rtol=1e-3)
+
+def test_frequency_period_harmonic_oscillator_energy_independent():
+    """For the harmonic oscillator ω=1 regardless of energy."""
+    x, p = symbols('x p', real=True)
+    H = (x**2 + p**2) / 2
+    for E in [0.5, 1.0, 2.0, 5.0]:
+        omega = frequency(H, E, method='period')
+        assert np.isclose(omega, 1.0, rtol=1e-2), f"Failed at E={E}: ω={omega}"
 
 
 def test_visualize_phase_space_structure():
@@ -1000,3 +1009,165 @@ def test_evolve_phase_space_region_plot(monkeypatch):
     )
     assert 'plot_handles' in result
     assert len(result['plot_handles']) == len(result['times'])
+
+
+class TestBrodyDistribution:
+    def test_poisson_limit(self):
+        """Exponential spacings → β ≈ 0 (integrable)."""
+        rng = np.random.default_rng(0)
+        s = rng.exponential(scale=1.0, size=800)
+        r = IntegrabilityAnalysis.brody_distribution(s)
+        assert r['beta'] is not None
+        assert r['beta'] < 0.25
+        assert 'Integrable' in r['classification']
+
+    def test_wigner_limit(self):
+        """Rayleigh (Wigner) spacings → β ≈ 1 (chaotic)."""
+        rng = np.random.default_rng(1)
+        s = rng.rayleigh(scale=np.sqrt(4 / np.pi), size=800)
+        r = IntegrabilityAnalysis.brody_distribution(s)
+        assert r['beta'] > 0.75
+        assert 'Chaotic' in r['classification']
+
+    def test_pdf_callable(self):
+        """pdf key must be a callable returning non-negative values."""
+        rng = np.random.default_rng(2)
+        s = rng.exponential(size=200)
+        r = IntegrabilityAnalysis.brody_distribution(s)
+        vals = r['pdf'](np.linspace(0.01, 3.0, 50))
+        assert np.all(vals >= 0)
+
+    def test_beta_std_nonnegative(self):
+        rng = np.random.default_rng(3)
+        s = rng.exponential(size=300)
+        r = IntegrabilityAnalysis.brody_distribution(s)
+        assert r['beta_std'] >= 0
+
+class TestTopologicalMonodromy:
+    def _uncoupled_ho(self):
+        x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+        H = (p1**2 + x1**2) / 2 + (p2**2 + x2**2) / 2
+        # Second integral: energy of DOF 2 alone
+        L = (p2**2 + x2**2) / 2
+        return H, L, [x1, p1, x2, p2]
+
+    def test_output_keys(self):
+        H, L, vp = self._uncoupled_ho()
+        r = IntegrabilityAnalysis.topological_monodromy(
+            H, L, vp, critical_value=(0.0, 0.0),
+            loop_radius=0.3, n_loop_points=12)
+        for key in ('monodromy_matrix', 'monodromy_float', 'is_trivial',
+                    'actions_along_loop', 'angles', 'loop_EL'):
+            assert key in r
+
+    def test_monodromy_matrix_shape(self):
+        H, L, vp = self._uncoupled_ho()
+        r = IntegrabilityAnalysis.topological_monodromy(
+            H, L, vp, critical_value=(0.0, 0.0),
+            loop_radius=0.3, n_loop_points=12)
+        assert r['monodromy_matrix'].shape == (2, 2)
+
+    def test_actions_along_loop_shape(self):
+        H, L, vp = self._uncoupled_ho()
+        r = IntegrabilityAnalysis.topological_monodromy(
+            H, L, vp, critical_value=(0.0, 0.0),
+            loop_radius=0.3, n_loop_points=8)
+        assert r['actions_along_loop'].shape == (8, 2)
+        assert r['loop_EL'].shape == (8, 2)
+
+    def test_loop_EL_circle(self):
+        """The (E, ℓ) loop must lie on a circle of the requested radius."""
+        H, L, vp = self._uncoupled_ho()
+        r = IntegrabilityAnalysis.topological_monodromy(
+            H, L, vp, critical_value=(1.0, 0.5),
+            loop_radius=0.2, n_loop_points=16)
+        EL = r['loop_EL']
+        radii = np.sqrt((EL[:, 0] - 1.0)**2 + (EL[:, 1] - 0.5)**2)
+        np.testing.assert_allclose(radii, 0.2, rtol=1e-10)
+
+    def test_trivial_monodromy_uncoupled_ho(self):
+        """Uncoupled HO has trivial monodromy — M = identity."""
+        H, L, vp = self._uncoupled_ho()
+        r = IntegrabilityAnalysis.topological_monodromy(
+            H, L, vp, critical_value=(0.5, 0.25),
+            loop_radius=0.2, n_loop_points=24)
+        assert r['is_trivial'] is True
+
+    def test_wrong_dof_raises(self):
+        x, p = symbols('x p', real=True)
+        H = (p**2 + x**2) / 2
+        L = x
+        with pytest.raises(ValueError):
+            IntegrabilityAnalysis.topological_monodromy(
+                H, L, [x, p], critical_value=(0.0, 0.0))
+
+
+class TestScarIntensity:
+    def _ho_traj(self, n_steps=4000):
+        x, p = symbols('x p', real=True)
+        H = (p**2 + x**2) / 2
+        traj = hamiltonian_flow(H, (1, 0), (0, 40 * np.pi),
+                                vars_phase=[x, p], n_steps=n_steps)
+        return traj, [x, p]
+
+    def _unit_circle_orbit(self, K=100):
+        theta = np.linspace(0, 2 * np.pi, K, endpoint=False)
+        return np.column_stack([np.cos(theta), np.sin(theta)])
+
+    def test_output_keys(self):
+        traj, vp = self._ho_traj()
+        orbit = self._unit_circle_orbit()
+        r = IntegrabilityAnalysis.scar_intensity(traj, vp, orbit)
+        for key in ('scar_intensity', 'f_orbit', 'f_expected',
+                    'n_close', 'radius'):
+            assert key in r
+
+    def test_on_orbit_intensity_gt_1(self):
+        """Trajectory that IS the orbit must yield scar_intensity >> 1."""
+        traj, vp = self._ho_traj()
+        orbit = self._unit_circle_orbit()
+        r = IntegrabilityAnalysis.scar_intensity(traj, vp, orbit)
+        assert r['scar_intensity'] > 1.0
+
+    def test_f_orbit_in_unit_interval(self):
+        traj, vp = self._ho_traj()
+        orbit = self._unit_circle_orbit()
+        r = IntegrabilityAnalysis.scar_intensity(traj, vp, orbit)
+        assert 0.0 <= r['f_orbit'] <= 1.0
+
+    def test_far_orbit_low_intensity(self):
+        """An orbit far from the trajectory must yield near-zero f_orbit."""
+        traj, vp = self._ho_traj()
+        # Orbit at radius 5 — trajectory lives at radius 1
+        theta = np.linspace(0, 2 * np.pi, 50, endpoint=False)
+        far_orbit = np.column_stack([5 * np.cos(theta), 5 * np.sin(theta)])
+        r = IntegrabilityAnalysis.scar_intensity(traj, vp, far_orbit)
+        assert r['f_orbit'] < 0.01
+
+    def test_custom_radius(self):
+        """Larger radius must give >= as many close points as smaller."""
+        traj, vp = self._ho_traj()
+        orbit = self._unit_circle_orbit()
+        r_small = IntegrabilityAnalysis.scar_intensity(
+            traj, vp, orbit, radius=0.05)
+        r_large = IntegrabilityAnalysis.scar_intensity(
+            traj, vp, orbit, radius=0.3)
+        assert r_large['n_close'] >= r_small['n_close']
+
+    def test_2dof_projects_correctly(self):
+        """2-DOF trajectory: method must use x1,p1 without raising."""
+        x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+        H = (p1**2 + x1**2 + p2**2 + x2**2) / 2
+        traj = hamiltonian_flow(H, (1, 0, 0.5, 0), (0, 10 * np.pi),
+                                vars_phase=[x1, p1, x2, p2], n_steps=500)
+        orbit = np.column_stack([np.cos(np.linspace(0, 2*np.pi, 20)),
+                                 np.sin(np.linspace(0, 2*np.pi, 20))])
+        r = IntegrabilityAnalysis.scar_intensity(
+            traj, [x1, p1, x2, p2], orbit)
+        assert np.isfinite(r['scar_intensity'])
+
+    def test_invalid_orbit_shape_raises(self):
+        traj, vp = self._ho_traj()
+        with pytest.raises(ValueError):
+            IntegrabilityAnalysis.scar_intensity(
+                traj, vp, np.array([1.0, 2.0, 3.0]))  # 1D, not (K,2)
