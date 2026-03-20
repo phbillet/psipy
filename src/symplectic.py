@@ -1557,8 +1557,141 @@ def hamiltonian_flow_4d(H, z0, tspan, integrator='symplectic', n_steps=1000):
     return hamiltonian_flow(H, z0, tspan, vars_phase=vars_phase,
                             integrator=integrator, n_steps=n_steps)
 
+# -----------------------------------------------------------------------------
+# Parallel Poincaré worker  (module-level so ProcessPoolExecutor can pickle it)
+# -----------------------------------------------------------------------------
+def _poincare_worker(args):
+    """
+    Picklable worker for parallel Poincaré section computation.
+    SymPy expressions are passed directly (they are picklable).
+    vars_phase is passed as a list of strings and reconstructed with
+    real=True to match the calling convention.
+    """
+    H, Sigma_def, z0, tmax, vars_phase_str, n_returns, integrator = args
+    from sympy import symbols
+    vars_phase = [symbols(v, real=True) for v in vars_phase_str]
+    return poincare_section(H, Sigma_def, z0, tmax,
+                            vars_phase=vars_phase,
+                            n_returns=n_returns,
+                            integrator=integrator)
 
-def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000, 
+def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000,
+                     integrator='symplectic'):
+    """
+    Compute a Poincaré section for a 2-DOF Hamiltonian system.
+
+    A Poincaré section reduces the 4D continuous flow to a 2D discrete map by
+    recording intersections of trajectories with a specified surface Σ in phase
+    space. This reveals the underlying structure of the dynamics:
+    - Regular motion appears as closed curves (KAM tori)
+    - Chaotic motion appears as scattered points
+    - Periodic orbits appear as fixed points or finite sets
+
+    The section surface is defined by Σ = {(x₁, p₁, x₂, p₂) : variable = value}
+    with an optional crossing direction.
+
+    Parameters
+    ----------
+    H : sympy.Expr
+        Hamiltonian for a 2-degree-of-freedom system.
+    Sigma_def : dict
+        Section surface definition with keys:
+        - 'variable' : str, name of the section variable (e.g., 'x2', 'p1')
+        - 'value' : float, the constant value defining the surface
+        - 'direction' : str, optional, 'positive' or 'negative' crossing
+          (default: 'positive')
+    z0 : array_like
+        Initial condition [x₁₀, p₁₀, x₂₀, p₂₀].
+    tmax : float
+        Maximum integration time.
+    vars_phase : list of sympy.Symbol, optional
+        Variables [x1, p1, x2, p2]. If None, uses default canonical names.
+    n_returns : int
+        Maximum number of section crossings to collect (default: 1000).
+    integrator : {'symplectic', 'verlet', 'rk45'}
+        Integration method (default: 'symplectic').
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 't_crossings' : ndarray, times at which the section was crossed
+        - 'section_points' : list of dict, phase space coordinates at each
+          crossing (interpolated to the exact crossing time)
+
+    Raises
+    ------
+    ValueError
+        If the system is not 2-DOF, if the section variable is not found, or
+        if insufficient crossings are detected.
+
+    Notes
+    -----
+    Crossing detection is fully vectorised with NumPy (no Python-level loop
+    over time steps), giving a significant speedup for large n_steps.
+    Crossing times are linearly interpolated between integration steps for
+    accuracy. Use high n_steps in the underlying integration for precise
+    section points. For chaotic systems, increase tmax and n_returns.
+
+    See Also
+    --------
+    visualize_poincare_section : Plot multiple sections together
+    first_return_map : Analyze the discrete map from section points
+    """
+    if vars_phase is None:
+        vars_phase = [symbols('x1 p1 x2 p2', real=True)]
+    _check_ndof(vars_phase, 2)
+
+    # ── 1. Integrate ──────────────────────────────────────────────────────────
+    n_steps = 10000
+    traj = hamiltonian_flow(H, z0, (0, tmax), vars_phase=vars_phase,
+                            integrator=integrator, n_steps=n_steps)
+
+    # ── 2. Extract section variable ───────────────────────────────────────────
+    var_name  = Sigma_def['variable']
+    try:
+        [str(v) for v in vars_phase].index(var_name)   # validates name exists
+    except ValueError:
+        raise ValueError(f"Variable '{var_name}' not found in phase space variables.")
+
+    var_values = np.asarray(traj[var_name])
+    threshold  = float(Sigma_def['value'])
+    direction  = Sigma_def.get('direction', 'positive')
+
+    # ── 3. Vectorised crossing detection ─────────────────────────────────────
+    shifted = var_values - threshold
+    signs   = np.sign(shifted)
+
+    if direction == 'positive':
+        cross_mask = (signs[:-1] < 0) & (signs[1:] >= 0)
+    elif direction == 'negative':
+        cross_mask = (signs[:-1] > 0) & (signs[1:] <= 0)
+    else:
+        cross_mask = signs[:-1] * signs[1:] < 0
+
+    indices = np.where(cross_mask)[0][:n_returns]   # cap at n_returns
+
+    # ── 4. Linear interpolation to exact crossing ─────────────────────────────
+    t_arr     = np.asarray(traj['t'])
+    var_names = [str(v) for v in vars_phase]
+    traj_arrs = {k: np.asarray(traj[k]) for k in var_names}
+
+    alphas    = (threshold - var_values[indices]) / (var_values[indices + 1] - var_values[indices])
+    t_cross   = t_arr[indices] + alphas * (t_arr[indices + 1] - t_arr[indices])
+
+    section_points = [
+        {k: float(traj_arrs[k][i] + alphas[j] * (traj_arrs[k][i + 1] - traj_arrs[k][i]))
+         for k in var_names}
+        for j, i in enumerate(indices)
+    ]
+
+    return {
+        't_crossings' : t_cross,
+        'section_points': section_points,
+    }
+
+    
+def poincare_section_old(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000, 
                      integrator='symplectic'):
     """
     Compute a Poincaré section for a 2-DOF Hamiltonian system.
@@ -1981,6 +2114,76 @@ def project(trajectory, plane='xy', vars_phase=None):
 
 
 def visualize_poincare_section(H, z0_list, Sigma_def, vars_phase=None,
+                               tmax=100, n_returns=500, plot_vars=('x1', 'p1'),
+                               n_workers=None):
+    """
+    Visualize Poincaré section for multiple initial conditions (2-DOF).
+
+    Initial conditions are processed in parallel using ProcessPoolExecutor,
+    giving a near-linear speedup with the number of available CPU cores.
+
+    Parameters
+    ----------
+    H : sympy.Expr
+        Hamiltonian for a 2-degree-of-freedom system.
+    z0_list : list of array_like
+        List of initial conditions, each of length 4.
+    Sigma_def : dict
+        Section surface definition (see poincare_section).
+    vars_phase : list of sympy.Symbol, optional
+        Variables [x1, p1, x2, p2].
+    tmax : float
+        Maximum integration time (default: 100).
+    n_returns : int
+        Maximum crossings per initial condition (default: 500).
+    plot_vars : tuple of str
+        Two variable names to plot (default: ('x1', 'p1')).
+    n_workers : int, optional
+        Number of worker processes. Defaults to the number of CPU cores.
+        Set to 1 to disable parallelism (useful for debugging).
+    """
+    if vars_phase is None:
+        vars_phase = [symbols('x1 p1 x2 p2', real=True)]
+    _check_ndof(vars_phase, 2)
+
+    from concurrent.futures import ProcessPoolExecutor
+
+    vars_str     = [str(v) for v in vars_phase]
+    task_args    = [
+        (H, Sigma_def, list(z0), tmax, vars_str, n_returns, 'symplectic')
+        for z0 in z0_list
+    ]
+
+    # ── Run in parallel (or serial when n_workers=1) ──────────────────────────
+    if n_workers == 1:
+        results = [_poincare_worker(a) for a in task_args]
+    else:
+        with ProcessPoolExecutor(max_workers=n_workers) as pool:
+            results = list(pool.map(_poincare_worker, task_args))
+
+    # ── Plot ──────────────────────────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=(12, 10))
+    colors  = plt.cm.viridis(np.linspace(0, 1, len(z0_list)))
+    var1, var2 = plot_vars
+
+    for idx, ps in enumerate(results):
+        if ps is None:
+            continue
+        if ps['section_points']:
+            x_vals = [p[var1] for p in ps['section_points']]
+            y_vals = [p[var2] for p in ps['section_points']]
+            ax.plot(x_vals, y_vals, 'o', markersize=2,
+                    color=colors[idx], alpha=0.6, label=f'IC {idx+1}')
+
+    ax.set_xlabel(var1, fontsize=12)
+    ax.set_ylabel(var2, fontsize=12)
+    ax.set_title('Poincaré Section', fontsize=14)
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8, ncol=2)
+    plt.tight_layout()
+    plt.show()
+
+def visualize_poincare_section_old(H, z0_list, Sigma_def, vars_phase=None,
                                tmax=100, n_returns=500, plot_vars=('x1', 'p1')):
     """Visualize Poincaré section for multiple initial conditions (2‑DOF)."""
     if vars_phase is None:

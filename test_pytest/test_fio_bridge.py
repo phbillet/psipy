@@ -50,7 +50,6 @@ from fio_bridge import (
     PsiOpFIOBridge,
     PropagatorBridge,
     CompositionBridge,
-    fft_reference,
     WKBState,
     SpectralSplitter,
     SemiclassicalCorrector,
@@ -78,7 +77,33 @@ u_numeric = np.exp(-x_grid**2 / 2) * np.exp(1j * lam * k0 * x_grid)
 # Shared bridge keyword arguments (avoid repetition in every test)
 _BKW = dict(lam=lam, n_guesses=40, xi_range=(-10.0, 10.0))
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  FFT reference for validation
+# ─────────────────────────────────────────────────────────────────────────────
 
+def fft_reference(
+    op      : PseudoDifferentialOperator,
+    u_vals  : np.ndarray,
+    x_grid  : np.ndarray,
+) -> np.ndarray:
+    """
+    Exact numerical reference via FFT for a 1D constant-coefficient psiOp.
+
+        (Pu)(x) = IFFT[ p(ξ) · FFT[u](ξ) ]
+
+    Used only to validate the asymptotic bridge against a spectral solver.
+    """
+    N  = len(x_grid)
+    dx = x_grid[1] - x_grid[0]
+    xi = np.fft.fftfreq(N, d=dx) * 2.0 * np.pi
+
+    x_sym  = op.vars_x[0]
+    xi_sym = sp.Symbol('xi', real=True)
+    p_func = sp.lambdify((x_sym, xi_sym), op.symbol, 'numpy')
+
+    u_hat  = np.fft.fft(u_vals)
+    p_vals = p_func(np.zeros_like(xi), xi)
+    return np.fft.ifft(p_vals * u_hat)
 # ─────────────────────────────────────────────────────────────────────────────
 #  1. FIOKernel dataclass
 # ─────────────────────────────────────────────────────────────────────────────
