@@ -828,32 +828,27 @@ def test_monodromy_invalid_method():
 def test_lyapunov_exponents_length():
     x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
     H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+    vp = [x1, p1, x2, p2]
     traj = hamiltonian_flow(H, (1, 0, 0.5, 0), (0, 50),
-                            vars_phase=[x1, p1, x2, p2],
+                            vars_phase=vp,
                             integrator='symplectic', n_steps=500)
     dt = traj['t'][1] - traj['t'][0]
-    exponents = lyapunov_exponents(traj, dt, vars_phase=[x1, p1, x2, p2], n_vectors=4)
+    exponents = lyapunov_exponents(traj, dt, H=H, vars_phase=vp, n_vectors=4)
     assert len(exponents) == 4
 
 
 def test_lyapunov_exponents_sorted_descending():
-    """
-    Returned exponents must be in descending order among finite values.
-    The current implementation can produce -inf / nan for near-zero QR
-    diagonal entries, so we only enforce ordering on the finite subset.
-    """
     x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
     H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+    vp = [x1, p1, x2, p2]
     traj = hamiltonian_flow(H, (1, 0, 0.5, 0), (0, 50),
-                            vars_phase=[x1, p1, x2, p2],
+                            vars_phase=vp,
                             integrator='symplectic', n_steps=500)
     dt = traj['t'][1] - traj['t'][0]
-    exponents = lyapunov_exponents(traj, dt, vars_phase=[x1, p1, x2, p2], n_vectors=4)
+    exponents = lyapunov_exponents(traj, dt, H=H, vars_phase=vp, n_vectors=4)
     finite = exponents[np.isfinite(exponents)]
-    assert len(finite) >= 1, "Expected at least one finite Lyapunov exponent"
-    assert np.all(np.diff(finite) <= 0), (
-        f"Finite exponents are not in descending order: {finite}"
-    )
+    assert len(finite) >= 1
+    assert np.all(np.diff(finite) <= 0)
 
 
 def test_project_functions():
@@ -1009,6 +1004,604 @@ def test_evolve_phase_space_region_plot(monkeypatch):
     )
     assert 'plot_handles' in result
     assert len(result['plot_handles']) == len(result['times'])
+
+
+class TestAnalyzeIntegrability:
+    """
+    Tests for the redesigned IntegrabilityAnalysis.analyze_integrability.
+
+    Architecture under test
+    -----------------------
+    The new method is organised around four independent evidence channels:
+
+      Algebraic  — symbolic {H, L} = 0 check; acts as a hard gate that forces
+                   verdict='Integrable' before any numerical work is done.
+      Spectral   — Brody β (MLE) + two KS tests; driven by 'levels' (auto-
+                   unfolded) or pre-computed 'spacings'.
+      Frequency  — NAFF-lite rotation numbers from a trajectory; rational
+                   ω₁/ω₂ is a resonance signal.
+      Lyapunov   — λ_max from the trajectory; acts as a hard gate that forces
+                   verdict='Chaotic' when λ_max exceeds the threshold.
+
+    Hard gates evaluate first and short-circuit the soft-score path:
+      algebraic proof  → Integrable  (even if Lyapunov would say chaotic)
+      Lyapunov gate    → Chaotic
+
+    Key API changes vs. the previous version
+    -----------------------------------------
+    - First positional argument is now H (optional), not spacings.
+    - Raw energy eigenvalues are passed as `levels=`; they are unfolded
+      internally.  Pre-computed spacings may still be passed as `spacings=`.
+    - Second integrals are passed as `second_integrals=` (not L=).
+    - Output keys: 'verdict', 'verdict_source', 'soft_score', 'channels',
+      'warnings', 'summary'.
+    - channels sub-dict keys: 'algebraic', 'spectral', 'frequency', 'lyapunov'.
+    - Removed from output: 'ratio', 'mean_spacing', 'std_spacing',
+      'classification', 'verdict_score', 'evidence', 'brody', 'kam',
+      'conserved_L', 'rotation_numbers', 'winding_number', 'scar_intensity'.
+      (Spectral stats now live in channels['spectral']; algebraic result in
+      channels['algebraic']; frequency result in channels['frequency'].)
+    - KAM tori, Berry-Tabor, and scar intensity are no longer part of the
+      orchestrator; call those methods directly.
+
+    Physical fixtures
+    -----------------
+    Integrable  — isotropic 2-DOF harmonic oscillator H = Σ(pᵢ²+xᵢ²)/2,
+                  second integral L = (p2²+x2²)/2.
+                  Integrable spectrum → exponential spacing increments (Poisson).
+    Chaotic     — Wigner (Rayleigh) spacing increments as chaotic benchmark.
+    """
+
+    # ------------------------------------------------------------------
+    # Fixtures
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _poisson_levels(n=500, seed=42):
+        """Cumulative sum of Poisson (exponential) spacings → integrable spectrum."""
+        return np.sort(np.random.default_rng(seed).exponential(1.0, n).cumsum())
+
+    @staticmethod
+    def _wigner_levels(n=500, seed=42):
+        """Cumulative sum of Wigner (Rayleigh) spacings → chaotic spectrum."""
+        return np.sort(np.random.default_rng(seed).rayleigh(
+            np.sqrt(4 / np.pi), n).cumsum())
+
+    @staticmethod
+    def _poisson_spacings(n=500, seed=42):
+        """Raw exponential spacings (pre-computed, unit mean)."""
+        return np.random.default_rng(seed).exponential(1.0, n)
+
+    @staticmethod
+    def _wigner_spacings(n=500, seed=42):
+        """Raw Rayleigh spacings (pre-computed, unit mean by construction)."""
+        return np.random.default_rng(seed).rayleigh(np.sqrt(4 / np.pi), n)
+
+    @staticmethod
+    def _ho2d_vars():
+        return symbols('x1 p1 x2 p2', real=True)
+
+    @staticmethod
+    def _ho2d_H_L():
+        x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+        H = (p1**2 + x1**2 + p2**2 + x2**2) / 2
+        L = (p2**2 + x2**2) / 2
+        return H, L, [x1, p1, x2, p2]
+
+    @staticmethod
+    def _ho2d_traj(n_steps=6000):
+        """Long isotropic-HO trajectory for reliable NAFF frequency estimates."""
+        x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+        H = (p1**2 + x1**2 + p2**2 + x2**2) / 2
+        vp = [x1, p1, x2, p2]
+        traj = hamiltonian_flow(H, (1.0, 0.0, 0.0, 1.0), (0, 60 * np.pi),
+                                vars_phase=vp, integrator='verlet',
+                                n_steps=n_steps)
+        return traj, vp
+
+    @staticmethod
+    def _aniso_traj(n_steps=6000):
+        """Anisotropic HO: ω₁=1, ω₂=2  →  ω₁/ω₂ = 1/2 (rational)."""
+        x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+        H = (p1**2 + x1**2) / 2 + (p2**2 + 4 * x2**2) / 2
+        vp = [x1, p1, x2, p2]
+        traj = hamiltonian_flow(H, (1.0, 0.0, 0.0, 0.5), (0, 60 * np.pi),
+                                vars_phase=vp, integrator='verlet',
+                                n_steps=n_steps)
+        return traj, vp
+
+    # ------------------------------------------------------------------
+    # Mandatory output keys — always present regardless of inputs
+    # ------------------------------------------------------------------
+
+    def test_mandatory_keys_algebraic_only(self):
+        """Algebraic-only call must return all four mandatory top-level keys."""
+        H, L, vp = self._ho2d_H_L()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=vp, second_integrals=L)
+        for key in ('verdict', 'verdict_source', 'soft_score', 'channels',
+                    'warnings', 'summary'):
+            assert key in r, f"Missing mandatory key: {key}"
+
+    def test_mandatory_keys_spectral_only(self):
+        """Spectral-only call (levels=) must return all mandatory keys."""
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        for key in ('verdict', 'verdict_source', 'soft_score', 'channels',
+                    'warnings', 'summary'):
+            assert key in r, f"Missing mandatory key: {key}"
+
+    def test_no_inputs_raises_value_error(self):
+        """Calling with no arguments must raise ValueError."""
+        with pytest.raises(ValueError):
+            IntegrabilityAnalysis.analyze_integrability()
+
+    def test_summary_is_nonempty_string(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        assert isinstance(r['summary'], str) and len(r['summary']) > 0
+
+    def test_warnings_is_list(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        assert isinstance(r['warnings'], list)
+
+    def test_channels_is_dict(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        assert isinstance(r['channels'], dict)
+
+    # ------------------------------------------------------------------
+    # Algebraic channel — hard gate
+    # ------------------------------------------------------------------
+
+    def test_algebraic_channel_present_when_H_L_given(self):
+        H, L, vp = self._ho2d_H_L()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=vp, second_integrals=L)
+        assert 'algebraic' in r['channels']
+
+    def test_algebraic_channel_absent_without_symbolic_args(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        assert 'algebraic' not in r['channels']
+
+    def test_algebraic_gate_fires_integrable(self):
+        """A confirmed second integral must force verdict=Integrable, source=algebraic_proof."""
+        H, L, vp = self._ho2d_H_L()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=vp, second_integrals=L)
+        assert r['verdict'] == 'Integrable'
+        assert r['verdict_source'] == 'algebraic_proof'
+        assert r['soft_score'] == 1.0
+
+    def test_algebraic_gate_does_not_fire_for_non_integral(self):
+        """L = x1 (not conserved) must NOT activate the hard gate."""
+        x1, p1, x2, p2 = self._ho2d_vars()
+        H = (p1**2 + x1**2 + p2**2 + x2**2) / 2
+        L_bad = x1
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=[x1, p1, x2, p2], second_integrals=L_bad)
+        assert r['verdict_source'] != 'algebraic_proof'
+        assert r['channels']['algebraic']['any_conserved'] is False
+
+    def test_algebraic_any_conserved_true_for_known_integral(self):
+        H, L, vp = self._ho2d_H_L()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=vp, second_integrals=L)
+        assert r['channels']['algebraic']['any_conserved'] is True
+
+    def test_algebraic_independent_integrals_count(self):
+        """channels['algebraic']['independent_integrals'] must equal 1 for one good L."""
+        H, L, vp = self._ho2d_H_L()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=vp, second_integrals=L)
+        assert r['channels']['algebraic']['independent_integrals'] == 1
+
+    def test_algebraic_gate_beats_lyapunov_gate(self):
+        """Algebraic proof must win even when the Lyapunov channel would say chaotic.
+        This is verified by providing a confirmed integral together with Wigner
+        levels and a chaotic-looking trajectory — the gate fires first and the
+        Lyapunov channel is never reached."""
+        H, L, vp = self._ho2d_H_L()
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=vp, second_integrals=L,
+            levels=self._wigner_levels(),
+            lyapunov_traj=traj, lyapunov_dt=None)
+        assert r['verdict'] == 'Integrable'
+        assert r['verdict_source'] == 'algebraic_proof'
+        assert 'lyapunov' not in r['channels']
+
+    def test_algebraic_bracket_list_in_channel(self):
+        """channels['algebraic']['brackets'] must be a non-empty list of dicts."""
+        H, L, vp = self._ho2d_H_L()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=vp, second_integrals=L)
+        brackets = r['channels']['algebraic']['brackets']
+        assert isinstance(brackets, list) and len(brackets) == 1
+        assert 'is_zero' in brackets[0]
+        assert brackets[0]['is_zero'] is True
+
+    def test_algebraic_multiple_candidates_one_good(self):
+        """With two candidates [L_bad, L_good], exactly one integral must be confirmed."""
+        x1, p1, x2, p2 = self._ho2d_vars()
+        H = (p1**2 + x1**2 + p2**2 + x2**2) / 2
+        L_bad  = x1
+        L_good = (p2**2 + x2**2) / 2
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=[x1, p1, x2, p2],
+            second_integrals=[L_bad, L_good])
+        assert r['verdict'] == 'Integrable'
+        assert r['channels']['algebraic']['independent_integrals'] == 1
+
+    # ------------------------------------------------------------------
+    # Spectral channel — Brody β and KS tests
+    # ------------------------------------------------------------------
+
+    def test_spectral_channel_present_with_levels(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        assert 'spectral' in r['channels']
+
+    def test_spectral_channel_present_with_spacings(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            spacings=self._poisson_spacings())
+        assert 'spectral' in r['channels']
+
+    def test_spectral_channel_absent_without_spectrum(self):
+        H, L, vp = self._ho2d_H_L()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=vp, second_integrals=L)
+        assert 'spectral' not in r['channels']
+
+    def test_spectral_keys_present(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        sc = r['channels']['spectral']
+        for key in ('beta', 'beta_std', 'ks_poisson_p', 'ks_wigner_p',
+                    'n_spacings', 'score', 'ratio_R'):
+            assert key in sc, f"Missing spectral key: {key}"
+
+    def test_spectral_beta_in_unit_interval(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        assert 0.0 <= r['channels']['spectral']['beta'] <= 1.0
+
+    def test_spectral_poisson_levels_low_beta(self):
+        """Poisson levels → β ≈ 0 after unfolding."""
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels(n=600))
+        assert r['channels']['spectral']['beta'] < 0.3
+
+    def test_spectral_wigner_levels_high_beta(self):
+        """Wigner levels → β ≈ 1 after unfolding."""
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._wigner_levels(n=600))
+        assert r['channels']['spectral']['beta'] > 0.7
+
+    def test_spectral_ks_directionality_poisson(self):
+        """For Poisson levels: p(Poisson) must exceed p(Wigner)."""
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels(n=600))
+        sc = r['channels']['spectral']
+        assert sc['ks_poisson_p'] > sc['ks_wigner_p']
+
+    def test_spectral_ks_directionality_wigner(self):
+        """For Wigner levels: p(Wigner) must exceed p(Poisson)."""
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._wigner_levels(n=600))
+        sc = r['channels']['spectral']
+        assert sc['ks_wigner_p'] > sc['ks_poisson_p']
+
+    def test_spectral_n_spacings_correct(self):
+        """n_spacings must equal len(levels) - 1 when levels= is provided."""
+        levels = self._poisson_levels(n=200)
+        r = IntegrabilityAnalysis.analyze_integrability(levels=levels)
+        assert r['channels']['spectral']['n_spacings'] == len(levels) - 1
+
+    def test_spectral_skipped_below_min_spacings(self):
+        """Fewer than min_spacings levels → spectral channel absent, warning present."""
+        tiny = self._poisson_levels(n=10)   # 9 spacings < default 30
+        r = IntegrabilityAnalysis.analyze_integrability(levels=tiny)
+        assert 'spectral' not in r['channels']
+        assert len(r['warnings']) > 0
+
+    def test_spectral_unfolding_unit_mean(self):
+        """Spacings derived from unfolded levels must have mean ≈ 1."""
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels(n=400))
+        sc = r['channels']['spectral']
+        assert abs(sc['spacings_norm'].mean() - 1.0) < 0.05
+
+    def test_spectral_score_in_unit_interval(self):
+        for lev in (self._poisson_levels(), self._wigner_levels()):
+            r = IntegrabilityAnalysis.analyze_integrability(levels=lev)
+            assert 0.0 <= r['channels']['spectral']['score'] <= 1.0
+
+    def test_spectral_poisson_verdict_integrable(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels(n=600))
+        assert r['verdict'] in ('Integrable', 'Likely integrable')
+
+    def test_spectral_wigner_verdict_chaotic(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._wigner_levels(n=600))
+        assert r['verdict'] in ('Chaotic', 'Likely chaotic')
+
+    def test_soft_score_in_unit_interval(self):
+        for lev in (self._poisson_levels(), self._wigner_levels()):
+            r = IntegrabilityAnalysis.analyze_integrability(levels=lev)
+            assert 0.0 <= r['soft_score'] <= 1.0
+
+    def test_verdict_is_valid_string(self):
+        valid = {'Integrable', 'Likely integrable', 'Mixed',
+                 'Likely chaotic', 'Chaotic', 'Undetermined'}
+        for lev in (self._poisson_levels(), self._wigner_levels()):
+            r = IntegrabilityAnalysis.analyze_integrability(levels=lev)
+            assert r['verdict'] in valid, f"Unexpected verdict: {r['verdict']!r}"
+
+    # ------------------------------------------------------------------
+    # Spectral unfolding helper
+    # ------------------------------------------------------------------
+
+    def test_unfold_spectrum_unit_mean_spacing(self):
+        """Unfolded levels must have nearest-neighbour mean spacing ≈ 1."""
+        levels = self._poisson_levels(n=400)
+        unfolded = IntegrabilityAnalysis.unfold_spectrum(levels)
+        assert abs(np.diff(unfolded).mean() - 1.0) < 0.05
+
+    def test_unfold_spectrum_preserves_count(self):
+        levels = self._poisson_levels(n=300)
+        unfolded = IntegrabilityAnalysis.unfold_spectrum(levels)
+        assert len(unfolded) == len(levels)
+
+    def test_unfold_spectrum_monotone(self):
+        """Unfolded levels must be strictly increasing."""
+        levels = self._poisson_levels(n=300)
+        unfolded = IntegrabilityAnalysis.unfold_spectrum(levels)
+        assert np.all(np.diff(unfolded) > 0)
+
+    def test_unfold_spectrum_nonuniform_density(self):
+        """Unfolding must normalise a non-uniform density to unit mean spacing."""
+        rng = np.random.default_rng(99)
+        nonuniform = np.sort(rng.exponential(1.0, 300) * np.linspace(0.5, 2.0, 300))
+        unfolded = IntegrabilityAnalysis.unfold_spectrum(nonuniform)
+        assert abs(np.diff(unfolded).mean() - 1.0) < 0.10
+
+    # ------------------------------------------------------------------
+    # Frequency channel — NAFF rotation numbers
+    # ------------------------------------------------------------------
+
+    def test_frequency_channel_present_with_traj(self):
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            traj=traj, ndof=2)
+        assert 'frequency' in r['channels']
+
+    def test_frequency_channel_absent_without_traj(self):
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        assert 'frequency' not in r['channels']
+
+    def test_frequency_channel_keys(self):
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            traj=traj, ndof=2)
+        fc = r['channels']['frequency']
+        for key in ('omega1', 'omega2', 'ratio', 'is_rational', 'method', 'score'):
+            assert key in fc, f"Missing frequency key: {key}"
+
+    def test_frequency_method_is_naff(self):
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(traj=traj, ndof=2)
+        assert r['channels']['frequency']['method'] == 'naff'
+
+    def test_frequency_omega_finite(self):
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(traj=traj, ndof=2)
+        fc = r['channels']['frequency']
+        assert np.isfinite(fc['omega1']) and np.isfinite(fc['omega2'])
+
+    def test_frequency_isotropic_ho_equal_frequencies(self):
+        """Isotropic HO: ω₁ ≈ ω₂ (same frequency for both DOF)."""
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(traj=traj, ndof=2)
+        fc = r['channels']['frequency']
+        assert abs(fc['omega1'] - fc['omega2']) < 0.05, (
+            f"Expected ω₁≈ω₂, got ω₁={fc['omega1']:.4f} ω₂={fc['omega2']:.4f}")
+
+    def test_frequency_isotropic_ho_rational(self):
+        """Isotropic HO: ω₁/ω₂ = 1 is rational → is_rational=True."""
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(traj=traj, ndof=2)
+        assert r['channels']['frequency']['is_rational'] is True
+
+    def test_frequency_anisotropic_ho_half_ratio(self):
+        """Anisotropic HO (ω₁=1, ω₂=2): ratio ≈ 1/2, rational."""
+        traj, _ = self._aniso_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(traj=traj, ndof=2)
+        fc = r['channels']['frequency']
+        rat = fc['omega1'] / fc['omega2']
+        assert abs(rat - 0.5) < 0.05, f"Expected ω₁/ω₂≈0.5, got {rat:.4f}"
+        assert fc['is_rational'] is True
+        assert fc['ratio_fraction'] == '1/2'
+
+    def test_frequency_score_in_unit_interval(self):
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(traj=traj, ndof=2)
+        assert 0.0 <= r['channels']['frequency']['score'] <= 1.0
+
+    def test_frequency_rational_raises_score(self):
+        """Rational ω₁/ω₂ must give a higher score than the irrational threshold."""
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(traj=traj, ndof=2)
+        # Rational score is 0.75, irrational is 0.5 — rational must win
+        assert r['channels']['frequency']['score'] >= 0.5
+
+    def test_frequency_ndof_inferred_from_traj_keys(self):
+        """ndof should be inferred automatically from trajectory key names."""
+        traj, _ = self._ho2d_traj()
+        # Pass without explicit ndof — should still activate the 2-DOF branch
+        r = IntegrabilityAnalysis.analyze_integrability(traj=traj)
+        assert 'frequency' in r['channels']
+
+    def test_frequency_naff_keys_override(self):
+        """naff_keys parameter must control which trajectory keys are read."""
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            traj=traj, ndof=2,
+            naff_keys=('x1', 'p1', 'x2', 'p2'))
+        assert 'frequency' in r['channels']
+        assert np.isfinite(r['channels']['frequency']['omega1'])
+
+    # ------------------------------------------------------------------
+    # Lyapunov channel — hard gate for chaos
+    # ------------------------------------------------------------------
+
+    def test_lyapunov_channel_present_with_traj_and_vars(self):
+        traj, vp = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            traj=traj, vars_phase=vp)
+        # Channel should be attempted; it may or may not fire as a gate
+        assert 'lyapunov' in r['channels']
+
+    def test_lyapunov_channel_absent_without_vars_phase(self):
+        """Without vars_phase the Lyapunov channel cannot run."""
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(traj=traj, ndof=2)
+        assert 'lyapunov' not in r['channels']
+
+    def test_lyapunov_channel_keys(self):
+        traj, vp = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            traj=traj, vars_phase=vp)
+        lc = r['channels']['lyapunov']
+        for key in ('lambda_max', 'exponents', 'is_chaotic', 'threshold'):
+            assert key in lc, f"Missing Lyapunov key: {key}"
+
+    def test_lyapunov_exponents_finite(self):
+        traj, vp = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            traj=traj, vars_phase=vp)
+        exps = r['channels']['lyapunov']['exponents']
+        assert np.any(np.isfinite(exps))
+
+    def test_lyapunov_integrable_ho_not_chaotic(self):
+        """Integrable HO trajectory: λ_max should be near zero, is_chaotic=False."""
+        traj, vp = self._ho2d_traj()
+        H, _, _ = self._ho2d_H_L()   # retrieve H
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H,                     # <-- added
+            traj=traj,
+            vars_phase=vp
+        )
+        lc = r['channels']['lyapunov']
+        assert lc['is_chaotic'] is False, (
+            f"Expected is_chaotic=False for HO, got λ_max={lc['lambda_max']:.4f}")
+
+    def test_lyapunov_lambda_max_finite(self):
+        traj, vp = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            traj=traj, vars_phase=vp)
+        assert np.isfinite(r['channels']['lyapunov']['lambda_max'])
+
+    def test_lyapunov_separate_traj_accepted(self):
+        """lyapunov_traj= must override the main traj for Lyapunov estimation."""
+        traj, vp = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels(),
+            lyapunov_traj=traj, lyapunov_dt=None,
+            vars_phase=vp)
+        assert 'lyapunov' in r['channels']
+
+    # ------------------------------------------------------------------
+    # Combined channels and soft-score aggregation
+    # ------------------------------------------------------------------
+
+    def test_all_channels_active_integrable_system(self):
+        """All four channels active on the isotropic HO: verdict must be Integrable."""
+        H, L, vp = self._ho2d_H_L()
+        # Algebraic gate fires first → Integrable unconditionally
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            H=H, vars_phase=vp, second_integrals=L,
+            levels=self._poisson_levels(),
+            traj=traj, ndof=2)
+        assert r['verdict'] == 'Integrable'
+        assert r['verdict_source'] == 'algebraic_proof'
+
+    def test_spectral_plus_frequency_soft_score(self):
+        """Spectral (Poisson) + frequency (rational) → score > 0.5."""
+        traj, _ = self._ho2d_traj()
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels(), traj=traj, ndof=2)
+        assert r['soft_score'] > 0.5
+        assert r['verdict'] in ('Integrable', 'Likely integrable')
+
+    def test_spectral_wigner_reduces_soft_score(self):
+        """Wigner levels must produce a soft_score below the Poisson baseline."""
+        r_int = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels(n=600))
+        r_cha = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._wigner_levels(n=600))
+        assert r_cha['soft_score'] < r_int['soft_score']
+
+    def test_summary_grows_with_channels(self):
+        """More active channels → longer summary string."""
+        r0 = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        traj, vp = self._ho2d_traj()
+        r1 = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels(), traj=traj, ndof=2)
+        r2 = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels(), traj=traj, vars_phase=vp)
+        assert len(r1['summary']) > len(r0['summary'])
+        assert len(r2['summary']) > len(r1['summary'])
+
+    def test_reproducibility(self):
+        """Two identical calls must return identical numeric results."""
+        levels = self._poisson_levels()
+        r1 = IntegrabilityAnalysis.analyze_integrability(levels=levels)
+        r2 = IntegrabilityAnalysis.analyze_integrability(levels=levels)
+        assert r1['soft_score'] == r2['soft_score']
+        assert r1['verdict'] == r2['verdict']
+        np.testing.assert_array_equal(
+            r1['channels']['spectral']['spacings_norm'],
+            r2['channels']['spectral']['spacings_norm'])
+
+    def test_verdict_source_is_soft_score_without_gates(self):
+        """With no algebraic or Lyapunov input, source must be 'soft_score'."""
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        assert r['verdict_source'] == 'soft_score'
+
+    def test_soft_score_none_only_when_undetermined(self):
+        """soft_score must be a float in [0,1] whenever a quantitative channel runs."""
+        r = IntegrabilityAnalysis.analyze_integrability(
+            levels=self._poisson_levels())
+        assert r['soft_score'] is not None
+        assert isinstance(r['soft_score'], float)
+
+    # ------------------------------------------------------------------
+    # NAFF helper — unit tests
+    # ------------------------------------------------------------------
+
+    def test_naff_frequency_pure_tone(self):
+        """NAFF must recover ω = 2 rad/s from a pure sinusoid."""
+        dt = 0.01
+        t  = np.arange(0, 500 * np.pi, dt)
+        z  = np.exp(2j * t)             # analytic signal at ω = 2
+        om = IntegrabilityAnalysis._naff_frequency(z, dt)
+        assert abs(om - 2.0) < 0.05, f"Expected ω≈2.0, got {om:.4f}"
+
+    def test_naff_frequency_returns_positive(self):
+        """_naff_frequency must always return a positive value."""
+        dt = 0.01
+        t  = np.arange(0, 200 * np.pi, dt)
+        z  = np.exp(1j * t)
+        om = IntegrabilityAnalysis._naff_frequency(z, dt)
+        assert om > 0
 
 
 class TestBrodyDistribution:

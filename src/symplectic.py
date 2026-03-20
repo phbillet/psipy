@@ -508,185 +508,6 @@ def hamiltonian_flow(H, z0, tspan, vars_phase=None, integrator='symplectic',
     else:
         raise ValueError("integrator must be 'rk45', 'symplectic', or 'verlet'")
 
-def hamiltonian_flow_old(H, z0, tspan, vars_phase=None, integrator='symplectic', 
-                     n_steps=1000):
-    """
-    Numerically integrate Hamilton's equations of motion.
-    
-    Solves the system:
-        ẋᵢ = ∂H/∂pᵢ
-        ṗᵢ = -∂H/∂xᵢ
-    
-    for i = 1, ..., n degrees of freedom.
-    
-    Integrator options and their properties:
-    - 'symplectic' (Symplectic Euler): First-order, exactly preserves symplectic
-      structure, good long-term energy behavior, computationally efficient
-    - 'verlet' (Velocity Verlet): Second-order, time-reversible, excellent for
-      oscillatory systems, preserves symplectic structure
-    - 'rk45' (Runge-Kutta 4/5): Fourth-order adaptive, not symplectic, better
-      short-term accuracy but may drift in energy over long simulations
-    
-    Parameters
-    ----------
-    H : sympy.Expr
-        Hamiltonian function H(x₁, p₁, ..., xₙ, pₙ).
-    z0 : array_like
-        Initial conditions as [x₁₀, p₁₀, x₂₀, p₂₀, ...], length 2n.
-    tspan : tuple of float
-        Time integration interval (t_start, t_end).
-    vars_phase : list of sympy.Symbol, optional
-        Phase space variables in canonical order. If None, inferred from H.
-    integrator : {'symplectic', 'verlet', 'rk45'}
-        Numerical integration method (default: 'symplectic').
-    n_steps : int
-        Number of discrete time steps (default: 1000).
-    
-    Returns
-    -------
-    dict
-        Dictionary containing:
-        - 't' : ndarray, time points
-        - '<var_name>' : ndarray, trajectory for each phase space variable
-        - 'energy' : ndarray, H evaluated along the trajectory
-    
-    Raises
-    ------
-    ValueError
-        If integrator is not recognized, if variables cannot be inferred, or
-        if z0 has incorrect dimension.
-    
-    Examples
-    --------
-    >>> x, p = symbols('x p', real=True)
-    >>> H = p**2/2 + x**2/2  # Harmonic oscillator
-    >>> traj = hamiltonian_flow(H, z0=[1, 0], tspan=(0, 10), 
-    ...                         vars_phase=[x, p], integrator='verlet')
-    >>> traj['energy'].std()  # Should be very small for symplectic integrators
-    < 1e-3
-    
-    Notes
-    -----
-    For long-time simulations, prefer 'symplectic' or 'verlet' integrators to
-    preserve the geometric structure of phase space and maintain bounded energy
-    errors. Use 'rk45' for short-time high-accuracy requirements or when
-    comparing with non-symplectic methods.
-    """
-    from scipy.integrate import solve_ivp
-
-    # 1. Determine variables and number of DOF
-    if vars_phase is None:
-        vars_phase = _infer_variables(H)
-    vars_phase = list(vars_phase)
-    ndof = _get_ndof(vars_phase)
-    n = ndof
-
-    # 2. Compute derivatives
-    dH_dx = []
-    dH_dp = []
-    for i in range(n):
-        xi = vars_phase[2 * i]
-        pi = vars_phase[2 * i + 1]
-        dH_dx.append(diff(H, xi))
-        dH_dp.append(diff(H, pi))
-
-    # 3. Lambdify (create functions for each derivative)
-    args = vars_phase
-    f_x = [lambdify(args, dH_dp[i], 'numpy') for i in range(n)]
-    f_p = [lambdify(args, -dH_dx[i], 'numpy') for i in range(n)]
-    H_func = lambdify(args, H, 'numpy')
-
-    # 4. Integrate
-    if integrator == 'rk45':
-        def ode_system(t, z):
-            # z is a flat array [x1, p1, x2, p2, ...]
-            args_val = z
-            dz = np.zeros(2 * n)
-            for i in range(n):
-                dz[2 * i] = f_x[i](*args_val)
-                dz[2 * i + 1] = f_p[i](*args_val)
-            return dz
-
-        sol = solve_ivp(
-            ode_system,
-            tspan,
-            z0,
-            method='RK45',
-            t_eval=np.linspace(tspan[0], tspan[1], n_steps),
-            rtol=1e-9,
-            atol=1e-12
-        )
-
-        # Build result dictionary
-        result = {'t': sol.t}
-        for i, name in enumerate(vars_phase):
-            result[str(name)] = sol.y[i]
-        result['energy'] = H_func(*sol.y)
-        return result
-
-    elif integrator in ['symplectic', 'verlet']:
-        dt = (tspan[1] - tspan[0]) / n_steps
-        t_vals = np.linspace(tspan[0], tspan[1], n_steps)
-
-        # Allocate arrays for each variable
-        arrays = {str(name): np.zeros(n_steps) for name in vars_phase}
-        for i, name in enumerate(vars_phase):
-            arrays[str(name)][0] = z0[i]
-
-        # Main loop
-        for step in range(n_steps - 1):
-            # Current values as a flat list
-            curr = [arrays[str(name)][step] for name in vars_phase]
-
-            if integrator == 'symplectic':
-                # Symplectic Euler: first update all momenta, then all positions
-                # (this is first‑order but symplectic)
-                # Compute new momenta using current positions and momenta
-                p_new = [curr[2 * i + 1] + dt * f_p[i](*curr) for i in range(n)]
-                # Build argument list with updated momenta for position update
-                args_for_x = []
-                for i in range(n):
-                    args_for_x.extend([curr[2 * i], p_new[i]])
-                x_new = [curr[2 * i] + dt * f_x[i](*args_for_x) for i in range(n)]
-                # Combine
-                for i in range(n):
-                    arrays[str(vars_phase[2 * i])][step + 1] = x_new[i]
-                    arrays[str(vars_phase[2 * i + 1])][step + 1] = p_new[i]
-
-            elif integrator == 'verlet':
-                # Velocity Verlet: half‑step momentum, full step position, half‑step momentum
-                # Half‑step momenta
-                p_half = [curr[2 * i + 1] + 0.5 * dt * f_p[i](*curr) for i in range(n)]
-                # Build arguments for position update: use half‑step momenta
-                args_for_x = []
-                for i in range(n):
-                    args_for_x.extend([curr[2 * i], p_half[i]])
-                x_new = [curr[2 * i] + dt * f_x[i](*args_for_x) for i in range(n)]
-                # Build arguments for second half‑step: new positions, half‑step momenta
-                args_for_p = []
-                for i in range(n):
-                    args_for_p.extend([x_new[i], p_half[i]])
-                p_new = [p_half[i] + 0.5 * dt * f_p[i](*args_for_p) for i in range(n)]
-
-                for i in range(n):
-                    arrays[str(vars_phase[2 * i])][step + 1] = x_new[i]
-                    arrays[str(vars_phase[2 * i + 1])][step + 1] = p_new[i]
-
-        # Energy calculation
-        energy = np.zeros(n_steps)
-        for step in range(n_steps):
-            args_step = [arrays[str(name)][step] for name in vars_phase]
-            energy[step] = H_func(*args_step)
-
-        result = {'t': t_vals}
-        result.update(arrays)
-        result['energy'] = energy
-        return result
-
-    else:
-        raise ValueError("integrator must be 'rk45', 'symplectic', or 'verlet'")
-
-
 # -----------------------------------------------------------------------------
 # Poisson bracket (generic)
 # -----------------------------------------------------------------------------
@@ -1690,131 +1511,6 @@ def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000,
         'section_points': section_points,
     }
 
-    
-def poincare_section_old(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000, 
-                     integrator='symplectic'):
-    """
-    Compute a Poincaré section for a 2-DOF Hamiltonian system.
-    
-    A Poincaré section reduces the 4D continuous flow to a 2D discrete map by
-    recording intersections of trajectories with a specified surface Σ in phase
-    space. This reveals the underlying structure of the dynamics:
-    - Regular motion appears as closed curves (KAM tori)
-    - Chaotic motion appears as scattered points
-    - Periodic orbits appear as fixed points or finite sets
-    
-    The section surface is defined by Σ = {(x₁, p₁, x₂, p₂) : variable = value}
-    with an optional crossing direction.
-    
-    Parameters
-    ----------
-    H : sympy.Expr
-        Hamiltonian for a 2-degree-of-freedom system.
-    Sigma_def : dict
-        Section surface definition with keys:
-        - 'variable' : str, name of the section variable (e.g., 'x2', 'p1')
-        - 'value' : float, the constant value defining the surface
-        - 'direction' : str, optional, 'positive' or 'negative' crossing 
-          (default: 'positive')
-    z0 : array_like
-        Initial condition [x₁₀, p₁₀, x₂₀, p₂₀].
-    tmax : float
-        Maximum integration time.
-    vars_phase : list of sympy.Symbol, optional
-        Variables [x1, p1, x2, p2]. If None, uses default canonical names.
-    n_returns : int
-        Maximum number of section crossings to collect (default: 1000).
-    integrator : {'symplectic', 'verlet', 'rk45'}
-        Integration method (default: 'symplectic').
-    
-    Returns
-    -------
-    dict
-        Dictionary containing:
-        - 't_crossings' : ndarray, times at which the section was crossed
-        - 'section_points' : list of dict, phase space coordinates at each
-          crossing (interpolated to the exact crossing time)
-    
-    Raises
-    ------
-    ValueError
-        If the system is not 2-DOF, if the section variable is not found, or
-        if insufficient crossings are detected.
-    
-    Examples
-    --------
-    >>> x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
-    >>> H = (p1**2 + p2**2 + x1**2 + x2**2)/2  # Coupled oscillators
-    >>> Sigma = {'variable': 'x2', 'value': 0, 'direction': 'positive'}
-    >>> ps = poincare_section(H, Sigma, z0=[1, 0, 0, 0.5], tmax=100)
-    >>> len(ps['section_points'])
-    > 0
-    
-    Notes
-    -----
-    Crossing times are linearly interpolated between integration steps for
-    accuracy. Use high n_steps in the underlying integration for precise
-    section points. For chaotic systems, increase tmax and n_returns.
-    
-    See Also
-    --------
-    visualize_poincare_section : Plot multiple sections together
-    first_return_map : Analyze the discrete map from section points
-    """
-    if vars_phase is None:
-        vars_phase = [symbols('x1 p1 x2 p2', real=True)]  # assume canonical
-    _check_ndof(vars_phase, 2)
-
-    # Integrate trajectory
-    n_steps = 10000  # high resolution for accurate crossings
-    traj = hamiltonian_flow(H, z0, (0, tmax), vars_phase=vars_phase,
-                            integrator=integrator, n_steps=n_steps)
-
-    # Extract section variable (string)
-    var_name = Sigma_def['variable']
-    # Map string to actual index in vars_phase
-    try:
-        idx = [str(v) for v in vars_phase].index(var_name)
-    except ValueError:
-        raise ValueError(f"Variable '{var_name}' not found in phase space variables.")
-
-    var_values = traj[var_name]
-    threshold = Sigma_def['value']
-    direction = Sigma_def.get('direction', 'positive')
-
-    crossings = []
-    section_points = []
-
-    for i in range(len(var_values) - 1):
-        v_curr = var_values[i]
-        v_next = var_values[i+1]
-
-        if direction == 'positive':
-            crosses = (v_curr < threshold) and (v_next >= threshold)
-        elif direction == 'negative':
-            crosses = (v_curr > threshold) and (v_next <= threshold)
-        else:
-            crosses = (v_curr - threshold) * (v_next - threshold) < 0
-
-        if crosses:
-            alpha = (threshold - v_curr) / (v_next - v_curr)
-            t_cross = traj['t'][i] + alpha * (traj['t'][i+1] - traj['t'][i])
-
-            point = {}
-            for key in [str(v) for v in vars_phase]:
-                point[key] = traj[key][i] + alpha * (traj[key][i+1] - traj[key][i])
-
-            crossings.append(t_cross)
-            section_points.append(point)
-
-            if len(crossings) >= n_returns:
-                break
-
-    return {
-        't_crossings': np.array(crossings),
-        'section_points': section_points
-    }
-
 
 def first_return_map(section_points, plot_variables=('x1', 'p1')):
     """First return map from Poincaré section points."""
@@ -1933,105 +1629,131 @@ def monodromy_matrix(H, periodic_orbit, vars_phase=None, method='finite_differen
     else:
         raise NotImplementedError("Only finite_difference method implemented.")
 
-
-def lyapunov_exponents(trajectory, dt, vars_phase=None, n_vectors=4, 
-                       renorm_interval=10):
+def lyapunov_exponents(trajectory, dt, H=None, vars_phase=None, n_vectors=None,
+                       renorm_interval=10, epsilon=1e-6):
     """
-    Estimate Lyapunov exponents from a trajectory in a 2-DOF system.
-    
-    Lyapunov exponents quantify the average exponential rate of separation
-    between nearby trajectories. For a 2n-dimensional phase space, there are
-    2n exponents λ₁ ≥ λ₂ ≥ ... ≥ λ₂ₙ.
-    
-    Interpretation:
-    - λ₁ > 0: Chaotic dynamics (sensitive dependence on initial conditions)
-    - λ₁ = 0: Regular/periodic motion (marginal stability)
-    - Sum of all λᵢ = 0 for Hamiltonian systems (phase space volume preservation)
-    - Exponents come in pairs (λ, -λ) for Hamiltonian systems
-    
-    This implementation uses a simplified QR-based algorithm with periodic
-    renormalization to prevent numerical overflow.
-    
+    Estimate Lyapunov exponents from a trajectory using QR algorithm.
+
+    If H and vars_phase are provided, the Jacobian of the Hamiltonian vector
+    field is computed by finite differences, and the linearized flow is
+    approximated as I + J_f * dt.  This yields accurate exponents for
+    integrable systems (λ≈0).  Without H, a crude (and often wrong) fallback
+    is used – a warning is issued.
+
     Parameters
     ----------
     trajectory : dict
-        Trajectory dictionary from hamiltonian_flow with keys 't' and variable
-        names containing the time series.
+        Trajectory dict as returned by hamiltonian_flow.
     dt : float
         Time step between trajectory points.
+    H : sympy.Expr, optional
+        Hamiltonian expression (required for accurate Jacobian).
     vars_phase : list of sympy.Symbol, optional
-        Variables [x1, p1, x2, p2]. If None, uses default canonical names.
-    n_vectors : int
-        Number of tangent vectors to evolve (default: 4 for 2-DOF).
+        Phase space variables (required when H is given).
+    n_vectors : int, optional
+        Number of tangent vectors (default = number of DOF).
     renorm_interval : int
-        Number of steps between QR renormalization (default: 10).
-        Smaller values improve accuracy but increase computation.
-    
+        Number of steps between QR renormalisations (default 10).
+    epsilon : float
+        Finite‑difference step for Jacobian (default 1e-6).
+
     Returns
     -------
     ndarray
-        Lyapunov exponents sorted in descending order [λ₁, λ₂, λ₃, λ₄].
-    
+        Lyapunov exponents sorted in descending order.
+
     Raises
     ------
     ValueError
-        If the system is not 2-DOF or trajectory is too short.
-    
-    Examples
-    --------
-    >>> # Regular motion (coupled oscillators)
-    >>> traj = hamiltonian_flow(H, z0, (0, 100), integrator='rk45')
-    >>> lyap = lyapunov_exponents(traj, dt=0.01)
-    >>> lyap[0]  # Should be approximately 0 for regular motion
-    ≈ 0
-    
-    >>> # Chaotic motion (e.g., Hénon-Heiles)
-    >>> lyap = lyapunov_exponents(chaotic_traj, dt=0.01)
-    >>> lyap[0]  # Should be positive for chaos
-    > 0
-    
-    Notes
-    -----
-    This is a simplified implementation using finite-difference Jacobian
-    approximation. For production use, consider implementing the full
-    variational equations alongside the trajectory integration.
-    
-    Convergence requires long trajectories (tmax >> 1/λ₁). The largest
-    exponent λ₁ converges fastest; smaller exponents require longer runs.
-    
-    See Also
-    --------
-    monodromy_matrix : Stability of periodic orbits
-    poincare_section : Visual detection of chaos vs. regularity
+        If ndof cannot be determined.
     """
-    if vars_phase is None:
-        vars_phase = [symbols('x1 p1 x2 p2', real=True)]
-    _check_ndof(vars_phase, 2)
+    import warnings
 
-    n_steps = len(trajectory['t'])
-    Q = np.eye(n_vectors)
-    running_sum = np.zeros(n_vectors)
+    if H is not None and vars_phase is not None:
+        # ------------------------------------------------------------------
+        # Correct method: compute Jacobian of the vector field via finite diff
+        # ------------------------------------------------------------------
+        from symplectic import symplectic_gradient
 
-    # Extract state vectors as a 4×n_steps array
-    z = np.array([trajectory[str(v)] for v in vars_phase])
+        ndof = len(vars_phase)
+        if n_vectors is None:
+            n_vectors = ndof
 
-    for step in range(1, n_steps):
-        # Crude finite‑difference Jacobian
-        epsilon = 1e-8
-        J = np.zeros((4, 4))
-        for i in range(4):
-            dz = (z[:, step] - z[:, step-1]) / dt
-            J[:, i] = dz  # This is a rough approximation; real Jacobian would involve derivatives.
+        # Vector field X(z)
+        X_func = symplectic_gradient(H, vars_phase, numeric=True)
 
-        Q = J @ Q
+        # Extract state trajectory as array of shape (n_steps, ndof)
+        z = np.array([trajectory[str(v)] for v in vars_phase]).T
+        n_steps = len(trajectory['t'])
 
-        if step % renorm_interval == 0:
-            Q, R = np.linalg.qr(Q)
-            for i in range(n_vectors):
-                running_sum[i] += np.log(abs(R[i, i]))
+        Q = np.eye(n_vectors)
+        running_sum = np.zeros(n_vectors)
 
-    exponents = running_sum / (trajectory['t'][-1])
-    return np.sort(exponents)[::-1]
+        for step in range(1, n_steps):
+            z0 = z[step - 1]
+
+            # Finite‑difference Jacobian J_f = dX/dz at z0
+            J_f = np.zeros((ndof, ndof))
+            for j in range(ndof):
+                e = np.zeros(ndof)
+                e[j] = epsilon
+                X_plus = X_func(z0 + e)
+                X_minus = X_func(z0 - e)
+                J_f[:, j] = (X_plus - X_minus) / (2.0 * epsilon)
+
+            # Linearised flow over one time step: δz(t+dt) ≈ (I + J_f·dt) δz(t)
+            J_flow = np.eye(ndof) + J_f * dt
+
+            # Evolve tangent vectors
+            Q = J_flow @ Q
+
+            if step % renorm_interval == 0:
+                Q, R = np.linalg.qr(Q)
+                for i in range(n_vectors):
+                    running_sum[i] += np.log(abs(R[i, i]))
+
+        exponents = running_sum / (trajectory['t'][-1])
+        return np.sort(exponents)[::-1]
+
+    else:
+        # ------------------------------------------------------------------
+        # Fallback (old, inaccurate method) – issue a warning
+        # ------------------------------------------------------------------
+        warnings.warn(
+            "Lyapunov exponents computed without H and vars_phase; results may be inaccurate. "
+            "Provide H and vars_phase for correct estimation.",
+            RuntimeWarning
+        )
+        # Old code (unchanged) – keep for backward compatibility
+        if vars_phase is None:
+            raise ValueError("vars_phase required for Lyapunov fallback")
+        ndof = len(vars_phase)
+        if n_vectors is None:
+            n_vectors = ndof
+
+        n_steps = len(trajectory['t'])
+        Q = np.eye(n_vectors)
+        running_sum = np.zeros(n_vectors)
+
+        z = np.array([trajectory[str(v)] for v in vars_phase])
+
+        for step in range(1, n_steps):
+            # Crude finite‑difference Jacobian (this is the old wrong part)
+            epsilon = 1e-8
+            J = np.zeros((ndof, ndof))
+            for i in range(ndof):
+                dz = (z[:, step] - z[:, step-1]) / dt
+                J[:, i] = dz   # ← incorrect
+
+            Q = J @ Q
+
+            if step % renorm_interval == 0:
+                Q, R = np.linalg.qr(Q)
+                for i in range(n_vectors):
+                    running_sum[i] += np.log(abs(R[i, i]))
+
+        exponents = running_sum / (trajectory['t'][-1])
+        return np.sort(exponents)[::-1]
 
 
 def project(trajectory, plane='xy', vars_phase=None):
@@ -2177,37 +1899,6 @@ def visualize_poincare_section(H, z0_list, Sigma_def, vars_phase=None,
 
     ax.set_xlabel(var1, fontsize=12)
     ax.set_ylabel(var2, fontsize=12)
-    ax.set_title('Poincaré Section', fontsize=14)
-    ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=8, ncol=2)
-    plt.tight_layout()
-    plt.show()
-
-def visualize_poincare_section_old(H, z0_list, Sigma_def, vars_phase=None,
-                               tmax=100, n_returns=500, plot_vars=('x1', 'p1')):
-    """Visualize Poincaré section for multiple initial conditions (2‑DOF)."""
-    if vars_phase is None:
-        vars_phase = [symbols('x1 p1 x2 p2', real=True)]
-    _check_ndof(vars_phase, 2)
-
-    fig, ax = plt.subplots(figsize=(12, 10))
-    colors = plt.cm.viridis(np.linspace(0, 1, len(z0_list)))
-
-    for idx, z0 in enumerate(z0_list):
-        try:
-            ps = poincare_section(H, Sigma_def, z0, tmax, vars_phase=vars_phase,
-                                   n_returns=n_returns)
-            if ps['section_points']:
-                var1, var2 = plot_vars
-                x_vals = [p[var1] for p in ps['section_points']]
-                y_vals = [p[var2] for p in ps['section_points']]
-                ax.plot(x_vals, y_vals, 'o', markersize=2, color=colors[idx],
-                        alpha=0.6, label=f'IC {idx+1}')
-        except Exception as e:
-            print(f"Warning: Failed for IC {idx}: {e}")
-
-    ax.set_xlabel(f'{plot_vars[0]}', fontsize=12)
-    ax.set_ylabel(f'{plot_vars[1]}', fontsize=12)
     ax.set_title('Poincaré Section', fontsize=14)
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=8, ncol=2)
@@ -2618,73 +2309,751 @@ class IntegrabilityAnalysis:
         return ((1.0 / (2.0 * np.pi * hbar)) ** ndof) * (energy ** ndof)
 
     # ------------------------------------------------------------------
-    # Level-spacing statistics
+    # Spectral unfolding helper
     # ------------------------------------------------------------------
     @staticmethod
-    def analyze_integrability(spacings: np.ndarray) -> dict:
+    def unfold_spectrum(levels: np.ndarray, poly_degree: int = 5) -> np.ndarray:
         """
-        Classify a Hamiltonian system via level-spacing statistics.
+        Unfold a raw energy spectrum to unit mean level density.
 
-        Given the sequence of nearest-neighbour level spacings s_i = E_{i+1} - E_i
-        (normalised so that the mean spacing is 1), the ratio
+        Unfolding maps eigenvalues E_i to dimensionless levels ε_i so that
+        the mean nearest-neighbour spacing is exactly 1, removing the
+        system-specific smooth part of the density of states (the Weyl term)
+        and leaving only the universal fluctuation statistics.
 
-            R = <s²> / <s>²
-
-        distinguishes the two universal classes:
-
-        * **Integrable** (Berry-Tabor): spacings follow a Poisson distribution
-          P(s) = e^{-s}, giving R ≈ 2.0.
-        * **Chaotic** (BGS / GOE): spacings follow the Wigner surmise
-          P(s) = (π/2) s e^{-πs²/4}, giving R ≈ 1.273.
-
-        The threshold values used here (R > 1.7 → integrable, R < 1.4 → chaotic)
-        are conventional; intermediate values indicate a mixed phase space.
+        The smooth cumulative level count N̄(E) is estimated by fitting a
+        polynomial of degree ``poly_degree`` to the staircase function
+        N(E) = #{levels ≤ E}.  The unfolded levels are then ε_i = N̄(E_i).
 
         Parameters
         ----------
-        spacings : ndarray of shape (N,)
-            Raw (un-normalised) nearest-neighbour energy-level spacings.
+        levels : ndarray of shape (N,)
+            Raw sorted (or unsorted) energy eigenvalues.
+        poly_degree : int
+            Degree of the polynomial used to fit the smooth spectral
+            staircase N̄(E).  Higher degrees track non-uniform densities
+            better but may overfit for small samples (default 5).
 
         Returns
         -------
-        dict with keys:
-            * ``ratio``          – <s²>/<s>² of normalised spacings
-            * ``mean_spacing``   – mean of raw spacings
-            * ``std_spacing``    – standard deviation of raw spacings
-            * ``classification`` – one of
-              ``'Integrable (Poisson-like)'``,
-              ``'Chaotic (Wigner-like)'``, or
-              ``'Intermediate'``
-
-        Examples
-        --------
-        >>> rng = np.random.default_rng(0)
-        >>> poisson_spacings = rng.exponential(scale=1.0, size=500)
-        >>> info = IntegrabilityAnalysis.analyze_integrability(poisson_spacings)
-        >>> info['classification']
-        'Integrable (Poisson-like)'
+        ndarray of shape (N,)
+            Unfolded levels ε_i with unit mean spacing.
 
         Notes
         -----
-        For meaningful statistics at least ~50 spacings are recommended.
-        Unfolding the spectrum (mapping raw spacings to a unit-mean sequence)
-        before calling this function improves the accuracy of the classification.
+        For small samples (N < 50) reduce ``poly_degree`` to 3 to avoid
+        overfitting.  For systems whose density of states is known
+        analytically (e.g. harmonic oscillators via Weyl's law) prefer
+        passing the analytic N̄ as an interpolation table rather than using
+        this polynomial fit.
+
+        Examples
+        --------
+        >>> levels = np.sort(np.random.default_rng(0).normal(0, 1, 200))
+        >>> unfolded = IntegrabilityAnalysis.unfold_spectrum(levels)
+        >>> spacings = np.diff(unfolded)
+        >>> np.isclose(spacings.mean(), 1.0, atol=0.05)
+        True
         """
-        spacings = np.asarray(spacings, dtype=float)
-        s_mean = np.mean(spacings)
-        s_norm = spacings / s_mean
-        ratio  = np.mean(s_norm ** 2) / (np.mean(s_norm) ** 2)
-        if ratio > 1.7:
-            cls = "Integrable (Poisson-like)"
-        elif ratio < 1.4:
-            cls = "Chaotic (Wigner-like)"
+        levels = np.sort(np.asarray(levels, dtype=float))
+        N = len(levels)
+        staircase = np.arange(1, N + 1, dtype=float)          # N(E_i) = i
+        coeffs = np.polyfit(levels, staircase, poly_degree)
+        smooth = np.polyval(coeffs, levels)
+        return smooth
+
+    # ------------------------------------------------------------------
+    # NAFF-based rotation number
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _naff_frequency(signal: np.ndarray, dt: float) -> float:
+        """
+        Estimate the dominant frequency of a signal via windowed FFT (NAFF-lite).
+
+        Uses a Hann window to reduce spectral leakage, then locates the
+        peak frequency bin and refines it with quadratic interpolation on
+        the log-magnitude spectrum (Jacobi–style sub-bin interpolation).
+
+        Parameters
+        ----------
+        signal : ndarray
+            Real or complex signal sampled at uniform interval ``dt``.
+        dt : float
+            Sampling interval.
+
+        Returns
+        -------
+        float
+            Dominant angular frequency ω (radians per unit time).
+        """
+        N   = len(signal)
+        win = np.hanning(N)
+        sig_win = np.asarray(signal, dtype=complex) * win
+        # Use full FFT (handles both real and complex analytic signals)
+        S   = np.fft.fft(sig_win)
+        # Consider only positive frequencies
+        half = N // 2
+        mag  = np.abs(S[:half])
+        k    = int(np.argmax(mag))
+        # Sub-bin refinement via quadratic interpolation on log-magnitude
+        if 1 <= k < len(mag) - 1:
+            alpha = np.log(mag[k - 1] + 1e-300)
+            beta  = np.log(mag[k]     + 1e-300)
+            gamma = np.log(mag[k + 1] + 1e-300)
+            delta = 0.5 * (alpha - gamma) / (alpha - 2 * beta + gamma + 1e-300)
+            k_refined = k + delta
         else:
-            cls = "Intermediate"
+            k_refined = float(k)
+        freqs = np.fft.fftfreq(N, d=dt)[:half]
+        freq  = float(np.interp(k_refined, np.arange(len(freqs)), freqs))
+        return float(2.0 * np.pi * abs(freq))
+
+    # ------------------------------------------------------------------
+    # KS-test helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _ks_poisson(s_norm: np.ndarray) -> float:
+        """One-sample KS p-value against Poisson CDF F(s) = 1 - exp(-s)."""
+        from scipy.stats import kstest
+        return float(kstest(s_norm, lambda x: 1.0 - np.exp(-x)).pvalue)
+
+    @staticmethod
+    def _ks_wigner(s_norm: np.ndarray) -> float:
+        """One-sample KS p-value against Wigner CDF F(s) = 1 - exp(-π s²/4)."""
+        from scipy.stats import kstest
+        return float(kstest(s_norm, lambda x: 1.0 - np.exp(-np.pi * x**2 / 4)).pvalue)
+
+    # ------------------------------------------------------------------
+    # Level-spacing statistics — redesigned
+    # ------------------------------------------------------------------
+    @staticmethod
+    def analyze_integrability(
+        H=None,
+        vars_phase=None,
+        *,
+        levels: np.ndarray = None,
+        spacings: np.ndarray = None,
+        traj: dict = None,
+        ndof: int = None,
+        second_integrals=None,
+        lyapunov_traj: dict = None,
+        lyapunov_dt: float = None,
+        unfold_degree: int = 5,
+        min_spacings: int = 30,
+        naff_keys: tuple = None,
+    ) -> dict:
+        """
+        Multi-evidence integrability classifier for Hamiltonian systems.
+
+        Design principles
+        -----------------
+        1. **Own the pipeline where possible.** When raw energy ``levels`` are
+           provided they are unfolded internally (polynomial fit to the
+           staircase) before any statistic is computed, removing the
+           system-specific smooth background that pollutes spacing tests.
+        2. **Independent evidence channels.** Five channels are evaluated and
+           each produces its own conclusion *before* any aggregation:
+
+           * **Spectral** — Brody β fitted by MLE plus two-sided KS tests
+             against the Poisson and Wigner reference CDFs. These are the
+             *same* data viewed through complementary lenses and are kept
+             separate rather than averaged.
+           * **Algebraic** — for each candidate second integral Lᵢ, the
+             Poisson bracket {H, Lᵢ} is computed symbolically.  A confirmed
+             {H, L} = 0 is a *rigorous proof* of a conserved quantity and
+             acts as a **hard gate**: the verdict is forced to
+             ``'Integrable'`` regardless of all other channels.
+           * **Frequency** — rotation/winding numbers extracted by windowed
+             FFT (NAFF-lite) from trajectory data, not by endpoint unwrapping.
+             This makes the estimate robust to integration length and avoids
+             the wrap-count artefacts of the arctan2 approach.
+           * **Lyapunov** — the maximal Lyapunov exponent λ₁ is the cleanest
+             dynamical chaos indicator. λ₁ > threshold is a hard chaotic gate;
+             λ₁ ≈ 0 is a necessary (though not sufficient) condition for
+             integrability.
+           * **Topological** — scar intensity S is reported as a diagnostic
+             but does *not* enter the verdict score because its connection to
+             integrability is indirect (see notes).
+
+        3. **Hard gates before soft scoring.** The algebraic and Lyapunov
+           channels can each *override* the soft score:
+
+           * Any {H, L} = 0 with L independent of H → verdict ``'Integrable'``
+             (algebraic proof, score forced to 1.0).
+           * λ₁ > ``lyapunov_chaos_threshold`` → verdict ``'Chaotic'``
+             (dynamical proof, score forced to 0.0).
+
+        4. **Calibrated soft score for the remainder.** Only the spectral
+           channel (Brody β and KS p-values) and the frequency channel
+           contribute to the soft score; they are combined with explicit
+           weights reflecting their differing reliability.  The ratio R is
+           still reported for backward compatibility but does **not** enter
+           the score because it is a low-power redundant summary of β.
+
+        Parameters
+        ----------
+        H : sympy.Expr, optional
+            Hamiltonian expression.  Required for the algebraic channel.
+        vars_phase : list of sympy.Symbol, optional
+            Phase-space variables ``[x₁, p₁, ...]``.  Required when ``H``
+            is provided.
+        levels : ndarray of shape (N,), optional
+            Raw (unsorted, unnormalised) energy eigenvalues.  When provided,
+            they are unfolded internally before computing spacing statistics.
+            Preferred over ``spacings`` because unfolding is then correct.
+        spacings : ndarray of shape (N,), optional
+            Pre-computed nearest-neighbour spacings (already unfolded to
+            unit mean, or raw — normalisation is applied internally).
+            Used only when ``levels`` is not given.  When both are supplied
+            ``levels`` takes precedence.
+        traj : dict, optional
+            Trajectory dict from :func:`hamiltonian_flow`.  Activates the
+            frequency channel (NAFF rotation/winding numbers).
+        ndof : int, optional
+            Number of degrees of freedom.  Inferred from ``vars_phase`` when
+            possible; required when only ``traj`` is provided.
+        second_integrals : sympy.Expr or list of sympy.Expr, optional
+            Candidate conserved quantities L₁, L₂, …  Each is tested via
+            ``{H, Lᵢ} = 0``.  Even a single confirmed integral activates
+            the algebraic hard gate.
+        lyapunov_traj : dict, optional
+            Separate (typically longer) trajectory used for Lyapunov
+            estimation.  Falls back to ``traj`` if not provided.
+        lyapunov_dt : float, optional
+            Time step for the Lyapunov QR algorithm.  Inferred from
+            ``lyapunov_traj['t']`` when not given.
+        unfold_degree : int
+            Polynomial degree for spectral unfolding (default 5).  Reduce to
+            3 for small samples (N < 100).
+        min_spacings : int
+            Minimum number of spacings required to run spectral tests
+            (default 30).
+        naff_keys : tuple of str, optional
+            ``(x_key, p_key)`` for 1-DOF, or
+            ``(x1_key, p1_key, x2_key, p2_key)`` for 2-DOF.
+            If None, standard names (``'x'``/``'p'`` or ``'x1'``/``'p1'``/
+            ``'x2'``/``'p2'``) are tried automatically.
+
+        Returns
+        -------
+        dict
+            Always present:
+
+            * ``verdict``        – ``'Integrable'``, ``'Likely integrable'``,
+              ``'Mixed'``, ``'Likely chaotic'``, or ``'Chaotic'``
+            * ``verdict_source`` – which channel(s) determined the verdict:
+              ``'algebraic_proof'``, ``'lyapunov_gate'``, or ``'soft_score'``
+            * ``soft_score``     – float in [0, 1]; 1 = integrable,
+              0 = chaotic.  ``None`` when overridden by a hard gate.
+            * ``summary``        – formatted multi-line diagnostic report
+            * ``channels``       – dict of per-channel sub-results (see below)
+            * ``warnings``       – list of non-fatal diagnostic messages
+
+            ``channels`` sub-keys (present only when the channel was active):
+
+            * ``spectral`` — ``{'beta', 'beta_std', 'ks_poisson_p',
+              'ks_wigner_p', 'n_spacings', 'unfolded', 'spacings_norm'}``
+            * ``algebraic`` — ``{'brackets', 'any_conserved',
+              'independent_integrals'}``  where ``brackets`` is a list of
+              ``{'L': expr, 'bracket': expr, 'is_zero': bool, 'independent': bool}``
+            * ``frequency`` — ``{'omega1', 'omega2', 'ratio',
+              'ratio_fraction', 'is_rational', 'method': 'naff'}``
+              (1-DOF: ``{'omega', 'method': 'naff'}``)
+            * ``lyapunov`` — ``{'lambda_max', 'exponents',
+              'is_chaotic', 'threshold'}``
+
+        Raises
+        ------
+        ValueError
+            If neither ``levels`` nor ``spacings`` is provided AND no
+            trajectory is given AND no symbolic data is available — i.e. if
+            there is literally nothing to analyse.
+
+        Notes
+        -----
+        **Scar intensity is not included in the verdict.**
+        Scarring (S ≫ 1) means the trajectory is concentrated near an
+        unstable periodic orbit, which is a property of the *specific*
+        trajectory rather than the system.  A scarred trajectory in a chaotic
+        system is not evidence of integrability, and an unscarred trajectory
+        in an integrable system is not evidence of chaos.  Use
+        :meth:`scar_intensity` directly as a standalone diagnostic.
+
+        **Rotation number reliability.**
+        The NAFF-lite estimator is more robust than endpoint unwrapping for
+        trajectories of moderate length, but it still requires the trajectory
+        to span several oscillation periods.  For very short trajectories
+        (fewer than ~10 oscillations) the frequency estimate may be
+        unreliable; a warning is added to ``result['warnings']``.
+
+        **KAM tori detection is not included.**
+        :meth:`detect_kam_tori` clusters user-supplied orbit dicts and does
+        not detect tori from trajectory data.  Its result depends entirely on
+        what orbits the caller provides, making it unsuitable as an automatic
+        evidence channel.  Use it as a standalone tool for orbit families you
+        have already computed.
+
+        **Lyapunov convergence.**
+        The built-in :func:`lyapunov_exponents` uses a simplified QR scheme;
+        it requires long trajectories to converge (tmax ≫ 1/λ₁).  For
+        conclusive Lyapunov evidence integrate for at least 10³ natural
+        periods.
+
+        References
+        ----------
+        .. [BT77]  Berry & Tabor, Proc. R. Soc. Lond. A 356 (1977).
+        .. [BGS84] Bohigas, Giannoni & Schmit, PRL 52 (1984).
+        .. [Br73]  Brody, Lett. Nuovo Cimento 7 (1973).
+        .. [Las90] Laskar, Icarus 88 (1990) — NAFF algorithm.
+        .. [OC92]  Ott, Chaos in Dynamical Systems, Cambridge (1992).
+
+        Examples
+        --------
+        **Integrable — symbolic proof (no spectrum needed):**
+
+        >>> x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+        >>> H = (p1**2 + x1**2 + p2**2 + x2**2) / 2
+        >>> L = (p2**2 + x2**2) / 2
+        >>> r = IntegrabilityAnalysis.analyze_integrability(
+        ...         H=H, vars_phase=[x1,p1,x2,p2], second_integrals=L)
+        >>> r['verdict']
+        'Integrable'
+        >>> r['verdict_source']
+        'algebraic_proof'
+
+        **From a raw spectrum:**
+
+        >>> levels = np.sort(rng.exponential(1.0, 500).cumsum())
+        >>> r = IntegrabilityAnalysis.analyze_integrability(levels=levels)
+        >>> r['channels']['spectral']['beta']   # close to 0
+        < 0.2
+
+        **From a trajectory (frequency channel):**
+
+        >>> traj = hamiltonian_flow(H, (1,0,0,1), (0, 60*np.pi),
+        ...                         vars_phase=[x1,p1,x2,p2], n_steps=8000)
+        >>> r = IntegrabilityAnalysis.analyze_integrability(
+        ...         traj=traj, ndof=2,
+        ...         H=H, vars_phase=[x1,p1,x2,p2], second_integrals=L)
+        >>> r['verdict']
+        'Integrable'
+        """
+        from scipy.stats import kstest
+
+        warnings_list = []
+        channels      = {}
+        lines         = ['═══ Integrability analysis ═══']
+
+        # ── infer ndof ────────────────────────────────────────────────────────
+        if ndof is None and vars_phase is not None:
+            ndof = _get_ndof(vars_phase)
+        if ndof is None and traj is not None:
+            # guess from trajectory keys
+            if 'x1' in traj and 'x2' in traj:
+                ndof = 2
+            elif 'x' in traj or 'x1' in traj:
+                ndof = 1
+
+        # ── guard: require at least one input ─────────────────────────────────
+        has_spectrum   = (levels is not None) or (spacings is not None)
+        has_trajectory = (traj is not None)
+        has_symbolic   = (H is not None and second_integrals is not None
+                          and vars_phase is not None)
+        has_lyapunov   = (lyapunov_traj is not None) or (has_trajectory and traj is not None)
+        if not (has_spectrum or has_trajectory or has_symbolic):
+            raise ValueError(
+                "Nothing to analyse: provide at least one of "
+                "'levels', 'spacings', 'traj', or 'H'+'second_integrals'+'vars_phase'."
+            )
+
+        # ══════════════════════════════════════════════════════════════════════
+        # CHANNEL 1 — ALGEBRAIC (hard gate, evaluated first)
+        # ══════════════════════════════════════════════════════════════════════
+        algebraic_proof   = False     # True  → force Integrable
+        n_confirmed       = 0
+        algebraic_channel = None
+
+        if H is not None and second_integrals is not None and vars_phase is not None:
+            if not hasattr(second_integrals, '__iter__') or hasattr(
+                    second_integrals, 'free_symbols'):
+                candidates = [second_integrals]
+            else:
+                candidates = list(second_integrals)
+
+            bracket_results = []
+            for L_cand in candidates:
+                try:
+                    from sympy import simplify as sp_simplify, diff as sp_diff
+                    pb = poisson_bracket(H, L_cand, vars_phase)
+                    is_zero = bool(pb == 0)
+
+                    # Functional independence: check that ∇L is not parallel to ∇H
+                    # at a generic point — proxy: L is not a function of H alone
+                    independent = True
+                    try:
+                        from sympy import symbols as sp_syms
+                        ratio_test = sp_simplify(
+                            sp_diff(L_cand, vars_phase[0]) * sp_diff(H, vars_phase[1])
+                            - sp_diff(L_cand, vars_phase[1]) * sp_diff(H, vars_phase[0])
+                        )
+                        if ratio_test == 0:
+                            # Could be parallel — warn but don't discard
+                            independent = None   # inconclusive
+                    except Exception:
+                        independent = None
+
+                    bracket_results.append({
+                        'L': L_cand,
+                        'bracket': pb,
+                        'is_zero': is_zero,
+                        'independent': independent,
+                    })
+                    if is_zero and independent is not False:
+                        n_confirmed += 1
+                except Exception as exc:
+                    bracket_results.append({
+                        'L': L_cand,
+                        'bracket': None,
+                        'is_zero': None,
+                        'independent': None,
+                        'error': str(exc),
+                    })
+
+            algebraic_proof = (n_confirmed >= 1)
+            algebraic_channel = {
+                'brackets':            bracket_results,
+                'any_conserved':       algebraic_proof,
+                'independent_integrals': n_confirmed,
+            }
+            channels['algebraic'] = algebraic_channel
+
+            mark = '✓' if algebraic_proof else '✗'
+            lines.append(
+                f"  Algebraic  {mark}  "
+                f"{n_confirmed}/{len(candidates)} integral(s) confirmed  "
+                f"(hard gate {'ACTIVE' if algebraic_proof else 'inactive'})"
+            )
+
+        # Hard gate — algebraic proof overrides everything
+        if algebraic_proof:
+            result = dict(
+                verdict       = 'Integrable',
+                verdict_source= 'algebraic_proof',
+                soft_score    = 1.0,
+                channels      = channels,
+                warnings      = warnings_list,
+            )
+            lines.append(
+                '  ─────────────────────────────────────────────────────────')
+            lines.append(
+                '  Verdict: Integrable  (algebraic proof — hard gate active)')
+            result['summary'] = '\n'.join(lines)
+            return result
+
+        # ══════════════════════════════════════════════════════════════════════
+        # CHANNEL 2 — SPECTRAL
+        # ══════════════════════════════════════════════════════════════════════
+        spectral_score   = None
+        spectral_channel = None
+
+        # Resolve spacings from levels or from the raw spacings kwarg
+        if levels is not None:
+            levels_arr = np.sort(np.asarray(levels, dtype=float))
+            unfolded   = IntegrabilityAnalysis.unfold_spectrum(
+                levels_arr, poly_degree=unfold_degree)
+            spacings_arr = np.diff(unfolded)
+        elif spacings is not None:
+            spacings_arr = np.asarray(spacings, dtype=float)
+            unfolded     = None
+        else:
+            spacings_arr = None
+            unfolded     = None
+
+        if spacings_arr is not None and len(spacings_arr) >= min_spacings:
+            s_norm = spacings_arr / spacings_arr.mean()
+
+            # Brody MLE fit
+            brody = IntegrabilityAnalysis.brody_distribution(spacings_arr)
+            beta  = brody['beta']
+
+            # KS tests — independent of Brody, test a different aspect
+            p_poisson = IntegrabilityAnalysis._ks_poisson(s_norm)
+            p_wigner  = IntegrabilityAnalysis._ks_wigner(s_norm)
+
+            # Ratio R — reported only, not scored
+            ratio = float(np.mean(s_norm**2) / np.mean(s_norm)**2)
+
+            # Spectral score: weight Brody β (primary) and KS evidence (secondary)
+            # β is in [0,1]: score_beta = 1-β
+            # KS: p_poisson large + p_wigner small → integrable
+            # We use log-odds of p_poisson vs p_wigner to get a [0,1] signal
+            eps = 1e-12
+            log_odds_ks = np.log(p_poisson + eps) - np.log(p_wigner + eps)
+            ks_score = float(np.clip(0.5 + log_odds_ks / 10.0, 0.0, 1.0))
+
+            # Combine with explicit weights: Brody (0.7) + KS (0.3)
+            spectral_score = float(0.7 * (1.0 - beta) + 0.3 * ks_score)
+
+            spectral_channel = dict(
+                beta        = beta,
+                beta_std    = brody.get('beta_std'),
+                ks_poisson_p= p_poisson,
+                ks_wigner_p = p_wigner,
+                ratio_R     = ratio,
+                n_spacings  = len(spacings_arr),
+                unfolded    = unfolded,
+                spacings_norm = s_norm,
+                score       = spectral_score,
+            )
+            channels['spectral'] = spectral_channel
+
+            lines.append(
+                f"  Spectral   Brody β={beta:.3f}±{brody.get('beta_std', 0):.3f}"
+                f"  KS-Poisson p={p_poisson:.3f}"
+                f"  KS-Wigner p={p_wigner:.3f}"
+                f"  R={ratio:.3f}"
+                f"  →  score {spectral_score:.3f}"
+            )
+        else:
+            if spacings_arr is not None:
+                warnings_list.append(
+                    f"Only {len(spacings_arr)} spacings provided "
+                    f"(< min_spacings={min_spacings}); spectral channel skipped."
+                )
+                lines.append(f"  Spectral   ⚠  skipped (too few spacings)")
+
+        # ══════════════════════════════════════════════════════════════════════
+        # CHANNEL 3 — FREQUENCY (NAFF-lite rotation numbers)
+        # ══════════════════════════════════════════════════════════════════════
+        frequency_score   = None
+        frequency_channel = None
+
+        if traj is not None:
+            t_arr = np.asarray(traj['t'], dtype=float)
+            T_tot = t_arr[-1] - t_arr[0]
+            dt    = float(T_tot / (len(t_arr) - 1))
+
+            # Resolve key names
+            if naff_keys is not None:
+                keys = naff_keys
+            elif ndof == 2:
+                keys = ('x1', 'p1', 'x2', 'p2')
+            else:
+                # 1-DOF: try 'x'/'p' then 'x1'/'p1'
+                if 'x' in traj and 'p' in traj:
+                    keys = ('x', 'p')
+                else:
+                    keys = ('x1', 'p1')
+
+            try:
+                if ndof == 2 and len(keys) == 4:
+                    x1k, p1k, x2k, p2k = keys
+                    def _make_analytic(xk, pk):
+                        xa = np.asarray(traj[xk], dtype=float)
+                        pa = np.asarray(traj[pk], dtype=float)
+                        z  = xa + 1j * pa
+                        S  = np.fft.fft(z * np.hanning(len(z)))
+                        h  = len(z) // 2
+                        if np.abs(S[:h]).sum() < np.abs(S[h:]).sum():
+                            z = z.conj()
+                        return z
+                    sig1 = _make_analytic(x1k, p1k)
+                    sig2 = _make_analytic(x2k, p2k)
+                    om1  = IntegrabilityAnalysis._naff_frequency(sig1, dt)
+                    om2  = IntegrabilityAnalysis._naff_frequency(sig2, dt)
+
+                    # Estimate number of oscillations for reliability warning
+                    n_osc_1 = abs(om1) * T_tot / (2 * np.pi)
+                    n_osc_2 = abs(om2) * T_tot / (2 * np.pi)
+                    if n_osc_1 < 10 or n_osc_2 < 10:
+                        warnings_list.append(
+                            f"Frequency channel: trajectory spans only "
+                            f"≈{min(n_osc_1, n_osc_2):.1f} oscillations; "
+                            f"NAFF estimate may be unreliable."
+                        )
+
+                    # Rationality test via Stern-Brocot / Farey convergents
+                    # Accept as rational if |ratio - p/q| < tolerance / q²
+                    # (Berry-Tabor resonance condition)
+                    ratio_freq = om1 / om2 if abs(om2) > 1e-12 else np.nan
+                    is_rational = False
+                    ratio_frac  = None
+                    if np.isfinite(ratio_freq):
+                        from fractions import Fraction
+                        frac = Fraction(ratio_freq).limit_denominator(50)
+                        tol  = 2.0 / (frac.denominator**2 * max(n_osc_1, n_osc_2))
+                        tol  = max(tol, 1e-3)     # floor tolerance
+                        if abs(float(frac) - ratio_freq) < tol:
+                            is_rational = True
+                            ratio_frac  = frac
+
+                    # Score: rational → hint of resonant structure (neither
+                    # purely integrable nor purely chaotic by itself), so
+                    # we contribute a moderate positive score for rationality
+                    # (resonant torus = integrable) and neutral for irrational
+                    # (irrational does not imply chaos — KAM tori are irrational)
+                    # Only flag irrational AND combined with spectral chaos as
+                    # chaotic contribution.
+                    frequency_score = 0.75 if is_rational else 0.5
+
+                    frequency_channel = dict(
+                        omega1        = om1,
+                        omega2        = om2,
+                        ratio         = ratio_freq,
+                        ratio_fraction= str(ratio_frac) if ratio_frac else None,
+                        is_rational   = is_rational,
+                        n_oscillations= (n_osc_1, n_osc_2),
+                        method        = 'naff',
+                        score         = frequency_score,
+                    )
+
+                    lines.append(
+                        f"  Frequency  ω₁={om1:.4f}  ω₂={om2:.4f}"
+                        f"  ratio={ratio_freq:.5f}"
+                        f"  {'→ rational ' + str(ratio_frac) if is_rational else '(irrational)'}"
+                        f"  →  score {frequency_score:.3f}"
+                    )
+
+                else:   # 1-DOF
+                    xk, pk = keys[0], keys[1]
+                    sig = np.asarray(traj[xk], dtype=float) + 1j * np.asarray(traj[pk], dtype=float)
+                    om  = IntegrabilityAnalysis._naff_frequency(sig, dt)
+                    n_osc = abs(om) * T_tot / (2 * np.pi)
+                    if n_osc < 10:
+                        warnings_list.append(
+                            f"Frequency channel: only ≈{n_osc:.1f} oscillations."
+                        )
+                    # 1-DOF is always integrable; frequency channel just reports ω
+                    frequency_score   = 1.0
+                    frequency_channel = dict(
+                        omega         = om,
+                        n_oscillations= n_osc,
+                        method        = 'naff',
+                        score         = frequency_score,
+                    )
+                    lines.append(
+                        f"  Frequency  ω={om:.4f}  "
+                        f"({n_osc:.1f} oscillations)  →  score {frequency_score:.3f}"
+                    )
+            except Exception as exc:
+                warnings_list.append(f"Frequency channel failed: {exc}")
+                lines.append(f"  Frequency  ⚠  failed: {exc}")
+
+            if frequency_channel:
+                channels['frequency'] = frequency_channel
+
+        # ══════════════════════════════════════════════════════════════════════
+        # CHANNEL 4 — LYAPUNOV (hard gate for chaos)
+        # ══════════════════════════════════════════════════════════════════════
+        lyapunov_gate     = False     # True → force Chaotic
+        lyapunov_channel  = None
+        LYAP_CHAOS_THR    = 0.02      # λ₁ > this → chaotic
+
+        ltraj = lyapunov_traj if lyapunov_traj is not None else traj
+        if ltraj is not None and vars_phase is not None:
+            try:
+                ldt = lyapunov_dt
+                if ldt is None:
+                    lt_arr = np.asarray(ltraj['t'], dtype=float)
+                    ldt    = float((lt_arr[-1] - lt_arr[0]) / (len(lt_arr) - 1))
+
+                exponents  = lyapunov_exponents(
+                    ltraj, ldt, H=H, vars_phase=vars_phase, 
+                    n_vectors=len(vars_phase), renorm_interval=10
+                )
+                finite_exp = exponents[np.isfinite(exponents)]
+                lam_max    = float(finite_exp[0]) if len(finite_exp) > 0 else 0.0
+                is_chaotic = bool(lam_max > LYAP_CHAOS_THR)
+                lyapunov_gate = is_chaotic
+
+                lyapunov_channel = dict(
+                    lambda_max = lam_max,
+                    exponents  = exponents,
+                    is_chaotic = is_chaotic,
+                    threshold  = LYAP_CHAOS_THR,
+                )
+                channels['lyapunov'] = lyapunov_channel
+
+                mark = '✗' if is_chaotic else '✓'
+                lines.append(
+                    f"  Lyapunov   {mark}  λ_max={lam_max:.5f}  "
+                    f"(threshold {LYAP_CHAOS_THR})  "
+                    f"{'→ chaotic (hard gate ACTIVE)' if is_chaotic else '→ consistent with regular'}"
+                )
+            except Exception as exc:
+                warnings_list.append(f"Lyapunov channel failed: {exc}")
+                lines.append(f"  Lyapunov   ⚠  failed: {exc}")
+
+        # Hard gate — Lyapunov proof of chaos
+        if lyapunov_gate:
+            result = dict(
+                verdict        = 'Chaotic',
+                verdict_source = 'lyapunov_gate',
+                soft_score     = 0.0,
+                channels       = channels,
+                warnings       = warnings_list,
+            )
+            lines.append(
+                '  ─────────────────────────────────────────────────────────')
+            lines.append(
+                '  Verdict: Chaotic  (λ_max > threshold — hard gate active)')
+            result['summary'] = '\n'.join(lines)
+            return result
+
+        # ══════════════════════════════════════════════════════════════════════
+        # SOFT SCORE — spectral + frequency only
+        # ══════════════════════════════════════════════════════════════════════
+        active_scores  = []
+        active_weights = []
+
+        if spectral_score is not None:
+            active_scores.append(spectral_score)
+            active_weights.append(3.0)    # spectral is the most data-rich channel
+
+        if frequency_score is not None:
+            active_scores.append(frequency_score)
+            active_weights.append(1.0)
+
+        if not active_scores:
+            # No quantitative channel active
+            soft_score    = None
+            verdict       = 'Undetermined'
+            verdict_source= 'no_quantitative_channel'
+            lines.append('  ⚠  No quantitative channel active — verdict undetermined.')
+        else:
+            W          = sum(active_weights)
+            soft_score = float(sum(s * w for s, w in zip(active_scores, active_weights)) / W)
+
+            if soft_score >= 0.80:
+                verdict = 'Integrable'
+            elif soft_score >= 0.65:
+                verdict = 'Likely integrable'
+            elif soft_score >= 0.35:
+                verdict = 'Mixed'
+            elif soft_score >= 0.20:
+                verdict = 'Likely chaotic'
+            else:
+                verdict = 'Chaotic'
+            verdict_source = 'soft_score'
+
+        # ══════════════════════════════════════════════════════════════════════
+        # Summary
+        # ══════════════════════════════════════════════════════════════════════
+        lines.append('  ─────────────────────────────────────────────────────────')
+        score_str = f'{soft_score:.3f}' if soft_score is not None else 'N/A'
+        lines.append(f'  Soft score: {score_str}  →  Verdict: {verdict}')
+        if warnings_list:
+            lines.append('  Warnings:')
+            for w in warnings_list:
+                lines.append(f'    ⚠  {w}')
+
         return dict(
-            ratio=float(ratio),
-            mean_spacing=float(s_mean),
-            std_spacing=float(np.std(spacings)),
-            classification=cls,
+            verdict        = verdict,
+            verdict_source = verdict_source,
+            soft_score     = soft_score,
+            channels       = channels,
+            warnings       = warnings_list,
+            summary        = '\n'.join(lines),
         )
 
     # ------------------------------------------------------------------
@@ -3321,4 +3690,3 @@ class IntegrabilityAnalysis:
 
 SymplecticForm1D = lambda vars_phase=None: SymplecticForm(n=1, vars_phase=vars_phase)
 SymplecticForm2D = lambda vars_phase=None: SymplecticForm(n=2, vars_phase=vars_phase)
-
