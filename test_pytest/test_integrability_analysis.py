@@ -120,89 +120,196 @@ class TestWeylLaw:
 # =============================================================================
 
 class TestAnalyzeIntegrability:
+    """
+    Tests for IntegrabilityAnalysis.analyze_integrability.
+
+    The method accepts spacings via the keyword argument ``spacings=`` and
+    returns a dict with top-level keys:
+        verdict, verdict_source, soft_score, channels, warnings, summary
+
+    Spectral statistics (ratio_R, mean/std of raw spacings, Brody β, KS
+    p-values) live under ``result['channels']['spectral']`` when at least
+    ``min_spacings`` (default 30) spacings are supplied.  For smaller inputs
+    the spectral channel is skipped and the verdict is 'Undetermined'.
+    """
+
+    # ------------------------------------------------------------------
+    # helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _run(spacings, **kwargs):
+        """Call analyze_integrability with spacings as a keyword argument."""
+        return IntegrabilityAnalysis.analyze_integrability(
+            spacings=spacings, **kwargs
+        )
+
+    @staticmethod
+    def _spectral(info):
+        """Return the spectral sub-dict, or None if the channel was skipped."""
+        return info.get('channels', {}).get('spectral')
+
+    # ------------------------------------------------------------------
+    # Classification / verdict tests
+    # ------------------------------------------------------------------
 
     def test_poisson_spacings_classified_integrable(self):
-        """Exponential (Poisson) spacings → Integrable classification."""
+        """Exponential (Poisson) spacings → verdict in the integrable family."""
         rng = np.random.default_rng(0)
         spacings = rng.exponential(scale=1.0, size=1000)
-        info = IntegrabilityAnalysis.analyze_integrability(spacings)
-        assert info['classification'] == "Integrable (Poisson-like)"
+        info = self._run(spacings)
+        assert info['verdict'] in ('Integrable', 'Likely integrable'), (
+            f"Expected integrable verdict, got '{info['verdict']}'"
+        )
 
     def test_wigner_spacings_classified_chaotic(self):
         """
-        Wigner-distributed spacings (Rayleigh distribution, which is the
-        correct marginal for GOE level spacings) → Chaotic classification.
+        Wigner-distributed spacings (Rayleigh ≈ GOE marginal) → verdict in
+        the chaotic family.
         """
         rng = np.random.default_rng(1)
-        # Rayleigh distribution closely approximates GOE spacing distribution
         spacings = rng.rayleigh(scale=0.8, size=2000)
-        info = IntegrabilityAnalysis.analyze_integrability(spacings)
-        assert info['classification'] == "Chaotic (Wigner-like)"
-
-    def test_intermediate_returns_intermediate(self):
-        """
-        Uniform spacings produce ratio = 4/3 ≈ 1.33, which falls in the
-        intermediate regime (1.4 > ratio > ... wait, let's use a mixture).
-        We craft spacings whose ratio sits between 1.4 and 1.7.
-        """
-        # Equal spacings: ratio = 1/1 = 1.0 → chaotic side; mix with Poisson
-        rng = np.random.default_rng(2)
-        poisson = rng.exponential(1.0, size=500)
-        uniform = np.ones(500) * np.mean(poisson)  # all equal → ratio ≈ 1
-        mixed = np.concatenate([poisson[:250], uniform[:250]])
-        info = IntegrabilityAnalysis.analyze_integrability(mixed)
-        # The mixed sample's ratio should lie between 1.4 and 1.7
-        assert 1.4 <= info['ratio'] <= 1.7, (
-            f"Expected intermediate ratio, got {info['ratio']:.3f} "
-            f"({info['classification']})"
+        info = self._run(spacings)
+        assert info['verdict'] in ('Chaotic', 'Likely chaotic'), (
+            f"Expected chaotic verdict, got '{info['verdict']}'"
         )
 
-    def test_returns_required_keys(self):
-        """Output dict must contain all four documented keys."""
+    def test_intermediate_ratio_R_in_range(self):
+        """
+        A 50/50 mix of Poisson and equal spacings should produce a ratio_R
+        between the pure Poisson value (≈ 2) and the pure GOE value (≈ 4/3).
+        We test that ratio_R lands in the intermediate band [1.4, 1.7].
+        """
+        rng = np.random.default_rng(2)
+        poisson  = rng.exponential(1.0, size=500)
+        uniform  = np.ones(500) * np.mean(poisson)
+        mixed    = np.concatenate([poisson[:250], uniform[:250]])
+        info     = self._run(mixed)
+        sp       = self._spectral(info)
+        assert sp is not None, "Spectral channel should be active for 500 spacings"
+        ratio_R  = sp['ratio_R']
+        assert 1.4 <= ratio_R <= 1.7, (
+            f"Expected intermediate ratio_R, got {ratio_R:.3f} "
+            f"(verdict: {info['verdict']})"
+        )
+
+    # ------------------------------------------------------------------
+    # Return-structure tests
+    # ------------------------------------------------------------------
+
+    def test_returns_required_top_level_keys(self):
+        """Output dict must contain the six documented top-level keys."""
         rng = np.random.default_rng(3)
         spacings = rng.exponential(1.0, size=100)
-        info = IntegrabilityAnalysis.analyze_integrability(spacings)
-        for key in ('ratio', 'mean_spacing', 'std_spacing', 'classification'):
-            assert key in info, f"Missing key: {key}"
+        info = self._run(spacings)
+        for key in ('verdict', 'verdict_source', 'soft_score',
+                    'channels', 'warnings', 'summary'):
+            assert key in info, f"Missing top-level key: {key}"
 
-    def test_mean_and_std_correct(self):
-        """mean_spacing and std_spacing must match numpy directly."""
+    def test_spectral_channel_keys(self):
+        """When enough spacings are supplied the spectral channel must expose
+        its documented sub-keys."""
+        rng = np.random.default_rng(3)
+        spacings = rng.exponential(1.0, size=200)
+        info = self._run(spacings)
+        sp = self._spectral(info)
+        assert sp is not None, "Spectral channel absent for 200 spacings"
+        for key in ('beta', 'ks_poisson_p', 'ks_wigner_p',
+                    'ratio_R', 'n_spacings', 'spacings_norm'):
+            assert key in sp, f"Missing spectral key: {key}"
+
+    def test_mean_and_std_of_raw_spacings_correct(self):
+        """
+        The spectral channel stores the *normalised* spacings in
+        ``spacings_norm``.  The mean and std of the *original* spacings
+        can be recovered as:
+            mean = spacings_arr.mean()
+            std  = spacings_arr.std()
+        We verify that spacings_norm has unit mean (by construction) and
+        that std(spacings_norm) * mean_original ≈ std_original.
+        """
         rng = np.random.default_rng(4)
         spacings = rng.exponential(1.5, size=200)
-        info = IntegrabilityAnalysis.analyze_integrability(spacings)
-        assert np.isclose(info['mean_spacing'], np.mean(spacings))
-        assert np.isclose(info['std_spacing'],  np.std(spacings))
+        info = self._run(spacings)
+        sp   = self._spectral(info)
+        assert sp is not None
+        s_norm = sp['spacings_norm']
+        mean_orig = np.mean(spacings)
+        std_orig  = np.std(spacings)
+        assert np.isclose(s_norm.mean(), 1.0, atol=1e-10), (
+            "spacings_norm should have unit mean"
+        )
+        assert np.isclose(s_norm.std() * mean_orig, std_orig, rtol=1e-6), (
+            "std of normalised spacings × mean should equal original std"
+        )
 
-    def test_ratio_is_float(self):
-        """ratio must be a plain Python float."""
+    def test_ratio_R_is_float(self):
+        """ratio_R in the spectral channel must be a plain Python float."""
         rng = np.random.default_rng(5)
-        spacings = rng.exponential(1.0, size=50)
-        info = IntegrabilityAnalysis.analyze_integrability(spacings)
-        assert isinstance(info['ratio'], float)
+        spacings = rng.exponential(1.0, size=200)
+        info = self._run(spacings)
+        sp   = self._spectral(info)
+        assert sp is not None
+        assert isinstance(sp['ratio_R'], float)
+
+    def test_soft_score_is_float_in_unit_interval(self):
+        """soft_score must be a float in [0, 1] when a quantitative channel
+        is active."""
+        rng = np.random.default_rng(5)
+        spacings = rng.exponential(1.0, size=200)
+        info = self._run(spacings)
+        assert isinstance(info['soft_score'], float)
+        assert 0.0 <= info['soft_score'] <= 1.0
+
+    # ------------------------------------------------------------------
+    # Input-format and edge-case tests
+    # ------------------------------------------------------------------
 
     def test_accepts_list_input(self):
-        """analyze_integrability should accept a plain Python list."""
-        spacings = [0.5, 1.0, 1.5, 2.0, 0.8, 1.2]
-        info = IntegrabilityAnalysis.analyze_integrability(spacings)
-        assert 'classification' in info
+        """analyze_integrability should accept a plain Python list of spacings."""
+        spacings = [0.5, 1.0, 1.5, 2.0, 0.8, 1.2] * 10   # 60 items ≥ min_spacings
+        info = self._run(spacings)
+        assert 'verdict' in info
 
-    def test_single_spacing_does_not_raise(self):
-        """A single spacing must not raise; ratio = 1 → Chaotic."""
-        info = IntegrabilityAnalysis.analyze_integrability([2.5])
-        assert info['classification'] == "Chaotic (Wigner-like)"
+    def test_too_few_spacings_skips_spectral_channel(self):
+        """
+        Fewer than min_spacings (default 30) spacings → spectral channel
+        absent and a warning is recorded.
+        """
+        info = self._run([2.5])
+        assert self._spectral(info) is None, (
+            "Spectral channel should be absent for a single spacing"
+        )
+        assert any('spacings' in w.lower() or 'few' in w.lower()
+                   for w in info['warnings']), (
+            "Expected a warning about insufficient spacings"
+        )
 
-    def test_constant_spacings_ratio_is_one(self):
-        """All-equal spacings: normalised s_norm ≡ 1, so ratio = 1."""
+    def test_constant_spacings_ratio_R_is_one(self):
+        """All-equal spacings: s_norm ≡ 1 everywhere, so ratio_R = 1."""
         spacings = np.ones(100) * 3.7
-        info = IntegrabilityAnalysis.analyze_integrability(spacings)
-        assert np.isclose(info['ratio'], 1.0)
+        info = self._run(spacings)
+        sp   = self._spectral(info)
+        assert sp is not None
+        assert np.isclose(sp['ratio_R'], 1.0), (
+            f"Expected ratio_R=1 for constant spacings, got {sp['ratio_R']}"
+        )
 
-    def test_classification_string_type(self):
-        """classification must be a string."""
+    def test_verdict_is_string(self):
+        """verdict must be a non-empty string."""
         rng = np.random.default_rng(6)
         spacings = rng.exponential(1.0, size=100)
-        info = IntegrabilityAnalysis.analyze_integrability(spacings)
-        assert isinstance(info['classification'], str)
+        info = self._run(spacings)
+        assert isinstance(info['verdict'], str) and info['verdict']
+
+    def test_n_spacings_matches_input_length(self):
+        """spectral['n_spacings'] must equal the number of spacings passed in."""
+        rng = np.random.default_rng(7)
+        spacings = rng.exponential(1.0, size=150)
+        info = self._run(spacings)
+        sp   = self._spectral(info)
+        assert sp is not None
+        assert sp['n_spacings'] == len(spacings)
 
 
 # =============================================================================
