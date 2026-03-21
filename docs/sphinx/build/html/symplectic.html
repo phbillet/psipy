@@ -70,6 +70,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.rotation_numbers"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.rotation_numbers()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.scar_intensity"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.scar_intensity()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.topological_monodromy"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.topological_monodromy()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.unfold_spectrum"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.unfold_spectrum()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.weyl_law"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.weyl_law()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#symplectic.IntegrabilityAnalysis.winding_number"><code class="docutils literal notranslate"><span class="pre">IntegrabilityAnalysis.winding_number()</span></code></a></li>
 </ul>
@@ -92,7 +93,6 @@
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.frequency"><code class="docutils literal notranslate"><span class="pre">frequency()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.hamiltonian_flow"><code class="docutils literal notranslate"><span class="pre">hamiltonian_flow()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.hamiltonian_flow_4d"><code class="docutils literal notranslate"><span class="pre">hamiltonian_flow_4d()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#symplectic.hamiltonian_flow_old"><code class="docutils literal notranslate"><span class="pre">hamiltonian_flow_old()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.linearize_at_fixed_point"><code class="docutils literal notranslate"><span class="pre">linearize_at_fixed_point()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.lyapunov_exponents"><code class="docutils literal notranslate"><span class="pre">lyapunov_exponents()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#symplectic.monodromy_matrix"><code class="docutils literal notranslate"><span class="pre">monodromy_matrix()</span></code></a></li>
@@ -316,54 +316,261 @@ Hamiltonian systems: scars of periodic orbits”,
 </div>
 <dl class="py method">
 <dt class="sig sig-object py" id="symplectic.IntegrabilityAnalysis.analyze_integrability">
-<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">analyze_integrability</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spacings</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/symplectic.html#IntegrabilityAnalysis.analyze_integrability"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.IntegrabilityAnalysis.analyze_integrability" title="Link to this definition"></a></dt>
-<dd><p>Classify a Hamiltonian system via level-spacing statistics.</p>
-<p>Given the sequence of nearest-neighbour level spacings s_i = E_{i+1} - E_i
-(normalised so that the mean spacing is 1), the ratio</p>
-<blockquote>
-<div><p>R = &lt;s²&gt; / &lt;s&gt;²</p>
-</div></blockquote>
-<p>distinguishes the two universal classes:</p>
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">analyze_integrability</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">levels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spacings</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndof</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">second_integrals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lyapunov_traj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lyapunov_dt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unfold_degree</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_spacings</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">naff_keys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/symplectic.html#IntegrabilityAnalysis.analyze_integrability"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.IntegrabilityAnalysis.analyze_integrability" title="Link to this definition"></a></dt>
+<dd><p>Multi-evidence integrability classifier for Hamiltonian systems.</p>
+<section id="design-principles">
+<h3>Design principles<a class="headerlink" href="#design-principles" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p><strong>Own the pipeline where possible.</strong> When raw energy <code class="docutils literal notranslate"><span class="pre">levels</span></code> are
+provided they are unfolded internally (polynomial fit to the
+staircase) before any statistic is computed, removing the
+system-specific smooth background that pollutes spacing tests.</p></li>
+<li><p><strong>Independent evidence channels.</strong> Five channels are evaluated and
+each produces its own conclusion <em>before</em> any aggregation:</p>
 <ul class="simple">
-<li><p><strong>Integrable</strong> (Berry-Tabor): spacings follow a Poisson distribution
-P(s) = e^{-s}, giving R ≈ 2.0.</p></li>
-<li><p><strong>Chaotic</strong> (BGS / GOE): spacings follow the Wigner surmise
-P(s) = (π/2) s e^{-πs²/4}, giving R ≈ 1.273.</p></li>
+<li><p><strong>Spectral</strong> — Brody β fitted by MLE plus two-sided KS tests
+against the Poisson and Wigner reference CDFs. These are the
+<em>same</em> data viewed through complementary lenses and are kept
+separate rather than averaged.</p></li>
+<li><p><strong>Algebraic</strong> — for each candidate second integral Lᵢ, the
+Poisson bracket {H, Lᵢ} is computed symbolically.  A confirmed
+{H, L} = 0 is a <em>rigorous proof</em> of a conserved quantity and
+acts as a <strong>hard gate</strong>: the verdict is forced to
+<code class="docutils literal notranslate"><span class="pre">'Integrable'</span></code> regardless of all other channels.</p></li>
+<li><p><strong>Frequency</strong> — rotation/winding numbers extracted by windowed
+FFT (NAFF-lite) from trajectory data, not by endpoint unwrapping.
+This makes the estimate robust to integration length and avoids
+the wrap-count artefacts of the arctan2 approach.</p></li>
+<li><p><strong>Lyapunov</strong> — the maximal Lyapunov exponent λ₁ is the cleanest
+dynamical chaos indicator. λ₁ &gt; threshold is a hard chaotic gate;
+λ₁ ≈ 0 is a necessary (though not sufficient) condition for
+integrability.</p></li>
+<li><p><strong>Topological</strong> — scar intensity S is reported as a diagnostic
+but does <em>not</em> enter the verdict score because its connection to
+integrability is indirect (see notes).</p></li>
 </ul>
-<p>The threshold values used here (R &gt; 1.7 → integrable, R &lt; 1.4 → chaotic)
-are conventional; intermediate values indicate a mixed phase space.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>spacings</strong> (<em>ndarray</em><em> of </em><em>shape</em><em> (</em><em>N</em><em>,</em><em>)</em>) – Raw (un-normalised) nearest-neighbour energy-level spacings.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">ratio</span></code>          – &lt;s²&gt;/&lt;s&gt;² of normalised spacings</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">mean_spacing</span></code>   – mean of raw spacings</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">std_spacing</span></code>    – standard deviation of raw spacings</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">classification</span></code> – one of
-<code class="docutils literal notranslate"><span class="pre">'Integrable</span> <span class="pre">(Poisson-like)'</span></code>,
-<code class="docutils literal notranslate"><span class="pre">'Chaotic</span> <span class="pre">(Wigner-like)'</span></code>, or
-<code class="docutils literal notranslate"><span class="pre">'Intermediate'</span></code></p></li>
+</li>
+<li><p><strong>Hard gates before soft scoring.</strong> The algebraic and Lyapunov
+channels can each <em>override</em> the soft score:</p>
+<ul class="simple">
+<li><p>Any {H, L} = 0 with L independent of H → verdict <code class="docutils literal notranslate"><span class="pre">'Integrable'</span></code>
+(algebraic proof, score forced to 1.0).</p></li>
+<li><p>λ₁ &gt; <code class="docutils literal notranslate"><span class="pre">lyapunov_chaos_threshold</span></code> → verdict <code class="docutils literal notranslate"><span class="pre">'Chaotic'</span></code>
+(dynamical proof, score forced to 0.0).</p></li>
 </ul>
-</p>
+</li>
+<li><p><strong>Calibrated soft score for the remainder.</strong> Only the spectral
+channel (Brody β and KS p-values) and the frequency channel
+contribute to the soft score; they are combined with explicit
+weights reflecting their differing reliability.  The ratio R is
+still reported for backward compatibility but does <strong>not</strong> enter
+the score because it is a low-power redundant summary of β.</p></li>
+</ol>
+<dl class="field-list">
+<dt class="field-odd">param H<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Hamiltonian expression.  Required for the algebraic channel.</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>dict with keys</p>
+<dt class="field-even">type H<span class="colon">:</span></dt>
+<dd class="field-even"><p>sympy.Expr, optional</p>
+</dd>
+<dt class="field-odd">param vars_phase<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Phase-space variables <code class="docutils literal notranslate"><span class="pre">[x₁,</span> <span class="pre">p₁,</span> <span class="pre">...]</span></code>.  Required when <code class="docutils literal notranslate"><span class="pre">H</span></code>
+is provided.</p>
+</dd>
+<dt class="field-even">type vars_phase<span class="colon">:</span></dt>
+<dd class="field-even"><p>list of sympy.Symbol, optional</p>
+</dd>
+<dt class="field-odd">param levels<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Raw (unsorted, unnormalised) energy eigenvalues.  When provided,
+they are unfolded internally before computing spacing statistics.
+Preferred over <code class="docutils literal notranslate"><span class="pre">spacings</span></code> because unfolding is then correct.</p>
+</dd>
+<dt class="field-even">type levels<span class="colon">:</span></dt>
+<dd class="field-even"><p>ndarray of shape (N,), optional</p>
+</dd>
+<dt class="field-odd">param spacings<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Pre-computed nearest-neighbour spacings (already unfolded to
+unit mean, or raw — normalisation is applied internally).
+Used only when <code class="docutils literal notranslate"><span class="pre">levels</span></code> is not given.  When both are supplied
+<code class="docutils literal notranslate"><span class="pre">levels</span></code> takes precedence.</p>
+</dd>
+<dt class="field-even">type spacings<span class="colon">:</span></dt>
+<dd class="field-even"><p>ndarray of shape (N,), optional</p>
+</dd>
+<dt class="field-odd">param traj<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Trajectory dict from <a class="reference internal" href="#symplectic.hamiltonian_flow" title="symplectic.hamiltonian_flow"><code class="xref py py-func docutils literal notranslate"><span class="pre">hamiltonian_flow()</span></code></a>.  Activates the
+frequency channel (NAFF rotation/winding numbers).</p>
+</dd>
+<dt class="field-even">type traj<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict, optional</p>
+</dd>
+<dt class="field-odd">param ndof<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Number of degrees of freedom.  Inferred from <code class="docutils literal notranslate"><span class="pre">vars_phase</span></code> when
+possible; required when only <code class="docutils literal notranslate"><span class="pre">traj</span></code> is provided.</p>
+</dd>
+<dt class="field-even">type ndof<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, optional</p>
+</dd>
+<dt class="field-odd">param second_integrals<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Candidate conserved quantities L₁, L₂, …  Each is tested via
+<code class="docutils literal notranslate"><span class="pre">{H,</span> <span class="pre">Lᵢ}</span> <span class="pre">=</span> <span class="pre">0</span></code>.  Even a single confirmed integral activates
+the algebraic hard gate.</p>
+</dd>
+<dt class="field-even">type second_integrals<span class="colon">:</span></dt>
+<dd class="field-even"><p>sympy.Expr or list of sympy.Expr, optional</p>
+</dd>
+<dt class="field-odd">param lyapunov_traj<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Separate (typically longer) trajectory used for Lyapunov
+estimation.  Falls back to <code class="docutils literal notranslate"><span class="pre">traj</span></code> if not provided.</p>
+</dd>
+<dt class="field-even">type lyapunov_traj<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict, optional</p>
+</dd>
+<dt class="field-odd">param lyapunov_dt<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Time step for the Lyapunov QR algorithm.  Inferred from
+<code class="docutils literal notranslate"><span class="pre">lyapunov_traj['t']</span></code> when not given.</p>
+</dd>
+<dt class="field-even">type lyapunov_dt<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, optional</p>
+</dd>
+<dt class="field-odd">param unfold_degree<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Polynomial degree for spectral unfolding (default 5).  Reduce to
+3 for small samples (N &lt; 100).</p>
+</dd>
+<dt class="field-even">type unfold_degree<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param min_spacings<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Minimum number of spacings required to run spectral tests
+(default 30).</p>
+</dd>
+<dt class="field-even">type min_spacings<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param naff_keys<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">(x_key,</span> <span class="pre">p_key)</span></code> for 1-DOF, or
+<code class="docutils literal notranslate"><span class="pre">(x1_key,</span> <span class="pre">p1_key,</span> <span class="pre">x2_key,</span> <span class="pre">p2_key)</span></code> for 2-DOF.
+If None, standard names (<code class="docutils literal notranslate"><span class="pre">'x'</span></code>/<code class="docutils literal notranslate"><span class="pre">'p'</span></code> or <code class="docutils literal notranslate"><span class="pre">'x1'</span></code>/<code class="docutils literal notranslate"><span class="pre">'p1'</span></code>/
+<code class="docutils literal notranslate"><span class="pre">'x2'</span></code>/<code class="docutils literal notranslate"><span class="pre">'p2'</span></code>) are tried automatically.</p>
+</dd>
+<dt class="field-even">type naff_keys<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple of str, optional</p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Always present:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">verdict</span></code>        – <code class="docutils literal notranslate"><span class="pre">'Integrable'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Likely</span> <span class="pre">integrable'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'Mixed'</span></code>, <code class="docutils literal notranslate"><span class="pre">'Likely</span> <span class="pre">chaotic'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'Chaotic'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">verdict_source</span></code> – which channel(s) determined the verdict:
+<code class="docutils literal notranslate"><span class="pre">'algebraic_proof'</span></code>, <code class="docutils literal notranslate"><span class="pre">'lyapunov_gate'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'soft_score'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">soft_score</span></code>     – float in [0, 1]; 1 = integrable,
+0 = chaotic.  <code class="docutils literal notranslate"><span class="pre">None</span></code> when overridden by a hard gate.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">summary</span></code>        – formatted multi-line diagnostic report</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">channels</span></code>       – dict of per-channel sub-results (see below)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">warnings</span></code>       – list of non-fatal diagnostic messages</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">channels</span></code> sub-keys (present only when the channel was active):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">spectral</span></code> — <code class="docutils literal notranslate"><span class="pre">{'beta',</span> <span class="pre">'beta_std',</span> <span class="pre">'ks_poisson_p',</span>
+<span class="pre">'ks_wigner_p',</span> <span class="pre">'n_spacings',</span> <span class="pre">'unfolded',</span> <span class="pre">'spacings_norm'}</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">algebraic</span></code> — <code class="docutils literal notranslate"><span class="pre">{'brackets',</span> <span class="pre">'any_conserved',</span>
+<span class="pre">'independent_integrals'}</span></code>  where <code class="docutils literal notranslate"><span class="pre">brackets</span></code> is a list of
+<code class="docutils literal notranslate"><span class="pre">{'L':</span> <span class="pre">expr,</span> <span class="pre">'bracket':</span> <span class="pre">expr,</span> <span class="pre">'is_zero':</span> <span class="pre">bool,</span> <span class="pre">'independent':</span> <span class="pre">bool}</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">frequency</span></code> — <code class="docutils literal notranslate"><span class="pre">{'omega1',</span> <span class="pre">'omega2',</span> <span class="pre">'ratio',</span>
+<span class="pre">'ratio_fraction',</span> <span class="pre">'is_rational',</span> <span class="pre">'method':</span> <span class="pre">'naff'}</span></code>
+(1-DOF: <code class="docutils literal notranslate"><span class="pre">{'omega',</span> <span class="pre">'method':</span> <span class="pre">'naff'}</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lyapunov</span></code> — <code class="docutils literal notranslate"><span class="pre">{'lambda_max',</span> <span class="pre">'exponents',</span>
+<span class="pre">'is_chaotic',</span> <span class="pre">'threshold'}</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+<dt class="field-odd">raises ValueError<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If neither <code class="docutils literal notranslate"><span class="pre">levels</span></code> nor <code class="docutils literal notranslate"><span class="pre">spacings</span></code> is provided AND no
+    trajectory is given AND no symbolic data is available — i.e. if
+    there is literally nothing to analyse.</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<p><strong>Scar intensity is not included in the verdict.</strong>
+Scarring (S ≫ 1) means the trajectory is concentrated near an
+unstable periodic orbit, which is a property of the <em>specific</em>
+trajectory rather than the system.  A scarred trajectory in a chaotic
+system is not evidence of integrability, and an unscarred trajectory
+in an integrable system is not evidence of chaos.  Use
+<a class="reference internal" href="#symplectic.IntegrabilityAnalysis.scar_intensity" title="symplectic.IntegrabilityAnalysis.scar_intensity"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scar_intensity()</span></code></a> directly as a standalone diagnostic.</p>
+<p><strong>Rotation number reliability.</strong>
+The NAFF-lite estimator is more robust than endpoint unwrapping for
+trajectories of moderate length, but it still requires the trajectory
+to span several oscillation periods.  For very short trajectories
+(fewer than ~10 oscillations) the frequency estimate may be
+unreliable; a warning is added to <code class="docutils literal notranslate"><span class="pre">result['warnings']</span></code>.</p>
+<p><strong>KAM tori detection is not included.</strong>
+<a class="reference internal" href="#symplectic.IntegrabilityAnalysis.detect_kam_tori" title="symplectic.IntegrabilityAnalysis.detect_kam_tori"><code class="xref py py-meth docutils literal notranslate"><span class="pre">detect_kam_tori()</span></code></a> clusters user-supplied orbit dicts and does
+not detect tori from trajectory data.  Its result depends entirely on
+what orbits the caller provides, making it unsuitable as an automatic
+evidence channel.  Use it as a standalone tool for orbit families you
+have already computed.</p>
+<p><strong>Lyapunov convergence.</strong>
+The built-in <a class="reference internal" href="#symplectic.lyapunov_exponents" title="symplectic.lyapunov_exponents"><code class="xref py py-func docutils literal notranslate"><span class="pre">lyapunov_exponents()</span></code></a> uses a simplified QR scheme;
+it requires long trajectories to converge (tmax ≫ 1/λ₁).  For
+conclusive Lyapunov evidence integrate for at least 10³ natural
+periods.</p>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="id8" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>BT77<span class="fn-bracket">]</span></span>
+<p>Berry &amp; Tabor, Proc. R. Soc. Lond. A 356 (1977).</p>
+</div>
+<div class="citation" id="id9" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>BGS84<span class="fn-bracket">]</span></span>
+<p>Bohigas, Giannoni &amp; Schmit, PRL 52 (1984).</p>
+</div>
+<div class="citation" id="id10" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Br73<span class="fn-bracket">]</span></span>
+<p>Brody, Lett. Nuovo Cimento 7 (1973).</p>
+</div>
+<div class="citation" id="las90" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Las90<span class="fn-bracket">]</span></span>
+<p>Laskar, Icarus 88 (1990) — NAFF algorithm.</p>
+</div>
+<div class="citation" id="oc92" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>OC92<span class="fn-bracket">]</span></span>
+<p>Ott, Chaos in Dynamical Systems, Cambridge (1992).</p>
+</div>
+</div>
 <p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">poisson_spacings</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">exponential</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">info</span> <span class="o">=</span> <span class="n">IntegrabilityAnalysis</span><span class="o">.</span><span class="n">analyze_integrability</span><span class="p">(</span><span class="n">poisson_spacings</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;classification&#39;</span><span class="p">]</span>
-<span class="go">&#39;Integrable (Poisson-like)&#39;</span>
+<p><strong>Integrable — symbolic proof (no spectrum needed):</strong></p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x1</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">p2</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x1 p1 x2 p2&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">p2</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x2</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">L</span> <span class="o">=</span> <span class="p">(</span><span class="n">p2</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x2</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">IntegrabilityAnalysis</span><span class="o">.</span><span class="n">analyze_integrability</span><span class="p">(</span>
+<span class="gp">... </span>        <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="p">[</span><span class="n">x1</span><span class="p">,</span><span class="n">p1</span><span class="p">,</span><span class="n">x2</span><span class="p">,</span><span class="n">p2</span><span class="p">],</span> <span class="n">second_integrals</span><span class="o">=</span><span class="n">L</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="p">[</span><span class="s1">&#39;verdict&#39;</span><span class="p">]</span>
+<span class="go">&#39;Integrable&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="p">[</span><span class="s1">&#39;verdict_source&#39;</span><span class="p">]</span>
+<span class="go">&#39;algebraic_proof&#39;</span>
 </pre></div>
 </div>
-<p class="rubric">Notes</p>
-<p>For meaningful statistics at least ~50 spacings are recommended.
-Unfolding the spectrum (mapping raw spacings to a unit-mean sequence)
-before calling this function improves the accuracy of the classification.</p>
+<p><strong>From a raw spectrum:</strong></p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">levels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">exponential</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span><span class="o">.</span><span class="n">cumsum</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">IntegrabilityAnalysis</span><span class="o">.</span><span class="n">analyze_integrability</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="n">levels</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="p">[</span><span class="s1">&#39;channels&#39;</span><span class="p">][</span><span class="s1">&#39;spectral&#39;</span><span class="p">][</span><span class="s1">&#39;beta&#39;</span><span class="p">]</span>   <span class="c1"># close to 0</span>
+<span class="go">&lt; 0.2</span>
+</pre></div>
+</div>
+<p><strong>From a trajectory (frequency channel):</strong></p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">traj</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">60</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span>
+<span class="gp">... </span>                        <span class="n">vars_phase</span><span class="o">=</span><span class="p">[</span><span class="n">x1</span><span class="p">,</span><span class="n">p1</span><span class="p">,</span><span class="n">x2</span><span class="p">,</span><span class="n">p2</span><span class="p">],</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">IntegrabilityAnalysis</span><span class="o">.</span><span class="n">analyze_integrability</span><span class="p">(</span>
+<span class="gp">... </span>        <span class="n">traj</span><span class="o">=</span><span class="n">traj</span><span class="p">,</span> <span class="n">ndof</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<span class="gp">... </span>        <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="p">[</span><span class="n">x1</span><span class="p">,</span><span class="n">p1</span><span class="p">,</span><span class="n">x2</span><span class="p">,</span><span class="n">p2</span><span class="p">],</span> <span class="n">second_integrals</span><span class="o">=</span><span class="n">L</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="p">[</span><span class="s1">&#39;verdict&#39;</span><span class="p">]</span>
+<span class="go">&#39;Integrable&#39;</span>
+</pre></div>
+</div>
+</section>
 </dd></dl>
 
 <dl class="py method">
@@ -467,7 +674,7 @@ log-likelihood, which is unimodal in β ∈ [0,1] for typical spectra.
 Bootstrap standard error uses 200 resamples.</p>
 <p class="rubric">References</p>
 <div role="list" class="citation-list">
-<div class="citation" id="id8" role="doc-biblioentry">
+<div class="citation" id="id11" role="doc-biblioentry">
 <span class="label"><span class="fn-bracket">[</span>Br73<span class="fn-bracket">]</span></span>
 <p>Brody, T. A., “A statistical measure for the repulsion of
 energy levels”, <em>Lett. Nuovo Cimento</em> 7, 482–484 (1973).</p>
@@ -628,7 +835,7 @@ the trajectory’s diameter in phase space.</p></li>
 </div>
 <p class="rubric">References</p>
 <div role="list" class="citation-list">
-<div class="citation" id="id9" role="doc-biblioentry">
+<div class="citation" id="id12" role="doc-biblioentry">
 <span class="label"><span class="fn-bracket">[</span>He84<span class="fn-bracket">]</span></span>
 <p>Heller, E. J., “Bound-state eigenfunctions of classically
 chaotic Hamiltonian systems: scars of periodic orbits”,
@@ -702,16 +909,59 @@ Rounding to integers reflects the lattice structure of the torus.</p>
 contain only one critical value) is needed for accurate results.</p>
 <p class="rubric">References</p>
 <div role="list" class="citation-list">
-<div class="citation" id="id10" role="doc-biblioentry">
+<div class="citation" id="id13" role="doc-biblioentry">
 <span class="label"><span class="fn-bracket">[</span>Du80<span class="fn-bracket">]</span></span>
 <p>Duistermaat, J. J., “On global action-angle coordinates”,
 <em>Comm. Pure Appl. Math.</em> 33, 687–706 (1980).</p>
 </div>
-<div class="citation" id="id11" role="doc-biblioentry">
+<div class="citation" id="id14" role="doc-biblioentry">
 <span class="label"><span class="fn-bracket">[</span>Cu97<span class="fn-bracket">]</span></span>
 <p>Cushman, R. H. &amp; Bates, L. M., <em>Global Aspects of Classical
 Integrable Systems</em>, Birkhäuser, 1997.</p>
 </div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="symplectic.IntegrabilityAnalysis.unfold_spectrum">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">unfold_spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">levels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poly_degree</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/symplectic.html#IntegrabilityAnalysis.unfold_spectrum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.IntegrabilityAnalysis.unfold_spectrum" title="Link to this definition"></a></dt>
+<dd><p>Unfold a raw energy spectrum to unit mean level density.</p>
+<p>Unfolding maps eigenvalues E_i to dimensionless levels ε_i so that
+the mean nearest-neighbour spacing is exactly 1, removing the
+system-specific smooth part of the density of states (the Weyl term)
+and leaving only the universal fluctuation statistics.</p>
+<p>The smooth cumulative level count N̄(E) is estimated by fitting a
+polynomial of degree <code class="docutils literal notranslate"><span class="pre">poly_degree</span></code> to the staircase function
+N(E) = #{levels ≤ E}.  The unfolded levels are then ε_i = N̄(E_i).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>levels</strong> (<em>ndarray</em><em> of </em><em>shape</em><em> (</em><em>N</em><em>,</em><em>)</em>) – Raw sorted (or unsorted) energy eigenvalues.</p></li>
+<li><p><strong>poly_degree</strong> (<em>int</em>) – Degree of the polynomial used to fit the smooth spectral
+staircase N̄(E).  Higher degrees track non-uniform densities
+better but may overfit for small samples (default 5).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Unfolded levels ε_i with unit mean spacing.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray of shape (N,)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>For small samples (N &lt; 50) reduce <code class="docutils literal notranslate"><span class="pre">poly_degree</span></code> to 3 to avoid
+overfitting.  For systems whose density of states is known
+analytically (e.g. harmonic oscillators via Weyl’s law) prefer
+passing the analytic N̄ as an interpolation table rather than using
+this polynomial fit.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">levels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">200</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">unfolded</span> <span class="o">=</span> <span class="n">IntegrabilityAnalysis</span><span class="o">.</span><span class="n">unfold_spectrum</span><span class="p">(</span><span class="n">levels</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spacings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">unfolded</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">spacings</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+<span class="go">True</span>
+</pre></div>
 </div>
 </dd></dl>
 
@@ -1174,68 +1424,6 @@ high-accuracy requirements.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="symplectic.hamiltonian_flow_old">
-<span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">hamiltonian_flow_old</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">integrator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'symplectic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#hamiltonian_flow_old"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.hamiltonian_flow_old" title="Link to this definition"></a></dt>
-<dd><p>Numerically integrate Hamilton’s equations of motion.</p>
-<dl class="simple">
-<dt>Solves the system:</dt><dd><p>ẋᵢ = ∂H/∂pᵢ
-ṗᵢ = -∂H/∂xᵢ</p>
-</dd>
-</dl>
-<p>for i = 1, …, n degrees of freedom.</p>
-<p>Integrator options and their properties:
-- ‘symplectic’ (Symplectic Euler): First-order, exactly preserves symplectic</p>
-<blockquote>
-<div><p>structure, good long-term energy behavior, computationally efficient</p>
-</div></blockquote>
-<ul class="simple">
-<li><p>‘verlet’ (Velocity Verlet): Second-order, time-reversible, excellent for
-oscillatory systems, preserves symplectic structure</p></li>
-<li><p>‘rk45’ (Runge-Kutta 4/5): Fourth-order adaptive, not symplectic, better
-short-term accuracy but may drift in energy over long simulations</p></li>
-</ul>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>H</strong> (<em>sympy.Expr</em>) – Hamiltonian function H(x₁, p₁, …, xₙ, pₙ).</p></li>
-<li><p><strong>z0</strong> (<em>array_like</em>) – Initial conditions as [x₁₀, p₁₀, x₂₀, p₂₀, …], length 2n.</p></li>
-<li><p><strong>tspan</strong> (<em>tuple</em><em> of </em><em>float</em>) – Time integration interval (t_start, t_end).</p></li>
-<li><p><strong>vars_phase</strong> (<em>list</em><em> of </em><em>sympy.Symbol</em><em>, </em><em>optional</em>) – Phase space variables in canonical order. If None, inferred from H.</p></li>
-<li><p><strong>integrator</strong> (<em>{'symplectic'</em><em>, </em><em>'verlet'</em><em>, </em><em>'rk45'}</em>) – Numerical integration method (default: ‘symplectic’).</p></li>
-<li><p><strong>n_steps</strong> (<em>int</em>) – Number of discrete time steps (default: 1000).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Dictionary containing:
-- ‘t’ : ndarray, time points
-- ‘&lt;var_name&gt;’ : ndarray, trajectory for each phase space variable
-- ‘energy’ : ndarray, H evaluated along the trajectory</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>dict</p>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>ValueError</strong> – If integrator is not recognized, if variables cannot be inferred, or
-    if z0 has incorrect dimension.</p>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span> <span class="o">=</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span>  <span class="c1"># Harmonic oscillator</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">traj</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">z0</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
-<span class="gp">... </span>                        <span class="n">vars_phase</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">p</span><span class="p">],</span> <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;verlet&#39;</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;energy&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>  <span class="c1"># Should be very small for symplectic integrators</span>
-<span class="go">&lt; 1e-3</span>
-</pre></div>
-</div>
-<p class="rubric">Notes</p>
-<p>For long-time simulations, prefer ‘symplectic’ or ‘verlet’ integrators to
-preserve the geometric structure of phase space and maintain bounded energy
-errors. Use ‘rk45’ for short-time high-accuracy requirements or when
-comparing with non-symplectic methods.</p>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="symplectic.linearize_at_fixed_point">
 <span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">linearize_at_fixed_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#linearize_at_fixed_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.linearize_at_fixed_point" title="Link to this definition"></a></dt>
 <dd><p>Compute linear stability matrix (Jacobian of the Hamiltonian vector field) at a fixed point.</p>
@@ -1264,69 +1452,35 @@ and a simple classification based on eigenvalues:
 
 <dl class="py function">
 <dt class="sig sig-object py" id="symplectic.lyapunov_exponents">
-<span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">lyapunov_exponents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trajectory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_vectors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">renorm_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#lyapunov_exponents"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.lyapunov_exponents" title="Link to this definition"></a></dt>
-<dd><p>Estimate Lyapunov exponents from a trajectory in a 2-DOF system.</p>
-<p>Lyapunov exponents quantify the average exponential rate of separation
-between nearby trajectories. For a 2n-dimensional phase space, there are
-2n exponents λ₁ ≥ λ₂ ≥ … ≥ λ₂ₙ.</p>
-<p>Interpretation:
-- λ₁ &gt; 0: Chaotic dynamics (sensitive dependence on initial conditions)
-- λ₁ = 0: Regular/periodic motion (marginal stability)
-- Sum of all λᵢ = 0 for Hamiltonian systems (phase space volume preservation)
-- Exponents come in pairs (λ, -λ) for Hamiltonian systems</p>
-<p>This implementation uses a simplified QR-based algorithm with periodic
-renormalization to prevent numerical overflow.</p>
+<span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">lyapunov_exponents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trajectory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">H</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_vectors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">renorm_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#lyapunov_exponents"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.lyapunov_exponents" title="Link to this definition"></a></dt>
+<dd><p>Estimate Lyapunov exponents from a trajectory using QR algorithm.</p>
+<p>If H and vars_phase are provided, the Jacobian of the Hamiltonian vector
+field is computed by finite differences, and the linearized flow is
+approximated as I + J_f * dt.  This yields accurate exponents for
+integrable systems (λ≈0).  Without H, a crude (and often wrong) fallback
+is used – a warning is issued.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>trajectory</strong> (<em>dict</em>) – Trajectory dictionary from hamiltonian_flow with keys ‘t’ and variable
-names containing the time series.</p></li>
+<li><p><strong>trajectory</strong> (<em>dict</em>) – Trajectory dict as returned by hamiltonian_flow.</p></li>
 <li><p><strong>dt</strong> (<em>float</em>) – Time step between trajectory points.</p></li>
-<li><p><strong>vars_phase</strong> (<em>list</em><em> of </em><em>sympy.Symbol</em><em>, </em><em>optional</em>) – Variables [x1, p1, x2, p2]. If None, uses default canonical names.</p></li>
-<li><p><strong>n_vectors</strong> (<em>int</em>) – Number of tangent vectors to evolve (default: 4 for 2-DOF).</p></li>
-<li><p><strong>renorm_interval</strong> (<em>int</em>) – Number of steps between QR renormalization (default: 10).
-Smaller values improve accuracy but increase computation.</p></li>
+<li><p><strong>H</strong> (<em>sympy.Expr</em><em>, </em><em>optional</em>) – Hamiltonian expression (required for accurate Jacobian).</p></li>
+<li><p><strong>vars_phase</strong> (<em>list</em><em> of </em><em>sympy.Symbol</em><em>, </em><em>optional</em>) – Phase space variables (required when H is given).</p></li>
+<li><p><strong>n_vectors</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of tangent vectors (default = number of DOF).</p></li>
+<li><p><strong>renorm_interval</strong> (<em>int</em>) – Number of steps between QR renormalisations (default 10).</p></li>
+<li><p><strong>epsilon</strong> (<em>float</em>) – Finite‑difference step for Jacobian (default 1e-6).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Lyapunov exponents sorted in descending order [λ₁, λ₂, λ₃, λ₄].</p>
+<dd class="field-even"><p>Lyapunov exponents sorted in descending order.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>ndarray</p>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>ValueError</strong> – If the system is not 2-DOF or trajectory is too short.</p>
+<dd class="field-even"><p><strong>ValueError</strong> – If ndof cannot be determined.</p>
 </dd>
 </dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Regular motion (coupled oscillators)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">traj</span> <span class="o">=</span> <span class="n">hamiltonian_flow</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span> <span class="n">integrator</span><span class="o">=</span><span class="s1">&#39;rk45&#39;</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">lyap</span> <span class="o">=</span> <span class="n">lyapunov_exponents</span><span class="p">(</span><span class="n">traj</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">lyap</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Should be approximately 0 for regular motion</span>
-<span class="go">≈ 0</span>
-</pre></div>
-</div>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Chaotic motion (e.g., Hénon-Heiles)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">lyap</span> <span class="o">=</span> <span class="n">lyapunov_exponents</span><span class="p">(</span><span class="n">chaotic_traj</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">lyap</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Should be positive for chaos</span>
-<span class="go">&gt; 0</span>
-</pre></div>
-</div>
-<p class="rubric">Notes</p>
-<p>This is a simplified implementation using finite-difference Jacobian
-approximation. For production use, consider implementing the full
-variational equations alongside the trajectory integration.</p>
-<p>Convergence requires long trajectories (tmax &gt;&gt; 1/λ₁). The largest
-exponent λ₁ converges fastest; smaller exponents require longer runs.</p>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<dl class="simple">
-<dt><a class="reference internal" href="#symplectic.monodromy_matrix" title="symplectic.monodromy_matrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">monodromy_matrix</span></code></a></dt><dd><p>Stability of periodic orbits</p>
-</dd>
-<dt><a class="reference internal" href="#symplectic.poincare_section" title="symplectic.poincare_section"><code class="xref py py-obj docutils literal notranslate"><span class="pre">poincare_section</span></code></a></dt><dd><p>Visual detection of chaos vs. regularity</p>
-</dd>
-</dl>
-</div>
 </dd></dl>
 
 <dl class="py function">
@@ -1340,9 +1494,9 @@ one period T:</p>
 <div><p>δz(T) = M · δz(0)</p>
 </div></blockquote>
 <p>The eigenvalues of M (Floquet multipliers) determine orbital stability:
-- <a href="#id14"><span class="problematic" id="id15">|λ|</span></a> = 1 for all λ: neutrally stable (typical for Hamiltonian systems)
-- Any <a href="#id16"><span class="problematic" id="id17">|λ|</span></a> &gt; 1: unstable orbit
-- All <a href="#id18"><span class="problematic" id="id19">|λ|</span></a> &lt; 1: stable (not possible in conservative Hamiltonian systems)</p>
+- <a href="#id17"><span class="problematic" id="id18">|λ|</span></a> = 1 for all λ: neutrally stable (typical for Hamiltonian systems)
+- Any <a href="#id19"><span class="problematic" id="id20">|λ|</span></a> &gt; 1: unstable orbit
+- All <a href="#id21"><span class="problematic" id="id22">|λ|</span></a> &lt; 1: stable (not possible in conservative Hamiltonian systems)</p>
 <p>For Hamiltonian systems, eigenvalues come in reciprocal pairs (λ, 1/λ)
 and/or complex conjugate pairs on the unit circle.</p>
 <dl class="field-list simple">
@@ -1361,7 +1515,7 @@ Currently only finite difference perturbations are implemented.</p></li>
 - ‘M’ : ndarray, 4×4 monodromy matrix
 - ‘eigenvalues’ : ndarray, Floquet multipliers
 - ‘floquet_multipliers’ : ndarray, same as eigenvalues
-- ‘stable’ : bool, True if all <a href="#id20"><span class="problematic" id="id21">|λ|</span></a> ≤ 1 (within tolerance)</p>
+- ‘stable’ : bool, True if all <a href="#id23"><span class="problematic" id="id24">|λ|</span></a> ≤ 1 (within tolerance)</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>dict</p>
@@ -1506,17 +1660,10 @@ with an optional crossing direction.</p>
     if insufficient crossings are detected.</p>
 </dd>
 </dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x1</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">p2</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x1 p1 x2 p2&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">p2</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x2</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span>  <span class="c1"># Coupled oscillators</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">Sigma</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;variable&#39;</span><span class="p">:</span> <span class="s1">&#39;x2&#39;</span><span class="p">,</span> <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;direction&#39;</span><span class="p">:</span> <span class="s1">&#39;positive&#39;</span><span class="p">}</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ps</span> <span class="o">=</span> <span class="n">poincare_section</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">Sigma</span><span class="p">,</span> <span class="n">z0</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="n">tmax</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">ps</span><span class="p">[</span><span class="s1">&#39;section_points&#39;</span><span class="p">])</span>
-<span class="go">&gt; 0</span>
-</pre></div>
-</div>
 <p class="rubric">Notes</p>
-<p>Crossing times are linearly interpolated between integration steps for
+<p>Crossing detection is fully vectorised with NumPy (no Python-level loop
+over time steps), giving a significant speedup for large n_steps.
+Crossing times are linearly interpolated between integration steps for
 accuracy. Use high n_steps in the underlying integration for precise
 section points. For chaotic systems, increase tmax and n_returns.</p>
 <div class="admonition seealso">
@@ -1699,7 +1846,7 @@ funcs = [lambdify(vars_phase, expr, ‘numpy’) for expr in X_components]</p>
 </div></blockquote>
 <p>Then evaluate on entire arrays:</p>
 <blockquote>
-<div><p>results = [func(<a href="#id12"><span class="problematic" id="id13">*</span></a>(grid_arrays)) for func in funcs]</p>
+<div><p>results = [func(<a href="#id15"><span class="problematic" id="id16">*</span></a>(grid_arrays)) for func in funcs]</p>
 </div></blockquote>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1759,8 +1906,25 @@ funcs = [lambdify(vars_phase, expr, ‘numpy’) for expr in X_components]</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="symplectic.visualize_poincare_section">
-<span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">visualize_poincare_section</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z0_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Sigma_def</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_returns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_vars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('x1',</span> <span class="pre">'p1')</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#visualize_poincare_section"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.visualize_poincare_section" title="Link to this definition"></a></dt>
-<dd><p>Visualize Poincaré section for multiple initial conditions (2‑DOF).</p>
+<span class="sig-prename descclassname"><span class="pre">symplectic.</span></span><span class="sig-name descname"><span class="pre">visualize_poincare_section</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z0_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Sigma_def</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_returns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_vars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">('x1',</span> <span class="pre">'p1')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_workers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/symplectic.html#visualize_poincare_section"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#symplectic.visualize_poincare_section" title="Link to this definition"></a></dt>
+<dd><p>Visualize Poincaré section for multiple initial conditions (2-DOF).</p>
+<p>Initial conditions are processed in parallel using ProcessPoolExecutor,
+giving a near-linear speedup with the number of available CPU cores.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>H</strong> (<em>sympy.Expr</em>) – Hamiltonian for a 2-degree-of-freedom system.</p></li>
+<li><p><strong>z0_list</strong> (<em>list</em><em> of </em><em>array_like</em>) – List of initial conditions, each of length 4.</p></li>
+<li><p><strong>Sigma_def</strong> (<em>dict</em>) – Section surface definition (see poincare_section).</p></li>
+<li><p><strong>vars_phase</strong> (<em>list</em><em> of </em><em>sympy.Symbol</em><em>, </em><em>optional</em>) – Variables [x1, p1, x2, p2].</p></li>
+<li><p><strong>tmax</strong> (<em>float</em>) – Maximum integration time (default: 100).</p></li>
+<li><p><strong>n_returns</strong> (<em>int</em>) – Maximum crossings per initial condition (default: 500).</p></li>
+<li><p><strong>plot_vars</strong> (<em>tuple</em><em> of </em><em>str</em>) – Two variable names to plot (default: (‘x1’, ‘p1’)).</p></li>
+<li><p><strong>n_workers</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of worker processes. Defaults to the number of CPU cores.
+Set to 1 to disable parallelism (useful for debugging).</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
