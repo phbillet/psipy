@@ -1,0 +1,844 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>misc &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../propagator.html">propagator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic.html">symplectic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">misc</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for misc</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">sympify</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">librosa</span><span class="o">,</span><span class="w"> </span><span class="nn">librosa.display</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">soundfile</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.animation</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">animation</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">soundfile</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sympy.core.function</span><span class="w"> </span><span class="kn">import</span> <span class="n">AppliedUndef</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Function</span>
+
+<span class="c1"># Miscellaneous functions and classes</span>
+<div class="viewcode-block" id="Op">
+<a class="viewcode-back" href="../misc.html#misc.Op">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Op</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom symbolic wrapper for pseudo-differential operators in Fourier space.</span>
+<span class="sd">    Usage: Op(symbol_expr, u)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nargs</span> <span class="o">=</span> <span class="mi">2</span></div>
+
+
+<div class="viewcode-block" id="psiOp">
+<a class="viewcode-back" href="../misc.html#misc.psiOp">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">psiOp</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Symbolic wrapper for PseudoDifferentialOperator.</span>
+<span class="sd">    Usage: psiOp(symbol_expr, u)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nargs</span> <span class="o">=</span> <span class="mi">2</span>   <span class="c1"># (expr, u)</span></div>
+
+
+
+<div class="viewcode-block" id="gaussian_function_1D">
+<a class="viewcode-back" href="../misc.html#misc.gaussian_function_1D">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gaussian_function_1D</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">sigma</span><span class="p">):</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># Amplitude so that the integral is equal to 1</span>
+    <span class="k">return</span> <span class="n">A</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">center</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="gaussian_function_2D">
+<a class="viewcode-back" href="../misc.html#misc.gaussian_function_2D">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">gaussian_function_2D</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">sigma</span><span class="p">):</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># Amplitude so that the integral is equal to 1</span>
+    <span class="n">center_x</span><span class="p">,</span> <span class="n">center_y</span> <span class="o">=</span> <span class="n">center</span>
+    <span class="k">return</span> <span class="n">A</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">center_x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">center_y</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="ramp_function">
+<a class="viewcode-back" href="../misc.html#misc.ramp_function">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ramp_function</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">point1</span><span class="p">,</span> <span class="n">point2</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s1">&#39;increasing&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a ramp (generalized Heaviside) function between two points.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        x, y: meshgrid arrays</span>
+<span class="sd">        point1: (x1, y1), first point on the ramp axis</span>
+<span class="sd">        point2: (x2, y2), second point on the ramp axis</span>
+<span class="sd">        direction: &#39;increasing&#39; (from point1 to point2) or &#39;decreasing&#39;</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A 2D array with values in [0, 1]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x1</span><span class="p">,</span> <span class="n">y1</span> <span class="o">=</span> <span class="n">point1</span>
+    <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span> <span class="o">=</span> <span class="n">point2</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">x2</span> <span class="o">-</span> <span class="n">x1</span>
+    <span class="n">dy</span> <span class="o">=</span> <span class="n">y2</span> <span class="o">-</span> <span class="n">y1</span>
+    <span class="n">norm2</span> <span class="o">=</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mf">1e-12</span>  <span class="c1"># Avoid division by zero</span>
+
+    <span class="c1"># Projection (scalar parameter along the axis)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">x1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">y1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dy</span><span class="p">)</span> <span class="o">/</span> <span class="n">norm2</span>
+
+    <span class="c1"># Orientation</span>
+    <span class="k">if</span> <span class="n">direction</span> <span class="o">==</span> <span class="s1">&#39;increasing&#39;</span><span class="p">:</span>
+        <span class="n">ramp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">direction</span> <span class="o">==</span> <span class="s1">&#39;decreasing&#39;</span><span class="p">:</span>
+        <span class="n">ramp</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;direction must be &#39;increasing&#39; or &#39;decreasing&#39;&quot;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">ramp</span></div>
+
+
+
+<div class="viewcode-block" id="sigmoid_ramp">
+<a class="viewcode-back" href="../misc.html#misc.sigmoid_ramp">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">sigmoid_ramp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">point1</span><span class="p">,</span> <span class="n">point2</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s1">&#39;increasing&#39;</span><span class="p">):</span>
+    <span class="n">x1</span><span class="p">,</span> <span class="n">y1</span> <span class="o">=</span> <span class="n">point1</span>
+    <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span> <span class="o">=</span> <span class="n">point2</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">x2</span> <span class="o">-</span> <span class="n">x1</span>
+    <span class="n">dy</span> <span class="o">=</span> <span class="n">y2</span> <span class="o">-</span> <span class="n">y1</span>
+    <span class="n">norm2</span> <span class="o">=</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mf">1e-12</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">x1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">y1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dy</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">direction</span> <span class="o">==</span> <span class="s1">&#39;decreasing&#39;</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="o">-</span><span class="n">s</span>
+    <span class="k">return</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">s</span> <span class="o">/</span> <span class="n">width</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="tanh_ramp">
+<a class="viewcode-back" href="../misc.html#misc.tanh_ramp">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">tanh_ramp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">point1</span><span class="p">,</span> <span class="n">point2</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s1">&#39;increasing&#39;</span><span class="p">):</span>
+    <span class="n">x1</span><span class="p">,</span> <span class="n">y1</span> <span class="o">=</span> <span class="n">point1</span>
+    <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span> <span class="o">=</span> <span class="n">point2</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">x2</span> <span class="o">-</span> <span class="n">x1</span>
+    <span class="n">dy</span> <span class="o">=</span> <span class="n">y2</span> <span class="o">-</span> <span class="n">y1</span>
+    <span class="n">norm2</span> <span class="o">=</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dy</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mf">1e-12</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">x1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">y1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dy</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norm2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">direction</span> <span class="o">==</span> <span class="s1">&#39;decreasing&#39;</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="o">-</span><span class="n">s</span>
+    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">s</span> <span class="o">/</span> <span class="n">width</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="top_hat_band">
+<a class="viewcode-back" href="../misc.html#misc.top_hat_band">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">top_hat_band</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">((</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="n">x_min</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;=</span> <span class="n">x_max</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="radial_gradient">
+<a class="viewcode-back" href="../misc.html#misc.radial_gradient">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">radial_gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s1">&#39;increasing&#39;</span><span class="p">):</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">center</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">center</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">r</span> <span class="o">/</span> <span class="n">radius</span>
+    <span class="k">if</span> <span class="n">direction</span> <span class="o">==</span> <span class="s1">&#39;increasing&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
+
+
+<span class="c1"># Circle</span>
+<span class="n">circle_function</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">center_circle</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">center_circle</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">radius_circle</span><span class="o">**</span><span class="mi">2</span>
+
+<span class="c1"># Ellipse</span>
+<span class="n">ellipse_function</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">center_ellipse</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">semi_major_axis</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="p">((</span><span class="n">y</span> <span class="o">-</span> <span class="n">center_ellipse</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">semi_minor_axis</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+<span class="c1"># Rectangle</span>
+<span class="n">rectangle_function</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">corner1_rectangle</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">corner2_rectangle</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">corner1_rectangle</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">corner2_rectangle</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+<span class="c1"># Cross</span>
+<span class="n">cross_function</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">min</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">center_cross</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="n">width_cross</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">center_cross</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">height_cross</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span>
+
+<div class="viewcode-block" id="make_symbol">
+<a class="viewcode-back" href="../misc.html#misc.make_symbol">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_symbol</span><span class="p">(</span><span class="n">g</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">V</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assemble a 2D psiOp symbol from:</span>
+<span class="sd">    - g: a symmetric metric tensor g = [[g_xx, g_xy], [g_yx, g_yy]] (functions or strings)</span>
+<span class="sd">    - b: a vector b = [b_x, b_y] (functions or strings)</span>
+<span class="sd">    - V: a scalar potential V(x, y) (function or string)</span>
+
+<span class="sd">    Returns a SymPy expression representing the symbol sigma(x, y, xi, eta).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">terms</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Metric term (quadratic)</span>
+    <span class="k">if</span> <span class="n">g</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">g_xx</span><span class="p">,</span> <span class="n">g_xy</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">g_yx</span><span class="p">,</span> <span class="n">g_yy</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Symmetrize manually</span>
+        <span class="n">terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">g_xx</span><span class="si">}</span><span class="s2">)*xi**2&quot;</span><span class="p">)</span>
+        <span class="n">terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">g_yy</span><span class="si">}</span><span class="s2">)*eta**2&quot;</span><span class="p">)</span>
+        <span class="n">sym_xy</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;0.5*((</span><span class="si">{</span><span class="n">g_xy</span><span class="si">}</span><span class="s2">) + (</span><span class="si">{</span><span class="n">g_yx</span><span class="si">}</span><span class="s2">))&quot;</span>
+        <span class="n">terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;2*(</span><span class="si">{</span><span class="n">sym_xy</span><span class="si">}</span><span class="s2">)*xi*eta&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Vector (torsion-like) term (linear)</span>
+    <span class="k">if</span> <span class="n">b</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">b_x</span><span class="p">,</span> <span class="n">b_y</span> <span class="o">=</span> <span class="n">b</span>
+        <span class="n">terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">b_x</span><span class="si">}</span><span class="s2">)*xi&quot;</span><span class="p">)</span>
+        <span class="n">terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">b_y</span><span class="si">}</span><span class="s2">)*eta&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Scalar potential term</span>
+    <span class="k">if</span> <span class="n">V</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">V</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+    <span class="n">symbol_str</span> <span class="o">=</span> <span class="s2">&quot; + &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">terms</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sympify</span><span class="p">(</span><span class="n">symbol_str</span><span class="p">)</span></div>
+
+
+<span class="c1"># Sonification</span>
+<div class="viewcode-block" id="sonify_solution">
+<a class="viewcode-back" href="../misc.html#misc.sonify_solution">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">sonify_solution</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">Nt</span><span class="p">,</span> <span class="n">Nx</span><span class="p">,</span> <span class="n">Lt</span><span class="p">,</span> <span class="n">Lx</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;pan&quot;</span><span class="p">,</span> <span class="n">samplerate</span><span class="o">=</span><span class="mi">44100</span><span class="p">,</span> <span class="n">outfile</span><span class="o">=</span><span class="s2">&quot;sonification.wav&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enhanced stereo sonification of a PDE solution with rich, percussive, and original sounds.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    u : ndarray (Nt, Nx)</span>
+<span class="sd">        Solution of the PDE.</span>
+<span class="sd">    Nt, Nx : int</span>
+<span class="sd">        Number of points in time and space.</span>
+<span class="sd">    Lt, Lx : float</span>
+<span class="sd">        Total length in time and in space.</span>
+<span class="sd">    method : str</span>
+<span class="sd">        &quot;pan&quot; (dynamic barycenter), &quot;fft&quot; (spatial modes), &quot;events&quot; (percussions)</span>
+<span class="sd">    samplerate : int</span>
+<span class="sd">        Audio sampling rate.</span>
+<span class="sd">    outfile : str</span>
+<span class="sd">        Name of the output WAV file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Grids</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Lt</span><span class="p">,</span> <span class="n">Nt</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">Nx</span><span class="p">)</span>
+    <span class="n">n_samples</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">Lt</span> <span class="o">*</span> <span class="n">samplerate</span><span class="p">)</span>
+    <span class="n">time_audio</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Lt</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
+
+    <span class="c1"># Base signal: energy + gradient</span>
+    <span class="n">energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">grad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">signal_base</span> <span class="o">=</span> <span class="n">energy</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">grad</span>
+    <span class="n">signal_base</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">signal_base</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span>
+    <span class="n">base_signal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Nt</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">Nt</span><span class="p">),</span> <span class="n">signal_base</span><span class="p">)</span>
+
+    <span class="n">left</span><span class="p">,</span> <span class="n">right</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">base_signal</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">base_signal</span><span class="p">)</span>
+
+    <span class="c1"># --- PAN: dynamic barycenter with harmonics + vibrato ---</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;pan&quot;</span><span class="p">:</span>
+        <span class="n">bary</span> <span class="o">=</span> <span class="p">(</span><span class="n">u</span><span class="o">**</span><span class="mi">2</span> <span class="o">@</span> <span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">u</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">)</span>
+        <span class="n">bary</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">bary</span><span class="p">))</span> <span class="o">+</span> <span class="mf">1e-12</span>
+        <span class="n">bary_interp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Nt</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">Nt</span><span class="p">),</span> <span class="n">bary</span><span class="p">)</span>
+        <span class="n">lfo</span> <span class="o">=</span> <span class="mf">0.2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="mf">0.3</span><span class="o">*</span><span class="n">time_audio</span><span class="p">)</span>  <span class="c1"># vibrato</span>
+        <span class="n">pan</span> <span class="o">=</span> <span class="n">bary_interp</span> <span class="o">+</span> <span class="n">lfo</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">base_signal</span><span class="p">):</span>
+            <span class="n">freq</span> <span class="o">=</span> <span class="mi">220</span> <span class="o">+</span> <span class="mi">220</span> <span class="o">*</span> <span class="p">(</span><span class="n">val</span><span class="p">)</span>  <span class="c1"># frequency mod by amplitude</span>
+            <span class="n">wave</span> <span class="o">=</span> <span class="n">val</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">freq</span><span class="o">*</span><span class="n">time_audio</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="mf">1.5</span><span class="o">*</span><span class="n">freq</span><span class="o">*</span><span class="n">time_audio</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+            <span class="n">L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">4</span><span class="o">*</span><span class="p">(</span><span class="n">pan</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+            <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">4</span><span class="o">*</span><span class="p">(</span><span class="n">pan</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+            <span class="n">left</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">right</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">L</span><span class="o">*</span><span class="n">wave</span><span class="p">,</span> <span class="n">R</span><span class="o">*</span><span class="n">wave</span>
+
+    <span class="c1"># --- FFT: spatial modes with sin + square waves ---</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;fft&quot;</span><span class="p">:</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">axes</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">freqs_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">Nx</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])))</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Y</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))[</span><span class="o">-</span><span class="mi">5</span><span class="p">:]</span>  <span class="c1"># 5 dominant modes</span>
+        <span class="n">freqs_audio</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">220</span><span class="p">,</span> <span class="mi">880</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">idx</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">f_audio</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">freqs_audio</span><span class="p">):</span>
+            <span class="n">amp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Y</span><span class="p">[:,</span> <span class="n">j</span><span class="p">])</span>
+            <span class="n">amp</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">amp</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-12</span>
+            <span class="n">amp_interp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Nt</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">Nt</span><span class="p">),</span> <span class="n">amp</span><span class="p">)</span>
+            <span class="n">pan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">freqs_x</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">Lgain</span><span class="p">,</span> <span class="n">Rgain</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.6</span><span class="p">,</span><span class="mf">0.4</span><span class="p">)</span> <span class="k">if</span> <span class="n">pan</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="mf">0.4</span><span class="p">,</span><span class="mf">0.6</span><span class="p">)</span>
+            <span class="c1"># wave = sin + square, modulated by amplitude</span>
+            <span class="n">wave</span> <span class="o">=</span> <span class="n">amp_interp</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">f_audio</span><span class="o">*</span><span class="n">time_audio</span><span class="p">)</span> <span class="o">+</span>
+                                 <span class="mf">0.3</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">f_audio</span><span class="o">*</span><span class="n">time_audio</span><span class="p">)))</span>
+            <span class="n">left</span> <span class="o">+=</span> <span class="n">Lgain</span> <span class="o">*</span> <span class="n">wave</span>
+            <span class="n">right</span> <span class="o">+=</span> <span class="n">Rgain</span> <span class="o">*</span> <span class="n">wave</span>
+
+    <span class="c1"># --- EVENTS: percussive beeps with pitch + double hit ---</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;events&quot;</span><span class="p">:</span>
+        <span class="n">maxpos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">maxvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">maxvals</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Nt</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">maxvals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">:</span>
+                <span class="n">pos</span> <span class="o">=</span> <span class="p">(</span><span class="n">maxpos</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-</span><span class="n">Nx</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">Nx</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+                <span class="n">Lgain</span><span class="p">,</span> <span class="n">Rgain</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">pos</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">pos</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span>
+                <span class="n">center</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="o">/</span><span class="n">Nt</span><span class="o">*</span><span class="n">n_samples</span><span class="p">)</span>
+                <span class="n">dur</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.07</span><span class="o">*</span><span class="n">samplerate</span><span class="p">)</span>
+                <span class="n">env</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">dur</span><span class="o">//</span><span class="mi">2</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">env</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">env</span><span class="p">,</span> <span class="n">env</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">env</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">dur</span><span class="p">:</span>
+                    <span class="n">env</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dur</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">env</span><span class="p">)),</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;edge&#39;</span><span class="p">)</span>
+                <span class="n">freq</span> <span class="o">=</span> <span class="mi">440</span> <span class="o">+</span> <span class="mi">200</span><span class="o">*</span><span class="n">pos</span>  <span class="c1"># pitch varies with position</span>
+                <span class="n">beep</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">freq</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dur</span><span class="p">)</span><span class="o">/</span><span class="n">samplerate</span><span class="p">))</span> <span class="o">*</span> <span class="n">env</span>
+                <span class="k">for</span> <span class="n">dt</span> <span class="ow">in</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]:</span>  <span class="c1"># double/triple hit</span>
+                    <span class="n">idx</span> <span class="o">=</span> <span class="n">center</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="mf">0.02</span><span class="o">*</span><span class="n">samplerate</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="n">n_samples</span><span class="o">-</span><span class="n">dur</span><span class="p">:</span>
+                        <span class="n">left</span><span class="p">[</span><span class="n">idx</span><span class="p">:</span><span class="n">idx</span><span class="o">+</span><span class="n">dur</span><span class="p">]</span> <span class="o">+=</span> <span class="n">Lgain</span><span class="o">*</span><span class="n">beep</span>
+                        <span class="n">right</span><span class="p">[</span><span class="n">idx</span><span class="p">:</span><span class="n">idx</span><span class="o">+</span><span class="n">dur</span><span class="p">]</span> <span class="o">+=</span> <span class="n">Rgain</span><span class="o">*</span><span class="n">beep</span>
+
+    <span class="c1"># --- Auto-gain normalization by RMS ---</span>
+    <span class="n">stereo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">])</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">rms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">stereo</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+    <span class="n">target_rms</span> <span class="o">=</span> <span class="mf">0.1</span>
+    <span class="k">if</span> <span class="n">rms</span> <span class="o">&gt;</span> <span class="mf">1e-12</span><span class="p">:</span>
+        <span class="n">stereo</span> <span class="o">*=</span> <span class="p">(</span><span class="n">target_rms</span> <span class="o">/</span> <span class="n">rms</span><span class="p">)</span>
+
+    <span class="c1"># --- Peak normalization ---</span>
+    <span class="n">stereo</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">stereo</span><span class="p">))</span> <span class="o">+</span> <span class="mf">1e-12</span>
+
+    <span class="c1"># Write WAV</span>
+    <span class="n">sf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">outfile</span><span class="p">,</span> <span class="n">stereo</span><span class="p">,</span> <span class="n">samplerate</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sonification &#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39; exported to </span><span class="si">{</span><span class="n">outfile</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="make_video_with_sound">
+<a class="viewcode-back" href="../misc.html#misc.make_video_with_sound">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_video_with_sound</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">Lt</span><span class="p">,</span> <span class="n">Lx</span><span class="p">,</span> <span class="n">outfile</span><span class="o">=</span><span class="s2">&quot;solution_with_sound.mp4&quot;</span><span class="p">,</span> <span class="n">samplerate</span><span class="o">=</span><span class="mi">44100</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a video of the solution u(t,x) with synchronized sound tracks.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    u : ndarray (Nt, Nx)</span>
+<span class="sd">        Solution of the PDE.</span>
+<span class="sd">    Nt, Nx : int</span>
+<span class="sd">        Number of points in time and space.</span>
+<span class="sd">    Lt, Lx : float</span>
+<span class="sd">        Total length in time and space.</span>
+<span class="sd">    outfile : str</span>
+<span class="sd">        Name of the output MP4 file.</span>
+<span class="sd">    samplerate : int</span>
+<span class="sd">        Audio sampling rate.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Path to the generated video file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># 1. Generate matplotlib animation</span>
+    <span class="n">Nt</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">Nx</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+    <span class="n">line</span><span class="p">,</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">([],</span> <span class="p">[],</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">Nx</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="o">-</span><span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">Lx</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">u</span><span class="p">))</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">init</span><span class="p">():</span>
+        <span class="n">line</span><span class="o">.</span><span class="n">set_data</span><span class="p">([],</span> <span class="p">[])</span>
+        <span class="k">return</span> <span class="n">line</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
+        <span class="n">line</span><span class="o">.</span><span class="n">set_data</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">[</span><span class="n">frame</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">line</span><span class="p">,</span>
+
+    <span class="n">ani</span> <span class="o">=</span> <span class="n">animation</span><span class="o">.</span><span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">update</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="n">Nt</span><span class="p">,</span> <span class="n">init_func</span><span class="o">=</span><span class="n">init</span><span class="p">,</span> <span class="n">blit</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">video_file</span> <span class="o">=</span> <span class="s2">&quot;solution.mp4&quot;</span>
+    <span class="n">ani</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">video_file</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="n">Nt</span><span class="o">/</span><span class="n">Lt</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+    <span class="c1"># 2. Generate sound tracks</span>
+    <span class="n">sonify_solution</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">Nt</span><span class="p">,</span> <span class="n">Nx</span><span class="p">,</span> <span class="n">Lt</span><span class="p">,</span> <span class="n">Lx</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;pan&quot;</span><span class="p">,</span> <span class="n">outfile</span><span class="o">=</span><span class="s2">&quot;u_pan.wav&quot;</span><span class="p">,</span> <span class="n">samplerate</span><span class="o">=</span><span class="n">samplerate</span><span class="p">)</span>
+    <span class="n">sonify_solution</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">Nt</span><span class="p">,</span> <span class="n">Nx</span><span class="p">,</span> <span class="n">Lt</span><span class="p">,</span> <span class="n">Lx</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;fft&quot;</span><span class="p">,</span> <span class="n">outfile</span><span class="o">=</span><span class="s2">&quot;u_fft.wav&quot;</span><span class="p">,</span> <span class="n">samplerate</span><span class="o">=</span><span class="n">samplerate</span><span class="p">)</span>
+    <span class="n">sonify_solution</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">Nt</span><span class="p">,</span> <span class="n">Nx</span><span class="p">,</span> <span class="n">Lt</span><span class="p">,</span> <span class="n">Lx</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;events&quot;</span><span class="p">,</span> <span class="n">outfile</span><span class="o">=</span><span class="s2">&quot;u_events.wav&quot;</span><span class="p">,</span> <span class="n">samplerate</span><span class="o">=</span><span class="n">samplerate</span><span class="p">)</span>
+
+    <span class="c1"># 3. Call ffmpeg to mix and merge</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;ffmpeg&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-y&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="n">video_file</span><span class="p">,</span>
+        <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="s2">&quot;u_pan.wav&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="s2">&quot;u_fft.wav&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="s2">&quot;u_events.wav&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-filter_complex&quot;</span><span class="p">,</span> <span class="s2">&quot;amix=inputs=3:normalize=0&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-c:v&quot;</span><span class="p">,</span> <span class="s2">&quot;copy&quot;</span><span class="p">,</span> <span class="s2">&quot;-c:a&quot;</span><span class="p">,</span> <span class="s2">&quot;aac&quot;</span><span class="p">,</span> <span class="s2">&quot;-b:a&quot;</span><span class="p">,</span> <span class="s2">&quot;192k&quot;</span><span class="p">,</span>
+        <span class="n">outfile</span>
+    <span class="p">]</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># 4. Cleanup (optional)</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;u_pan.wav&quot;</span><span class="p">,</span> <span class="s2">&quot;u_fft.wav&quot;</span><span class="p">,</span> <span class="s2">&quot;u_events.wav&quot;</span><span class="p">,</span> <span class="s2">&quot;solution.mp4&quot;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">outfile</span></div>
+
+
+
+<div class="viewcode-block" id="image_to_sound">
+<a class="viewcode-back" href="../misc.html#misc.image_to_sound">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">image_to_sound</span><span class="p">(</span>
+    <span class="n">image_path</span><span class="p">,</span>
+    <span class="n">output_wav</span><span class="o">=</span><span class="s2">&quot;son_from_image.wav&quot;</span><span class="p">,</span>
+    <span class="n">sr</span><span class="o">=</span><span class="mi">22050</span><span class="p">,</span>
+    <span class="n">hop_length</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span>
+    <span class="n">n_iter</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+    <span class="n">scale_log_freq</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">use_hsv</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">gain</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+    <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert an 2D image into stereo sound by interpreting it as a spectrogram.</span>
+
+<span class="sd">    The input image is treated as a time–frequency representation:</span>
+<span class="sd">    - The vertical axis corresponds to frequency bins.</span>
+<span class="sd">    - The horizontal axis corresponds to time frames.</span>
+<span class="sd">    - The image is split into two halves along the horizontal axis:</span>
+<span class="sd">      the left half is converted into the LEFT audio channel,</span>
+<span class="sd">      the right half into the RIGHT channel.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    image_path : str</span>
+<span class="sd">        Path to the input image file. Can be grayscale or RGB.</span>
+<span class="sd">        If RGB and `use_hsv=True`, the HSV color space is used for mapping.</span>
+<span class="sd">    output_wav : str, optional</span>
+<span class="sd">        Filename of the output WAV file (default: &quot;son_from_image.wav&quot;).</span>
+<span class="sd">    sr : int, optional</span>
+<span class="sd">        Target audio sampling rate in Hz (default: 22050).</span>
+<span class="sd">        Lower values produce lower-pitched sounds.</span>
+<span class="sd">    hop_length : int, optional</span>
+<span class="sd">        Number of samples between successive STFT frames (default: 256).</span>
+<span class="sd">        Smaller values produce a longer audio signal.</span>
+<span class="sd">    n_iter : int, optional</span>
+<span class="sd">        Number of Griffin–Lim iterations for phase reconstruction (default: 64).</span>
+<span class="sd">    scale_log_freq : bool, optional</span>
+<span class="sd">        If True, the frequency axis of the image is remapped to a logarithmic scale</span>
+<span class="sd">        before reconstruction (default: True).</span>
+<span class="sd">    use_hsv : bool, optional</span>
+<span class="sd">        If True and the image is RGB, the HSV color model is used:</span>
+<span class="sd">        - Hue → frequency mapping,</span>
+<span class="sd">        - Saturation → timbre,</span>
+<span class="sd">        - Value → amplitude.</span>
+<span class="sd">        Otherwise, the grayscale intensity is used (default: True).</span>
+<span class="sd">    gain : float, optional</span>
+<span class="sd">        Global amplification factor for the spectrogram intensity (default: 5.0).</span>
+<span class="sd">    show_plot : bool, optional</span>
+<span class="sd">        If True, displays:</span>
+<span class="sd">        - The original image (as interpreted spectrogram),</span>
+<span class="sd">        - The reconstructed spectrograms of LEFT and RIGHT channels (default: True).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    y_stereo : np.ndarray, shape (n_samples, 2)</span>
+<span class="sd">        Stereo audio signal: left and right channels as columns.</span>
+<span class="sd">    sr : int</span>
+<span class="sd">        Sampling rate of the generated audio.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - The function always outputs a stereo WAV file, even for grayscale images.</span>
+<span class="sd">    - The stereo split is based on the horizontal axis of the image:</span>
+<span class="sd">      left side → left ear, right side → right ear.</span>
+<span class="sd">    - Griffin–Lim is an iterative algorithm, so reconstruction is approximate.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
+
+    <span class="c1"># ---------------------------</span>
+    <span class="c1"># 1. Load the image</span>
+    <span class="c1"># ---------------------------</span>
+    <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">image_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">use_hsv</span> <span class="ow">and</span> <span class="n">img</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;RGB&quot;</span><span class="p">:</span>
+        <span class="n">img_hsv</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s2">&quot;HSV&quot;</span><span class="p">)</span>
+        <span class="n">H</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">img_hsv</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span>
+        <span class="n">H</span> <span class="o">/=</span> <span class="mf">255.0</span>
+        <span class="n">S</span> <span class="o">/=</span> <span class="mf">255.0</span>
+        <span class="n">V</span> <span class="o">/=</span> <span class="mf">255.0</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">V</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">S</span><span class="p">)</span>  <span class="c1"># intensity</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">img_gray</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s2">&quot;L&quot;</span><span class="p">)</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">img_gray</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">Z</span> <span class="o">/=</span> <span class="n">Z</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+    <span class="n">n_freqs</span><span class="p">,</span> <span class="n">n_frames</span> <span class="o">=</span> <span class="n">Z</span><span class="o">.</span><span class="n">shape</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image interpreted as: </span><span class="si">{</span><span class="n">n_freqs</span><span class="si">}</span><span class="s2"> frequencies × </span><span class="si">{</span><span class="n">n_frames</span><span class="si">}</span><span class="s2"> frames&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">show_plot</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;inferno&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Original image (interpreted as spectrogram)&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Frames (x)&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Frequency bins (y)&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="c1"># ---------------------------</span>
+    <span class="c1"># 2. Amplification</span>
+    <span class="c1"># ---------------------------</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="n">Z</span> <span class="o">*</span> <span class="n">gain</span>
+
+    <span class="c1"># ---------------------------</span>
+    <span class="c1"># 3. Option log frequency</span>
+    <span class="c1"># ---------------------------</span>
+    <span class="k">if</span> <span class="n">scale_log_freq</span><span class="p">:</span>
+        <span class="n">n_bins</span> <span class="o">=</span> <span class="n">n_freqs</span>
+        <span class="n">log_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">geomspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_freqs</span><span class="p">,</span> <span class="n">n_bins</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="n">S</span><span class="p">[</span><span class="n">log_y</span><span class="p">,</span> <span class="p">:]</span>
+
+    <span class="c1"># ---------------------------</span>
+    <span class="c1"># 4. Split into left / right halves</span>
+    <span class="c1"># ---------------------------</span>
+    <span class="n">mid</span> <span class="o">=</span> <span class="n">n_frames</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">S_left</span><span class="p">,</span> <span class="n">S_right</span> <span class="o">=</span> <span class="n">S</span><span class="p">[:,</span> <span class="p">:</span><span class="n">mid</span><span class="p">],</span> <span class="n">S</span><span class="p">[:,</span> <span class="n">mid</span><span class="p">:]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">reconstruct</span><span class="p">(</span><span class="n">S_part</span><span class="p">):</span>
+        <span class="n">n_fft</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">S_part</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">n_freqs_target</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">n_fft</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="n">S_part</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">n_freqs_target</span><span class="p">:</span>
+            <span class="n">S_resized</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_freqs_target</span><span class="p">,</span> <span class="n">S_part</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S_part</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="n">S_resized</span><span class="p">[:,</span> <span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">S_part</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_freqs_target</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">S_part</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                    <span class="n">S_part</span><span class="p">[:,</span> <span class="n">t</span><span class="p">]</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">S_resized</span> <span class="o">=</span> <span class="n">S_part</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">librosa</span><span class="o">.</span><span class="n">griffinlim</span><span class="p">(</span><span class="n">S_resized</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span> <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
+                               <span class="n">win_length</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span> <span class="n">n_iter</span><span class="o">=</span><span class="n">n_iter</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span><span class="p">,</span> <span class="n">n_fft</span>
+
+    <span class="n">y_left</span><span class="p">,</span> <span class="n">n_fft</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="p">(</span><span class="n">S_left</span><span class="p">)</span>
+    <span class="n">y_right</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">reconstruct</span><span class="p">(</span><span class="n">S_right</span><span class="p">)</span>
+
+    <span class="c1"># Align lengths</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_left</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_right</span><span class="p">))</span>
+    <span class="n">y_left</span><span class="p">,</span> <span class="n">y_right</span> <span class="o">=</span> <span class="n">y_left</span><span class="p">[:</span><span class="n">L</span><span class="p">],</span> <span class="n">y_right</span><span class="p">[:</span><span class="n">L</span><span class="p">]</span>
+
+    <span class="c1"># Stereo assembly</span>
+    <span class="n">y_stereo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">y_left</span><span class="p">,</span> <span class="n">y_right</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># ---------------------------</span>
+    <span class="c1"># 5. Visualization: BOTH channels</span>
+    <span class="c1"># ---------------------------</span>
+    <span class="k">if</span> <span class="n">show_plot</span><span class="p">:</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">sharey</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">img_left</span> <span class="o">=</span> <span class="n">librosa</span><span class="o">.</span><span class="n">amplitude_to_db</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">librosa</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">y_left</span><span class="p">,</span> <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">)),</span> <span class="n">ref</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">max</span>
+        <span class="p">)</span>
+        <span class="n">img_right</span> <span class="o">=</span> <span class="n">librosa</span><span class="o">.</span><span class="n">amplitude_to_db</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">librosa</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">y_right</span><span class="p">,</span> <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">)),</span> <span class="n">ref</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">max</span>
+        <span class="p">)</span>
+
+        <span class="n">librosa</span><span class="o">.</span><span class="n">display</span><span class="o">.</span><span class="n">specshow</span><span class="p">(</span>
+            <span class="n">img_left</span><span class="p">,</span> <span class="n">sr</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span> <span class="n">x_axis</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">y_axis</span><span class="o">=</span><span class="s2">&quot;log&quot;</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Spectrogram LEFT channel&quot;</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">collections</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%+2.0f</span><span class="s2"> dB&quot;</span><span class="p">)</span>
+
+        <span class="n">librosa</span><span class="o">.</span><span class="n">display</span><span class="o">.</span><span class="n">specshow</span><span class="p">(</span>
+            <span class="n">img_right</span><span class="p">,</span> <span class="n">sr</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span> <span class="n">x_axis</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">y_axis</span><span class="o">=</span><span class="s2">&quot;log&quot;</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Spectrogram RIGHT channel&quot;</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">collections</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%+2.0f</span><span class="s2"> dB&quot;</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="c1"># ---------------------------</span>
+    <span class="c1"># 6. Save audio</span>
+    <span class="c1"># ---------------------------</span>
+    <span class="n">sf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">output_wav</span><span class="p">,</span> <span class="n">y_stereo</span><span class="p">,</span> <span class="n">sr</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Stereo audio saved: </span><span class="si">{</span><span class="n">output_wav</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">L</span><span class="o">/</span><span class="n">sr</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds)&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">y_stereo</span><span class="p">,</span> <span class="n">sr</span></div>
+
+
+
+
+<span class="c1"># Small symbol dictionnary</span>
+
+<span class="n">operator_symbols</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;identity&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;u(x)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Identity operator (leaves u unchanged)&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;first_derivative&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;∂u/∂x&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;I * kx&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;First spatial derivative&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;second_derivative&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;∂²u/∂x²&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-kx**2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Second spatial derivative&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;third_derivative&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;∂³u/∂x³&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-I * kx**3&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Third spatial derivative&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;fourth_derivative&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;∂⁴u/∂x⁴&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;kx**4&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Fourth spatial derivative&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;laplacian&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;∂²u/∂x²  (1D) or ∇²u = ∂²u/∂x² + ∂²u/∂y² (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-kx**2  (1D)  or  -(kx**2 + ky**2) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Laplacian operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;bilaplacian&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;∂⁴u/∂x⁴ (1D) or ∇⁴u (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;kx**4  (1D)  or  (kx**2 + ky**2)**2 (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Bilaplacian operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;mixed_derivative&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;∂²u/∂x∂y&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;I * kx * ky&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Mixed partial derivative&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;fractional_laplacian&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;(-Δ)^(α/2) u&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;abs(kx)**alpha (1D) or (kx**2 + ky**2)**(alpha/2) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Fractional Laplacian operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;inverse_derivative&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;∫u dx&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;1 / (I * kx)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Inverse derivative (antiderivative)&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;gaussian_filter&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;convolution with Gaussian kernel&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;exp(-sigma**2 * kx**2) (1D) or exp(-sigma**2 * (kx**2 + ky**2)) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Gaussian smoothing filter&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;viscous_dissipation&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;ν ∇²u&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-nu * kx**2  (1D)  or  -nu * (kx**2 + ky**2) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Viscous dissipation term&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;linear_dispersion&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;α ∂³u/∂x³&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;alpha * kx**3&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Linear dispersion term&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;helmholtz_inverse&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;(1 - α∇²)⁻¹ u&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;1 / (1 + alpha * kx**2) (1D) or 1 / (1 + alpha * (kx**2 + ky**2)) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Inverse Helmholtz operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;fractional_diffusion&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;-μ(-Δ)^(α/2) u&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-mu * abs(kx)**alpha (1D) or -mu * (kx**2 + ky**2)**(alpha/2) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Fractional diffusion operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;ginzburg_landau&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;-(1 + iβ) ∇²u&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-(1 + I*beta) * kx**2  (1D)  or  -(1 + I*beta) * (kx**2 + ky**2) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Ginzburg-Landau operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;schrodinger_dispersion&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;i ∂u/∂t = -∇²u&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-kx**2  (1D)  or  -(kx**2 + ky**2) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Schrödinger equation dispersion&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;helmholtz_operator&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;(λ² - ∇²)u&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-kx**2 + lambda_**2 (1D)  or  -(kx**2 + ky**2) + lambda_**2 (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Helmholtz operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;green_operator&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;-∇⁻²u&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-1 / kx**2 (1D)  or  -1 / (kx**2 + ky**2) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Green&#39;s function operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;bessel_filter&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;(1 - ∇²)^(-α) u&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;(1 + kx**2)**(-alpha)  (1D)  or  (1 + kx**2 + ky**2)**(-alpha) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Bessel regularization filter&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;poisson_kernel&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;Poisson kernel (boundary solution)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;exp(-abs(kx) * y)  (1D)  or  exp(-sqrt(kx**2 + ky**2) * y) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Poisson kernel in Fourier&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;hilbert_transform&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;Hilbert transform H[u]&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-I * sign(kx)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Hilbert transform operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;riesz_derivative&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;Riesz fractional derivative&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-abs(kx)**alpha (1D)  or  -(kx**2 + ky**2)**(alpha/2) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Riesz fractional derivative operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;convolution_box&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;convolution with box function (width h)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;sinc(kx * h)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Box convolution filter&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;anisotropic_diffusion&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;κₓ∂²u/∂x² + κᵧ∂²u/∂y²&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-kx**2 * kappa_x  (1D)  or  -(kx**2 * kappa_x + ky**2 * kappa_y) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Anisotropic diffusion operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;directional_derivative&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;aₓ∂u/∂x + aᵧ∂u/∂y&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;I * (a_x * kx + a_y * ky)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Directional derivative&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;convection&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;c ∂u/∂x  (1D)  or  cₓ∂u/∂x + cᵧ∂u/∂y  (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;I * c * kx  (1D)  or  I * (c_x * kx + c_y * ky) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Convection operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;telegraph_operator&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;∂²u/∂t² + a∂u/∂t + bu&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;-a*I*kx + b  (1D)  or  -a*I*(kx + ky) + b (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Telegraph operator&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;regularized_inverse_derivative&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;Regularized integral ∫u dx (avoiding singularity at kx=0)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;1 / (I * (kx + eps))&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Regularized inverse derivative (integral operator with small epsilon shift)&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;hilbert_shifted&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;Hilbert transform with exponential regularization&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;1 / (I * (kx + I * eps))&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Hilbert transform regularized by shift (avoids singularity at kx=0)&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;convolution_general&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;convolution with arbitrary kernel f_kernel(x)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;F[f_kernel](kx / (2*pi))  (1D)  or  F[f_kernel](kx / (2*pi)) * F[f_kernel](ky / (2*pi)) (2D)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;General convolution: u * f_kernel(x)&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+
+<span class="n">convolution_kernels</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;gaussian&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;1 / (sqrt(2 * pi) * sigma) * exp(-x**2 / (2 * sigma**2))&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;exp(-sigma**2 * kx**2)&quot;</span><span class="p">,</span>  <span class="c1"># In 2D: exp(-sigma**2 * (kx**2 + ky**2))</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Gaussian smoothing kernel&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;box&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;1 / h  if abs(x) &lt;= h/2  else 0&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;sinc(kx * h / 2)&quot;</span><span class="p">,</span>  <span class="c1"># In 2D: sinc(kx * h / 2) * sinc(ky * h / 2)</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Box (rectangle) convolution filter&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;triangle&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;1 / h * (1 - abs(x) / h)  if abs(x) &lt;= h  else 0&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;sinc(kx * h / 2)**2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Triangle kernel (convolution of two box functions)&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;exponential&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;1 / (2 * a) * exp(-abs(x) / a)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;1 / (1 + a**2 * kx**2)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Exponential decay kernel (Poisson filter)&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;lorentzian&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;physical&quot;</span><span class="p">:</span> <span class="s2">&quot;a / (pi * (x**2 + a**2))&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fourier&quot;</span><span class="p">:</span> <span class="s2">&quot;exp(-a * abs(kx))&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;equation&quot;</span><span class="p">:</span> <span class="s2">&quot;Lorentzian (Cauchy) convolution kernel&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+
+
+    
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

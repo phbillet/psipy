@@ -1,0 +1,1089 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>microlocal &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../propagator.html">propagator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic.html">symplectic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">microlocal</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for microlocal</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">microlocal.py — Unified microlocal analysis toolkit for 1D and 2D problems</span>
+<span class="sd">============================================================================</span>
+
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The `microlocal` module provides a high‑level interface for studying the propagation of singularities and constructing semiclassical approximations for linear partial differential equations.  It builds upon the dedicated `wkb` (WKB approximations) and `caustics` (catastrophe classification and ray caustic detection) modules, adding dimension‑agnostic functions for the core concepts of microlocal analysis:</span>
+
+<span class="sd">* **Characteristic variety** `Char(P) = {(x,ξ) : p(x,ξ)=0}` – the set of phase‑space points where the principal symbol vanishes, indicating where singularities can propagate.</span>
+<span class="sd">* **Bicharacteristic flow** – Hamilton’s equations for the principal symbol, whose integral curves (bicharacteristics) govern the propagation of wave‑front sets.</span>
+<span class="sd">* **Wavefront set** `WF(u)` – a refinement of the singular support that also records the directions (frequencies) in which the singularity occurs.  The module visualises how an initial wavefront set evolves under the flow.</span>
+<span class="sd">* **WKB approximation** (re‑exported from `wkb`) – asymptotic solutions of the form `u ≈ A e^{iS/ε}`.</span>
+<span class="sd">* **Caustics and Maslov index** – detection of caustics (where rays focus) and computation of the associated Maslov phase shifts, crucial for correct semiclassical quantisation.</span>
+<span class="sd">* **Bohr–Sommerfeld quantisation** (1D) – semiclassical energy levels for bound states.</span>
+
+<span class="sd">All functions automatically detect the spatial dimension (1 or 2) from the input data, making the module usable for both one‑dimensional and two‑dimensional problems without changing the calling syntax.</span>
+
+<span class="sd">Mathematical background</span>
+<span class="sd">-----------------------</span>
+<span class="sd">In microlocal analysis, a linear partial differential operator `P` is studied via its **principal symbol** `p(x,ξ)`, a function on the cotangent bundle `T*ℝⁿ`.  The **characteristic variety** is the zero set of `p`.  Singularities of a distribution `u` satisfying `P u ≈ 0` are confined to the characteristic variety and propagate along **bicharacteristics** – integral curves of the Hamiltonian vector field</span>
+
+<span class="sd">    X_p = ( ∂p/∂ξ , –∂p/∂x ).</span>
+
+<span class="sd">The **wavefront set** `WF(u)` is a closed conic subset of `T*ℝⁿ \ {0}` that records both the location `x` and the direction `ξ` of the singularity.  If `(x₀,ξ₀) ∉ WF(u)`, then `u` is smooth in a neighbourhood of `x₀` in the direction `ξ₀`.  The fundamental theorem of microlocal analysis states that `WF(Pu) ⊆ WF(u)` and that `WF(u) \ WF(Pu)` is contained in the characteristic variety and is invariant under the bicharacteristic flow.</span>
+
+<span class="sd">The **WKB method** seeks solutions of the form `u(x) = e^{iS(x)/ε} (a₀(x) + ε a₁(x) + …)`.  The phase `S` satisfies the eikonal equation `p(x,∇S)=0`, and the amplitudes `a_k` satisfy transport equations along bicharacteristics.  This construction breaks down at **caustics**, where rays focus; the Maslov index `μ` (a signed count of caustic crossings) provides a phase correction `e^{iμπ/2}` that restores uniformity.</span>
+
+<span class="sd">The module integrates these concepts into a coherent toolkit, allowing the user to:</span>
+
+<span class="sd">* Symbolically compute the characteristic variety.</span>
+<span class="sd">* Numerically integrate bicharacteristics with symplectic integrators.</span>
+<span class="sd">* Visualise the evolution of wavefront sets.</span>
+<span class="sd">* Obtain semiclassical spectra via Bohr–Sommerfeld quantisation (1D).</span>
+<span class="sd">* Detect caustics and compute the Maslov index (using the `caustics` module).</span>
+
+<span class="sd">References</span>
+<span class="sd">----------</span>
+<span class="sd">.. [1] Hörmander, L.  *The Analysis of Linear Partial Differential Operators I*, Springer, 1983.  Chapter 8: Wave Front Sets.</span>
+<span class="sd">.. [2] Duistermaat, J. J.  *Fourier Integral Operators*, Courant Institute Lecture Notes, 1996.</span>
+<span class="sd">.. [3] Maslov, V. P. &amp; Fedoriuk, M. V.  *Semi‑Classical Approximation in Quantum Mechanics*, Reidel, 1981.</span>
+<span class="sd">.. [4] Zworski, M.  *Semiclassical Analysis*, American Mathematical Society, 2012.  Chapter 3: Propagation of Singularities.</span>
+<span class="sd">.. [5] Taylor, M. E.  *Partial Differential Equations II*, Springer, 2011.  Chapter 8: Microlocal Analysis.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_ivp</span><span class="p">,</span> <span class="n">odeint</span><span class="p">,</span> <span class="n">quad</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">bisect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">griddata</span><span class="p">,</span> <span class="n">interp1d</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">wkb</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">caustics</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span> 
+
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1"># Dimension detection helper (used internally by microlocal functions)</span>
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_infer_dim</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Infer the dimension (1 or 2) from the symbol or a provided dim.</span>
+<span class="sd">    Relies on the presence of common variable names: &#39;x&#39;,&#39;xi&#39; for 1D,</span>
+<span class="sd">    and &#39;x&#39;,&#39;y&#39;,&#39;xi&#39;,&#39;eta&#39; for 2D.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;dim must be 1 or 2&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dim</span>
+    <span class="n">free_vars</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span><span class="p">)</span>
+    <span class="c1"># Heuristic: if &#39;y&#39; or &#39;eta&#39; present, assume 2D</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">free_vars</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="mi">1</span>
+
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1"># Characteristic variety</span>
+<span class="c1"># ----------------------------------------------------------------------</span>
+<div class="viewcode-block" id="characteristic_variety">
+<a class="viewcode-back" href="../microlocal.html#microlocal.characteristic_variety">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">characteristic_variety</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the characteristic variety of a pseudo-differential operator.</span>
+
+<span class="sd">    Char(P) = { (x,ξ) in T*ℝ : p(x,ξ)=0 }   (1D)</span>
+<span class="sd">    or</span>
+<span class="sd">    Char(P) = { (x,y,ξ,η) in T*ℝ² : p(x,y,ξ,η)=0 }   (2D)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : sympy expression</span>
+<span class="sd">        Principal symbol p.</span>
+<span class="sd">    dim : int, optional</span>
+<span class="sd">        Dimension (1 or 2). If None, inferred from symbol.</span>
+<span class="sd">    tol : float</span>
+<span class="sd">        Tolerance for zero detection (unused, kept for compatibility).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Contains:</span>
+<span class="sd">        - &#39;implicit&#39;: the symbol expression</span>
+<span class="sd">        - &#39;equation&#39;: sympy Eq(symbol,0)</span>
+<span class="sd">        - &#39;explicit&#39;: list of explicit solutions ξ(x) (1D only) or None</span>
+<span class="sd">        - &#39;function&#39;: a callable that evaluates the symbol</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">_infer_dim</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">char_eq</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">xi_solutions</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+            <span class="n">explicit</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span> <span class="k">for</span> <span class="n">sol</span> <span class="ow">in</span> <span class="n">xi_solutions</span><span class="p">]</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">explicit</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="n">symbol</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;implicit&#39;</span><span class="p">:</span> <span class="n">symbol</span><span class="p">,</span>
+            <span class="s1">&#39;equation&#39;</span><span class="p">:</span> <span class="n">char_eq</span><span class="p">,</span>
+            <span class="s1">&#39;explicit&#39;</span><span class="p">:</span> <span class="n">explicit</span><span class="p">,</span>
+            <span class="s1">&#39;function&#39;</span><span class="p">:</span> <span class="n">func</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># dim == 2</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">char_eq</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">),</span> <span class="n">symbol</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;implicit&#39;</span><span class="p">:</span> <span class="n">symbol</span><span class="p">,</span>
+            <span class="s1">&#39;equation&#39;</span><span class="p">:</span> <span class="n">char_eq</span><span class="p">,</span>
+            <span class="s1">&#39;explicit&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>   <span class="c1"># no explicit form in 2D in general</span>
+            <span class="s1">&#39;function&#39;</span><span class="p">:</span> <span class="n">func</span>
+        <span class="p">}</span></div>
+
+
+
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1"># Bicharacteristic flow</span>
+<span class="c1"># ----------------------------------------------------------------------</span>
+<div class="viewcode-block" id="bicharacteristic_flow">
+<a class="viewcode-back" href="../microlocal.html#microlocal.bicharacteristic_flow">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bicharacteristic_flow</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                          <span class="n">method</span><span class="o">=</span><span class="s1">&#39;symplectic&#39;</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Integrate the bicharacteristic flow on the cotangent bundle.</span>
+
+<span class="sd">    Hamilton&#39;s equations:  ẋ = ∂p/∂ξ,  ξ̇ = -∂p/∂x   (1D)</span>
+<span class="sd">    or  ẋ = ∂p/∂ξ,  ẏ = ∂p/∂η,  ξ̇ = -∂p/∂x,  η̇ = -∂p/∂y   (2D)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : sympy expression</span>
+<span class="sd">        Principal symbol.</span>
+<span class="sd">    z0 : tuple</span>
+<span class="sd">        Initial condition on T*M. For 1D: (x₀, ξ₀); for 2D: (x₀, y₀, ξ₀, η₀).</span>
+<span class="sd">    tspan : tuple</span>
+<span class="sd">        (t_start, t_end).</span>
+<span class="sd">    dim : int, optional</span>
+<span class="sd">        Dimension. If None, inferred from length of z0.</span>
+<span class="sd">    method : str</span>
+<span class="sd">        Integration method: &#39;rk45&#39;, &#39;symplectic&#39;, or &#39;verlet&#39; (2D only).</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of time steps.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Trajectory data with keys &#39;t&#39;, &#39;x&#39;, &#39;xi&#39; (1D) and also &#39;y&#39;,&#39;eta&#39; (2D),</span>
+<span class="sd">        plus &#39;symbol_value&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">z0</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span> <span class="k">else</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_bichar_flow_1d</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_bichar_flow_2d</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">)</span></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_bichar_flow_1d</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">dp_dxi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+    <span class="n">dp_dx</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="n">f_x</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="n">dp_dxi</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="n">f_xi</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="o">-</span><span class="n">dp_dx</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="n">p_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="n">symbol</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;rk45&#39;</span><span class="p">:</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">ode</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+            <span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span> <span class="o">=</span> <span class="n">z</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">f_x</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">),</span> <span class="n">f_xi</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">)]</span>
+        <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="n">ode</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;RK45&#39;</span><span class="p">,</span>
+                        <span class="n">t_eval</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">),</span>
+                        <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
+            <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s1">&#39;xi&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="s1">&#39;symbol_value&#39;</span><span class="p">:</span> <span class="n">p_func</span><span class="p">(</span><span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">}</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;hamiltonian&#39;</span><span class="p">,</span> <span class="s1">&#39;symplectic&#39;</span><span class="p">):</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">/</span><span class="n">n_steps</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">x_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">x_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">z0</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="c1"># symplectic Euler</span>
+            <span class="n">xi_new</span> <span class="o">=</span> <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_xi</span><span class="p">(</span><span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">x_new</span>  <span class="o">=</span> <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_x</span><span class="p">(</span><span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">xi_new</span><span class="p">)</span>
+            <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_new</span>
+            <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">xi_new</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">t</span><span class="p">,</span>
+            <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">x_vals</span><span class="p">,</span>
+            <span class="s1">&#39;xi&#39;</span><span class="p">:</span> <span class="n">xi_vals</span><span class="p">,</span>
+            <span class="s1">&#39;symbol_value&#39;</span><span class="p">:</span> <span class="n">p_func</span><span class="p">(</span><span class="n">x_vals</span><span class="p">,</span> <span class="n">xi_vals</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid method for 1D flow&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_bichar_flow_2d</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the bicharacteristic (Hamiltonian) flow for a 2D symbol</span>
+<span class="sd">    and the associated stability matrix.</span>
+
+<span class="sd">    The Hamiltonian system is defined by the symbol p(x, y, ξ, η):</span>
+
+<span class="sd">        dx/dt =  ∂p/∂ξ,    dξ/dt = -∂p/∂x,</span>
+<span class="sd">        dy/dt =  ∂p/∂η,    dη/dt = -∂p/∂y.</span>
+
+<span class="sd">    Simultaneously, the 2×2 stability matrix J(t) = ∂(x,y)/∂(x₀,y₀)</span>
+<span class="sd">    (the Jacobian of the spatial part of the flow with respect to initial</span>
+<span class="sd">    positions) is propagated according to</span>
+
+<span class="sd">        dJ/dt = H_px · J,   J(0) = I₂,</span>
+
+<span class="sd">    where H_px is the 2×2 matrix of mixed derivatives:</span>
+
+<span class="sd">        H_px = [[ ∂²p/(∂ξ∂x), ∂²p/(∂ξ∂y) ],</span>
+<span class="sd">                [ ∂²p/(∂η∂x), ∂²p/(∂η∂y) ]].</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : sympy.Expr</span>
+<span class="sd">        Symbolic expression for the Hamiltonian p(x, y, ξ, η). Must depend</span>
+<span class="sd">        on the real variables x, y, xi, eta (the names are fixed in the</span>
+<span class="sd">        function body).</span>
+<span class="sd">    z0 : tuple of float</span>
+<span class="sd">        Initial condition (x0, y0, xi0, eta0).</span>
+<span class="sd">    tspan : tuple of float</span>
+<span class="sd">        Time interval (t0, t1).</span>
+<span class="sd">    method : {&#39;rk45&#39;, &#39;symplectic&#39;, &#39;verlet&#39;}</span>
+<span class="sd">        Integration method:</span>
+<span class="sd">        - &#39;rk45&#39;      : adaptive Runge‑Kutta 4(5) from `scipy.integrate.solve_ivp`.</span>
+<span class="sd">                        The state is augmented with the four entries of J.</span>
+<span class="sd">        - &#39;symplectic&#39; : fixed‑step symplectic Euler (position half‑step,</span>
+<span class="sd">                        momentum full‑step). Stability matrix uses forward Euler.</span>
+<span class="sd">        - &#39;verlet&#39;     : fixed‑step Störmer‑Verlet (leapfrog). Stability matrix</span>
+<span class="sd">                        uses the midpoint value of H_px for the update.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of output points (including the initial state). For fixed‑step</span>
+<span class="sd">        methods this equals the number of integration steps; for &#39;rk45&#39; it is</span>
+<span class="sd">        the number of equally spaced time values at which the solution is</span>
+<span class="sd">        evaluated.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary containing:</span>
+<span class="sd">        - &#39;t&#39;       : 1D ndarray of shape (n_steps,) – time points.</span>
+<span class="sd">        - &#39;x&#39;,&#39;y&#39;   : 1D ndarrays – trajectory in position.</span>
+<span class="sd">        - &#39;xi&#39;,&#39;eta&#39;: 1D ndarrays – trajectory in momentum.</span>
+<span class="sd">        - &#39;symbol_value&#39; : 1D ndarray – p(x,y,ξ,η) evaluated along the trajectory.</span>
+<span class="sd">        - &#39;J11&#39;,&#39;J12&#39;,&#39;J21&#39;,&#39;J22&#39; : 1D ndarrays – components of the 2×2</span>
+<span class="sd">          stability matrix J(t) at each time point.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - The function uses symbolic differentiation (`sympy.diff`) and generates</span>
+<span class="sd">      NumPy callables via `lambdify`. The symbols *must* be named exactly</span>
+<span class="sd">      `x`, `y`, `xi`, `eta` (case‑sensitive).</span>
+<span class="sd">    - For &#39;rk45&#39;, high relative/absolute tolerances (1e‑9, 1e‑12) are used to</span>
+<span class="sd">      ensure accurate stability propagation.</span>
+<span class="sd">    - For the symplectic and Verlet schemes, the stability update is a simple</span>
+<span class="sd">      first‑order method (forward Euler or midpoint) that is consistent with</span>
+<span class="sd">      the overall integrator order but may not preserve symplecticity of the</span>
+<span class="sd">      linearised flow.</span>
+<span class="sd">    - This function is intended for internal use in pseudo‑differential</span>
+<span class="sd">      operator construction and is not part of the public API.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">dp_dxi</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+    <span class="n">dp_deta</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+    <span class="n">dp_dx</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="n">dp_dy</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    <span class="n">f_x</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">xi</span><span class="p">,</span><span class="n">eta</span><span class="p">),</span> <span class="n">dp_dxi</span><span class="p">,</span>  <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="n">f_y</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">xi</span><span class="p">,</span><span class="n">eta</span><span class="p">),</span> <span class="n">dp_deta</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="n">f_xi</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">xi</span><span class="p">,</span><span class="n">eta</span><span class="p">),</span> <span class="o">-</span><span class="n">dp_dx</span><span class="p">,</span>  <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="n">f_eta</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">xi</span><span class="p">,</span><span class="n">eta</span><span class="p">),</span> <span class="o">-</span><span class="n">dp_dy</span><span class="p">,</span>  <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="n">p_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">xi</span><span class="p">,</span><span class="n">eta</span><span class="p">),</span> <span class="n">symbol</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Build H_px = [[∂²H/∂ξ∂x, ∂²H/∂ξ∂y],</span>
+    <span class="c1">#               [∂²H/∂η∂x, ∂²H/∂η∂y]]</span>
+    <span class="c1"># used by the stability ODE  dJ/dt = H_px · J,  J(0) = I₂</span>
+    <span class="n">H_px_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([</span>
+        <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span>  <span class="n">x</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span>  <span class="n">y</span><span class="p">)],</span>
+        <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">y</span><span class="p">)],</span>
+    <span class="p">])</span>
+    <span class="n">H_px_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">),</span> <span class="n">H_px_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_H_px</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return H_px as a (2,2) float array.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">H_px_func</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;rk45&#39;</span><span class="p">:</span>
+        <span class="c1"># Augment the state with the 4 entries of J (row-major: J11,J12,J21,J22).</span>
+        <span class="c1"># Full state: [x, y, xi, eta, J11, J12, J21, J22]</span>
+        <span class="n">z0_aug</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">z0</span><span class="p">)</span> <span class="o">+</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]</span>   <span class="c1"># J(0) = I₂</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">ode</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+            <span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">z</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">z</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">z</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+            <span class="n">J</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="mi">4</span><span class="p">:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">dJ</span> <span class="o">=</span> <span class="n">_H_px</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">)</span> <span class="o">@</span> <span class="n">J</span>
+            <span class="k">return</span> <span class="p">[</span>
+                <span class="n">f_x</span>  <span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">),</span>
+                <span class="n">f_y</span>  <span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">),</span>
+                <span class="n">f_xi</span> <span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">),</span>
+                <span class="n">f_eta</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">),</span>
+                <span class="o">*</span><span class="n">dJ</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span>
+            <span class="p">]</span>
+
+        <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="n">ode</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">z0_aug</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;RK45&#39;</span><span class="p">,</span>
+                        <span class="n">t_eval</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">),</span>
+                        <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;t&#39;</span><span class="p">:</span>            <span class="n">sol</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
+            <span class="s1">&#39;x&#39;</span><span class="p">:</span>            <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s1">&#39;y&#39;</span><span class="p">:</span>            <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="s1">&#39;xi&#39;</span><span class="p">:</span>           <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+            <span class="s1">&#39;eta&#39;</span><span class="p">:</span>          <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+            <span class="s1">&#39;symbol_value&#39;</span><span class="p">:</span> <span class="n">p_func</span><span class="p">(</span><span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span>
+            <span class="s1">&#39;J11&#39;</span><span class="p">:</span>          <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+            <span class="s1">&#39;J12&#39;</span><span class="p">:</span>          <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+            <span class="s1">&#39;J21&#39;</span><span class="p">:</span>          <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span>
+            <span class="s1">&#39;J22&#39;</span><span class="p">:</span>          <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span>
+        <span class="p">}</span>
+
+    <span class="k">elif</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;symplectic&#39;</span><span class="p">,</span> <span class="s1">&#39;verlet&#39;</span><span class="p">):</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">n_steps</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">x_vals</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">y_vals</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">xi_vals</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">eta_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">J_vals</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_steps</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>   <span class="c1"># stability matrix at each step</span>
+
+        <span class="n">x_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">y_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">eta_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">z0</span>
+        <span class="n">J_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>                  <span class="c1"># J(0) = I₂</span>
+
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;symplectic&#39;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">xv</span><span class="p">,</span> <span class="n">yv</span>   <span class="o">=</span> <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>  <span class="n">y_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span> <span class="o">=</span> <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">eta_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                <span class="c1"># --- momentum half-step (symplectic Euler) ---</span>
+                <span class="n">xi_new</span>  <span class="o">=</span> <span class="n">xiv</span>  <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_xi</span> <span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">)</span>
+                <span class="n">eta_new</span> <span class="o">=</span> <span class="n">etav</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_eta</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">)</span>
+
+                <span class="c1"># --- position full-step ---</span>
+                <span class="n">x_new</span> <span class="o">=</span> <span class="n">xv</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_x</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xi_new</span><span class="p">,</span> <span class="n">eta_new</span><span class="p">)</span>
+                <span class="n">y_new</span> <span class="o">=</span> <span class="n">yv</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_y</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xi_new</span><span class="p">,</span> <span class="n">eta_new</span><span class="p">)</span>
+
+                <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>   <span class="o">=</span> <span class="n">x_new</span>
+                <span class="n">y_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>   <span class="o">=</span> <span class="n">y_new</span>
+                <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>  <span class="o">=</span> <span class="n">xi_new</span>
+                <span class="n">eta_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">eta_new</span>
+
+                <span class="c1"># --- stability matrix: forward Euler on dJ/dt = H_px · J ---</span>
+                <span class="n">J_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">J_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="p">(</span><span class="n">_H_px</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">)</span> <span class="o">@</span> <span class="n">J_vals</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># verlet</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">xv</span><span class="p">,</span> <span class="n">yv</span>    <span class="o">=</span> <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>  <span class="n">y_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span> <span class="o">=</span> <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">eta_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+                <span class="c1"># --- Störmer-Verlet / leapfrog ---</span>
+                <span class="n">xi_half</span>  <span class="o">=</span> <span class="n">xiv</span>  <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span> <span class="o">*</span> <span class="n">f_xi</span> <span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">)</span>
+                <span class="n">eta_half</span> <span class="o">=</span> <span class="n">etav</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span> <span class="o">*</span> <span class="n">f_eta</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">etav</span><span class="p">)</span>
+                <span class="n">x_new</span>  <span class="o">=</span> <span class="n">xv</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_x</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xi_half</span><span class="p">,</span> <span class="n">eta_half</span><span class="p">)</span>
+                <span class="n">y_new</span>  <span class="o">=</span> <span class="n">yv</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_y</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">xi_half</span><span class="p">,</span> <span class="n">eta_half</span><span class="p">)</span>
+                <span class="n">xi_new</span>  <span class="o">=</span> <span class="n">xi_half</span>  <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span> <span class="o">*</span> <span class="n">f_xi</span> <span class="p">(</span><span class="n">x_new</span><span class="p">,</span> <span class="n">y_new</span><span class="p">,</span> <span class="n">xi_half</span><span class="p">,</span> <span class="n">eta_half</span><span class="p">)</span>
+                <span class="n">eta_new</span> <span class="o">=</span> <span class="n">eta_half</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span> <span class="o">*</span> <span class="n">f_eta</span><span class="p">(</span><span class="n">x_new</span><span class="p">,</span> <span class="n">y_new</span><span class="p">,</span> <span class="n">xi_half</span><span class="p">,</span> <span class="n">eta_half</span><span class="p">)</span>
+
+                <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>   <span class="o">=</span> <span class="n">x_new</span>
+                <span class="n">y_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>   <span class="o">=</span> <span class="n">y_new</span>
+                <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>  <span class="o">=</span> <span class="n">xi_new</span>
+                <span class="n">eta_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">eta_new</span>
+
+                <span class="c1"># --- stability matrix: midpoint H_px for consistency with Verlet ---</span>
+                <span class="n">Hpx_mid</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">_H_px</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span>    <span class="n">yv</span><span class="p">,</span>    <span class="n">xiv</span><span class="p">,</span>    <span class="n">etav</span><span class="p">)</span> <span class="o">+</span>
+                                  <span class="n">_H_px</span><span class="p">(</span><span class="n">x_new</span><span class="p">,</span> <span class="n">y_new</span><span class="p">,</span> <span class="n">xi_new</span><span class="p">,</span> <span class="n">eta_new</span><span class="p">))</span>
+                <span class="n">J_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">J_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="p">(</span><span class="n">Hpx_mid</span> <span class="o">@</span> <span class="n">J_vals</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;t&#39;</span><span class="p">:</span>            <span class="n">t</span><span class="p">,</span>
+            <span class="s1">&#39;x&#39;</span><span class="p">:</span>            <span class="n">x_vals</span><span class="p">,</span>
+            <span class="s1">&#39;y&#39;</span><span class="p">:</span>            <span class="n">y_vals</span><span class="p">,</span>
+            <span class="s1">&#39;xi&#39;</span><span class="p">:</span>           <span class="n">xi_vals</span><span class="p">,</span>
+            <span class="s1">&#39;eta&#39;</span><span class="p">:</span>          <span class="n">eta_vals</span><span class="p">,</span>
+            <span class="s1">&#39;symbol_value&#39;</span><span class="p">:</span> <span class="n">p_func</span><span class="p">(</span><span class="n">x_vals</span><span class="p">,</span> <span class="n">y_vals</span><span class="p">,</span> <span class="n">xi_vals</span><span class="p">,</span> <span class="n">eta_vals</span><span class="p">),</span>
+            <span class="s1">&#39;J11&#39;</span><span class="p">:</span>          <span class="n">J_vals</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s1">&#39;J12&#39;</span><span class="p">:</span>          <span class="n">J_vals</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+            <span class="s1">&#39;J21&#39;</span><span class="p">:</span>          <span class="n">J_vals</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s1">&#39;J22&#39;</span><span class="p">:</span>          <span class="n">J_vals</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="p">}</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid method for 2D flow&quot;</span><span class="p">)</span>
+
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1"># 1D‑specific functions (Bohr–Sommerfeld, caustic detection)</span>
+<span class="c1"># ----------------------------------------------------------------------</span>
+<div class="viewcode-block" id="bohr_sommerfeld_quantization">
+<a class="viewcode-back" href="../microlocal.html#microlocal.bohr_sommerfeld_quantization">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bohr_sommerfeld_quantization</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">n_max</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">x_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),</span>
+                                 <span class="n">hbar</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">E_range</span><span class="o">=</span><span class="p">(</span><span class="mf">1e-6</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">)):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Bohr–Sommerfeld quantisation for 1D bound states.</span>
+
+<span class="sd">    (1/(2π)) ∮ p dx = ℏ(n + α)   with α = 1/2 (Maslov index).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    H : sympy expression</span>
+<span class="sd">        Hamiltonian H(x,p).</span>
+<span class="sd">    n_max : int</span>
+<span class="sd">        Maximum quantum number.</span>
+<span class="sd">    x_range : tuple</span>
+<span class="sd">        Spatial range for turning points.</span>
+<span class="sd">    hbar : float</span>
+<span class="sd">        Planck constant.</span>
+<span class="sd">    method : str</span>
+<span class="sd">        Ignored, kept for compatibility.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Quantised energies and actions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">E_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;E&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">solutions</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">H</span> <span class="o">-</span> <span class="n">E_sym</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">solutions</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot solve H=E for p(x,E)&quot;</span><span class="p">)</span>
+    <span class="n">p_expr</span> <span class="o">=</span> <span class="n">solutions</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>   <span class="c1"># positive branch</span>
+    <span class="n">p_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">E_sym</span><span class="p">),</span> <span class="n">p_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+
+    <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.5</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">action</span><span class="p">(</span><span class="n">E</span><span class="p">):</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">2000</span><span class="p">)</span>
+        <span class="n">p_vals</span> <span class="o">=</span> <span class="n">p_func</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">E</span><span class="p">)</span>
+        <span class="n">p_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real_if_close</span><span class="p">(</span><span class="n">p_vals</span><span class="p">)</span>
+        <span class="n">p_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">p_vals</span><span class="p">)</span>
+        <span class="c1"># --- NEW GUARD ---</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">p_vals</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="c1"># -----------------</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">p_vals</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">integrand</span><span class="p">(</span><span class="n">xv</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">p_func</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">E</span><span class="p">)</span>
+        <span class="n">I</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">quad</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">epsabs</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">epsrel</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">I</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+
+    <span class="n">targets</span> <span class="o">=</span> <span class="p">[</span><span class="n">hbar</span><span class="o">*</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="n">alpha</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_max</span><span class="p">)]</span>
+    <span class="n">E_scan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">E_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">E_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">200</span><span class="p">)</span> 
+    <span class="n">I_scan</span> <span class="o">=</span> <span class="p">[</span><span class="n">action</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="k">for</span> <span class="n">E</span> <span class="ow">in</span> <span class="n">E_scan</span><span class="p">]</span>
+
+    <span class="n">energies</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">actions</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">quantum_numbers</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">Itarget</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">n_max</span><span class="p">),</span> <span class="n">targets</span><span class="p">):</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">E_scan</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">I_scan</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">-</span><span class="n">Itarget</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">I_scan</span><span class="p">[</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">Itarget</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">E_left</span><span class="p">,</span> <span class="n">E_right</span> <span class="o">=</span> <span class="n">E_scan</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">E_scan</span><span class="p">[</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">found</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">break</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">F</span><span class="p">(</span><span class="n">E</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">action</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="o">-</span> <span class="n">Itarget</span>
+        <span class="n">E_n</span> <span class="o">=</span> <span class="n">bisect</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">E_left</span><span class="p">,</span> <span class="n">E_right</span><span class="p">,</span> <span class="n">xtol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">maxiter</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+        <span class="n">energies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">E_n</span><span class="p">)</span>
+        <span class="n">actions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Itarget</span><span class="p">)</span>
+        <span class="n">quantum_numbers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">quantum_numbers</span><span class="p">),</span>
+        <span class="s2">&quot;E_n&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">energies</span><span class="p">),</span>
+        <span class="s2">&quot;actions&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">actions</span><span class="p">),</span>
+        <span class="s2">&quot;hbar&quot;</span><span class="p">:</span> <span class="n">hbar</span><span class="p">,</span>
+        <span class="s2">&quot;alpha&quot;</span><span class="p">:</span> <span class="n">alpha</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="find_caustics_1d">
+<a class="viewcode-back" href="../microlocal.html#microlocal.find_caustics_1d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_caustics_1d</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">xi_range</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find caustics (envelope of bicharacteristics) in 1D.</span>
+
+<span class="sd">    Simplified condition: where d²p/dξ² ≈ 0 (turning points in frequency).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">d2p</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="n">d2p</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="n">xv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">resolution</span><span class="p">)</span>
+    <span class="n">xiv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xi_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">resolution</span><span class="p">)</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">XI</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">XI</span><span class="p">))</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;x_grid&#39;</span><span class="p">:</span> <span class="n">X</span><span class="p">,</span>
+        <span class="s1">&#39;xi_grid&#39;</span><span class="p">:</span> <span class="n">XI</span><span class="p">,</span>
+        <span class="s1">&#39;caustic_indicator&#39;</span><span class="p">:</span> <span class="n">Z</span><span class="p">,</span>
+        <span class="s1">&#39;threshold&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="propagate_singularity">
+<a class="viewcode-back" href="../microlocal.html#microlocal.propagate_singularity">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">propagate_singularity</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_sing_support</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span>
+                          <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Propagate singular support along bicharacteristics.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">_infer_dim</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+    <span class="n">trajectories</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">z0</span> <span class="ow">in</span> <span class="n">initial_sing_support</span><span class="p">:</span>
+        <span class="n">traj</span> <span class="o">=</span> <span class="n">bicharacteristic_flow</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span>
+                                     <span class="n">method</span><span class="o">=</span><span class="s1">&#39;symplectic&#39;</span><span class="p">)</span>
+        <span class="n">trajectories</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">traj</span><span class="p">)</span>
+    <span class="n">endpoints</span> <span class="o">=</span> <span class="p">[</span> <span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">traj</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">,[</span><span class="kc">None</span><span class="p">])[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+                   <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">traj</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,[</span><span class="kc">None</span><span class="p">])[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                  <span class="k">for</span> <span class="n">traj</span> <span class="ow">in</span> <span class="n">trajectories</span> <span class="p">]</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;trajectories&#39;</span><span class="p">:</span> <span class="n">trajectories</span><span class="p">,</span> <span class="s1">&#39;endpoints&#39;</span><span class="p">:</span> <span class="n">endpoints</span><span class="p">,</span>
+            <span class="s1">&#39;initial&#39;</span><span class="p">:</span> <span class="n">initial_sing_support</span><span class="p">}</span></div>
+
+
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1"># Visualisation functions (non‑WKB)</span>
+<span class="c1"># ----------------------------------------------------------------------</span>
+<div class="viewcode-block" id="plot_characteristic_set">
+<a class="viewcode-back" href="../microlocal.html#microlocal.plot_characteristic_set">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_characteristic_set</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">xi_range</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                            <span class="n">resolution</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot the characteristic variety.</span>
+
+<span class="sd">    For 1D: contour p(x,ξ)=0 in the (x,ξ) plane.</span>
+<span class="sd">    For 2D: a slice with fixed (ξ,η); you must provide xi0, eta0 as kwargs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">_infer_dim</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">p_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="n">symbol</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="n">xv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">resolution</span><span class="p">)</span>
+        <span class="n">xiv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xi_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">resolution</span><span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">XI</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">p_func</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">XI</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">Z</span><span class="p">):</span>
+            <span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="mi">6</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">XI</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">colors</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linewidths</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">XI</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span><span class="o">+</span><span class="mf">1e-10</span><span class="p">),</span>
+                       <span class="n">shading</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s1">&#39;log₁₀|p|&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;ξ&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Characteristic variety (1D)&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># 2D slice</span>
+        <span class="n">xi0</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;xi0&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">eta0</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;eta0&#39;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">p_fixed</span> <span class="o">=</span> <span class="n">symbol</span><span class="o">.</span><span class="n">subs</span><span class="p">({</span><span class="n">xi</span><span class="p">:</span> <span class="n">xi0</span><span class="p">,</span> <span class="n">eta</span><span class="p">:</span> <span class="n">eta0</span><span class="p">})</span>
+        <span class="n">p_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="n">p_fixed</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="n">xv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">resolution</span><span class="p">)</span>
+        <span class="n">yv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xi_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">resolution</span><span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">p_func</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">Z</span><span class="p">):</span>
+            <span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="mi">6</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">colors</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">linewidths</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span><span class="o">+</span><span class="mf">1e-10</span><span class="p">),</span>
+                       <span class="n">shading</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s1">&#39;log₁₀|p|&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Characteristic set (ξ=</span><span class="si">{</span><span class="n">xi0</span><span class="si">}</span><span class="s1">, η=</span><span class="si">{</span><span class="n">eta0</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="plot_bicharacteristics">
+<a class="viewcode-back" href="../microlocal.html#microlocal.plot_bicharacteristics">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_bicharacteristics</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_points</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                           <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;position&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot bicharacteristic curves.</span>
+
+<span class="sd">    For 1D: plots in (x,ξ) plane.</span>
+<span class="sd">    For 2D: projection can be &#39;position&#39; (x-y), &#39;frequency&#39; (ξ-η) or &#39;mixed&#39; (x-ξ).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">_infer_dim</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">8</span><span class="p">))</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">viridis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">initial_points</span><span class="p">)))</span>
+
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">z0</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">initial_points</span><span class="p">):</span>
+        <span class="n">traj</span> <span class="o">=</span> <span class="n">bicharacteristic_flow</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span>
+                                     <span class="n">method</span><span class="o">=</span><span class="s1">&#39;symplectic&#39;</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;go&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;ro&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;position&#39;</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;go&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;ro&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;frequency&#39;</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;go&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;ro&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;mixed&#39;</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;go&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;ro&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;projection must be &#39;position&#39;, &#39;frequency&#39;, or &#39;mixed&#39;&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;ξ&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;position&#39;</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;frequency&#39;</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;ξ&#39;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;η&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;ξ&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Bicharacteristics&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="plot_wavefront_set">
+<a class="viewcode-back" href="../microlocal.html#microlocal.plot_wavefront_set">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_wavefront_set</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_sing_support</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span>
+                      <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;cotangent&#39;</span><span class="p">,</span>
+                      <span class="n">n_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;plasma&#39;</span><span class="p">,</span>
+                      <span class="n">show_flow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_endpoints</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                      <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot the wavefront set WF(u) of a distribution u whose singularities</span>
+<span class="sd">    propagate along bicharacteristics of the operator with symbol p.</span>
+
+<span class="sd">    The wavefront set is represented as a subset of the cotangent bundle T*ℝⁿ.</span>
+<span class="sd">    Each initial point (x₀, ξ₀) seeds a bicharacteristic strip; the union of</span>
+<span class="sd">    these strips in phase space approximates WF(u) at time tspan[1].</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : sympy expression</span>
+<span class="sd">        Principal symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D.</span>
+<span class="sd">    initial_sing_support : list of tuples</span>
+<span class="sd">        Seed points on the wavefront set at t=0.</span>
+<span class="sd">        1D: list of (x₀, ξ₀) pairs.</span>
+<span class="sd">        2D: list of (x₀, y₀, ξ₀, η₀) quadruples.</span>
+<span class="sd">    tspan : tuple</span>
+<span class="sd">        (t_start, t_end) for bicharacteristic integration.</span>
+<span class="sd">    dim : int, optional</span>
+<span class="sd">        Dimension (1 or 2). Inferred from seed points if None.</span>
+<span class="sd">    projection : str</span>
+<span class="sd">        Which subspace to visualise (dimension-dependent):</span>
+<span class="sd">        - 1D:</span>
+<span class="sd">            &#39;cotangent&#39;  – (x, ξ) phase-space portrait  [default]</span>
+<span class="sd">            &#39;position&#39;   – x(t) projected onto ℝ (singular support)</span>
+<span class="sd">        - 2D:</span>
+<span class="sd">            &#39;cotangent&#39;  – (x, ξ) slice (ignoring y, η)</span>
+<span class="sd">            &#39;position&#39;   – (x, y) projection (singular support in ℝ²)</span>
+<span class="sd">            &#39;frequency&#39;  – (ξ, η) projection (directions of non-smoothness)</span>
+<span class="sd">            &#39;full&#39;       – 2×2 grid: position, frequency, (x,ξ), (y,η)</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of integration steps per bicharacteristic.</span>
+<span class="sd">    cmap : str</span>
+<span class="sd">        Matplotlib colormap used to colour individual bicharacteristics</span>
+<span class="sd">        (colour encodes the index of the seed point, i.e. which part of the</span>
+<span class="sd">        initial singular support it originated from).</span>
+<span class="sd">    show_flow : bool</span>
+<span class="sd">        If True, draw the full bicharacteristic strip (trajectory in phase</span>
+<span class="sd">        space). If False, only show the endpoint scatter.</span>
+<span class="sd">    show_endpoints : bool</span>
+<span class="sd">        If True, mark the *initial* point (green •) and *final* point (red •)</span>
+<span class="sd">        of each bicharacteristic.</span>
+<span class="sd">    title : str, optional</span>
+<span class="sd">        Figure title. A sensible default is generated if None.</span>
+<span class="sd">    ax : matplotlib Axes or array of Axes, optional</span>
+<span class="sd">        Axes to draw into. If None a new figure is created. For</span>
+<span class="sd">        projection=&#39;full&#39; (2D) pass an array of 4 Axes or leave None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fig : matplotlib Figure</span>
+<span class="sd">    axes : Axes or array of Axes</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    1D example – Schrödinger-type operator, horizontal line singularity::</span>
+
+<span class="sd">        x, xi = sp.symbols(&#39;x xi&#39;, real=True)</span>
+<span class="sd">        p = xi**2 - (1 - x**2)           # simple potential well symbol</span>
+<span class="sd">        seeds = [(xi_val, float(xi_val)) for xi_val in np.linspace(-1, 1, 12)]</span>
+<span class="sd">        fig, ax = plot_wavefront_set(p, seeds, tspan=(0, 4), dim=1)</span>
+<span class="sd">        plt.show()</span>
+
+<span class="sd">    2D example – wave operator, outward circular wavefront::</span>
+
+<span class="sd">        x, y, xi, eta = sp.symbols(&#39;x y xi eta&#39;, real=True)</span>
+<span class="sd">        p = xi**2 + eta**2 - 1</span>
+<span class="sd">        seeds = [(np.cos(t), np.sin(t), np.cos(t), np.sin(t))</span>
+<span class="sd">                 for t in np.linspace(0, 2*np.pi, 24, endpoint=False)]</span>
+<span class="sd">        fig, axes = plot_wavefront_set(p, seeds, tspan=(0, 2), dim=2,</span>
+<span class="sd">                                       projection=&#39;full&#39;)</span>
+<span class="sd">        plt.show()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># ------------------------------------------------------------------ setup</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">initial_sing_support</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="mi">4</span> <span class="k">else</span> <span class="mi">1</span>
+    <span class="n">n_seeds</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">initial_sing_support</span><span class="p">)</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="n">cmap</span><span class="p">)(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">,</span> <span class="n">n_seeds</span><span class="p">))</span>
+
+    <span class="c1"># ------------------------------------------------- integrate all trajectories</span>
+    <span class="n">trajs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">z0</span> <span class="ow">in</span> <span class="n">initial_sing_support</span><span class="p">:</span>
+        <span class="n">traj</span> <span class="o">=</span> <span class="n">bicharacteristic_flow</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span>
+                                     <span class="n">method</span><span class="o">=</span><span class="s1">&#39;symplectic&#39;</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">trajs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">traj</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------- build figure / axes</span>
+    <span class="k">if</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;full&#39;</span> <span class="ow">and</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ax</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+            <span class="n">fig</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_figure</span><span class="p">()</span>
+        <span class="n">ax_list</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span>   <span class="s1">&#39;position&#39;</span><span class="p">,</span>  <span class="s1">&#39;Position space  (x, y)&#39;</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="s1">&#39;frequency&#39;</span><span class="p">,</span> <span class="s1">&#39;Frequency space  (ξ, η)&#39;</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;xi&#39;</span><span class="p">,</span>  <span class="s1">&#39;mixed_x&#39;</span><span class="p">,</span>   <span class="s1">&#39;Cotangent slice  (x, ξ)&#39;</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="s1">&#39;mixed_y&#39;</span><span class="p">,</span>   <span class="s1">&#39;Cotangent slice  (y, η)&#39;</span><span class="p">),</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">traj</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">trajs</span><span class="p">):</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">colors</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span>   <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>  <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">xf</span><span class="p">,</span> <span class="n">yf</span>   <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>  <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">xif</span><span class="p">,</span> <span class="n">etaf</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">pairs</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span>  <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span>   <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span>   <span class="n">xf</span><span class="p">,</span> <span class="n">yf</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">],</span> <span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="p">,</span> <span class="n">xif</span><span class="p">,</span> <span class="n">etaf</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span>  <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">],</span>  <span class="n">x0</span><span class="p">,</span> <span class="n">xi0</span><span class="p">,</span>  <span class="n">xf</span><span class="p">,</span> <span class="n">xif</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span>  <span class="n">traj</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">],</span> <span class="n">y0</span><span class="p">,</span> <span class="n">eta0</span><span class="p">,</span>  <span class="n">yf</span><span class="p">,</span> <span class="n">etaf</span><span class="p">),</span>
+            <span class="p">]</span>
+            <span class="k">for</span> <span class="p">(</span><span class="n">ax_obj</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">proj_label</span><span class="p">,</span> <span class="n">panel_title</span><span class="p">),</span> <span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">u0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="n">uf</span><span class="p">,</span> <span class="n">vf</span><span class="p">)</span> \
+                    <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ax_list</span><span class="p">,</span> <span class="n">pairs</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">show_flow</span><span class="p">:</span>
+                    <span class="n">ax_obj</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">c</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">show_endpoints</span><span class="p">:</span>
+                    <span class="n">ax_obj</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">u0</span><span class="p">,</span> <span class="n">v0</span><span class="p">,</span> <span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;limegreen&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+                                <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">markeredgewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">ax_obj</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">uf</span><span class="p">,</span> <span class="n">vf</span><span class="p">,</span> <span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;crimson&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+                                <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">markeredgewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">ax_obj</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">proj_label</span><span class="p">,</span> <span class="n">panel_title</span><span class="p">)</span> <span class="ow">in</span> <span class="n">ax_list</span><span class="p">:</span>
+            <span class="n">ax_obj</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">({</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;xi&#39;</span><span class="p">:</span> <span class="s1">&#39;ξ&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">:</span> <span class="s1">&#39;η&#39;</span><span class="p">}[</span><span class="n">kx</span><span class="p">])</span>
+            <span class="n">ax_obj</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">({</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;xi&#39;</span><span class="p">:</span> <span class="s1">&#39;ξ&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">:</span> <span class="s1">&#39;η&#39;</span><span class="p">}[</span><span class="n">ky</span><span class="p">])</span>
+            <span class="n">ax_obj</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">panel_title</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+            <span class="n">ax_obj</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
+            <span class="n">ax_obj</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">,</span> <span class="n">adjustable</span><span class="o">=</span><span class="s1">&#39;datalim&#39;</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+            <span class="n">title</span> <span class="ow">or</span> <span class="s1">&#39;Wavefront set  WF(u)  [2D, full cotangent bundle]&#39;</span><span class="p">,</span>
+            <span class="n">fontsize</span><span class="o">=</span><span class="mi">13</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s1">&#39;bold&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span>
+
+    <span class="c1"># --------------------------------- single-panel projections (1D or 2D)</span>
+    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">axes</span> <span class="o">=</span> <span class="n">ax</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">get_figure</span><span class="p">()</span>
+
+    <span class="c1"># Determine what to plot on each axis</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">projection</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;cotangent&#39;</span><span class="p">,</span> <span class="s1">&#39;phase&#39;</span><span class="p">):</span>
+            <span class="n">get_u</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+            <span class="n">get_v</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">]</span>
+            <span class="n">xlabel</span><span class="p">,</span> <span class="n">ylabel</span> <span class="o">=</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;ξ&#39;</span>
+            <span class="n">equal_aspect</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;position&#39;</span><span class="p">:</span>
+            <span class="n">get_u</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>
+            <span class="n">get_v</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+            <span class="n">xlabel</span><span class="p">,</span> <span class="n">ylabel</span> <span class="o">=</span> <span class="s1">&#39;t&#39;</span><span class="p">,</span> <span class="s1">&#39;x  (singular support)&#39;</span>
+            <span class="n">equal_aspect</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Unknown projection &#39;</span><span class="si">{</span><span class="n">projection</span><span class="si">}</span><span class="s2">&#39; for dim=1. &quot;</span>
+                <span class="s2">&quot;Choose &#39;cotangent&#39; or &#39;position&#39;.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># dim == 2</span>
+        <span class="k">if</span> <span class="n">projection</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;cotangent&#39;</span><span class="p">,</span> <span class="s1">&#39;mixed_x&#39;</span><span class="p">):</span>
+            <span class="n">get_u</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+            <span class="n">get_v</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">]</span>
+            <span class="n">xlabel</span><span class="p">,</span> <span class="n">ylabel</span> <span class="o">=</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;ξ&#39;</span>
+            <span class="n">equal_aspect</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;position&#39;</span><span class="p">:</span>
+            <span class="n">get_u</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+            <span class="n">get_v</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>
+            <span class="n">xlabel</span><span class="p">,</span> <span class="n">ylabel</span> <span class="o">=</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span>
+            <span class="n">equal_aspect</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;frequency&#39;</span><span class="p">:</span>
+            <span class="n">get_u</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">]</span>
+            <span class="n">get_v</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">]</span>
+            <span class="n">xlabel</span><span class="p">,</span> <span class="n">ylabel</span> <span class="o">=</span> <span class="s1">&#39;ξ&#39;</span><span class="p">,</span> <span class="s1">&#39;η&#39;</span>
+            <span class="n">equal_aspect</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">projection</span> <span class="o">==</span> <span class="s1">&#39;mixed_y&#39;</span><span class="p">:</span>
+            <span class="n">get_u</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>
+            <span class="n">get_v</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">]</span>
+            <span class="n">xlabel</span><span class="p">,</span> <span class="n">ylabel</span> <span class="o">=</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;η&#39;</span>
+            <span class="n">equal_aspect</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Unknown projection &#39;</span><span class="si">{</span><span class="n">projection</span><span class="si">}</span><span class="s2">&#39; for dim=2. &quot;</span>
+                <span class="s2">&quot;Choose &#39;cotangent&#39;, &#39;position&#39;, &#39;frequency&#39;, &#39;mixed_x&#39;, &quot;</span>
+                <span class="s2">&quot;&#39;mixed_y&#39;, or &#39;full&#39;.&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">traj</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">trajs</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">colors</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">get_u</span><span class="p">(</span><span class="n">traj</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">get_v</span><span class="p">(</span><span class="n">traj</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">show_flow</span><span class="p">:</span>
+            <span class="n">axes</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">c</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">show_endpoints</span><span class="p">:</span>
+            <span class="n">axes</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>  <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>  <span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;limegreen&#39;</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
+                      <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;initial&#39;</span> <span class="k">if</span> <span class="n">idx</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="n">axes</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;crimson&#39;</span><span class="p">,</span>   <span class="n">ms</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+                      <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;final&#39;</span>   <span class="k">if</span> <span class="n">idx</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+
+    <span class="n">axes</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">xlabel</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+    <span class="n">axes</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="n">ylabel</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">equal_aspect</span><span class="p">:</span>
+        <span class="n">axes</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">,</span> <span class="n">adjustable</span><span class="o">=</span><span class="s1">&#39;datalim&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">dim_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s1">D&#39;</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;Wavefront set  WF(u)  [</span><span class="si">{</span><span class="n">dim_str</span><span class="si">}</span><span class="s1">, projection: </span><span class="si">{</span><span class="n">projection</span><span class="si">}</span><span class="s1">]&#39;</span>
+    <span class="n">axes</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+    <span class="n">axes</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">show_endpoints</span><span class="p">:</span>
+        <span class="n">handles</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">get_legend_handles_labels</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">labels</span><span class="p">:</span>
+            <span class="n">axes</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span></div>
+
+
+
+<div class="viewcode-block" id="compute_maslov_index">
+<a class="viewcode-back" href="../microlocal.html#microlocal.compute_maslov_index">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_maslov_index</span><span class="p">(</span><span class="n">traj</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the Maslov index for a single trajectory.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    </span>
+<span class="sd">    traj : dict </span>
+<span class="sd">           returned by bicharacteristic_flow (must contain J11..J22 or J)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="s1">&#39;J22&#39;</span> <span class="ow">in</span> <span class="n">traj</span> <span class="k">else</span> <span class="mi">1</span>
+    <span class="n">detector</span> <span class="o">=</span> <span class="n">RayCausticDetector</span><span class="p">([</span><span class="n">traj</span><span class="p">],</span> <span class="n">dimension</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">det_threshold</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+    <span class="n">detector</span><span class="o">.</span><span class="n">detect</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">detector</span><span class="o">.</span><span class="n">maslov_index</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="compute_caustics_2d">
+<a class="viewcode-back" href="../microlocal.html#microlocal.compute_caustics_2d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_caustics_2d</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">initial_curve</span><span class="p">,</span> <span class="n">tmax</span><span class="p">,</span> <span class="n">n_rays</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute caustics for a 2D Hamiltonian given an initial curve.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    p : sympy expression</span>
+<span class="sd">        Hamiltonian symbol p(x, y, xi, eta).</span>
+<span class="sd">    initial_curve : dict</span>
+<span class="sd">        Must contain keys &#39;x&#39;, &#39;y&#39;, &#39;xi&#39;, &#39;eta&#39; with array values of equal length.</span>
+<span class="sd">    tmax : float</span>
+<span class="sd">        Maximum integration time.</span>
+<span class="sd">    n_rays : int, optional</span>
+<span class="sd">        Number of rays to use. If None, use all points in the initial curve.</span>
+<span class="sd">    **kwargs : additional arguments passed to bicharacteristic_flow</span>
+<span class="sd">               (e.g., method=&#39;symplectic&#39;, n_steps=200).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of CausticEvent</span>
+<span class="sd">        Each event contains position, time, momentum, Arnold type, etc.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Extract initial data</span>
+    <span class="n">x_init</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">initial_curve</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">])</span>
+    <span class="n">y_init</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">initial_curve</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">])</span>
+    <span class="n">xi_init</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">initial_curve</span><span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">])</span>
+    <span class="n">eta_init</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">initial_curve</span><span class="p">[</span><span class="s1">&#39;eta&#39;</span><span class="p">])</span>
+
+    <span class="n">n_pts</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_init</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_rays</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">n_rays</span> <span class="o">=</span> <span class="n">n_pts</span>
+    <span class="c1"># If fewer rays requested, subsample evenly</span>
+    <span class="k">if</span> <span class="n">n_rays</span> <span class="o">&lt;</span> <span class="n">n_pts</span><span class="p">:</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_pts</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_rays</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="n">x_init</span> <span class="o">=</span> <span class="n">x_init</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+        <span class="n">y_init</span> <span class="o">=</span> <span class="n">y_init</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+        <span class="n">xi_init</span> <span class="o">=</span> <span class="n">xi_init</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+        <span class="n">eta_init</span> <span class="o">=</span> <span class="n">eta_init</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">n_rays</span> <span class="o">&gt;</span> <span class="n">n_pts</span><span class="p">:</span>
+        <span class="c1"># Not enough points; just use all</span>
+        <span class="k">pass</span>
+
+    <span class="n">rays</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Default integration parameters</span>
+    <span class="n">default_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;symplectic&#39;</span><span class="p">,</span> <span class="s1">&#39;n_steps&#39;</span><span class="p">:</span> <span class="mi">200</span><span class="p">}</span>
+    <span class="n">flow_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">default_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x_init</span><span class="p">)):</span>
+        <span class="n">z0</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">y_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">xi_init</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">eta_init</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">traj</span> <span class="o">=</span> <span class="n">bicharacteristic_flow</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">tmax</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="o">**</span><span class="n">flow_kwargs</span><span class="p">)</span>
+        <span class="c1"># bicharacteristic_flow must now return J11, J12, J21, J22 (stability matrix)</span>
+        <span class="n">rays</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">traj</span><span class="p">)</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">caustics</span><span class="w"> </span><span class="kn">import</span> <span class="n">RayCausticDetector</span>
+    <span class="n">detector</span> <span class="o">=</span> <span class="n">RayCausticDetector</span><span class="p">(</span><span class="n">rays</span><span class="p">,</span> <span class="n">dimension</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">det_threshold</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+    <span class="n">events</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">detect</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">events</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,987 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>caustics &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="fio_bridge" href="fio_bridge.html" />
+    <link rel="prev" title="asymptotic" href="asymptotic.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">caustics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#caustics-py-catastrophe-classification-ray-caustic-detection-and-uniform-asymptotic-corrections">caustics.py — Catastrophe classification, ray caustic detection, and uniform asymptotic corrections</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mathematical-background">Mathematical background</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.AdaptiveCriticalPointSolver"><code class="docutils literal notranslate"><span class="pre">AdaptiveCriticalPointSolver</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.AdaptiveCriticalPointSolver.solve"><code class="docutils literal notranslate"><span class="pre">AdaptiveCriticalPointSolver.solve()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.AdaptiveCriticalPointSolver.to_dict_list"><code class="docutils literal notranslate"><span class="pre">AdaptiveCriticalPointSolver.to_dict_list()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.CausticEvent"><code class="docutils literal notranslate"><span class="pre">CausticEvent</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticEvent.ray_idx"><code class="docutils literal notranslate"><span class="pre">CausticEvent.ray_idx</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticEvent.time"><code class="docutils literal notranslate"><span class="pre">CausticEvent.time</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticEvent.time_idx"><code class="docutils literal notranslate"><span class="pre">CausticEvent.time_idx</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticEvent.position"><code class="docutils literal notranslate"><span class="pre">CausticEvent.position</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticEvent.momentum"><code class="docutils literal notranslate"><span class="pre">CausticEvent.momentum</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticEvent.det_J"><code class="docutils literal notranslate"><span class="pre">CausticEvent.det_J</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticEvent.sign_change"><code class="docutils literal notranslate"><span class="pre">CausticEvent.sign_change</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticEvent.maslov_contribution"><code class="docutils literal notranslate"><span class="pre">CausticEvent.maslov_contribution</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticEvent.arnold_type"><code class="docutils literal notranslate"><span class="pre">CausticEvent.arnold_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id0"><code class="docutils literal notranslate"><span class="pre">CausticEvent.arnold_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id11"><code class="docutils literal notranslate"><span class="pre">CausticEvent.det_J</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id12"><code class="docutils literal notranslate"><span class="pre">CausticEvent.maslov_contribution</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id13"><code class="docutils literal notranslate"><span class="pre">CausticEvent.momentum</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id14"><code class="docutils literal notranslate"><span class="pre">CausticEvent.position</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id15"><code class="docutils literal notranslate"><span class="pre">CausticEvent.ray_idx</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id16"><code class="docutils literal notranslate"><span class="pre">CausticEvent.sign_change</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id17"><code class="docutils literal notranslate"><span class="pre">CausticEvent.time</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id18"><code class="docutils literal notranslate"><span class="pre">CausticEvent.time_idx</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.CausticFunctions"><code class="docutils literal notranslate"><span class="pre">CausticFunctions</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticFunctions.airy_Ai"><code class="docutils literal notranslate"><span class="pre">CausticFunctions.airy_Ai()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticFunctions.airy_Ai_prime"><code class="docutils literal notranslate"><span class="pre">CausticFunctions.airy_Ai_prime()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticFunctions.airy_Bi"><code class="docutils literal notranslate"><span class="pre">CausticFunctions.airy_Bi()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticFunctions.cusp_uniform"><code class="docutils literal notranslate"><span class="pre">CausticFunctions.cusp_uniform()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticFunctions.fold_uniform"><code class="docutils literal notranslate"><span class="pre">CausticFunctions.fold_uniform()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticFunctions.maslov_phase_shift"><code class="docutils literal notranslate"><span class="pre">CausticFunctions.maslov_phase_shift()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticFunctions.pearcey"><code class="docutils literal notranslate"><span class="pre">CausticFunctions.pearcey()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticFunctions.pearcey_grid"><code class="docutils literal notranslate"><span class="pre">CausticFunctions.pearcey_grid()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.CausticFunctions.swallowtail"><code class="docutils literal notranslate"><span class="pre">CausticFunctions.swallowtail()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.RayCausticDetector"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.events"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.events</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.detect"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.detect()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.maslov_index"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.maslov_index()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.maslov_phase"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.maslov_phase()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.stability_matrix_ode_1d"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.stability_matrix_ode_1d()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.stability_matrix_ode_2d"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.stability_matrix_ode_2d()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.summary"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.summary()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.classify_arnold_1d"><code class="docutils literal notranslate"><span class="pre">classify_arnold_1d()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.classify_arnold_2d"><code class="docutils literal notranslate"><span class="pre">classify_arnold_2d()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.detect_catastrophes"><code class="docutils literal notranslate"><span class="pre">detect_catastrophes()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.find_critical_points_numerical"><code class="docutils literal notranslate"><span class="pre">find_critical_points_numerical()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.plot_catastrophe"><code class="docutils literal notranslate"><span class="pre">plot_catastrophe()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#caustics.plot_caustic_events"><code class="docutils literal notranslate"><span class="pre">plot_caustic_events()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="geometry.html">geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="microlocal.html">microlocal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="propagator.html">propagator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="riemannian.html">riemannian</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symplectic.html">symplectic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">caustics</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/caustics.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-caustics">
+<span id="caustics"></span><h1>caustics<a class="headerlink" href="#module-caustics" title="Link to this heading"></a></h1>
+<section id="caustics-py-catastrophe-classification-ray-caustic-detection-and-uniform-asymptotic-corrections">
+<h2>caustics.py — Catastrophe classification, ray caustic detection, and uniform asymptotic corrections<a class="headerlink" href="#caustics-py-catastrophe-classification-ray-caustic-detection-and-uniform-asymptotic-corrections" title="Link to this heading"></a></h2>
+<section id="overview">
+<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
+<p>The <cite>caustics</cite> module provides a comprehensive toolkit for working with caustics in semiclassical analysis and catastrophe theory.  It consolidates previously scattered functionality into a single, well‑tested module with a clean API.  The main components are:</p>
+<ol class="arabic simple">
+<li><p><strong>Arnold classification</strong> (algebraic) – Symbolic classification of critical points of a function <cite>H(ξ)</cite> (1D) or <cite>H(ξ,η)</cite> (2D) into elementary catastrophes: Morse, fold (A2), cusp (A3), swallowtail (A4), butterfly (A5), and umbilics (D4±).  Uses successive derivatives and Hessian analysis.</p></li>
+<li><p><strong>Catastrophe detection</strong> (adaptive numerical solver) – Robustly finds all critical points of <cite>H</cite> by combining symbolic solving, coarse grid scanning, Newton refinement, and clustering.  Then classifies them using the algebraic routines.</p></li>
+<li><p><strong>Ray‑based caustic detection</strong> – Operates on a bundle of rays (output of <cite>wkb.py</cite>) that contain the integrated <strong>stability matrix</strong> <cite>J = ∂x(t)/∂q</cite>.  Caustics are detected when <cite>det(J)</cite> crosses zero.  This corrects the common mistake of using velocity zeros or momentum minima as caustic indicators.  Maslov indices and phase shifts are computed automatically.</p></li>
+<li><p><strong>Uniform special functions</strong> – Implements the Airy function (fold), the Pearcey integral (cusp), and a swallowtail integral (A4), together with the correct prefactors for uniform WKB approximations near caustics.</p></li>
+<li><p><strong>Visualisation helpers</strong> – Functions to plot catastrophe points on 1D curves or 2D surfaces, and to overlay caustic events on ray bundles.</p></li>
+</ol>
+<p>The module is designed to be <strong>independent</strong> of the other packages (it does not import <cite>wkb.py</cite>, <cite>psiop.py</cite>, etc.), but it is used by <cite>wkb.py</cite> for caustic detection and correction.</p>
+</section>
+<section id="mathematical-background">
+<h3>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h3>
+<p><strong>Caustics</strong> are envelopes of families of rays (bicharacteristics) where the ray density becomes infinite.  In the semiclassical approximation, the amplitude diverges at a caustic, and the standard WKB ansatz breaks down.  Uniform approximations replace the oscillatory exponential by special functions.</p>
+<p>For a Hamiltonian system with <cite>n</cite> degrees of freedom, a family of rays is parameterised by an initial‑condition parameter <cite>q ∈ ℝⁿ</cite>.  The <strong>stability matrix</strong></p>
+<blockquote>
+<div><p>J(t) = ∂x(t)/∂q</p>
+</div></blockquote>
+<p>satisfies the variational equation <cite>dJ/dt = H_{px}·J</cite> along each ray.  A caustic occurs when <cite>det(J(t)) = 0</cite>.  The <strong>Maslov index</strong> <cite>μ</cite> is the signed number of such zero crossings; each crossing contributes a phase shift of <cite>π/2</cite> to the wave function.</p>
+<p><strong>Arnold’s classification of catastrophes</strong> (singularities of gradient maps) provides a taxonomy of caustics:</p>
+<ul class="simple">
+<li><p><strong>A₂ (fold)</strong>: normal form <cite>ξ³</cite> – the simplest caustic, described by the Airy function.</p></li>
+<li><p><strong>A₃ (cusp)</strong>: normal form <cite>ξ⁴</cite> – described by the Pearcey integral.</p></li>
+<li><p><strong>A₄ (swallowtail)</strong>: normal form <cite>ξ⁵</cite> – a three‑parameter integral.</p></li>
+<li><p><strong>D₄± (umbilics)</strong>: normal forms <cite>ξ³ + η³</cite> (hyperbolic) and <cite>ξ³ – 3ξη²</cite> (elliptic) – degenerate cases with Hessian rank 0.</p></li>
+</ul>
+<p>The module classifies a critical point (where <cite>∇H = 0</cite>) by examining its Hessian rank and higher derivatives, using algebraic invariants.</p>
+<p class="rubric">References</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id1" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<p>Arnold, V. I.  <em>Catastrophe Theory</em>, Springer‑Verlag, 1986.</p>
+</aside>
+<aside class="footnote brackets" id="id2" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
+<p>Duistermaat, J. J.  “Oscillatory integrals, Lagrange immersions and unfolding of singularities”, <em>Comm. Pure Appl. Math.</em> <strong>27</strong>, 207–281, 1974.</p>
+</aside>
+<aside class="footnote brackets" id="id3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
+<p>Maslov, V. P. &amp; Fedoriuk, M. V.  <em>Semi‑Classical Approximation in Quantum Mechanics</em>, Reidel, 1981.</p>
+</aside>
+<aside class="footnote brackets" id="id4" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
+<p>Kravtsov, Yu. A. &amp; Orlov, Yu. I.  <em>Caustics, Catastrophes and Wave Fields</em>, Springer, 1999.</p>
+</aside>
+<aside class="footnote brackets" id="id5" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></span>
+<p>Berry, M. V. &amp; Howls, C. J.  “High orders of the Weyl expansion for quantum billiards”, <em>Phys. Rev. E</em> <a href="#id6"><span class="problematic" id="id7">**</span></a>50**(5), 3577–3595, 1994.</p>
+</aside>
+<aside class="footnote brackets" id="id8" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>6<span class="fn-bracket">]</span></span>
+<p>Connor, J. N. L.  “Practical methods for the uniform asymptotic evaluation of oscillatory integrals”, <em>Mol. Phys.</em> <a href="#id9"><span class="problematic" id="id10">**</span></a>31**(1), 33–55, 1976.</p>
+</aside>
+</aside>
+</section>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="caustics.AdaptiveCriticalPointSolver">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">AdaptiveCriticalPointSolver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_vars</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coarse_n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad_tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/caustics.html#AdaptiveCriticalPointSolver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.AdaptiveCriticalPointSolver" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Find critical points of H(xi_vars) robustly.</p>
+<section id="strategy">
+<h2>Strategy<a class="headerlink" href="#strategy" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Symbolic solve (sp.solve) — exact when polynomial.</p></li>
+<li><p>Coarse grid scan — evaluate <a href="#id28"><span class="problematic" id="id29">|∇H|</span></a> on a grid, keep near-zero cells
+as seeds for Newton refinement.</p></li>
+<li><p>Newton / fsolve refinement — high-accuracy convergence from seeds.</p></li>
+<li><p>DBSCAN-style deduplication — merge solutions closer than <cite>cluster_tol</cite>.</p></li>
+</ol>
+<p>This replaces the fragile uniform-grid + sp.nsolve approach that missed
+solutions and was slow.</p>
+<dl class="field-list simple">
+<dt class="field-odd">param H_expr<span class="colon">:</span></dt>
+<dd class="field-odd"><p></p></dd>
+<dt class="field-even">type H_expr<span class="colon">:</span></dt>
+<dd class="field-even"><p>sp.Expr</p>
+</dd>
+<dt class="field-odd">param xi_vars<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Frequency variables (the unknowns for ∇H = 0).</p>
+</dd>
+<dt class="field-even">type xi_vars<span class="colon">:</span></dt>
+<dd class="field-even"><p>sequence of sp.Symbol</p>
+</dd>
+<dt class="field-odd">param coords<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Additional parameter symbols (treated as unknowns too).</p>
+</dd>
+<dt class="field-even">type coords<span class="colon">:</span></dt>
+<dd class="field-even"><p>sequence of sp.Symbol, optional</p>
+</dd>
+<dt class="field-odd">param bounds<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Search bounds per symbol.  Defaults to (-5, 5) for all.</p>
+</dd>
+<dt class="field-even">type bounds<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict {symbol: (lo, hi)}, optional</p>
+</dd>
+<dt class="field-odd">param coarse_n<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Points per axis for the coarse scan (default 30).</p>
+</dd>
+<dt class="field-even">type coarse_n<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param cluster_tol<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Distance threshold for deduplication (default 1e-4).</p>
+</dd>
+<dt class="field-even">type cluster_tol<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param grad_tol<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a href="#id30"><span class="problematic" id="id31">|∇H|</span></a> threshold to accept a point as critical (default 1e-8).</p>
+</dd>
+<dt class="field-even">type grad_tol<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.AdaptiveCriticalPointSolver.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'auto'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/caustics.html#AdaptiveCriticalPointSolver.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.AdaptiveCriticalPointSolver.solve" title="Link to this definition"></a></dt>
+<dd><p>Find all critical points.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>method</strong> (<em>&quot;symbolic&quot;</em><em> | </em><em>&quot;adaptive&quot;</em><em> | </em><em>&quot;auto&quot;</em>) – <ul class="simple">
+<li><p>“symbolic” : sp.solve only (fast for polynomials)</p></li>
+<li><p>”adaptive” : coarse grid + Newton (always numerical)</p></li>
+<li><p>”auto”     : try symbolic first, fall back to adaptive</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Each array gives the values of (xi_vars + coords) at the
+critical point.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of np.ndarray, each of shape (<a class="reference internal" href="asymptotic.html#asymptotic.Analyzer.dim" title="asymptotic.Analyzer.dim">dim</a>,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.AdaptiveCriticalPointSolver.to_dict_list">
+<span class="sig-name descname"><span class="pre">to_dict_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solutions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/caustics.html#AdaptiveCriticalPointSolver.to_dict_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.AdaptiveCriticalPointSolver.to_dict_list" title="Link to this definition"></a></dt>
+<dd><p>Convert solutions to list of dicts {symbol: value}.
+If solutions is None, calls self.solve() first.</p>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="caustics.CausticEvent">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">CausticEvent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ray_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">position</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">momentum</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_J</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sign_change</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maslov_contribution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arnold_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'unknown'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/caustics.html#CausticEvent"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticEvent" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A caustic crossing event along a ray.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.CausticEvent.ray_idx">
+<span class="sig-name descname"><span class="pre">ray_idx</span></span><a class="headerlink" href="#caustics.CausticEvent.ray_idx" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int       Index of the ray in the bundle.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.CausticEvent.time">
+<span class="sig-name descname"><span class="pre">time</span></span><a class="headerlink" href="#caustics.CausticEvent.time" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float     Integration time t* where det(<a class="reference internal" href="geometry.html#geometry.Geodesic1D.J" title="geometry.Geodesic1D.J">J</a>) = 0.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.CausticEvent.time_idx">
+<span class="sig-name descname"><span class="pre">time_idx</span></span><a class="headerlink" href="#caustics.CausticEvent.time_idx" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int       Index in the time array closest to t*.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.CausticEvent.position">
+<span class="sig-name descname"><span class="pre">position</span></span><a class="headerlink" href="#caustics.CausticEvent.position" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray  Spatial position x(t*) (shape (<a class="reference internal" href="asymptotic.html#asymptotic.Analyzer.dim" title="asymptotic.Analyzer.dim">dim</a>,)).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.CausticEvent.momentum">
+<span class="sig-name descname"><span class="pre">momentum</span></span><a class="headerlink" href="#caustics.CausticEvent.momentum" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray  Momentum ξ(t*)          (shape (<a class="reference internal" href="asymptotic.html#asymptotic.Analyzer.dim" title="asymptotic.Analyzer.dim">dim</a>,)).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.CausticEvent.det_J">
+<span class="sig-name descname"><span class="pre">det_J</span></span><a class="headerlink" href="#caustics.CausticEvent.det_J" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float     Value of det(<a class="reference internal" href="geometry.html#geometry.Geodesic1D.J" title="geometry.Geodesic1D.J">J</a>) at t* (close to 0).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.CausticEvent.sign_change">
+<span class="sig-name descname"><span class="pre">sign_change</span></span><a class="headerlink" href="#caustics.CausticEvent.sign_change" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int    +1 or -1 (sign of d(det J)/dt at crossing).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.CausticEvent.maslov_contribution">
+<span class="sig-name descname"><span class="pre">maslov_contribution</span></span><a class="headerlink" href="#caustics.CausticEvent.maslov_contribution" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int   +1 (= π/2 phase shift).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.CausticEvent.arnold_type">
+<span class="sig-name descname"><span class="pre">arnold_type</span></span><a class="headerlink" href="#caustics.CausticEvent.arnold_type" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str    Classification from classify_arnold_* (if available).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">arnold_type</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'unknown'</span></span><a class="headerlink" href="#id0" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id11">
+<span class="sig-name descname"><span class="pre">det_J</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id11" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id12">
+<span class="sig-name descname"><span class="pre">maslov_contribution</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></span><a class="headerlink" href="#id12" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id13">
+<span class="sig-name descname"><span class="pre">momentum</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id13" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id14">
+<span class="sig-name descname"><span class="pre">position</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ndarray</span></span><a class="headerlink" href="#id14" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id15">
+<span class="sig-name descname"><span class="pre">ray_idx</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#id15" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id16">
+<span class="sig-name descname"><span class="pre">sign_change</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></span><a class="headerlink" href="#id16" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id17">
+<span class="sig-name descname"><span class="pre">time</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#id17" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id18">
+<span class="sig-name descname"><span class="pre">time_idx</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="#id18" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="caustics.CausticFunctions">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">CausticFunctions</span></span><a class="reference internal" href="_modules/caustics.html#CausticFunctions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticFunctions" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Special functions for uniform asymptotic corrections near caustics.</p>
+<p>All functions include the correct normalisation prefactors for the
+uniform WKB approximation (Maslov-Fedoriuk / Duistermaat).</p>
+<p>Fold (A2)   : Airy function Ai
+Cusp (A3)   : Pearcey integral P(x,y)
+Swallowtail (A4) : SW integral (3-parameter oscillatory)</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.CausticFunctions.airy_Ai">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">airy_Ai</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/caustics.html#CausticFunctions.airy_Ai"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticFunctions.airy_Ai" title="Link to this definition"></a></dt>
+<dd><p>Airy function Ai(z).</p>
+<dl class="simple">
+<dt>Fold caustic uniform approximation:</dt><dd><p>u(x) ≈ 2√π · ε^{1/6} · <a href="#id19"><span class="problematic" id="id20">|</span></a>∂_s J|^{-1/2} · Ai(-ε^{-2/3} ζ(x)) · e^{iS_c/ε}</p>
+</dd>
+</dl>
+<p>where ζ(x) is the local coordinate measuring distance to the caustic.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.CausticFunctions.airy_Ai_prime">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">airy_Ai_prime</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/caustics.html#CausticFunctions.airy_Ai_prime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticFunctions.airy_Ai_prime" title="Link to this definition"></a></dt>
+<dd><p>Derivative Ai’(z) of the Airy function.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.CausticFunctions.airy_Bi">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">airy_Bi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/caustics.html#CausticFunctions.airy_Bi"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticFunctions.airy_Bi" title="Link to this definition"></a></dt>
+<dd><p>Second Airy function Bi(z) (exponentially growing branch).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.CausticFunctions.cusp_uniform">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cusp_uniform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">S_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/caustics.html#CausticFunctions.cusp_uniform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticFunctions.cusp_uniform" title="Link to this definition"></a></dt>
+<dd><p>Uniform approximation near a cusp caustic (A3).</p>
+<dl class="simple">
+<dt>Scaled Pearcey:</dt><dd><p>u(x,y) ≈ ε^{1/4} · a_c · P(ε^{-1/2}(x-x_c), ε^{-3/4}(y-y_c)) · exp(i S_c / ε)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray of complex, same shape as x and y.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.CausticFunctions.fold_uniform">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fold_uniform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">a_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">S_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dJ_ds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/caustics.html#CausticFunctions.fold_uniform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticFunctions.fold_uniform" title="Link to this definition"></a></dt>
+<dd><p>Uniform approximation near a fold caustic (A2).</p>
+<dl class="simple">
+<dt>Formula (Duistermaat 1974, eq. 2.4):</dt><dd><p>u(x) = 2√π · ε^{1/6} · a_c · <a href="#id21"><span class="problematic" id="id22">|</span></a>dJ/ds|^{-1/2} · Ai(-ε^{-2/3} (x - x_c)) · exp(i S_c / ε)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>evaluation grid</em>)</p></li>
+<li><p><strong>x_c</strong> (<em>caustic position</em>)</p></li>
+<li><p><strong>epsilon</strong> (<em>small parameter</em>)</p></li>
+<li><p><strong>a_c</strong> (<em>WKB amplitude at caustic</em>)</p></li>
+<li><p><strong>S_c</strong> (<em>phase at caustic</em>)</p></li>
+<li><p><strong>dJ_ds</strong> (<em>∂</em><em>(</em><em>det J</em><em>)</em><em>/∂s at the caustic</em><em> (</em><em>slope</em><em> of </em><em>det J vs parameter s</em><em>)</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>np.ndarray of complex</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.CausticFunctions.maslov_phase_shift">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">maslov_phase_shift</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">complex</span></span></span><a class="reference internal" href="_modules/caustics.html#CausticFunctions.maslov_phase_shift"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticFunctions.maslov_phase_shift" title="Link to this definition"></a></dt>
+<dd><p>WKB phase correction factor from Maslov index μ.</p>
+<p>Each caustic crossing (each zero of det J) contributes a phase
+shift of π/2.  The total correction factor is exp(i μ π/2).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>mu</strong> (<em>int   Maslov index</em><em> (</em><em>number</em><em> of </em><em>signed caustic crossings</em><em>)</em><em>.</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>complex   exp(i μ π/2)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.CausticFunctions.pearcey">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pearcey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">6.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">complex</span></span></span><a class="reference internal" href="_modules/caustics.html#CausticFunctions.pearcey"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticFunctions.pearcey" title="Link to this definition"></a></dt>
+<dd><p>Pearcey integral for cusp caustic (A3):</p>
+<blockquote>
+<div><p>P(x, y) = ∫_{-∞}^{∞} exp(i(t⁴ + x t² + y t)) dt</p>
+</div></blockquote>
+<p>Evaluated by adaptive quadrature on [-t_range, t_range].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>control parameters</em>)</p></li>
+<li><p><strong>y</strong> (<em>control parameters</em>)</p></li>
+<li><p><strong>t_range</strong> (integration half-width (default 6.0; increase for large <a href="#id32"><span class="problematic" id="id33">|x|</span></a>,|y|))</p></li>
+<li><p><strong>n_pts</strong> (<em>number</em><em> of </em><em>quadrature points</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>complex</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.CausticFunctions.pearcey_grid">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pearcey_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">6.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/caustics.html#CausticFunctions.pearcey_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticFunctions.pearcey_grid" title="Link to this definition"></a></dt>
+<dd><p>Vectorised Pearcey integral over 2D grids X, Y.
+Returns complex array of same shape as X.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.CausticFunctions.swallowtail">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">swallowtail</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_range</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">400</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">complex</span></span></span><a class="reference internal" href="_modules/caustics.html#CausticFunctions.swallowtail"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.CausticFunctions.swallowtail" title="Link to this definition"></a></dt>
+<dd><p>Swallowtail integral for A4 caustic:</p>
+<blockquote>
+<div><p>SW(x,y,z) = ∫_{-∞}^{∞} exp(i(t⁵ + x t³ + y t² + z t)) dt</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>control parameters</em>)</p></li>
+<li><p><strong>y</strong> (<em>control parameters</em>)</p></li>
+<li><p><strong>z</strong> (<em>control parameters</em>)</p></li>
+<li><p><strong>t_range</strong> (<em>quadrature parameters</em>)</p></li>
+<li><p><strong>n_pts</strong> (<em>quadrature parameters</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>complex</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="caustics.RayCausticDetector">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">RayCausticDetector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ray_bundle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimension</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">H_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_syms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_syms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/caustics.html#RayCausticDetector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.RayCausticDetector" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Detect caustics in a ray bundle by tracking the stability matrix J.</p>
+<p>This class implements the correct geometric condition for caustics:
+a zero of the determinant of the stability matrix J = ∂x/∂q, where q
+are the initial ray parameters.  It replaces older heuristics such as
+velocity zeros or momentum minima, which are incorrect for caustic
+detection.</p>
+<p>The detector optionally classifies each caustic event into an Arnold
+type (fold, cusp, etc.) if a symbolic Hamiltonian is supplied.  It
+also computes the Maslov index (signed number of caustic crossings)
+and the associated phase shift exp(i μ π/2).</p>
+<section id="id23">
+<h2>Mathematical background<a class="headerlink" href="#id23" title="Link to this heading"></a></h2>
+<p>For a Hamiltonian H(x,ξ) and a family of rays parameterised by an
+initial‑condition vector q ∈ ℝⁿ, the stability matrix</p>
+<blockquote>
+<div><p>J(t) = ∂x(t)/∂q</p>
+</div></blockquote>
+<p>satisfies the variational equation</p>
+<blockquote>
+<div><p>dJ/dt = H_{px}(x(t), ξ(t)) · J ,      J(0) = Iₙ ,</p>
+</div></blockquote>
+<p>where H_{px} = ∂²H/∂ξ∂x is the mixed Hessian (n×n matrix in n
+dimensions).  A caustic occurs at time t* where det(J(t*)) = 0.
+The Maslov index μ is the signed count of such zero crossings; each
+crossing contributes a phase shift of π/2 to the semiclassical
+wavefunction.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The ray bundle passed to the constructor <strong>must</strong> contain the
+integrated stability matrix.  In 1D, the ray dict must have the key
+<cite>‘J’</cite> (a 1‑D array of length equal to <cite>‘t’</cite>).  In 2D, the keys
+<cite>‘J11’</cite>, <cite>‘J12’</cite>, <cite>‘J21’</cite>, <cite>‘J22’</cite> are required.  The helper methods
+<cite>stability_matrix_ode_1d</cite> and <cite>stability_matrix_ode_2d</cite> can be used
+to incorporate the J ODE into the ray integrator.</p>
+</div>
+<dl class="field-list">
+<dt class="field-odd">param ray_bundle<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of integrated rays.  Each dict contains at least the fields:
+- ‘t’ : ndarray, shape (n_steps,) – integration times.
+- ‘x’, ‘xi’ : ndarray (1D) or ‘x’,’y’,’xi’,’eta’ (2D) – position</p>
+<blockquote>
+<div><p>and momentum.</p>
+</div></blockquote>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Stability matrix entries:</dt><dd><ul>
+<li><p>1D: ‘J’ : ndarray, shape (n_steps,)</p></li>
+<li><p>2D: ‘J11’,’J12’,’J21’,’J22’ : ndarray, shape (n_steps,)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<p>If any of these keys is missing, the detector will raise a KeyError.</p>
+</dd>
+<dt class="field-even">type ray_bundle<span class="colon">:</span></dt>
+<dd class="field-even"><p>list of dict</p>
+</dd>
+<dt class="field-odd">param dimension<span class="colon">:</span></dt>
+<dd class="field-odd"><p>1 or 2.</p>
+</dd>
+<dt class="field-even">type dimension<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+<dt class="field-odd">param det_threshold<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A zero crossing of det(J) is registered when <a href="#id34"><span class="problematic" id="id35">|det(J)|</span></a> falls below
+<cite>det_threshold * |det(J(0))|</cite>.  Increase this value if caustics
+are missed; decrease it to avoid spurious detections.</p>
+</dd>
+<dt class="field-even">type det_threshold<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, default 0.05</p>
+</dd>
+<dt class="field-odd">param H_expr<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Symbolic Hamiltonian.  If provided, the Arnold type of each
+caustic is determined by <cite>classify_arnold_1d</cite> (1D) or
+<cite>classify_arnold_2d</cite> (2D) using the momentum variables.</p>
+</dd>
+<dt class="field-even">type H_expr<span class="colon">:</span></dt>
+<dd class="field-even"><p>sympy.Expr, optional</p>
+</dd>
+<dt class="field-odd">param xi_syms<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Momentum symbols (e.g., (xi,) in 1D, (xi, eta) in 2D).  Required
+if <cite>H_expr</cite> is given.</p>
+</dd>
+<dt class="field-even">type xi_syms<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple of sympy.Symbol, optional</p>
+</dd>
+<dt class="field-odd">param x_syms<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Spatial symbols (e.g., (x,) in 1D, (x, y) in 2D).  Currently
+unused, but kept for future extensions.</p>
+</dd>
+<dt class="field-even">type x_syms<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple of sympy.Symbol, optional</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.RayCausticDetector.events">
+<span class="sig-name descname"><span class="pre">events</span></span><a class="headerlink" href="#caustics.RayCausticDetector.events" title="Link to this definition"></a></dt>
+<dd><p>Detected caustic events after calling <cite>detect()</cite>.  Each event
+contains the time, position, momentum, sign change, Maslov
+contribution, and (if possible) the Arnold type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of <a class="reference internal" href="#caustics.CausticEvent" title="caustics.CausticEvent">CausticEvent</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.RayCausticDetector.detect">
+<span class="sig-name descname"><span class="pre">detect</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#caustics.CausticEvent" title="caustics.CausticEvent"><span class="pre">CausticEvent</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/caustics.html#RayCausticDetector.detect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.RayCausticDetector.detect" title="Link to this definition"></a></dt>
+<dd><p>Detect all caustic events in the ray bundle.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of <a class="reference internal" href="#caustics.CausticEvent" title="caustics.CausticEvent">CausticEvent</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.RayCausticDetector.maslov_index">
+<span class="sig-name descname"><span class="pre">maslov_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ray_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference internal" href="_modules/caustics.html#RayCausticDetector.maslov_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.RayCausticDetector.maslov_index" title="Link to this definition"></a></dt>
+<dd><p>Return the Maslov index for ray ray_idx.</p>
+<dl class="simple">
+<dt>The Maslov index is the signed count of caustic crossings:</dt><dd><p>μ = Σ_k  sign(d det(J)/dt at t_k*)</p>
+</dd>
+</dl>
+<p>Each crossing contributes a phase shift of π/2 to the WKB amplitude.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ray_idx</strong> (<em>int</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>int   (total signed count; use abs() for the number of crossings)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.RayCausticDetector.maslov_phase">
+<span class="sig-name descname"><span class="pre">maslov_phase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ray_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/caustics.html#RayCausticDetector.maslov_phase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.RayCausticDetector.maslov_phase" title="Link to this definition"></a></dt>
+<dd><p>Total Maslov phase = μ · π/2 for ray ray_idx.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.RayCausticDetector.stability_matrix_ode_1d">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">stability_matrix_ode_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_px_func</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/caustics.html#RayCausticDetector.stability_matrix_ode_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.RayCausticDetector.stability_matrix_ode_1d" title="Link to this definition"></a></dt>
+<dd><p>Return the RHS for the 1D stability ODE to be integrated with the ray.</p>
+<section id="usage-in-your-ray-integrator">
+<h3>Usage in your ray integrator<a class="headerlink" href="#usage-in-your-ray-integrator" title="Link to this heading"></a></h3>
+<p>Add a state component J (scalar, initially 1) to the ray ODE.
+The extra equation is:</p>
+<blockquote>
+<div><p>dJ/dt = H_px(x(t), ξ(t)) · J</p>
+</div></blockquote>
+<p>where H_px = ∂²H/∂ξ∂x (scalar in 1D).</p>
+<dl class="field-list simple">
+<dt class="field-odd">param H_px_func<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Lambdified ∂²H/∂ξ∂x.</p>
+</dd>
+<dt class="field-even">type H_px_func<span class="colon">:</span></dt>
+<dd class="field-even"><p>callable (x, xi) → float</p>
+</dd>
+<dt class="field-odd">rtype<span class="colon">:</span></dt>
+<dd class="field-odd"><p>callable (t, J_val, x_val, xi_val) → dJ/dt</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.RayCausticDetector.stability_matrix_ode_2d">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">stability_matrix_ode_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_px_func</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/caustics.html#RayCausticDetector.stability_matrix_ode_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.RayCausticDetector.stability_matrix_ode_2d" title="Link to this definition"></a></dt>
+<dd><p>Return the RHS for the 2D stability ODE.</p>
+<p>The 2×2 matrix J satisfies  dJ/dt = H_{px} · J
+where H_{px} = [[∂²H/∂ξ∂x, ∂²H/∂ξ∂y],[∂²H/∂η∂x, ∂²H/∂η∂y]].</p>
+<p>Pack J as a flat vector [J11, J12, J21, J22] in the state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>H_px_func</strong> (<em>callable</em><em> (</em><a class="reference internal" href="geometry.html#geometry.CausticStructure.x" title="geometry.CausticStructure.x"><em>x</em></a><em>, </em><a class="reference internal" href="geometry.html#geometry.CausticStructure.y" title="geometry.CausticStructure.y"><em>y</em></a><em>, </em><a class="reference internal" href="geometry.html#geometry.Geodesic1D.xi" title="geometry.Geodesic1D.xi"><em>xi</em></a><em>, </em><a class="reference internal" href="geometry.html#geometry.Geodesic2D.eta" title="geometry.Geodesic2D.eta"><em>eta</em></a><em>) </em><em>→ 2×2 array</em>) – Lambdified H_{px} matrix.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>callable (<a class="reference internal" href="geometry.html#geometry.CausticStructure.t" title="geometry.CausticStructure.t">t</a>, J_flat, <a class="reference internal" href="geometry.html#geometry.CausticStructure.x" title="geometry.CausticStructure.x">x</a>, <a class="reference internal" href="geometry.html#geometry.CausticStructure.y" title="geometry.CausticStructure.y">y</a>, <a class="reference internal" href="geometry.html#geometry.Geodesic1D.xi" title="geometry.Geodesic1D.xi">xi</a>, <a class="reference internal" href="geometry.html#geometry.Geodesic2D.eta" title="geometry.Geodesic2D.eta">eta</a>) → dJ_flat/dt  (4-vector)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="caustics.RayCausticDetector.summary">
+<span class="sig-name descname"><span class="pre">summary</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="reference internal" href="_modules/caustics.html#RayCausticDetector.summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.RayCausticDetector.summary" title="Link to this definition"></a></dt>
+<dd><p>Return a summary dict of detected caustic events.</p>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="caustics.classify_arnold_1d">
+<span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">classify_arnold_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Symbol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">point</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/caustics.html#classify_arnold_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.classify_arnold_1d" title="Link to this definition"></a></dt>
+<dd><p>Classify a 1D singularity of f(xi) at xi = point.</p>
+<p>Algorithm: evaluate successive derivatives f^(k)(point) until the first
+non-vanishing one determines the A_k type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>f</strong> (<em>sympy.Expr</em>) – Function of xi.</p></li>
+<li><p><strong>xi</strong> (<em>sympy.Symbol</em>)</p></li>
+<li><p><strong>point</strong> (<em>float</em>) – Critical point (should satisfy f’(point) ≈ 0).</p></li>
+<li><p><strong>max_order</strong> (<em>int</em>) – Maximum derivative order to check (default 8 covers up to A7).</p></li>
+<li><p><strong>tol</strong> (<em>float</em>) – Threshold for “non-zero” derivative.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>‘type’        : str   e.g. “A2 (Fold)”, “A3 (Cusp)”, …
+‘order’       : int   k such that f^(k)(point) ≠ 0
+‘derivatives’ : dict  {k: value} for k = 1..max_order
+‘point’       : float</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict with keys</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="caustics.classify_arnold_2d">
+<span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">classify_arnold_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Symbol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Symbol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">point</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/caustics.html#classify_arnold_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.classify_arnold_2d" title="Link to this definition"></a></dt>
+<dd><p>Classify a 2D catastrophe at a critical point of H(xi, eta).</p>
+<dl>
+<dt>Follows Arnold’s classification:</dt><dd><p>Morse   rank 2  → non-degenerate
+A_k     rank 1  → fold (A2), cusp (A3), swallowtail (A4),</p>
+<blockquote>
+<div><p>butterfly (A5), A6+</p>
+</div></blockquote>
+<p>D4±     rank 0  → hyperbolic umbilic (I&gt;0) / elliptic umbilic (I&lt;0)
+higher  rank 0, I=0 → E6 or beyond</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>H</strong> (<em>sympy.Expr</em>) – Function of (xi, eta).</p></li>
+<li><p><strong>xi</strong> (<em>sympy.Symbol</em>)</p></li>
+<li><p><strong>eta</strong> (<em>sympy.Symbol</em>)</p></li>
+<li><p><strong>point</strong> (<em>dict</em>) – Numeric values {‘xi’: float, ‘eta’: float}.
+Extra keys (space coordinates) are ignored.</p></li>
+<li><p><strong>tol</strong> (<em>float</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>‘type’                   : str
+‘hessian’                : 2×2 list
+‘third_order_tensor’     : dict of H_xxx, H_xxy, H_xyy, H_yyy
+‘directional_derivatives’: dict of D3…D6  (rank-1 case)
+‘cubic_invariant_I’      : float           (rank-0 case)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict with keys</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="caustics.detect_catastrophes">
+<span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">detect_catastrophes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_vars</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coarse_n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/caustics.html#detect_catastrophes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.detect_catastrophes" title="Link to this definition"></a></dt>
+<dd><p>Detect and classify catastrophes of H_expr(xi_vars).</p>
+<p>Combines AdaptiveCriticalPointSolver (robust search) with
+classify_arnold_1d / classify_arnold_2d (typing).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>H_expr</strong> (<em>sp.Expr</em>)</p></li>
+<li><p><strong>xi_vars</strong> (<em>tuple</em><em> of </em><em>sp.Symbol   —</em><em> (</em><a class="reference internal" href="geometry.html#geometry.Geodesic1D.xi" title="geometry.Geodesic1D.xi"><em>xi</em></a><em>,</em><em>) </em><em>in 1D</em><em>, </em><em>(</em><a class="reference internal" href="geometry.html#geometry.Geodesic1D.xi" title="geometry.Geodesic1D.xi"><em>xi</em></a><em>, </em><a class="reference internal" href="geometry.html#geometry.Geodesic2D.eta" title="geometry.Geodesic2D.eta"><em>eta</em></a><em>) </em><em>in 2D</em>)</p></li>
+<li><p><strong>coords</strong> (<em>tuple</em><em> of </em><em>sp.Symbol</em><em>, </em><em>optional</em>) – Additional parameter symbols (e.g. spatial coordinates x, y).
+When provided, catastrophes are tracked as families.</p></li>
+<li><p><strong>method</strong> (<em>&quot;symbolic&quot;</em><em> | </em><em>&quot;adaptive&quot;</em><em> | </em><em>&quot;auto&quot;</em>)</p></li>
+<li><p><strong>bounds</strong> (<em>dict {symbol:</em><em> (</em><em>lo</em><em>, </em><em>hi</em><em>)</em><em>}</em><em>, </em><em>optional</em>)</p></li>
+<li><p><strong>coarse_n</strong> (<em>int    — coarse grid resolution per axis</em>)</p></li>
+<li><p><strong>max_order</strong> (<em>int   — max derivative order for 1D classification</em>)</p></li>
+<li><p><strong>tol</strong> (<em>float</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>‘point’      : dict {symbol: value}
+‘type’       : str   Arnold type
+‘details’    : dict  hessian / derivatives / invariants</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of dict, each with</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="caustics.find_critical_points_numerical">
+<span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">find_critical_points_numerical</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grad_func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_guesses</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/caustics.html#find_critical_points_numerical"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.find_critical_points_numerical" title="Link to this definition"></a></dt>
+<dd><p>Shared numerical kernel for locating critical points where ∇φ = 0.</p>
+<p>Minimises <a href="#id24"><span class="problematic" id="id25">|</span></a>∇φ(x)|² from each initial guess using L-BFGS-B, then
+deduplicates nearby solutions with a greedy DBSCAN-style clustering.</p>
+<dl class="simple">
+<dt>This function is the single source of truth used by:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">asymptotic.Analyzer.find_critical_points</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fio_bridge._BoundAnalyzer.find_critical_points</span></code></p></li>
+</ul>
+</dd>
+</dl>
+<p>It can also be called directly for lightweight use cases.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grad_func</strong> (<em>callable</em>) – Function <code class="docutils literal notranslate"><span class="pre">grad_func(*x)</span> <span class="pre">-&gt;</span> <span class="pre">array-like</span></code> returning the gradient ∇φ
+evaluated at the point <code class="docutils literal notranslate"><span class="pre">x</span></code> (unpacked coordinates).</p></li>
+<li><p><strong>initial_guesses</strong> (<em>list</em><em> of </em><em>np.ndarray</em>) – Starting points for the optimisation.</p></li>
+<li><p><strong>tolerance</strong> (<em>float</em>) – Convergence threshold: a point is accepted when <a href="#id26"><span class="problematic" id="id27">|</span></a>∇φ|² &lt; tolerance.</p></li>
+<li><p><strong>domain</strong> (<em>list</em><em> of </em><em>(</em><em>lo</em><em>, </em><em>hi</em><em>) </em><em>tuples</em><em>, </em><em>optional</em>) – If provided, only points satisfying <code class="docutils literal notranslate"><span class="pre">lo</span> <span class="pre">&lt;=</span> <span class="pre">x_i</span> <span class="pre">&lt;=</span> <span class="pre">hi</span></code> are kept.</p></li>
+<li><p><strong>cluster_tol</strong> (<em>float</em>) – Distance threshold for deduplication; solutions closer than this
+are merged into a single representative point (cluster mean).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Unique critical points found within the given tolerance and domain.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="caustics.plot_catastrophe">
+<span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">plot_catastrophe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_vars</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_bounds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(-3.0,</span> <span class="pre">3.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_bounds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(-3.0,</span> <span class="pre">3.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/caustics.html#plot_catastrophe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.plot_catastrophe" title="Link to this definition"></a></dt>
+<dd><p>Plot H and mark classified catastrophe points.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>H</strong> (<em>sympy.Expr</em>)</p></li>
+<li><p><strong>xi_vars</strong> (<em>(</em><a class="reference internal" href="geometry.html#geometry.Geodesic1D.xi" title="geometry.Geodesic1D.xi"><em>xi</em></a><em>,</em><em>) or </em><em>(</em><a class="reference internal" href="geometry.html#geometry.Geodesic1D.xi" title="geometry.Geodesic1D.xi"><em>xi</em></a><em>, </em><a class="reference internal" href="geometry.html#geometry.Geodesic2D.eta" title="geometry.Geodesic2D.eta"><em>eta</em></a><em>)</em>)</p></li>
+<li><p><strong>points</strong> (<em>list</em><em> of </em><em>dicts as returned by detect_catastrophes</em><em>(</em><em>)</em>) – each must have keys ‘point’ and ‘type’</p></li>
+<li><p><strong>xi_bounds</strong> (<em>axis ranges</em>)</p></li>
+<li><p><strong>eta_bounds</strong> (<em>axis ranges</em>)</p></li>
+<li><p><strong>n</strong> (<em>grid resolution</em>)</p></li>
+<li><p><strong>title</strong> (<em>optional plot title</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="caustics.plot_caustic_events">
+<span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">plot_caustic_events</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ray_bundle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">events</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#caustics.CausticEvent" title="caustics.CausticEvent"><span class="pre">CausticEvent</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimension</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_rays_plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/caustics.html#plot_caustic_events"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.plot_caustic_events" title="Link to this definition"></a></dt>
+<dd><p>Overlay caustic events on the ray bundle plot.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ray_bundle</strong> (<em>list</em><em> of </em><em>ray dicts</em><em> (</em><em>with 'x'</em><em>, </em><em>'t' etc.</em><em>)</em>)</p></li>
+<li><p><strong>events</strong> (<em>list</em><em> of </em><em>CausticEvent from RayCausticDetector.detect</em><em>(</em><em>)</em>)</p></li>
+<li><p><strong>dimension</strong> (<em>1</em><em> or </em><em>2</em>)</p></li>
+<li><p><strong>n_rays_plot</strong> (<em>max number</em><em> of </em><em>rays to draw</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="asymptotic.html" class="btn btn-neutral float-left" title="asymptotic" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fio_bridge.html" class="btn btn-neutral float-right" title="fio_bridge" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

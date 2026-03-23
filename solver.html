@@ -1,0 +1,618 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>solver &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="symplectic" href="symplectic.html" />
+    <link rel="prev" title="riemannian" href="riemannian.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="geometry.html">geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="microlocal.html">microlocal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="propagator.html">propagator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="riemannian.html">riemannian</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">solver</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#solver-py-spectral-pde-solver-for-1d-2d-equations-with-pseudodifferential-operators">solver.py — Spectral PDE solver for 1D/2D equations with pseudo‑differential operators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mathematical-background">Mathematical background</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#solver.PDESolver"><code class="docutils literal notranslate"><span class="pre">PDESolver</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#solver.PDESolver.animate"><code class="docutils literal notranslate"><span class="pre">PDESolver.animate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#solver.PDESolver.plot_energy"><code class="docutils literal notranslate"><span class="pre">PDESolver.plot_energy()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#solver.PDESolver.setup"><code class="docutils literal notranslate"><span class="pre">PDESolver.setup()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#solver.PDESolver.show_stationary_solution"><code class="docutils literal notranslate"><span class="pre">PDESolver.show_stationary_solution()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#solver.PDESolver.solve"><code class="docutils literal notranslate"><span class="pre">PDESolver.solve()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#solver.PDESolver.solve_stationary_psiOp"><code class="docutils literal notranslate"><span class="pre">PDESolver.solve_stationary_psiOp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#solver.PDESolver.test"><code class="docutils literal notranslate"><span class="pre">PDESolver.test()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="symplectic.html">symplectic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">solver</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/solver.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-solver">
+<span id="solver"></span><h1>solver<a class="headerlink" href="#module-solver" title="Link to this heading"></a></h1>
+<section id="solver-py-spectral-pde-solver-for-1d-2d-equations-with-pseudodifferential-operators">
+<h2>solver.py — Spectral PDE solver for 1D/2D equations with pseudo‑differential operators<a class="headerlink" href="#solver-py-spectral-pde-solver-for-1d-2d-equations-with-pseudodifferential-operators" title="Link to this heading"></a></h2>
+<section id="overview">
+<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
+<p>The <cite>solver</cite> module provides a high‑performance spectral solver for partial differential equations in one and two spatial dimensions.  It is designed to handle a wide class of problems, including:</p>
+<ul class="simple">
+<li><p>Linear and nonlinear PDEs with periodic or Dirichlet boundary conditions.</p></li>
+<li><p>Time‑dependent evolution (first‑ or second‑order in time) and stationary problems.</p></li>
+<li><p>Equations involving pseudo‑differential operators (via <cite>psiOp</cite>), such as fractional Laplacians or non‑local terms.</p></li>
+<li><p>Source terms and arbitrary spatial derivatives.</p></li>
+</ul>
+<p>The solver is built on <strong>Fourier spectral methods</strong> for spatial discretisation, ensuring exponential convergence for smooth solutions.  Time stepping is performed with either a simple exponential integrator, a fourth‑order <strong>Exponential Time Differencing Runge–Kutta (ETD‑RK4)</strong> scheme, or explicit Runge–Kutta methods for nonlinear problems.  For stationary pseudo‑differential equations, an <strong>asymptotic inversion</strong> of the operator is available.</p>
+<p>Key features:</p>
+<ul class="simple">
+<li><p>Symbolic parsing of the PDE using SymPy – the user provides an equation in standard mathematical form.</p></li>
+<li><p>Automatic extraction of linear, nonlinear, source, and pseudo‑differential terms.</p></li>
+<li><p>Computation of the Fourier symbol of the linear operator (dispersion relation) from the equation.</p></li>
+<li><p>Dealiasing via sharp spectral cut‑off to control aliasing errors from nonlinear terms.</p></li>
+<li><p>Efficient FFT‑based application of linear and pseudo‑differential operators.</p></li>
+<li><p>Support for both 1D and 2D problems with uniform grids.</p></li>
+<li><p>Built‑in energy monitoring, CFL checks, and spectral symbol analysis.</p></li>
+<li><p>Rich visualisation: animated solutions, error plots, energy evolution, and 3D surface/2D image displays.</p></li>
+<li><p>Testing framework for comparison with exact solutions.</p></li>
+</ul>
+</section>
+<section id="mathematical-background">
+<h3>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h3>
+<p><strong>Spectral discretisation.</strong>  The solution <cite>u(x,t)</cite> is approximated by its truncated Fourier series.  Spatial derivatives are replaced by multiplication with the corresponding wavenumber in Fourier space:</p>
+<blockquote>
+<div><p>∂/∂x   →   i k ,  ∂²/∂x² →   -k² .</p>
+</div></blockquote>
+<p>Nonlinear terms are evaluated in physical space and then transformed back (pseudo‑spectral approach).  Dealiasing is applied by zeroing out the highest one‑third of the Fourier modes (the 2/3‑rule).</p>
+<p><strong>Linear operator.</strong>  After parsing the PDE, the linear part is converted into a Fourier multiplier <cite>L(k)</cite> (or <cite>L(kx,ky)</cite>).  For a first‑order‑in‑time equation</p>
+<blockquote>
+<div><p>∂ₜ u = L u + N(u) + f(x,t),</p>
+</div></blockquote>
+<p>the variation‑of‑constants formula motivates exponential integrators.  The solver implements:</p>
+<ul class="simple">
+<li><p><strong>Exponential Euler</strong> (first order): <cite>uⁿ⁺¹ = e^{LΔt} uⁿ + Δt φ₁(LΔt) (N(uⁿ)+fⁿ)</cite> with <cite>φ₁(z) = (e^z-1)/z</cite>.</p></li>
+<li><p><strong>ETD‑RK4</strong> (fourth order): a Runge–Kutta scheme that uses exponentials of the linear part, achieving high accuracy for stiff problems.</p></li>
+</ul>
+<p>For second‑order equations</p>
+<blockquote>
+<div><p>∂ₜ² u = L u + N(u) + f(x,t),</p>
+</div></blockquote>
+<p>the system is reduced to first order in time, and a leap‑frog style integrator or a second‑order ETD scheme is used.</p>
+<p><strong>Pseudo‑differential operators.</strong>  When the equation contains <cite>psiOp(p(x,ξ), u)</cite>, the solver builds a <cite>PseudoDifferentialOperator</cite> object (from the companion <cite>psiop</cite> module) and applies it using Kohn–Nirenberg quantisation (fast Fourier for constant‑coefficient symbols, direct quadrature for spatially varying symbols).  For stationary problems, an asymptotic right inverse is constructed via symbolic series expansion.</p>
+<p><strong>Stability.</strong>  The solver checks the CFL condition based on the maximum group velocity derived from the dispersion relation.  It also verifies that the symbol satisfies the necessary conditions for well‑posedness (Re <cite>L(k)</cite> ≤ 0, sufficient high‑frequency dissipation, moderate growth).</p>
+<p class="rubric">References</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id1" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<p>Canuto, C., Hussaini, M. Y., Quarteroni, A., &amp; Zang, T. A.  <em>Spectral Methods: Fundamentals in Single Domains</em>, Springer, 2006.</p>
+</aside>
+<aside class="footnote brackets" id="id2" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
+<p>Trefethen, L. N.  <em>Spectral Methods in MATLAB</em>, SIAM, 2000.</p>
+</aside>
+<aside class="footnote brackets" id="id3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
+<p>Boyd, J. P.  <em>Chebyshev and Fourier Spectral Methods</em>, Dover, 2001.</p>
+</aside>
+<aside class="footnote brackets" id="id4" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
+<p>Hochbruck, M., &amp; Ostermann, A.  “Exponential integrators”, <em>Acta Numerica</em> 19, 209–286, 2010.</p>
+</aside>
+<aside class="footnote brackets" id="id5" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></span>
+<p>Kassam, A.-K., &amp; Trefethen, L. N.  “Fourth‑order time‑stepping for stiff PDEs”, <em>SIAM J. Sci. Comput.</em> 26(4), 1214–1233, 2005.</p>
+</aside>
+</aside>
+</section>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="solver.PDESolver">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">solver.</span></span><span class="sig-name descname"><span class="pre">PDESolver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">equation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_scheme</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'default'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dealiasing_ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6666666666666666</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A partial differential equation (PDE) solver based on <strong>spectral methods</strong> using Fourier transforms.</p>
+<p>This solver supports symbolic specification of PDEs via SymPy and numerical solution using high-order spectral techniques.
+It is designed for both <strong>linear and nonlinear time-dependent PDEs</strong>, as well as <strong>stationary pseudo-differential problems</strong>.</p>
+<section id="key-features">
+<h2>Key Features:<a class="headerlink" href="#key-features" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Symbolic PDE parsing using SymPy expressions</p></li>
+<li><p>1D and 2D spatial domains with periodic boundary conditions</p></li>
+<li><p>Fourier-based spectral discretization with dealiasing</p></li>
+<li><dl class="simple">
+<dt>Temporal integration schemes:</dt><dd><ul>
+<li><p>Default exponential time stepping</p></li>
+<li><p>ETD-RK4 (Exponential Time Differencing Runge-Kutta of 4th order)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Nonlinear terms handled through pseudo-spectral evaluation</p></li>
+<li><dl class="simple">
+<dt>Built-in tools for:</dt><dd><ul>
+<li><p>Visualization of solutions and error surfaces</p></li>
+<li><p>Symbol analysis of linear and pseudo-differential operators</p></li>
+<li><p>Microlocal analysis (e.g., Hamiltonian flows)</p></li>
+<li><p>CFL condition checking and numerical stability diagnostics</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="supported-operators">
+<h2>Supported Operators:<a class="headerlink" href="#supported-operators" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Linear differential and pseudo-differential operators</p></li>
+<li><p>Nonlinear terms up to second order in derivatives</p></li>
+<li><p>Symbolic operator composition and adjoints</p></li>
+<li><p>Asymptotic inversion of elliptic operators for stationary problems</p></li>
+</ul>
+</section>
+<section id="example-usage">
+<h2>Example Usage:<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h2>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">PDESolver</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;t x&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">eq</span> <span class="o">=</span> <span class="n">Eq</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">u</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">t</span><span class="p">),</span> <span class="n">diff</span><span class="p">(</span><span class="n">u</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">x</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">u</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span><span class="w"> </span><span class="nf">_initial</span><span class="p">(</span><span class="n">x</span><span class="p">):</span> <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">solver</span> <span class="o">=</span> <span class="n">PDESolver</span><span class="p">(</span><span class="n">eq</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">solver</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">Lx</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">Nx</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">Lt</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">Nt</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">initial_condition</span><span class="o">=</span><span class="n">initial</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ani</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">animate</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">HTML</span><span class="p">(</span><span class="n">ani</span><span class="o">.</span><span class="n">to_jshtml</span><span class="p">())</span>  <span class="c1"># Display animation in Jupyter notebook</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="solver.PDESolver.animate">
+<span class="sig-name descname"><span class="pre">animate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">component</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'abs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overlay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'contour'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'surface'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver.animate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.animate" title="Link to this definition"></a></dt>
+<dd><p>Create an animated plot of the solution evolution over time.</p>
+<p>This method generates a dynamic visualization of the stored solution frames
+<cite>self.frames</cite>. It supports:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>1D line animation (unchanged),</p></li>
+<li><p>2D surface animation (original behavior, ‘surface’),</p></li>
+<li><p>2D image animation using imshow (new, ‘imshow’) which is faster and
+often clearer for large grids.</p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>component</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>one</em><em> of </em><em>{'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'</em><em>, </em><em>'angle'}</em>) – <dl class="simple">
+<dt>Which component of the complex field to visualize:</dt><dd><ul>
+<li><p>’real’  : Re(u)</p></li>
+<li><p>’imag’  : Im(u)</p></li>
+<li><p>’abs’   : <a href="#id8"><span class="problematic" id="id9">|u|</span></a></p></li>
+<li><p>’angle’ : arg(u)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Default is ‘abs’.</p>
+</p></li>
+<li><p><strong>overlay</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>optional</em><em>, </em><em>one</em><em> of </em><em>{'contour'</em><em>, </em><em>'front'</em><em>, </em><em>None}</em>) – <dl class="simple">
+<dt>For 2D modes only. If None, no overlay is drawn.</dt><dd><ul>
+<li><p>’contour’ : draw contour lines on top (or beneath for 3D surface)</p></li>
+<li><p>’front’   : detect and mark wavefronts using gradient maxima</p></li>
+</ul>
+</dd>
+</dl>
+<p>Default is ‘contour’.</p>
+</p></li>
+<li><p><strong>mode</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>one</em><em> of </em><em>{'surface'</em><em>, </em><em>'imshow'}</em>) – 2D rendering mode. ‘surface’ keeps the original 3D surface plot.
+‘imshow’ draws a 2D raster (faster, often more readable).
+Default is ‘surface’ for backward compatibility.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A Matplotlib <cite>FuncAnimation</cite> instance (you can display it in a notebook
+or save it to file).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>FuncAnimation</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The method uses the same time-mapping logic as before (linear sampling of
+stored frames to animation frames).</p></li>
+<li><p>For ‘angle’ the color scale is fixed between -π and π.</p></li>
+<li><p>For other components, color scaling is by default dynamically adapted per
+frame in ‘imshow’ mode (this avoids extreme clipping if amplitudes vary).</p></li>
+<li><p>Overlays are updated cleanly: previous contour/scatter artists are removed
+before drawing the next frame to avoid memory/visual accumulation.</p></li>
+<li><p>Animation interval is 50 ms per frame (unchanged).</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="solver.PDESolver.plot_energy">
+<span class="sig-name descname"><span class="pre">plot_energy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver.plot_energy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.plot_energy" title="Link to this definition"></a></dt>
+<dd><p>Plot the time evolution of the total energy for wave equations.
+Visualizes the energy computed during simulation for both 1D and 2D cases.
+Requires temporal_order=2 and prior execution of compute_energy() during solve().</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>log</strong> – bool
+If True, displays energy on a logarithmic scale to highlight exponential decay/growth.</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Energy is defined as E(t) = 1/2 ∫ [ (∂ₜu)² + <a href="#id6"><span class="problematic" id="id7">|</span></a>L¹⸍²u|² ] dx</p></li>
+<li><p>Only available if energy monitoring was activated in solve()</p></li>
+<li><p>Automatically skips plotting if no energy data is available</p></li>
+</ul>
+<dl class="simple">
+<dt>Displays:</dt><dd><ul class="simple">
+<li><p>Time vs. Total Energy plot with grid and legend</p></li>
+<li><p>Appropriate axis labels and dimensional context (1D/2D)</p></li>
+<li><p>Logarithmic or linear scaling based on input parameter</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="solver.PDESolver.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Lx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ly</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ny</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary_condition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'periodic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_condition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_velocity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_frames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.setup" title="Link to this definition"></a></dt>
+<dd><p>Configure the spatial/temporal grid and initialize the solution field.</p>
+<p>This method sets up the computational domain, initializes spatial and temporal grids,
+applies boundary conditions, and prepares symbolic and numerical operators.
+It also performs essential analyses such as:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>CFL condition verification (for stability)</p></li>
+<li><p>Symbol analysis (e.g., dispersion relation, regularity)</p></li>
+<li><p>Wave propagation analysis for second-order equations</p></li>
+</ul>
+</div></blockquote>
+<p>If pseudo-differential operators (ψOp) are present, symbolic analysis is skipped
+in favor of interactive exploration via <cite>interactive_symbol_analysis</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Lx</strong> (<em>float</em>) – Size of the spatial domain along x-axis.</p></li>
+<li><p><strong>Ly</strong> (<em>float</em><em>, </em><em>optional</em>) – Size of the spatial domain along y-axis (for 2D problems).</p></li>
+<li><p><strong>Nx</strong> (<em>int</em>) – Number of spatial points along x-axis.</p></li>
+<li><p><strong>Ny</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of spatial points along y-axis (for 2D problems).</p></li>
+<li><p><strong>Lt</strong> (<em>float</em><em>, </em><em>default=1.0</em>) – Total simulation time.</p></li>
+<li><p><strong>Nt</strong> (<em>int</em><em>, </em><em>default=100</em>) – Number of time steps.</p></li>
+<li><p><strong>initial_condition</strong> (<em>callable</em>) – Function returning the initial state u(x, 0) or u(x, y, 0).</p></li>
+<li><p><strong>initial_velocity</strong> (<em>callable</em><em>, </em><em>optional</em>) – Function returning the initial time derivative ∂ₜu(x, 0) or ∂ₜu(x, y, 0),
+required for second-order equations.</p></li>
+<li><p><strong>n_frames</strong> (<em>int</em><em>, </em><em>default=100</em>) – Number of time frames to store during simulation for visualization or output.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If mandatory parameters are missing (e.g., Nx not given in 1D, Ly/Ny not given in 2D).</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The spatial discretization assumes periodic boundary conditions by default.</p></li>
+<li><p>Fourier transforms are computed using real-to-complex FFTs (<cite>scipy.fft.fft</cite>, <cite>fft2</cite>).</p></li>
+<li><p>Frequency arrays (<cite>KX</cite>, <cite>KY</cite>) are defined following standard spectral conventions.</p></li>
+<li><p>Dealiasing is applied using a sharp cutoff filter at a fraction of the maximum frequency.</p></li>
+<li><p>For second-order equations, initial acceleration is derived from the governing operator.</p></li>
+<li><p>Symbolic analysis includes plotting of the symbol’s real/imaginary/absolute values
+and dispersion relation.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">setup_1D</span></code></dt><dd><p>Sets up internal variables for one-dimensional problems.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">setup_2D</span></code></dt><dd><p>Sets up internal variables for two-dimensional problems.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">initialize_conditions</span></code></dt><dd><p>Applies initial data and enforces compatibility.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_cfl_condition</span></code></dt><dd><p>Verifies time step against stability constraints.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_symbol</span></code></dt><dd><p>Visualizes the linear operator’s symbol in frequency space.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyze_wave_propagation</span></code></dt><dd><p>Analyzes group velocity.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">interactive_symbol_analysis</span></code></dt><dd><p>Interactive tools for ψOp-based equations.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="solver.PDESolver.show_stationary_solution">
+<span class="sig-name descname"><span class="pre">show_stationary_solution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'abs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'viridis'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver.show_stationary_solution"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.show_stationary_solution" title="Link to this definition"></a></dt>
+<dd><p>Display the stationary solution computed by solve_stationary_psiOp.</p>
+<p>This method visualizes the solution of a pseudo-differential equation
+solved in stationary mode. It supports both 1D and 2D spatial domains,
+with options to display different components of the solution (real,
+imaginary, absolute value, or phase).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>u</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Precomputed solution array. If None, calls solve_stationary_psiOp()
+to compute the solution.</p></li>
+<li><p><strong>component</strong> (<em>str</em><em>, </em><em>optional {'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'</em><em>, </em><em>'angle'}</em>) – Component of the complex-valued solution to display:
+- ‘real’: Real part
+- ‘imag’: Imaginary part
+- ‘abs’ : Absolute value (modulus)
+- ‘angle’ : Phase (argument)</p></li>
+<li><p><strong>cmap</strong> (<em>str</em><em>, </em><em>optional</em>) – Colormap used for 2D visualization (default: ‘viridis’).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If an invalid component is specified or if the spatial dimension
+    is not supported (only 1D and 2D are implemented).</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>In 1D, the solution is displayed using a standard line plot.</p></li>
+<li><p>In 2D, the solution is visualized as a 3D surface plot.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="solver.PDESolver.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.solve" title="Link to this definition"></a></dt>
+<dd><p>Solve the partial differential equation numerically using spectral methods.</p>
+<p>This method evolves the solution in time using a combination of:
+- Fourier-based linear evolution (with dealiasing)
+- Nonlinear term handling via pseudo-spectral evaluation
+- Support for pseudo-differential operators (psiOp)
+- Source terms and boundary conditions</p>
+<p>The solver supports:
+- 1D and 2D spatial domains
+- First and second-order time evolution
+- Periodic and Dirichlet boundary conditions
+- Time-stepping schemes: default, ETD-RK4</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of solution arrays at each saved time frame.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[np.ndarray]</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Side Effects:</dt><dd><ul class="simple">
+<li><p>Updates self.frames: stores solution snapshots</p></li>
+<li><p>Updates self.energy_history: records total energy if enabled</p></li>
+</ul>
+</dd>
+<dt>Algorithm Overview:</dt><dd><dl class="simple">
+<dt>For each time step:</dt><dd><ol class="arabic simple">
+<li><p>Evaluate source contributions (if any)</p></li>
+<li><dl class="simple">
+<dt>Apply time evolution:</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>Order 1:</dt><dd><ul>
+<li><p>With psiOp: uses step_order1_with_psi</p></li>
+<li><p>With ETD-RK4: exponential time differencing</p></li>
+<li><p>Default: linear + nonlinear update</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Order 2:</dt><dd><ul>
+<li><p>With psiOp: uses step_order2_with_psi</p></li>
+<li><p>With ETD-RK4: second-order exponential scheme</p></li>
+<li><p>Default: second-order leapfrog-style update</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Enforce boundary conditions</p></li>
+<li><p>Save solution snapshot periodically</p></li>
+<li><p>Record energy (for second-order systems without psiOp)</p></li>
+</ol>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="solver.PDESolver.solve_stationary_psiOp">
+<span class="sig-name descname"><span class="pre">solve_stationary_psiOp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver.solve_stationary_psiOp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.solve_stationary_psiOp" title="Link to this definition"></a></dt>
+<dd><p>Solve stationary pseudo-differential equations of the form P[u] = f(x) or P[u] = f(x,y) using asymptotic inversion.</p>
+<p>This method computes the solution to a stationary (time-independent) pseudo-differential equation
+where the operator P is defined via symbolic expressions (psiOp). It constructs an asymptotic right inverse R
+such that P∘R ≈ Id, then applies it to the source term f using either direct Fourier multiplication
+(when the symbol is spatially independent) or Kohn–Nirenberg quantization (when spatial dependence is present).</p>
+<p>The inversion is based on the principal symbol of the operator and its asymptotic expansion up to the given order.
+Ellipticity of the symbol is checked numerically before inversion to ensure well-posedness.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default=3</em>) – Order of the asymptotic expansion used to construct the right inverse of the pseudo-differential operator.</p></li>
+<li><p><strong>method</strong> (<em>str</em><em>, </em><em>optional</em>) – Inversion strategy:
+- ‘diagonal’ (default): Fast approximate inversion using diagonal operators in frequency space.
+- ‘full’                : Pointwise exact inversion (slower but more accurate).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The computed solution u(x) in 1D or u(x, y) in 2D as a NumPy array over the spatial grid.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If no pseudo-differential operator (psiOp) is defined.
+    If linear or nonlinear terms other than psiOp are present.
+    If the symbol is not elliptic on the grid.
+    If no source term is provided for the right-hand side.</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The method assumes the problem is fully stationary: time derivatives must be absent.</p></li>
+<li><p>Requires the equation to be purely pseudo-differential (no Op, Derivative, or nonlinear terms).</p></li>
+<li><p>Symbol evaluation and inversion are dimension-aware (supports both 1D and 2D problems).</p></li>
+<li><p>Supports optimization paths when the symbol does not depend on spatial variables.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_inverse_asymptotic</span></code></dt><dd><p>Constructs the asymptotic inverse of the pseudo-differential operator.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">kohn_nirenberg</span></code></dt><dd><p>Numerical implementation of general pseudo-differential operators.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_elliptic_numerically</span></code></dt><dd><p>Verifies numerical ellipticity of the symbol.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="solver.PDESolver.test">
+<span class="sig-name descname"><span class="pre">test</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u_exact</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_eval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'relative'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'real'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver.test"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.test" title="Link to this definition"></a></dt>
+<dd><p>Test the solver against an exact solution.</p>
+<p>This method quantitatively compares the numerical solution with a provided exact solution
+at a specified time using either relative or absolute error norms. It supports both
+stationary and time-dependent problems in 1D and 2D. If enabled, it also generates plots
+of the solution, exact solution, and pointwise error.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>u_exact</strong> (<em>callable</em>) – Exact solution function taking spatial coordinates and optionally time as arguments.</p></li>
+<li><p><strong>t_eval</strong> (<em>float</em><em>, </em><em>optional</em>) – Time at which to compare solutions. For non-stationary problems, defaults to final time Lt.
+Ignored for stationary problems.</p></li>
+<li><p><strong>norm</strong> (<em>str {'relative'</em><em>, </em><em>'absolute'}</em>) – Type of error norm used in comparison.</p></li>
+<li><p><strong>threshold</strong> (<em>float</em>) – Acceptable error threshold; raises an assertion if exceeded.</p></li>
+<li><p><strong>plot</strong> (<em>bool</em>) – Whether to display visual comparison plots (default: True).</p></li>
+<li><p><strong>component</strong> (<em>str {'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'}</em>) – Component of the solution to compare and visualize.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ValueError</strong> – If unsupported dimension is encountered or requested evaluation time exceeds simulation duration.</p></li>
+<li><p><strong>AssertionError</strong> – If computed error exceeds the given threshold.</p></li>
+<li><p><strong>Prints</strong> – </p></li>
+<li><p><strong>------</strong> – </p></li>
+<li><p><strong>- Information about the closest available frame to the requested evaluation time.</strong> – </p></li>
+<li><p><strong>- Computed error value and comparison to threshold.</strong> – </p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>For time-dependent problems, the solution is extracted from precomputed frames.</p></li>
+<li><p>Plots are adapted to spatial dimension: line plots for 1D, image plots for 2D.</p></li>
+<li><p>The method ensures consistent handling of real, imaginary, and magnitude components.</p></li>
+</ul>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="riemannian.html" class="btn btn-neutral float-left" title="riemannian" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="symplectic.html" class="btn btn-neutral float-right" title="symplectic" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
