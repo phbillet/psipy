@@ -151,8 +151,6 @@
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.geodesic_hamiltonian_flow"><code class="docutils literal notranslate"><span class="pre">geodesic_hamiltonian_flow()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.geodesic_solver"><code class="docutils literal notranslate"><span class="pre">geodesic_solver()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_decomposition"><code class="docutils literal notranslate"><span class="pre">hodge_decomposition()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_decomposition_old"><code class="docutils literal notranslate"><span class="pre">hodge_decomposition_old()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_decomposition_old2"><code class="docutils literal notranslate"><span class="pre">hodge_decomposition_old2()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_star"><code class="docutils literal notranslate"><span class="pre">hodge_star()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.jacobi_equation_solver"><code class="docutils literal notranslate"><span class="pre">jacobi_equation_solver()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.laplace_beltrami"><code class="docutils literal notranslate"><span class="pre">laplace_beltrami()</span></code></a></li>
@@ -1637,83 +1635,6 @@ h   = α − dφ − ⋆dψ</p>
 <li><p><strong>domain</strong> (<em>tuple</em>) – ((x_min, x_max), (y_min, y_max))</p></li>
 <li><p><strong>resolution</strong> (<em>int</em>) – Grid points per axis.</p></li>
 </ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="riemannian.hodge_decomposition_old">
-<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">hodge_decomposition_old</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega_components</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#hodge_decomposition_old"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.hodge_decomposition_old" title="Link to this definition"></a></dt>
-<dd><p>Numerically decompose a 1‑form into exact, co‑exact, and harmonic parts on a 2D rectangle.</p>
-<dl class="simple">
-<dt>The decomposition is computed by solving two Poisson problems:</dt><dd><p>Δ φ = δ α,      with φ = 0 on boundary → α_exact = dφ
-Δ ψ = δ (⋆α),   with ψ = 0 on boundary → α_coexact = ⋆ dψ
-α_harmonic = α - dφ - ⋆ dψ</p>
-</dd>
-</dl>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian.Metric" title="riemannian.Metric"><em>Metric</em></a>) – Must be 2D.</p></li>
-<li><p><strong>omega_components</strong> (<em>tuple</em><em> of </em><em>sympy.Expr</em><em> or </em><em>callable</em>) – The components (α_x, α_y) of the 1‑form. If sympy expressions, they are lambdified.</p></li>
-<li><p><strong>domain</strong> (<em>tuple</em><em> of </em><em>tuples</em><em> (</em><em>(</em><em>x_min</em><em>, </em><em>x_max</em><em>)</em><em>, </em><em>(</em><em>y_min</em><em>, </em><em>y_max</em><em>)</em><em>)</em>) – Rectangular region in coordinates.</p></li>
-<li><p><strong>resolution</strong> (<em>int</em><em>, </em><em>default 50</em>) – Number of grid points in each direction (total grid resolution × resolution).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><ul class="simple">
-<li><p>‘potential_phi’ : 2D array (scalar potential for exact part)</p></li>
-<li><p>’potential_psi’ : 2D array (scalar potential for co‑exact part)</p></li>
-<li><p>’alpha_exact’ : tuple of 2D arrays (components of dφ)</p></li>
-<li><p>’alpha_coexact’ : tuple of 2D arrays (components of ⋆ dψ)</p></li>
-<li><p>’alpha_harmonic’ : tuple of 2D arrays (remaining part)</p></li>
-</ul>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>dict with keys</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="riemannian.hodge_decomposition_old2">
-<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">hodge_decomposition_old2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega_components</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#hodge_decomposition_old2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.hodge_decomposition_old2" title="Link to this definition"></a></dt>
-<dd><p>Numerically decompose a 1-form into exact, co-exact, and harmonic parts
-on a 2D rectangle.</p>
-<p>The decomposition follows the Hodge theorem:</p>
-<blockquote>
-<div><p>α = dφ  +  ⋆dψ  +  h</p>
-</div></blockquote>
-<p>and is computed by solving two Poisson problems with Dirichlet BC:</p>
-<blockquote>
-<div><p>Δ φ = δα          → α_exact   = dφ
-Δ ψ = δ(⋆α)       → α_coexact = ⋆dψ
-h   = α − dφ − ⋆dψ</p>
-</div></blockquote>
-<p>The Laplace–Beltrami operator is assembled directly as a sparse matrix
-using a 5-point (plus cross-term) finite-difference stencil derived from
-face-averaged metric coefficients, making construction O(N²) instead of
-the O(N⁴) basis-vector approach.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian.Metric" title="riemannian.Metric"><em>Metric</em></a>) – Must be 2D.</p></li>
-<li><p><strong>omega_components</strong> (<em>tuple</em><em> of </em><em>sympy.Expr</em><em> or </em><em>callable</em>) – The components (α_x, α_y) of the 1-form.
-SymPy expressions are lambdified automatically.</p></li>
-<li><p><strong>domain</strong> (<em>tuple</em><em> of </em><em>tuples</em><em>  (</em><em>(</em><em>x_min</em><em>, </em><em>x_max</em><em>)</em><em>, </em><em>(</em><em>y_min</em><em>, </em><em>y_max</em><em>)</em><em>)</em>) – Rectangular region in coordinates.</p></li>
-<li><p><strong>resolution</strong> (<em>int</em><em>, </em><em>default 50</em>) – Number of grid points along each axis.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>‘potential_phi’  : 2D array — scalar potential for the exact part
-‘potential_psi’  : 2D array — scalar potential for the co-exact part
-‘alpha_exact’    : tuple of 2D arrays — components of dφ
-‘alpha_coexact’  : tuple of 2D arrays — components of ⋆dψ
-‘alpha_harmonic’ : tuple of 2D arrays — harmonic residual</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>dict with keys</p>
 </dd>
 </dl>
 </dd></dl>
