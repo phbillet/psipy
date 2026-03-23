@@ -3164,26 +3164,41 @@
     <span class="n">log_scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;matplotlib.animation.FuncAnimation&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Animate the true time evolution of the semiclassical wavefunction by</span>
-<span class="sd">    re-assembling the Van Vleck sum at successive time slices from the already-</span>
-<span class="sd">    integrated ray data.</span>
+<span class="sd">    Animate the time evolution of the semiclassical wavefunction.</span>
 
-<span class="sd">    Unlike :func:`animate_wavefunction`, which applies a single global phase</span>
-<span class="sd">    rotation ``exp(−iEt/ℏ)`` to a frozen snapshot (leaving |ψ|² constant),</span>
-<span class="sd">    this function recomputes ψ(x, t) from scratch at each frame by calling</span>
-<span class="sd">    :func:`van_vleck_sum` on the per-ray data sliced at time index ``t_idx``.</span>
-<span class="sd">    This correctly captures the spreading, focusing, and caustic structure of</span>
-<span class="sd">    the evolving wavepacket, so |ψ|² is genuinely time-dependent.</span>
+<span class="sd">    Overview</span>
+<span class="sd">    --------</span>
+<span class="sd">    This function creates an animation of ψ(x, t) (or u(x, t) for parabolic</span>
+<span class="sd">    equation) by re‑assembling the Van Vleck–Pauli–Morette sum at each frame</span>
+<span class="sd">    from the already integrated ray data.  Unlike a static snapshot that is</span>
+<span class="sd">    merely rotated in phase, this recomputes the full coherent superposition</span>
+<span class="sd">    at each time slice, correctly capturing the spreading, focusing, caustic</span>
+<span class="sd">    births, and true |ψ|² dynamics.</span>
 
-<span class="sd">    The price is computational: :func:`van_vleck_sum` is called once per frame,</span>
-<span class="sd">    but no ray integration is repeated — only the cheap gridding step runs.</span>
+<span class="sd">    The animation calls the appropriate summation routine</span>
+<span class="sd">    (:func:`van_vleck_sum`, :func:`parabolic_sum`, or :func:`wave_sum`) for</span>
+<span class="sd">    each frame.  No ray integration is repeated – only the gridding step is</span>
+<span class="sd">    performed, so the overhead is modest.</span>
+
+<span class="sd">    Physical Background</span>
+<span class="sd">    -------------------</span>
+<span class="sd">    For the Schrödinger equation (``equation = EquationType.SCHRODINGER``) the</span>
+<span class="sd">    wavefunction is</span>
+<span class="sd">        ψ(x,t) = Σ_k A_k(t) · exp(i S_k(t)/ℏ − i μ_k(t) π/2)</span>
+<span class="sd">    with A_k = 1/√|det J_k|.  For the heat‑type equation</span>
+<span class="sd">    (``EquationType.PARABOLIC``) the sum is real‑exponential</span>
+<span class="sd">        u(x,t) = Σ_k A_k(t) · exp(S_k(t)/ℏ)</span>
+<span class="sd">    and for the wave equation (``EquationType.WAVE``) it is the coherent sum</span>
+<span class="sd">    over two branches H₊ = +√H and H₋ = −√H.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    result : WKBResult</span>
-<span class="sd">        Output of :func:`compute_wavefunction`.  Must contain full per-ray</span>
-<span class="sd">        time series in ``result.rays[k].traj``, ``det_J``, and ``S_cum``.</span>
-<span class="sd">    frame_times : array-like or None</span>
+<span class="sd">        Output of :func:`compute_wavefunction`.  Must contain the full per‑ray</span>
+<span class="sd">        time series (``traj``, ``det_J``, ``S_cum``).  The animation uses the</span>
+<span class="sd">        raw data stored in ``result.rays`` to evaluate the wavefunction at</span>
+<span class="sd">        arbitrary times within [0, result.t_max].</span>
+<span class="sd">    frame_times : array‑like or None</span>
 <span class="sd">        Physical times at which to render frames.  Each value is matched to</span>
 <span class="sd">        the nearest stored time step.  If ``None``, ``n_frames`` equally</span>
 <span class="sd">        spaced times between 0 and ``result.t_max`` are used.</span>
@@ -3192,32 +3207,61 @@
 <span class="sd">    interval : int, default 50</span>
 <span class="sd">        Delay between frames in milliseconds.</span>
 <span class="sd">    save_path : str or None, default None</span>
-<span class="sd">        If given, save the animation to this path.  Format inferred from the</span>
-<span class="sd">        extension: ``.gif`` uses Pillow, ``.mp4`` uses ffmpeg.</span>
-<span class="sd">    log_scale : bool, default False</span>
-<span class="sd">        If ``True``, display ``log(1 + |ψ|²)`` in the density panel.</span>
+<span class="sd">        If given, save the animation to this path.  Format is inferred from</span>
+<span class="sd">        the extension: ``.gif`` uses Pillow, ``.mp4`` uses ffmpeg.</span>
+<span class="sd">    log_scale : bool, default True</span>
+<span class="sd">        If ``True``, display the density as ``log(1 + |ψ|²)`` (or</span>
+<span class="sd">        ``log(1 + u²)`` for parabolic) to reveal low‑amplitude features.</span>
+<span class="sd">        Otherwise show the linear density.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    anim : matplotlib.animation.FuncAnimation</span>
+<span class="sd">        The animation object.  Call ``plt.show()`` to display it, or use</span>
+<span class="sd">        ``anim.save(...)`` directly (though the function already supports</span>
+<span class="sd">        saving via the ``save_path`` argument).</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    Axis limits for Re(ψ), Im(ψ), and |ψ|² are computed by scanning **all**</span>
-<span class="sd">    frames before the animation starts, so the scale remains stable throughout</span>
-<span class="sd">    and no clipping occurs.</span>
+<span class="sd">    * Axis limits for Re(ψ), Im(ψ), and the density are pre‑scanned over</span>
+<span class="sd">      **all** frames to ensure a stable scale throughout the animation.</span>
+<span class="sd">    * For 1D the figure layout mirrors :func:`plot_wavefunction`: density,</span>
+<span class="sd">      phase, real part, imaginary part (the latter hidden for parabolic).</span>
+<span class="sd">    * For 2D the layout consists of real part, imaginary part, density, and</span>
+<span class="sd">      phase (or log|u| for parabolic).</span>
+<span class="sd">    * For the wave equation the ray fan is assumed to be split into two halves</span>
+<span class="sd">      representing the H₊ and H₋ branches (the order used by</span>
+<span class="sd">      :func:`compute_wavefunction`).  Both are combined in the sum at each</span>
+<span class="sd">      frame.</span>
+<span class="sd">    * The function uses the appropriate summation method based on the</span>
+<span class="sd">      ``result.equation`` attribute.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    ::</span>
+<span class="sd">    .. code-block:: python</span>
 
-<span class="sd">        result = compute_wavefunction(metric=metric, source=source,</span>
-<span class="sd">                                      v_fan=v_fan, t_max=3.0, hbar=0.1)</span>
-<span class="sd">        anim = animate_true_time_evolution(result, n_frames=80, interval=40)</span>
+<span class="sd">        import numpy as np</span>
+<span class="sd">        import sympy as sp</span>
+<span class="sd">        from riemannian import Metric</span>
+<span class="sd">        from propagator import compute_wavefunction, animate_wavefunction</span>
+
+<span class="sd">        # 1D free particle on a flat metric</span>
+<span class="sd">        x = sp.Symbol(&#39;x&#39;, real=True)</span>
+<span class="sd">        metric = Metric(1, (x,))</span>
+<span class="sd">        source = (0.0,)</span>
+<span class="sd">        v_fan  = np.linspace(-4.0, 4.0, 100)</span>
+
+<span class="sd">        result = compute_wavefunction(</span>
+<span class="sd">            metric=metric, source=source, v_fan=v_fan,</span>
+<span class="sd">            t_max=2.0, hbar=0.05, n_steps=500, N_grid=400,</span>
+<span class="sd">        )</span>
+
+<span class="sd">        # Create animation and display</span>
+<span class="sd">        anim = animate_wavefunction(result, n_frames=80, interval=40)</span>
 <span class="sd">        plt.show()</span>
 
 <span class="sd">        # Save as GIF</span>
-<span class="sd">        animate_true_time_evolution(result, save_path=&quot;evolution.gif&quot;)</span>
+<span class="sd">        animate_wavefunction(result, save_path=&quot;wavepacket.gif&quot;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.animation</span><span class="w"> </span><span class="kn">import</span> <span class="n">FuncAnimation</span>
 

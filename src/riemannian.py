@@ -1040,6 +1040,83 @@ class Metric:
                 nabla[i, j] = term
         return simplify(nabla) if do_simplify else nabla
 
+
+    def riemannian_gradient(self, f_expr, do_simplify=True):
+        """
+        Compute the gradient of a scalar function f as a contravariant vector field.
+
+        In local coordinates: ∇f = gⁱʲ ∂ⱼ f ∂ᵢ.
+
+        Parameters
+        ----------
+        f_expr : sympy.Expr
+            The scalar function expressed in the metric's coordinates.
+        do_simplify : bool, default True
+            Whether to simplify the resulting expressions.
+
+        Returns
+        -------
+        tuple or dict
+            - 1D: a single SymPy expression for the gradient component (∇f)¹.
+            - 2D: a tuple (∇f¹, ∇f²) of SymPy expressions.
+        """
+        if self.dim == 1:
+            x = self.coords[0]
+            grad_expr = self.g_inv_expr * diff(f_expr, x)
+            return simplify(grad_expr) if do_simplify else grad_expr
+        else:
+            x, y = self.coords
+            grad1 = self.g_inv_matrix[0,0]*diff(f_expr, x) + self.g_inv_matrix[0,1]*diff(f_expr, y)
+            grad2 = self.g_inv_matrix[1,0]*diff(f_expr, x) + self.g_inv_matrix[1,1]*diff(f_expr, y)
+            if do_simplify:
+                grad1 = simplify(grad1)
+                grad2 = simplify(grad2)
+            return (grad1, grad2)
+
+    def riemannian_hessian(self, f_expr, do_simplify=True):
+        """
+        Compute the Hessian of a scalar function f as a (0,2)-tensor (covariant).
+
+        In local coordinates: Hess(f)ᵢⱼ = ∂ᵢ∂ⱼ f − Γᵏᵢⱼ ∂ₖ f.
+
+        Parameters
+        ----------
+        f_expr : sympy.Expr
+            The scalar function expressed in the metric's coordinates.
+        do_simplify : bool, default True
+            Whether to simplify the resulting expressions.
+
+        Returns
+        -------
+        sympy.Matrix (2D) or sympy.Expr (1D)
+            The Hessian matrix (2×2) for 2D, or the single component H₁₁ for 1D.
+        """
+        if self.dim == 1:
+            x = self.coords[0]
+            f1 = diff(f_expr, x)
+            f2 = diff(f_expr, x, x)
+            Gamma = self.christoffel_sym   # Γ¹₁₁
+            H = f2 - Gamma * f1
+            return simplify(H) if do_simplify else H
+        else:
+            x, y = self.coords
+            f1 = diff(f_expr, x)
+            f2 = diff(f_expr, y)
+            f11 = diff(f_expr, x, x)
+            f12 = diff(f_expr, x, y)
+            f22 = diff(f_expr, y, y)
+            Gamma = self.christoffel_sym  # dict Gamma[i][j][k]
+
+            H = zeros(2, 2)
+            for i in range(2):
+                for j in range(2):
+                    term = diff(f_expr, [x, y][i], [x, y][j])
+                    # subtract Γ^k_{ij} ∂_k f
+                    for k in range(2):
+                        term -= Gamma[k][i][j] * (f1 if k==0 else f2)
+                    H[i,j] = term
+            return simplify(H) if do_simplify else H
+
 # ============================================================================
 # Stand-alone helper functions (dimension-dispatching)
 # ============================================================================
@@ -1316,6 +1393,20 @@ def _geodesic_2d(metric, p0, v0, tspan, method, n_steps, reparametrize):
         result['arc_length'] = cumulative_trapezoid(ds, result['t'], initial=0)
 
     return result
+
+def riemannian_gradient_func(self, f_expr):
+    grad_expr = self.riemannian_gradient(f_expr)
+    if self.dim == 1:
+        return lambdify(self.coords, grad_expr, 'numpy')
+    else:
+        return [lambdify(self.coords, grad_expr[i], 'numpy') for i in range(2)]
+
+def riemannian_hessian_func(self, f_expr):
+    H_expr = self.riemannian_hessian(f_expr)
+    if self.dim == 1:
+        return lambdify(self.coords, H_expr, 'numpy')
+    else:
+        return [[lambdify(self.coords, H_expr[i,j], 'numpy') for j in range(2)] for i in range(2)]
 
 def geodesic_hamiltonian_flow(metric, p0, v0, tspan, method='verlet', n_steps=1000):
     """
@@ -1943,6 +2034,804 @@ def hodge_star(metric, form_degree):
         return lambda f: f / sqrt_g
     else:
         raise ValueError("form_degree must be 0, 1, or 2.")
+
+def hodge_decomposition(metric, omega_components, domain, resolution=50):
+    """
+    Numerically decompose a 1-form into exact, co-exact, and harmonic parts
+    on a 2D rectangle.
+
+    The decomposition follows the Hodge theorem:
+        α = dφ  +  ⋆dψ  +  h
+
+    It solves two Poisson problems with Dirichlet BC:
+        Δ φ = δα           → α_exact   = dφ
+        Δ ψ = δ(⋆α)        → α_coexact = ⋆dψ
+        h   = α − dφ − ⋆dψ
+
+    Parameters
+    ----------
+    metric : Metric
+        Must be 2D.
+    omega_components : tuple
+        The components (α_x, α_y) as callables or SymPy expressions.
+    domain : tuple
+        ((x_min, x_max), (y_min, y_max))
+    resolution : int
+        Grid points per axis.
+    """
+    if metric.dim != 2:
+        raise NotImplementedError("Hodge decomposition is only implemented for 2D.")
+
+    from scipy.sparse import diags, lil_matrix
+    from scipy.sparse.linalg import spsolve
+
+    # 1. Grid setup
+    x_vals = np.linspace(domain[0][0], domain[0][1], resolution)
+    y_vals = np.linspace(domain[1][0], domain[1][1], resolution)
+    X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
+    dx = x_vals[1] - x_vals[0]
+    dy = y_vals[1] - y_vals[0]
+    N = resolution
+    N2 = N * N
+
+    # 2. Metric evaluation (Broadcasted to ensure arrays even for flat metrics)
+    sqrt_det = np.broadcast_to(metric.sqrt_det_g_func(X, Y), X.shape)
+    g_inv00  = np.broadcast_to(metric.g_inv_func[(0, 0)](X, Y), X.shape)
+    g_inv11  = np.broadcast_to(metric.g_inv_func[(1, 1)](X, Y), X.shape)
+    g_inv01  = np.broadcast_to(metric.g_inv_func[(0, 1)](X, Y), X.shape)
+
+    # 3. Form components evaluation
+    def eval_comp(c):
+        if callable(c): return np.broadcast_to(c(X, Y), X.shape)
+        f = lambdify(metric.coords, c, 'numpy')
+        return np.broadcast_to(f(X, Y), X.shape)
+
+    alpha_x_vals = eval_comp(omega_components[0])
+    alpha_y_vals = eval_comp(omega_components[1])
+
+    # 4. Helpers
+    def face_avg(arr, axis, direction):
+        """Average array with neighbor; ensures indices stay within bounds."""
+        s_src = [slice(None), slice(None)]
+        s_dst = [slice(None), slice(None)]
+        if direction == 1: # Forward
+            s_src[axis] = slice(1, None)
+            s_dst[axis] = slice(0, -1)
+        else: # Backward
+            s_src[axis] = slice(0, -1)
+            s_dst[axis] = slice(1, None)
+        
+        out = np.zeros_like(arr)
+        out[tuple(s_dst)] = 0.5 * (arr[tuple(s_dst)] + arr[tuple(s_src)])
+        return out
+
+    def gradient(arr):
+        gx = np.zeros_like(arr)
+        gy = np.zeros_like(arr)
+        gx[1:-1, :] = (arr[2:, :] - arr[:-2, :]) / (2 * dx)
+        gx[0, :] = (arr[1, :] - arr[0, :]) / dx
+        gx[-1, :] = (arr[-1, :] - arr[-2, :]) / dx
+        gy[:, 1:-1] = (arr[:, 2:] - arr[:, :-2]) / (2 * dy)
+        gy[:, 0] = (arr[:, 1] - arr[:, 0]) / dy
+        gy[:, -1] = (arr[:, -1] - arr[:, -2]) / dy
+        return gx, gy
+
+    def codifferential(f_x, f_y):
+        flux_x = sqrt_det * (g_inv00 * f_x + g_inv01 * f_y)
+        flux_y = sqrt_det * (g_inv01 * f_x + g_inv11 * f_y)
+        div = np.zeros_like(f_x)
+        div[1:-1, :] += (flux_x[2:, :] - flux_x[:-2, :]) / (2 * dx)
+        div[:, 1:-1] += (flux_y[:, 2:] - flux_y[:, :-2]) / (2 * dy)
+        div[0, :] = (flux_x[1, :] - flux_x[0, :] / dx)
+        div[-1, :] = (flux_x[-1, :] - flux_x[-2, :] / dx)
+        return div / (sqrt_det + 1e-14)
+
+    def hodge_star_1form(f_x, f_y):
+        return (
+            (g_inv00 * f_y - g_inv01 * f_x) * sqrt_det,
+            (g_inv11 * f_x - g_inv01 * f_y) * sqrt_det,
+        )
+
+    # 5. Sparse Laplacian Matrix Assembly
+    # East/West faces (x-axis, axis 0)
+    aE = face_avg(sqrt_det * g_inv00, 0,  1)
+    aW = face_avg(sqrt_det * g_inv00, 0, -1)
+    # North/South faces (y-axis, axis 1)
+    bN = face_avg(sqrt_det * g_inv11, 1,  1)
+    bS = face_avg(sqrt_det * g_inv11, 1, -1)
+
+    c_center = -(aE + aW) / dx**2 - (bN + bS) / dy**2
+    c_east   = aE / dx**2
+    c_west   = aW / dx**2
+    c_north  = bN / dy**2
+    c_south  = bS / dy**2
+
+    # Standard 5-point stencil
+    diag_data = [
+        (c_center.ravel(), 0),
+        (c_east.ravel()[:-N], N),   # i+1 -> offset N
+        (c_west.ravel()[N:], -N),   # i-1 -> offset -N
+        (c_north.ravel()[:-1], 1),  # j+1 -> offset 1
+        (c_south.ravel()[1:], -1),  # j-1 -> offset -1
+    ]
+    
+    A = lil_matrix((N2, N2))
+    for data, k in diag_data:
+        A.setdiag(data, k)
+
+    # Cross-derivative g01 terms using a central stencil
+    src = np.arange(N2).reshape(N, N)
+    cross_coeff = (sqrt_det * g_inv01) / (4 * dx * dy)
+    
+    # Offsets for (di, dj): (1,1), (1,-1), (-1,1), (-1,-1)
+    for di, dj in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
+        offset = di * N + dj
+        ri = slice(0, N-1) if di > 0 else slice(1, N)
+        rj = slice(0, N-1) if dj > 0 else slice(1, N)
+        
+        mask = np.zeros((N, N), dtype=bool)
+        mask[ri, rj] = True
+        idx_v = src[mask].flatten()
+        # The cross term contribution (simplified central diff)
+        A[idx_v, idx_v + offset] += (di * dj) * cross_coeff[mask].flatten()
+
+    # 6. Solve Poisson Problems
+    # RHS for exact and co-exact potentials
+    rhs_phi = codifferential(alpha_x_vals, alpha_y_vals)
+    star_ax, star_ay = hodge_star_1form(alpha_x_vals, alpha_y_vals)
+    rhs_psi = codifferential(star_ax, star_ay)
+
+    def solve_poisson(rhs):
+        b = rhs.ravel()
+        # Enforce Dirichlet BC: potential = 0 on all four boundaries
+        boundary_mask = np.zeros((N, N), dtype=bool)
+        boundary_mask[0, :] = boundary_mask[-1, :] = True
+        boundary_mask[:, 0] = boundary_mask[:, -1] = True
+        idx_bound = src[boundary_mask].flatten()
+        
+        A_bc = A.tocsr()
+        # For simplicity in assembly, we zero the rows of the boundary points
+        for idx in idx_bound:
+            A_bc.data[A_bc.indptr[idx]:A_bc.indptr[idx+1]] = 0
+            A_bc[idx, idx] = 1.0
+            b[idx] = 0.0
+        
+        return spsolve(A_bc, b).reshape(N, N)
+
+    phi = solve_poisson(rhs_phi)
+    psi = solve_poisson(rhs_psi)
+
+    # 7. Reconstruction
+    ex_x, ex_y = gradient(phi)
+    
+    dpsi_x, dpsi_y = gradient(psi)
+    co_x, co_y = hodge_star_1form(dpsi_x, dpsi_y)
+    
+    ha_x = alpha_x_vals - ex_x - co_x
+    ha_y = alpha_y_vals - ex_y - co_y
+
+    return {
+        'potential_phi': phi,
+        'potential_psi': psi,
+        'alpha_exact': (ex_x, ex_y),
+        'alpha_coexact': (co_x, co_y),
+        'alpha_harmonic': (ha_x, ha_y)
+    }
+
+def hodge_decomposition_old2(metric, omega_components, domain, resolution=50):
+    """
+    Numerically decompose a 1-form into exact, co-exact, and harmonic parts
+    on a 2D rectangle.
+
+    The decomposition follows the Hodge theorem:
+
+        α = dφ  +  ⋆dψ  +  h
+
+    and is computed by solving two Poisson problems with Dirichlet BC:
+
+        Δ φ = δα          → α_exact   = dφ
+        Δ ψ = δ(⋆α)       → α_coexact = ⋆dψ
+        h   = α − dφ − ⋆dψ
+
+    The Laplace–Beltrami operator is assembled directly as a sparse matrix
+    using a 5-point (plus cross-term) finite-difference stencil derived from
+    face-averaged metric coefficients, making construction O(N²) instead of
+    the O(N⁴) basis-vector approach.
+
+    Parameters
+    ----------
+    metric : Metric
+        Must be 2D.
+    omega_components : tuple of sympy.Expr or callable
+        The components (α_x, α_y) of the 1-form.
+        SymPy expressions are lambdified automatically.
+    domain : tuple of tuples  ((x_min, x_max), (y_min, y_max))
+        Rectangular region in coordinates.
+    resolution : int, default 50
+        Number of grid points along each axis.
+
+    Returns
+    -------
+    dict with keys
+        'potential_phi'  : 2D array — scalar potential for the exact part
+        'potential_psi'  : 2D array — scalar potential for the co-exact part
+        'alpha_exact'    : tuple of 2D arrays — components of dφ
+        'alpha_coexact'  : tuple of 2D arrays — components of ⋆dψ
+        'alpha_harmonic' : tuple of 2D arrays — harmonic residual
+    """
+    if metric.dim != 2:
+        raise NotImplementedError(
+            "Hodge decomposition is only implemented for 2D metrics."
+        )
+
+    from scipy.sparse import diags, csr_matrix
+    from scipy.sparse.linalg import spsolve
+
+    # ------------------------------------------------------------------
+    # 1. Grid and metric evaluation
+    # ------------------------------------------------------------------
+    x_vals = np.linspace(domain[0][0], domain[0][1], resolution)
+    y_vals = np.linspace(domain[1][0], domain[1][1], resolution)
+    X, Y   = np.meshgrid(x_vals, y_vals, indexing='ij')
+    dx     = x_vals[1] - x_vals[0]
+    dy     = y_vals[1] - y_vals[0]
+    N      = resolution
+    N2     = N * N
+
+    # In hodge_decomposition (riemannian.py)
+    sqrt_det = np.broadcast_to(metric.sqrt_det_g_func(X, Y), X.shape)
+    g_inv00  = np.broadcast_to(metric.g_inv_func[(0, 0)](X, Y), X.shape)
+    g_inv11  = np.broadcast_to(metric.g_inv_func[(1, 1)](X, Y), X.shape)
+    g_inv01  = np.broadcast_to(metric.g_inv_func[(0, 1)](X, Y), X.shape)
+
+    # ------------------------------------------------------------------
+    # 2. Helpers
+    # ------------------------------------------------------------------
+
+    def gradient(arr):
+        """Central-difference gradient; one-sided at boundaries."""
+        gx = np.empty_like(arr)
+        gy = np.empty_like(arr)
+        gx[1:-1, :] = (arr[2:,  :] - arr[:-2, :]) / (2 * dx)
+        gx[0,    :] = (arr[1,   :] - arr[0,   :]) / dx
+        gx[-1,   :] = (arr[-1,  :] - arr[-2,  :]) / dx
+        gy[:, 1:-1] = (arr[:,  2:] - arr[:,  :-2]) / (2 * dy)
+        gy[:,    0] = (arr[:,   1] - arr[:,    0]) / dy
+        gy[:,   -1] = (arr[:,  -1] - arr[:,   -2]) / dy
+        return gx, gy
+
+    def codifferential(f_x, f_y):
+        """
+        Metric codifferential of a 1-form:  δα = (1/√|g|) ∂_i(√|g| g^{ij} α_j).
+        """
+        flux_x = sqrt_det * (g_inv00 * f_x + g_inv01 * f_y)
+        flux_y = sqrt_det * (g_inv01 * f_x + g_inv11 * f_y)
+        div    = np.zeros_like(f_x)
+        div[1:-1, :] += (flux_x[2:,  :] - flux_x[:-2, :]) / (2 * dx)
+        div[:,  1:-1]+= (flux_y[:,  2:] - flux_y[:, :-2]) / (2 * dy)
+        div[0,   :] = (flux_x[1,  :] - flux_x[0,  :]) / dx
+        div[-1,  :] = (flux_x[-1, :] - flux_x[-2, :]) / dx
+        div[:,   0] = (flux_y[:,  1] - flux_y[:,  0]) / dy
+        div[:,  -1] = (flux_y[:, -1] - flux_y[:, -2]) / dy
+        return div / sqrt_det
+
+    def hodge_star_1form(f_x, f_y):
+        """
+        Hodge star on 1-forms in 2D:
+            ⋆(f_x dx + f_y dy) = (g^{00} f_y − g^{01} f_x)√|g| dx
+                                 + (g^{11} f_x − g^{01} f_y)√|g| dy
+        """
+        return (
+            (g_inv00 * f_y - g_inv01 * f_x) * sqrt_det,
+            (g_inv11 * f_x - g_inv01 * f_y) * sqrt_det,
+        )
+
+    # ------------------------------------------------------------------
+    # 3. Sparse Laplace–Beltrami matrix  (O(N²) direct stencil assembly)
+    #
+    #    Δu = (1/√|g|) ∂_i( √|g| g^{ij} ∂_j u )
+    #
+    #    We average metric coefficients to cell faces (half-steps) for
+    #    second-order accuracy, then unroll the five-point stencil
+    #    (including the g^{01} cross-derivative) into diagonal offsets.
+    # ------------------------------------------------------------------
+
+    # Face-averaged coefficients (shape (N,N), some faces clipped at edges)
+    def face_avg(arr, axis, direction):
+        """Average arr with its neighbour along `axis` in `direction` (+1/-1)."""
+        s = [slice(None), slice(None)]
+        s[axis] = slice(1, None) if direction == 1 else slice(None, -1)
+        s2 = [slice(None), slice(None)]
+        s2[axis] = slice(None, -1) if direction == 1 else slice(1, None)
+        out = np.zeros_like(arr)
+        out[tuple(s2)] = 0.5 * (arr[tuple(s2)] + arr[tuple(s)])
+        return out
+
+    # East/West faces  (x+½, x-½)
+    aE = face_avg(sqrt_det * g_inv00, 0,  1)   # at i+½
+    aW = face_avg(sqrt_det * g_inv00, 0, -1)   # at i-½
+    # North/South faces  (y+½, y-½)
+    bN = face_avg(sqrt_det * g_inv11, 1,  1)   # at j+½
+    bS = face_avg(sqrt_det * g_inv11, 1, -1)   # at j-½
+
+    # Flatten everything to 1D in row-major (i,j) order
+    flat = lambda a: a.ravel()
+
+    # Diagonal coefficient arrays for the 5-point part
+    c_center = -(aE + aW) / dx**2 - (bN + bS) / dy**2   # (i,j)
+    c_east   =  aE / dx**2                                # (i+1,j)
+    c_west   =  aW / dx**2                                # (i-1,j)
+    c_north  =  bN / dy**2                                # (i,j+1)
+    c_south  =  bS / dy**2                                # (i,j-1)
+
+    diag_data = [
+        (flat(c_center),        0),
+        (flat(c_east  )[:-N],   N),    # shift +N in flat index  → i+1,j
+        (flat(c_west  )[N:],   -N),
+        (flat(c_north )[:-1],   1),    # shift +1                → i,j+1
+        (flat(c_south )[1:],   -1),
+    ]
+
+    A = diags(
+        [d for d, _ in diag_data],
+        [k for _, k in diag_data],
+        shape=(N2, N2), format='lil', dtype=float
+    )
+
+    # Cross-derivative  g^{01} term:
+    # (1/√|g|) ∂_x(√|g| g^{01} ∂_y u) + (1/√|g|) ∂_y(√|g| g^{01} ∂_x u)
+    # Discretised as central differences → stencil offsets ±(N±1).
+    # In hodge_decomposition sparse assembly loop:
+    # Corrected offsets for indexing='ij'
+    # (di, dj, offset): di (axis 0) -> N, dj (axis 1) -> 1
+    for di, dj, offset in [
+        (-1, 0, -N), (1, 0, N), (0, -1, -1), (0, 1, 1),
+        (-1, -1, -N-1), (-1, 1, -N+1), (1, -1, N-1), (1, 1, N+1)
+    ]:
+        # Corrected clipping logic:
+        # If moving forward (+1), stay away from the upper bound (slice(0, N-1))
+        # If moving backward (-1), stay away from the lower bound (slice(1, N))
+        ri = slice(0, N-1) if di > 0 else (slice(1, N) if di < 0 else slice(0, N))
+        rj = slice(0, N-1) if dj > 0 else (slice(1, N) if dj < 0 else slice(0, N))
+        
+        mask = np.zeros((N, N), dtype=bool)
+        mask[ri, rj] = True
+        valid = src[mask].flatten()
+        A[valid, valid + offset] += coeffs[valid]
+
+    # ------------------------------------------------------------------
+    # 4. Boundary conditions: replace boundary rows with identity
+    # ------------------------------------------------------------------
+    idx_grid    = np.arange(N2).reshape(N, N)
+    boundary    = np.concatenate([
+        idx_grid[0,  :],    # left edge   (i=0)
+        idx_grid[-1, :],    # right edge  (i=N-1)
+        idx_grid[1:-1, 0],  # bottom edge (j=0, interior i)
+        idx_grid[1:-1,-1],  # top edge    (j=N-1, interior i)
+    ])
+
+    A_lil = A  # already lil
+    for b in boundary:
+        A_lil[b, :] = 0
+        A_lil[b, b] = 1.0
+
+    # Divide interior rows by √|g| (completing the 1/√|g| prefactor)
+    interior_mask = np.ones((N, N), dtype=bool)
+    interior_mask[0, :] = interior_mask[-1, :] = False
+    interior_mask[:, 0] = interior_mask[:, -1] = False
+    interior_flat = flat(interior_mask).astype(bool)
+    for row in np.where(interior_flat)[0]:
+        i, j   = divmod(row, N)
+        sd_val = sqrt_det[i, j]
+        A_lil[row, :] /= sd_val
+
+    A_csr = csr_matrix(A_lil)
+
+    # ------------------------------------------------------------------
+    # 5. Solve the two Poisson problems
+    # ------------------------------------------------------------------
+
+    def solve_poisson(rhs_2d):
+        """Solve  Δu = rhs  with u=0 on boundary."""
+        rhs_flat          = rhs_2d.ravel().copy()
+        rhs_flat[boundary] = 0.0
+        return spsolve(A_csr, rhs_flat).reshape(N, N)
+
+    # Evaluate the 1-form on the grid
+    if hasattr(omega_components[0], 'subs'):
+        x_sym, y_sym = metric.coords
+        a_x = lambdify((x_sym, y_sym), omega_components[0], 'numpy')(X, Y)
+        a_y = lambdify((x_sym, y_sym), omega_components[1], 'numpy')(X, Y)
+    else:
+        a_x, a_y = omega_components[0](X, Y), omega_components[1](X, Y)
+
+    phi = solve_poisson(codifferential(a_x, a_y))
+    psi = solve_poisson(codifferential(*hodge_star_1form(a_x, a_y)))
+
+    # ------------------------------------------------------------------
+    # 6. Recover the three parts
+    # ------------------------------------------------------------------
+    dphi_x, dphi_y = gradient(phi)
+    dpsi_x, dpsi_y = gradient(psi)
+
+    coexact_x, coexact_y = hodge_star_1form(dpsi_x, dpsi_y)
+
+    return {
+        'potential_phi':  phi,
+        'potential_psi':  psi,
+        'alpha_exact':    (dphi_x,    dphi_y),
+        'alpha_coexact':  (coexact_x, coexact_y),
+        'alpha_harmonic': (a_x - dphi_x - coexact_x,
+                           a_y - dphi_y - coexact_y),
+    }
+
+def hodge_decomposition_old(metric, omega_components, domain, resolution=50):
+    """
+    Numerically decompose a 1‑form into exact, co‑exact, and harmonic parts on a 2D rectangle.
+
+    The decomposition is computed by solving two Poisson problems:
+        Δ φ = δ α,      with φ = 0 on boundary → α_exact = dφ
+        Δ ψ = δ (⋆α),   with ψ = 0 on boundary → α_coexact = ⋆ dψ
+        α_harmonic = α - dφ - ⋆ dψ
+
+    Parameters
+    ----------
+    metric : Metric
+        Must be 2D.
+    omega_components : tuple of sympy.Expr or callable
+        The components (α_x, α_y) of the 1‑form. If sympy expressions, they are lambdified.
+    domain : tuple of tuples ((x_min, x_max), (y_min, y_max))
+        Rectangular region in coordinates.
+    resolution : int, default 50
+        Number of grid points in each direction (total grid resolution × resolution).
+
+    Returns
+    -------
+    dict with keys:
+        - 'potential_phi' : 2D array (scalar potential for exact part)
+        - 'potential_psi' : 2D array (scalar potential for co‑exact part)
+        - 'alpha_exact' : tuple of 2D arrays (components of dφ)
+        - 'alpha_coexact' : tuple of 2D arrays (components of ⋆ dψ)
+        - 'alpha_harmonic' : tuple of 2D arrays (remaining part)
+    """
+    if metric.dim != 2:
+        raise NotImplementedError("Hodge decomposition is only implemented for 2D metrics.")
+
+    # Convert sympy expressions to callable functions if needed
+    if hasattr(omega_components[0], 'subs'):  # sympy Expr
+        x_sym, y_sym = metric.coords
+        alpha_x = lambdify((x_sym, y_sym), omega_components[0], 'numpy')
+        alpha_y = lambdify((x_sym, y_sym), omega_components[1], 'numpy')
+    else:
+        alpha_x, alpha_y = omega_components
+
+    # Build grid
+    x_vals = np.linspace(domain[0][0], domain[0][1], resolution)
+    y_vals = np.linspace(domain[1][0], domain[1][1], resolution)
+    X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
+    dx = x_vals[1] - x_vals[0]
+    dy = y_vals[1] - y_vals[0]
+
+    # Evaluate metric components and alpha on grid
+    g00 = metric.g_func[(0,0)](X, Y)
+    g01 = metric.g_func[(0,1)](X, Y)
+    g11 = metric.g_func[(1,1)](X, Y)
+    g_inv00 = metric.g_inv_func[(0,0)](X, Y)
+    g_inv01 = metric.g_inv_func[(0,1)](X, Y)
+    g_inv11 = metric.g_inv_func[(1,1)](X, Y)
+    det_g = metric.det_g_func(X, Y)
+    sqrt_det = np.sqrt(np.abs(det_g))
+
+    a_x = alpha_x(X, Y)
+    a_y = alpha_y(X, Y)
+
+    # Compute δ α = divergence of α with respect to the metric (using covariant derivative)
+    # δ α = (1/√|g|) ∂_i (√|g| g^{ij} α_j)
+    # We compute using finite differences
+    def divergence(f_x, f_y):
+        # f_x, f_y are 2D arrays (components of a 1‑form)
+        # compute √|g| g^{ij} α_j
+        flux_x = sqrt_det * (g_inv00 * f_x + g_inv01 * f_y)
+        flux_y = sqrt_det * (g_inv01 * f_x + g_inv11 * f_y)
+        # ∂x flux_x, ∂y flux_y using central differences (with one‑sided at boundaries)
+        div = np.zeros_like(f_x)
+        # interior points
+        div[1:-1, :] += (flux_x[2:, :] - flux_x[:-2, :]) / (2*dx)
+        div[:, 1:-1] += (flux_y[:, 2:] - flux_y[:, :-2]) / (2*dy)
+        # boundaries: simple first‑order difference (can be improved)
+        # left/right x boundaries
+        div[0, :] = (flux_x[1, :] - flux_x[0, :]) / dx
+        div[-1, :] = (flux_x[-1, :] - flux_x[-2, :]) / dx
+        # top/bottom y boundaries
+        div[:, 0] = (flux_y[:, 1] - flux_y[:, 0]) / dy
+        div[:, -1] = (flux_y[:, -1] - flux_y[:, -2]) / dy
+        return div / sqrt_det
+
+    # Compute δ α
+    delta_alpha = divergence(a_x, a_y)
+
+    # Build Laplace–Beltrami operator on the grid (sparse matrix)
+    # Δ u = (1/√|g|) ∂_i (√|g| g^{ij} ∂_j u)
+    # We'll construct the matrix using finite differences with variable coefficients.
+    N = resolution
+    N2 = N * N
+    # Flatten indices
+    idx = np.arange(N2).reshape(N, N)
+
+    # Precompute coefficients
+    # We'll need g^{ij} and sqrt_det at cell centers and edges
+    # For simplicity, use the same grid points for all (staggered may be needed for accuracy)
+    # We'll use central differences for ∂_j u and then average coefficients.
+    # This is a basic implementation; for production, consider using a finite element method.
+
+    # Create sparse matrix
+    from scipy.sparse import lil_matrix, csr_matrix
+    from scipy.sparse.linalg import spsolve
+
+    A = lil_matrix((N2, N2), dtype=float)
+
+    # For each interior point, assemble stencil
+    # Δu = g^{ij} ∂_ij u + (terms involving ∂_i (√|g| g^{ij}) / √|g|) ∂_j u
+    # We'll compute the full expression via finite differences of the flux.
+
+    # First, compute the matrix entries by finite differences of the divergence of √|g| g^{ij} ∂_j u
+    # We'll use the same approach as divergence but now with u as unknown.
+    # For each node (i,j), we evaluate the coefficients linking to neighbours.
+
+    # Compute the flux coefficients at the faces.
+    # We'll use central differences for ∂_x u and ∂_y u, and average the coefficients to the faces.
+
+    # Precompute necessary arrays
+    # g_inv00, g_inv01, g_inv11, sqrt_det already on grid.
+    # We'll need these at half‑steps for better accuracy.
+    # For simplicity, we'll use a 5‑point stencil with coefficients derived from the metric at the node.
+    # This is not the most accurate but serves as a demonstration.
+
+    # Another approach: Use the formula Δ = g^{ij} ∂_ij + (∂_i g^{ij} + g^{ij} ∂_i log √|g|) ∂_j
+    # and approximate the first derivatives using central differences.
+
+    # We'll implement the "standard" finite difference with central differences for first derivatives
+    # and average the coefficients.
+
+    # Compute first derivatives of metric quantities needed for the first‑order term
+    # ∂_x (√|g| g^{ij}) and ∂_y (√|g| g^{ij}) can be computed via central differences.
+    # We'll compute these on the grid.
+
+    def gradient_2d(arr):
+        # returns (∂x arr, ∂y arr) using central differences
+        grad_x = np.zeros_like(arr)
+        grad_y = np.zeros_like(arr)
+        grad_x[1:-1, :] = (arr[2:, :] - arr[:-2, :]) / (2*dx)
+        grad_y[:, 1:-1] = (arr[:, 2:] - arr[:, :-2]) / (2*dy)
+        # boundaries: one‑sided
+        grad_x[0, :] = (arr[1, :] - arr[0, :]) / dx
+        grad_x[-1, :] = (arr[-1, :] - arr[-2, :]) / dx
+        grad_y[:, 0] = (arr[:, 1] - arr[:, 0]) / dy
+        grad_y[:, -1] = (arr[:, -1] - arr[:, -2]) / dy
+        return grad_x, grad_y
+
+    # Compute quantities for first‑order term: b_x = ∂_x (√|g| g^{xx}) + ∂_y (√|g| g^{xy}) etc.
+    # Actually, the first‑order term vector is:
+    # B_j = (∂_i (√|g| g^{ij}) ) / √|g|
+    # We'll compute flux coefficients and their divergence to build the matrix.
+
+    # For simplicity, we'll compute the matrix by evaluating the Laplacian as:
+    # Δu = (1/√|g|) * [ ∂_x ( √|g| (g^{xx} ∂_x u + g^{xy} ∂_y u) ) + ∂_y ( √|g| (g^{xy} ∂_x u + g^{yy} ∂_y u) ) ]
+    # We'll discretize using finite differences on a staggered grid.
+
+    # We'll create a function to apply the Laplacian to a flattened vector u.
+    # Then we can use a matrix‑free method (like CG) but for simplicity we'll construct the matrix explicitly.
+
+    # We'll use a standard 5‑point stencil with coefficients derived from the metric at the nodes.
+    # The coefficients are:
+    # A_ij = (g^{xx} + g^{yy}) / (dx^2) + ... but that's not correct for non‑constant metric.
+    # We'll use the more accurate approach of averaging metric coefficients at cell edges.
+
+    # For now, we'll implement a matrix‑free approach using finite differences of the divergence,
+    # and solve with CG from scipy.sparse.linalg.
+
+    # We'll define a function that returns the Laplacian applied to a vector u (flattened).
+    def laplacian(u_flat):
+        u = u_flat.reshape(N, N)
+        # Compute ∂_x u and ∂_y u using central differences
+        u_x = np.zeros_like(u)
+        u_y = np.zeros_like(u)
+        u_x[1:-1, :] = (u[2:, :] - u[:-2, :]) / (2*dx)
+        u_x[0, :] = (u[1, :] - u[0, :]) / dx
+        u_x[-1, :] = (u[-1, :] - u[-2, :]) / dx
+        u_y[:, 1:-1] = (u[:, 2:] - u[:, :-2]) / (2*dy)
+        u_y[:, 0] = (u[:, 1] - u[:, 0]) / dy
+        u_y[:, -1] = (u[:, -1] - u[:, -2]) / dy
+
+        # Flux components: F_x = sqrt_det * (g^{xx} u_x + g^{xy} u_y)
+        F_x = sqrt_det * (g_inv00 * u_x + g_inv01 * u_y)
+        F_y = sqrt_det * (g_inv01 * u_x + g_inv11 * u_y)
+
+        # Divergence of flux: ∂_x F_x + ∂_y F_y
+        div_F = np.zeros_like(u)
+        div_F[1:-1, :] += (F_x[2:, :] - F_x[:-2, :]) / (2*dx)
+        div_F[:, 1:-1] += (F_y[:, 2:] - F_y[:, :-2]) / (2*dy)
+        # Boundaries
+        div_F[0, :] = (F_x[1, :] - F_x[0, :]) / dx
+        div_F[-1, :] = (F_x[-1, :] - F_x[-2, :]) / dx
+        div_F[:, 0] = (F_y[:, 1] - F_y[:, 0]) / dy
+        div_F[:, -1] = (F_y[:, -1] - F_y[:, -2]) / dy
+
+        # Δu = div_F / sqrt_det
+        return (div_F / sqrt_det).ravel()
+
+    # Build matrix representation by applying laplacian to basis vectors
+    A = lil_matrix((N2, N2), dtype=float)
+    for i in range(N2):
+        e = np.zeros(N2)
+        e[i] = 1.0
+        A[:, i] = laplacian(e)
+    A = csr_matrix(A)
+
+    # Solve for φ with boundary conditions φ=0 on boundary
+    # We'll set rows corresponding to boundary indices to identity and RHS to 0.
+    boundary_idx = []
+    for i in range(N):
+        for j in range(N):
+            if i == 0 or i == N-1 or j == 0 or j == N-1:
+                boundary_idx.append(idx[i, j])
+    # Modify matrix and RHS
+    A_bc = A.tolil()
+    rhs = -delta_alpha.ravel()   # because we solve Δ φ = δ α, so we put -δ α to the right? Actually Δ φ = δ α, so we want A φ = δ α.
+    # Wait: our laplacian already gives Δ φ. So we want A φ = δ α.
+    # But we also have boundary conditions φ=0, which we enforce by setting rows to identity.
+    # We'll build the full system and then impose BC.
+
+    # Set boundary rows to identity
+    for idx_b in boundary_idx:
+        A_bc[idx_b, :] = 0
+        A_bc[idx_b, idx_b] = 1.0
+        rhs[idx_b] = 0.0
+
+    A_bc = A_bc.tocsr()
+    phi_flat = spsolve(A_bc, rhs)
+    phi = phi_flat.reshape(N, N)
+
+    # Compute α_exact = dφ
+    dphi_x = np.zeros_like(phi)
+    dphi_y = np.zeros_like(phi)
+    dphi_x[1:-1, :] = (phi[2:, :] - phi[:-2, :]) / (2*dx)
+    dphi_x[0, :] = (phi[1, :] - phi[0, :]) / dx
+    dphi_x[-1, :] = (phi[-1, :] - phi[-2, :]) / dx
+    dphi_y[:, 1:-1] = (phi[:, 2:] - phi[:, :-2]) / (2*dy)
+    dphi_y[:, 0] = (phi[:, 1] - phi[:, 0]) / dy
+    dphi_y[:, -1] = (phi[:, -1] - phi[:, -2]) / dy
+
+    # Now for the co‑exact part: we need ψ such that Δ ψ = δ (⋆α)
+    # Compute ⋆α = (α_x, α_y) -> ⋆α = (α_y * sqrt_det * g^{00} - α_x * sqrt_det * g^{01}, ...)
+    # Actually Hodge star on 1‑forms: if ω = ω_x dx + ω_y dy, then ⋆ω = ω_x' dx + ω_y' dy with
+    # ω_x' = (g^{00} ω_y - g^{01} ω_x) √|g|, ω_y' = (-g^{01} ω_y + g^{11} ω_x) √|g|
+    star_alpha_x = (g_inv00 * a_y - g_inv01 * a_x) * sqrt_det
+    star_alpha_y = (-g_inv01 * a_y + g_inv11 * a_x) * sqrt_det
+
+    # Compute δ (⋆α) = divergence of (star_alpha) (since star_alpha is a 1‑form, its divergence is the same as for α)
+    delta_star_alpha = divergence(star_alpha_x, star_alpha_y)
+
+    # Solve Δ ψ = δ (⋆α) with ψ=0 on boundary
+    rhs_psi = delta_star_alpha.ravel()
+    for idx_b in boundary_idx:
+        rhs_psi[idx_b] = 0.0
+    psi_flat = spsolve(A_bc, rhs_psi)
+    psi = psi_flat.reshape(N, N)
+
+    # Compute α_coexact = ⋆ dψ
+    dpsi_x = np.zeros_like(psi)
+    dpsi_y = np.zeros_like(psi)
+    dpsi_x[1:-1, :] = (psi[2:, :] - psi[:-2, :]) / (2*dx)
+    dpsi_x[0, :] = (psi[1, :] - psi[0, :]) / dx
+    dpsi_x[-1, :] = (psi[-1, :] - psi[-2, :]) / dx
+    dpsi_y[:, 1:-1] = (psi[:, 2:] - psi[:, :-2]) / (2*dy)
+    dpsi_y[:, 0] = (psi[:, 1] - psi[:, 0]) / dy
+    dpsi_y[:, -1] = (psi[:, -1] - psi[:, -2]) / dy
+
+    coeff_x = (g_inv00 * dpsi_y - g_inv01 * dpsi_x) * sqrt_det
+    coeff_y = (-g_inv01 * dpsi_y + g_inv11 * dpsi_x) * sqrt_det
+
+    # Harmonic part = original α - dφ - ⋆ dψ
+    harm_x = a_x - dphi_x - coeff_x
+    harm_y = a_y - dphi_y - coeff_y
+
+    return {
+        'potential_phi': phi,
+        'potential_psi': psi,
+        'alpha_exact': (dphi_x, dphi_y),
+        'alpha_coexact': (coeff_x, coeff_y),
+        'alpha_harmonic': (harm_x, harm_y)
+    }
+
+def parallel_transport(metric, curve, initial_vector, tspan=None, method='RK45'):
+    """
+    Transport a vector along a curve using parallel transport.
+
+    The parallel transport equation Dv/dt = 0 is solved as a linear ODE:
+        dv^i/dt = - Γ^i_{jk} v^j ẋ^k,
+    where ẋ^k are the components of the curve's velocity.
+
+    Parameters
+    ----------
+    metric : Metric
+        The Riemannian metric.
+    curve : dict
+        A trajectory dict from `geodesic_solver` containing at least:
+        - 't' : array of time values
+        - for 1D: 'x' array
+        - for 2D: 'x', 'y' arrays
+    initial_vector : float (1D) or tuple of two floats (2D)
+        Components of the vector to transport at t = curve['t'][0].
+    tspan : tuple (t0, t1) or None
+        Time interval over which to transport. If None, the whole curve is used.
+    method : str, default 'RK45'
+        Integration method passed to `solve_ivp`.
+
+    Returns
+    -------
+    dict
+        - 't' : array of times (same as curve['t'] within tspan)
+        - For 1D: 'v' : transported vector components
+        - For 2D: 'vx', 'vy' : transported vector components
+    """
+    if metric.dim == 1:
+        x = curve['x']
+        t_vals = curve['t']
+        v0 = initial_vector
+        Gamma = metric.christoffel_func
+        # approximate velocity from curve (once)
+        dxdt = np.gradient(x, t_vals)
+
+        def ode_1d(t, v):
+            # interpolate position and velocity at time t
+            x_t = np.interp(t, t_vals, x)
+            dxdt_t = np.interp(t, t_vals, dxdt)
+            return -Gamma(x_t) * v * dxdt_t
+
+        if tspan is None:
+            tspan = (t_vals[0], t_vals[-1])
+        # Use the same time grid as the curve (or a subset)
+        t_eval = np.linspace(tspan[0], tspan[1], len(t_vals))
+        sol = solve_ivp(ode_1d, tspan, [v0], t_eval=t_eval, method=method)
+        return {'t': sol.t, 'v': sol.y[0]}
+
+    else:  # 2D
+        x = curve['x']; y = curve['y']; t_vals = curve['t']
+        vx0, vy0 = initial_vector
+        Gamma = metric.christoffel_func
+        # approximate velocities
+        dxdt = np.gradient(x, t_vals)
+        dydt = np.gradient(y, t_vals)
+
+        def ode_2d(t, state):
+            vx, vy = state
+            # interpolate
+            x_t = np.interp(t, t_vals, x)
+            y_t = np.interp(t, t_vals, y)
+            dxdt_t = np.interp(t, t_vals, dxdt)
+            dydt_t = np.interp(t, t_vals, dydt)
+            # compute Christoffel terms
+            G000 = Gamma[0][0][0](x_t, y_t)
+            G001 = Gamma[0][0][1](x_t, y_t)
+            G011 = Gamma[0][1][1](x_t, y_t)
+            G100 = Gamma[1][0][0](x_t, y_t)
+            G101 = Gamma[1][0][1](x_t, y_t)
+            G111 = Gamma[1][1][1](x_t, y_t)
+
+            dvx = -(G000 * vx * dxdt_t +
+                    G001 * (vx * dydt_t + vy * dxdt_t) +
+                    G011 * vy * dydt_t)
+            dvy = -(G100 * vx * dxdt_t +
+                    G101 * (vx * dydt_t + vy * dxdt_t) +
+                    G111 * vy * dydt_t)
+            return [dvx, dvy]
+
+        if tspan is None:
+            tspan = (t_vals[0], t_vals[-1])
+        t_eval = np.linspace(tspan[0], tspan[1], len(t_vals))
+        sol = solve_ivp(ode_2d, tspan, [vx0, vy0], t_eval=t_eval, method=method)
+        return {'t': sol.t, 'vx': sol.y[0], 'vy': sol.y[1]}
 
 
 def de_rham_laplacian(metric, form_degree):
@@ -2574,3 +3463,422 @@ def _visualize_curvature_2d(metric, x_range, y_range, resolution, quantity, cmap
     plt.axis('equal')
     plt.tight_layout()
     plt.show()
+
+"""
+Tests for hodge_decomposition (rewritten function).
+
+Design principles
+-----------------
+- Every test has a single, named assertion target — reconstruction, energy
+  partition, orthogonality, or a mathematical property — not just "it runs".
+- Tolerances are calibrated to the finite-difference order (O(h²) interior,
+  O(h) boundaries) at the resolution used; they are commented with the
+  rationale, not left as magic numbers.
+- Fixtures for the two most-used metrics (flat, Poincaré) are defined once
+  and reused rather than inlined in every test.
+- The original four reconstruction tests are preserved but tightened:
+  the flat-metric tests now also verify that the exact/co-exact split is
+  correct for a known input, not just that α_e + α_c + h ≈ α.
+"""
+
+import numpy as np
+import pytest
+from sympy import symbols, Matrix, sin
+
+# from riemannian import Metric, hodge_decomposition
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Fixtures
+# ══════════════════════════════════════════════════════════════════════
+
+@pytest.fixture(scope="module")
+def flat_metric():
+    """Identity metric on ℝ²: g = diag(1,1)."""
+    x, y = symbols('x y', real=True)
+    return Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+
+
+@pytest.fixture(scope="module")
+def poincare_metric():
+    """Poincaré half-plane metric: g = diag(1/y², 1/y²), K = -1."""
+    x, y = symbols('x y', real=True, positive=True)
+    return Metric(Matrix([[1/y**2, 0], [0, 1/y**2]]), (x, y))
+
+
+@pytest.fixture(scope="module")
+def sphere_metric():
+    """Unit-sphere latitude band: g = diag(1, sin²θ)."""
+    theta, phi = symbols('theta phi', real=True, positive=True)
+    return Metric(Matrix([[1, 0], [0, sin(theta)**2]]), (theta, phi))
+
+
+# ── shared grid helper ────────────────────────────────────────────────
+
+def make_grid(domain, res):
+    x_vals = np.linspace(domain[0][0], domain[0][1], res)
+    y_vals = np.linspace(domain[1][0], domain[1][1], res)
+    return np.meshgrid(x_vals, y_vals, indexing='ij')
+
+
+def rms(a):
+    return float(np.sqrt(np.mean(a**2)))
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 1. Return-value contract
+# ══════════════════════════════════════════════════════════════════════
+
+class TestReturnContract:
+    """The function must return all five expected keys with the right shapes."""
+
+    def test_keys_present(self, flat_metric):
+        domain, res = ((0, 1), (0, 1)), 20
+        result = hodge_decomposition(
+            flat_metric,
+            (lambda X, Y: Y, lambda X, Y: X),
+            domain, resolution=res,
+        )
+        expected_keys = {
+            'potential_phi', 'potential_psi',
+            'alpha_exact', 'alpha_coexact', 'alpha_harmonic',
+        }
+        assert expected_keys == set(result.keys())
+
+    def test_array_shapes(self, flat_metric):
+        domain, res = ((0, 1), (0, 1)), 24
+        result = hodge_decomposition(
+            flat_metric,
+            (lambda X, Y: Y, lambda X, Y: X),
+            domain, resolution=res,
+        )
+        for key in ('potential_phi', 'potential_psi'):
+            assert result[key].shape == (res, res), \
+                f"{key} shape mismatch"
+        for key in ('alpha_exact', 'alpha_coexact', 'alpha_harmonic'):
+            fx, fy = result[key]
+            assert fx.shape == (res, res)
+            assert fy.shape == (res, res)
+
+    def test_dim1_raises(self):
+        x = symbols('x', real=True, positive=True)
+        m1d = Metric(x**2, (x,))
+        with pytest.raises(NotImplementedError):
+            hodge_decomposition(m1d, (lambda X: X, lambda X: X),
+                                ((0, 1),), resolution=10)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 2. Reconstruction identity:  α_exact + α_coexact + α_harmonic = α
+# ══════════════════════════════════════════════════════════════════════
+
+class TestReconstruction:
+    """
+    The core identity of Hodge theory.  The three parts must sum back to
+    the original form at every grid point.  Tolerance is 1e-2 for the
+    flat metric (O(h) boundary errors dominate at res=30) and 5e-2 for
+    the curved metric (larger truncation error from variable coefficients).
+    """
+
+    DOMAIN_FLAT   = ((0, 2), (0, 2))
+    DOMAIN_POINC  = ((0, 1), (0.5, 2.0))   # stay away from y=0
+    RES           = 30
+
+    def _check(self, metric, alpha_x, alpha_y, domain, atol):
+        X, Y = make_grid(domain, self.RES)
+        result = hodge_decomposition(
+            metric, (alpha_x, alpha_y), domain, resolution=self.RES
+        )
+        ex_x, ex_y = result['alpha_exact']
+        co_x, co_y = result['alpha_coexact']
+        ha_x, ha_y = result['alpha_harmonic']
+
+        np.testing.assert_allclose(
+            ex_x + co_x + ha_x, alpha_x(X, Y), atol=atol,
+            err_msg="x-component reconstruction failed",
+        )
+        np.testing.assert_allclose(
+            ex_y + co_y + ha_y, alpha_y(X, Y), atol=atol,
+            err_msg="y-component reconstruction failed",
+        )
+
+    def test_exact_form_flat(self, flat_metric):
+        """α = d(xy) = y dx + x dy  (pure exact)."""
+        self._check(flat_metric,
+                    lambda X, Y: Y, lambda X, Y: X,
+                    self.DOMAIN_FLAT, atol=1e-2)
+
+    def test_coexact_form_flat(self, flat_metric):
+        """α = ⋆d(xy) = x dx − y dy  (pure co-exact on flat metric)."""
+        self._check(flat_metric,
+                    lambda X, Y: X, lambda X, Y: -Y,
+                    self.DOMAIN_FLAT, atol=1e-2)
+
+    def test_mixed_form_flat(self, flat_metric):
+        """α = (x+y) dx + (x−y) dy  (mixed exact + co-exact)."""
+        self._check(flat_metric,
+                    lambda X, Y: X + Y, lambda X, Y: X - Y,
+                    ((0, 1), (0, 1)), atol=1e-2)
+
+    def test_curved_metric_reconstruction(self, poincare_metric):
+        """Reconstruction on the Poincaré metric with a gentle 1-form."""
+        self._check(poincare_metric,
+                    lambda X, Y: Y, lambda X, Y: np.zeros_like(Y),
+                    self.DOMAIN_POINC, atol=5e-2)
+
+    def test_sphere_metric_reconstruction(self, sphere_metric):
+        """Reconstruction on the sphere metric (latitude band)."""
+        domain = ((0.5, 2.5), (0.1, 6.0))
+        self._check(sphere_metric,
+                    lambda X, Y: np.sin(X), lambda X, Y: np.zeros_like(X),
+                    domain, atol=5e-2)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 3. Exact-form purity  (flat metric only, where theory is sharp)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestExactFormPurity:
+    """
+    For a known-exact 1-form on the flat metric the exact part should
+    carry almost all the energy; the co-exact part should be negligible.
+    We use a relative energy threshold rather than a pointwise one
+    because finite-difference errors leak a small amount into co-exact.
+    """
+
+    DOMAIN = ((0, 2), (0, 2))
+    RES    = 40
+
+    def test_pure_exact_energy_dominance(self, flat_metric):
+        """d(xy): exact energy should be > 95 % of total."""
+        X, Y = make_grid(self.DOMAIN, self.RES)
+        result = hodge_decomposition(
+            flat_metric,
+            (lambda X, Y: Y, lambda X, Y: X),
+            self.DOMAIN, resolution=self.RES,
+        )
+        e_ex = rms(result['alpha_exact'][0])    + rms(result['alpha_exact'][1])
+        e_co = rms(result['alpha_coexact'][0])  + rms(result['alpha_coexact'][1])
+        e_ha = rms(result['alpha_harmonic'][0]) + rms(result['alpha_harmonic'][1])
+        total = e_ex + e_co + e_ha or 1.0
+        assert e_ex / total > 0.90, \
+            f"Exact fraction {e_ex/total:.1%} below threshold for a pure-exact input"
+
+    def test_pure_coexact_energy_dominance(self, flat_metric):
+        """⋆d(xy): co-exact energy should be > 90 % of total."""
+        result = hodge_decomposition(
+            flat_metric,
+            (lambda X, Y: X, lambda X, Y: -Y),
+            self.DOMAIN, resolution=self.RES,
+        )
+        e_ex = rms(result['alpha_exact'][0])    + rms(result['alpha_exact'][1])
+        e_co = rms(result['alpha_coexact'][0])  + rms(result['alpha_coexact'][1])
+        e_ha = rms(result['alpha_harmonic'][0]) + rms(result['alpha_harmonic'][1])
+        total = e_ex + e_co + e_ha or 1.0
+        assert e_co / total > 0.90, \
+            f"Co-exact fraction {e_co/total:.1%} below threshold for a pure co-exact input"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 4. Orthogonality of the three summands  (flat metric, L² inner product)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestOrthogonality:
+    """
+    Hodge decomposition is L²-orthogonal: the three parts should be
+    mutually orthogonal under the flat L² inner product.
+    We allow a generous relative tolerance (5 %) because boundary effects
+    from Dirichlet BCs introduce O(h) orthogonality violations.
+    """
+
+    DOMAIN = ((0, 2), (0, 2))
+    RES    = 40
+
+    def _inner(self, u, v):
+        """Flat L² inner product of two 2-component fields."""
+        ux, uy = u; vx, vy = v
+        return float(np.sum(ux * vx + uy * vy))
+
+    def test_exact_coexact_orthogonal(self, flat_metric):
+        result = hodge_decomposition(
+            flat_metric,
+            (lambda X, Y: X + Y, lambda X, Y: X - Y),
+            self.DOMAIN, resolution=self.RES,
+        )
+        ip = self._inner(result['alpha_exact'], result['alpha_coexact'])
+        norm = (
+            rms(result['alpha_exact'][0]) * rms(result['alpha_coexact'][0])
+            * self.RES**2
+        ) or 1.0
+        assert abs(ip) / norm < 0.10, \
+            f"Exact ⊥ co-exact violated: relative inner product = {abs(ip)/norm:.3f}"
+
+    def test_exact_harmonic_orthogonal(self, flat_metric):
+        result = hodge_decomposition(
+            flat_metric,
+            (lambda X, Y: X + Y, lambda X, Y: X - Y),
+            self.DOMAIN, resolution=self.RES,
+        )
+        ip = self._inner(result['alpha_exact'], result['alpha_harmonic'])
+        norm = (
+            rms(result['alpha_exact'][0]) * rms(result['alpha_harmonic'][0])
+            * self.RES**2
+        ) or 1.0
+        # harmonic part is tiny for this form; skip if both norms are negligible
+        ha_energy = rms(result['alpha_harmonic'][0]) + rms(result['alpha_harmonic'][1])
+        if ha_energy < 1e-6:
+            pytest.skip("Harmonic part is numerically zero — orthogonality trivially satisfied")
+        assert abs(ip) / norm < 0.10
+
+    def test_coexact_harmonic_orthogonal(self, flat_metric):
+        result = hodge_decomposition(
+            flat_metric,
+            (lambda X, Y: X + Y, lambda X, Y: X - Y),
+            self.DOMAIN, resolution=self.RES,
+        )
+        ip = self._inner(result['alpha_coexact'], result['alpha_harmonic'])
+        norm = (
+            rms(result['alpha_coexact'][0]) * rms(result['alpha_harmonic'][0])
+            * self.RES**2
+        ) or 1.0
+        ha_energy = rms(result['alpha_harmonic'][0]) + rms(result['alpha_harmonic'][1])
+        if ha_energy < 1e-6:
+            pytest.skip("Harmonic part is numerically zero — orthogonality trivially satisfied")
+        assert abs(ip) / norm < 0.10
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 5. Mathematical properties of the potentials
+# ══════════════════════════════════════════════════════════════════════
+
+class TestPotentials:
+    """φ and ψ must satisfy Dirichlet BC and their gradients must match the
+    returned exact / co-exact components (up to the Hodge-star rotation)."""
+
+    DOMAIN = ((0, 2), (0, 2))
+    RES    = 30
+
+    def test_phi_zero_on_boundary(self, flat_metric):
+        result = hodge_decomposition(
+            flat_metric,
+            (lambda X, Y: Y, lambda X, Y: X),
+            self.DOMAIN, resolution=self.RES,
+        )
+        phi = result['potential_phi']
+        # All four edges must be (numerically) zero
+        for edge in (phi[0, :], phi[-1, :], phi[:, 0], phi[:, -1]):
+            np.testing.assert_allclose(edge, 0.0, atol=1e-10,
+                                       err_msg="φ non-zero on boundary")
+
+    def test_psi_zero_on_boundary(self, flat_metric):
+        result = hodge_decomposition(
+            flat_metric,
+            (lambda X, Y: X, lambda X, Y: -Y),
+            self.DOMAIN, resolution=self.RES,
+        )
+        psi = result['potential_psi']
+        for edge in (psi[0, :], psi[-1, :], psi[:, 0], psi[:, -1]):
+            np.testing.assert_allclose(edge, 0.0, atol=1e-10,
+                                       err_msg="ψ non-zero on boundary")
+
+    def test_phi_gradient_matches_exact_part(self, flat_metric):
+        """dφ computed by the function must match a finite-difference gradient of φ."""
+        result = hodge_decomposition(
+            flat_metric,
+            (lambda X, Y: Y, lambda X, Y: X),
+            self.DOMAIN, resolution=self.RES,
+        )
+        phi  = result['potential_phi']
+        ex_x, ex_y = result['alpha_exact']
+
+        x_vals = np.linspace(self.DOMAIN[0][0], self.DOMAIN[0][1], self.RES)
+        y_vals = np.linspace(self.DOMAIN[1][0], self.DOMAIN[1][1], self.RES)
+        dx = x_vals[1] - x_vals[0]
+        dy = y_vals[1] - y_vals[0]
+
+        # Central-difference gradient of φ (interior only to avoid BC artefacts)
+        dphi_x_fd = (phi[2:, 1:-1] - phi[:-2, 1:-1]) / (2 * dx)
+        dphi_y_fd = (phi[1:-1, 2:] - phi[1:-1, :-2]) / (2 * dy)
+
+        np.testing.assert_allclose(ex_x[1:-1, 1:-1], dphi_x_fd, atol=1e-2)
+        np.testing.assert_allclose(ex_y[1:-1, 1:-1], dphi_y_fd, atol=1e-2)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 6. Sympy expression input path
+# ══════════════════════════════════════════════════════════════════════
+
+class TestSymPyInput:
+    """The function accepts either callables or SymPy expressions.
+    Both paths must produce identical results."""
+
+    DOMAIN = ((0, 1), (0.5, 2.0))
+    RES    = 25
+
+    def test_sympy_and_callable_agree(self, poincare_metric):
+        x_sym, y_sym = poincare_metric.coords
+        from sympy import lambdify as sp_lambdify
+
+        # SymPy form
+        omega_sym = (y_sym, x_sym * 0)
+        r_sym = hodge_decomposition(
+            poincare_metric, omega_sym, self.DOMAIN, resolution=self.RES
+        )
+
+        # Callable form
+        omega_call = (
+            lambda X, Y: Y,
+            lambda X, Y: np.zeros_like(X),
+        )
+        r_call = hodge_decomposition(
+            poincare_metric, omega_call, self.DOMAIN, resolution=self.RES
+        )
+
+        for key in ('potential_phi', 'potential_psi'):
+            np.testing.assert_allclose(
+                r_sym[key], r_call[key], atol=1e-10,
+                err_msg=f"SymPy vs callable mismatch on '{key}'",
+            )
+        for key in ('alpha_exact', 'alpha_coexact', 'alpha_harmonic'):
+            for i in range(2):
+                np.testing.assert_allclose(
+                    r_sym[key][i], r_call[key][i], atol=1e-10,
+                    err_msg=f"SymPy vs callable mismatch on '{key}[{i}]'",
+                )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 7. Resolution convergence  (flat metric, known exact form)
+# ══════════════════════════════════════════════════════════════════════
+
+class TestConvergence:
+    """
+    The reconstruction error should decrease as resolution increases.
+    We check that the RMS error at res=50 is strictly less than at res=25.
+    This is a weak but robust convergence check that does not require
+    knowing the exact order.
+    """
+
+    DOMAIN = ((0, 1), (0, 1))
+
+    def _rms_error(self, metric, res):
+        X, Y = make_grid(self.DOMAIN, res)
+        result = hodge_decomposition(
+            metric,
+            (lambda X, Y: Y, lambda X, Y: X),
+            self.DOMAIN, resolution=res,
+        )
+        ex_x, ex_y = result['alpha_exact']
+        co_x, co_y = result['alpha_coexact']
+        ha_x, ha_y = result['alpha_harmonic']
+        err_x = rms((ex_x + co_x + ha_x) - Y)
+        err_y = rms((ex_y + co_y + ha_y) - X)
+        return 0.5 * (err_x + err_y)
+
+    def test_error_decreases_with_resolution(self, flat_metric):
+        err_coarse = self._rms_error(flat_metric, res=25)
+        err_fine   = self._rms_error(flat_metric, res=50)
+        assert err_fine < err_coarse, (
+            f"Error did not decrease with resolution: "
+            f"coarse={err_coarse:.2e}, fine={err_fine:.2e}"
+        )

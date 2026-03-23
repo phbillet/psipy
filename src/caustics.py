@@ -699,57 +699,78 @@ class RayCausticDetector:
     """
     Detect caustics in a ray bundle by tracking the stability matrix J.
 
+    This class implements the correct geometric condition for caustics:
+    a zero of the determinant of the stability matrix J = ∂x/∂q, where q
+    are the initial ray parameters.  It replaces older heuristics such as
+    velocity zeros or momentum minima, which are incorrect for caustic
+    detection.
+
+    The detector optionally classifies each caustic event into an Arnold
+    type (fold, cusp, etc.) if a symbolic Hamiltonian is supplied.  It
+    also computes the Maslov index (signed number of caustic crossings)
+    and the associated phase shift exp(i μ π/2).
+
     Mathematical background
     -----------------------
-    Given a Hamiltonian H(x, ξ) and a family of rays parameterised by
-    initial condition s ∈ ℝ^d, the stability matrix is
+    For a Hamiltonian H(x,ξ) and a family of rays parameterised by an
+    initial‑condition vector q ∈ ℝⁿ, the stability matrix
 
-        J(t) = ∂x(t, s) / ∂s₀
+        J(t) = ∂x(t)/∂q
 
-    and satisfies the variational equation along the ray:
+    satisfies the variational equation
 
-        dJ/dt = H_{px}(x(t), ξ(t)) · J
+        dJ/dt = H_{px}(x(t), ξ(t)) · J ,      J(0) = Iₙ ,
 
-    where H_{px} = ∂²H/∂ξ∂x is the mixed Hessian (a d×d matrix in d-D).
+    where H_{px} = ∂²H/∂ξ∂x is the mixed Hessian (n×n matrix in n
+    dimensions).  A caustic occurs at time t* where det(J(t*)) = 0.
+    The Maslov index μ is the signed count of such zero crossings; each
+    crossing contributes a phase shift of π/2 to the semiclassical
+    wavefunction.
 
-    A caustic occurs at t* when det(J(t*)) = 0.
-    The Maslov index μ counts the number of such crossings (with sign).
-
-    Correct approach vs old CausticDetector
-    ----------------------------------------
-    OLD (wrong):
-        1D: caustic ↔ dx/dt = 0   (velocity turning point, NOT a caustic)
-        2D: caustic ↔ |ξ| ≈ 0     (small momentum, NOT a caustic)
-
-    NEW (correct):
-        1D: caustic ↔ J(t) = ∂x(t)/∂x₀ = 0  (requires integrating J)
-        2D: caustic ↔ det([[∂x/∂x₀, ∂x/∂y₀],[∂y/∂x₀, ∂y/∂y₀]]) = 0
+    Important
+    ---------
+    The ray bundle passed to the constructor **must** contain the
+    integrated stability matrix.  In 1D, the ray dict must have the key
+    `'J'` (a 1‑D array of length equal to `'t'`).  In 2D, the keys
+    `'J11'`, `'J12'`, `'J21'`, `'J22'` are required.  The helper methods
+    `stability_matrix_ode_1d` and `stability_matrix_ode_2d` can be used
+    to incorporate the J ODE into the ray integrator.
 
     Parameters
     ----------
     ray_bundle : list of dict
-        Each dict is an integrated ray as returned by wkb.py:
-        1D keys: 't', 'x', 'xi', 'S', 'a0', ...
-        2D keys: 't', 'x', 'y', 'xi', 'eta', 'S', 'a0', ...
-        Each ray must additionally contain the stability matrix entries:
-        1D: 'J'          (array, shape (n_steps,))
-        2D: 'J11','J12','J21','J22'  (arrays, shape (n_steps,))
-        If J is absent, RayCausticDetector will attempt to compute it
-        numerically from neighbouring rays if a full bundle is provided.
+        List of integrated rays.  Each dict contains at least the fields:
+        - 't' : ndarray, shape (n_steps,) – integration times.
+        - 'x', 'xi' : ndarray (1D) or 'x','y','xi','eta' (2D) – position
+          and momentum.
+        - Stability matrix entries:
+            * 1D: 'J' : ndarray, shape (n_steps,)
+            * 2D: 'J11','J12','J21','J22' : ndarray, shape (n_steps,)
+        If any of these keys is missing, the detector will raise a KeyError.
     dimension : int
         1 or 2.
-    det_threshold : float
-        |det(J)| < det_threshold to flag a caustic (default 0.05).
-        Relative to the initial value |det(J(0))|.
-    H_expr : sp.Expr, optional
-        Symbolic Hamiltonian.  If provided, classify_arnold_* is called
-        at each caustic to give the Arnold type.
-    xi_syms : tuple of sp.Symbol, optional
-        Momentum symbols matching H_expr.
-    x_syms  : tuple of sp.Symbol, optional
-        Spatial symbols matching H_expr.
-    """
+    det_threshold : float, default 0.05
+        A zero crossing of det(J) is registered when |det(J)| falls below
+        `det_threshold * |det(J(0))|`.  Increase this value if caustics
+        are missed; decrease it to avoid spurious detections.
+    H_expr : sympy.Expr, optional
+        Symbolic Hamiltonian.  If provided, the Arnold type of each
+        caustic is determined by `classify_arnold_1d` (1D) or
+        `classify_arnold_2d` (2D) using the momentum variables.
+    xi_syms : tuple of sympy.Symbol, optional
+        Momentum symbols (e.g., (xi,) in 1D, (xi, eta) in 2D).  Required
+        if `H_expr` is given.
+    x_syms : tuple of sympy.Symbol, optional
+        Spatial symbols (e.g., (x,) in 1D, (x, y) in 2D).  Currently
+        unused, but kept for future extensions.
 
+    Attributes
+    ----------
+    events : list of CausticEvent
+        Detected caustic events after calling `detect()`.  Each event
+        contains the time, position, momentum, sign change, Maslov
+        contribution, and (if possible) the Arnold type.
+    """
     def __init__(self,
                  ray_bundle: List[Dict],
                  dimension: int,

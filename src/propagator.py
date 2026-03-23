@@ -3048,26 +3048,41 @@ def animate_wavefunction(
     log_scale: bool = True,
 ) -> "matplotlib.animation.FuncAnimation":
     """
-    Animate the true time evolution of the semiclassical wavefunction by
-    re-assembling the Van Vleck sum at successive time slices from the already-
-    integrated ray data.
+    Animate the time evolution of the semiclassical wavefunction.
 
-    Unlike :func:`animate_wavefunction`, which applies a single global phase
-    rotation ``exp(−iEt/ℏ)`` to a frozen snapshot (leaving |ψ|² constant),
-    this function recomputes ψ(x, t) from scratch at each frame by calling
-    :func:`van_vleck_sum` on the per-ray data sliced at time index ``t_idx``.
-    This correctly captures the spreading, focusing, and caustic structure of
-    the evolving wavepacket, so |ψ|² is genuinely time-dependent.
+    Overview
+    --------
+    This function creates an animation of ψ(x, t) (or u(x, t) for parabolic
+    equation) by re‑assembling the Van Vleck–Pauli–Morette sum at each frame
+    from the already integrated ray data.  Unlike a static snapshot that is
+    merely rotated in phase, this recomputes the full coherent superposition
+    at each time slice, correctly capturing the spreading, focusing, caustic
+    births, and true |ψ|² dynamics.
 
-    The price is computational: :func:`van_vleck_sum` is called once per frame,
-    but no ray integration is repeated — only the cheap gridding step runs.
+    The animation calls the appropriate summation routine
+    (:func:`van_vleck_sum`, :func:`parabolic_sum`, or :func:`wave_sum`) for
+    each frame.  No ray integration is repeated – only the gridding step is
+    performed, so the overhead is modest.
+
+    Physical Background
+    -------------------
+    For the Schrödinger equation (``equation = EquationType.SCHRODINGER``) the
+    wavefunction is
+        ψ(x,t) = Σ_k A_k(t) · exp(i S_k(t)/ℏ − i μ_k(t) π/2)
+    with A_k = 1/√|det J_k|.  For the heat‑type equation
+    (``EquationType.PARABOLIC``) the sum is real‑exponential
+        u(x,t) = Σ_k A_k(t) · exp(S_k(t)/ℏ)
+    and for the wave equation (``EquationType.WAVE``) it is the coherent sum
+    over two branches H₊ = +√H and H₋ = −√H.
 
     Parameters
     ----------
     result : WKBResult
-        Output of :func:`compute_wavefunction`.  Must contain full per-ray
-        time series in ``result.rays[k].traj``, ``det_J``, and ``S_cum``.
-    frame_times : array-like or None
+        Output of :func:`compute_wavefunction`.  Must contain the full per‑ray
+        time series (``traj``, ``det_J``, ``S_cum``).  The animation uses the
+        raw data stored in ``result.rays`` to evaluate the wavefunction at
+        arbitrary times within [0, result.t_max].
+    frame_times : array‑like or None
         Physical times at which to render frames.  Each value is matched to
         the nearest stored time step.  If ``None``, ``n_frames`` equally
         spaced times between 0 and ``result.t_max`` are used.
@@ -3076,32 +3091,61 @@ def animate_wavefunction(
     interval : int, default 50
         Delay between frames in milliseconds.
     save_path : str or None, default None
-        If given, save the animation to this path.  Format inferred from the
-        extension: ``.gif`` uses Pillow, ``.mp4`` uses ffmpeg.
-    log_scale : bool, default False
-        If ``True``, display ``log(1 + |ψ|²)`` in the density panel.
+        If given, save the animation to this path.  Format is inferred from
+        the extension: ``.gif`` uses Pillow, ``.mp4`` uses ffmpeg.
+    log_scale : bool, default True
+        If ``True``, display the density as ``log(1 + |ψ|²)`` (or
+        ``log(1 + u²)`` for parabolic) to reveal low‑amplitude features.
+        Otherwise show the linear density.
 
     Returns
     -------
     anim : matplotlib.animation.FuncAnimation
+        The animation object.  Call ``plt.show()`` to display it, or use
+        ``anim.save(...)`` directly (though the function already supports
+        saving via the ``save_path`` argument).
 
     Notes
     -----
-    Axis limits for Re(ψ), Im(ψ), and |ψ|² are computed by scanning **all**
-    frames before the animation starts, so the scale remains stable throughout
-    and no clipping occurs.
+    * Axis limits for Re(ψ), Im(ψ), and the density are pre‑scanned over
+      **all** frames to ensure a stable scale throughout the animation.
+    * For 1D the figure layout mirrors :func:`plot_wavefunction`: density,
+      phase, real part, imaginary part (the latter hidden for parabolic).
+    * For 2D the layout consists of real part, imaginary part, density, and
+      phase (or log|u| for parabolic).
+    * For the wave equation the ray fan is assumed to be split into two halves
+      representing the H₊ and H₋ branches (the order used by
+      :func:`compute_wavefunction`).  Both are combined in the sum at each
+      frame.
+    * The function uses the appropriate summation method based on the
+      ``result.equation`` attribute.
 
     Examples
     --------
-    ::
+    .. code-block:: python
 
-        result = compute_wavefunction(metric=metric, source=source,
-                                      v_fan=v_fan, t_max=3.0, hbar=0.1)
-        anim = animate_true_time_evolution(result, n_frames=80, interval=40)
+        import numpy as np
+        import sympy as sp
+        from riemannian import Metric
+        from propagator import compute_wavefunction, animate_wavefunction
+
+        # 1D free particle on a flat metric
+        x = sp.Symbol('x', real=True)
+        metric = Metric(1, (x,))
+        source = (0.0,)
+        v_fan  = np.linspace(-4.0, 4.0, 100)
+
+        result = compute_wavefunction(
+            metric=metric, source=source, v_fan=v_fan,
+            t_max=2.0, hbar=0.05, n_steps=500, N_grid=400,
+        )
+
+        # Create animation and display
+        anim = animate_wavefunction(result, n_frames=80, interval=40)
         plt.show()
 
         # Save as GIF
-        animate_true_time_evolution(result, save_path="evolution.gif")
+        animate_wavefunction(result, save_path="wavepacket.gif")
     """
     from matplotlib.animation import FuncAnimation
 

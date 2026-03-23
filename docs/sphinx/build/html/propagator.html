@@ -310,9 +310,9 @@ the trajectory and integrates ∫ g_{ij} vⁱ vʲ dt, which is exact for any
 Riemannian metric.  The old ∫ v² dt fallback was only valid for the flat
 unit-mass case g_{ij} = δ_{ij}.</p></li>
 <li><p><strong>2D caustic patching</strong> — <a class="reference internal" href="#propagator.van_vleck_sum" title="propagator.van_vleck_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a> now applies asymptotic
-corrections in 2D as well as 1D.  For a fold caustic (<a href="#id34"><span class="problematic" id="id35">|∇det J|</span></a> ≠ 0) the
-Airy profile is applied along the transverse direction n̂ = ∇det J / <a href="#id36"><span class="problematic" id="id37">|∇det J|</span></a>
-and blended with a 2D Gaussian taper.  For a cusp caustic (<a href="#id38"><span class="problematic" id="id39">|∇det J|</span></a> ≈ 0)
+corrections in 2D as well as 1D.  For a fold caustic (<a href="#id32"><span class="problematic" id="id33">|∇det J|</span></a> ≠ 0) the
+Airy profile is applied along the transverse direction n̂ = ∇det J / <a href="#id34"><span class="problematic" id="id35">|∇det J|</span></a>
+and blended with a 2D Gaussian taper.  For a cusp caustic (<a href="#id36"><span class="problematic" id="id37">|∇det J|</span></a> ≈ 0)
 the <code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code> / <code class="xref py py-class docutils literal notranslate"><span class="pre">AsymptoticEvaluator</span></code> interface is invoked
 with the quartic normal-form phase, providing an O(ℏ^{1/4}) Pearcey scaling.</p></li>
 </ol>
@@ -756,53 +756,129 @@ since μ is the total caustic count for that ray’s trajectory).</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="propagator.animate_wavefunction">
 <span class="sig-prename descclassname"><span class="pre">propagator.</span></span><span class="sig-name descname"><span class="pre">animate_wavefunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><span class="pre">WKBResult</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_frames</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interval</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">matplotlib.animation.FuncAnimation</span></span></span><a class="reference internal" href="_modules/propagator.html#animate_wavefunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#propagator.animate_wavefunction" title="Link to this definition"></a></dt>
-<dd><p>Animate the true time evolution of the semiclassical wavefunction by
-re-assembling the Van Vleck sum at successive time slices from the already-
-integrated ray data.</p>
-<p>Unlike <a class="reference internal" href="#propagator.animate_wavefunction" title="propagator.animate_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">animate_wavefunction()</span></code></a>, which applies a single global phase
-rotation <code class="docutils literal notranslate"><span class="pre">exp(−iEt/ℏ)</span></code> to a frozen snapshot (leaving <a href="#id20"><span class="problematic" id="id21">|</span></a>ψ|² constant),
-this function recomputes ψ(x, t) from scratch at each frame by calling
-<a class="reference internal" href="#propagator.van_vleck_sum" title="propagator.van_vleck_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a> on the per-ray data sliced at time index <code class="docutils literal notranslate"><span class="pre">t_idx</span></code>.
-This correctly captures the spreading, focusing, and caustic structure of
-the evolving wavepacket, so <a href="#id22"><span class="problematic" id="id23">|</span></a>ψ|² is genuinely time-dependent.</p>
-<p>The price is computational: <a class="reference internal" href="#propagator.van_vleck_sum" title="propagator.van_vleck_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a> is called once per frame,
-but no ray integration is repeated — only the cheap gridding step runs.</p>
+<dd><p>Animate the time evolution of the semiclassical wavefunction.</p>
+<section id="id20">
+<h2>Overview<a class="headerlink" href="#id20" title="Link to this heading"></a></h2>
+<p>This function creates an animation of ψ(x, t) (or u(x, t) for parabolic
+equation) by re‑assembling the Van Vleck–Pauli–Morette sum at each frame
+from the already integrated ray data.  Unlike a static snapshot that is
+merely rotated in phase, this recomputes the full coherent superposition
+at each time slice, correctly capturing the spreading, focusing, caustic
+births, and true <a href="#id21"><span class="problematic" id="id22">|</span></a>ψ|² dynamics.</p>
+<p>The animation calls the appropriate summation routine
+(<a class="reference internal" href="#propagator.van_vleck_sum" title="propagator.van_vleck_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">van_vleck_sum()</span></code></a>, <a class="reference internal" href="#propagator.parabolic_sum" title="propagator.parabolic_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">parabolic_sum()</span></code></a>, or <a class="reference internal" href="#propagator.wave_sum" title="propagator.wave_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">wave_sum()</span></code></a>) for
+each frame.  No ray integration is repeated – only the gridding step is
+performed, so the overhead is modest.</p>
+</section>
+<section id="id23">
+<h2>Physical Background<a class="headerlink" href="#id23" title="Link to this heading"></a></h2>
+<p>For the Schrödinger equation (<code class="docutils literal notranslate"><span class="pre">equation</span> <span class="pre">=</span> <span class="pre">EquationType.SCHRODINGER</span></code>) the
+wavefunction is</p>
+<blockquote>
+<div><p>ψ(x,t) = Σ_k A_k(t) · exp(i S_k(t)/ℏ − i μ_k(t) π/2)</p>
+</div></blockquote>
+<p>with A_k = 1/√|det J_k|.  For the heat‑type equation
+(<code class="docutils literal notranslate"><span class="pre">EquationType.PARABOLIC</span></code>) the sum is real‑exponential</p>
+<blockquote>
+<div><p>u(x,t) = Σ_k A_k(t) · exp(S_k(t)/ℏ)</p>
+</div></blockquote>
+<p>and for the wave equation (<code class="docutils literal notranslate"><span class="pre">EquationType.WAVE</span></code>) it is the coherent sum
+over two branches H₊ = +√H and H₋ = −√H.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>result</strong> (<a class="reference internal" href="#propagator.WKBResult" title="propagator.WKBResult"><em>WKBResult</em></a>) – Output of <a class="reference internal" href="#propagator.compute_wavefunction" title="propagator.compute_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a>.  Must contain full per-ray
-time series in <code class="docutils literal notranslate"><span class="pre">result.rays[k].traj</span></code>, <code class="docutils literal notranslate"><span class="pre">det_J</span></code>, and <code class="docutils literal notranslate"><span class="pre">S_cum</span></code>.</p></li>
-<li><p><strong>frame_times</strong> (<em>array-like</em><em> or </em><em>None</em>) – Physical times at which to render frames.  Each value is matched to
+<dt class="field-odd">param result<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Output of <a class="reference internal" href="#propagator.compute_wavefunction" title="propagator.compute_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a>.  Must contain the full per‑ray
+time series (<code class="docutils literal notranslate"><span class="pre">traj</span></code>, <code class="docutils literal notranslate"><span class="pre">det_J</span></code>, <code class="docutils literal notranslate"><span class="pre">S_cum</span></code>).  The animation uses the
+raw data stored in <code class="docutils literal notranslate"><span class="pre">result.rays</span></code> to evaluate the wavefunction at
+arbitrary times within [0, result.t_max].</p>
+</dd>
+<dt class="field-even">type result<span class="colon">:</span></dt>
+<dd class="field-even"><p>WKBResult</p>
+</dd>
+<dt class="field-odd">param frame_times<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Physical times at which to render frames.  Each value is matched to
 the nearest stored time step.  If <code class="docutils literal notranslate"><span class="pre">None</span></code>, <code class="docutils literal notranslate"><span class="pre">n_frames</span></code> equally
-spaced times between 0 and <code class="docutils literal notranslate"><span class="pre">result.t_max</span></code> are used.</p></li>
-<li><p><strong>n_frames</strong> (<em>int</em><em>, </em><em>default 100</em>) – Number of frames (ignored when <code class="docutils literal notranslate"><span class="pre">frame_times</span></code> is supplied).</p></li>
-<li><p><strong>interval</strong> (<em>int</em><em>, </em><em>default 50</em>) – Delay between frames in milliseconds.</p></li>
-<li><p><strong>save_path</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>default None</em>) – If given, save the animation to this path.  Format inferred from the
-extension: <code class="docutils literal notranslate"><span class="pre">.gif</span></code> uses Pillow, <code class="docutils literal notranslate"><span class="pre">.mp4</span></code> uses ffmpeg.</p></li>
-<li><p><strong>log_scale</strong> (<em>bool</em><em>, </em><em>default False</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, display <code class="docutils literal notranslate"><span class="pre">log(1</span> <span class="pre">+</span> <span class="pre">|ψ|²)</span></code> in the density panel.</p></li>
-</ul>
+spaced times between 0 and <code class="docutils literal notranslate"><span class="pre">result.t_max</span></code> are used.</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>anim</strong></p>
+<dt class="field-even">type frame_times<span class="colon">:</span></dt>
+<dd class="field-even"><p>array‑like or None</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>matplotlib.animation.FuncAnimation</p>
+<dt class="field-odd">param n_frames<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Number of frames (ignored when <code class="docutils literal notranslate"><span class="pre">frame_times</span></code> is supplied).</p>
+</dd>
+<dt class="field-even">type n_frames<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, default 100</p>
+</dd>
+<dt class="field-odd">param interval<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Delay between frames in milliseconds.</p>
+</dd>
+<dt class="field-even">type interval<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, default 50</p>
+</dd>
+<dt class="field-odd">param save_path<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If given, save the animation to this path.  Format is inferred from
+the extension: <code class="docutils literal notranslate"><span class="pre">.gif</span></code> uses Pillow, <code class="docutils literal notranslate"><span class="pre">.mp4</span></code> uses ffmpeg.</p>
+</dd>
+<dt class="field-even">type save_path<span class="colon">:</span></dt>
+<dd class="field-even"><p>str or None, default None</p>
+</dd>
+<dt class="field-odd">param log_scale<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, display the density as <code class="docutils literal notranslate"><span class="pre">log(1</span> <span class="pre">+</span> <span class="pre">|ψ|²)</span></code> (or
+<code class="docutils literal notranslate"><span class="pre">log(1</span> <span class="pre">+</span> <span class="pre">u²)</span></code> for parabolic) to reveal low‑amplitude features.
+Otherwise show the linear density.</p>
+</dd>
+<dt class="field-even">type log_scale<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, default True</p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>anim</strong> – The animation object.  Call <code class="docutils literal notranslate"><span class="pre">plt.show()</span></code> to display it, or use
+<code class="docutils literal notranslate"><span class="pre">anim.save(...)</span></code> directly (though the function already supports
+saving via the <code class="docutils literal notranslate"><span class="pre">save_path</span></code> argument).</p>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>matplotlib.animation.FuncAnimation</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
-<p>Axis limits for Re(ψ), Im(ψ), and <a href="#id24"><span class="problematic" id="id25">|</span></a>ψ|² are computed by scanning <strong>all</strong>
-frames before the animation starts, so the scale remains stable throughout
-and no clipping occurs.</p>
+<ul class="simple">
+<li><p>Axis limits for Re(ψ), Im(ψ), and the density are pre‑scanned over
+<strong>all</strong> frames to ensure a stable scale throughout the animation.</p></li>
+<li><p>For 1D the figure layout mirrors <a class="reference internal" href="#propagator.plot_wavefunction" title="propagator.plot_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">plot_wavefunction()</span></code></a>: density,
+phase, real part, imaginary part (the latter hidden for parabolic).</p></li>
+<li><p>For 2D the layout consists of real part, imaginary part, density, and
+phase (or log|u| for parabolic).</p></li>
+<li><p>For the wave equation the ray fan is assumed to be split into two halves
+representing the H₊ and H₋ branches (the order used by
+<a class="reference internal" href="#propagator.compute_wavefunction" title="propagator.compute_wavefunction"><code class="xref py py-func docutils literal notranslate"><span class="pre">compute_wavefunction()</span></code></a>).  Both are combined in the sum at each
+frame.</p></li>
+<li><p>The function uses the appropriate summation method based on the
+<code class="docutils literal notranslate"><span class="pre">result.equation</span></code> attribute.</p></li>
+</ul>
 <p class="rubric">Examples</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span>
-                              <span class="n">v_fan</span><span class="o">=</span><span class="n">v_fan</span><span class="p">,</span> <span class="n">t_max</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">hbar</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
-<span class="n">anim</span> <span class="o">=</span> <span class="n">animate_true_time_evolution</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">n_frames</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">40</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">riemannian</span><span class="w"> </span><span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">propagator</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_wavefunction</span><span class="p">,</span> <span class="n">animate_wavefunction</span>
+
+<span class="c1"># 1D free particle on a flat metric</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,))</span>
+<span class="n">source</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,)</span>
+<span class="n">v_fan</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
+    <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">v_fan</span><span class="o">=</span><span class="n">v_fan</span><span class="p">,</span>
+    <span class="n">t_max</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">hbar</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">N_grid</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Create animation and display</span>
+<span class="n">anim</span> <span class="o">=</span> <span class="n">animate_wavefunction</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">n_frames</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">40</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
 <span class="c1"># Save as GIF</span>
-<span class="n">animate_true_time_evolution</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="s2">&quot;evolution.gif&quot;</span><span class="p">)</span>
+<span class="n">animate_wavefunction</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="s2">&quot;wavepacket.gif&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+</section>
 </dd></dl>
 
 <dl class="py function">
@@ -992,7 +1068,7 @@ equation  ∂u/∂t = ψOp u  on a regular grid.</p>
 <h2>WKB formula<a class="headerlink" href="#wkb-formula" title="Link to this heading"></a></h2>
 <p>Unlike the Schrödinger case there is no imaginary unit in the exponent:</p>
 <blockquote>
-<div><p>u_k(x) = exp( S_k(x)/ℏ ) / √max(<a href="#id40"><span class="problematic" id="id41">|det J_k|</span></a>, reg)</p>
+<div><p>u_k(x) = exp( S_k(x)/ℏ ) / √max(<a href="#id38"><span class="problematic" id="id39">|det J_k|</span></a>, reg)</p>
 </div></blockquote>
 <p>The real exponential means:</p>
 <ul class="simple">
@@ -1128,10 +1204,10 @@ ray pattern in configuration space.</p>
 <section id="d-layout-4-panels-16-8-inches">
 <h2>1D layout (4 panels, 16 × 8 inches)<a class="headerlink" href="#d-layout-4-panels-16-8-inches" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p><strong>Top-left</strong> — Probability density <a href="#id26"><span class="problematic" id="id27">|</span></a>ψ|² (or log(1 + <a href="#id28"><span class="problematic" id="id29">|</span></a>ψ|²)).</p></li>
+<li><p><strong>Top-left</strong> — Probability density <a href="#id24"><span class="problematic" id="id25">|</span></a>ψ|² (or log(1 + <a href="#id26"><span class="problematic" id="id27">|</span></a>ψ|²)).</p></li>
 <li><p><strong>Top-right</strong> — Phase arg(ψ) in [−π, π].</p></li>
 <li><p><strong>Bottom-left</strong> — Re(ψ) and Im(ψ) overlaid.</p></li>
-<li><p><strong>Bottom-right</strong> — Ray fan x(t) coloured by mean <a href="#id42"><span class="problematic" id="id43">|det J|</span></a>.</p></li>
+<li><p><strong>Bottom-right</strong> — Ray fan x(t) coloured by mean <a href="#id40"><span class="problematic" id="id41">|det J|</span></a>.</p></li>
 </ul>
 </section>
 <section id="d-layout-5-panels-20-8-inches">
@@ -1140,7 +1216,7 @@ ray pattern in configuration space.</p>
 <li><p><strong>Top-left</strong> — Probability density (pcolormesh, inferno colourmap).</p></li>
 <li><p><strong>Top-right</strong> — Phase map (pcolormesh, hsv colourmap, range [−π, π]).</p></li>
 <li><p><strong>Bottom-left</strong> — Ray fan in (x, y) space; caustic points in yellow.</p></li>
-<li><p><strong>Bottom-centre</strong> — Scatter of log(1 + <a href="#id44"><span class="problematic" id="id45">|det J|</span></a>) over all ray points.</p></li>
+<li><p><strong>Bottom-centre</strong> — Scatter of log(1 + <a href="#id42"><span class="problematic" id="id43">|det J|</span></a>) over all ray points.</p></li>
 <li><p><strong>Bottom-right</strong> — Maslov index μ scatter over all ray points.</p></li>
 </ul>
 <dl class="field-list simple">
@@ -1151,7 +1227,7 @@ ray pattern in configuration space.</p>
 <dd class="field-even"><p>WKBResult</p>
 </dd>
 <dt class="field-odd">param log_scale<span class="colon">:</span></dt>
-<dd class="field-odd"><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, display log(1 + <a href="#id30"><span class="problematic" id="id31">|</span></a>ψ|²) instead of <a href="#id32"><span class="problematic" id="id33">|</span></a>ψ|² to reveal
+<dd class="field-odd"><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, display log(1 + <a href="#id28"><span class="problematic" id="id29">|</span></a>ψ|²) instead of <a href="#id30"><span class="problematic" id="id31">|</span></a>ψ|² to reveal
 low-amplitude features (shadow regions, secondary fringes).</p>
 </dd>
 <dt class="field-even">type log_scale<span class="colon">:</span></dt>
@@ -1185,7 +1261,7 @@ semiclassical wavefunction via a two-pass hybrid scheme:</p>
 <h2>Pass 1 — WKB everywhere<a class="headerlink" href="#pass-1-wkb-everywhere" title="Link to this heading"></a></h2>
 <p>For each scattered point k compute the complex WKB contribution:</p>
 <blockquote>
-<div><p>ψ_k = exp(i S_k/ℏ − i μ_k π/2) / √max(<a href="#id46"><span class="problematic" id="id47">|det J_k|</span></a>, reg)</p>
+<div><p>ψ_k = exp(i S_k/ℏ − i μ_k π/2) / √max(<a href="#id44"><span class="problematic" id="id45">|det J_k|</span></a>, reg)</p>
 </div></blockquote>
 <p>Then interpolate Re(ψ_k) and Im(ψ_k) separately onto the output grid.</p>
 <ul class="simple">
@@ -1195,7 +1271,7 @@ semiclassical wavefunction via a two-pass hybrid scheme:</p>
 supported).  Requires at least 3 non-collinear scattered points.</p></li>
 </ul>
 <p>The regularisation floor <code class="docutils literal notranslate"><span class="pre">reg</span></code> prevents division by zero at exact
-caustics; it has negligible effect away from caustics where <a href="#id48"><span class="problematic" id="id49">|det J|</span></a> ≫ reg.</p>
+caustics; it has negligible effect away from caustics where <a href="#id46"><span class="problematic" id="id47">|det J|</span></a> ≫ reg.</p>
 </section>
 <section id="pass-2-airy-pearcey-corrections-at-caustics">
 <h2>Pass 2 — Airy / Pearcey corrections at caustics<a class="headerlink" href="#pass-2-airy-pearcey-corrections-at-caustics" title="Link to this heading"></a></h2>
@@ -1207,11 +1283,11 @@ approximation:</p>
 <li><p><strong>1D fold</strong> — <code class="xref py py-func docutils literal notranslate"><span class="pre">_asymptotic_correction_1d()</span></code> evaluates the pointwise
 Airy profile Ai(ξ(x)) with ξ = (α/2ℏ)^{1/3}(x − x_c), where α is the
 local slope of det J.  The patch is blended into the WKB grid wherever
-<a href="#id50"><span class="problematic" id="id51">|patch|</span></a> &gt; 0.</p></li>
+<a href="#id48"><span class="problematic" id="id49">|patch|</span></a> &gt; 0.</p></li>
 <li><p><strong>2D fold</strong> — <code class="xref py py-func docutils literal notranslate"><span class="pre">_asymptotic_correction_2d()</span></code> applies the same Airy
-profile in the transverse direction n̂ = ∇det J / <a href="#id52"><span class="problematic" id="id53">|∇det J|</span></a>, with a 2D
+profile in the transverse direction n̂ = ∇det J / <a href="#id50"><span class="problematic" id="id51">|∇det J|</span></a>, with a 2D
 Gaussian taper.</p></li>
-<li><p><strong>2D cusp (Pearcey)</strong> — detected when <a href="#id54"><span class="problematic" id="id55">|∇det J|</span></a> &lt; 1e-10; handled via
+<li><p><strong>2D cusp (Pearcey)</strong> — detected when <a href="#id52"><span class="problematic" id="id53">|∇det J|</span></a> &lt; 1e-10; handled via
 <a class="reference internal" href="asymptotic.html#asymptotic.Analyzer" title="asymptotic.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">asymptotic.Analyzer</span></code></a> with quartic normal-form phase.</p></li>
 </ul>
 <section id="performance-note">
@@ -1275,7 +1351,7 @@ negative; the WKB amplitude uses <code class="docutils literal notranslate"><spa
 </dd>
 <dt class="field-odd">param reg<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Regularisation floor for the WKB amplitude: <code class="docutils literal notranslate"><span class="pre">amp</span> <span class="pre">=</span> <span class="pre">1/√max(|det</span> <span class="pre">J|,</span> <span class="pre">reg)</span></code>.
-Should be much smaller than the typical <a href="#id56"><span class="problematic" id="id57">|det J|</span></a> away from caustics.</p>
+Should be much smaller than the typical <a href="#id54"><span class="problematic" id="id55">|det J|</span></a> away from caustics.</p>
 </dd>
 <dt class="field-even">type reg<span class="colon">:</span></dt>
 <dd class="field-even"><p>float, default 1e-4</p>

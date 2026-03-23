@@ -90,6 +90,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#caustics.RayCausticDetector"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.events"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.events</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.detect"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.detect()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.maslov_index"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.maslov_index()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#caustics.RayCausticDetector.maslov_phase"><code class="docutils literal notranslate"><span class="pre">RayCausticDetector.maslov_phase()</span></code></a></li>
@@ -588,41 +589,59 @@ Returns complex array of same shape as X.</p>
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">caustics.</span></span><span class="sig-name descname"><span class="pre">RayCausticDetector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ray_bundle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimension</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">det_threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">H_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_syms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_syms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/caustics.html#RayCausticDetector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.RayCausticDetector" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Detect caustics in a ray bundle by tracking the stability matrix J.</p>
+<p>This class implements the correct geometric condition for caustics:
+a zero of the determinant of the stability matrix J = ∂x/∂q, where q
+are the initial ray parameters.  It replaces older heuristics such as
+velocity zeros or momentum minima, which are incorrect for caustic
+detection.</p>
+<p>The detector optionally classifies each caustic event into an Arnold
+type (fold, cusp, etc.) if a symbolic Hamiltonian is supplied.  It
+also computes the Maslov index (signed number of caustic crossings)
+and the associated phase shift exp(i μ π/2).</p>
 <section id="id23">
 <h2>Mathematical background<a class="headerlink" href="#id23" title="Link to this heading"></a></h2>
-<p>Given a Hamiltonian H(x, ξ) and a family of rays parameterised by
-initial condition s ∈ ℝ^d, the stability matrix is</p>
+<p>For a Hamiltonian H(x,ξ) and a family of rays parameterised by an
+initial‑condition vector q ∈ ℝⁿ, the stability matrix</p>
 <blockquote>
-<div><p>J(t) = ∂x(t, s) / ∂s₀</p>
+<div><p>J(t) = ∂x(t)/∂q</p>
 </div></blockquote>
-<p>and satisfies the variational equation along the ray:</p>
+<p>satisfies the variational equation</p>
 <blockquote>
-<div><p>dJ/dt = H_{px}(x(t), ξ(t)) · J</p>
+<div><p>dJ/dt = H_{px}(x(t), ξ(t)) · J ,      J(0) = Iₙ ,</p>
 </div></blockquote>
-<p>where H_{px} = ∂²H/∂ξ∂x is the mixed Hessian (a d×d matrix in d-D).</p>
-<p>A caustic occurs at t* when det(J(t*)) = 0.
-The Maslov index μ counts the number of such crossings (with sign).</p>
-</section>
-<section id="correct-approach-vs-old-causticdetector">
-<h2>Correct approach vs old CausticDetector<a class="headerlink" href="#correct-approach-vs-old-causticdetector" title="Link to this heading"></a></h2>
-<dl class="simple">
-<dt>OLD (wrong):</dt><dd><p>1D: caustic ↔ dx/dt = 0   (velocity turning point, NOT a caustic)
-2D: caustic ↔ <a href="#id34"><span class="problematic" id="id35">|ξ|</span></a> ≈ 0     (small momentum, NOT a caustic)</p>
-</dd>
-<dt>NEW (correct):</dt><dd><p>1D: caustic ↔ J(t) = ∂x(t)/∂x₀ = 0  (requires integrating J)
-2D: caustic ↔ det([[∂x/∂x₀, ∂x/∂y₀],[∂y/∂x₀, ∂y/∂y₀]]) = 0</p>
+<p>where H_{px} = ∂²H/∂ξ∂x is the mixed Hessian (n×n matrix in n
+dimensions).  A caustic occurs at time t* where det(J(t*)) = 0.
+The Maslov index μ is the signed count of such zero crossings; each
+crossing contributes a phase shift of π/2 to the semiclassical
+wavefunction.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The ray bundle passed to the constructor <strong>must</strong> contain the
+integrated stability matrix.  In 1D, the ray dict must have the key
+<cite>‘J’</cite> (a 1‑D array of length equal to <cite>‘t’</cite>).  In 2D, the keys
+<cite>‘J11’</cite>, <cite>‘J12’</cite>, <cite>‘J21’</cite>, <cite>‘J22’</cite> are required.  The helper methods
+<cite>stability_matrix_ode_1d</cite> and <cite>stability_matrix_ode_2d</cite> can be used
+to incorporate the J ODE into the ray integrator.</p>
+</div>
+<dl class="field-list">
+<dt class="field-odd">param ray_bundle<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of integrated rays.  Each dict contains at least the fields:
+- ‘t’ : ndarray, shape (n_steps,) – integration times.
+- ‘x’, ‘xi’ : ndarray (1D) or ‘x’,’y’,’xi’,’eta’ (2D) – position</p>
+<blockquote>
+<div><p>and momentum.</p>
+</div></blockquote>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Stability matrix entries:</dt><dd><ul>
+<li><p>1D: ‘J’ : ndarray, shape (n_steps,)</p></li>
+<li><p>2D: ‘J11’,’J12’,’J21’,’J22’ : ndarray, shape (n_steps,)</p></li>
+</ul>
 </dd>
 </dl>
-<dl class="field-list simple">
-<dt class="field-odd">param ray_bundle<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Each dict is an integrated ray as returned by wkb.py:
-1D keys: ‘t’, ‘x’, ‘xi’, ‘S’, ‘a0’, …
-2D keys: ‘t’, ‘x’, ‘y’, ‘xi’, ‘eta’, ‘S’, ‘a0’, …
-Each ray must additionally contain the stability matrix entries:
-1D: ‘J’          (array, shape (n_steps,))
-2D: ‘J11’,’J12’,’J21’,’J22’  (arrays, shape (n_steps,))
-If J is absent, RayCausticDetector will attempt to compute it
-numerically from neighbouring rays if a full bundle is provided.</p>
+</li>
+</ul>
+<p>If any of these keys is missing, the detector will raise a KeyError.</p>
 </dd>
 <dt class="field-even">type ray_bundle<span class="colon">:</span></dt>
 <dd class="field-even"><p>list of dict</p>
@@ -634,32 +653,49 @@ numerically from neighbouring rays if a full bundle is provided.</p>
 <dd class="field-even"><p>int</p>
 </dd>
 <dt class="field-odd">param det_threshold<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a href="#id36"><span class="problematic" id="id37">|det(J)|</span></a> &lt; det_threshold to flag a caustic (default 0.05).
-Relative to the initial value <a href="#id38"><span class="problematic" id="id39">|det(J(0))|</span></a>.</p>
+<dd class="field-odd"><p>A zero crossing of det(J) is registered when <a href="#id34"><span class="problematic" id="id35">|det(J)|</span></a> falls below
+<cite>det_threshold * |det(J(0))|</cite>.  Increase this value if caustics
+are missed; decrease it to avoid spurious detections.</p>
 </dd>
 <dt class="field-even">type det_threshold<span class="colon">:</span></dt>
-<dd class="field-even"><p>float</p>
+<dd class="field-even"><p>float, default 0.05</p>
 </dd>
 <dt class="field-odd">param H_expr<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Symbolic Hamiltonian.  If provided, classify_arnold_* is called
-at each caustic to give the Arnold type.</p>
+<dd class="field-odd"><p>Symbolic Hamiltonian.  If provided, the Arnold type of each
+caustic is determined by <cite>classify_arnold_1d</cite> (1D) or
+<cite>classify_arnold_2d</cite> (2D) using the momentum variables.</p>
 </dd>
 <dt class="field-even">type H_expr<span class="colon">:</span></dt>
-<dd class="field-even"><p>sp.Expr, optional</p>
+<dd class="field-even"><p>sympy.Expr, optional</p>
 </dd>
 <dt class="field-odd">param xi_syms<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Momentum symbols matching H_expr.</p>
+<dd class="field-odd"><p>Momentum symbols (e.g., (xi,) in 1D, (xi, eta) in 2D).  Required
+if <cite>H_expr</cite> is given.</p>
 </dd>
 <dt class="field-even">type xi_syms<span class="colon">:</span></dt>
-<dd class="field-even"><p>tuple of sp.Symbol, optional</p>
+<dd class="field-even"><p>tuple of sympy.Symbol, optional</p>
 </dd>
 <dt class="field-odd">param x_syms<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Spatial symbols matching H_expr.</p>
+<dd class="field-odd"><p>Spatial symbols (e.g., (x,) in 1D, (x, y) in 2D).  Currently
+unused, but kept for future extensions.</p>
 </dd>
 <dt class="field-even">type x_syms<span class="colon">:</span></dt>
-<dd class="field-even"><p>tuple of sp.Symbol, optional</p>
+<dd class="field-even"><p>tuple of sympy.Symbol, optional</p>
 </dd>
 </dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="caustics.RayCausticDetector.events">
+<span class="sig-name descname"><span class="pre">events</span></span><a class="headerlink" href="#caustics.RayCausticDetector.events" title="Link to this definition"></a></dt>
+<dd><p>Detected caustic events after calling <cite>detect()</cite>.  Each event
+contains the time, position, momentum, sign change, Maslov
+contribution, and (if possible) the Arnold type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of <a class="reference internal" href="#caustics.CausticEvent" title="caustics.CausticEvent">CausticEvent</a></p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="caustics.RayCausticDetector.detect">
 <span class="sig-name descname"><span class="pre">detect</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#caustics.CausticEvent" title="caustics.CausticEvent"><span class="pre">CausticEvent</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/caustics.html#RayCausticDetector.detect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#caustics.RayCausticDetector.detect" title="Link to this definition"></a></dt>

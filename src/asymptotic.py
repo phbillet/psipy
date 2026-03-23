@@ -715,6 +715,7 @@ class StationaryPhaseEvaluator:
     
     This class implements the standard stationary phase formulas for different types
     of critical points:
+    
     - Morse points: Standard stationary phase with second-order corrections
     - Airy singularities (1D and 2D): Catastrophe integrals with exact formulas
     - Pearcey singularities: Quartic catastrophe integrals
@@ -1209,10 +1210,8 @@ class LaplaceEvaluator:
             I₁(λ) = I₀(λ) · (1/λ) · C
 
         where the real correction factor C is:
-            C = (1/2) Tr(H⁻¹ ∇²a)
-              − (1/2) ⟨∇a, (H⁻¹ ⊗ H⁻¹) D³φ⟩
-              − (1/8) (H⁻¹ ⊗ H⁻¹) : D⁴φ
-              + (5/24) (H⁻¹ ⊗ H⁻¹ ⊗ H⁻¹) : (D³φ ⊗ D³φ)
+            C = (1/2) Tr(H⁻¹ ∇²a) − (1/2) ⟨∇a, (H⁻¹ ⊗ H⁻¹) D³φ⟩ − (1/8) (H⁻¹ ⊗ H⁻¹) : D⁴φ
+            + (5/24) (H⁻¹ ⊗ H⁻¹ ⊗ H⁻¹) : (D³φ ⊗ D³φ)
 
         Args:
             cp: CriticalPoint with a non-degenerate, positive definite Hessian.

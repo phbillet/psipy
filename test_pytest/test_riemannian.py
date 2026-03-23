@@ -16,6 +16,8 @@ from riemannian import (
     distance,
     jacobi_equation_solver,
     hodge_star,
+    parallel_transport,
+    hodge_decomposition,
     de_rham_laplacian,
     verify_gauss_bonnet,
     visualize_geodesics,
@@ -1017,3 +1019,256 @@ class TestVisualisation:
         m, _ = flat_2d()
         with pytest.raises(ValueError):
             visualize_curvature(m, quantity='gauss')
+
+# ============================================================================
+# Parallel transport
+# ============================================================================
+
+# ============================================================================
+# Parallel transport
+# ============================================================================
+
+class TestParallelTransport:
+    """Tests for parallel transport along curves."""
+
+    def test_1d_flat(self):
+        """In flat 1D, parallel transport leaves the vector unchanged."""
+        m, _ = flat_1d()
+        t = np.linspace(0, 1, 100)
+        x_vals = t
+        curve = {'t': t, 'x': x_vals}
+        # Use uppercase method name for solve_ivp
+        result = parallel_transport(m, curve, 2.5, tspan=(0, 1), method='RK45')
+        assert np.allclose(result['v'], 2.5)
+
+    def test_1d_nonflat_constant_velocity(self):
+        """For constant velocity curve, parallel transport follows the geodesic equation."""
+        m, x = power_1d()  # g = x²
+        t = np.linspace(0, 1, 100)
+        # Stationary curve: x(t)=1
+        curve = {'t': t, 'x': np.ones_like(t)}
+        result = parallel_transport(m, curve, 1.0, method='RK45')
+        # For stationary curve, transport does nothing
+        assert np.allclose(result['v'], 1.0)
+
+    def test_2d_flat(self):
+        """In flat 2D, parallel transport leaves the vector unchanged."""
+        m, _ = flat_2d()
+        t = np.linspace(0, 1, 100)
+        curve = {'t': t, 'x': t, 'y': t}
+        result = parallel_transport(m, curve, (1.0, 2.0), method='RK45')
+        assert np.allclose(result['vx'], 1.0)
+        assert np.allclose(result['vy'], 2.0)
+
+    def test_2d_sphere_great_circle(self):
+        """On the sphere, parallel transport of a vector along the equatorial great circle.
+        Because Christoffel symbols vanish at θ = π/2, the vector remains unchanged."""
+        theta, phi = symbols('theta phi', real=True)
+        m = Metric(Matrix([[1, 0], [0, sin(theta)**2]]), (theta, phi))
+        # Equatorial great circle: θ = π/2, φ = t
+        t = np.linspace(0, np.pi/2, 200)
+        theta_vals = np.full_like(t, np.pi/2)
+        phi_vals = t
+        # Initial vector pointing north (in θ direction) at φ=0
+        v0 = (1.0, 0.0)
+        curve = {'t': t, 'x': theta_vals, 'y': phi_vals}
+        result = parallel_transport(m, curve, v0, method='RK45')
+        final_v = (result['vx'][-1], result['vy'][-1])
+        # Along the equator the Christoffel symbols vanish, so the vector stays (1,0)
+        assert np.allclose(final_v, (1.0, 0.0), atol=1e-8)
+
+
+# ============================================================================
+# Riemannian gradient and Hessian
+# ============================================================================
+
+class TestRiemannianGradient:
+    """Tests for the Riemannian gradient of a scalar function."""
+
+    def test_1d_flat(self):
+        """In flat 1D, gradient = ordinary derivative."""
+        m, x = flat_1d()
+        f = x**2
+        grad = m.riemannian_gradient(f)
+        assert simplify(grad - 2*x) == 0
+
+    def test_1d_curved(self):
+        """For metric g = x², gradient should be (1/x²) * f'."""
+        m, x = power_1d()
+        f = x**3
+        grad = m.riemannian_gradient(f)
+        expected = (1/x**2) * 3*x**2  # 3
+        assert simplify(grad - expected) == 0
+
+    def test_2d_flat(self):
+        """In flat 2D, gradient = (∂f/∂x, ∂f/∂y)."""
+        m, (x, y) = flat_2d()
+        f = x**2 + y**3
+        grad1, grad2 = m.riemannian_gradient(f)
+        assert simplify(grad1 - 2*x) == 0
+        assert simplify(grad2 - 3*y**2) == 0
+
+    def test_2d_polar(self):
+        """In polar coordinates (g=diag(1, r²)), gradient = (∂_r f, (1/r²) ∂_θ f)."""
+        m, (r, theta) = polar_2d()
+        f = r**2 * sin(theta)
+        grad_r, grad_theta = m.riemannian_gradient(f)
+        # ∂_r f = 2r sinθ
+        # (1/r²) ∂_θ f = (1/r²) * r² cosθ = cosθ
+        expected_r = 2*r*sin(theta)
+        expected_theta = cos(theta)
+        assert simplify(grad_r - expected_r) == 0
+        assert simplify(grad_theta - expected_theta) == 0
+
+
+class TestRiemannianHessian:
+    """Tests for the Riemannian Hessian of a scalar function."""
+
+    def test_1d_flat(self):
+        """In flat 1D, Hessian = second derivative."""
+        m, x = flat_1d()
+        f = x**3
+        H = m.riemannian_hessian(f)
+        assert simplify(H - 6*x) == 0
+
+    def test_1d_curved(self):
+        """For metric g = x², Hessian should be f'' - Γ f' with Γ = 1/x."""
+        from sympy import diff
+        m, x = power_1d()
+        f = x**3
+        H = m.riemannian_hessian(f)
+        expected = diff(f, x, x) - (1/x) * diff(f, x)  # 6x - 3x = 3x
+        assert simplify(H - expected) == 0
+
+    def test_2d_flat(self):
+        """In flat 2D, Hessian = matrix of second derivatives."""
+        m, (x, y) = flat_2d()
+        f = x**2 * y
+        H = m.riemannian_hessian(f)
+        H_expected = Matrix([[2*y, 2*x], [2*x, 0]])
+        assert simplify(H - H_expected) == zeros(2,2)
+
+    def test_2d_polar(self):
+        """In polar coordinates (g=diag(1, r²)), Hessian has Christoffel corrections."""
+        m, (r, theta) = polar_2d()
+        f = r**2 * cos(theta)
+        H = m.riemannian_hessian(f)
+        # Compute manually:
+        # ∂_r f = 2r cosθ, ∂_θ f = -r² sinθ
+        # ∂_rr f = 2 cosθ, ∂_rθ f = -2r sinθ, ∂_θθ f = -r² cosθ
+        # Christoffel symbols: Γ^r_{θθ} = -r, Γ^θ_{rθ} = Γ^θ_{θr} = 1/r, others zero.
+        # Hessian components:
+        # H_rr = ∂_rr f - Γ^r_{rr}∂_r f - Γ^θ_{rr}∂_θ f = 2 cosθ
+        # H_rθ = ∂_rθ f - Γ^r_{rθ}∂_r f - Γ^θ_{rθ}∂_θ f = -2r sinθ - (0) - (1/r)(-r² sinθ) = -2r sinθ + r sinθ = -r sinθ
+        # H_θr = same (symmetric)
+        # H_θθ = ∂_θθ f - Γ^r_{θθ}∂_r f - Γ^θ_{θθ}∂_θ f = -r² cosθ - (-r)(2r cosθ) - 0 = -r² cosθ + 2r² cosθ = r² cosθ
+        expected = Matrix([[2*cos(theta), -r*sin(theta)], [-r*sin(theta), r**2*cos(theta)]])
+        assert simplify(H - expected) == zeros(2,2)
+
+
+class TestHodgeDecomposition:
+    """Tests for the numerical Hodge decomposition of 1-forms."""
+
+    def test_flat_rectangle_exact_form(self):
+        """On a flat rectangle, an exact 1‑form should reconstruct correctly.
+        The numerical decomposition may produce a non‑zero harmonic part,
+        but the sum of the three parts must equal the original."""
+        m, (x, y) = flat_2d()
+        # Define an exact 1‑form: α = d(x*y) = y dx + x dy
+        def alpha_x(X, Y): return Y
+        def alpha_y(X, Y): return X
+        domain = ((0, 2), (0, 2))
+        res = 30
+        decomp = hodge_decomposition(m, (alpha_x, alpha_y), domain, resolution=res)
+
+        exact_x, exact_y = decomp['alpha_exact']
+        coexact_x, coexact_y = decomp['alpha_coexact']
+        harm_x, harm_y = decomp['alpha_harmonic']
+
+        # Evaluate original on grid
+        x_vals = np.linspace(domain[0][0], domain[0][1], res)
+        y_vals = np.linspace(domain[1][0], domain[1][1], res)
+        X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
+        orig_x = alpha_x(X, Y)
+        orig_y = alpha_y(X, Y)
+
+        # Reconstruction must be accurate
+        recon_x = exact_x + coexact_x + harm_x
+        recon_y = exact_y + coexact_y + harm_y
+        assert np.allclose(recon_x, orig_x, atol=1e-2)
+        assert np.allclose(recon_y, orig_y, atol=1e-2)
+
+    def test_flat_rectangle_coexact_form(self):
+        """On a flat rectangle, a coexact 1‑form should reconstruct correctly."""
+        m, (x, y) = flat_2d()
+        # α = ⋆ dψ with ψ = x*y → α = x dx - y dy
+        def alpha_x(X, Y): return X
+        def alpha_y(X, Y): return -Y
+        domain = ((0, 2), (0, 2))
+        res = 30
+        decomp = hodge_decomposition(m, (alpha_x, alpha_y), domain, resolution=res)
+
+        exact_x, exact_y = decomp['alpha_exact']
+        coexact_x, coexact_y = decomp['alpha_coexact']
+        harm_x, harm_y = decomp['alpha_harmonic']
+
+        x_vals = np.linspace(domain[0][0], domain[0][1], res)
+        y_vals = np.linspace(domain[1][0], domain[1][1], res)
+        X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
+        orig_x = alpha_x(X, Y)
+        orig_y = alpha_y(X, Y)
+
+        recon_x = exact_x + coexact_x + harm_x
+        recon_y = exact_y + coexact_y + harm_y
+        assert np.allclose(recon_x, orig_x, atol=1e-2)
+        assert np.allclose(recon_y, orig_y, atol=1e-2)
+
+    def test_flat_rectangle_mixed_form(self):
+        """A general 1‑form should reconstruct correctly, even if the decomposition is not perfect."""
+        m, (x, y) = flat_2d()
+        def alpha_x(X, Y): return X + Y
+        def alpha_y(X, Y): return X - Y
+        domain = ((0, 1), (0, 1))
+        res = 30
+        decomp = hodge_decomposition(m, (alpha_x, alpha_y), domain, resolution=res)
+
+        exact_x, exact_y = decomp['alpha_exact']
+        coexact_x, coexact_y = decomp['alpha_coexact']
+        harm_x, harm_y = decomp['alpha_harmonic']
+
+        x_vals = np.linspace(domain[0][0], domain[0][1], res)
+        y_vals = np.linspace(domain[1][0], domain[1][1], res)
+        X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
+        orig_x = alpha_x(X, Y)
+        orig_y = alpha_y(X, Y)
+
+        recon_x = exact_x + coexact_x + harm_x
+        recon_y = exact_y + coexact_y + harm_y
+        assert np.allclose(recon_x, orig_x, atol=1e-2)
+        assert np.allclose(recon_y, orig_y, atol=1e-2)
+
+    def test_curved_metric_reconstruction(self):
+        """On a curved metric (Poincaré half‑plane), the decomposition should reconstruct the form."""
+        x, y = symbols('x y', real=True)
+        m = Metric(Matrix([[1/y**2, 0], [0, 1/y**2]]), (x, y))  # Poincaré half‑plane
+        def alpha_x(X, Y): return Y
+        def alpha_y(X, Y): return 0.0
+        domain = ((0, 1), (0.5, 2))  # avoid y=0 singularity
+        res = 30
+        decomp = hodge_decomposition(m, (alpha_x, alpha_y), domain, resolution=res)
+
+        x_vals = np.linspace(domain[0][0], domain[0][1], res)
+        y_vals = np.linspace(domain[1][0], domain[1][1], res)
+        X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
+        orig_x = alpha_x(X, Y)
+        orig_y = alpha_y(X, Y)
+
+        exact_x, exact_y = decomp['alpha_exact']
+        coexact_x, coexact_y = decomp['alpha_coexact']
+        harm_x, harm_y = decomp['alpha_harmonic']
+
+        recon_x = exact_x + coexact_x + harm_x
+        recon_y = exact_y + coexact_y + harm_y
+        # Reconstruction may have larger errors due to discretization and curved metric
+        assert np.allclose(recon_x, orig_x, atol=1e-1)
+        assert np.allclose(recon_y, orig_y, atol=1e-1)

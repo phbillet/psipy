@@ -809,57 +809,78 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Detect caustics in a ray bundle by tracking the stability matrix J.</span>
 
+<span class="sd">    This class implements the correct geometric condition for caustics:</span>
+<span class="sd">    a zero of the determinant of the stability matrix J = ∂x/∂q, where q</span>
+<span class="sd">    are the initial ray parameters.  It replaces older heuristics such as</span>
+<span class="sd">    velocity zeros or momentum minima, which are incorrect for caustic</span>
+<span class="sd">    detection.</span>
+
+<span class="sd">    The detector optionally classifies each caustic event into an Arnold</span>
+<span class="sd">    type (fold, cusp, etc.) if a symbolic Hamiltonian is supplied.  It</span>
+<span class="sd">    also computes the Maslov index (signed number of caustic crossings)</span>
+<span class="sd">    and the associated phase shift exp(i μ π/2).</span>
+
 <span class="sd">    Mathematical background</span>
 <span class="sd">    -----------------------</span>
-<span class="sd">    Given a Hamiltonian H(x, ξ) and a family of rays parameterised by</span>
-<span class="sd">    initial condition s ∈ ℝ^d, the stability matrix is</span>
+<span class="sd">    For a Hamiltonian H(x,ξ) and a family of rays parameterised by an</span>
+<span class="sd">    initial‑condition vector q ∈ ℝⁿ, the stability matrix</span>
 
-<span class="sd">        J(t) = ∂x(t, s) / ∂s₀</span>
+<span class="sd">        J(t) = ∂x(t)/∂q</span>
 
-<span class="sd">    and satisfies the variational equation along the ray:</span>
+<span class="sd">    satisfies the variational equation</span>
 
-<span class="sd">        dJ/dt = H_{px}(x(t), ξ(t)) · J</span>
+<span class="sd">        dJ/dt = H_{px}(x(t), ξ(t)) · J ,      J(0) = Iₙ ,</span>
 
-<span class="sd">    where H_{px} = ∂²H/∂ξ∂x is the mixed Hessian (a d×d matrix in d-D).</span>
+<span class="sd">    where H_{px} = ∂²H/∂ξ∂x is the mixed Hessian (n×n matrix in n</span>
+<span class="sd">    dimensions).  A caustic occurs at time t* where det(J(t*)) = 0.</span>
+<span class="sd">    The Maslov index μ is the signed count of such zero crossings; each</span>
+<span class="sd">    crossing contributes a phase shift of π/2 to the semiclassical</span>
+<span class="sd">    wavefunction.</span>
 
-<span class="sd">    A caustic occurs at t* when det(J(t*)) = 0.</span>
-<span class="sd">    The Maslov index μ counts the number of such crossings (with sign).</span>
-
-<span class="sd">    Correct approach vs old CausticDetector</span>
-<span class="sd">    ----------------------------------------</span>
-<span class="sd">    OLD (wrong):</span>
-<span class="sd">        1D: caustic ↔ dx/dt = 0   (velocity turning point, NOT a caustic)</span>
-<span class="sd">        2D: caustic ↔ |ξ| ≈ 0     (small momentum, NOT a caustic)</span>
-
-<span class="sd">    NEW (correct):</span>
-<span class="sd">        1D: caustic ↔ J(t) = ∂x(t)/∂x₀ = 0  (requires integrating J)</span>
-<span class="sd">        2D: caustic ↔ det([[∂x/∂x₀, ∂x/∂y₀],[∂y/∂x₀, ∂y/∂y₀]]) = 0</span>
+<span class="sd">    Important</span>
+<span class="sd">    ---------</span>
+<span class="sd">    The ray bundle passed to the constructor **must** contain the</span>
+<span class="sd">    integrated stability matrix.  In 1D, the ray dict must have the key</span>
+<span class="sd">    `&#39;J&#39;` (a 1‑D array of length equal to `&#39;t&#39;`).  In 2D, the keys</span>
+<span class="sd">    `&#39;J11&#39;`, `&#39;J12&#39;`, `&#39;J21&#39;`, `&#39;J22&#39;` are required.  The helper methods</span>
+<span class="sd">    `stability_matrix_ode_1d` and `stability_matrix_ode_2d` can be used</span>
+<span class="sd">    to incorporate the J ODE into the ray integrator.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    ray_bundle : list of dict</span>
-<span class="sd">        Each dict is an integrated ray as returned by wkb.py:</span>
-<span class="sd">        1D keys: &#39;t&#39;, &#39;x&#39;, &#39;xi&#39;, &#39;S&#39;, &#39;a0&#39;, ...</span>
-<span class="sd">        2D keys: &#39;t&#39;, &#39;x&#39;, &#39;y&#39;, &#39;xi&#39;, &#39;eta&#39;, &#39;S&#39;, &#39;a0&#39;, ...</span>
-<span class="sd">        Each ray must additionally contain the stability matrix entries:</span>
-<span class="sd">        1D: &#39;J&#39;          (array, shape (n_steps,))</span>
-<span class="sd">        2D: &#39;J11&#39;,&#39;J12&#39;,&#39;J21&#39;,&#39;J22&#39;  (arrays, shape (n_steps,))</span>
-<span class="sd">        If J is absent, RayCausticDetector will attempt to compute it</span>
-<span class="sd">        numerically from neighbouring rays if a full bundle is provided.</span>
+<span class="sd">        List of integrated rays.  Each dict contains at least the fields:</span>
+<span class="sd">        - &#39;t&#39; : ndarray, shape (n_steps,) – integration times.</span>
+<span class="sd">        - &#39;x&#39;, &#39;xi&#39; : ndarray (1D) or &#39;x&#39;,&#39;y&#39;,&#39;xi&#39;,&#39;eta&#39; (2D) – position</span>
+<span class="sd">          and momentum.</span>
+<span class="sd">        - Stability matrix entries:</span>
+<span class="sd">            * 1D: &#39;J&#39; : ndarray, shape (n_steps,)</span>
+<span class="sd">            * 2D: &#39;J11&#39;,&#39;J12&#39;,&#39;J21&#39;,&#39;J22&#39; : ndarray, shape (n_steps,)</span>
+<span class="sd">        If any of these keys is missing, the detector will raise a KeyError.</span>
 <span class="sd">    dimension : int</span>
 <span class="sd">        1 or 2.</span>
-<span class="sd">    det_threshold : float</span>
-<span class="sd">        |det(J)| &lt; det_threshold to flag a caustic (default 0.05).</span>
-<span class="sd">        Relative to the initial value |det(J(0))|.</span>
-<span class="sd">    H_expr : sp.Expr, optional</span>
-<span class="sd">        Symbolic Hamiltonian.  If provided, classify_arnold_* is called</span>
-<span class="sd">        at each caustic to give the Arnold type.</span>
-<span class="sd">    xi_syms : tuple of sp.Symbol, optional</span>
-<span class="sd">        Momentum symbols matching H_expr.</span>
-<span class="sd">    x_syms  : tuple of sp.Symbol, optional</span>
-<span class="sd">        Spatial symbols matching H_expr.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    det_threshold : float, default 0.05</span>
+<span class="sd">        A zero crossing of det(J) is registered when |det(J)| falls below</span>
+<span class="sd">        `det_threshold * |det(J(0))|`.  Increase this value if caustics</span>
+<span class="sd">        are missed; decrease it to avoid spurious detections.</span>
+<span class="sd">    H_expr : sympy.Expr, optional</span>
+<span class="sd">        Symbolic Hamiltonian.  If provided, the Arnold type of each</span>
+<span class="sd">        caustic is determined by `classify_arnold_1d` (1D) or</span>
+<span class="sd">        `classify_arnold_2d` (2D) using the momentum variables.</span>
+<span class="sd">    xi_syms : tuple of sympy.Symbol, optional</span>
+<span class="sd">        Momentum symbols (e.g., (xi,) in 1D, (xi, eta) in 2D).  Required</span>
+<span class="sd">        if `H_expr` is given.</span>
+<span class="sd">    x_syms : tuple of sympy.Symbol, optional</span>
+<span class="sd">        Spatial symbols (e.g., (x,) in 1D, (x, y) in 2D).  Currently</span>
+<span class="sd">        unused, but kept for future extensions.</span>
 
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    events : list of CausticEvent</span>
+<span class="sd">        Detected caustic events after calling `detect()`.  Each event</span>
+<span class="sd">        contains the time, position, momentum, sign change, Maslov</span>
+<span class="sd">        contribution, and (if possible) the Arnold type.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                  <span class="n">ray_bundle</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span>
                  <span class="n">dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
