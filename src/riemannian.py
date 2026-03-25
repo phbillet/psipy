@@ -2410,8 +2410,43 @@ class RiemannianGrid:
     # ------------------------------------------------------------------
     def solve_poisson_dirichlet(self, rhs):
         """
-        Solve Δ₀ u = rhs with homogeneous Dirichlet BC (u = 0 on boundary).
-        Supports multiple right‑hand sides.
+        Solve the scalar Laplace–Beltrami equation Δ₀ u = rhs with homogeneous Dirichlet boundary conditions.
+    
+        The system is assembled as a sparse FEM matrix `self._A_dirichlet`, which encodes
+        the operator Δ₀ on a regular rectangular grid.  Homogeneous Dirichlet conditions
+        (u = 0 on the boundary) are enforced by zeroing the rows corresponding to boundary
+        nodes and setting the diagonal entry to 1; the right‑hand side is set to zero on
+        those rows.
+    
+        The solver supports multiple right‑hand sides simultaneously, which is more
+        efficient than solving each individually.
+    
+        Parameters
+        ----------
+        rhs : numpy.ndarray
+            Right‑hand side field(s).  Allowed shapes:
+    
+            - 2D (N, N) : a single scalar field on the grid.
+            - 3D (K, N, N) : K independent scalar fields, solved in one linear system.
+    
+        Returns
+        -------
+        numpy.ndarray
+            Solution u of the Poisson equation, with the same shape as `rhs`:
+    
+            - (N, N) for a single RHS.
+            - (K, N, N) for multiple RHS (first dimension = number of fields).
+    
+        Raises
+        ------
+        ValueError
+            If the shape of `rhs` does not match the grid dimensions.
+    
+        Notes
+        -----
+        The linear system is solved using `scipy.sparse.linalg.spsolve`, which
+        returns the solution with the same number of columns as the number of RHS
+        vectors.  The result is reshaped back to the original spatial grid.
         """
         if rhs.ndim == 2:
             if rhs.shape != (self.N, self.N):
@@ -2442,19 +2477,44 @@ class RiemannianGrid:
             
     def solve_poisson_neumann(self, rhs):
         """
-        Solve Δ₀ u = rhs with homogeneous Neumann BC + gauge fix.
-        Supports multiple right‑hand sides.
-
+        Solve the scalar Laplace–Beltrami equation Δ₀ u = rhs with homogeneous Neumann boundary conditions.
+    
+        The Neumann problem requires a compatibility condition: the right‑hand side must
+        be orthogonal to the constant nullspace, i.e. ∫_M rhs · √g dV = 0.  This function
+        automatically enforces that condition by subtracting the weighted mean from `rhs`
+        before solving.  The gauge freedom (addition of an arbitrary constant) is fixed
+        by pinning a single interior node (the grid point nearest to the centre) to zero
+        in the assembled matrix `self._A_neumann`.
+    
+        The solver supports multiple right‑hand sides simultaneously, which is more
+        efficient than solving each individually.
+    
         Parameters
         ----------
         rhs : numpy.ndarray
-            - 2D (N, N) : single scalar field
-            - 3D (K, N, N) : K independent scalar fields
-
+            Right‑hand side field(s).  Allowed shapes:
+    
+            - 2D (N, N) : a single scalar field on the grid.
+            - 3D (K, N, N) : K independent scalar fields, solved in one linear system.
+    
         Returns
         -------
         numpy.ndarray
-            Solution u with same shape as rhs.
+            Solution u of the Poisson equation, with the same shape as `rhs`:
+    
+            - (N, N) for a single RHS.
+            - (K, N, N) for multiple RHS (first dimension = number of fields).
+    
+        Raises
+        ------
+        ValueError
+            If the shape of `rhs` does not match the grid dimensions.
+    
+        Notes
+        -----
+        The weighted mean is computed as (∫ rhs · √g dV) / (∫ √g dV) and subtracted
+        from each RHS vector.  The solution is unique because the gauge is fixed by
+        the interior node condition.
         """
         # Determine input shape and flatten appropriately
         if rhs.ndim == 2:
@@ -2490,35 +2550,6 @@ class RiemannianGrid:
             return sol.reshape(self.N, self.N)
         else:
             return sol.T.reshape(out_shape)
-    
-    def solve_poisson_neumann_old(self, rhs):
-        """
-        Solve Δ₀ u = rhs with homogeneous Neumann BC + gauge fix.
-    
-        The assembled A_scalar already encodes zero-flux (Neumann) at every
-        boundary face because _face_avg zeroes the outer half-face coefficients.
-        This leaves a rank-1 null space (constant functions).  We remove it by
-        pinning one interior node: u[N//2, N//2] = 0.
-    
-        This is the correct BC for Hodge potentials: only ∇φ and ∇ψ appear in
-        the decomposition, so the additive constant is irrelevant, and forcing
-        φ=0 on ∂Ω (Dirichlet) incorrectly drives the gradient to zero there.
-        """
-        A = self.A_scalar.tolil()
-        b = rhs.ravel().copy()
-    
-        # Compatibility: Neumann problem is solvable only if ∫ rhs dV = 0.
-        # Enforce this by subtracting the mean weighted by √g.
-        weights = self.sqrt_det.ravel()
-        b -= b.dot(weights) / weights.sum()
-    
-        # Pin one interior node to fix the gauge (removes the constant null-space)
-        pin = self._src[self.N // 2, self.N // 2]
-        A.rows[pin] = [pin]
-        A.data[pin] = [1.0]
-        b[pin]      = 0.0
-    
-        return spsolve(A.tocsr(), b).reshape(self.N, self.N)
 
 
 # =============================================================================
@@ -2526,7 +2557,27 @@ class RiemannianGrid:
 # =============================================================================
 
 def _fd_deriv(arr, axis, h):
-    """Second-order finite-difference derivative along *axis* with spacing *h*."""
+    """
+    Second-order finite-difference derivative along a specified axis.
+
+    For interior points (index 1..-2) a centered difference of order O(h²) is used.
+    At boundaries, a second-order one-sided scheme (three-point forward/backward)
+    provides the same formal accuracy.
+
+    Parameters
+    ----------
+    arr : ndarray
+        2D input array.
+    axis : {0, 1}
+        Axis along which to differentiate (0 = x, 1 = y).
+    h : float
+        Grid spacing along the chosen axis.
+
+    Returns
+    -------
+    ndarray
+        Derivative array of the same shape as `arr`.
+    """
     out  = np.zeros_like(arr)
     s_p  = [slice(None), slice(None)]; s_p[axis]  = slice(2, None)
     s_m  = [slice(None), slice(None)]; s_m[axis]  = slice(None, -2)
@@ -2546,10 +2597,58 @@ def _fd_deriv(arr, axis, h):
 
 
 def _gradient(arr, dx, dy):
+    """
+    Compute the gradient of a scalar field using second-order finite differences.
+
+    The gradient is returned as a tuple (∂ₓf, ∂ᵧf), where each component is
+    computed with :func:`_fd_deriv`.
+
+    Parameters
+    ----------
+    arr : ndarray
+        2D scalar field.
+    dx : float
+        Grid spacing in the x-direction.
+    dy : float
+        Grid spacing in the y-direction.
+
+    Returns
+    -------
+    tuple of ndarray
+        (∂f/∂x, ∂f/∂y), each of the same shape as `arr`.
+    """
     return _fd_deriv(arr, 0, dx), _fd_deriv(arr, 1, dy)
 
 
 def _codifferential(f_x, f_y, g_inv00, g_inv01, g_inv11, sqrt_det, dx, dy):
+    """
+    Compute the codifferential δ of a 1‑form α = f_x dx + f_y dy on a Riemannian 2‑manifold.
+
+    In coordinates the codifferential is given by
+
+        δα = - (1/√g) ∂_i ( √g g^{ij} α_j ),
+
+    where g^{ij} are the contravariant metric components and √g = √|det g|.
+    The divergence term is evaluated with second‑order finite differences
+    (see :func:`_fd_deriv`).  A tiny regularisation (1e-14) is added to √g
+    to avoid division by zero in degenerate cases.
+
+    Parameters
+    ----------
+    f_x, f_y : ndarray
+        Components of the 1‑form (αₓ, αᵧ), each of shape (N, N).
+    g_inv00, g_inv01, g_inv11 : ndarray
+        Contravariant metric components g¹¹, g¹², g²² evaluated on the grid.
+    sqrt_det : ndarray
+        Square root of the determinant √|det g|.
+    dx, dy : float
+        Grid spacings in the x and y directions.
+
+    Returns
+    -------
+    ndarray
+        Scalar array representing δα, same shape as the input arrays.
+    """
     flux_x = sqrt_det * (g_inv00 * f_x + g_inv01 * f_y)
     flux_y = sqrt_det * (g_inv01 * f_x + g_inv11 * f_y)
     div    = _fd_deriv(flux_x, 0, dx) + _fd_deriv(flux_y, 1, dy)
@@ -2559,91 +2658,89 @@ def _codifferential(f_x, f_y, g_inv00, g_inv01, g_inv11, sqrt_det, dx, dy):
 def hodge_decomposition(metric, omega_components, domain, resolution=50,
                         form_degree=1):
     """
-    Numerically decompose a differential k-form into its Hodge components
+    Numerically decompose a differential k‑form into its Hodge components
     on a 2D rectangular domain.
 
     Supported form degrees
     ----------------------
     ``form_degree=1`` (default)
-        Decomposes a 1-form α = αₓ dx + αᵧ dy via the full Hodge theorem:
+        Decomposes a 1‑form α = αₓ dx + αᵧ dy as
 
-            α  =  dφ  +  ⋆dψ  +  h
+            α = dφ + ⋆dψ + h,
 
-        where dφ is exact, ⋆dψ is co-exact, and h is harmonic (Δh = 0).
-        Two scalar Poisson problems are solved:
+        where dφ is exact, ⋆dψ is co‑exact, and h is harmonic (Δh = 0).
+        The scalar potentials φ and ψ satisfy the Poisson equations
 
-            Δ₀ φ = δα          →   α_exact   = dφ = ∇φ
-            Δ₀ ψ = δ(⋆α)       →   α_coexact = ⋆dψ
-            h     = α − dφ − ⋆dψ
+            Δ₀ φ = δα            (Dirichlet boundary condition)
+            Δ₀ ψ = δ(⋆α)         (Neumann boundary condition)
 
-        The dimension of the harmonic space equals the first Betti number
-        b₁ = dim H¹_dR(M).  ``omega_components`` must be a 2-tuple
-        (αₓ, αᵧ) of callables or SymPy expressions.
+        with the gauge fixed by pinning an interior grid point to zero
+        for the Neumann problem.  The decomposition is then
+
+            α_exact   = ∇φ = dφ
+            α_coexact = ⋆dψ
+            α_harmonic = α − α_exact − α_coexact
+
+        The harmonic part corresponds to the de Rham cohomology class
+        [α] ∈ H¹_dR(M).
 
     ``form_degree=2``
-        Decomposes a 2-form ω = f dx∧dy via Hodge duality.  In 2D a 2-form
-        is fully characterised by its scalar coefficient f, and the
-        decomposition reads:
+        Decomposes a 2‑form ω = f dx∧dy into exact and harmonic parts:
 
-            ω  =  dα  +  h₂
+            ω = dα + h₂
 
-        where dα is exact (α is a 1-form) and h₂ is harmonic.  There is no
-        co-exact part because there are no 3-forms in 2D.
+        (there is no co‑exact component because no 3‑forms exist in 2D).
+        The algorithm solves a single Dirichlet problem for the scalar
+        potential φ defined by Δ₀ φ = ⋆ω, where ⋆ω = f / √|g| is the
+        Hodge dual (a 0‑form).  The exact part is then
 
-        The algorithm maps the problem to a 1-form decomposition:
+            ω_exact = d(⋆dφ)
 
-            ⋆ω is a 1-form  →  decompose it  →  apply ⋆ to each piece
+        and the harmonic part is ω_harmonic = ω − ω_exact.
+        (The co‑exact part is set to zero.)
 
-        Concretely, if ⋆ω = dφ + ⋆dψ + h₁, then:
-
-            ω = ⋆(⋆ω) = ⋆(dφ) + ⋆(⋆dψ) + ⋆h₁
-                       = ⋆dφ   + dψ      + h₂
-
-        where ⋆dφ is the co-exact part of ω, dψ is exact, and h₂ = ⋆h₁ is
-        the harmonic 2-form.  ``omega_components`` must be a scalar callable
-        or SymPy expression representing the coefficient f(x, y).
-
-        The harmonic space of 2-forms has dimension b₂ = dim H²_dR(M),
-        which equals 1 on a closed oriented surface (by Poincaré duality with
-        H⁰) and 0 on a contractible domain.
+        The resulting harmonic 2‑form belongs to the second de Rham
+        cohomology class [ω] ∈ H²_dR(M).
 
     Why not ``form_degree=0``?
-        A 0-form is a scalar function.  Its Hodge decomposition on a domain
+        A 0‑form is a scalar function.  Its Hodge decomposition on a domain
         with boundary reduces to f = δα + const, which amounts to solving a
         single Neumann problem — a different and less informative computation
         that does not expose de Rham cohomology.  It is not included here to
-        keep the scope of this function well-defined.
+        keep the scope of this function well‑defined.
 
     Parameters
     ----------
     metric : Metric
         Must be 2D.
     omega_components : tuple of two (callable or sympy.Expr), or scalar
-        - ``form_degree=1``: 2-tuple (αₓ, αᵧ).
-        - ``form_degree=2``: scalar f representing ω = f dx∧dy.
+        - ``form_degree=1``: a 2‑tuple (αₓ, αᵧ).
+        - ``form_degree=2``: a scalar f representing ω = f dx∧dy.
     domain : tuple
-        ``((x_min, x_max), (y_min, y_max))``
+        ((x_min, x_max), (y_min, y_max))
     resolution : int, default 50
-        Grid points per axis.
+        Number of grid points per axis.
     form_degree : {1, 2}, default 1
         Degree of the input differential form.
 
     Returns
     -------
     dict
-        All cases include ``'grid'`` (the :class:`RiemannianGrid` instance).
+        All cases contain a key ``'grid'`` holding the
+        :class:`RiemannianGrid` instance used for the computation.
 
         **form_degree=1**:
-            ``'potential_phi'``, ``'potential_psi'``,
-            ``'alpha_exact'`` (2-tuple of arrays),
-            ``'alpha_coexact'`` (2-tuple of arrays),
-            ``'alpha_harmonic'`` (2-tuple of arrays).
+            * ``'potential_phi'``  – array : φ potential (Dirichlet).
+            * ``'potential_psi'``  – array : ψ potential (Neumann).
+            * ``'alpha_exact'``    – tuple of two arrays : (dφ)ₓ, (dφ)ᵧ.
+            * ``'alpha_coexact'``  – tuple of two arrays : (⋆dψ)ₓ, (⋆dψ)ᵧ.
+            * ``'alpha_harmonic'`` – tuple of two arrays : hₓ, hᵧ.
 
         **form_degree=2**:
-            ``'potential_phi'``, ``'potential_psi'``,
-            ``'omega_exact'``    — coefficient of the exact part dψ,
-            ``'omega_coexact'``  — coefficient of the co-exact part ⋆dφ,
-            ``'omega_harmonic'`` — coefficient of the harmonic 2-form h₂.
+            * ``'potential_phi'``  – array : φ such that Δ₀ φ = ⋆ω.
+            * ``'omega_exact'``    – array : coefficient of the exact part.
+            * ``'omega_coexact'``  – array : zero (no co‑exact component).
+            * ``'omega_harmonic'`` – array : coefficient of the harmonic part.
 
     Raises
     ------
@@ -2652,7 +2749,7 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
 
     Examples
     --------
-    **1-form** — rotation form on the flat torus (purely harmonic):
+    **1‑form** — rotation form on the flat torus (purely harmonic):
 
     >>> from sympy import symbols, Matrix
     >>> import numpy as np
@@ -2661,11 +2758,11 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
     >>> dec = hodge_decomposition(m, (-y, x), ((0, 1), (0, 1)), resolution=40)
     >>> # harmonic part carries ≈ 100% of L² energy
 
-    **2-form** — constant vorticity ω = dx∧dy on the flat plane:
+    **2‑form** — constant vorticity ω = dx∧dy on the flat plane:
 
     >>> dec2 = hodge_decomposition(m, 1, ((0, 1), (0, 1)),
     ...                            resolution=40, form_degree=2)
-    >>> # omega_exact ≈ 0, omega_coexact ≈ 1 (contractible domain: b₂ = 0)
+    >>> # omega_exact ≈ 0, omega_harmonic ≈ 1 (contractible domain: b₂ = 0)
     """
     if metric.dim != 2:
         raise NotImplementedError("Hodge decomposition is only implemented for 2D.")
@@ -3032,140 +3129,6 @@ def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
 
     plt.tight_layout()
     plt.show()
-
-def visualize_hodge_decomposition_old(decomp, domain, resolution=50,
-                                   cmap='RdBu_r', quiver_stride=3):
-    """
-    Visualise the output of :func:`hodge_decomposition`.
-
-    Produces a 2-row Matplotlib figure:
-
-    * **Top row** (4 panels): the original 1-form α and its three Hodge
-      components — exact (dφ), co-exact (⋆dψ), and harmonic (h).  Each
-      panel shows the vector field as a quiver plot overlaid on a heatmap
-      of the field's pointwise magnitude ‖·‖.
-    * **Bottom row** (2 panels): the scalar potentials φ and ψ as filled
-      contour maps with overlaid contour lines.
-
-    Parameters
-    ----------
-    decomp : dict
-        Return value of :func:`hodge_decomposition`.  Expected keys:
-        ``'alpha_exact'``, ``'alpha_coexact'``, ``'alpha_harmonic'``,
-        ``'potential_phi'``, ``'potential_psi'``.
-    domain : tuple
-        ``((x_min, x_max), (y_min, y_max))`` — the same domain passed to
-        :func:`hodge_decomposition`, used to reconstruct the coordinate grid.
-    resolution : int, default 50
-        Number of grid points per axis; must match the value used in
-        :func:`hodge_decomposition`.
-    cmap : str, default ``'RdBu_r'``
-        Matplotlib colormap for all magnitude / potential panels.
-    quiver_stride : int, default 3
-        Sub-sampling stride for the quiver arrows (1 = every grid point,
-        higher values reduce clutter on dense grids).
-
-    Returns
-    -------
-    None
-        Displays a Matplotlib figure via ``plt.show()``.
-
-    Examples
-    --------
-    >>> from sympy import symbols, Matrix
-    >>> x, y = symbols('x y', real=True)
-    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
-    >>> decomp = hodge_decomposition(m, (y, -x), ((0, 2*np.pi), (0, 2*np.pi)))
-    >>> visualize_hodge_decomposition(decomp, ((0, 2*np.pi), (0, 2*np.pi)))
-    """
-    # ------------------------------------------------------------------
-    # Coordinate grid (must match what hodge_decomposition used)
-    # ------------------------------------------------------------------
-    x_vals = np.linspace(domain[0][0], domain[0][1], resolution)
-    y_vals = np.linspace(domain[1][0], domain[1][1], resolution)
-    X, Y   = np.meshgrid(x_vals, y_vals, indexing='ij')
-
-    # Reconstruct the original 1-form from its three parts
-    ex_x,  ex_y  = decomp['alpha_exact']
-    co_x,  co_y  = decomp['alpha_coexact']
-    ha_x,  ha_y  = decomp['alpha_harmonic']
-    alpha_x       = ex_x + co_x + ha_x
-    alpha_y       = ex_y + co_y + ha_y
-
-    phi = decomp['potential_phi']
-    psi = decomp['potential_psi']
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-    def _magnitude(fx, fy):
-        return np.sqrt(fx**2 + fy**2)
-
-    def _panel_field(ax, fx, fy, title):
-        """Heatmap of ‖(fx, fy)‖ with quiver overlay."""
-        mag = _magnitude(fx, fy)
-        pcm = ax.pcolormesh(X, Y, mag, shading='auto', cmap=cmap)
-        plt.colorbar(pcm, ax=ax, label='‖·‖')
-        sl  = slice(None, None, quiver_stride)
-        ax.quiver(X[sl, sl], Y[sl, sl], fx[sl, sl], fy[sl, sl],
-                  color='k', alpha=0.6, scale=None, scale_units='xy')
-        ax.set_title(title)
-        ax.set_xlabel('x'); ax.set_ylabel('y')
-        ax.set_aspect('equal')
-
-    def _panel_scalar(ax, Z, title):
-        """Filled contour map with iso-lines for a scalar potential."""
-        pcm = ax.pcolormesh(X, Y, Z, shading='auto', cmap=cmap)
-        plt.colorbar(pcm, ax=ax)
-        ax.contour(X, Y, Z, levels=12, colors='k', linewidths=0.5, alpha=0.5)
-        ax.set_title(title)
-        ax.set_xlabel('x'); ax.set_ylabel('y')
-        ax.set_aspect('equal')
-
-    # ------------------------------------------------------------------
-    # Figure layout: 2 rows × 4 cols, bottom-left two cells = potentials,
-    # bottom-right two cells left empty (or can be used for residuals).
-    # ------------------------------------------------------------------
-    fig = plt.figure(figsize=(18, 9))
-    gs  = fig.add_gridspec(2, 4, hspace=0.45, wspace=0.35)
-
-    # Top row: original + 3 components
-    _panel_field(fig.add_subplot(gs[0, 0]), alpha_x, alpha_y, 'Original  α')
-    _panel_field(fig.add_subplot(gs[0, 1]), ex_x,    ex_y,    'Exact part  dφ')
-    _panel_field(fig.add_subplot(gs[0, 2]), co_x,    co_y,    'Co-exact part  ⋆dψ')
-    _panel_field(fig.add_subplot(gs[0, 3]), ha_x,    ha_y,    'Harmonic part  h')
-
-    # Bottom row: potentials + residual magnitudes
-    _panel_scalar(fig.add_subplot(gs[1, 0]), phi, 'Scalar potential  φ')
-    _panel_scalar(fig.add_subplot(gs[1, 1]), psi, 'Co-scalar potential  ψ')
-
-    # Residual: how well does dφ + ⋆dψ + h reconstruct α?
-    res_x = alpha_x - ex_x - co_x - ha_x
-    res_y = alpha_y - ex_y - co_y - ha_y
-    _panel_field(fig.add_subplot(gs[1, 2]), res_x, res_y,
-                 f'Residual  ‖α − dφ − ⋆dψ − h‖\n'
-                 f'(max = {_magnitude(res_x, res_y).max():.2e})')
-
-    # Energy bar chart: fraction of ‖α‖² in each component
-    ax_energy = fig.add_subplot(gs[1, 3])
-    total   = _magnitude(alpha_x, alpha_y).ravel()**2
-    labels  = ['dφ', '⋆dψ', 'h']
-    energies = [
-        (_magnitude(ex_x, ex_y).ravel()**2).sum(),
-        (_magnitude(co_x, co_y).ravel()**2).sum(),
-        (_magnitude(ha_x, ha_y).ravel()**2).sum(),
-    ]
-    fracs = np.array(energies) / (total.sum() + 1e-30) * 100
-    bars  = ax_energy.bar(labels, fracs, color=['steelblue', 'tomato', 'seagreen'])
-    ax_energy.bar_label(bars, fmt='%.1f%%', padding=3)
-    ax_energy.set_ylabel('% of total L² energy')
-    ax_energy.set_title('Energy distribution')
-    ax_energy.set_ylim(0, max(fracs) * 1.2 + 5)
-
-    fig.suptitle('Hodge Decomposition   α = dφ + ⋆dψ + h', fontsize=14, y=1.01)
-    plt.tight_layout()
-    plt.show()
-    
 
 
 def parallel_transport(metric, curve, initial_vector, tspan=None, method='RK45'):
