@@ -98,7 +98,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#riemannian.RiemannianGrid.idx_bound"><code class="docutils literal notranslate"><span class="pre">RiemannianGrid.idx_bound</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#riemannian.RiemannianGrid.solve_poisson_dirichlet"><code class="docutils literal notranslate"><span class="pre">RiemannianGrid.solve_poisson_dirichlet()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#riemannian.RiemannianGrid.solve_poisson_neumann"><code class="docutils literal notranslate"><span class="pre">RiemannianGrid.solve_poisson_neumann()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#riemannian.RiemannianGrid.solve_poisson_neumann_old"><code class="docutils literal notranslate"><span class="pre">RiemannianGrid.solve_poisson_neumann_old()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.christoffel"><code class="docutils literal notranslate"><span class="pre">christoffel()</span></code></a></li>
@@ -117,7 +116,6 @@
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.visualize_curvature"><code class="docutils literal notranslate"><span class="pre">visualize_curvature()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.visualize_geodesics"><code class="docutils literal notranslate"><span class="pre">visualize_geodesics()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.visualize_hodge_decomposition"><code class="docutils literal notranslate"><span class="pre">visualize_hodge_decomposition()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#riemannian.visualize_hodge_decomposition_old"><code class="docutils literal notranslate"><span class="pre">visualize_hodge_decomposition_old()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="solver.html">solver</a></li>
@@ -1123,43 +1121,84 @@ incorporating the Weitzenböck curvature term.  Shape (2N², 2N²).</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="riemannian.RiemannianGrid.solve_poisson_dirichlet">
 <span class="sig-name descname"><span class="pre">solve_poisson_dirichlet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#RiemannianGrid.solve_poisson_dirichlet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.RiemannianGrid.solve_poisson_dirichlet" title="Link to this definition"></a></dt>
-<dd><p>Solve Δ₀ u = rhs with homogeneous Dirichlet BC (u = 0 on boundary).
-Supports multiple right‑hand sides.</p>
+<dd><p>Solve the scalar Laplace–Beltrami equation Δ₀ u = rhs with homogeneous Dirichlet boundary conditions.</p>
+<p>The system is assembled as a sparse FEM matrix <cite>self._A_dirichlet</cite>, which encodes
+the operator Δ₀ on a regular rectangular grid.  Homogeneous Dirichlet conditions
+(u = 0 on the boundary) are enforced by zeroing the rows corresponding to boundary
+nodes and setting the diagonal entry to 1; the right‑hand side is set to zero on
+those rows.</p>
+<p>The solver supports multiple right‑hand sides simultaneously, which is more
+efficient than solving each individually.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>rhs</strong> (<em>numpy.ndarray</em>) – <p>Right‑hand side field(s).  Allowed shapes:</p>
+<ul class="simple">
+<li><p>2D (N, N) : a single scalar field on the grid.</p></li>
+<li><p>3D (K, N, N) : K independent scalar fields, solved in one linear system.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Solution u of the Poisson equation, with the same shape as <cite>rhs</cite>:</p>
+<ul class="simple">
+<li><p>(N, N) for a single RHS.</p></li>
+<li><p>(K, N, N) for multiple RHS (first dimension = number of fields).</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If the shape of <cite>rhs</cite> does not match the grid dimensions.</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The linear system is solved using <cite>scipy.sparse.linalg.spsolve</cite>, which
+returns the solution with the same number of columns as the number of RHS
+vectors.  The result is reshaped back to the original spatial grid.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="riemannian.RiemannianGrid.solve_poisson_neumann">
 <span class="sig-name descname"><span class="pre">solve_poisson_neumann</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#RiemannianGrid.solve_poisson_neumann"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.RiemannianGrid.solve_poisson_neumann" title="Link to this definition"></a></dt>
-<dd><p>Solve Δ₀ u = rhs with homogeneous Neumann BC + gauge fix.
-Supports multiple right‑hand sides.</p>
+<dd><p>Solve the scalar Laplace–Beltrami equation Δ₀ u = rhs with homogeneous Neumann boundary conditions.</p>
+<p>The Neumann problem requires a compatibility condition: the right‑hand side must
+be orthogonal to the constant nullspace, i.e. ∫_M rhs · √g dV = 0.  This function
+automatically enforces that condition by subtracting the weighted mean from <cite>rhs</cite>
+before solving.  The gauge freedom (addition of an arbitrary constant) is fixed
+by pinning a single interior node (the grid point nearest to the centre) to zero
+in the assembled matrix <cite>self._A_neumann</cite>.</p>
+<p>The solver supports multiple right‑hand sides simultaneously, which is more
+efficient than solving each individually.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>rhs</strong> (<em>numpy.ndarray</em>) – <ul class="simple">
-<li><p>2D (N, N) : single scalar field</p></li>
-<li><p>3D (K, N, N) : K independent scalar fields</p></li>
+<dd class="field-odd"><p><strong>rhs</strong> (<em>numpy.ndarray</em>) – <p>Right‑hand side field(s).  Allowed shapes:</p>
+<ul class="simple">
+<li><p>2D (N, N) : a single scalar field on the grid.</p></li>
+<li><p>3D (K, N, N) : K independent scalar fields, solved in one linear system.</p></li>
 </ul>
 </p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Solution u with same shape as rhs.</p>
+<dd class="field-even"><p><p>Solution u of the Poisson equation, with the same shape as <cite>rhs</cite>:</p>
+<ul class="simple">
+<li><p>(N, N) for a single RHS.</p></li>
+<li><p>(K, N, N) for multiple RHS (first dimension = number of fields).</p></li>
+</ul>
+</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>numpy.ndarray</p>
 </dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If the shape of <cite>rhs</cite> does not match the grid dimensions.</p>
+</dd>
 </dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="riemannian.RiemannianGrid.solve_poisson_neumann_old">
-<span class="sig-name descname"><span class="pre">solve_poisson_neumann_old</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#RiemannianGrid.solve_poisson_neumann_old"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.RiemannianGrid.solve_poisson_neumann_old" title="Link to this definition"></a></dt>
-<dd><p>Solve Δ₀ u = rhs with homogeneous Neumann BC + gauge fix.</p>
-<p>The assembled A_scalar already encodes zero-flux (Neumann) at every
-boundary face because _face_avg zeroes the outer half-face coefficients.
-This leaves a rank-1 null space (constant functions).  We remove it by
-pinning one interior node: u[N//2, N//2] = 0.</p>
-<p>This is the correct BC for Hodge potentials: only ∇φ and ∇ψ appear in
-the decomposition, so the additive constant is irrelevant, and forcing
-φ=0 on ∂Ω (Dirichlet) incorrectly drives the gradient to zero there.</p>
+<p class="rubric">Notes</p>
+<p>The weighted mean is computed as (∫ rhs · √g dV) / (∫ √g dV) and subtracted
+from each RHS vector.  The solution is unique because the gauge is fixed by
+the interior node condition.</p>
 </dd></dl>
 
 </dd></dl>
@@ -1516,57 +1555,52 @@ If <code class="docutils literal notranslate"><span class="pre">reparametrize=Tr
 <dl class="py function">
 <dt class="sig sig-object py" id="riemannian.hodge_decomposition">
 <span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">hodge_decomposition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega_components</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">form_degree</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#hodge_decomposition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.hodge_decomposition" title="Link to this definition"></a></dt>
-<dd><p>Numerically decompose a differential k-form into its Hodge components
+<dd><p>Numerically decompose a differential k‑form into its Hodge components
 on a 2D rectangular domain.</p>
 <section id="supported-form-degrees">
 <h2>Supported form degrees<a class="headerlink" href="#supported-form-degrees" title="Link to this heading"></a></h2>
 <dl>
-<dt><code class="docutils literal notranslate"><span class="pre">form_degree=1</span></code> (default)</dt><dd><p>Decomposes a 1-form α = αₓ dx + αᵧ dy via the full Hodge theorem:</p>
+<dt><code class="docutils literal notranslate"><span class="pre">form_degree=1</span></code> (default)</dt><dd><p>Decomposes a 1‑form α = αₓ dx + αᵧ dy as</p>
 <blockquote>
-<div><p>α  =  dφ  +  ⋆dψ  +  h</p>
+<div><p>α = dφ + ⋆dψ + h,</p>
 </div></blockquote>
-<p>where dφ is exact, ⋆dψ is co-exact, and h is harmonic (Δh = 0).
-Two scalar Poisson problems are solved:</p>
+<p>where dφ is exact, ⋆dψ is co‑exact, and h is harmonic (Δh = 0).
+The scalar potentials φ and ψ satisfy the Poisson equations</p>
 <blockquote>
-<div><p>Δ₀ φ = δα          →   α_exact   = dφ = ∇φ
-Δ₀ ψ = δ(⋆α)       →   α_coexact = ⋆dψ
-h     = α − dφ − ⋆dψ</p>
+<div><p>Δ₀ φ = δα            (Dirichlet boundary condition)
+Δ₀ ψ = δ(⋆α)         (Neumann boundary condition)</p>
 </div></blockquote>
-<p>The dimension of the harmonic space equals the first Betti number
-b₁ = dim H¹_dR(M).  <code class="docutils literal notranslate"><span class="pre">omega_components</span></code> must be a 2-tuple
-(αₓ, αᵧ) of callables or SymPy expressions.</p>
+<p>with the gauge fixed by pinning an interior grid point to zero
+for the Neumann problem.  The decomposition is then</p>
+<blockquote>
+<div><p>α_exact   = ∇φ = dφ
+α_coexact = ⋆dψ
+α_harmonic = α − α_exact − α_coexact</p>
+</div></blockquote>
+<p>The harmonic part corresponds to the de Rham cohomology class
+[α] ∈ H¹_dR(M).</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">form_degree=2</span></code></dt><dd><p>Decomposes a 2-form ω = f dx∧dy via Hodge duality.  In 2D a 2-form
-is fully characterised by its scalar coefficient f, and the
-decomposition reads:</p>
+<dt><code class="docutils literal notranslate"><span class="pre">form_degree=2</span></code></dt><dd><p>Decomposes a 2‑form ω = f dx∧dy into exact and harmonic parts:</p>
 <blockquote>
-<div><p>ω  =  dα  +  h₂</p>
+<div><p>ω = dα + h₂</p>
 </div></blockquote>
-<p>where dα is exact (α is a 1-form) and h₂ is harmonic.  There is no
-co-exact part because there are no 3-forms in 2D.</p>
-<p>The algorithm maps the problem to a 1-form decomposition:</p>
+<p>(there is no co‑exact component because no 3‑forms exist in 2D).
+The algorithm solves a single Dirichlet problem for the scalar
+potential φ defined by Δ₀ φ = ⋆ω, where ⋆ω = f / √|g| is the
+Hodge dual (a 0‑form).  The exact part is then</p>
 <blockquote>
-<div><p>⋆ω is a 1-form  →  decompose it  →  apply ⋆ to each piece</p>
+<div><p>ω_exact = d(⋆dφ)</p>
 </div></blockquote>
-<p>Concretely, if ⋆ω = dφ + ⋆dψ + h₁, then:</p>
-<blockquote>
-<div><dl class="simple">
-<dt>ω = ⋆(⋆ω) = ⋆(dφ) + ⋆(⋆dψ) + ⋆h₁</dt><dd><p>= ⋆dφ   + dψ      + h₂</p>
+<p>and the harmonic part is ω_harmonic = ω − ω_exact.
+(The co‑exact part is set to zero.)</p>
+<p>The resulting harmonic 2‑form belongs to the second de Rham
+cohomology class [ω] ∈ H²_dR(M).</p>
 </dd>
-</dl>
-</div></blockquote>
-<p>where ⋆dφ is the co-exact part of ω, dψ is exact, and h₂ = ⋆h₁ is
-the harmonic 2-form.  <code class="docutils literal notranslate"><span class="pre">omega_components</span></code> must be a scalar callable
-or SymPy expression representing the coefficient f(x, y).</p>
-<p>The harmonic space of 2-forms has dimension b₂ = dim H²_dR(M),
-which equals 1 on a closed oriented surface (by Poincaré duality with
-H⁰) and 0 on a contractible domain.</p>
-</dd>
-<dt>Why not <code class="docutils literal notranslate"><span class="pre">form_degree=0</span></code>?</dt><dd><p>A 0-form is a scalar function.  Its Hodge decomposition on a domain
+<dt>Why not <code class="docutils literal notranslate"><span class="pre">form_degree=0</span></code>?</dt><dd><p>A 0‑form is a scalar function.  Its Hodge decomposition on a domain
 with boundary reduces to f = δα + const, which amounts to solving a
 single Neumann problem — a different and less informative computation
 that does not expose de Rham cohomology.  It is not included here to
-keep the scope of this function well-defined.</p>
+keep the scope of this function well‑defined.</p>
 </dd>
 </dl>
 <dl class="field-list">
@@ -1578,21 +1612,21 @@ keep the scope of this function well-defined.</p>
 </dd>
 <dt class="field-odd">param omega_components<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">form_degree=1</span></code>: 2-tuple (αₓ, αᵧ).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">form_degree=2</span></code>: scalar f representing ω = f dx∧dy.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">form_degree=1</span></code>: a 2‑tuple (αₓ, αᵧ).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">form_degree=2</span></code>: a scalar f representing ω = f dx∧dy.</p></li>
 </ul>
 </dd>
 <dt class="field-even">type omega_components<span class="colon">:</span></dt>
 <dd class="field-even"><p>tuple of two (callable or sympy.Expr), or scalar</p>
 </dd>
 <dt class="field-odd">param domain<span class="colon">:</span></dt>
-<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">((x_min,</span> <span class="pre">x_max),</span> <span class="pre">(y_min,</span> <span class="pre">y_max))</span></code></p>
+<dd class="field-odd"><p>((x_min, x_max), (y_min, y_max))</p>
 </dd>
 <dt class="field-even">type domain<span class="colon">:</span></dt>
 <dd class="field-even"><p>tuple</p>
 </dd>
 <dt class="field-odd">param resolution<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Grid points per axis.</p>
+<dd class="field-odd"><p>Number of grid points per axis.</p>
 </dd>
 <dt class="field-even">type resolution<span class="colon">:</span></dt>
 <dd class="field-even"><p>int, default 50</p>
@@ -1604,17 +1638,23 @@ keep the scope of this function well-defined.</p>
 <dd class="field-even"><p>{1, 2}, default 1</p>
 </dd>
 <dt class="field-odd">returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>All cases include <code class="docutils literal notranslate"><span class="pre">'grid'</span></code> (the <a class="reference internal" href="#riemannian.RiemannianGrid" title="riemannian.RiemannianGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">RiemannianGrid</span></code></a> instance).</p>
+<dd class="field-odd"><p>All cases contain a key <code class="docutils literal notranslate"><span class="pre">'grid'</span></code> holding the
+<a class="reference internal" href="#riemannian.RiemannianGrid" title="riemannian.RiemannianGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">RiemannianGrid</span></code></a> instance used for the computation.</p>
 <dl class="simple">
-<dt><strong>form_degree=1</strong>:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">'potential_phi'</span></code>, <code class="docutils literal notranslate"><span class="pre">'potential_psi'</span></code>,
-<code class="docutils literal notranslate"><span class="pre">'alpha_exact'</span></code> (2-tuple of arrays),
-<code class="docutils literal notranslate"><span class="pre">'alpha_coexact'</span></code> (2-tuple of arrays),
-<code class="docutils literal notranslate"><span class="pre">'alpha_harmonic'</span></code> (2-tuple of arrays).</p>
+<dt><strong>form_degree=1</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'potential_phi'</span></code>  – array : φ potential (Dirichlet).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'potential_psi'</span></code>  – array : ψ potential (Neumann).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'alpha_exact'</span></code>    – tuple of two arrays : (dφ)ₓ, (dφ)ᵧ.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'alpha_coexact'</span></code>  – tuple of two arrays : (⋆dψ)ₓ, (⋆dψ)ᵧ.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'alpha_harmonic'</span></code> – tuple of two arrays : hₓ, hᵧ.</p></li>
+</ul>
 </dd>
-<dt><strong>form_degree=2</strong>:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">'potential_phi'</span></code>, <code class="docutils literal notranslate"><span class="pre">'potential_psi'</span></code>,
-<code class="docutils literal notranslate"><span class="pre">'omega_exact'</span></code>    — coefficient of the exact part dψ,
-<code class="docutils literal notranslate"><span class="pre">'omega_coexact'</span></code>  — coefficient of the co-exact part ⋆dφ,
-<code class="docutils literal notranslate"><span class="pre">'omega_harmonic'</span></code> — coefficient of the harmonic 2-form h₂.</p>
+<dt><strong>form_degree=2</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'potential_phi'</span></code>  – array : φ such that Δ₀ φ = ⋆ω.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'omega_exact'</span></code>    – array : coefficient of the exact part.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'omega_coexact'</span></code>  – array : zero (no co‑exact component).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'omega_harmonic'</span></code> – array : coefficient of the harmonic part.</p></li>
+</ul>
 </dd>
 </dl>
 </dd>
@@ -1626,7 +1666,7 @@ keep the scope of this function well-defined.</p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<p><strong>1-form</strong> — rotation form on the flat torus (purely harmonic):</p>
+<p><strong>1‑form</strong> — rotation form on the flat torus (purely harmonic):</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">Matrix</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1635,10 +1675,10 @@ keep the scope of this function well-defined.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># harmonic part carries ≈ 100% of L² energy</span>
 </pre></div>
 </div>
-<p><strong>2-form</strong> — constant vorticity ω = dx∧dy on the flat plane:</p>
+<p><strong>2‑form</strong> — constant vorticity ω = dx∧dy on the flat plane:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dec2</span> <span class="o">=</span> <span class="n">hodge_decomposition</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span>
 <span class="gp">... </span>                           <span class="n">resolution</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">form_degree</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="c1"># omega_exact ≈ 0, omega_coexact ≈ 1 (contractible domain: b₂ = 0)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># omega_exact ≈ 0, omega_harmonic ≈ 1 (contractible domain: b₂ = 0)</span>
 </pre></div>
 </div>
 </section>
@@ -2142,51 +2182,6 @@ inferred from the dictionary keys.</p></li>
 <p><strong>2‑form</strong> on the unit square (constant vorticity):</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dec2</span> <span class="o">=</span> <span class="n">hodge_decomposition</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">form_degree</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">visualize_hodge_decomposition</span><span class="p">(</span><span class="n">dec2</span><span class="p">)</span>
-</pre></div>
-</div>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="riemannian.visualize_hodge_decomposition_old">
-<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">visualize_hodge_decomposition_old</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">decomp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'RdBu_r'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quiver_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#visualize_hodge_decomposition_old"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.visualize_hodge_decomposition_old" title="Link to this definition"></a></dt>
-<dd><p>Visualise the output of <a class="reference internal" href="#riemannian.hodge_decomposition" title="riemannian.hodge_decomposition"><code class="xref py py-func docutils literal notranslate"><span class="pre">hodge_decomposition()</span></code></a>.</p>
-<p>Produces a 2-row Matplotlib figure:</p>
-<ul class="simple">
-<li><p><strong>Top row</strong> (4 panels): the original 1-form α and its three Hodge
-components — exact (dφ), co-exact (⋆dψ), and harmonic (h).  Each
-panel shows the vector field as a quiver plot overlaid on a heatmap
-of the field’s pointwise magnitude ‖·‖.</p></li>
-<li><p><strong>Bottom row</strong> (2 panels): the scalar potentials φ and ψ as filled
-contour maps with overlaid contour lines.</p></li>
-</ul>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>decomp</strong> (<em>dict</em>) – Return value of <a class="reference internal" href="#riemannian.hodge_decomposition" title="riemannian.hodge_decomposition"><code class="xref py py-func docutils literal notranslate"><span class="pre">hodge_decomposition()</span></code></a>.  Expected keys:
-<code class="docutils literal notranslate"><span class="pre">'alpha_exact'</span></code>, <code class="docutils literal notranslate"><span class="pre">'alpha_coexact'</span></code>, <code class="docutils literal notranslate"><span class="pre">'alpha_harmonic'</span></code>,
-<code class="docutils literal notranslate"><span class="pre">'potential_phi'</span></code>, <code class="docutils literal notranslate"><span class="pre">'potential_psi'</span></code>.</p></li>
-<li><p><strong>domain</strong> (<em>tuple</em>) – <code class="docutils literal notranslate"><span class="pre">((x_min,</span> <span class="pre">x_max),</span> <span class="pre">(y_min,</span> <span class="pre">y_max))</span></code> — the same domain passed to
-<a class="reference internal" href="#riemannian.hodge_decomposition" title="riemannian.hodge_decomposition"><code class="xref py py-func docutils literal notranslate"><span class="pre">hodge_decomposition()</span></code></a>, used to reconstruct the coordinate grid.</p></li>
-<li><p><strong>resolution</strong> (<em>int</em><em>, </em><em>default 50</em>) – Number of grid points per axis; must match the value used in
-<a class="reference internal" href="#riemannian.hodge_decomposition" title="riemannian.hodge_decomposition"><code class="xref py py-func docutils literal notranslate"><span class="pre">hodge_decomposition()</span></code></a>.</p></li>
-<li><p><strong>cmap</strong> (str, default <code class="docutils literal notranslate"><span class="pre">'RdBu_r'</span></code>) – Matplotlib colormap for all magnitude / potential panels.</p></li>
-<li><p><strong>quiver_stride</strong> (<em>int</em><em>, </em><em>default 3</em>) – Sub-sampling stride for the quiver arrows (1 = every grid point,
-higher values reduce clutter on dense grids).</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Displays a Matplotlib figure via <code class="docutils literal notranslate"><span class="pre">plt.show()</span></code>.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>None</p>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">Matrix</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">decomp</span> <span class="o">=</span> <span class="n">hodge_decomposition</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="o">-</span><span class="n">x</span><span class="p">),</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">visualize_hodge_decomposition</span><span class="p">(</span><span class="n">decomp</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)))</span>
 </pre></div>
 </div>
 </dd></dl>
