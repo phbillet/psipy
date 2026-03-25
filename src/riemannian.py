@@ -79,6 +79,12 @@ from scipy.integrate import (
 from scipy.interpolate import interp1d
 from scipy.optimize import minimize
 
+from sympy import symbols, simplify, lambdify, diff, sqrt, log, zeros, Matrix
+import numpy as np
+from scipy.sparse import lil_matrix
+from scipy.sparse.linalg import spsolve
+from scipy.sparse import diags
+
 
 # ============================================================================
 # Unified Metric class
@@ -1394,19 +1400,6 @@ def _geodesic_2d(metric, p0, v0, tspan, method, n_steps, reparametrize):
 
     return result
 
-def riemannian_gradient_func(self, f_expr):
-    grad_expr = self.riemannian_gradient(f_expr)
-    if self.dim == 1:
-        return lambdify(self.coords, grad_expr, 'numpy')
-    else:
-        return [lambdify(self.coords, grad_expr[i], 'numpy') for i in range(2)]
-
-def riemannian_hessian_func(self, f_expr):
-    H_expr = self.riemannian_hessian(f_expr)
-    if self.dim == 1:
-        return lambdify(self.coords, H_expr, 'numpy')
-    else:
-        return [[lambdify(self.coords, H_expr[i,j], 'numpy') for j in range(2)] for i in range(2)]
 
 def geodesic_hamiltonian_flow(metric, p0, v0, tspan, method='verlet', n_steps=1000):
     """
@@ -1837,34 +1830,32 @@ def distance(metric, p, q, method='shooting', max_iter=50, tol=1e-6):
     else:
         raise ValueError("method must be 'shooting' or 'optimize'.")
 
-
 def jacobi_equation_solver(metric, geodesic, initial_variation, tspan, n_steps=1000):
     """
     Solve the Jacobi equation (geodesic deviation equation) along a geodesic (2D only).
 
-    The Jacobi equation describes how a one-parameter family of geodesics
-    spreads apart.  Along a reference geodesic γ with tangent vector γ̇, the
-    Jacobi field J satisfies
+    The Jacobi equation describes how a one-parameter family of geodesics spreads apart.
+    For a reference geodesic γ(t) with tangent vector v = γ̇, the Jacobi field J satisfies
 
-        D²J/dt² + R(J, γ̇)γ̇ = 0,
+        D²J/dt² + R(J, v)v = 0,
 
-    where R is the Riemann curvature tensor and D/dt denotes the covariant
-    derivative along γ.  In components this becomes
+    where R is the Riemann curvature tensor and D/dt denotes the covariant derivative along γ.
+    In local coordinates (x⁰, x¹) this system is equivalent to the first‑order ODEs:
 
-        D²Jⁱ/dt² = −Rⁱⱼₖₗ Jʲ γ̇ᵏ γ̇ˡ − Γⁱⱼₖ (DJʲ/dt) γ̇ᵏ − Γⁱⱼₖ Jʲ D(γ̇ᵏ)/dt.
+        dJⁱ/dt = DJⁱ - Γⁱⱼₖ Jʲ vᵏ
+        d(DJⁱ)/dt = -Rⁱⱼₖₗ Jʲ vᵏ vˡ - Γⁱⱼₖ DJʲ vᵏ
 
-    The geodesic is interpolated cubically to supply the (x(t), y(t), vx(t),
-    vy(t)) values needed inside the ODE, and the result is integrated with
-    ``scipy.integrate.solve_ivp``.
+    The geodesic trajectory (x(t), y(t), vx(t), vy(t)) is interpolated cubically from the
+    input dict. The ODE is integrated with high‑accuracy BDF (backward differentiation formula)
+    from `scipy.integrate.solve_ivp`.
 
     Parameters
     ----------
     metric : Metric
         Must have ``metric.dim == 2``.
     geodesic : dict
-        Output dict from :func:`geodesic_solver` with keys ``'t'``, ``'x'``,
-        ``'y'``, ``'vx'``, ``'vy'``.  The time array must span at least
-        ``tspan``.
+        Output dict from :func:`geodesic_solver` with keys ``'t'``, ``'x'``, ``'y'``,
+        ``'vx'``, ``'vy'``. The time array must span at least ``tspan``.
     initial_variation : dict
         Initial conditions for the Jacobi field:
 
@@ -1872,18 +1863,19 @@ def jacobi_equation_solver(metric, geodesic, initial_variation, tspan, n_steps=1
         * ``'DJ0'`` : tuple of two floats — initial covariant derivative
           (DJₓ/dt(0), DJᵧ/dt(0)).
     tspan : tuple of two floats
-        Integration interval for the Jacobi ODE.  Must be a sub-interval of
-        the time range covered by ``geodesic['t']``.
+        Integration interval for the Jacobi ODE. Must be a sub‑interval of the time range
+        covered by ``geodesic['t']``.
     n_steps : int, default 1000
-        Number of output time steps.
+        Number of output time steps (equally spaced in the interval ``tspan``).
 
     Returns
     -------
-    dict with keys:
+    dict
+        Keys:
 
-    * ``'t'`` : ndarray — time values.
-    * ``'J_x'``, ``'J_y'`` : ndarray — Jacobi field components.
-    * ``'DJ_x'``, ``'DJ_y'`` : ndarray — covariant derivative of the Jacobi field.
+        * ``'t'`` : ndarray — time values.
+        * ``'J_x'``, ``'J_y'`` : ndarray — Jacobi field components.
+        * ``'DJ_x'``, ``'DJ_y'`` : ndarray — covariant derivative of the Jacobi field.
 
     Raises
     ------
@@ -1893,8 +1885,11 @@ def jacobi_equation_solver(metric, geodesic, initial_variation, tspan, n_steps=1
     Notes
     -----
     Conjugate points along the geodesic occur where the Jacobi field vanishes.
-    Large Jacobi-field growth indicates negative sectional curvature in the
-    geodesic direction, while oscillating fields indicate positive curvature.
+    Large growth indicates negative sectional curvature in the geodesic direction,
+    while oscillatory behaviour indicates positive curvature.
+
+    The ODE is solved with high precision (`rtol=1e-9`, `atol=1e-12`) and a stiff
+    solver (BDF) to handle possible rapid changes in curvature.
 
     Examples
     --------
@@ -1911,7 +1906,7 @@ def jacobi_equation_solver(metric, geodesic, initial_variation, tspan, n_steps=1
         raise NotImplementedError("jacobi_equation_solver is for 2D metrics only.")
 
     x_sym, y_sym = metric.coords
-    R     = metric.riemann_tensor()
+    R = metric.riemann_tensor()
     R_func = {
         i: {
             j: {
@@ -1939,29 +1934,46 @@ def jacobi_equation_solver(metric, geodesic, initial_variation, tspan, n_steps=1
         y = y_interp(t)
         vx = vx_interp(t)
         vy = vy_interp(t)
+
         J = [J_x, J_y]
         v = [vx, vy]
-        curv_x = sum(R_func[0][j][k][ell](x, y) * J[j] * v[k] * v[ell]
+        DJ = [DJ_x, DJ_y]
+
+        # Γ(J, v)
+        gamma_J_x = sum(Gamma[0][j][k](x, y) * J[j] * v[k] for j in range(2) for k in range(2))
+        gamma_J_y = sum(Gamma[1][j][k](x, y) * J[j] * v[k] for j in range(2) for k in range(2))
+
+        # Γ(DJ, v)
+        gamma_DJ_x = sum(Gamma[0][j][k](x, y) * DJ[j] * v[k] for j in range(2) for k in range(2))
+        gamma_DJ_y = sum(Gamma[1][j][k](x, y) * DJ[j] * v[k] for j in range(2) for k in range(2))
+
+        # R(J, v)v  (R^i_{jkl} v^j J^k v^l)
+        curv_x = sum(R_func[0][j][k][ell](x, y) * v[j] * J[k] * v[ell]
                      for j in range(2) for k in range(2) for ell in range(2))
-        curv_y = sum(R_func[1][j][k][ell](x, y) * J[j] * v[k] * v[ell]
+        curv_y = sum(R_func[1][j][k][ell](x, y) * v[j] * J[k] * v[ell]
                      for j in range(2) for k in range(2) for ell in range(2))
-        DDJ_x = -(Gamma[0][0][0](x, y) * DJ_x * vx +
-                  Gamma[0][0][1](x, y) * (DJ_x * vy + DJ_y * vx) +
-                  Gamma[0][1][1](x, y) * DJ_y * vy + curv_x)
-        DDJ_y = -(Gamma[1][0][0](x, y) * DJ_x * vx +
-                  Gamma[1][0][1](x, y) * (DJ_x * vy + DJ_y * vx) +
-                  Gamma[1][1][1](x, y) * DJ_y * vy + curv_y)
-        return [DJ_x, DJ_y, DDJ_x, DDJ_y]
+
+        # dJ/dt = DJ - Γ(J, v)
+        dJ_x = DJ_x - gamma_J_x
+        dJ_y = DJ_y - gamma_J_y
+
+        # d(DJ)/dt = -R(J, v)v - Γ(DJ, v)
+        dDJ_x = -curv_x - gamma_DJ_x
+        dDJ_y = -curv_y - gamma_DJ_y
+
+        return [dJ_x, dJ_y, dDJ_x, dDJ_y]
 
     J0 = initial_variation['J0']
     DJ0 = initial_variation['DJ0']
     sol = solve_ivp(
         jacobi_ode, tspan, [J0[0], J0[1], DJ0[0], DJ0[1]],
-        t_eval=np.linspace(tspan[0], tspan[1], n_steps)
+        t_eval=np.linspace(tspan[0], tspan[1], n_steps),
+        method='BDF',
+        rtol=1e-9, atol=1e-12
     )
     return {'t': sol.t, 'J_x': sol.y[0], 'J_y': sol.y[1],
             'DJ_x': sol.y[2], 'DJ_y': sol.y[3]}
-
+    
 
 def hodge_star(metric, form_degree):
     """
@@ -2020,14 +2032,17 @@ def hodge_star(metric, form_degree):
     if metric.dim != 2:
         raise NotImplementedError("hodge_star is for 2D metrics only.")
     sqrt_g = metric.sqrt_det_g
-    g_inv = metric.g_inv_matrix
+    g = metric.g_matrix               # covariant metric components
+    g11, g12, g22 = g[0,0], g[0,1], g[1,1]
 
     if form_degree == 0:
         return lambda f: f * sqrt_g
     elif form_degree == 1:
         def star_1form(alpha_x, alpha_y):
-            beta_x = (g_inv[0, 0] * alpha_y - g_inv[0, 1] * alpha_x) * sqrt_g
-            beta_y = (-g_inv[0, 1] * alpha_y + g_inv[1, 1] * alpha_x) * sqrt_g
+            # (⋆α)_x = √|g| ( -g12 α_x - g22 α_y )
+            # (⋆α)_y = √|g| (  g11 α_x + g12 α_y )
+            beta_x = sqrt_g * (-g12 * alpha_x - g22 * alpha_y)
+            beta_y = sqrt_g * ( g11 * alpha_x + g12 * alpha_y)
             return (beta_x, beta_y)
         return star_1form
     elif form_degree == 2:
@@ -2035,188 +2050,1123 @@ def hodge_star(metric, form_degree):
     else:
         raise ValueError("form_degree must be 0, 1, or 2.")
 
-def hodge_decomposition(metric, omega_components, domain, resolution=50):
+# =============================================================================
+# Option A — de_rham_laplacian extended to form_degree=1 with the full
+#            Weitzenböck correction, and a new symbolic action method.
+# Option B — RiemannianGrid helper that assembles the sparse FEM matrix from
+#            the operator symbol, and hodge_decomposition rewritten to use it.
+# =============================================================================
+
+# =============================================================================
+# Option A — full symbolic de Rham Laplacian
+# =============================================================================
+
+def de_rham_laplacian(metric, form_degree):
     """
-    Numerically decompose a 1-form into exact, co-exact, and harmonic parts
-    on a 2D rectangle.
+    Compute the symbol and symbolic action of the de Rham–Hodge Laplacian
+    Δ = dδ + δd on k-forms (2D only).
 
-    The decomposition follows the Hodge theorem:
-        α = dφ  +  ⋆dψ  +  h
+    For ``form_degree=0`` the result is identical to
+    :meth:`Metric.laplace_beltrami_symbol`.
 
-    It solves two Poisson problems with Dirichlet BC:
-        Δ φ = δα           → α_exact   = dφ
-        Δ ψ = δ(⋆α)        → α_coexact = ⋆dψ
-        h   = α − dφ − ⋆dψ
+    For ``form_degree=1`` the **Weitzenböck identity**
+
+        Δα = ∇*∇α + Ric(α♯)♭
+
+    is used.  In 2D the Ricci endomorphism on 1-forms is simply K·id
+    (multiplication by the Gaussian curvature), so
+
+        (Δα)ᵢ = (∇*∇α)ᵢ + K αᵢ ,
+
+    where (∇*∇α)ᵢ is the component-wise rough Laplacian acting on each
+    1-form component as a scalar.  This is strictly stronger than the
+    previous implementation, which returned zero for the subprincipal
+    symbol and omitted the curvature term entirely.
+
+    Parameters
+    ----------
+    metric : Metric
+        Must have ``metric.dim == 2``.
+    form_degree : {0, 1}
+        Degree of the input differential form.
+
+    Returns
+    -------
+    dict with keys:
+
+    * ``'principal'``    : sympy.Expr — leading symbol gⁱʲ ξᵢ ξⱼ.
+    * ``'subprincipal'`` : sympy.Expr — first-order transport term
+                          (non-zero for k=0; zero for k=1 at symbol level).
+    * ``'full'``         : sympy.Expr — σ₂ + i σ₁ (microlocal convention).
+    * ``'weitzenbock'``  : sympy.Expr or None — the Weitzenböck curvature
+                          correction K (only present for ``form_degree=1``).
+    * ``'action'``       : callable — ``action(alpha)`` applies the operator
+                          symbolically to a form and returns the result.
+                          - k=0: ``alpha`` is a scalar SymPy expression;
+                            returns a scalar expression Δf.
+                          - k=1: ``alpha`` is a 2-tuple of SymPy expressions
+                            (α₀, α₁); returns a 2-tuple ((Δα)₀, (Δα)₁).
+
+    Raises
+    ------
+    NotImplementedError
+        If called on a 1D metric, or if ``form_degree`` ≥ 2.
+
+    Examples
+    --------
+    **Flat metric** — Laplacian of a 0-form:
+
+    >>> from sympy import symbols, Matrix, sin, cos, simplify
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> op = de_rham_laplacian(m, form_degree=0)
+    >>> simplify(op['action'](sin(x) * cos(y)))   # −sin(x)cos(y) − sin(x)cos(y)
+    -2*sin(x)*cos(y)
+
+    **Unit sphere** — Weitzenböck correction K=1 on a 1-form:
+
+    >>> theta, phi = symbols('theta phi', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, sin(theta)**2]]), (theta, phi))
+    >>> op = de_rham_laplacian(m, form_degree=1)
+    >>> simplify(op['weitzenbock'])
+    1
+    """
+    if metric.dim != 2:
+        raise NotImplementedError("de_rham_laplacian is for 2D metrics only.")
+
+    xi, eta = symbols('xi eta', real=True)
+    g_inv   = metric.g_inv_matrix
+    principal = (g_inv[0, 0] * xi**2
+                 + 2 * g_inv[0, 1] * xi * eta
+                 + g_inv[1, 1] * eta**2)
+
+    if form_degree == 0:
+        # Identical to laplace_beltrami_symbol — delegate to avoid duplication.
+        sym = metric.laplace_beltrami_symbol()
+
+        def _action_0(f_expr):
+            """Apply Δ to a scalar function f (0-form)."""
+            x, y = metric.coords
+            sqrt_g = metric.sqrt_det_g
+            g_inv_m = metric.g_inv_matrix
+            # Δf = |g|^{-½} ∂ᵢ(|g|^{½} gⁱʲ ∂ⱼ f)
+            div = sum(
+                diff(sqrt_g * g_inv_m[i, j] * diff(f_expr, [x, y][j]), [x, y][i])
+                for i in range(2) for j in range(2)
+            )
+            return simplify(div / sqrt_g)
+
+        return {**sym, 'weitzenbock': None, 'action': _action_0}
+
+    elif form_degree == 1:
+        # ------------------------------------------------------------------
+        # Symbol level: principal symbol same as k=0; subprincipal = 0.
+        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Weitzenböck term: in 2D, Ric = K·g so the endomorphism on 1-forms
+        # is K·id.  We extract K from the Riemann tensor.
+        # ------------------------------------------------------------------
+        K = simplify(metric.gauss_curvature())
+
+        def _rough_laplacian_scalar(f_expr):
+            """
+            Rough (connection) Laplacian ∇*∇f = Laplace–Beltrami on a scalar.
+            Re-uses the 0-form action so the formula is not repeated.
+            """
+            x, y    = metric.coords
+            sqrt_g  = metric.sqrt_det_g
+            g_inv_m = metric.g_inv_matrix
+            div = sum(
+                diff(sqrt_g * g_inv_m[i, j] * diff(f_expr, [x, y][j]), [x, y][i])
+                for i in range(2) for j in range(2)
+            )
+            return simplify(div / sqrt_g)
+
+        def _action_1(alpha):
+            """
+            Apply Δ = ∇*∇ + K to a 1-form α = (α₀, α₁).
+
+            Each component is treated as a scalar by the rough Laplacian,
+            then the Weitzenböck term K·αᵢ is added.
+
+            Parameters
+            ----------
+            alpha : tuple of two sympy.Expr
+                (α₀, α₁) — the two covariant components of the 1-form.
+
+            Returns
+            -------
+            tuple of two sympy.Expr
+                ((Δα)₀, (Δα)₁)
+            """
+            return tuple(
+                simplify(_rough_laplacian_scalar(a) + K * a)
+                for a in alpha
+            )
+
+        return {
+            'principal':    simplify(principal),
+            'subprincipal': 0,
+            'full':         simplify(principal),
+            'weitzenbock':  K,
+            'action':       _action_1,
+        }
+
+    else:
+        raise NotImplementedError("Only form_degree 0 and 1 are implemented.")
+
+
+# =============================================================================
+# Option B — RiemannianGrid: assembles the sparse FEM Laplacian matrix from
+#            the operator symbol, shared by hodge_decomposition.
+# =============================================================================
+
+class RiemannianGrid:
+    """
+    A regular rectangular grid carrying numerical metric data and the
+    assembled sparse FEM Laplace–Beltrami matrix.
+
+    This is the bridge between the symbolic ``de_rham_laplacian`` operator
+    and the numerical solvers in ``hodge_decomposition``.  Instead of each
+    function building its own stencil, both consume a ``RiemannianGrid``.
+
+    Parameters
+    ----------
+    metric : Metric
+        A 2D Riemannian metric.
+    domain : tuple
+        ``((x_min, x_max), (y_min, y_max))``
+    resolution : int
+        Number of grid points per axis.
+
+    Attributes
+    ----------
+    X, Y : ndarray (N, N)
+        Meshgrid coordinate arrays.
+    dx, dy : float
+        Grid spacings.
+    N, N2 : int
+        Points per axis and total points.
+    sqrt_det, g_inv00, g_inv11, g_inv01 : ndarray (N, N)
+        Evaluated metric coefficients.
+    A_scalar : scipy.sparse.csr_matrix
+        Assembled FEM matrix for the scalar Laplace–Beltrami operator Δ₀.
+        Suitable for solving Δ₀ u = f after applying Dirichlet BC.
+    A_1form : scipy.sparse.csr_matrix
+        Block-2×2 matrix for the de Rham Laplacian on 1-forms,
+        incorporating the Weitzenböck curvature term.  Shape (2N², 2N²).
+    idx_bound : ndarray of int
+        Flat indices of all boundary nodes (for Dirichlet BC enforcement).
+
+    Examples
+    --------
+    >>> from sympy import symbols, Matrix
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> grid = RiemannianGrid(m, ((0, 1), (0, 1)), resolution=30)
+    >>> grid.A_scalar.shape
+    (900, 900)
+    >>> grid.A_1form.shape
+    (1800, 1800)
+    """
+
+    def __init__(self, metric, domain, resolution):
+        if metric.dim != 2:
+            raise NotImplementedError("RiemannianGrid requires a 2D metric.")
+
+        x_vals = np.linspace(domain[0][0], domain[0][1], resolution)
+        y_vals = np.linspace(domain[1][0], domain[1][1], resolution)
+        self.X, self.Y = np.meshgrid(x_vals, y_vals, indexing='ij')
+        self.dx = x_vals[1] - x_vals[0]
+        self.dy = y_vals[1] - y_vals[0]
+        self.N  = resolution
+        self.N2 = resolution * resolution
+        self._metric = metric
+
+        def _to_float_array(val):
+            return np.broadcast_to(val, self.X.shape).astype(float)
+        
+        self.sqrt_det = _to_float_array(metric.sqrt_det_g_func(self.X, self.Y))
+        self.g_inv00  = _to_float_array(metric.g_inv_func[(0, 0)](self.X, self.Y))
+        self.g_inv11  = _to_float_array(metric.g_inv_func[(1, 1)](self.X, self.Y))
+        self.g_inv01  = _to_float_array(metric.g_inv_func[(0, 1)](self.X, self.Y))
+        # Covariant metric components (needed for the Hodge star)
+        self.g00 = _to_float_array(metric.g_func[(0, 0)](self.X, self.Y))
+        self.g01 = _to_float_array(metric.g_func[(0, 1)](self.X, self.Y))
+        self.g11 = _to_float_array(metric.g_func[(1, 1)](self.X, self.Y))
+
+        # Boundary node indices (shared by both Poisson solvers)
+        src = np.arange(self.N2).reshape(self.N, self.N)
+        bm  = np.zeros((self.N, self.N), dtype=bool)
+        bm[0, :] = bm[-1, :] = bm[:, 0] = bm[:, -1] = True
+        self.idx_bound = src[bm].flatten()
+        self._src      = src
+
+        # Assemble both matrices once at construction time
+        self.A_scalar = self._assemble_scalar_laplacian()
+        self.A_1form  = self._assemble_1form_laplacian()
+        pin = self._src[self.N // 2, self.N // 2]
+        self._A_neumann = self.A_scalar.tolil()
+        self._A_neumann[pin, :] = 0
+        self._A_neumann[pin, pin] = 1.0
+        self._A_neumann = self._A_neumann.tocsr()
+        # Build Dirichlet version: zero out rows of boundary nodes, set diagonal to 1
+        self._A_dirichlet = self.A_scalar.tolil()
+        bnd = self.idx_bound
+        self._A_dirichlet[bnd, :] = 0
+        self._A_dirichlet[bnd, bnd] = 1.0
+        self._A_dirichlet = self._A_dirichlet.tocsr()
+
+    # ------------------------------------------------------------------
+    # Private assembly helpers
+    # ------------------------------------------------------------------
+
+    def _face_avg(self, arr, axis, forward):
+        out = np.zeros_like(arr)
+        s_dst = [slice(None), slice(None)]
+        s_src = [slice(None), slice(None)]
+        if forward:
+            s_dst[axis], s_src[axis] = slice(0, -1), slice(1, None)
+        else:
+            s_dst[axis], s_src[axis] = slice(1, None), slice(0, -1)
+        out[tuple(s_dst)] = 0.5 * (arr[tuple(s_dst)] + arr[tuple(s_src)])
+        return out
+
+    def _assemble_scalar_laplacian(self):
+        """
+        Build the N²×N² sparse FEM matrix for the scalar Laplace–Beltrami
+        operator Δ₀ = |g|^{-½} ∂ᵢ(|g|^{½} gⁱʲ ∂ⱼ).
+
+        The stencil is a standard 5-point finite-volume scheme with cross
+        terms for the off-diagonal g_inv01 component.
+        """
+        N, N2, dx, dy = self.N, self.N2, self.dx, self.dy
+    
+        face_specs = [
+            (self.sqrt_det * self.g_inv00, dx, 0),
+            (self.sqrt_det * self.g_inv11, dy, 1),
+        ]
+        c_center    = np.zeros_like(self.sqrt_det)
+        stencil_diags = []
+    
+        for coeff, h, axis in face_specs:
+            cf = self._face_avg(coeff, axis, forward=True)
+            cb = self._face_avg(coeff, axis, forward=False)
+            c_center -= (cf + cb) / h**2
+            offset = N if axis == 0 else 1
+            stencil_diags.append(((cf / h**2).ravel()[:-offset],  offset))
+            stencil_diags.append(((cb / h**2).ravel()[offset:],  -offset))
+    
+        A = lil_matrix((N2, N2))
+        A.setdiag(c_center.ravel(), 0)
+        for data, k in stencil_diags:
+            A.setdiag(data, k)
+    
+        cross = (self.sqrt_det * self.g_inv01) / (4 * dx * dy)
+        for di, dj in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
+            ri   = slice(0, N - 1) if di > 0 else slice(1, N)
+            rj   = slice(0, N - 1) if dj > 0 else slice(1, N)
+            mask = np.zeros((N, N), dtype=bool)
+            mask[ri, rj] = True
+            idx  = self._src[mask].flatten()
+            A[idx, idx + di * N + dj] += (di * dj) * cross[mask].flatten()
+    
+        # ✅ FIX 1: divide every row by √g to get the true (1/√g)∂(√g g^{ij}∂) operator
+        inv_sqrt_det = diags(1.0 / (self.sqrt_det.ravel() + 1e-14), format='csr')
+        return inv_sqrt_det.dot(A.tocsr())
+    
+
+    def _assemble_1form_laplacian(self):
+        """
+        Build the 2N²×2N² sparse matrix for the de Rham Laplacian on 1-forms,
+
+            Δ₁ = ∇*∇ + K·id  (Weitzenböck),
+
+        where the rough Laplacian ∇*∇ acts component-wise (same stencil as
+        Δ₀ for each scalar component), and K is the Gaussian curvature
+        evaluated on the grid, adding a diagonal block K·I to each component.
+
+        The matrix has the 2×2 block structure:
+            [ Δ₀ + K·I      0      ]
+            [    0       Δ₀ + K·I  ]
+        """
+        from scipy.sparse import eye as sp_eye, bmat as sp_bmat
+    
+        K_expr  = self._metric.gauss_curvature()
+        K_func  = lambdify(self._metric.coords, K_expr, 'numpy')
+        K_grid  = np.broadcast_to(K_func(self.X, self.Y), self.X.shape).copy()
+    
+        # ✅ FIX 2: Weitzenböck with geometer's sign is Δ₁ = Δ₀ + K·id,
+        #    where Δ₀ is already negative semi-definite.
+        #    K_diag must therefore be added (not subtracted), which is what
+        #    the code does — but only works correctly once A_scalar is the
+        #    true Δ₀ (Fix 1 above).  No change needed here beyond Fix 1.
+        K_diag = sp_eye(self.N2, format='csr').multiply(K_grid.ravel())
+        block  = self.A_scalar + K_diag
+        return sp_bmat([[block, None], [None, block]], format='csr')
+
+    # ------------------------------------------------------------------
+    # Public solver
+    # ------------------------------------------------------------------
+    def solve_poisson_dirichlet(self, rhs):
+        """
+        Solve Δ₀ u = rhs with homogeneous Dirichlet BC (u = 0 on boundary).
+        Supports multiple right‑hand sides.
+        """
+        if rhs.ndim == 2:
+            if rhs.shape != (self.N, self.N):
+                raise ValueError("rhs must have shape (N, N)")
+            rhs_flat = rhs.ravel().reshape(-1, 1)          # (N², 1)
+            out_shape = (self.N, self.N)
+        elif rhs.ndim == 3:
+            K, N, M = rhs.shape
+            if N != self.N or M != self.N:
+                raise ValueError("rhs must have shape (K, N, N)")
+            rhs_flat = rhs.reshape(K, -1).T                # (N², K)
+            out_shape = (K, self.N, self.N)
+        else:
+            raise ValueError("rhs must be 2D or 3D array")
+
+        b = rhs_flat.copy()
+        # Enforce Dirichlet BC: set RHS to 0 on boundary nodes
+        b[self.idx_bound, :] = 0.0
+
+        sol = spsolve(self._A_dirichlet, b)
+        if sol.ndim == 1:
+            sol = sol[:, None]
+
+        if rhs.ndim == 2:
+            return sol.reshape(self.N, self.N)
+        else:
+            return sol.T.reshape(out_shape)
+            
+    def solve_poisson_neumann(self, rhs):
+        """
+        Solve Δ₀ u = rhs with homogeneous Neumann BC + gauge fix.
+        Supports multiple right‑hand sides.
+
+        Parameters
+        ----------
+        rhs : numpy.ndarray
+            - 2D (N, N) : single scalar field
+            - 3D (K, N, N) : K independent scalar fields
+
+        Returns
+        -------
+        numpy.ndarray
+            Solution u with same shape as rhs.
+        """
+        # Determine input shape and flatten appropriately
+        if rhs.ndim == 2:
+            if rhs.shape != (self.N, self.N):
+                raise ValueError("rhs must have shape (N, N)")
+            rhs_flat = rhs.ravel().reshape(-1, 1)          # (N², 1)
+            out_shape = (self.N, self.N)
+        elif rhs.ndim == 3:
+            K, N, M = rhs.shape
+            if N != self.N or M != self.N:
+                raise ValueError("rhs must have shape (K, N, N)")
+            rhs_flat = rhs.reshape(K, -1).T                # (N², K)
+            out_shape = (K, self.N, self.N)
+        else:
+            raise ValueError("rhs must be 2D or 3D array")
+
+        b = rhs_flat.copy()
+        weights = self.sqrt_det.ravel()
+
+        # Subtract weighted mean to make RHS orthogonal to nullspace
+        # b.T @ weights / sum(weights) gives a row vector (1, K)
+        mean = (b.T.dot(weights) / weights.sum()).reshape(1, -1)
+        b = b - weights[:, None] * mean
+
+        # Solve all columns at once
+        sol = spsolve(self._A_neumann, b)                 # shape (N², K) or (N²,)
+
+        if sol.ndim == 1:
+            sol = sol[:, None]                            # make it (N², 1)
+
+        # Reshape back to original form
+        if rhs.ndim == 2:
+            return sol.reshape(self.N, self.N)
+        else:
+            return sol.T.reshape(out_shape)
+    
+    def solve_poisson_neumann_old(self, rhs):
+        """
+        Solve Δ₀ u = rhs with homogeneous Neumann BC + gauge fix.
+    
+        The assembled A_scalar already encodes zero-flux (Neumann) at every
+        boundary face because _face_avg zeroes the outer half-face coefficients.
+        This leaves a rank-1 null space (constant functions).  We remove it by
+        pinning one interior node: u[N//2, N//2] = 0.
+    
+        This is the correct BC for Hodge potentials: only ∇φ and ∇ψ appear in
+        the decomposition, so the additive constant is irrelevant, and forcing
+        φ=0 on ∂Ω (Dirichlet) incorrectly drives the gradient to zero there.
+        """
+        A = self.A_scalar.tolil()
+        b = rhs.ravel().copy()
+    
+        # Compatibility: Neumann problem is solvable only if ∫ rhs dV = 0.
+        # Enforce this by subtracting the mean weighted by √g.
+        weights = self.sqrt_det.ravel()
+        b -= b.dot(weights) / weights.sum()
+    
+        # Pin one interior node to fix the gauge (removes the constant null-space)
+        pin = self._src[self.N // 2, self.N // 2]
+        A.rows[pin] = [pin]
+        A.data[pin] = [1.0]
+        b[pin]      = 0.0
+    
+        return spsolve(A.tocsr(), b).reshape(self.N, self.N)
+
+
+# =============================================================================
+# Numerical operators that re-use the grid (no stencil duplication)
+# =============================================================================
+
+def _fd_deriv(arr, axis, h):
+    """Second-order finite-difference derivative along *axis* with spacing *h*."""
+    out  = np.zeros_like(arr)
+    s_p  = [slice(None), slice(None)]; s_p[axis]  = slice(2, None)
+    s_m  = [slice(None), slice(None)]; s_m[axis]  = slice(None, -2)
+    s_c  = [slice(None), slice(None)]; s_c[axis]  = slice(1, -1)
+    s_0  = [slice(None), slice(None)]; s_0[axis]  = 0
+    s_1  = [slice(None), slice(None)]; s_1[axis]  = 1
+    s_2  = [slice(None), slice(None)]; s_2[axis]  = 2       # ← new
+    s_n1 = [slice(None), slice(None)]; s_n1[axis] = -1
+    s_n2 = [slice(None), slice(None)]; s_n2[axis] = -2
+    s_n3 = [slice(None), slice(None)]; s_n3[axis] = -3      # ← new
+    # Interior: centred 2nd-order
+    out[tuple(s_c)]  = (arr[tuple(s_p)] - arr[tuple(s_m)]) / (2 * h)
+    # Boundary: one-sided 2nd-order
+    out[tuple(s_0)]  = (-3*arr[tuple(s_0)]  + 4*arr[tuple(s_1)]  - arr[tuple(s_2)])  / (2 * h)
+    out[tuple(s_n1)] = ( 3*arr[tuple(s_n1)] - 4*arr[tuple(s_n2)] + arr[tuple(s_n3)]) / (2 * h)
+    return out
+
+
+def _gradient(arr, dx, dy):
+    return _fd_deriv(arr, 0, dx), _fd_deriv(arr, 1, dy)
+
+
+def _codifferential(f_x, f_y, g_inv00, g_inv01, g_inv11, sqrt_det, dx, dy):
+    flux_x = sqrt_det * (g_inv00 * f_x + g_inv01 * f_y)
+    flux_y = sqrt_det * (g_inv01 * f_x + g_inv11 * f_y)
+    div    = _fd_deriv(flux_x, 0, dx) + _fd_deriv(flux_y, 1, dy)
+    return -div / (sqrt_det + 1e-14)
+
+
+def hodge_decomposition(metric, omega_components, domain, resolution=50,
+                        form_degree=1):
+    """
+    Numerically decompose a differential k-form into its Hodge components
+    on a 2D rectangular domain.
+
+    Supported form degrees
+    ----------------------
+    ``form_degree=1`` (default)
+        Decomposes a 1-form α = αₓ dx + αᵧ dy via the full Hodge theorem:
+
+            α  =  dφ  +  ⋆dψ  +  h
+
+        where dφ is exact, ⋆dψ is co-exact, and h is harmonic (Δh = 0).
+        Two scalar Poisson problems are solved:
+
+            Δ₀ φ = δα          →   α_exact   = dφ = ∇φ
+            Δ₀ ψ = δ(⋆α)       →   α_coexact = ⋆dψ
+            h     = α − dφ − ⋆dψ
+
+        The dimension of the harmonic space equals the first Betti number
+        b₁ = dim H¹_dR(M).  ``omega_components`` must be a 2-tuple
+        (αₓ, αᵧ) of callables or SymPy expressions.
+
+    ``form_degree=2``
+        Decomposes a 2-form ω = f dx∧dy via Hodge duality.  In 2D a 2-form
+        is fully characterised by its scalar coefficient f, and the
+        decomposition reads:
+
+            ω  =  dα  +  h₂
+
+        where dα is exact (α is a 1-form) and h₂ is harmonic.  There is no
+        co-exact part because there are no 3-forms in 2D.
+
+        The algorithm maps the problem to a 1-form decomposition:
+
+            ⋆ω is a 1-form  →  decompose it  →  apply ⋆ to each piece
+
+        Concretely, if ⋆ω = dφ + ⋆dψ + h₁, then:
+
+            ω = ⋆(⋆ω) = ⋆(dφ) + ⋆(⋆dψ) + ⋆h₁
+                       = ⋆dφ   + dψ      + h₂
+
+        where ⋆dφ is the co-exact part of ω, dψ is exact, and h₂ = ⋆h₁ is
+        the harmonic 2-form.  ``omega_components`` must be a scalar callable
+        or SymPy expression representing the coefficient f(x, y).
+
+        The harmonic space of 2-forms has dimension b₂ = dim H²_dR(M),
+        which equals 1 on a closed oriented surface (by Poincaré duality with
+        H⁰) and 0 on a contractible domain.
+
+    Why not ``form_degree=0``?
+        A 0-form is a scalar function.  Its Hodge decomposition on a domain
+        with boundary reduces to f = δα + const, which amounts to solving a
+        single Neumann problem — a different and less informative computation
+        that does not expose de Rham cohomology.  It is not included here to
+        keep the scope of this function well-defined.
 
     Parameters
     ----------
     metric : Metric
         Must be 2D.
-    omega_components : tuple
-        The components (α_x, α_y) as callables or SymPy expressions.
+    omega_components : tuple of two (callable or sympy.Expr), or scalar
+        - ``form_degree=1``: 2-tuple (αₓ, αᵧ).
+        - ``form_degree=2``: scalar f representing ω = f dx∧dy.
     domain : tuple
-        ((x_min, x_max), (y_min, y_max))
-    resolution : int
+        ``((x_min, x_max), (y_min, y_max))``
+    resolution : int, default 50
         Grid points per axis.
+    form_degree : {1, 2}, default 1
+        Degree of the input differential form.
+
+    Returns
+    -------
+    dict
+        All cases include ``'grid'`` (the :class:`RiemannianGrid` instance).
+
+        **form_degree=1**:
+            ``'potential_phi'``, ``'potential_psi'``,
+            ``'alpha_exact'`` (2-tuple of arrays),
+            ``'alpha_coexact'`` (2-tuple of arrays),
+            ``'alpha_harmonic'`` (2-tuple of arrays).
+
+        **form_degree=2**:
+            ``'potential_phi'``, ``'potential_psi'``,
+            ``'omega_exact'``    — coefficient of the exact part dψ,
+            ``'omega_coexact'``  — coefficient of the co-exact part ⋆dφ,
+            ``'omega_harmonic'`` — coefficient of the harmonic 2-form h₂.
+
+    Raises
+    ------
+    NotImplementedError
+        If ``metric.dim != 2`` or ``form_degree`` is not 1 or 2.
+
+    Examples
+    --------
+    **1-form** — rotation form on the flat torus (purely harmonic):
+
+    >>> from sympy import symbols, Matrix
+    >>> import numpy as np
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> dec = hodge_decomposition(m, (-y, x), ((0, 1), (0, 1)), resolution=40)
+    >>> # harmonic part carries ≈ 100% of L² energy
+
+    **2-form** — constant vorticity ω = dx∧dy on the flat plane:
+
+    >>> dec2 = hodge_decomposition(m, 1, ((0, 1), (0, 1)),
+    ...                            resolution=40, form_degree=2)
+    >>> # omega_exact ≈ 0, omega_coexact ≈ 1 (contractible domain: b₂ = 0)
     """
     if metric.dim != 2:
         raise NotImplementedError("Hodge decomposition is only implemented for 2D.")
-
-    from scipy.sparse import diags, lil_matrix
-    from scipy.sparse.linalg import spsolve
-
-    # 1. Grid setup
-    x_vals = np.linspace(domain[0][0], domain[0][1], resolution)
-    y_vals = np.linspace(domain[1][0], domain[1][1], resolution)
-    X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
-    dx = x_vals[1] - x_vals[0]
-    dy = y_vals[1] - y_vals[0]
-    N = resolution
-    N2 = N * N
-
-    # 2. Metric evaluation (Broadcasted to ensure arrays even for flat metrics)
-    sqrt_det = np.broadcast_to(metric.sqrt_det_g_func(X, Y), X.shape)
-    g_inv00  = np.broadcast_to(metric.g_inv_func[(0, 0)](X, Y), X.shape)
-    g_inv11  = np.broadcast_to(metric.g_inv_func[(1, 1)](X, Y), X.shape)
-    g_inv01  = np.broadcast_to(metric.g_inv_func[(0, 1)](X, Y), X.shape)
-
-    # 3. Form components evaluation
-    def eval_comp(c):
-        if callable(c): return np.broadcast_to(c(X, Y), X.shape)
-        f = lambdify(metric.coords, c, 'numpy')
-        return np.broadcast_to(f(X, Y), X.shape)
-
-    alpha_x_vals = eval_comp(omega_components[0])
-    alpha_y_vals = eval_comp(omega_components[1])
-
-    # 4. Helpers
-    def face_avg(arr, axis, direction):
-        """Average array with neighbor; ensures indices stay within bounds."""
-        s_src = [slice(None), slice(None)]
-        s_dst = [slice(None), slice(None)]
-        if direction == 1: # Forward
-            s_src[axis] = slice(1, None)
-            s_dst[axis] = slice(0, -1)
-        else: # Backward
-            s_src[axis] = slice(0, -1)
-            s_dst[axis] = slice(1, None)
-        
-        out = np.zeros_like(arr)
-        out[tuple(s_dst)] = 0.5 * (arr[tuple(s_dst)] + arr[tuple(s_src)])
-        return out
-
-    def gradient(arr):
-        gx = np.zeros_like(arr)
-        gy = np.zeros_like(arr)
-        gx[1:-1, :] = (arr[2:, :] - arr[:-2, :]) / (2 * dx)
-        gx[0, :] = (arr[1, :] - arr[0, :]) / dx
-        gx[-1, :] = (arr[-1, :] - arr[-2, :]) / dx
-        gy[:, 1:-1] = (arr[:, 2:] - arr[:, :-2]) / (2 * dy)
-        gy[:, 0] = (arr[:, 1] - arr[:, 0]) / dy
-        gy[:, -1] = (arr[:, -1] - arr[:, -2]) / dy
-        return gx, gy
-
-    def codifferential(f_x, f_y):
-        flux_x = sqrt_det * (g_inv00 * f_x + g_inv01 * f_y)
-        flux_y = sqrt_det * (g_inv01 * f_x + g_inv11 * f_y)
-        div = np.zeros_like(f_x)
-        div[1:-1, :] += (flux_x[2:, :] - flux_x[:-2, :]) / (2 * dx)
-        div[:, 1:-1] += (flux_y[:, 2:] - flux_y[:, :-2]) / (2 * dy)
-        div[0, :] = (flux_x[1, :] - flux_x[0, :] / dx)
-        div[-1, :] = (flux_x[-1, :] - flux_x[-2, :] / dx)
-        return div / (sqrt_det + 1e-14)
-
-    def hodge_star_1form(f_x, f_y):
-        return (
-            (g_inv00 * f_y - g_inv01 * f_x) * sqrt_det,
-            (g_inv11 * f_x - g_inv01 * f_y) * sqrt_det,
+    if form_degree not in (1, 2):
+        raise NotImplementedError(
+            "form_degree must be 1 or 2.  "
+            "0-form decomposition is not supported (see docstring)."
         )
 
-    # 5. Sparse Laplacian Matrix Assembly
-    # East/West faces (x-axis, axis 0)
-    aE = face_avg(sqrt_det * g_inv00, 0,  1)
-    aW = face_avg(sqrt_det * g_inv00, 0, -1)
-    # North/South faces (y-axis, axis 1)
-    bN = face_avg(sqrt_det * g_inv11, 1,  1)
-    bS = face_avg(sqrt_det * g_inv11, 1, -1)
+    # ------------------------------------------------------------------
+    # Grid — assembled once, shared across all solves
+    # ------------------------------------------------------------------
+    grid = RiemannianGrid(metric, domain, resolution)
+    X, Y, dx, dy = grid.X, grid.Y, grid.dx, grid.dy
+    sd, gi00, gi11, gi01 = grid.sqrt_det, grid.g_inv00, grid.g_inv11, grid.g_inv01
 
-    c_center = -(aE + aW) / dx**2 - (bN + bS) / dy**2
-    c_east   = aE / dx**2
-    c_west   = aW / dx**2
-    c_north  = bN / dy**2
-    c_south  = bS / dy**2
+    def _eval(c):
+        fn = c if callable(c) else lambdify(metric.coords, c, 'numpy')
+        return np.broadcast_to(fn(X, Y), X.shape).copy()
 
-    # Standard 5-point stencil
-    diag_data = [
-        (c_center.ravel(), 0),
-        (c_east.ravel()[:-N], N),   # i+1 -> offset N
-        (c_west.ravel()[N:], -N),   # i-1 -> offset -N
-        (c_north.ravel()[:-1], 1),  # j+1 -> offset 1
-        (c_south.ravel()[1:], -1),  # j-1 -> offset -1
-    ]
-    
-    A = lil_matrix((N2, N2))
-    for data, k in diag_data:
-        A.setdiag(data, k)
+    # Partially-applied metric operators (avoid repeating 5 arguments everywhere)
+    def _codf(fx, fy):
+        return _codifferential(fx, fy, gi00, gi01, gi11, sd, dx, dy)
 
-    # Cross-derivative g01 terms using a central stencil
-    src = np.arange(N2).reshape(N, N)
-    cross_coeff = (sqrt_det * g_inv01) / (4 * dx * dy)
-    
-    # Offsets for (di, dj): (1,1), (1,-1), (-1,1), (-1,-1)
-    for di, dj in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
-        offset = di * N + dj
-        ri = slice(0, N-1) if di > 0 else slice(1, N)
-        rj = slice(0, N-1) if dj > 0 else slice(1, N)
-        
-        mask = np.zeros((N, N), dtype=bool)
-        mask[ri, rj] = True
-        idx_v = src[mask].flatten()
-        # The cross term contribution (simplified central diff)
-        A[idx_v, idx_v + offset] += (di * dj) * cross_coeff[mask].flatten()
+    def _star1(fx, fy):
+        # (⋆α)_x = √|g| ( -g12 α_x - g22 α_y )
+        # (⋆α)_y = √|g| (  g11 α_x + g12 α_y )
+        return ( sd * (-grid.g01 * fx - grid.g11 * fy),
+                 sd * ( grid.g00 * fx + grid.g01 * fy) )
 
-    # 6. Solve Poisson Problems
-    # RHS for exact and co-exact potentials
-    rhs_phi = codifferential(alpha_x_vals, alpha_y_vals)
-    star_ax, star_ay = hodge_star_1form(alpha_x_vals, alpha_y_vals)
-    rhs_psi = codifferential(star_ax, star_ay)
+    def _star2(f):
+        """Numerical ⋆ on a 2-form coefficient: ⋆(f dx∧dy) = f / √|g|."""
+        return f / (sd + 1e-14)
 
-    def solve_poisson(rhs):
-        b = rhs.ravel()
-        # Enforce Dirichlet BC: potential = 0 on all four boundaries
-        boundary_mask = np.zeros((N, N), dtype=bool)
-        boundary_mask[0, :] = boundary_mask[-1, :] = True
-        boundary_mask[:, 0] = boundary_mask[:, -1] = True
-        idx_bound = src[boundary_mask].flatten()
-        
-        A_bc = A.tocsr()
-        # For simplicity in assembly, we zero the rows of the boundary points
-        for idx in idx_bound:
-            A_bc.data[A_bc.indptr[idx]:A_bc.indptr[idx+1]] = 0
-            A_bc[idx, idx] = 1.0
-            b[idx] = 0.0
-        
-        return spsolve(A_bc, b).reshape(N, N)
+    # ------------------------------------------------------------------
+    # Dispatch
+    # ------------------------------------------------------------------
+    if form_degree == 1:
+        return _hodge_decomposition_1form(
+            grid, omega_components, _eval, _codf, _star1, dx, dy
+        )
+    else:   # form_degree == 2
+        return _hodge_decomposition_2form(
+            grid, omega_components, _eval, _codf, _star1, _star2, dx, dy
+        )
 
-    phi = solve_poisson(rhs_phi)
-    psi = solve_poisson(rhs_psi)
 
-    # 7. Reconstruction
-    ex_x, ex_y = gradient(phi)
-    
-    dpsi_x, dpsi_y = gradient(psi)
-    co_x, co_y = hodge_star_1form(dpsi_x, dpsi_y)
-    
-    ha_x = alpha_x_vals - ex_x - co_x
-    ha_y = alpha_y_vals - ex_y - co_y
+# -----------------------------------------------------------------------
+# Private implementations — one per form degree
+# -----------------------------------------------------------------------
+def _hodge_decomposition_1form(grid, omega_components, _eval, _codf, _star1,
+                                dx, dy):
+    """
+    Core 1-form Hodge decomposition.  Solves:
+        Δ₀ φ = δα          (exact potential)
+        Δ₀ ψ = δ(⋆α)       (co-exact potential)
+    with homogeneous Neumann BC (natural BC for Hodge potentials).
+    The gauge is fixed by pinning one interior node to zero.
+    """
+    alpha_x = _eval(omega_components[0])
+    alpha_y = _eval(omega_components[1])
+
+    phi = grid.solve_poisson_dirichlet(-_codf(alpha_x, alpha_y))
+    psi = grid.solve_poisson_neumann(_codf(*_star1(alpha_x, alpha_y)))
+
+    ex_x, ex_y = _gradient(phi, dx, dy)
+    co_x, co_y = _star1(*_gradient(psi, dx, dy))
 
     return {
-        'potential_phi': phi,
-        'potential_psi': psi,
-        'alpha_exact': (ex_x, ex_y),
-        'alpha_coexact': (co_x, co_y),
-        'alpha_harmonic': (ha_x, ha_y)
+        'potential_phi':  phi,
+        'potential_psi':  psi,
+        'alpha_exact':    (ex_x, ex_y),
+        'alpha_coexact':  (co_x, co_y),
+        'alpha_harmonic': (alpha_x - ex_x - co_x,
+                           alpha_y - ex_y - co_y),
+        'grid':           grid,
     }
+
+
+def _hodge_decomposition_2form(grid, omega_components, _eval, _codf, _star1,
+                                _star2, dx, dy):
+    """
+    Decompose a 2-form ω = f dx∧dy.  Uses Neumann BC for the same reason.
+    """
+    f       = _eval(omega_components)
+    f_tilde = _star2(f)
+
+    phi = grid.solve_poisson_dirichlet(f_tilde)
+
+    dphi_x, dphi_y       = _gradient(phi, dx, dy)
+    star_dphi_x, star_dphi_y = _star1(dphi_x, dphi_y)
+
+    omega_exact_coeff = (_fd_deriv(star_dphi_y, axis=0, h=grid.dx) -
+                         _fd_deriv(star_dphi_x, axis=1, h=grid.dy))
+
+    return {
+        'potential_phi':   phi,
+        'omega_exact':     omega_exact_coeff,
+        'omega_coexact':   np.zeros_like(f),
+        'omega_harmonic':  f - omega_exact_coeff,
+        'grid':            grid,
+    }
+    
+
+def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
+                                   cmap='RdBu_r', quiver_stride=3,
+                                   form_degree=None):
+    """
+    Visualise the Hodge decomposition of a differential form on a 2D manifold.
+
+    This function works for decompositions of both 1‑forms and 2‑forms as
+    returned by :func:`hodge_decomposition`.  It automatically detects the
+    form degree from the keys present in `decomp`, or you can specify it
+    explicitly with the `form_degree` parameter.
+
+    For a 1‑form α = dφ + ⋆dψ + h, the visualisation shows:
+        - Top row: original vector field and its three components
+          (exact, co‑exact, harmonic) as quiver plots overlaid on a
+          heatmap of the magnitude.
+        - Bottom row: scalar potentials φ and ψ, residual error, and an
+          energy bar chart.
+
+    For a 2‑form ω = dα + ⋆dφ + h (with α = ⋆dφ), the visualisation shows:
+        - Top row: original scalar field (coefficient of ω) and its three
+          components (exact, co‑exact, harmonic) as colormaps.
+        - Bottom row: scalar potential φ, residual error, and an energy
+          bar chart.
+
+    The energy distribution uses the metric‑weighted L² norm:
+        - For 1‑forms: ∫ ‖α‖_g² dV
+        - For 2‑forms: ∫ ω² dV
+    This requires that the decomposition dictionary contains a `'grid'` key
+    with a :class:`RiemannianGrid` instance that provides the metric weights.
+    If the grid is missing, the unweighted sum of squared values is used.
+
+    Parameters
+    ----------
+    decomp : dict
+        Output of :func:`hodge_decomposition`. Must contain keys appropriate
+        for the form degree:
+          - 1‑form: `'alpha_exact'`, `'alpha_coexact'`, `'alpha_harmonic'`,
+            `'potential_phi'`, `'potential_psi'`.
+          - 2‑form: `'omega_exact'`, `'omega_coexact'`, `'omega_harmonic'`,
+            `'potential_phi'`.
+        For 2‑forms the original form is reconstructed from the three parts
+        if not already present.
+    domain : tuple, optional
+        ((x_min, x_max), (y_min, y_max)) – coordinate bounds.  If the
+        decomposition does not contain a `'grid'` key, this parameter is
+        required to build the coordinate mesh.  If a grid is present,
+        `domain` is ignored.
+    resolution : int, default 50
+        Number of grid points per axis.  Used only when a grid is not
+        available in `decomp`.
+    cmap : str, default 'RdBu_r'
+        Matplotlib colormap for scalar fields (and magnitude for 1‑forms).
+    quiver_stride : int, default 3
+        Sub‑sampling stride for quiver arrows (only used for 1‑forms).
+    form_degree : {1, 2}, optional
+        Explicitly specify the form degree.  If `None`, the degree is
+        inferred from the dictionary keys.
+
+    Returns
+    -------
+    None
+        Displays a Matplotlib figure.
+
+    Examples
+    --------
+    **1‑form** on the flat torus:
+
+    >>> from sympy import symbols, Matrix
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> dec = hodge_decomposition(m, (-y, x), ((0, 2*np.pi), (0, 2*np.pi)))
+    >>> visualize_hodge_decomposition(dec)
+
+    **2‑form** on the unit square (constant vorticity):
+
+    >>> dec2 = hodge_decomposition(m, 1, ((0, 1), (0, 1)), form_degree=2)
+    >>> visualize_hodge_decomposition(dec2)
+    """
+    # ------------------------------------------------------------------
+    # Determine form degree
+    # ------------------------------------------------------------------
+    if form_degree is None:
+        if 'alpha_exact' in decomp:
+            form_degree = 1
+        elif 'omega_exact' in decomp:
+            form_degree = 2
+        else:
+            raise ValueError(
+                "Cannot infer form degree from dictionary keys. "
+                "Please specify `form_degree=1` or `form_degree=2`."
+            )
+
+    # ------------------------------------------------------------------
+    # Obtain grid (for coordinates and metric weights)
+    # ------------------------------------------------------------------
+    grid = decomp.get('grid', None)
+    if grid is not None:
+        # Use the grid stored in the decomposition
+        X = grid.X
+        Y = grid.Y
+        sqrt_det = grid.sqrt_det
+        resolution = X.shape[0]   # override
+    else:
+        # Build a simple mesh without metric weights
+        if domain is None:
+            raise ValueError(
+                "No grid found in decomposition and `domain` not provided."
+            )
+        x_vals = np.linspace(domain[0][0], domain[0][1], resolution)
+        y_vals = np.linspace(domain[1][0], domain[1][1], resolution)
+        X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
+        sqrt_det = None   # indicates no metric weights
+
+    # ------------------------------------------------------------------
+    # Helper functions
+    # ------------------------------------------------------------------
+    def _magnitude(fx, fy):
+        return np.sqrt(fx**2 + fy**2)
+
+    def _weighted_energy_1form(fx, fy, w):
+        """Weighted L² energy of a 1‑form."""
+        mag2 = fx**2 + fy**2
+        if w is not None:
+            return np.sum(mag2 * w)
+        else:
+            return np.sum(mag2)
+
+    def _weighted_energy_2form(f, w):
+        """Weighted L² energy of a 2‑form coefficient."""
+        if w is not None:
+            return np.sum(f**2 * w)
+        else:
+            return np.sum(f**2)
+
+    # ------------------------------------------------------------------
+    # 1‑form case
+    # ------------------------------------------------------------------
+    if form_degree == 1:
+        # Extract components
+        ex_x, ex_y = decomp['alpha_exact']
+        co_x, co_y = decomp['alpha_coexact']
+        ha_x, ha_y = decomp['alpha_harmonic']
+        alpha_x = ex_x + co_x + ha_x
+        alpha_y = ex_y + co_y + ha_y
+        phi = decomp['potential_phi']
+        psi = decomp['potential_psi']
+
+        # Compute energies (weighted if possible)
+        total_energy = _weighted_energy_1form(alpha_x, alpha_y, sqrt_det)
+        energies = [
+            _weighted_energy_1form(ex_x, ex_y, sqrt_det),
+            _weighted_energy_1form(co_x, co_y, sqrt_det),
+            _weighted_energy_1form(ha_x, ha_y, sqrt_det)
+        ]
+
+        # Figure layout
+        fig = plt.figure(figsize=(18, 9))
+        gs = fig.add_gridspec(2, 4, hspace=0.45, wspace=0.35)
+
+        def _panel_field(ax, fx, fy, title):
+            mag = _magnitude(fx, fy)
+            pcm = ax.pcolormesh(X, Y, mag, shading='auto', cmap=cmap)
+            plt.colorbar(pcm, ax=ax, label='‖·‖')
+            sl = slice(None, None, quiver_stride)
+            ax.quiver(X[sl, sl], Y[sl, sl], fx[sl, sl], fy[sl, sl],
+                      color='k', alpha=0.6, scale=None, scale_units='xy')
+            ax.set_title(title)
+            ax.set_xlabel('x'); ax.set_ylabel('y')
+            ax.set_aspect('equal')
+
+        def _panel_scalar(ax, Z, title):
+            pcm = ax.pcolormesh(X, Y, Z, shading='auto', cmap=cmap)
+            plt.colorbar(pcm, ax=ax)
+            ax.contour(X, Y, Z, levels=12, colors='k', linewidths=0.5, alpha=0.5)
+            ax.set_title(title)
+            ax.set_xlabel('x'); ax.set_ylabel('y')
+            ax.set_aspect('equal')
+
+        # Top row
+        _panel_field(fig.add_subplot(gs[0, 0]), alpha_x, alpha_y, 'Original  α')
+        _panel_field(fig.add_subplot(gs[0, 1]), ex_x, ex_y, 'Exact part  dφ')
+        _panel_field(fig.add_subplot(gs[0, 2]), co_x, co_y, 'Co‑exact part  ⋆dψ')
+        _panel_field(fig.add_subplot(gs[0, 3]), ha_x, ha_y, 'Harmonic part  h')
+
+        # Bottom row
+        _panel_scalar(fig.add_subplot(gs[1, 0]), phi, 'Scalar potential  φ')
+        _panel_scalar(fig.add_subplot(gs[1, 1]), psi, 'Co‑scalar potential  ψ')
+        res_x = alpha_x - ex_x - co_x - ha_x
+        res_y = alpha_y - ex_y - co_y - ha_y
+        _panel_field(fig.add_subplot(gs[1, 2]), res_x, res_y,
+                     f'Residual  ‖α − dφ − ⋆dψ − h‖\n'
+                     f'(max = {_magnitude(res_x, res_y).max():.2e})')
+
+        ax_energy = fig.add_subplot(gs[1, 3])
+        labels = ['dφ', '⋆dψ', 'h']
+        fracs = np.array(energies) / (total_energy + 1e-30) * 100
+        bars = ax_energy.bar(labels, fracs, color=['steelblue', 'tomato', 'seagreen'])
+        ax_energy.bar_label(bars, fmt='%.1f%%', padding=3)
+        ax_energy.set_ylabel('% of total L² energy')
+        ax_energy.set_title('Energy distribution')
+        ax_energy.set_ylim(0, max(fracs) * 1.2 + 5)
+
+        fig.suptitle('Hodge Decomposition   α = dφ + ⋆dψ + h', fontsize=14, y=1.01)
+
+    # ------------------------------------------------------------------
+    # 2‑form case
+    # ------------------------------------------------------------------
+    else:   # form_degree == 2
+        # Retrieve components; reconstruct original if not present
+        exact = decomp['omega_exact']
+        coexact = decomp['omega_coexact']
+        harmonic = decomp['omega_harmonic']
+        phi = decomp['potential_phi']
+
+        # Original 2‑form coefficient (reconstructed)
+        omega = exact + coexact + harmonic
+
+        # Compute energies (weighted if possible)
+        total_energy = _weighted_energy_2form(omega, sqrt_det)
+        energies = [
+            _weighted_energy_2form(exact, sqrt_det),
+            _weighted_energy_2form(coexact, sqrt_det),
+            _weighted_energy_2form(harmonic, sqrt_det)
+        ]
+
+        # Figure layout
+        fig = plt.figure(figsize=(18, 9))
+        gs = fig.add_gridspec(2, 4, hspace=0.45, wspace=0.35)
+
+        def _panel_scalar(ax, Z, title):
+            pcm = ax.pcolormesh(X, Y, Z, shading='auto', cmap=cmap)
+            plt.colorbar(pcm, ax=ax)
+            ax.contour(X, Y, Z, levels=12, colors='k', linewidths=0.5, alpha=0.5)
+            ax.set_title(title)
+            ax.set_xlabel('x'); ax.set_ylabel('y')
+            ax.set_aspect('equal')
+
+        # Top row: original, exact, coexact, harmonic
+        _panel_scalar(fig.add_subplot(gs[0, 0]), omega, 'Original  ω')
+        _panel_scalar(fig.add_subplot(gs[0, 1]), exact, 'Exact part  dα')
+        _panel_scalar(fig.add_subplot(gs[0, 2]), coexact, 'Co‑exact part  ⋆dφ')
+        _panel_scalar(fig.add_subplot(gs[0, 3]), harmonic, 'Harmonic part  h')
+
+        # Bottom row: potential φ, residual, energy distribution
+        _panel_scalar(fig.add_subplot(gs[1, 0]), phi, 'Potential  φ')
+        residual = omega - exact - coexact - harmonic
+        _panel_scalar(fig.add_subplot(gs[1, 1]), residual,
+                      f'Residual  (max = {np.abs(residual).max():.2e})')
+
+        ax_energy = fig.add_subplot(gs[1, 2:])   # span two columns
+        labels = ['dα', '⋆dφ', 'h']
+        fracs = np.array(energies) / (total_energy + 1e-30) * 100
+        bars = ax_energy.bar(labels, fracs, color=['steelblue', 'tomato', 'seagreen'])
+        ax_energy.bar_label(bars, fmt='%.1f%%', padding=3)
+        ax_energy.set_ylabel('% of total weighted L² energy')
+        ax_energy.set_title('Energy distribution')
+        ax_energy.set_ylim(0, max(fracs) * 1.2 + 5)
+
+        fig.suptitle('Hodge Decomposition of a 2‑Form   ω = dα + ⋆dφ + h', fontsize=14, y=1.01)
+
+    plt.tight_layout()
+    plt.show()
+
+def visualize_hodge_decomposition_old(decomp, domain, resolution=50,
+                                   cmap='RdBu_r', quiver_stride=3):
+    """
+    Visualise the output of :func:`hodge_decomposition`.
+
+    Produces a 2-row Matplotlib figure:
+
+    * **Top row** (4 panels): the original 1-form α and its three Hodge
+      components — exact (dφ), co-exact (⋆dψ), and harmonic (h).  Each
+      panel shows the vector field as a quiver plot overlaid on a heatmap
+      of the field's pointwise magnitude ‖·‖.
+    * **Bottom row** (2 panels): the scalar potentials φ and ψ as filled
+      contour maps with overlaid contour lines.
+
+    Parameters
+    ----------
+    decomp : dict
+        Return value of :func:`hodge_decomposition`.  Expected keys:
+        ``'alpha_exact'``, ``'alpha_coexact'``, ``'alpha_harmonic'``,
+        ``'potential_phi'``, ``'potential_psi'``.
+    domain : tuple
+        ``((x_min, x_max), (y_min, y_max))`` — the same domain passed to
+        :func:`hodge_decomposition`, used to reconstruct the coordinate grid.
+    resolution : int, default 50
+        Number of grid points per axis; must match the value used in
+        :func:`hodge_decomposition`.
+    cmap : str, default ``'RdBu_r'``
+        Matplotlib colormap for all magnitude / potential panels.
+    quiver_stride : int, default 3
+        Sub-sampling stride for the quiver arrows (1 = every grid point,
+        higher values reduce clutter on dense grids).
+
+    Returns
+    -------
+    None
+        Displays a Matplotlib figure via ``plt.show()``.
+
+    Examples
+    --------
+    >>> from sympy import symbols, Matrix
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> decomp = hodge_decomposition(m, (y, -x), ((0, 2*np.pi), (0, 2*np.pi)))
+    >>> visualize_hodge_decomposition(decomp, ((0, 2*np.pi), (0, 2*np.pi)))
+    """
+    # ------------------------------------------------------------------
+    # Coordinate grid (must match what hodge_decomposition used)
+    # ------------------------------------------------------------------
+    x_vals = np.linspace(domain[0][0], domain[0][1], resolution)
+    y_vals = np.linspace(domain[1][0], domain[1][1], resolution)
+    X, Y   = np.meshgrid(x_vals, y_vals, indexing='ij')
+
+    # Reconstruct the original 1-form from its three parts
+    ex_x,  ex_y  = decomp['alpha_exact']
+    co_x,  co_y  = decomp['alpha_coexact']
+    ha_x,  ha_y  = decomp['alpha_harmonic']
+    alpha_x       = ex_x + co_x + ha_x
+    alpha_y       = ex_y + co_y + ha_y
+
+    phi = decomp['potential_phi']
+    psi = decomp['potential_psi']
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    def _magnitude(fx, fy):
+        return np.sqrt(fx**2 + fy**2)
+
+    def _panel_field(ax, fx, fy, title):
+        """Heatmap of ‖(fx, fy)‖ with quiver overlay."""
+        mag = _magnitude(fx, fy)
+        pcm = ax.pcolormesh(X, Y, mag, shading='auto', cmap=cmap)
+        plt.colorbar(pcm, ax=ax, label='‖·‖')
+        sl  = slice(None, None, quiver_stride)
+        ax.quiver(X[sl, sl], Y[sl, sl], fx[sl, sl], fy[sl, sl],
+                  color='k', alpha=0.6, scale=None, scale_units='xy')
+        ax.set_title(title)
+        ax.set_xlabel('x'); ax.set_ylabel('y')
+        ax.set_aspect('equal')
+
+    def _panel_scalar(ax, Z, title):
+        """Filled contour map with iso-lines for a scalar potential."""
+        pcm = ax.pcolormesh(X, Y, Z, shading='auto', cmap=cmap)
+        plt.colorbar(pcm, ax=ax)
+        ax.contour(X, Y, Z, levels=12, colors='k', linewidths=0.5, alpha=0.5)
+        ax.set_title(title)
+        ax.set_xlabel('x'); ax.set_ylabel('y')
+        ax.set_aspect('equal')
+
+    # ------------------------------------------------------------------
+    # Figure layout: 2 rows × 4 cols, bottom-left two cells = potentials,
+    # bottom-right two cells left empty (or can be used for residuals).
+    # ------------------------------------------------------------------
+    fig = plt.figure(figsize=(18, 9))
+    gs  = fig.add_gridspec(2, 4, hspace=0.45, wspace=0.35)
+
+    # Top row: original + 3 components
+    _panel_field(fig.add_subplot(gs[0, 0]), alpha_x, alpha_y, 'Original  α')
+    _panel_field(fig.add_subplot(gs[0, 1]), ex_x,    ex_y,    'Exact part  dφ')
+    _panel_field(fig.add_subplot(gs[0, 2]), co_x,    co_y,    'Co-exact part  ⋆dψ')
+    _panel_field(fig.add_subplot(gs[0, 3]), ha_x,    ha_y,    'Harmonic part  h')
+
+    # Bottom row: potentials + residual magnitudes
+    _panel_scalar(fig.add_subplot(gs[1, 0]), phi, 'Scalar potential  φ')
+    _panel_scalar(fig.add_subplot(gs[1, 1]), psi, 'Co-scalar potential  ψ')
+
+    # Residual: how well does dφ + ⋆dψ + h reconstruct α?
+    res_x = alpha_x - ex_x - co_x - ha_x
+    res_y = alpha_y - ex_y - co_y - ha_y
+    _panel_field(fig.add_subplot(gs[1, 2]), res_x, res_y,
+                 f'Residual  ‖α − dφ − ⋆dψ − h‖\n'
+                 f'(max = {_magnitude(res_x, res_y).max():.2e})')
+
+    # Energy bar chart: fraction of ‖α‖² in each component
+    ax_energy = fig.add_subplot(gs[1, 3])
+    total   = _magnitude(alpha_x, alpha_y).ravel()**2
+    labels  = ['dφ', '⋆dψ', 'h']
+    energies = [
+        (_magnitude(ex_x, ex_y).ravel()**2).sum(),
+        (_magnitude(co_x, co_y).ravel()**2).sum(),
+        (_magnitude(ha_x, ha_y).ravel()**2).sum(),
+    ]
+    fracs = np.array(energies) / (total.sum() + 1e-30) * 100
+    bars  = ax_energy.bar(labels, fracs, color=['steelblue', 'tomato', 'seagreen'])
+    ax_energy.bar_label(bars, fmt='%.1f%%', padding=3)
+    ax_energy.set_ylabel('% of total L² energy')
+    ax_energy.set_title('Energy distribution')
+    ax_energy.set_ylim(0, max(fracs) * 1.2 + 5)
+
+    fig.suptitle('Hodge Decomposition   α = dφ + ⋆dψ + h', fontsize=14, y=1.01)
+    plt.tight_layout()
+    plt.show()
+    
+
 
 def parallel_transport(metric, curve, initial_vector, tspan=None, method='RK45'):
     """
@@ -2307,70 +3257,6 @@ def parallel_transport(metric, curve, initial_vector, tspan=None, method='RK45')
         sol = solve_ivp(ode_2d, tspan, [vx0, vy0], t_eval=t_eval, method=method)
         return {'t': sol.t, 'vx': sol.y[0], 'vy': sol.y[1]}
 
-
-def de_rham_laplacian(metric, form_degree):
-    """
-    Compute the principal symbol of the de Rham (Hodge) Laplacian on k-forms (2D only).
-
-    The Hodge–de Rham Laplacian is defined as
-
-        Δ = dδ + δd,
-
-    where d is the exterior derivative and δ = ⋆d⋆ is its formal adjoint.
-    For **0-forms** (smooth functions) this coincides with the Laplace–Beltrami
-    operator, so the result is identical to :meth:`Metric.laplace_beltrami_symbol`.
-    For **1-forms** the principal symbol is the same positive-definite quadratic
-    form gⁱʲ ξᵢ ξⱼ (the de Rham Laplacian is a Laplace-type operator on all
-    form degrees in 2D), and the subprincipal symbol vanishes at this level of
-    approximation.
-
-    Parameters
-    ----------
-    metric : Metric
-        Must have ``metric.dim == 2``.
-    form_degree : {0, 1}
-        Degree k of the differential form.  Degree 2 is not implemented
-        (it equals the degree-0 case by Hodge duality).
-
-    Returns
-    -------
-    dict with keys:
-
-    * ``'principal'`` : sympy.Expr — leading symbol gⁱʲ ξᵢ ξⱼ.
-    * ``'subprincipal'`` : sympy.Expr or int — lower-order symbol
-      (non-zero for k=0; zero for k=1 at this approximation level).
-    * ``'full'`` : sympy.Expr — full microlocal symbol.
-
-    Raises
-    ------
-    NotImplementedError
-        If called on a 1D metric, or if ``form_degree`` is 2 or higher.
-
-    Examples
-    --------
-    >>> from sympy import symbols, Matrix
-    >>> r, theta = symbols('r theta', real=True, positive=True)
-    >>> m = Metric(Matrix([[1, 0], [0, r**2]]), (r, theta))
-    >>> lb = de_rham_laplacian(m, form_degree=0)
-    >>> '\\nfor k=0 and k=1 the principal symbol is the same:'
-    >>> lb_1 = de_rham_laplacian(m, form_degree=1)
-    >>> from sympy import simplify
-    >>> simplify(lb['principal'] - lb_1['principal'])
-    0
-    """
-    if metric.dim != 2:
-        raise NotImplementedError("de_rham_laplacian is for 2D metrics only.")
-    if form_degree == 0:
-        return metric.laplace_beltrami_symbol()
-    elif form_degree == 1:
-        xi, eta = symbols('xi eta', real=True)
-        g_inv = metric.g_inv_matrix
-        principal = (g_inv[0, 0] * xi**2 +
-                     2 * g_inv[0, 1] * xi * eta +
-                     g_inv[1, 1] * eta**2)
-        return {'principal': principal, 'subprincipal': 0, 'full': principal}
-    else:
-        raise NotImplementedError("Only degrees 0 and 1 are implemented.")
 
 
 def verify_gauss_bonnet(metric, domain, resolution=100):
