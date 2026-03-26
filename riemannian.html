@@ -313,15 +313,35 @@ identity</strong> on 1-forms in 2D:</p>
 </div></blockquote>
 <p>where nabla* nabla is the rough (connection) Laplacian acting component-wise
 and K is the Gaussian curvature.</p>
-<p>The <strong>Hodge decomposition</strong> of a 1-form alpha on a compact domain Omega is</p>
-<blockquote>
-<div><p>alpha = d phi + star d psi + h,</p>
-</div></blockquote>
-<p>where d phi is exact, star d psi is co-exact, and h is harmonic (Delta h = 0).
-phi and psi are scalar potentials satisfying Poisson equations; h represents
-the de Rham cohomology class [alpha] in H^1_dR(Omega).  For a 2-form
-omega = f dx^dy the decomposition reduces to omega = d(star d phi) + h_2,
-with no co-exact component (no 3-forms exist in 2D).</p>
+<p>The <strong>Hodge decomposition</strong> of a differential form on a compact domain Omega
+in 2D is as follows:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt><strong>0‑form</strong> (scalar function) f:</dt><dd><p>f = Δφ + h₀,
+where Δφ = δ(⋆dφ) is the co‑exact part (the Laplacian of a scalar potential
+φ) and h₀ is the constant harmonic part (the mean of f).  The exact part
+is zero because no (−1)-form exists.  The harmonic part corresponds to the
+de Rham cohomology class [f] ∈ H⁰_dR(Ω) ≅ ℝ.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><strong>1‑form</strong> α = αₓ dx + αᵧ dy:</dt><dd><p>α = dφ + ⋆dψ + h,
+where dφ is exact, ⋆dψ is co‑exact, and h is harmonic (Δh = 0).  φ and ψ
+are scalar potentials satisfying Poisson equations; h represents the de Rham
+cohomology class [α] ∈ H¹_dR(Ω).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><strong>2‑form</strong> ω = f dx∧dy:</dt><dd><p>ω = d(⋆dφ) + h₂,
+with no co‑exact component (no 3‑forms exist in 2D).  φ is a scalar
+potential solving Δφ = -⋆ω, and h₂ is the harmonic 2‑form, representing
+the cohomology class [ω] ∈ H²_dR(Ω).</p>
+</dd>
+</dl>
+</li>
+</ul>
 <p class="rubric">References</p>
 <aside class="footnote-list brackets">
 <aside class="footnote brackets" id="id5" role="doc-footnote">
@@ -1724,6 +1744,22 @@ on a 2D rectangular domain.</p>
 <section id="supported-form-degrees">
 <h2>Supported form degrees<a class="headerlink" href="#supported-form-degrees" title="Link to this heading"></a></h2>
 <dl>
+<dt><code class="docutils literal notranslate"><span class="pre">form_degree=0</span></code></dt><dd><p>Decomposes a scalar function f (0‑form) as</p>
+<blockquote>
+<div><p>f = Δu + h₀,</p>
+</div></blockquote>
+<p>where Δu is the co‑exact part (the Laplacian of a scalar potential u)
+and h₀ is the constant harmonic part (the weighted mean of f).
+The exact part is zero (no (−1)-form). The potential u solves the
+Neumann problem Δu = f − h₀, with the gauge fixed by pinning one
+interior grid point to zero. The decomposition is then</p>
+<blockquote>
+<div><p>coexact   = Δu
+harmonic  = h₀</p>
+</div></blockquote>
+<p>The harmonic part corresponds to the de Rham cohomology class
+[f] ∈ H⁰_dR(M), which is simply the constant component.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">form_degree=1</span></code> (default)</dt><dd><p>Decomposes a 1‑form α = αₓ dx + αᵧ dy as</p>
 <blockquote>
 <div><p>α = dφ + ⋆dψ + h,</p>
@@ -1746,7 +1782,7 @@ for the Neumann problem.  The decomposition is then</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">form_degree=2</span></code></dt><dd><p>Decomposes a 2‑form ω = f dx∧dy into exact and harmonic parts:</p>
 <blockquote>
-<div><p>ω = dα + h₂</p>
+<div><p>ω = d(⋆dφ) + h,</p>
 </div></blockquote>
 <p>(there is no co‑exact component because no 3‑forms exist in 2D).
 The algorithm solves a single Dirichlet problem for the scalar
@@ -1755,19 +1791,9 @@ Hodge dual (a 0‑form).  The exact part is then</p>
 <blockquote>
 <div><p>ω_exact = d(⋆dφ)</p>
 </div></blockquote>
-<p>and the harmonic part is ω_harmonic = ω − ω_exact.
-(The co‑exact part is set to zero.)</p>
+<p>and the harmonic part is ω_harmonic = ω − ω_exact.</p>
 <p>The resulting harmonic 2‑form belongs to the second de Rham
 cohomology class [ω] ∈ H²_dR(M).</p>
-</dd>
-<dt>Why not <code class="docutils literal notranslate"><span class="pre">form_degree=0</span></code>?</dt><dd><p>A 0‑form is a scalar function.  On a connected domain its Hodge
-decomposition is f = δ(⋆df) + h₀, where h₀ is a locally‑constant
-function (H⁰_dR ≅ ℝ per connected component).  The existing
-<code class="docutils literal notranslate"><span class="pre">solve_poisson_neumann</span></code> could implement this mechanically, but the
-harmonic part carries no cohomological information beyond what is
-already known from the domain topology.  It is excluded here by
-design, not by technical limitation, to keep the scope of this
-function focused on H¹ and H².</p>
 </dd>
 </dl>
 <dl class="field-list">
@@ -1779,6 +1805,7 @@ function focused on H¹ and H².</p>
 </dd>
 <dt class="field-odd">param omega_components<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">form_degree=0</span></code>: a scalar f (0‑form).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">form_degree=1</span></code>: a 2‑tuple (αₓ, αᵧ).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">form_degree=2</span></code>: a scalar f representing ω = f dx∧dy.</p></li>
 </ul>
@@ -1802,12 +1829,18 @@ function focused on H¹ and H².</p>
 <dd class="field-odd"><p>Degree of the input differential form.</p>
 </dd>
 <dt class="field-even">type form_degree<span class="colon">:</span></dt>
-<dd class="field-even"><p>{1, 2}, default 1</p>
+<dd class="field-even"><p>{0, 1, 2}, default 1</p>
 </dd>
 <dt class="field-odd">returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>All cases contain a key <code class="docutils literal notranslate"><span class="pre">'grid'</span></code> holding the
 <a class="reference internal" href="#riemannian.RiemannianGrid" title="riemannian.RiemannianGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">RiemannianGrid</span></code></a> instance used for the computation.</p>
 <dl class="simple">
+<dt><strong>form_degree=0</strong>:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'potential_u'</span></code> – array : potential u (Neumann, pinned).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'coexact'</span></code>     – array : Δu = f − h₀.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'harmonic'</span></code>    – array : constant harmonic part h₀.</p></li>
+</ul>
+</dd>
 <dt><strong>form_degree=1</strong>:</dt><dd><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">'potential_phi'</span></code>  – array : φ potential (Dirichlet).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">'potential_psi'</span></code>  – array : ψ potential (Neumann).</p></li>
@@ -1828,16 +1861,23 @@ function focused on H¹ and H².</p>
 <dd class="field-even"><p>dict</p>
 </dd>
 <dt class="field-odd">raises NotImplementedError<span class="colon">:</span></dt>
-<dd class="field-odd"><p>If <code class="docutils literal notranslate"><span class="pre">metric.dim</span> <span class="pre">!=</span> <span class="pre">2</span></code> or <code class="docutils literal notranslate"><span class="pre">form_degree</span></code> is not 1 or 2.</p>
+<dd class="field-odd"><p>If <code class="docutils literal notranslate"><span class="pre">metric.dim</span> <span class="pre">!=</span> <span class="pre">2</span></code> or <code class="docutils literal notranslate"><span class="pre">form_degree</span></code> is not 0, 1, or 2.</p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<p><strong>1‑form</strong> — rotation form on the flat torus (purely harmonic):</p>
+<p><strong>0‑form</strong> — function with zero mean on the unit square:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">Matrix</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dec</span> <span class="o">=</span> <span class="n">hodge_decomposition</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">40</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">f</span> <span class="o">=</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dec0</span> <span class="o">=</span> <span class="n">hodge_decomposition</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span>
+<span class="gp">... </span>                           <span class="n">form_degree</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># harmonic part ≈ 0, coexact part ≈ f</span>
+</pre></div>
+</div>
+<p><strong>1‑form</strong> — rotation form on the flat torus (purely harmonic):</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dec1</span> <span class="o">=</span> <span class="n">hodge_decomposition</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">40</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># harmonic part carries ≈ 100% of L² energy</span>
 </pre></div>
 </div>
