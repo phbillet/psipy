@@ -57,6 +57,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">riemannian</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian-py-unified-1d-2d-riemannian-geometry-toolkit">riemannian.py — Unified 1D/2D Riemannian geometry toolkit</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#public-api-summary">Public API summary</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#mathematical-background">Mathematical background</a></li>
 </ul>
 </li>
@@ -100,6 +101,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#riemannian.RiemannianGrid.solve_poisson_neumann"><code class="docutils literal notranslate"><span class="pre">RiemannianGrid.solve_poisson_neumann()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.analyze_hodge_decomposition"><code class="docutils literal notranslate"><span class="pre">analyze_hodge_decomposition()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.christoffel"><code class="docutils literal notranslate"><span class="pre">christoffel()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.de_rham_laplacian"><code class="docutils literal notranslate"><span class="pre">de_rham_laplacian()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.distance"><code class="docutils literal notranslate"><span class="pre">distance()</span></code></a></li>
@@ -153,57 +155,188 @@
 <h2>riemannian.py — Unified 1D/2D Riemannian geometry toolkit<a class="headerlink" href="#riemannian-py-unified-1d-2d-riemannian-geometry-toolkit" title="Link to this heading"></a></h2>
 <section id="overview">
 <h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
-<p>The <cite>riemannian</cite> module provides a unified framework for working with Riemannian manifolds in one and two dimensions.  A single class <cite>Metric</cite> dispatches all computations automatically based on the dimension, making it easy to switch between 1D curves and 2D surfaces without changing the calling interface.</p>
-<p>Key features include:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">riemannian</span></code> module provides a unified symbolic and numerical framework
+for working with Riemannian manifolds in one and two dimensions.  A single
+class <code class="docutils literal notranslate"><span class="pre">Metric</span></code> dispatches all computations automatically based on the
+dimension of its input, making it straightforward to switch between 1D curves
+and 2D surfaces without changing the calling interface.</p>
+<p>The module is organised in four broad layers:</p>
+<ol class="arabic simple">
+<li><p><strong>Symbolic core</strong> — <code class="docutils literal notranslate"><span class="pre">Metric</span></code> and its methods build and cache all derived
+geometric quantities (inverse metric, Christoffel symbols, curvature
+tensors, Laplace–Beltrami symbol) as SymPy expressions.</p></li>
+<li><p><strong>Geodesic layer</strong> — standalone functions integrate geodesic and
+Hamiltonian flow, compute geodesic distance, solve the Jacobi deviation
+equation, and perform parallel transport along curves.</p></li>
+<li><p><strong>Differential-form layer</strong> (2D only) — the Hodge star, the de Rham
+Laplacian with Weitzenböck correction, and a full numerical Hodge
+decomposition backed by a sparse FEM solver on a <code class="docutils literal notranslate"><span class="pre">RiemannianGrid</span></code>.</p></li>
+<li><p><strong>Visualisation layer</strong> — geodesic trajectory plots and curvature
+colour maps for both dimensions.</p></li>
+</ol>
+</section>
+<section id="public-api-summary">
+<h3>Public API summary<a class="headerlink" href="#public-api-summary" title="Link to this heading"></a></h3>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">Metric</span></code> class</dt><dd><p>Central object; accepts a 1D scalar expression or a 2×2 SymPy <code class="docutils literal notranslate"><span class="pre">Matrix</span></code>
+together with coordinate symbols.  Can also be constructed from a
+free-particle Hamiltonian via <code class="docutils literal notranslate"><span class="pre">Metric.from_hamiltonian</span></code>.</p>
+<p>Methods available on every <code class="docutils literal notranslate"><span class="pre">Metric</span></code>:</p>
 <ul class="simple">
-<li><p>Symbolic construction of the metric tensor from an explicit expression (1D scalar, 2D matrix) or by extraction from a Hamiltonian kinetic energy.</p></li>
-<li><p>Automatic computation of Christoffel symbols (1D and 2D).</p></li>
-<li><p>Geodesic integration with multiple numerical schemes (RK4, adaptive, symplectic/Verlet, Hamiltonian flow via the companion <cite>symplectic</cite> module).</p></li>
-<li><p>Curvature: Riemann tensor, Ricci tensor, Gaussian curvature, scalar curvature.</p></li>
-<li><p>Laplace–Beltrami operator: full symbol (principal + subprincipal parts) ready for microlocal analysis.</p></li>
-<li><p>Riemannian volume (arc length in 1D) via symbolic or numerical integration.</p></li>
-<li><p><strong>2D only</strong>: Exponential map, geodesic distance (shooting or optimisation), Jacobi equation solver (geodesic deviation), Hodge star operator, de Rham Laplacian on 0‑ and 1‑forms, numerical verification of the Gauss–Bonnet theorem.</p></li>
-<li><p>Rich visualisation suite: geodesic trajectories, curvature maps (Gaussian/Ricci), metric components.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">eval(*point)</span></code> — evaluate all metric quantities at a numerical point.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gauss_curvature()</span></code> — Gaussian curvature K (2D) or zero (1D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">riemann_tensor()</span></code> — full Riemann curvature tensor R^i_jkl (2D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ricci_tensor()</span></code> — Ricci tensor R_ij (2D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ricci_scalar()</span></code> — scalar curvature R (2D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">laplace_beltrami_symbol()</span></code> — principal and subprincipal symbols of
+the Laplace-Beltrami operator, ready for microlocal analysis.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">riemannian_volume(domain)</span></code> — Riemannian volume (area in 2D) by
+symbolic or numerical integration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">arc_length(x_min,</span> <span class="pre">x_max)</span></code> — arc length along a 1D metric.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">covariant_derivative_vector(V)</span></code> — covariant derivative of a
+contravariant vector field (2D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">covariant_derivative_covector(omega)</span></code> — covariant derivative of a
+1-form (2D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">riemannian_gradient(f)</span></code> — gradient of a scalar as a contravariant
+vector field, grad f = g^ij d_j f d_i (2D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">riemannian_hessian(f)</span></code> — covariant Hessian
+Hess(f)_ij = d_i d_j f - Gamma^k_ij d_k f (2D).</p></li>
 </ul>
+</dd>
+<dt>Geodesic and flow functions</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">geodesic_solver(metric,</span> <span class="pre">p0,</span> <span class="pre">v0,</span> <span class="pre">tspan)</span></code> — integrate the geodesic ODE
+with selectable schemes: <code class="docutils literal notranslate"><span class="pre">'rk4'</span></code>, <code class="docutils literal notranslate"><span class="pre">'adaptive'</span></code>, <code class="docutils literal notranslate"><span class="pre">'symplectic'</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">geodesic_hamiltonian_flow(metric,</span> <span class="pre">p0,</span> <span class="pre">v0,</span> <span class="pre">tspan)</span></code> — geodesic flow in
+Hamiltonian form via the companion <code class="docutils literal notranslate"><span class="pre">symplectic</span></code> module (Verlet and
+other symplectic integrators).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">distance(metric,</span> <span class="pre">p,</span> <span class="pre">q)</span></code> — geodesic distance by shooting or
+optimisation (2D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">jacobi_equation_solver(metric,</span> <span class="pre">geodesic,</span> <span class="pre">initial_variation,</span> <span class="pre">tspan)</span></code>
+— solve the Jacobi (geodesic deviation) equation along a reference
+geodesic (2D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">parallel_transport(metric,</span> <span class="pre">curve,</span> <span class="pre">initial_vector,</span> <span class="pre">tspan)</span></code> — parallel
+transport of a vector along a parameterised curve (2D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">christoffel(metric)</span></code> — convenience wrapper returning the Christoffel
+symbol dict.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">exponential_map(metric,</span> <span class="pre">p,</span> <span class="pre">v,</span> <span class="pre">t)</span></code> — exponential map exp_p(tv) at a
+base point (2D).</p></li>
+</ul>
+</dd>
+<dt>Spectral and operator functions</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">laplace_beltrami(metric)</span></code> — return the Laplace-Beltrami symbol dict
+(wrapper around <code class="docutils literal notranslate"><span class="pre">Metric.laplace_beltrami_symbol</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sturm_liouville_reduce(metric,</span> <span class="pre">potential_expr)</span></code> — reduce the 1D
+Laplace-Beltrami eigenvalue problem -Delta_g u + Vu = lambda u to
+canonical Sturm-Liouville form (1D only).</p></li>
+</ul>
+</dd>
+<dt>Differential-form layer (2D only)</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">hodge_star(metric,</span> <span class="pre">form_degree)</span></code> — symbolic Hodge star on 0-, 1-,
+and 2-forms.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">de_rham_laplacian(metric,</span> <span class="pre">form_degree)</span></code> — symbolic de Rham-Hodge
+Laplacian Delta = d delta + delta d on 0- and 1-forms, including the
+Weitzenbock curvature correction K*id for 1-forms; returns a dict with
+the principal symbol, subprincipal symbol, Weitzenbock term, and a
+callable <code class="docutils literal notranslate"><span class="pre">'action'</span></code> that applies the operator symbolically.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hodge_decomposition(metric,</span> <span class="pre">omega,</span> <span class="pre">domain,</span> <span class="pre">form_degree)</span></code> — numerical
+Hodge-Helmholtz decomposition of a 1-form or 2-form into exact,
+co-exact, and harmonic parts on a rectangular domain.  The exact
+potential phi is solved with homogeneous Dirichlet BC (phi = 0 on dOmega)
+and the co-exact potential psi with Neumann-pinned BC (d_n psi = 0 on
+dOmega, gauge fixed at one interior node).  The harmonic residual
+captures the de Rham cohomology class of the input form.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">visualize_hodge_decomposition(decomp)</span></code> — vector-field or scalar-field
+plot of the three Hodge components with a metric-weighted energy bar
+chart.</p></li>
+</ul>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">RiemannianGrid</span></code> class</dt><dd><p>Helper assembled once from a <code class="docutils literal notranslate"><span class="pre">Metric</span></code> and a rectangular domain.  Caches
+the N^2 x N^2 sparse FEM matrix for Delta_0 (scalar Laplace-Beltrami) and
+the 2N^2 x 2N^2 block matrix for Delta_1 (de Rham Laplacian on 1-forms
+with Weitzenbock correction K*id).  Exposes two public solvers:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">solve_poisson_dirichlet(rhs)</span></code> — Delta_0 u = f with u = 0 on dOmega.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">solve_poisson_neumann(rhs)</span></code> — Delta_0 u = f with d_n u = 0 on dOmega;
+the RHS is automatically projected onto the compatible subspace
+(mean-zero with respect to sqrt(g)), and the gauge is fixed by pinning
+one interior node to zero.  Both solvers accept a single (N, N) array
+or a batch (K, N, N) array of right-hand sides.</p></li>
+</ul>
+</dd>
+<dt>Gauss-Bonnet verification</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">verify_gauss_bonnet(metric,</span> <span class="pre">domain)</span></code> — numerically integrate K dA
+over a rectangular domain and compare with the topological prediction
+2 pi chi (2D only).</p></li>
+</ul>
+</dd>
+<dt>Visualisation</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">visualize_geodesics(metric,</span> <span class="pre">initial_conditions,</span> <span class="pre">tspan)</span></code> — overlay
+geodesic trajectories on a curvature background (1D or 2D).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">visualize_curvature(metric,</span> <span class="pre">x_range,</span> <span class="pre">y_range,</span> <span class="pre">quantity)</span></code> — colour map
+of Gaussian curvature or Ricci scalar (2D), or line plot of the metric
+component / Christoffel symbol with optional geodesic overlay (1D).</p></li>
+</ul>
+</dd>
+</dl>
 </section>
 <section id="mathematical-background">
 <h3>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h3>
-<p>A <strong>Riemannian metric</strong> <cite>g</cite> on an <cite>n</cite>-dimensional manifold assigns an inner product to each tangent space.  In local coordinates <cite>(x¹,…,xⁿ)</cite> the metric is written as</p>
+<p>A <strong>Riemannian metric</strong> g on an n-dimensional manifold assigns an inner
+product to each tangent space.  In local coordinates (x^1,…,x^n) it is
+written</p>
 <blockquote>
-<div><p>ds² = gᵢⱼ(x) dxⁱ dxʲ</p>
+<div><p>ds^2 = g_ij(x) dx^i dx^j,</p>
 </div></blockquote>
-<p>and its inverse is denoted <cite>gⁱʲ</cite>.  The <strong>Christoffel symbols</strong> are derived from the metric:</p>
+<p>with inverse g^ij.  The <strong>Christoffel symbols</strong> are</p>
 <blockquote>
-<div><p>Γⁱⱼₖ = ½ gⁱˡ (∂ⱼ gₖₗ + ∂ₖ gⱼₗ − ∂ₗ gⱼₖ)</p>
+<div><p>Gamma^i_jk = 1/2 * g^il (d_j g_kl + d_k g_jl - d_l g_jk)</p>
 </div></blockquote>
-<p>and determine the <strong>geodesic equation</strong></p>
+<p>and govern the <strong>geodesic equation</strong>  x^i_tt + Gamma^i_jk x^j_t x^k_t = 0.
+In 1D this simplifies to  x_tt + Gamma^1_11 x_t^2 = 0  with
+Gamma^1_11 = 1/2 (log g_11)’.</p>
+<p><strong>Curvature</strong> is encoded in the Riemann tensor R^i_jkl, the Ricci tensor
+R_ij = R^k_ikj, and the scalar curvature R = g^ij R_ij.  In 2D the Gaussian
+curvature K is the only independent component: R_1212 = K <a href="#id15"><span class="problematic" id="id16">|g|</span></a>.</p>
+<p>The <strong>Laplace-Beltrami operator</strong> on scalar functions is</p>
 <blockquote>
-<div><p>ẍⁱ + Γⁱⱼₖ ẋʲ ẋᵏ = 0.</p>
+<div><p>Delta = <a href="#id1"><span class="problematic" id="id2">|</span></a>g|^{-1/2} d_i ( <a href="#id3"><span class="problematic" id="id4">|</span></a>g|^{1/2} g^ij d_j ),</p>
 </div></blockquote>
-<dl class="simple">
-<dt>For a 1D metric <cite>g₁₁(x)</cite> the geodesic equation simplifies to</dt><dd><p>ẍ + Γ¹₁₁ ẋ² = 0, Γ¹₁₁ = ½ (log g₁₁)′.</p>
-</dd>
-</dl>
-<p><strong>Curvature</strong> is encoded in the Riemann tensor <cite>Rⁱⱼₖₗ</cite>, the Ricci tensor <cite>Rᵢⱼ = Rᵏᵢₖⱼ</cite>, and the scalar curvature <cite>R = gⁱʲ Rᵢⱼ</cite>.  For a 2D surface the Gaussian curvature <cite>K</cite> satisfies <cite>R₁₂₁₂ = K |g|</cite> and is the only independent component.</p>
-<p>The <strong>Laplace–Beltrami operator</strong> acting on functions is</p>
+<p>with principal symbol g^ij xi_i xi_j.  The sparse FEM discretisation uses a
+standard 5-point finite-volume stencil with cross-derivative terms for
+off-diagonal metric components, divided by sqrt(g) to recover the true
+operator.</p>
+<p>The <strong>de Rham Laplacian</strong> Delta = d delta + delta d on k-forms coincides with
+the Laplace-Beltrami operator on 0-forms and satisfies the <strong>Weitzenbock
+identity</strong> on 1-forms in 2D:</p>
 <blockquote>
-<div><p>Δ = <a href="#id1"><span class="problematic" id="id2">|</span></a>g|^{-½} ∂ᵢ ( <a href="#id3"><span class="problematic" id="id4">|</span></a>g|^{½} gⁱʲ ∂ⱼ ),</p>
+<div><p>Delta alpha = nabla* nabla alpha + K * alpha,</p>
 </div></blockquote>
-<p>and its principal symbol is <cite>gⁱʲ ξᵢ ξⱼ</cite>.  The subprincipal symbol encodes the lower‑order terms.</p>
-<p>The module also implements the <strong>Hodge star</strong> on differential forms and the <strong>de Rham Laplacian</strong> <cite>Δ = dδ + δd</cite> for 0‑ and 1‑forms in 2D.</p>
+<p>where nabla* nabla is the rough (connection) Laplacian acting component-wise
+and K is the Gaussian curvature.</p>
+<p>The <strong>Hodge decomposition</strong> of a 1-form alpha on a compact domain Omega is</p>
+<blockquote>
+<div><p>alpha = d phi + star d psi + h,</p>
+</div></blockquote>
+<p>where d phi is exact, star d psi is co-exact, and h is harmonic (Delta h = 0).
+phi and psi are scalar potentials satisfying Poisson equations; h represents
+the de Rham cohomology class [alpha] in H^1_dR(Omega).  For a 2-form
+omega = f dx^dy the decomposition reduces to omega = d(star d phi) + h_2,
+with no co-exact component (no 3-forms exist in 2D).</p>
 <p class="rubric">References</p>
 <aside class="footnote-list brackets">
 <aside class="footnote brackets" id="id5" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
-<p>do Carmo, M. P.  <em>Riemannian Geometry</em>, Birkhäuser, 1992.</p>
+<p>do Carmo, M. P.  <em>Riemannian Geometry</em>, Birkhauser, 1992.</p>
 </aside>
 <aside class="footnote brackets" id="id6" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
-<p>Jost, J.  <em>Riemannian Geometry and Geometric Analysis</em>, Springer, 2011 (6th ed.).</p>
+<p>Jost, J.  <em>Riemannian Geometry and Geometric Analysis</em>, Springer,
+2011 (6th ed.).</p>
 </aside>
 <aside class="footnote brackets" id="id7" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
-<p>Lee, J. M.  <em>Riemannian Manifolds: An Introduction to Curvature</em>, Springer, 1997.</p>
+<p>Lee, J. M.  <em>Riemannian Manifolds: An Introduction to Curvature</em>,
+Springer, 1997.</p>
 </aside>
 <aside class="footnote brackets" id="id8" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
@@ -211,7 +344,13 @@
 </aside>
 <aside class="footnote brackets" id="id9" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></span>
-<p>Frankel, T.  <em>The Geometry of Physics</em>, Cambridge University Press, 2011 (3rd ed.).</p>
+<p>Frankel, T.  <em>The Geometry of Physics</em>, Cambridge University Press,
+2011 (3rd ed.).</p>
+</aside>
+<aside class="footnote brackets" id="id10" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>6<span class="fn-bracket">]</span></span>
+<p>Warner, F. W.  <em>Foundations of Differentiable Manifolds and Lie
+Groups</em>, Springer, 1983.</p>
 </aside>
 </aside>
 </section>
@@ -741,7 +880,7 @@ result yourself, e.g. <code class="docutils literal notranslate"><span class="pr
 <dd><p>Compute the full symbol of the Laplace–Beltrami operator.</p>
 <p>The Laplace–Beltrami operator acting on smooth functions is</p>
 <blockquote>
-<div><p>Δ_g f = <a href="#id10"><span class="problematic" id="id11">|</span></a>g|^{-½} ∂ᵢ (<a href="#id12"><span class="problematic" id="id13">|</span></a>g|^{½} gⁱʲ ∂ⱼ f).</p>
+<div><p>Δ_g f = <a href="#id11"><span class="problematic" id="id12">|</span></a>g|^{-½} ∂ᵢ (<a href="#id13"><span class="problematic" id="id14">|</span></a>g|^{½} gⁱʲ ∂ⱼ f).</p>
 </div></blockquote>
 <p>Its <strong>principal symbol</strong> (the highest-order part) evaluated at
 cotangent vector ξ is the positive-definite quadratic form</p>
@@ -1204,6 +1343,31 @@ the interior node condition.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="riemannian.analyze_hodge_decomposition">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">analyze_hodge_decomposition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">decomp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">original</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">print_report</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#analyze_hodge_decomposition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.analyze_hodge_decomposition" title="Link to this definition"></a></dt>
+<dd><p>Analyse the output of hodge_decomposition and print key metrics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>decomp</strong> (<em>dict</em>) – Dictionary returned by hodge_decomposition (must contain a ‘grid’ key).</p></li>
+<li><p><strong>original</strong> (<em>optional</em>) – The original differential form used as input to hodge_decomposition.
+- For 1‑form: tuple of two arrays, callables, or SymPy expressions.
+- For 2‑form: a single array, callable, or SymPy expression.
+If not provided, reconstruction errors are not computed.</p></li>
+<li><p><strong>print_report</strong> (<em>bool</em><em>, </em><em>default True</em>) – If True, print the analysis to the console.</p></li>
+<li><p><strong>show_plot</strong> (<em>bool</em><em>, </em><em>default True</em>) – If True, call visualize_hodge_decomposition on decomp.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary containing all computed metrics.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="riemannian.christoffel">
 <span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">christoffel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#christoffel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.christoffel" title="Link to this definition"></a></dt>
 <dd><p>Return the pre-computed numerical Christoffel symbol callable(s) of a metric.</p>
@@ -1564,11 +1728,11 @@ on a 2D rectangular domain.</p>
 <blockquote>
 <div><p>α = dφ + ⋆dψ + h,</p>
 </div></blockquote>
-<p>where dφ is exact, ⋆dψ is co‑exact, and h is harmonic (Δh = 0).
-The scalar potentials φ and ψ satisfy the Poisson equations</p>
+<p>where dφ is exact, ⋆dψ is co‑exact, and h is harmonic (Δh = 0).</p>
+<p>The scalar potentials φ and ψ satisfy the Poisson equations</p>
 <blockquote>
 <div><p>Δ₀ φ = δα            (Dirichlet boundary condition)
-Δ₀ ψ = δ(⋆α)         (Neumann boundary condition)</p>
+Δ₀ ψ = -δ(⋆α)         (Neumann boundary condition)</p>
 </div></blockquote>
 <p>with the gauge fixed by pinning an interior grid point to zero
 for the Neumann problem.  The decomposition is then</p>
@@ -1586,7 +1750,7 @@ for the Neumann problem.  The decomposition is then</p>
 </div></blockquote>
 <p>(there is no co‑exact component because no 3‑forms exist in 2D).
 The algorithm solves a single Dirichlet problem for the scalar
-potential φ defined by Δ₀ φ = ⋆ω, where ⋆ω = f / √|g| is the
+potential φ defined by Δ₀ φ = -⋆ω, where ⋆ω = f / √|g| is the
 Hodge dual (a 0‑form).  The exact part is then</p>
 <blockquote>
 <div><p>ω_exact = d(⋆dφ)</p>
@@ -1596,11 +1760,14 @@ Hodge dual (a 0‑form).  The exact part is then</p>
 <p>The resulting harmonic 2‑form belongs to the second de Rham
 cohomology class [ω] ∈ H²_dR(M).</p>
 </dd>
-<dt>Why not <code class="docutils literal notranslate"><span class="pre">form_degree=0</span></code>?</dt><dd><p>A 0‑form is a scalar function.  Its Hodge decomposition on a domain
-with boundary reduces to f = δα + const, which amounts to solving a
-single Neumann problem — a different and less informative computation
-that does not expose de Rham cohomology.  It is not included here to
-keep the scope of this function well‑defined.</p>
+<dt>Why not <code class="docutils literal notranslate"><span class="pre">form_degree=0</span></code>?</dt><dd><p>A 0‑form is a scalar function.  On a connected domain its Hodge
+decomposition is f = δ(⋆df) + h₀, where h₀ is a locally‑constant
+function (H⁰_dR ≅ ℝ per connected component).  The existing
+<code class="docutils literal notranslate"><span class="pre">solve_poisson_neumann</span></code> could implement this mechanically, but the
+harmonic part carries no cohomological information beyond what is
+already known from the domain topology.  It is excluded here by
+design, not by technical limitation, to keep the scope of this
+function focused on H¹ and H².</p>
 </dd>
 </dl>
 <dl class="field-list">
@@ -1652,7 +1819,6 @@ keep the scope of this function well‑defined.</p>
 <dt><strong>form_degree=2</strong>:</dt><dd><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">'potential_phi'</span></code>  – array : φ such that Δ₀ φ = ⋆ω.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">'omega_exact'</span></code>    – array : coefficient of the exact part.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">'omega_coexact'</span></code>  – array : zero (no co‑exact component).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">'omega_harmonic'</span></code> – array : coefficient of the harmonic part.</p></li>
 </ul>
 </dd>
@@ -2073,8 +2239,8 @@ initial conditions and plotted using Matplotlib.</p>
 <li><p><strong>y_range</strong> (<em>tuple</em><em> of </em><em>two floats</em><em>, </em><em>optional</em>) – Vertical plotting range (2D only).  Inferred from trajectories if
 <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
 <li><p><strong>colorby</strong> ({‘speed’, ‘time’, ‘curvature’}, default <code class="docutils literal notranslate"><span class="pre">'speed'</span></code>) – <strong>1D only.</strong> Quantity used to colour the scatter plot of each
-geodesic point.  <code class="docutils literal notranslate"><span class="pre">'speed'</span></code> uses <a href="#id14"><span class="problematic" id="id15">|ẋ|</span></a>, <code class="docutils literal notranslate"><span class="pre">'time'</span></code> uses t, and
-<code class="docutils literal notranslate"><span class="pre">'curvature'</span></code> uses <a href="#id16"><span class="problematic" id="id17">|Γ¹₁₁(x(t))|</span></a>.</p></li>
+geodesic point.  <code class="docutils literal notranslate"><span class="pre">'speed'</span></code> uses <a href="#id17"><span class="problematic" id="id18">|ẋ|</span></a>, <code class="docutils literal notranslate"><span class="pre">'time'</span></code> uses t, and
+<code class="docutils literal notranslate"><span class="pre">'curvature'</span></code> uses <a href="#id19"><span class="problematic" id="id20">|Γ¹₁₁(x(t))|</span></a>.</p></li>
 <li><p><strong>plot_curvature</strong> (<em>bool</em><em>, </em><em>default True</em>) – <strong>2D only.</strong> If <code class="docutils literal notranslate"><span class="pre">True</span></code>, render the Gaussian curvature as a
 colour-mapped background heatmap behind the geodesic curves.</p></li>
 <li><p><strong>n_steps</strong> (<em>int</em><em>, </em><em>default 500</em>) – Number of integration time steps per geodesic.</p></li>
@@ -2119,13 +2285,20 @@ heatmap of the magnitude.</p></li>
 energy bar chart.</p></li>
 </ul>
 </dd>
-<dt>For a 2‑form ω = dα + ⋆dφ + h (with α = ⋆dφ), the visualisation shows:</dt><dd><ul class="simple">
-<li><p>Top row: original scalar field (coefficient of ω) and its three
-components (exact, co‑exact, harmonic) as colormaps.</p></li>
+</dl>
+<p>For a 2‑form ω = f dx∧dy, the decomposition is ω = d(⋆dφ) + h,
+where φ is the scalar potential obtained from solving Δφ = -⋆ω with
+Dirichlet boundary conditions.  The co‑exact part is identically zero
+(no 3‑forms exist in 2D) and is therefore omitted from the visualisation.
+The display consists of:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Top row: original scalar field, exact part, harmonic part.</p></li>
 <li><p>Bottom row: scalar potential φ, residual error, and an energy
-bar chart.</p></li>
+bar chart comparing the exact and harmonic contributions.</p></li>
 </ul>
-</dd>
+</div></blockquote>
+<dl class="simple">
 <dt>The energy distribution uses the metric‑weighted L² norm:</dt><dd><ul class="simple">
 <li><p>For 1‑forms: ∫ ‖α‖_g² dV</p></li>
 <li><p>For 2‑forms: ∫ ω² dV</p></li>
@@ -2144,7 +2317,7 @@ for the form degree:</p>
 <div><ul>
 <li><p>1‑form: <cite>‘alpha_exact’</cite>, <cite>‘alpha_coexact’</cite>, <cite>‘alpha_harmonic’</cite>,
 <cite>‘potential_phi’</cite>, <cite>‘potential_psi’</cite>.</p></li>
-<li><p>2‑form: <cite>‘omega_exact’</cite>, <cite>‘omega_coexact’</cite>, <cite>‘omega_harmonic’</cite>,
+<li><p>2‑form: <cite>‘omega_exact’</cite>, <cite>‘omega_harmonic’</cite>,
 <cite>‘potential_phi’</cite>.</p></li>
 </ul>
 </div></blockquote>
