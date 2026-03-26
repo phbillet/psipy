@@ -2312,12 +2312,18 @@ colour-mapped background heatmap behind the geodesic curves.</p></li>
 <dt class="sig sig-object py" id="riemannian.visualize_hodge_decomposition">
 <span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">visualize_hodge_decomposition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">decomp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'RdBu_r'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quiver_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">form_degree</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#visualize_hodge_decomposition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.visualize_hodge_decomposition" title="Link to this definition"></a></dt>
 <dd><p>Visualise the Hodge decomposition of a differential form on a 2D manifold.</p>
-<p>This function works for decompositions of both 1‑forms and 2‑forms as
-returned by <a class="reference internal" href="#riemannian.hodge_decomposition" title="riemannian.hodge_decomposition"><code class="xref py py-func docutils literal notranslate"><span class="pre">hodge_decomposition()</span></code></a>.  It automatically detects the
-form degree from the keys present in <cite>decomp</cite>, or you can specify it
-explicitly with the <cite>form_degree</cite> parameter.</p>
+<p>This function works for decompositions of 0‑, 1‑, and 2‑forms as returned by
+<a class="reference internal" href="#riemannian.hodge_decomposition" title="riemannian.hodge_decomposition"><code class="xref py py-func docutils literal notranslate"><span class="pre">hodge_decomposition()</span></code></a>.  It automatically detects the form degree from
+the keys present in <cite>decomp</cite>, or you can specify it explicitly with the
+<cite>form_degree</cite> parameter.</p>
 <dl class="simple">
-<dt>For a 1‑form α = dφ + ⋆dψ + h, the visualisation shows:</dt><dd><ul class="simple">
+<dt>For a <strong>0‑form</strong> (scalar function) f = Δu + h₀, the visualisation shows:</dt><dd><ul class="simple">
+<li><p>Top row: original scalar field, co‑exact part Δu, harmonic part h₀.</p></li>
+<li><p>Bottom row: potential u, residual error, and an energy bar chart
+comparing the two contributions.</p></li>
+</ul>
+</dd>
+<dt>For a <strong>1‑form</strong> α = dφ + ⋆dψ + h, the visualisation shows:</dt><dd><ul class="simple">
 <li><p>Top row: original vector field and its three components
 (exact, co‑exact, harmonic) as quiver plots overlaid on a
 heatmap of the magnitude.</p></li>
@@ -2325,23 +2331,15 @@ heatmap of the magnitude.</p></li>
 energy bar chart.</p></li>
 </ul>
 </dd>
-</dl>
-<p>For a 2‑form ω = f dx∧dy, the decomposition is ω = d(⋆dφ) + h,
-where φ is the scalar potential obtained from solving Δφ = -⋆ω with
-Dirichlet boundary conditions.  The co‑exact part is identically zero
-(no 3‑forms exist in 2D) and is therefore omitted from the visualisation.
-The display consists of:</p>
-<blockquote>
-<div><ul class="simple">
+<dt>For a <strong>2‑form</strong> ω = d(⋆dφ) + h (no co‑exact component), the display consists of:</dt><dd><ul class="simple">
 <li><p>Top row: original scalar field, exact part, harmonic part.</p></li>
 <li><p>Bottom row: scalar potential φ, residual error, and an energy
 bar chart comparing the exact and harmonic contributions.</p></li>
 </ul>
-</div></blockquote>
-<dl class="simple">
+</dd>
 <dt>The energy distribution uses the metric‑weighted L² norm:</dt><dd><ul class="simple">
 <li><p>For 1‑forms: ∫ ‖α‖_g² dV</p></li>
-<li><p>For 2‑forms: ∫ ω² dV</p></li>
+<li><p>For 0‑forms and 2‑forms: ∫ f² dV</p></li>
 </ul>
 </dd>
 </dl>
@@ -2355,14 +2353,12 @@ If the grid is missing, the unweighted sum of squared values is used.</p>
 for the form degree:</p>
 <blockquote>
 <div><ul>
+<li><p>0‑form: <cite>‘potential_u’</cite>, <cite>‘coexact’</cite>, <cite>‘harmonic’</cite>.</p></li>
 <li><p>1‑form: <cite>‘alpha_exact’</cite>, <cite>‘alpha_coexact’</cite>, <cite>‘alpha_harmonic’</cite>,
 <cite>‘potential_phi’</cite>, <cite>‘potential_psi’</cite>.</p></li>
-<li><p>2‑form: <cite>‘omega_exact’</cite>, <cite>‘omega_harmonic’</cite>,
-<cite>‘potential_phi’</cite>.</p></li>
+<li><p>2‑form: <cite>‘omega_exact’</cite>, <cite>‘omega_harmonic’</cite>, <cite>‘potential_phi’</cite>.</p></li>
 </ul>
 </div></blockquote>
-<p>For 2‑forms the original form is reconstructed from the three parts
-if not already present.</p>
 </p></li>
 <li><p><strong>domain</strong> (<em>tuple</em><em>, </em><em>optional</em>) – ((x_min, x_max), (y_min, y_max)) – coordinate bounds.  If the
 decomposition does not contain a <cite>‘grid’</cite> key, this parameter is
@@ -2372,7 +2368,7 @@ required to build the coordinate mesh.  If a grid is present,
 available in <cite>decomp</cite>.</p></li>
 <li><p><strong>cmap</strong> (<em>str</em><em>, </em><em>default 'RdBu_r'</em>) – Matplotlib colormap for scalar fields (and magnitude for 1‑forms).</p></li>
 <li><p><strong>quiver_stride</strong> (<em>int</em><em>, </em><em>default 3</em>) – Sub‑sampling stride for quiver arrows (only used for 1‑forms).</p></li>
-<li><p><strong>form_degree</strong> (<em>{1</em><em>, </em><em>2}</em><em>, </em><em>optional</em>) – Explicitly specify the form degree.  If <cite>None</cite>, the degree is
+<li><p><strong>form_degree</strong> (<em>{0</em><em>, </em><em>1</em><em>, </em><em>2}</em><em>, </em><em>optional</em>) – Explicitly specify the form degree.  If <cite>None</cite>, the degree is
 inferred from the dictionary keys.</p></li>
 </ul>
 </dd>
@@ -2384,12 +2380,18 @@ inferred from the dictionary keys.</p></li>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<p><strong>1‑form</strong> on the flat torus:</p>
+<p><strong>0‑form</strong> on the unit square:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">Matrix</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dec</span> <span class="o">=</span> <span class="n">hodge_decomposition</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">visualize_hodge_decomposition</span><span class="p">(</span><span class="n">dec</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">f</span> <span class="o">=</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dec0</span> <span class="o">=</span> <span class="n">hodge_decomposition</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">form_degree</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">visualize_hodge_decomposition</span><span class="p">(</span><span class="n">dec0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>1‑form</strong> on the flat torus:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dec1</span> <span class="o">=</span> <span class="n">hodge_decomposition</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">visualize_hodge_decomposition</span><span class="p">(</span><span class="n">dec1</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>2‑form</strong> on the unit square (constant vorticity):</p>
