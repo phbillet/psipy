@@ -175,15 +175,27 @@ identity** on 1-forms in 2D:
 where nabla* nabla is the rough (connection) Laplacian acting component-wise
 and K is the Gaussian curvature.
 
-The **Hodge decomposition** of a 1-form alpha on a compact domain Omega is
+The **Hodge decomposition** of a differential form on a compact domain Omega
+in 2D is as follows:
 
-    alpha = d phi + star d psi + h,
+* **0‑form** (scalar function) f:
+    f = Δφ + h₀,
+    where Δφ = δ(⋆dφ) is the co‑exact part (the Laplacian of a scalar potential
+    φ) and h₀ is the constant harmonic part (the mean of f).  The exact part
+    is zero because no (−1)-form exists.  The harmonic part corresponds to the
+    de Rham cohomology class [f] ∈ H⁰_dR(Ω) ≅ ℝ.
 
-where d phi is exact, star d psi is co-exact, and h is harmonic (Delta h = 0).
-phi and psi are scalar potentials satisfying Poisson equations; h represents
-the de Rham cohomology class [alpha] in H^1_dR(Omega).  For a 2-form
-omega = f dx^dy the decomposition reduces to omega = d(star d phi) + h_2,
-with no co-exact component (no 3-forms exist in 2D).
+* **1‑form** α = αₓ dx + αᵧ dy:
+    α = dφ + ⋆dψ + h,
+    where dφ is exact, ⋆dψ is co‑exact, and h is harmonic (Δh = 0).  φ and ψ
+    are scalar potentials satisfying Poisson equations; h represents the de Rham
+    cohomology class [α] ∈ H¹_dR(Ω).
+
+* **2‑form** ω = f dx∧dy:
+    ω = d(⋆dφ) + h₂,
+    with no co‑exact component (no 3‑forms exist in 2D).  φ is a scalar
+    potential solving Δφ = -⋆ω, and h₂ is the harmonic 2‑form, representing
+    the cohomology class [ω] ∈ H²_dR(Ω).
 
 
 References
@@ -2506,114 +2518,6 @@ class RiemannianGrid:
         # ✅ FIX 1: divide every row by √g to get the true (1/√g)∂(√g g^{ij}∂) operator
         inv_sqrt_det = diags(1.0 / (self.sqrt_det.ravel() + 1e-14), format='csr')
         return inv_sqrt_det.dot(A.tocsr())
-        
-    def _assemble_scalar_laplacian_old(self):
-        """
-        Assemble the sparse matrix for the scalar Laplace–Beltrami operator
-        with homogeneous Neumann boundary conditions.
-    
-        Returns
-        -------
-        csr_matrix : shape (N², N²)
-        """
-        N, N2, dx, dy = self.N, self.N2, self.dx, self.dy
-        sqrt_det = self.sqrt_det
-        g_inv00 = self.g_inv00
-        g_inv01 = self.g_inv01
-        g_inv11 = self.g_inv11
-    
-        # Pre‑compute face‑averaged coefficients
-        # x‑direction faces (forward = right side of cell)
-        coeff_x = sqrt_det * g_inv00
-        cf_x = self._face_avg(coeff_x, axis=0, forward=True)   # faces (i+½, j)
-        cb_x = self._face_avg(coeff_x, axis=0, forward=False)  # faces (i-½, j)
-    
-        # y‑direction faces
-        coeff_y = sqrt_det * g_inv11
-        cf_y = self._face_avg(coeff_y, axis=1, forward=True)   # faces (i, j+½)
-        cb_y = self._face_avg(coeff_y, axis=1, forward=False)  # faces (i, j-½)
-    
-        # Cross term coefficient at cell centres (already includes 1/(4dx dy))
-        cross = (sqrt_det * g_inv01) / (4 * dx * dy)
-    
-        # Prepare LIL matrix
-        A = lil_matrix((N2, N2))
-    
-        # Helper to add a contribution to the matrix using (i,j) indices
-        def add_entry(i, j, value):
-            if value != 0:
-                A[i*N + j, i*N + j] += value
-    
-        # Loop over all cells (i,j)
-        for i in range(N):
-            for j in range(N):
-                idx = i*N + j
-    
-                # ---- x‑direction contributions ----
-                # Right face (i+½, j) exists if i < N-1
-                if i < N-1:
-                    val = cf_x[i, j] / (dx * dx)
-                    # From cell (i,j) to (i+1,j)
-                    A[idx, idx + N] += val
-                    A[idx, idx] -= val
-                    # The neighbour (i+1,j) will also get its share when i+1 is processed,
-                    # but we add both contributions here to keep it symmetric.
-                    # For clarity, we add the symmetric part for (i+1,j) as well.
-                    # However, in LIL we only set the row for the current cell.
-                    # The neighbour's row will be set when we process that cell.
-                    # So we only add the off‑diagonal from current to neighbour,
-                    # and the diagonal from current. The neighbour's row will get
-                    # the symmetric off‑diagonal later.
-                # Left face (i-½, j) exists if i > 0
-                if i > 0:
-                    val = cb_x[i, j] / (dx * dx)
-                    A[idx, idx - N] += val
-                    A[idx, idx] -= val
-    
-                # ---- y‑direction contributions ----
-                # Upper face (i, j+½) exists if j < N-1
-                if j < N-1:
-                    val = cf_y[i, j] / (dy * dy)
-                    A[idx, idx + 1] += val
-                    A[idx, idx] -= val
-                # Lower face (i, j-½) exists if j > 0
-                if j > 0:
-                    val = cb_y[i, j] / (dy * dy)
-                    A[idx, idx - 1] += val
-                    A[idx, idx] -= val
-    
-                # ---- Cross terms (mixed derivatives) ----
-                # These are only added for pairs where both nodes exist.
-                # The cross coefficient is the same for all four diagonal neighbours,
-                # but with signs determined by the direction.
-                if cross[i, j] != 0:
-                    # Diagonal neighbour (i+1, j+1)
-                    if i < N-1 and j < N-1:
-                        val = cross[i, j]
-                        A[idx, idx + N + 1] += val
-                        A[idx, idx] -= val
-                    # (i+1, j-1)
-                    if i < N-1 and j > 0:
-                        val = -cross[i, j]
-                        A[idx, idx + N - 1] += val
-                        A[idx, idx] -= val
-                    # (i-1, j+1)
-                    if i > 0 and j < N-1:
-                        val = -cross[i, j]
-                        A[idx, idx - N + 1] += val
-                        A[idx, idx] -= val
-                    # (i-1, j-1)
-                    if i > 0 and j > 0:
-                        val = cross[i, j]
-                        A[idx, idx - N - 1] += val
-                        A[idx, idx] -= val
-    
-        # Convert to CSR for efficient solving
-        A = A.tocsr()
-    
-        # Scale by 1/√g to obtain the true Laplace–Beltrami operator
-        inv_sqrt_det = diags(1.0 / (sqrt_det.ravel() + 1e-14), format='csr')
-        return inv_sqrt_det.dot(A)
     
 
     def _assemble_1form_laplacian(self):
@@ -2904,6 +2808,23 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
 
     Supported form degrees
     ----------------------
+    ``form_degree=0``
+        Decomposes a scalar function f (0‑form) as
+
+            f = Δu + h₀,
+
+        where Δu is the co‑exact part (the Laplacian of a scalar potential u)
+        and h₀ is the constant harmonic part (the weighted mean of f).
+        The exact part is zero (no (−1)-form). The potential u solves the
+        Neumann problem Δu = f − h₀, with the gauge fixed by pinning one
+        interior grid point to zero. The decomposition is then
+
+            coexact   = Δu
+            harmonic  = h₀
+
+        The harmonic part corresponds to the de Rham cohomology class
+        [f] ∈ H⁰_dR(M), which is simply the constant component.
+
     ``form_degree=1`` (default)
         Decomposes a 1‑form α = αₓ dx + αᵧ dy as
 
@@ -2929,7 +2850,7 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
     ``form_degree=2``
         Decomposes a 2‑form ω = f dx∧dy into exact and harmonic parts:
 
-            ω = dα + h₂
+            ω = d(⋆dφ) + h,
 
         (there is no co‑exact component because no 3‑forms exist in 2D).
         The algorithm solves a single Dirichlet problem for the scalar
@@ -2939,33 +2860,23 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
             ω_exact = d(⋆dφ)
 
         and the harmonic part is ω_harmonic = ω − ω_exact.
-        (The co‑exact part is set to zero.)
 
         The resulting harmonic 2‑form belongs to the second de Rham
         cohomology class [ω] ∈ H²_dR(M).
-
-    Why not ``form_degree=0``?
-        A 0‑form is a scalar function.  On a connected domain its Hodge
-        decomposition is f = δ(⋆df) + h₀, where h₀ is a locally‑constant
-        function (H⁰_dR ≅ ℝ per connected component).  The existing
-        ``solve_poisson_neumann`` could implement this mechanically, but the
-        harmonic part carries no cohomological information beyond what is
-        already known from the domain topology.  It is excluded here by
-        design, not by technical limitation, to keep the scope of this
-        function focused on H¹ and H².
 
     Parameters
     ----------
     metric : Metric
         Must be 2D.
     omega_components : tuple of two (callable or sympy.Expr), or scalar
+        - ``form_degree=0``: a scalar f (0‑form).
         - ``form_degree=1``: a 2‑tuple (αₓ, αᵧ).
         - ``form_degree=2``: a scalar f representing ω = f dx∧dy.
     domain : tuple
         ((x_min, x_max), (y_min, y_max))
     resolution : int, default 50
         Number of grid points per axis.
-    form_degree : {1, 2}, default 1
+    form_degree : {0, 1, 2}, default 1
         Degree of the input differential form.
 
     Returns
@@ -2973,6 +2884,11 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
     dict
         All cases contain a key ``'grid'`` holding the
         :class:`RiemannianGrid` instance used for the computation.
+
+        **form_degree=0**:
+            * ``'potential_u'`` – array : potential u (Neumann, pinned).
+            * ``'coexact'``     – array : Δu = f − h₀.
+            * ``'harmonic'``    – array : constant harmonic part h₀.
 
         **form_degree=1**:
             * ``'potential_phi'``  – array : φ potential (Dirichlet).
@@ -2989,17 +2905,24 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
     Raises
     ------
     NotImplementedError
-        If ``metric.dim != 2`` or ``form_degree`` is not 1 or 2.
+        If ``metric.dim != 2`` or ``form_degree`` is not 0, 1, or 2.
 
     Examples
     --------
-    **1‑form** — rotation form on the flat torus (purely harmonic):
+    **0‑form** — function with zero mean on the unit square:
 
     >>> from sympy import symbols, Matrix
     >>> import numpy as np
     >>> x, y = symbols('x y', real=True)
     >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
-    >>> dec = hodge_decomposition(m, (-y, x), ((0, 1), (0, 1)), resolution=40)
+    >>> f = x**2 - y**2
+    >>> dec0 = hodge_decomposition(m, f, ((0, 1), (0, 1)), resolution=40,
+    ...                            form_degree=0)
+    >>> # harmonic part ≈ 0, coexact part ≈ f
+
+    **1‑form** — rotation form on the flat torus (purely harmonic):
+
+    >>> dec1 = hodge_decomposition(m, (-y, x), ((0, 1), (0, 1)), resolution=40)
     >>> # harmonic part carries ≈ 100% of L² energy
 
     **2‑form** — constant vorticity ω = dx∧dy on the flat plane:
@@ -3010,7 +2933,7 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
     """
     if metric.dim != 2:
         raise NotImplementedError("Hodge decomposition is only implemented for 2D.")
-    if form_degree not in (1, 2):
+    if form_degree not in (0, 1, 2):
         raise NotImplementedError(
             "form_degree must be 1 or 2.  "
             "0-form decomposition is not supported (see docstring)."
@@ -3046,7 +2969,25 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
     # ------------------------------------------------------------------
     # Dispatch
     # ------------------------------------------------------------------
-    if form_degree == 1:
+    if form_degree == 0:
+        # Scalar function decomposition
+        f = _eval(omega_components) if not isinstance(omega_components, np.ndarray) else omega_components
+        f = np.broadcast_to(f, (resolution, resolution)).copy()
+
+        # Compute weighted mean
+        mean = np.sum(f * grid.sqrt_det) / np.sum(grid.sqrt_det)
+
+        # Solve Δu = f - mean with Neumann BC
+        rhs = f - mean
+        u = grid.solve_poisson_neumann(rhs)
+
+        return {
+            'potential_u': u,
+            'coexact':     rhs,
+            'harmonic':    np.full_like(f, mean),
+            'grid':        grid
+        }
+    elif form_degree == 1:
         return _hodge_decomposition_1form(
             grid, omega_components, _eval, _codf, _star1, dx, dy
         )
@@ -3143,8 +3084,10 @@ def analyze_hodge_decomposition(decomp, original=None, print_report=True, show_p
         form_degree = 1
     elif 'omega_exact' in decomp:
         form_degree = 2
+    elif 'potential_u' in decomp:
+        form_degree = 0
     else:
-        raise ValueError("decomp does not contain expected keys for 1‑ or 2‑form.")
+        raise ValueError("decomp does not contain expected keys for 0‑, 1‑ or 2‑form.")
 
     # ------------------------------------------------------------------
     # Grid data
@@ -3188,7 +3131,7 @@ def analyze_hodge_decomposition(decomp, original=None, print_report=True, show_p
         return -div / sd
 
     # ------------------------------------------------------------------
-    # Helper functions for metric‑weighted L² on 2‑forms
+    # Helper functions for metric‑weighted L² on 2‑forms and 0‑forms
     # ------------------------------------------------------------------
     def weighted_norm_2form(f):
         return np.sqrt(np.sum(f**2 * sd * dx * dy))
@@ -3221,7 +3164,7 @@ def analyze_hodge_decomposition(decomp, original=None, print_report=True, show_p
             f_a = lambdify(grid._metric.coords, a_sym, 'numpy')
             f_b = lambdify(grid._metric.coords, b_sym, 'numpy')
             return f_a(X, Y), f_b(X, Y)
-        else:  # 2‑form
+        else:  # 2‑form or 0‑form
             # If it's a numpy array, return it directly
             if isinstance(original, np.ndarray):
                 return original
@@ -3235,9 +3178,83 @@ def analyze_hodge_decomposition(decomp, original=None, print_report=True, show_p
             return f(X, Y)
 
     # ------------------------------------------------------------------
+    # 0‑form analysis
+    # ------------------------------------------------------------------
+    if form_degree == 0:
+        u = decomp['potential_u']
+        coexact = decomp['coexact']
+        harmonic = decomp['harmonic']
+        f = coexact + harmonic   # original reconstructed
+
+        # Compute energies (weighted)
+        total_energy = weighted_norm_2form(f)**2
+        energy_co = weighted_norm_2form(coexact)**2
+        energy_ha = weighted_norm_2form(harmonic)**2
+
+        # Reconstruction error if original provided
+        if original is not None:
+            true = _eval_original(original)
+            if true is not None:
+                diff = f - true
+                max_err = np.max(np.abs(diff))
+                l2_err = weighted_norm_2form(diff)
+            else:
+                max_err = l2_err = np.nan
+        else:
+            max_err = l2_err = np.nan
+
+        # Orthogonality (exact part is zero)
+        inner_co_ha = weighted_inner_2form(coexact, harmonic)
+
+        # Norms
+        norm_co = weighted_norm_2form(coexact)
+        norm_ha = weighted_norm_2form(harmonic)
+        norm_total = weighted_norm_2form(f)
+
+        # Energy fractions
+        total_energy = norm_total**2
+        frac_co = (norm_co**2 / total_energy) * 100 if total_energy > 0 else 0
+        frac_ha = (norm_ha**2 / total_energy) * 100 if total_energy > 0 else 0
+
+        # Harmonic part properties: it should be constant
+        harmonic_vals = harmonic.ravel()
+        harmonic_mean = np.mean(harmonic_vals)
+        harmonic_std = np.std(harmonic_vals)
+
+        if print_report:
+            print("\n=== Hodge Decomposition Analysis (0‑form) ===\n")
+            print("Reconstruction error (max norm) : {:.2e}".format(max_err))
+            print("Reconstruction error (L² norm)  : {:.2e}".format(l2_err))
+            print("Orthogonality :")
+            print(f"   ⟨coexact, harmonic⟩: {inner_co_ha:.2e}")
+            print(f"Norm of coexact part : {norm_co:.3f}")
+            print(f"Norm of harmonic part: {norm_ha:.3f}  (true: {norm_total:.3f})")
+            print(f"Energy fractions: coexact {frac_co:.1f}%, harmonic {frac_ha:.1f}%")
+            print(f"Harmonic part: mean = {harmonic_mean:.6f}, std = {harmonic_std:.2e}")
+
+        result = {
+            'form_degree': 0,
+            'reconstruction_max_error': max_err,
+            'reconstruction_l2_error': l2_err,
+            'inner_coexact_harmonic': inner_co_ha,
+            'norm_coexact': norm_co,
+            'norm_harmonic': norm_ha,
+            'norm_total': norm_total,
+            'energy_fraction_coexact': frac_co,
+            'energy_fraction_harmonic': frac_ha,
+            'harmonic_mean': harmonic_mean,
+            'harmonic_std': harmonic_std,
+        }
+        if show_plot:
+            from riemannian import visualize_hodge_decomposition
+            visualize_hodge_decomposition(decomp)
+        return result
+
+    # ------------------------------------------------------------------
     # 1‑form analysis
     # ------------------------------------------------------------------
-    if form_degree == 1:
+
+    elif form_degree == 1:
         # Extract components
         ex_x, ex_y = decomp['alpha_exact']
         co_x, co_y = decomp['alpha_coexact']
@@ -3487,6 +3504,8 @@ def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
             form_degree = 1
         elif 'omega_exact' in decomp:
             form_degree = 2
+        elif 'potential_u' in decomp:
+            form_degree = 0
         else:
             raise ValueError(
                 "Cannot infer form degree from dictionary keys. "
@@ -3608,7 +3627,7 @@ def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
     # ------------------------------------------------------------------
     # 2‑form case (no coexact component)
     # ------------------------------------------------------------------
-    else:   # form_degree == 2
+    elif form_degree == 2:   # form_degree == 2
         # Retrieve components; reconstruct original if not present
         exact = decomp['omega_exact']
         harmonic = decomp['omega_harmonic']
@@ -3658,6 +3677,51 @@ def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
         ax_energy.set_ylim(0, max(fracs) * 1.2 + 5)
 
         fig.suptitle('Hodge Decomposition of a 2‑Form   ω = d(⋆dφ) + h', fontsize=14, y=1.01)
+    else:
+        u = decomp['potential_u']
+        coexact = decomp['coexact']
+        harmonic = decomp['harmonic']
+        f = coexact + harmonic
+
+        total_energy = _weighted_energy_2form(f, sqrt_det)
+        energies = [
+            _weighted_energy_2form(coexact, sqrt_det),
+            _weighted_energy_2form(harmonic, sqrt_det)
+        ]
+
+        fig = plt.figure(figsize=(15, 10))
+        gs = fig.add_gridspec(2, 3, hspace=0.45, wspace=0.35)
+
+        def _panel_scalar(ax, Z, title):
+            pcm = ax.pcolormesh(X, Y, Z, shading='auto', cmap=cmap)
+            plt.colorbar(pcm, ax=ax)
+            ax.contour(X, Y, Z, levels=12, colors='k', linewidths=0.5, alpha=0.5)
+            ax.set_title(title)
+            ax.set_xlabel('x'); ax.set_ylabel('y')
+            ax.set_aspect('equal')
+
+        # Top row: original, coexact, harmonic
+        _panel_scalar(fig.add_subplot(gs[0, 0]), f, 'Original  f')
+        _panel_scalar(fig.add_subplot(gs[0, 1]), coexact, 'Co‑exact part  Δu')
+        _panel_scalar(fig.add_subplot(gs[0, 2]), harmonic, 'Harmonic part  h₀')
+
+        # Bottom row: potential u, residual, energy bar chart
+        _panel_scalar(fig.add_subplot(gs[1, 0]), u, 'Potential  u')
+        residual = f - coexact - harmonic
+        _panel_scalar(fig.add_subplot(gs[1, 1]), residual,
+                     f'Residual ‖f - Δu - h₀‖\n'
+                     f'(max = {np.abs(residual).max():.2e})')
+
+        ax_energy = fig.add_subplot(gs[1, 2])
+        labels = ['coexact', 'harmonic']
+        fracs = np.array(energies) / (total_energy + 1e-30) * 100
+        bars = ax_energy.bar(labels, fracs, color=['tomato', 'seagreen'])
+        ax_energy.bar_label(bars, fmt='%.1f%%', padding=3)
+        ax_energy.set_ylabel('% of total weighted L² energy')
+        ax_energy.set_title('Energy distribution')
+        ax_energy.set_ylim(0, max(fracs) * 1.2 + 5)
+
+        fig.suptitle('Hodge Decomposition of a 0‑Form   f = Δu + h₀', fontsize=14, y=1.01)
 
     plt.tight_layout()
     plt.show()

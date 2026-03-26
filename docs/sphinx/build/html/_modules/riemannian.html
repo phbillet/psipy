@@ -259,15 +259,27 @@
 <span class="sd">where nabla* nabla is the rough (connection) Laplacian acting component-wise</span>
 <span class="sd">and K is the Gaussian curvature.</span>
 
-<span class="sd">The **Hodge decomposition** of a 1-form alpha on a compact domain Omega is</span>
+<span class="sd">The **Hodge decomposition** of a differential form on a compact domain Omega</span>
+<span class="sd">in 2D is as follows:</span>
 
-<span class="sd">    alpha = d phi + star d psi + h,</span>
+<span class="sd">* **0‑form** (scalar function) f:</span>
+<span class="sd">    f = Δφ + h₀,</span>
+<span class="sd">    where Δφ = δ(⋆dφ) is the co‑exact part (the Laplacian of a scalar potential</span>
+<span class="sd">    φ) and h₀ is the constant harmonic part (the mean of f).  The exact part</span>
+<span class="sd">    is zero because no (−1)-form exists.  The harmonic part corresponds to the</span>
+<span class="sd">    de Rham cohomology class [f] ∈ H⁰_dR(Ω) ≅ ℝ.</span>
 
-<span class="sd">where d phi is exact, star d psi is co-exact, and h is harmonic (Delta h = 0).</span>
-<span class="sd">phi and psi are scalar potentials satisfying Poisson equations; h represents</span>
-<span class="sd">the de Rham cohomology class [alpha] in H^1_dR(Omega).  For a 2-form</span>
-<span class="sd">omega = f dx^dy the decomposition reduces to omega = d(star d phi) + h_2,</span>
-<span class="sd">with no co-exact component (no 3-forms exist in 2D).</span>
+<span class="sd">* **1‑form** α = αₓ dx + αᵧ dy:</span>
+<span class="sd">    α = dφ + ⋆dψ + h,</span>
+<span class="sd">    where dφ is exact, ⋆dψ is co‑exact, and h is harmonic (Δh = 0).  φ and ψ</span>
+<span class="sd">    are scalar potentials satisfying Poisson equations; h represents the de Rham</span>
+<span class="sd">    cohomology class [α] ∈ H¹_dR(Ω).</span>
+
+<span class="sd">* **2‑form** ω = f dx∧dy:</span>
+<span class="sd">    ω = d(⋆dφ) + h₂,</span>
+<span class="sd">    with no co‑exact component (no 3‑forms exist in 2D).  φ is a scalar</span>
+<span class="sd">    potential solving Δφ = -⋆ω, and h₂ is the harmonic 2‑form, representing</span>
+<span class="sd">    the cohomology class [ω] ∈ H²_dR(Ω).</span>
 
 
 <span class="sd">References</span>
@@ -2664,114 +2676,6 @@
         <span class="c1"># ✅ FIX 1: divide every row by √g to get the true (1/√g)∂(√g g^{ij}∂) operator</span>
         <span class="n">inv_sqrt_det</span> <span class="o">=</span> <span class="n">diags</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1e-14</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;csr&#39;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">inv_sqrt_det</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">tocsr</span><span class="p">())</span>
-        
-    <span class="k">def</span><span class="w"> </span><span class="nf">_assemble_scalar_laplacian_old</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Assemble the sparse matrix for the scalar Laplace–Beltrami operator</span>
-<span class="sd">        with homogeneous Neumann boundary conditions.</span>
-<span class="sd">    </span>
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        csr_matrix : shape (N², N²)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">N</span><span class="p">,</span> <span class="n">N2</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">N2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dy</span>
-        <span class="n">sqrt_det</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det</span>
-        <span class="n">g_inv00</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_inv00</span>
-        <span class="n">g_inv01</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_inv01</span>
-        <span class="n">g_inv11</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_inv11</span>
-    
-        <span class="c1"># Pre‑compute face‑averaged coefficients</span>
-        <span class="c1"># x‑direction faces (forward = right side of cell)</span>
-        <span class="n">coeff_x</span> <span class="o">=</span> <span class="n">sqrt_det</span> <span class="o">*</span> <span class="n">g_inv00</span>
-        <span class="n">cf_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_face_avg</span><span class="p">(</span><span class="n">coeff_x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">forward</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># faces (i+½, j)</span>
-        <span class="n">cb_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_face_avg</span><span class="p">(</span><span class="n">coeff_x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">forward</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># faces (i-½, j)</span>
-    
-        <span class="c1"># y‑direction faces</span>
-        <span class="n">coeff_y</span> <span class="o">=</span> <span class="n">sqrt_det</span> <span class="o">*</span> <span class="n">g_inv11</span>
-        <span class="n">cf_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_face_avg</span><span class="p">(</span><span class="n">coeff_y</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">forward</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># faces (i, j+½)</span>
-        <span class="n">cb_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_face_avg</span><span class="p">(</span><span class="n">coeff_y</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">forward</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># faces (i, j-½)</span>
-    
-        <span class="c1"># Cross term coefficient at cell centres (already includes 1/(4dx dy))</span>
-        <span class="n">cross</span> <span class="o">=</span> <span class="p">(</span><span class="n">sqrt_det</span> <span class="o">*</span> <span class="n">g_inv01</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span><span class="p">)</span>
-    
-        <span class="c1"># Prepare LIL matrix</span>
-        <span class="n">A</span> <span class="o">=</span> <span class="n">lil_matrix</span><span class="p">((</span><span class="n">N2</span><span class="p">,</span> <span class="n">N2</span><span class="p">))</span>
-    
-        <span class="c1"># Helper to add a contribution to the matrix using (i,j) indices</span>
-        <span class="k">def</span><span class="w"> </span><span class="nf">add_entry</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">value</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="n">N</span> <span class="o">+</span> <span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="o">*</span><span class="n">N</span> <span class="o">+</span> <span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">value</span>
-    
-        <span class="c1"># Loop over all cells (i,j)</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-                <span class="n">idx</span> <span class="o">=</span> <span class="n">i</span><span class="o">*</span><span class="n">N</span> <span class="o">+</span> <span class="n">j</span>
-    
-                <span class="c1"># ---- x‑direction contributions ----</span>
-                <span class="c1"># Right face (i+½, j) exists if i &lt; N-1</span>
-                <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">N</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-                    <span class="n">val</span> <span class="o">=</span> <span class="n">cf_x</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">dx</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
-                    <span class="c1"># From cell (i,j) to (i+1,j)</span>
-                    <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">+</span> <span class="n">N</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
-                    <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">-=</span> <span class="n">val</span>
-                    <span class="c1"># The neighbour (i+1,j) will also get its share when i+1 is processed,</span>
-                    <span class="c1"># but we add both contributions here to keep it symmetric.</span>
-                    <span class="c1"># For clarity, we add the symmetric part for (i+1,j) as well.</span>
-                    <span class="c1"># However, in LIL we only set the row for the current cell.</span>
-                    <span class="c1"># The neighbour&#39;s row will be set when we process that cell.</span>
-                    <span class="c1"># So we only add the off‑diagonal from current to neighbour,</span>
-                    <span class="c1"># and the diagonal from current. The neighbour&#39;s row will get</span>
-                    <span class="c1"># the symmetric off‑diagonal later.</span>
-                <span class="c1"># Left face (i-½, j) exists if i &gt; 0</span>
-                <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">val</span> <span class="o">=</span> <span class="n">cb_x</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">dx</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
-                    <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">-</span> <span class="n">N</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
-                    <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">-=</span> <span class="n">val</span>
-    
-                <span class="c1"># ---- y‑direction contributions ----</span>
-                <span class="c1"># Upper face (i, j+½) exists if j &lt; N-1</span>
-                <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">N</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-                    <span class="n">val</span> <span class="o">=</span> <span class="n">cf_y</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">dy</span> <span class="o">*</span> <span class="n">dy</span><span class="p">)</span>
-                    <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
-                    <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">-=</span> <span class="n">val</span>
-                <span class="c1"># Lower face (i, j-½) exists if j &gt; 0</span>
-                <span class="k">if</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">val</span> <span class="o">=</span> <span class="n">cb_y</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">dy</span> <span class="o">*</span> <span class="n">dy</span><span class="p">)</span>
-                    <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
-                    <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">-=</span> <span class="n">val</span>
-    
-                <span class="c1"># ---- Cross terms (mixed derivatives) ----</span>
-                <span class="c1"># These are only added for pairs where both nodes exist.</span>
-                <span class="c1"># The cross coefficient is the same for all four diagonal neighbours,</span>
-                <span class="c1"># but with signs determined by the direction.</span>
-                <span class="k">if</span> <span class="n">cross</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="c1"># Diagonal neighbour (i+1, j+1)</span>
-                    <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">N</span><span class="o">-</span><span class="mi">1</span> <span class="ow">and</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">N</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-                        <span class="n">val</span> <span class="o">=</span> <span class="n">cross</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
-                        <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">+</span> <span class="n">N</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
-                        <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">-=</span> <span class="n">val</span>
-                    <span class="c1"># (i+1, j-1)</span>
-                    <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">N</span><span class="o">-</span><span class="mi">1</span> <span class="ow">and</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                        <span class="n">val</span> <span class="o">=</span> <span class="o">-</span><span class="n">cross</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
-                        <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">+</span> <span class="n">N</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
-                        <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">-=</span> <span class="n">val</span>
-                    <span class="c1"># (i-1, j+1)</span>
-                    <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">N</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-                        <span class="n">val</span> <span class="o">=</span> <span class="o">-</span><span class="n">cross</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
-                        <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">-</span> <span class="n">N</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
-                        <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">-=</span> <span class="n">val</span>
-                    <span class="c1"># (i-1, j-1)</span>
-                    <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                        <span class="n">val</span> <span class="o">=</span> <span class="n">cross</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
-                        <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">-</span> <span class="n">N</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
-                        <span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span><span class="p">]</span> <span class="o">-=</span> <span class="n">val</span>
-    
-        <span class="c1"># Convert to CSR for efficient solving</span>
-        <span class="n">A</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
-    
-        <span class="c1"># Scale by 1/√g to obtain the true Laplace–Beltrami operator</span>
-        <span class="n">inv_sqrt_det</span> <span class="o">=</span> <span class="n">diags</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">sqrt_det</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1e-14</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;csr&#39;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">inv_sqrt_det</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
     
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_assemble_1form_laplacian</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3071,6 +2975,23 @@
 
 <span class="sd">    Supported form degrees</span>
 <span class="sd">    ----------------------</span>
+<span class="sd">    ``form_degree=0``</span>
+<span class="sd">        Decomposes a scalar function f (0‑form) as</span>
+
+<span class="sd">            f = Δu + h₀,</span>
+
+<span class="sd">        where Δu is the co‑exact part (the Laplacian of a scalar potential u)</span>
+<span class="sd">        and h₀ is the constant harmonic part (the weighted mean of f).</span>
+<span class="sd">        The exact part is zero (no (−1)-form). The potential u solves the</span>
+<span class="sd">        Neumann problem Δu = f − h₀, with the gauge fixed by pinning one</span>
+<span class="sd">        interior grid point to zero. The decomposition is then</span>
+
+<span class="sd">            coexact   = Δu</span>
+<span class="sd">            harmonic  = h₀</span>
+
+<span class="sd">        The harmonic part corresponds to the de Rham cohomology class</span>
+<span class="sd">        [f] ∈ H⁰_dR(M), which is simply the constant component.</span>
+
 <span class="sd">    ``form_degree=1`` (default)</span>
 <span class="sd">        Decomposes a 1‑form α = αₓ dx + αᵧ dy as</span>
 
@@ -3096,7 +3017,7 @@
 <span class="sd">    ``form_degree=2``</span>
 <span class="sd">        Decomposes a 2‑form ω = f dx∧dy into exact and harmonic parts:</span>
 
-<span class="sd">            ω = dα + h₂</span>
+<span class="sd">            ω = d(⋆dφ) + h,</span>
 
 <span class="sd">        (there is no co‑exact component because no 3‑forms exist in 2D).</span>
 <span class="sd">        The algorithm solves a single Dirichlet problem for the scalar</span>
@@ -3106,33 +3027,23 @@
 <span class="sd">            ω_exact = d(⋆dφ)</span>
 
 <span class="sd">        and the harmonic part is ω_harmonic = ω − ω_exact.</span>
-<span class="sd">        (The co‑exact part is set to zero.)</span>
 
 <span class="sd">        The resulting harmonic 2‑form belongs to the second de Rham</span>
 <span class="sd">        cohomology class [ω] ∈ H²_dR(M).</span>
-
-<span class="sd">    Why not ``form_degree=0``?</span>
-<span class="sd">        A 0‑form is a scalar function.  On a connected domain its Hodge</span>
-<span class="sd">        decomposition is f = δ(⋆df) + h₀, where h₀ is a locally‑constant</span>
-<span class="sd">        function (H⁰_dR ≅ ℝ per connected component).  The existing</span>
-<span class="sd">        ``solve_poisson_neumann`` could implement this mechanically, but the</span>
-<span class="sd">        harmonic part carries no cohomological information beyond what is</span>
-<span class="sd">        already known from the domain topology.  It is excluded here by</span>
-<span class="sd">        design, not by technical limitation, to keep the scope of this</span>
-<span class="sd">        function focused on H¹ and H².</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    metric : Metric</span>
 <span class="sd">        Must be 2D.</span>
 <span class="sd">    omega_components : tuple of two (callable or sympy.Expr), or scalar</span>
+<span class="sd">        - ``form_degree=0``: a scalar f (0‑form).</span>
 <span class="sd">        - ``form_degree=1``: a 2‑tuple (αₓ, αᵧ).</span>
 <span class="sd">        - ``form_degree=2``: a scalar f representing ω = f dx∧dy.</span>
 <span class="sd">    domain : tuple</span>
 <span class="sd">        ((x_min, x_max), (y_min, y_max))</span>
 <span class="sd">    resolution : int, default 50</span>
 <span class="sd">        Number of grid points per axis.</span>
-<span class="sd">    form_degree : {1, 2}, default 1</span>
+<span class="sd">    form_degree : {0, 1, 2}, default 1</span>
 <span class="sd">        Degree of the input differential form.</span>
 
 <span class="sd">    Returns</span>
@@ -3140,6 +3051,11 @@
 <span class="sd">    dict</span>
 <span class="sd">        All cases contain a key ``&#39;grid&#39;`` holding the</span>
 <span class="sd">        :class:`RiemannianGrid` instance used for the computation.</span>
+
+<span class="sd">        **form_degree=0**:</span>
+<span class="sd">            * ``&#39;potential_u&#39;`` – array : potential u (Neumann, pinned).</span>
+<span class="sd">            * ``&#39;coexact&#39;``     – array : Δu = f − h₀.</span>
+<span class="sd">            * ``&#39;harmonic&#39;``    – array : constant harmonic part h₀.</span>
 
 <span class="sd">        **form_degree=1**:</span>
 <span class="sd">            * ``&#39;potential_phi&#39;``  – array : φ potential (Dirichlet).</span>
@@ -3156,17 +3072,24 @@
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    NotImplementedError</span>
-<span class="sd">        If ``metric.dim != 2`` or ``form_degree`` is not 1 or 2.</span>
+<span class="sd">        If ``metric.dim != 2`` or ``form_degree`` is not 0, 1, or 2.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    **1‑form** — rotation form on the flat torus (purely harmonic):</span>
+<span class="sd">    **0‑form** — function with zero mean on the unit square:</span>
 
 <span class="sd">    &gt;&gt;&gt; from sympy import symbols, Matrix</span>
 <span class="sd">    &gt;&gt;&gt; import numpy as np</span>
 <span class="sd">    &gt;&gt;&gt; x, y = symbols(&#39;x y&#39;, real=True)</span>
 <span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
-<span class="sd">    &gt;&gt;&gt; dec = hodge_decomposition(m, (-y, x), ((0, 1), (0, 1)), resolution=40)</span>
+<span class="sd">    &gt;&gt;&gt; f = x**2 - y**2</span>
+<span class="sd">    &gt;&gt;&gt; dec0 = hodge_decomposition(m, f, ((0, 1), (0, 1)), resolution=40,</span>
+<span class="sd">    ...                            form_degree=0)</span>
+<span class="sd">    &gt;&gt;&gt; # harmonic part ≈ 0, coexact part ≈ f</span>
+
+<span class="sd">    **1‑form** — rotation form on the flat torus (purely harmonic):</span>
+
+<span class="sd">    &gt;&gt;&gt; dec1 = hodge_decomposition(m, (-y, x), ((0, 1), (0, 1)), resolution=40)</span>
 <span class="sd">    &gt;&gt;&gt; # harmonic part carries ≈ 100% of L² energy</span>
 
 <span class="sd">    **2‑form** — constant vorticity ω = dx∧dy on the flat plane:</span>
@@ -3177,7 +3100,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Hodge decomposition is only implemented for 2D.&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">form_degree</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
             <span class="s2">&quot;form_degree must be 1 or 2.  &quot;</span>
             <span class="s2">&quot;0-form decomposition is not supported (see docstring).&quot;</span>
@@ -3213,7 +3136,25 @@
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Dispatch</span>
     <span class="c1"># ------------------------------------------------------------------</span>
-    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Scalar function decomposition</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">_eval</span><span class="p">(</span><span class="n">omega_components</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">omega_components</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="n">omega_components</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">(</span><span class="n">resolution</span><span class="p">,</span> <span class="n">resolution</span><span class="p">))</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># Compute weighted mean</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span><span class="p">)</span>
+
+        <span class="c1"># Solve Δu = f - mean with Neumann BC</span>
+        <span class="n">rhs</span> <span class="o">=</span> <span class="n">f</span> <span class="o">-</span> <span class="n">mean</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">solve_poisson_neumann</span><span class="p">(</span><span class="n">rhs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;potential_u&#39;</span><span class="p">:</span> <span class="n">u</span><span class="p">,</span>
+            <span class="s1">&#39;coexact&#39;</span><span class="p">:</span>     <span class="n">rhs</span><span class="p">,</span>
+            <span class="s1">&#39;harmonic&#39;</span><span class="p">:</span>    <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">mean</span><span class="p">),</span>
+            <span class="s1">&#39;grid&#39;</span><span class="p">:</span>        <span class="n">grid</span>
+        <span class="p">}</span>
+    <span class="k">elif</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_hodge_decomposition_1form</span><span class="p">(</span>
             <span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">,</span> <span class="n">_codf</span><span class="p">,</span> <span class="n">_star1</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span>
         <span class="p">)</span>
@@ -3313,8 +3254,10 @@
         <span class="n">form_degree</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="k">elif</span> <span class="s1">&#39;omega_exact&#39;</span> <span class="ow">in</span> <span class="n">decomp</span><span class="p">:</span>
         <span class="n">form_degree</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="k">elif</span> <span class="s1">&#39;potential_u&#39;</span> <span class="ow">in</span> <span class="n">decomp</span><span class="p">:</span>
+        <span class="n">form_degree</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;decomp does not contain expected keys for 1‑ or 2‑form.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;decomp does not contain expected keys for 0‑, 1‑ or 2‑form.&quot;</span><span class="p">)</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Grid data</span>
@@ -3358,7 +3301,7 @@
         <span class="k">return</span> <span class="o">-</span><span class="n">div</span> <span class="o">/</span> <span class="n">sd</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
-    <span class="c1"># Helper functions for metric‑weighted L² on 2‑forms</span>
+    <span class="c1"># Helper functions for metric‑weighted L² on 2‑forms and 0‑forms</span>
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">weighted_norm_2form</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">f</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sd</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span><span class="p">))</span>
@@ -3391,7 +3334,7 @@
             <span class="n">f_a</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">_metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">a_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
             <span class="n">f_b</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">_metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">b_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">f_a</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">),</span> <span class="n">f_b</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>  <span class="c1"># 2‑form</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># 2‑form or 0‑form</span>
             <span class="c1"># If it&#39;s a numpy array, return it directly</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">original</span>
@@ -3405,9 +3348,83 @@
             <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># 0‑form analysis</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;potential_u&#39;</span><span class="p">]</span>
+        <span class="n">coexact</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;coexact&#39;</span><span class="p">]</span>
+        <span class="n">harmonic</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;harmonic&#39;</span><span class="p">]</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">coexact</span> <span class="o">+</span> <span class="n">harmonic</span>   <span class="c1"># original reconstructed</span>
+
+        <span class="c1"># Compute energies (weighted)</span>
+        <span class="n">total_energy</span> <span class="o">=</span> <span class="n">weighted_norm_2form</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">energy_co</span> <span class="o">=</span> <span class="n">weighted_norm_2form</span><span class="p">(</span><span class="n">coexact</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">energy_ha</span> <span class="o">=</span> <span class="n">weighted_norm_2form</span><span class="p">(</span><span class="n">harmonic</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+
+        <span class="c1"># Reconstruction error if original provided</span>
+        <span class="k">if</span> <span class="n">original</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">true</span> <span class="o">=</span> <span class="n">_eval_original</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">true</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">diff</span> <span class="o">=</span> <span class="n">f</span> <span class="o">-</span> <span class="n">true</span>
+                <span class="n">max_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">diff</span><span class="p">))</span>
+                <span class="n">l2_err</span> <span class="o">=</span> <span class="n">weighted_norm_2form</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">max_err</span> <span class="o">=</span> <span class="n">l2_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">max_err</span> <span class="o">=</span> <span class="n">l2_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+
+        <span class="c1"># Orthogonality (exact part is zero)</span>
+        <span class="n">inner_co_ha</span> <span class="o">=</span> <span class="n">weighted_inner_2form</span><span class="p">(</span><span class="n">coexact</span><span class="p">,</span> <span class="n">harmonic</span><span class="p">)</span>
+
+        <span class="c1"># Norms</span>
+        <span class="n">norm_co</span> <span class="o">=</span> <span class="n">weighted_norm_2form</span><span class="p">(</span><span class="n">coexact</span><span class="p">)</span>
+        <span class="n">norm_ha</span> <span class="o">=</span> <span class="n">weighted_norm_2form</span><span class="p">(</span><span class="n">harmonic</span><span class="p">)</span>
+        <span class="n">norm_total</span> <span class="o">=</span> <span class="n">weighted_norm_2form</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+        <span class="c1"># Energy fractions</span>
+        <span class="n">total_energy</span> <span class="o">=</span> <span class="n">norm_total</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">frac_co</span> <span class="o">=</span> <span class="p">(</span><span class="n">norm_co</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">total_energy</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">total_energy</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="n">frac_ha</span> <span class="o">=</span> <span class="p">(</span><span class="n">norm_ha</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">total_energy</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">total_energy</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+
+        <span class="c1"># Harmonic part properties: it should be constant</span>
+        <span class="n">harmonic_vals</span> <span class="o">=</span> <span class="n">harmonic</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">harmonic_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">harmonic_vals</span><span class="p">)</span>
+        <span class="n">harmonic_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">harmonic_vals</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">print_report</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Hodge Decomposition Analysis (0‑form) ===</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Reconstruction error (max norm) : </span><span class="si">{:.2e}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">max_err</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Reconstruction error (L² norm)  : </span><span class="si">{:.2e}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">l2_err</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Orthogonality :&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   ⟨coexact, harmonic⟩: </span><span class="si">{</span><span class="n">inner_co_ha</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Norm of coexact part : </span><span class="si">{</span><span class="n">norm_co</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Norm of harmonic part: </span><span class="si">{</span><span class="n">norm_ha</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">  (true: </span><span class="si">{</span><span class="n">norm_total</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Energy fractions: coexact </span><span class="si">{</span><span class="n">frac_co</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%, harmonic </span><span class="si">{</span><span class="n">frac_ha</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Harmonic part: mean = </span><span class="si">{</span><span class="n">harmonic_mean</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">, std = </span><span class="si">{</span><span class="n">harmonic_std</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;form_degree&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s1">&#39;reconstruction_max_error&#39;</span><span class="p">:</span> <span class="n">max_err</span><span class="p">,</span>
+            <span class="s1">&#39;reconstruction_l2_error&#39;</span><span class="p">:</span> <span class="n">l2_err</span><span class="p">,</span>
+            <span class="s1">&#39;inner_coexact_harmonic&#39;</span><span class="p">:</span> <span class="n">inner_co_ha</span><span class="p">,</span>
+            <span class="s1">&#39;norm_coexact&#39;</span><span class="p">:</span> <span class="n">norm_co</span><span class="p">,</span>
+            <span class="s1">&#39;norm_harmonic&#39;</span><span class="p">:</span> <span class="n">norm_ha</span><span class="p">,</span>
+            <span class="s1">&#39;norm_total&#39;</span><span class="p">:</span> <span class="n">norm_total</span><span class="p">,</span>
+            <span class="s1">&#39;energy_fraction_coexact&#39;</span><span class="p">:</span> <span class="n">frac_co</span><span class="p">,</span>
+            <span class="s1">&#39;energy_fraction_harmonic&#39;</span><span class="p">:</span> <span class="n">frac_ha</span><span class="p">,</span>
+            <span class="s1">&#39;harmonic_mean&#39;</span><span class="p">:</span> <span class="n">harmonic_mean</span><span class="p">,</span>
+            <span class="s1">&#39;harmonic_std&#39;</span><span class="p">:</span> <span class="n">harmonic_std</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">show_plot</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">riemannian</span><span class="w"> </span><span class="kn">import</span> <span class="n">visualize_hodge_decomposition</span>
+            <span class="n">visualize_hodge_decomposition</span><span class="p">(</span><span class="n">decomp</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># 1‑form analysis</span>
     <span class="c1"># ------------------------------------------------------------------</span>
-    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+
+    <span class="k">elif</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="c1"># Extract components</span>
         <span class="n">ex_x</span><span class="p">,</span> <span class="n">ex_y</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;alpha_exact&#39;</span><span class="p">]</span>
         <span class="n">co_x</span><span class="p">,</span> <span class="n">co_y</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;alpha_coexact&#39;</span><span class="p">]</span>
@@ -3660,6 +3677,8 @@
             <span class="n">form_degree</span> <span class="o">=</span> <span class="mi">1</span>
         <span class="k">elif</span> <span class="s1">&#39;omega_exact&#39;</span> <span class="ow">in</span> <span class="n">decomp</span><span class="p">:</span>
             <span class="n">form_degree</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="k">elif</span> <span class="s1">&#39;potential_u&#39;</span> <span class="ow">in</span> <span class="n">decomp</span><span class="p">:</span>
+            <span class="n">form_degree</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot infer form degree from dictionary keys. &quot;</span>
@@ -3781,7 +3800,7 @@
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># 2‑form case (no coexact component)</span>
     <span class="c1"># ------------------------------------------------------------------</span>
-    <span class="k">else</span><span class="p">:</span>   <span class="c1"># form_degree == 2</span>
+    <span class="k">elif</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>   <span class="c1"># form_degree == 2</span>
         <span class="c1"># Retrieve components; reconstruct original if not present</span>
         <span class="n">exact</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;omega_exact&#39;</span><span class="p">]</span>
         <span class="n">harmonic</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;omega_harmonic&#39;</span><span class="p">]</span>
@@ -3831,6 +3850,51 @@
         <span class="n">ax_energy</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">fracs</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.2</span> <span class="o">+</span> <span class="mi">5</span><span class="p">)</span>
 
         <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Hodge Decomposition of a 2‑Form   ω = d(⋆dφ) + h&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.01</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;potential_u&#39;</span><span class="p">]</span>
+        <span class="n">coexact</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;coexact&#39;</span><span class="p">]</span>
+        <span class="n">harmonic</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;harmonic&#39;</span><span class="p">]</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">coexact</span> <span class="o">+</span> <span class="n">harmonic</span>
+
+        <span class="n">total_energy</span> <span class="o">=</span> <span class="n">_weighted_energy_2form</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">sqrt_det</span><span class="p">)</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">_weighted_energy_2form</span><span class="p">(</span><span class="n">coexact</span><span class="p">,</span> <span class="n">sqrt_det</span><span class="p">),</span>
+            <span class="n">_weighted_energy_2form</span><span class="p">(</span><span class="n">harmonic</span><span class="p">,</span> <span class="n">sqrt_det</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_gridspec</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">hspace</span><span class="o">=</span><span class="mf">0.45</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=</span><span class="mf">0.35</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_panel_scalar</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">title</span><span class="p">):</span>
+            <span class="n">pcm</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">shading</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">pcm</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">colors</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">linewidths</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Top row: original, coexact, harmonic</span>
+        <span class="n">_panel_scalar</span><span class="p">(</span><span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="n">f</span><span class="p">,</span> <span class="s1">&#39;Original  f&#39;</span><span class="p">)</span>
+        <span class="n">_panel_scalar</span><span class="p">(</span><span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="n">coexact</span><span class="p">,</span> <span class="s1">&#39;Co‑exact part  Δu&#39;</span><span class="p">)</span>
+        <span class="n">_panel_scalar</span><span class="p">(</span><span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="n">harmonic</span><span class="p">,</span> <span class="s1">&#39;Harmonic part  h₀&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Bottom row: potential u, residual, energy bar chart</span>
+        <span class="n">_panel_scalar</span><span class="p">(</span><span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="n">u</span><span class="p">,</span> <span class="s1">&#39;Potential  u&#39;</span><span class="p">)</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="n">f</span> <span class="o">-</span> <span class="n">coexact</span> <span class="o">-</span> <span class="n">harmonic</span>
+        <span class="n">_panel_scalar</span><span class="p">(</span><span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="n">residual</span><span class="p">,</span>
+                     <span class="sa">f</span><span class="s1">&#39;Residual ‖f - Δu - h₀‖</span><span class="se">\n</span><span class="s1">&#39;</span>
+                     <span class="sa">f</span><span class="s1">&#39;(max = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s1">.2e</span><span class="si">}</span><span class="s1">)&#39;</span><span class="p">)</span>
+
+        <span class="n">ax_energy</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;coexact&#39;</span><span class="p">,</span> <span class="s1">&#39;harmonic&#39;</span><span class="p">]</span>
+        <span class="n">fracs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">total_energy</span> <span class="o">+</span> <span class="mf">1e-30</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span>
+        <span class="n">bars</span> <span class="o">=</span> <span class="n">ax_energy</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">fracs</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;tomato&#39;</span><span class="p">,</span> <span class="s1">&#39;seagreen&#39;</span><span class="p">])</span>
+        <span class="n">ax_energy</span><span class="o">.</span><span class="n">bar_label</span><span class="p">(</span><span class="n">bars</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%.1f%%</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">ax_energy</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">% o</span><span class="s1">f total weighted L² energy&#39;</span><span class="p">)</span>
+        <span class="n">ax_energy</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Energy distribution&#39;</span><span class="p">)</span>
+        <span class="n">ax_energy</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">fracs</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.2</span> <span class="o">+</span> <span class="mi">5</span><span class="p">)</span>
+
+        <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Hodge Decomposition of a 0‑Form   f = Δu + h₀&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.01</span><span class="p">)</span>
 
     <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>

@@ -855,7 +855,7 @@ class TestHodgeDecomposition1Form:
     def test_raises_form_degree_0(self, m_flat):
         with pytest.raises(NotImplementedError):
             hodge_decomposition(m_flat, (1, 0), DOMAIN_FLAT, RES_SMALL,
-                                form_degree=0)
+                                form_degree=4)
 
 
 # ===========================================================================
@@ -1717,3 +1717,173 @@ class TestAnalyzeHodgeDecomposition:
             dec2_constant, original=None, print_report=False, show_plot=True
         )
         assert result['form_degree'] == 2
+
+# ===========================================================================
+# 31.  Hodge decomposition — 0‑form  (NEW)
+# ===========================================================================
+
+class TestHodgeDecomposition0Form:
+    """
+    Test suite for hodge_decomposition with form_degree=0.
+    Decomposes a scalar function f = Δu + h₀, where h₀ is the constant
+    harmonic part (the weighted mean of f with respect to √|g|).
+    """
+
+    @pytest.fixture(scope='class')
+    def dec0_flat(self, m_flat, coords_2d):
+        """0‑form f = x² - y² on the unit square.  Its weighted mean is zero
+        because the domain is symmetric and the flat metric has constant √g."""
+        x, y = coords_2d
+        f_sym = x**2 - y**2
+        return hodge_decomposition(
+            m_flat, f_sym, DOMAIN_FLAT, RES_SMALL, form_degree=0
+        )
+
+    @pytest.fixture(scope='class')
+    def dec0_flat_nonzero_mean(self, m_flat, coords_2d):
+        """f = 1 has mean = 1 (since ∫ dV = 1)."""
+        return hodge_decomposition(m_flat, 1, DOMAIN_FLAT, RES_SMALL, form_degree=0)
+
+    @pytest.fixture(scope='class')
+    def dec0_hyperbolic(self, m_hyperbolic):
+        """0‑form on the Poincaré half‑plane with a non‑trivial weighted mean."""
+        x, y = m_hyperbolic.coords
+        f_sym = x**2 * exp(-y)
+        return hodge_decomposition(
+            m_hyperbolic, f_sym,
+            ((-1.0, 1.0), (0.5, 1.5)), RES_SMALL, form_degree=0
+        )
+
+    # ------------------------------------------------------------------
+    # Basic structure and keys
+    # ------------------------------------------------------------------
+
+    def test_return_keys(self, dec0_flat):
+        for key in ('potential_u', 'coexact', 'harmonic', 'grid'):
+            assert key in dec0_flat
+        assert isinstance(dec0_flat['grid'], RiemannianGrid)
+
+    def test_shapes(self, dec0_flat):
+        N = RES_SMALL
+        assert dec0_flat['potential_u'].shape == (N, N)
+        assert dec0_flat['coexact'].shape == (N, N)
+        assert dec0_flat['harmonic'].shape == (N, N)
+
+    def test_harmonic_part_is_constant(self, dec0_flat):
+        ha = dec0_flat['harmonic']
+        assert np.allclose(ha, ha[0, 0], atol=1e-10)
+
+    # ------------------------------------------------------------------
+    # Reconstruction and mean
+    # ------------------------------------------------------------------
+
+    def test_reconstruction(self, dec0_flat):
+        """f_recon = coexact + harmonic should equal the original f."""
+        grid = dec0_flat['grid']
+        # Original f = x² - y²
+        f_true = grid.X**2 - grid.Y**2
+        f_recon = dec0_flat['coexact'] + dec0_flat['harmonic']
+        # Exclude boundary strip where Dirichlet BC affect the solve
+        sl = slice(2, -2)
+        assert np.allclose(f_recon[sl, sl], f_true[sl, sl], atol=0.15)
+
+    def test_mean_of_f(self, dec0_flat_nonzero_mean):
+        """For f = 1, the harmonic part should be 1, coexact = 0."""
+        ha = dec0_flat_nonzero_mean['harmonic']
+        coex = dec0_flat_nonzero_mean['coexact']
+        # Harmonic part is constant 1
+        assert np.allclose(ha, 1.0, atol=1e-6)
+        # Coexact part should be ≈ 0 (though Dirichlet BC may produce small boundary errors)
+        assert np.max(np.abs(coex)) < 0.1
+
+    def test_weighted_mean(self, dec0_hyperbolic):
+        """On a non‑flat metric, the harmonic part should be the weighted mean
+        of the original function."""
+        grid = dec0_hyperbolic['grid']
+        f = grid.X**2 * np.exp(-grid.Y)
+        sqrt_g = grid.sqrt_det
+        weighted_mean = np.sum(f * sqrt_g) / np.sum(sqrt_g)
+        ha = dec0_hyperbolic['harmonic']
+        # harmonic part should be constant and equal to the weighted mean
+        assert np.allclose(ha, weighted_mean, atol=1e-5)
+
+    # ------------------------------------------------------------------
+    # Orthogonality
+    # ------------------------------------------------------------------
+
+    def test_orthogonality(self, dec0_flat):
+        """⟨coexact, harmonic⟩_L² should be near zero."""
+        coex = dec0_flat['coexact']
+        ha = dec0_flat['harmonic']
+        grid = dec0_flat['grid']
+        inner = np.sum(coex * ha * grid.sqrt_det) * grid.dx * grid.dy
+        norm_coex = np.sqrt(np.sum(coex**2 * grid.sqrt_det) * grid.dx * grid.dy)
+        norm_ha   = np.sqrt(np.sum(ha**2 * grid.sqrt_det) * grid.dx * grid.dy)
+        assert abs(inner) / (norm_coex * norm_ha + 1e-30) < 0.1
+
+    # ------------------------------------------------------------------
+    # Energy fractions
+    # ------------------------------------------------------------------
+
+    def test_energy_fractions(self, dec0_flat):
+        """For f with zero mean, harmonic part energy ≈ 0."""
+        grid = dec0_flat['grid']
+        coex = dec0_flat['coexact']
+        ha   = dec0_flat['harmonic']
+        energy_coex = np.sum(coex**2 * grid.sqrt_det) * grid.dx * grid.dy
+        energy_ha   = np.sum(ha**2 * grid.sqrt_det) * grid.dx * grid.dy
+        total = energy_coex + energy_ha
+        # harmonic part should be very small (mean ~0)
+        assert energy_ha / total < 0.05
+
+    # ------------------------------------------------------------------
+    # analyze_hodge_decomposition with 0‑form
+    # ------------------------------------------------------------------
+
+    def test_analyze_0form(self, dec0_flat, coords_2d):
+        x, y = coords_2d
+        original = x**2 - y**2
+        result = analyze_hodge_decomposition(
+            dec0_flat, original=original, print_report=False, show_plot=False
+        )
+        expected_keys = [
+            'form_degree',
+            'reconstruction_max_error', 'reconstruction_l2_error',
+            'inner_coexact_harmonic',
+            'norm_coexact', 'norm_harmonic', 'norm_total',
+            'energy_fraction_coexact', 'energy_fraction_harmonic',
+            'harmonic_mean', 'harmonic_std'
+        ]
+        assert all(k in result for k in expected_keys)
+        assert result['form_degree'] == 0
+        assert result['harmonic_std'] < 1e-8   # constant
+        # Energy fraction should be dominated by coexact part (since mean is zero)
+        assert result['energy_fraction_coexact'] > 90.0
+        assert result['energy_fraction_harmonic'] < 10.0
+
+    def test_analyze_0form_without_original(self, dec0_flat):
+        result = analyze_hodge_decomposition(
+            dec0_flat, original=None, print_report=False, show_plot=False
+        )
+        assert np.isnan(result['reconstruction_max_error'])
+        assert np.isnan(result['reconstruction_l2_error'])
+        assert result['form_degree'] == 0
+
+    # ------------------------------------------------------------------
+    # Visualization smoke test (Agg backend)
+    # ------------------------------------------------------------------
+
+    @pytest.fixture(autouse=True)
+    def use_agg(self):
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        yield
+        plt.close('all')
+
+    def test_visualize_0form(self, dec0_flat):
+        from riemannian import visualize_hodge_decomposition
+        # Should not raise
+        visualize_hodge_decomposition(dec0_flat)
+        # Also test with explicit form_degree
+        visualize_hodge_decomposition(dec0_flat, form_degree=0)
