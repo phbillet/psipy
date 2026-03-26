@@ -3594,30 +3594,31 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Visualise the Hodge decomposition of a differential form on a 2D manifold.</span>
 
-<span class="sd">    This function works for decompositions of both 1‑forms and 2‑forms as</span>
-<span class="sd">    returned by :func:`hodge_decomposition`.  It automatically detects the</span>
-<span class="sd">    form degree from the keys present in `decomp`, or you can specify it</span>
-<span class="sd">    explicitly with the `form_degree` parameter.</span>
+<span class="sd">    This function works for decompositions of 0‑, 1‑, and 2‑forms as returned by</span>
+<span class="sd">    :func:`hodge_decomposition`.  It automatically detects the form degree from</span>
+<span class="sd">    the keys present in `decomp`, or you can specify it explicitly with the</span>
+<span class="sd">    `form_degree` parameter.</span>
 
-<span class="sd">    For a 1‑form α = dφ + ⋆dψ + h, the visualisation shows:</span>
+<span class="sd">    For a **0‑form** (scalar function) f = Δu + h₀, the visualisation shows:</span>
+<span class="sd">        - Top row: original scalar field, co‑exact part Δu, harmonic part h₀.</span>
+<span class="sd">        - Bottom row: potential u, residual error, and an energy bar chart</span>
+<span class="sd">          comparing the two contributions.</span>
+
+<span class="sd">    For a **1‑form** α = dφ + ⋆dψ + h, the visualisation shows:</span>
 <span class="sd">        - Top row: original vector field and its three components</span>
 <span class="sd">          (exact, co‑exact, harmonic) as quiver plots overlaid on a</span>
 <span class="sd">          heatmap of the magnitude.</span>
 <span class="sd">        - Bottom row: scalar potentials φ and ψ, residual error, and an</span>
 <span class="sd">          energy bar chart.</span>
 
-<span class="sd">    For a 2‑form ω = f dx∧dy, the decomposition is ω = d(⋆dφ) + h,</span>
-<span class="sd">    where φ is the scalar potential obtained from solving Δφ = -⋆ω with</span>
-<span class="sd">    Dirichlet boundary conditions.  The co‑exact part is identically zero</span>
-<span class="sd">    (no 3‑forms exist in 2D) and is therefore omitted from the visualisation.</span>
-<span class="sd">    The display consists of:</span>
+<span class="sd">    For a **2‑form** ω = d(⋆dφ) + h (no co‑exact component), the display consists of:</span>
 <span class="sd">        - Top row: original scalar field, exact part, harmonic part.</span>
 <span class="sd">        - Bottom row: scalar potential φ, residual error, and an energy</span>
 <span class="sd">          bar chart comparing the exact and harmonic contributions.</span>
 
 <span class="sd">    The energy distribution uses the metric‑weighted L² norm:</span>
 <span class="sd">        - For 1‑forms: ∫ ‖α‖_g² dV</span>
-<span class="sd">        - For 2‑forms: ∫ ω² dV</span>
+<span class="sd">        - For 0‑forms and 2‑forms: ∫ f² dV</span>
 <span class="sd">    This requires that the decomposition dictionary contains a `&#39;grid&#39;` key</span>
 <span class="sd">    with a :class:`RiemannianGrid` instance that provides the metric weights.</span>
 <span class="sd">    If the grid is missing, the unweighted sum of squared values is used.</span>
@@ -3627,12 +3628,10 @@
 <span class="sd">    decomp : dict</span>
 <span class="sd">        Output of :func:`hodge_decomposition`. Must contain keys appropriate</span>
 <span class="sd">        for the form degree:</span>
+<span class="sd">          - 0‑form: `&#39;potential_u&#39;`, `&#39;coexact&#39;`, `&#39;harmonic&#39;`.</span>
 <span class="sd">          - 1‑form: `&#39;alpha_exact&#39;`, `&#39;alpha_coexact&#39;`, `&#39;alpha_harmonic&#39;`,</span>
 <span class="sd">            `&#39;potential_phi&#39;`, `&#39;potential_psi&#39;`.</span>
-<span class="sd">          - 2‑form: `&#39;omega_exact&#39;`, `&#39;omega_harmonic&#39;`,</span>
-<span class="sd">            `&#39;potential_phi&#39;`.</span>
-<span class="sd">        For 2‑forms the original form is reconstructed from the three parts</span>
-<span class="sd">        if not already present.</span>
+<span class="sd">          - 2‑form: `&#39;omega_exact&#39;`, `&#39;omega_harmonic&#39;`, `&#39;potential_phi&#39;`.</span>
 <span class="sd">    domain : tuple, optional</span>
 <span class="sd">        ((x_min, x_max), (y_min, y_max)) – coordinate bounds.  If the</span>
 <span class="sd">        decomposition does not contain a `&#39;grid&#39;` key, this parameter is</span>
@@ -3645,7 +3644,7 @@
 <span class="sd">        Matplotlib colormap for scalar fields (and magnitude for 1‑forms).</span>
 <span class="sd">    quiver_stride : int, default 3</span>
 <span class="sd">        Sub‑sampling stride for quiver arrows (only used for 1‑forms).</span>
-<span class="sd">    form_degree : {1, 2}, optional</span>
+<span class="sd">    form_degree : {0, 1, 2}, optional</span>
 <span class="sd">        Explicitly specify the form degree.  If `None`, the degree is</span>
 <span class="sd">        inferred from the dictionary keys.</span>
 
@@ -3656,13 +3655,19 @@
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    **1‑form** on the flat torus:</span>
+<span class="sd">    **0‑form** on the unit square:</span>
 
 <span class="sd">    &gt;&gt;&gt; from sympy import symbols, Matrix</span>
 <span class="sd">    &gt;&gt;&gt; x, y = symbols(&#39;x y&#39;, real=True)</span>
 <span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
-<span class="sd">    &gt;&gt;&gt; dec = hodge_decomposition(m, (-y, x), ((0, 2*np.pi), (0, 2*np.pi)))</span>
-<span class="sd">    &gt;&gt;&gt; visualize_hodge_decomposition(dec)</span>
+<span class="sd">    &gt;&gt;&gt; f = x**2 - y**2</span>
+<span class="sd">    &gt;&gt;&gt; dec0 = hodge_decomposition(m, f, ((0, 1), (0, 1)), form_degree=0)</span>
+<span class="sd">    &gt;&gt;&gt; visualize_hodge_decomposition(dec0)</span>
+
+<span class="sd">    **1‑form** on the flat torus:</span>
+
+<span class="sd">    &gt;&gt;&gt; dec1 = hodge_decomposition(m, (-y, x), ((0, 2*np.pi), (0, 2*np.pi)))</span>
+<span class="sd">    &gt;&gt;&gt; visualize_hodge_decomposition(dec1)</span>
 
 <span class="sd">    **2‑form** on the unit square (constant vorticity):</span>
 
