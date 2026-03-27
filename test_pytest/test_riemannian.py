@@ -47,7 +47,8 @@ import pytest
 import numpy as np
 from sympy import (
     symbols, Matrix, sin, cos, simplify, sqrt, pi,
-    Rational, log, exp, Symbol, Abs, diff, lambdify
+    Rational, log, exp, Symbol, Abs, diff, lambdify,
+    DiracDelta,
 )
 
 
@@ -652,7 +653,72 @@ class TestDeRhamLaplacian:
     def test_principal_symbols_agree_across_degrees(self, m_sphere):
         op0 = de_rham_laplacian(m_sphere, form_degree=0)
         op1 = de_rham_laplacian(m_sphere, form_degree=1)
+        op2 = de_rham_laplacian(m_sphere, form_degree=2)
         assert simplify(op0['principal'] - op1['principal']) == 0
+        assert simplify(op0['principal'] - op2['principal']) == 0
+
+    # ── 2-form ──────────────────────────────────────────────────────────────
+
+    def test_2form_principal_symbol_flat(self, m_flat):
+        xi, eta = symbols('xi eta', real=True)
+        op = de_rham_laplacian(m_flat, form_degree=2)
+        assert simplify(op['principal'] - xi**2 - eta**2) == 0
+
+    def test_2form_subprincipal_zero(self, m_flat):
+        op = de_rham_laplacian(m_flat, form_degree=2)
+        assert op['subprincipal'] == 0
+
+    def test_2form_weitzenbock_flat_zero(self, m_flat):
+        op = de_rham_laplacian(m_flat, form_degree=2)
+        assert simplify(op['weitzenbock']) == 0
+
+    def test_2form_weitzenbock_sphere_one(self, m_sphere):
+        op = de_rham_laplacian(m_sphere, form_degree=2)
+        assert simplify(op['weitzenbock'] - 1) == 0
+
+    def test_2form_weitzenbock_hyperbolic_minus_one(self, m_hyperbolic):
+        op = de_rham_laplacian(m_hyperbolic, form_degree=2)
+        assert simplify(op['weitzenbock'] + 1) == 0
+
+    def test_2form_action_flat_constant(self, m_flat):
+        op = de_rham_laplacian(m_flat, form_degree=2)
+        result = op['action'](1)   # constant 2‑form
+        assert simplify(result) == 0
+
+    def test_2form_action_flat_polynomial(self, m_flat, coords_2d):
+        x, y = coords_2d
+        op = de_rham_laplacian(m_flat, form_degree=2)
+        result = op['action'](x**2)
+        # Δ(x²) = 2, so Δ(x² dx∧dy) = 2 dx∧dy → coefficient 2
+        assert simplify(result - 2) == 0
+
+    def test_2form_action_flat_laplacian_of_scalar(self, m_flat, coords_2d):
+        x, y = coords_2d
+        op0 = de_rham_laplacian(m_flat, form_degree=0)
+        op2 = de_rham_laplacian(m_flat, form_degree=2)
+        f = sin(x) * cos(y)
+        # Δ(f dx∧dy) should be (Δ f) dx∧dy in flat space
+        assert simplify(op2['action'](f) - op0['action'](f)) == 0
+
+    def test_2form_action_sphere_constant(self, m_sphere):
+        op = de_rham_laplacian(m_sphere, form_degree=2)
+        result = op['action'](1)
+        # The constant 2‑form is not harmonic on the sphere, so Δ(1) is non‑zero.
+        # The symbolic expression may contain DiracDelta at coordinate singularities,
+        # but as a distribution it is not identically zero.
+        assert not simplify(result) == 0
+
+    def test_2form_action_sphere_polynomial(self, m_sphere):
+        theta, phi = m_sphere.coords
+        op = de_rham_laplacian(m_sphere, form_degree=2)
+        result = op['action'](cos(theta))
+        # The result should not be identically zero.
+        assert not simplify(result) == 0
+
+    def test_2form_returns_scalar(self, m_flat):
+        op = de_rham_laplacian(m_flat, form_degree=2)
+        result = op['action'](1)
+        assert not isinstance(result, tuple)
 
     # ── Error cases ──────────────────────────────────────────────────────────
 
@@ -660,10 +726,9 @@ class TestDeRhamLaplacian:
         with pytest.raises(NotImplementedError):
             de_rham_laplacian(m_cone, form_degree=0)
 
-    def test_raises_on_form_degree_2(self, m_flat):
+    def test_raises_on_form_degree_3(self, m_flat):
         with pytest.raises(NotImplementedError):
-            de_rham_laplacian(m_flat, form_degree=2)
-
+            de_rham_laplacian(m_flat, form_degree=3)
 
 # ===========================================================================
 # 16.  RiemannianGrid  (NEW)

@@ -223,7 +223,7 @@ from scipy.integrate import (
 from scipy.interpolate import interp1d
 from scipy.optimize import minimize
 
-from sympy import symbols, simplify, lambdify, diff, sqrt, log, zeros, Matrix
+from sympy import symbols, simplify, lambdify, diff, sqrt, log, zeros, Matrix, DiracDelta
 import numpy as np
 from scipy.sparse import lil_matrix, diags, coo_matrix
 from scipy.sparse.linalg import spsolve
@@ -2204,7 +2204,6 @@ def hodge_star(metric, form_degree):
 # =============================================================================
 # Option A — full symbolic de Rham Laplacian
 # =============================================================================
-
 def de_rham_laplacian(metric, form_degree):
     """
     Compute the symbol and symbolic action of the de Rham–Hodge Laplacian
@@ -2222,16 +2221,18 @@ def de_rham_laplacian(metric, form_degree):
 
         (Δα)ᵢ = (∇*∇α)ᵢ + K αᵢ ,
 
-    where (∇*∇α)ᵢ is the component-wise rough Laplacian acting on each
-    1-form component as a scalar.  This is strictly stronger than the
-    previous implementation, which returned zero for the subprincipal
-    symbol and omitted the curvature term entirely.
+    where (∇*∇α)ᵢ is the component-wise rough Laplacian.
+
+    For ``form_degree=2`` the operator is obtained from the scalar
+    Laplace–Beltrami via the Hodge star:
+
+        Δ( f dx∧dy ) = (Δ₀( f / √|g| )) √|g| dx∧dy .
 
     Parameters
     ----------
     metric : Metric
         Must have ``metric.dim == 2``.
-    form_degree : {0, 1}
+    form_degree : {0, 1, 2}
         Degree of the input differential form.
 
     Returns
@@ -2240,111 +2241,112 @@ def de_rham_laplacian(metric, form_degree):
 
     * ``'principal'``    : sympy.Expr — leading symbol gⁱʲ ξᵢ ξⱼ.
     * ``'subprincipal'`` : sympy.Expr — first-order transport term
-                          (non-zero for k=0; zero for k=1 at symbol level).
+                          (non-zero for k=0; zero for k=1,2 at symbol level).
     * ``'full'``         : sympy.Expr — σ₂ + i σ₁ (microlocal convention).
     * ``'weitzenbock'``  : sympy.Expr or None — the Weitzenböck curvature
-                          correction K (only present for ``form_degree=1``).
-    * ``'action'``       : callable — ``action(alpha)`` applies the operator
-                          symbolically to a form and returns the result.
-                          - k=0: ``alpha`` is a scalar SymPy expression;
-                            returns a scalar expression Δf.
-                          - k=1: ``alpha`` is a 2-tuple of SymPy expressions
-                            (α₀, α₁); returns a 2-tuple ((Δα)₀, (Δα)₁).
+                          correction K (present for k=1,2; None for k=0).
+    * ``'action'``       : callable — ``action(form)`` applies the operator
+                          symbolically and returns the result.
+                          - k=0: ``form`` is a scalar SymPy expression;
+                            returns a scalar Δf.
+                          - k=1: ``form`` is a 2‑tuple (α₀, α₁);
+                            returns a 2‑tuple ((Δα)₀, (Δα)₁).
+                          - k=2: ``form`` is a scalar SymPy expression f;
+                            returns a scalar representing the coefficient of
+                            Δ( f dx∧dy ) = (Δ( f/√g )) √g dx∧dy.
 
     Raises
     ------
     NotImplementedError
-        If called on a 1D metric, or if ``form_degree`` ≥ 2.
+        If called on a 1D metric, or if ``form_degree`` is not 0, 1, or 2.
 
     Examples
     --------
-    **Flat metric** — Laplacian of a 0-form:
+    **Flat metric** — Laplacian of a 2‑form:
 
-    >>> from sympy import symbols, Matrix, sin, cos, simplify
+    >>> from sympy import symbols, Matrix, simplify
     >>> x, y = symbols('x y', real=True)
     >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
-    >>> op = de_rham_laplacian(m, form_degree=0)
-    >>> simplify(op['action'](sin(x) * cos(y)))   # −sin(x)cos(y) − sin(x)cos(y)
-    -2*sin(x)*cos(y)
-
-    **Unit sphere** — Weitzenböck correction K=1 on a 1-form:
-
-    >>> theta, phi = symbols('theta phi', real=True)
-    >>> m = Metric(Matrix([[1, 0], [0, sin(theta)**2]]), (theta, phi))
-    >>> op = de_rham_laplacian(m, form_degree=1)
-    >>> simplify(op['weitzenbock'])
-    1
+    >>> op = de_rham_laplacian(m, form_degree=2)
+    >>> simplify(op['action'](x**2))   # Δ( x² dx∧dy ) = 2 dx∧dy
+    2
     """
     if metric.dim != 2:
         raise NotImplementedError("de_rham_laplacian is for 2D metrics only.")
 
+    # Common symbolic quantities
     xi, eta = symbols('xi eta', real=True)
-    g_inv   = metric.g_inv_matrix
+    g_inv = metric.g_inv_matrix
     principal = (g_inv[0, 0] * xi**2
                  + 2 * g_inv[0, 1] * xi * eta
                  + g_inv[1, 1] * eta**2)
 
+    # ------------------------------------------------------------------
+    # Common scalar Laplacian builder
+    # ------------------------------------------------------------------
+    def _scalar_laplacian(expr):
+        """
+        Compute the Laplace–Beltrami operator Δ₀ acting on a scalar function.
+
+        The operator is defined as
+
+            Δ₀ f = |g|^{-½} ∂ᵢ ( |g|^{½} gⁱʲ ∂ⱼ f ).
+
+        This function returns the simplified symbolic result.
+
+        Parameters
+        ----------
+        expr : sympy.Expr
+            Scalar function expressed in the metric's coordinates.
+
+        Returns
+        -------
+        sympy.Expr
+            Symbolic expression for Δ₀ expr.
+        """
+        x, y = metric.coords
+        sqrt_g = metric.sqrt_det_g
+        g_inv_m = metric.g_inv_matrix
+        div = sum(
+            diff(sqrt_g * g_inv_m[i, j] * diff(expr, [x, y][j]), [x, y][i])
+            for i in range(2) for j in range(2)
+        )
+        return simplify(div / sqrt_g)
+
     if form_degree == 0:
-        # Identical to laplace_beltrami_symbol — delegate to avoid duplication.
         sym = metric.laplace_beltrami_symbol()
-
-        def _action_0(f_expr):
-            """Apply Δ to a scalar function f (0-form)."""
-            x, y = metric.coords
-            sqrt_g = metric.sqrt_det_g
-            g_inv_m = metric.g_inv_matrix
-            # Δf = |g|^{-½} ∂ᵢ(|g|^{½} gⁱʲ ∂ⱼ f)
-            div = sum(
-                diff(sqrt_g * g_inv_m[i, j] * diff(f_expr, [x, y][j]), [x, y][i])
-                for i in range(2) for j in range(2)
-            )
-            return simplify(div / sqrt_g)
-
-        return {**sym, 'weitzenbock': None, 'action': _action_0}
+        return {
+            'principal':    sym['principal'],
+            'subprincipal': sym['subprincipal'],
+            'full':         sym['full'],
+            'weitzenbock':  None,
+            'action':       _scalar_laplacian,
+        }
 
     elif form_degree == 1:
-        # ------------------------------------------------------------------
-        # Symbol level: principal symbol same as k=0; subprincipal = 0.
-        # ------------------------------------------------------------------
-        # ------------------------------------------------------------------
-        # Weitzenböck term: in 2D, Ric = K·g so the endomorphism on 1-forms
-        # is K·id.  We extract K from the Riemann tensor.
-        # ------------------------------------------------------------------
         K = simplify(metric.gauss_curvature())
-
-        def _rough_laplacian_scalar(f_expr):
-            """
-            Rough (connection) Laplacian ∇*∇f = Laplace–Beltrami on a scalar.
-            Re-uses the 0-form action so the formula is not repeated.
-            """
-            x, y    = metric.coords
-            sqrt_g  = metric.sqrt_det_g
-            g_inv_m = metric.g_inv_matrix
-            div = sum(
-                diff(sqrt_g * g_inv_m[i, j] * diff(f_expr, [x, y][j]), [x, y][i])
-                for i in range(2) for j in range(2)
-            )
-            return simplify(div / sqrt_g)
 
         def _action_1(alpha):
             """
-            Apply Δ = ∇*∇ + K to a 1-form α = (α₀, α₁).
+            Apply the de Rham Laplacian Δ to a 1‑form α.
 
-            Each component is treated as a scalar by the rough Laplacian,
-            then the Weitzenböck term K·αᵢ is added.
+            Uses the Weitzenböck identity Δα = ∇*∇α + K·α, where K is the
+            Gaussian curvature and ∇*∇ is the rough (connection) Laplacian
+            acting component‑wise (each component is processed by the scalar
+            Laplace–Beltrami operator).
 
             Parameters
             ----------
             alpha : tuple of two sympy.Expr
-                (α₀, α₁) — the two covariant components of the 1-form.
+                Covariant components (α₀, α₁) of the 1‑form.
 
             Returns
             -------
             tuple of two sympy.Expr
-                ((Δα)₀, (Δα)₁)
+                Covariant components ((Δα)₀, (Δα)₁) of the resulting 1‑form.
             """
             return tuple(
-                simplify(_rough_laplacian_scalar(a) + K * a)
+                simplify(_scalar_laplacian(a) + K * a)
                 for a in alpha
             )
 
@@ -2356,9 +2358,46 @@ def de_rham_laplacian(metric, form_degree):
             'action':       _action_1,
         }
 
-    else:
-        raise NotImplementedError("Only form_degree 0 and 1 are implemented.")
+    elif form_degree == 2:
+        K = simplify(metric.gauss_curvature())
+        sqrt_g = metric.sqrt_det_g
 
+        def _action_2(f_expr):
+            """
+            Apply the de Rham Laplacian Δ to a 2‑form ω = f dx∧dy.
+
+            The operator is obtained via the Hodge star:
+
+                Δ( f dx∧dy ) = ( Δ₀( f / √g ) ) √g dx∧dy ,
+
+            where Δ₀ is the scalar Laplace–Beltrami operator.
+
+            Parameters
+            ----------
+            f_expr : sympy.Expr
+                Coefficient of the 2‑form, i.e. ω = f_expr dx∧dy.
+
+            Returns
+            -------
+            sympy.Expr
+                Coefficient of Δω, i.e. (Δω) = result dx∧dy.
+            """
+            # Δ( f dx∧dy ) = (Δ₀( f/√g )) √g dx∧dy
+            g_expr = f_expr / sqrt_g
+            delta_g = _scalar_laplacian(g_expr)
+            return simplify(delta_g * sqrt_g)
+
+        return {
+            'principal':    simplify(principal),
+            'subprincipal': 0,
+            'full':         simplify(principal),
+            'weitzenbock':  K,
+            'action':       _action_2,
+        }
+
+    else:
+        raise NotImplementedError("Only form_degree 0, 1, and 2 are implemented.")
+        
 
 # =============================================================================
 # Option B — RiemannianGrid: assembles the sparse FEM Laplacian matrix from
@@ -2935,8 +2974,7 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
         raise NotImplementedError("Hodge decomposition is only implemented for 2D.")
     if form_degree not in (0, 1, 2):
         raise NotImplementedError(
-            "form_degree must be 1 or 2.  "
-            "0-form decomposition is not supported (see docstring)."
+            "form_degree must be O, 1 or 2."
         )
 
     # ------------------------------------------------------------------
@@ -2970,44 +3008,113 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
     # Dispatch
     # ------------------------------------------------------------------
     if form_degree == 0:
-        # Scalar function decomposition
-        f = _eval(omega_components) if not isinstance(omega_components, np.ndarray) else omega_components
-        f = np.broadcast_to(f, (resolution, resolution)).copy()
-
-        # Compute weighted mean
-        mean = np.sum(f * grid.sqrt_det) / np.sum(grid.sqrt_det)
-
-        # Solve Δu = f - mean with Neumann BC
-        rhs = f - mean
-        u = grid.solve_poisson_neumann(rhs)
-
-        return {
-            'potential_u': u,
-            'coexact':     rhs,
-            'harmonic':    np.full_like(f, mean),
-            'grid':        grid
-        }
+        return hodge_decomposition_0form(grid, omega_components, _eval)
     elif form_degree == 1:
-        return _hodge_decomposition_1form(
-            grid, omega_components, _eval, _codf, _star1, dx, dy
-        )
+        return hodge_decomposition_1form(grid, omega_components, _eval, _codf, _star1, dx, dy)
     else:   # form_degree == 2
-        return _hodge_decomposition_2form(
-            grid, omega_components, _eval, _codf, _star1, _star2, dx, dy
-        )
+        return hodge_decomposition_2form(grid, omega_components, _eval, _codf, _star1, _star2, dx, dy)
 
 
 # -----------------------------------------------------------------------
 # Private implementations — one per form degree
 # -----------------------------------------------------------------------
-def _hodge_decomposition_1form(grid, omega_components, _eval, _codf, _star1,
-                                dx, dy):
+def hodge_decomposition_0form(grid, omega_components, _eval):
     """
-    Core 1-form Hodge decomposition.  Solves:
+    Decompose a scalar function (0‑form) into co‑exact and harmonic parts.
+
+    For a scalar field f = Δu + h₀, where:
+        - Δu is the co‑exact part (the Laplacian of a scalar potential u),
+        - h₀ is the constant harmonic part (the weighted mean of f).
+
+    The potential u solves the Neumann problem Δu = f - h₀, with the gauge
+    fixed by pinning one interior grid point to zero.
+
+    Parameters
+    ----------
+    grid : RiemannianGrid
+        The grid on which the decomposition is performed.
+    omega_components : scalar (callable, sympy.Expr, or ndarray)
+        The input 0‑form f.
+    _eval : callable
+        Helper that evaluates symbolic or callable inputs on the grid.
+
+    Returns
+    -------
+    dict
+        - 'potential_u' : ndarray — scalar potential u.
+        - 'coexact'     : ndarray — Δu = f - h₀.
+        - 'harmonic'    : ndarray — constant harmonic part h₀.
+        - 'grid'        : RiemannianGrid — the grid used.
+    """
+    # Evaluate f on the grid
+    f = _eval(omega_components)
+    f = np.broadcast_to(f, (grid.N, grid.N)).copy()
+
+    # Weighted mean
+    mean = np.sum(f * grid.sqrt_det) / np.sum(grid.sqrt_det)
+
+    # Right‑hand side for the Neumann problem
+    rhs = f - mean
+
+    # Solve Δu = rhs with Neumann BC (gauge fixed)
+    u = grid.solve_poisson_neumann(rhs)
+
+    return {
+        'potential_u': u,
+        'coexact':     rhs,          # Δu = f - h₀
+        'harmonic':    np.full_like(f, mean),
+        'grid':        grid,
+    }
+
+def hodge_decomposition_1form(grid, omega_components, _eval, _codf, _star1, dx, dy):
+    """
+    Decompose a 1‑form α = αₓ dx + αᵧ dy into exact, co‑exact, and harmonic parts.
+
+    The decomposition follows the Hodge–Helmholtz theorem on a compact manifold
+    with boundary:
+
+        α = dφ + ⋆dψ + h,
+
+    where:
+        - dφ is exact,
+        - ⋆dψ is co‑exact,
+        - h is harmonic (Δh = 0).
+
+    The potentials φ and ψ are scalar functions satisfying the Poisson equations
+
         Δ₀ φ = δα          (exact potential)
-        Δ₀ ψ = -δ(⋆α)       (co-exact potential)
-    with homogeneous Neumann BC (natural BC for Hodge potentials).
-    The gauge is fixed by pinning one interior node to zero.
+        Δ₀ ψ = -δ(⋆α)      (co‑exact potential)
+
+    with boundary conditions:
+        - φ satisfies homogeneous Dirichlet BC (φ = 0 on ∂M) to ensure uniqueness,
+        - ψ satisfies homogeneous Neumann BC (∂ₙψ = 0 on ∂M) for the same reason.
+
+    The gauge for ψ is fixed by pinning one interior grid point to zero.
+
+    Parameters
+    ----------
+    grid : RiemannianGrid
+        The grid on which the decomposition is performed.
+    omega_components : tuple of two (callable, sympy.Expr, or ndarray)
+        The input 1‑form components (αₓ, αᵧ).
+    _eval : callable
+        Helper that evaluates symbolic or callable inputs on the grid.
+    _codf : callable
+        Numerical codifferential operator (δ) for 1‑forms.
+    _star1 : callable
+        Numerical Hodge star operator for 1‑forms.
+    dx, dy : float
+        Grid spacings (used for finite‑differences).
+
+    Returns
+    -------
+    dict
+        - 'potential_phi'  : ndarray — scalar potential φ.
+        - 'potential_psi'  : ndarray — scalar potential ψ.
+        - 'alpha_exact'    : tuple of two ndarrays — (dφ)ₓ, (dφ)ᵧ.
+        - 'alpha_coexact'  : tuple of two ndarrays — (⋆dψ)ₓ, (⋆dψ)ᵧ.
+        - 'alpha_harmonic' : tuple of two ndarrays — hₓ, hᵧ.
+        - 'grid'           : RiemannianGrid — the grid used.
     """
     alpha_x = _eval(omega_components[0])
     alpha_y = _eval(omega_components[1])
@@ -3029,11 +3136,55 @@ def _hodge_decomposition_1form(grid, omega_components, _eval, _codf, _star1,
     }
 
 
-def _hodge_decomposition_2form(grid, omega_components, _eval, _codf, _star1,
-                                _star2, dx, dy):
+def hodge_decomposition_2form(grid, omega_components, _eval, _codf, _star1, _star2, dx, dy):
     """
-    Decompose a 2-form ω = f dx∧dy.  Uses homogeneous Dirichlet BC for the
-    scalar potential φ (u = 0 on ∂M).
+    Decompose a 2‑form ω = f dx∧dy into exact and harmonic parts.
+
+    On a 2‑dimensional oriented manifold with boundary, the Hodge decomposition
+    of a 2‑form ω is
+
+        ω = d(⋆dφ) + h,
+
+    where:
+        - d(⋆dφ) is exact (the exterior derivative of a 1‑form),
+        - h is harmonic (Δh = 0).
+
+    The scalar potential φ satisfies the Poisson equation
+
+        Δ₀ φ = -⋆ω
+
+    with homogeneous Dirichlet boundary condition (φ = 0 on ∂M).  This choice
+    ensures a unique solution.  The exact part is then computed as
+
+        ω_exact = d(⋆dφ),
+
+    and the harmonic part as ω_harmonic = ω − ω_exact.
+
+    Parameters
+    ----------
+    grid : RiemannianGrid
+        The grid on which the decomposition is performed.
+    omega_components : scalar (callable, sympy.Expr, or ndarray)
+        The coefficient f of the 2‑form ω = f dx∧dy.
+    _eval : callable
+        Helper that evaluates symbolic or callable inputs on the grid.
+    _codf : callable
+        Numerical codifferential operator for 1‑forms (unused here but kept for
+        signature consistency).
+    _star1 : callable
+        Numerical Hodge star operator for 1‑forms (used to obtain ⋆dφ).
+    _star2 : callable
+        Numerical Hodge star operator for 2‑forms (used to compute ⋆ω).
+    dx, dy : float
+        Grid spacings (used for finite‑differences).
+
+    Returns
+    -------
+    dict
+        - 'potential_phi'   : ndarray — scalar potential φ.
+        - 'omega_exact'     : ndarray — coefficient of the exact part.
+        - 'omega_harmonic'  : ndarray — coefficient of the harmonic part.
+        - 'grid'            : RiemannianGrid — the grid used.
     """
     f       = _eval(omega_components)
     f_tilde = _star2(f)
@@ -3527,6 +3678,9 @@ def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
         Y = grid.Y
         sqrt_det = grid.sqrt_det
         resolution = X.shape[0]   # override
+        gi00 = grid.g_inv00
+        gi01 = grid.g_inv01
+        gi11 = grid.g_inv11
     else:
         # Build a simple mesh without metric weights
         if domain is None:
@@ -3537,16 +3691,22 @@ def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
         y_vals = np.linspace(domain[1][0], domain[1][1], resolution)
         X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
         sqrt_det = None   # indicates no metric weights
+        gi00 = gi01 = gi11 = None
 
     # ------------------------------------------------------------------
     # Helper functions
     # ------------------------------------------------------------------
     def _magnitude(fx, fy):
+        if gi00 is not None:
+            return np.sqrt(gi00 * fx**2 + 2 * gi01 * fx * fy + gi11 * fy**2)
         return np.sqrt(fx**2 + fy**2)
-
+    
     def _weighted_energy_1form(fx, fy, w):
-        """Weighted L² energy of a 1‑form."""
-        mag2 = fx**2 + fy**2
+        """Weighted L² energy of a 1-form."""
+        if gi00 is not None:
+            mag2 = gi00 * fx**2 + 2 * gi01 * fx * fy + gi11 * fy**2
+        else:
+            mag2 = fx**2 + fy**2
         if w is not None:
             return np.sum(mag2 * w)
         else:

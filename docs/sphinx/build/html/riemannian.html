@@ -109,6 +109,9 @@
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.geodesic_hamiltonian_flow"><code class="docutils literal notranslate"><span class="pre">geodesic_hamiltonian_flow()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.geodesic_solver"><code class="docutils literal notranslate"><span class="pre">geodesic_solver()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_decomposition"><code class="docutils literal notranslate"><span class="pre">hodge_decomposition()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_decomposition_0form"><code class="docutils literal notranslate"><span class="pre">hodge_decomposition_0form()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_decomposition_1form"><code class="docutils literal notranslate"><span class="pre">hodge_decomposition_1form()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_decomposition_2form"><code class="docutils literal notranslate"><span class="pre">hodge_decomposition_2form()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_star"><code class="docutils literal notranslate"><span class="pre">hodge_star()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.jacobi_equation_solver"><code class="docutils literal notranslate"><span class="pre">jacobi_equation_solver()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.laplace_beltrami"><code class="docutils literal notranslate"><span class="pre">laplace_beltrami()</span></code></a></li>
@@ -1436,57 +1439,54 @@ without needing to remember the attribute name.</p>
 <blockquote>
 <div><p>(Δα)ᵢ = (∇*∇α)ᵢ + K αᵢ ,</p>
 </div></blockquote>
-<p>where (∇*∇α)ᵢ is the component-wise rough Laplacian acting on each
-1-form component as a scalar.  This is strictly stronger than the
-previous implementation, which returned zero for the subprincipal
-symbol and omitted the curvature term entirely.</p>
+<p>where (∇*∇α)ᵢ is the component-wise rough Laplacian.</p>
+<p>For <code class="docutils literal notranslate"><span class="pre">form_degree=2</span></code> the operator is obtained from the scalar
+Laplace–Beltrami via the Hodge star:</p>
+<blockquote>
+<div><p>Δ( f dx∧dy ) = (Δ₀( f / √|g| )) √|g| dx∧dy .</p>
+</div></blockquote>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian.Metric" title="riemannian.Metric"><em>Metric</em></a>) – Must have <code class="docutils literal notranslate"><span class="pre">metric.dim</span> <span class="pre">==</span> <span class="pre">2</span></code>.</p></li>
-<li><p><strong>form_degree</strong> (<em>{0</em><em>, </em><em>1}</em>) – Degree of the input differential form.</p></li>
+<li><p><strong>form_degree</strong> (<em>{0</em><em>, </em><em>1</em><em>, </em><em>2}</em>) – Degree of the input differential form.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><ul>
 <li><p><em>dict with keys</em></p></li>
 <li><p><strong>* ``’principal’``</strong> (<em>sympy.Expr — leading symbol gⁱʲ ξᵢ ξⱼ.</em>)</p></li>
-<li><p><strong>* ``’subprincipal’``</strong> (<em>sympy.Expr — first-order transport term</em>) – (non-zero for k=0; zero for k=1 at symbol level).</p></li>
+<li><p><strong>* ``’subprincipal’``</strong> (<em>sympy.Expr — first-order transport term</em>) – (non-zero for k=0; zero for k=1,2 at symbol level).</p></li>
 <li><p><strong>* ``’full’``</strong> (<em>sympy.Expr — σ₂ + i σ₁ (microlocal convention).</em>)</p></li>
-<li><p><strong>* ``’weitzenbock’``</strong> (<em>sympy.Expr or None — the Weitzenböck curvature</em>) – correction K (only present for <code class="docutils literal notranslate"><span class="pre">form_degree=1</span></code>).</p></li>
-<li><p><strong>* ``’action’``</strong> (callable — <code class="docutils literal notranslate"><span class="pre">action(alpha)</span></code> applies the operator) – symbolically to a form and returns the result.
-- k=0: <code class="docutils literal notranslate"><span class="pre">alpha</span></code> is a scalar SymPy expression;</p>
+<li><p><strong>* ``’weitzenbock’``</strong> (<em>sympy.Expr or None — the Weitzenböck curvature</em>) – correction K (present for k=1,2; None for k=0).</p></li>
+<li><p><strong>* ``’action’``</strong> (callable — <code class="docutils literal notranslate"><span class="pre">action(form)</span></code> applies the operator) – symbolically and returns the result.
+- k=0: <code class="docutils literal notranslate"><span class="pre">form</span></code> is a scalar SymPy expression;</p>
 <blockquote>
-<div><p>returns a scalar expression Δf.</p>
+<div><p>returns a scalar Δf.</p>
 </div></blockquote>
 <ul class="simple">
-<li><p>k=1: <code class="docutils literal notranslate"><span class="pre">alpha</span></code> is a 2-tuple of SymPy expressions
-(α₀, α₁); returns a 2-tuple ((Δα)₀, (Δα)₁).</p></li>
+<li><p>k=1: <code class="docutils literal notranslate"><span class="pre">form</span></code> is a 2‑tuple (α₀, α₁);
+returns a 2‑tuple ((Δα)₀, (Δα)₁).</p></li>
+<li><p>k=2: <code class="docutils literal notranslate"><span class="pre">form</span></code> is a scalar SymPy expression f;
+returns a scalar representing the coefficient of
+Δ( f dx∧dy ) = (Δ( f/√g )) √g dx∧dy.</p></li>
 </ul>
 </li>
 </ul>
 </p>
 </dd>
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>NotImplementedError</strong> – If called on a 1D metric, or if <code class="docutils literal notranslate"><span class="pre">form_degree</span></code> ≥ 2.</p>
+<dd class="field-odd"><p><strong>NotImplementedError</strong> – If called on a 1D metric, or if <code class="docutils literal notranslate"><span class="pre">form_degree</span></code> is not 0, 1, or 2.</p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<p><strong>Flat metric</strong> — Laplacian of a 0-form:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">,</span> <span class="n">sin</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">simplify</span>
+<p><strong>Flat metric</strong> — Laplacian of a 2‑form:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">,</span> <span class="n">simplify</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">op</span> <span class="o">=</span> <span class="n">de_rham_laplacian</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">form_degree</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">simplify</span><span class="p">(</span><span class="n">op</span><span class="p">[</span><span class="s1">&#39;action&#39;</span><span class="p">](</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">y</span><span class="p">)))</span>   <span class="c1"># −sin(x)cos(y) − sin(x)cos(y)</span>
-<span class="go">-2*sin(x)*cos(y)</span>
-</pre></div>
-</div>
-<p><strong>Unit sphere</strong> — Weitzenböck correction K=1 on a 1-form:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">theta</span><span class="p">,</span> <span class="n">phi</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;theta phi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">]]),</span> <span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">phi</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">op</span> <span class="o">=</span> <span class="n">de_rham_laplacian</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">form_degree</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">simplify</span><span class="p">(</span><span class="n">op</span><span class="p">[</span><span class="s1">&#39;weitzenbock&#39;</span><span class="p">])</span>
-<span class="go">1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">op</span> <span class="o">=</span> <span class="n">de_rham_laplacian</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">form_degree</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">simplify</span><span class="p">(</span><span class="n">op</span><span class="p">[</span><span class="s1">&#39;action&#39;</span><span class="p">](</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>   <span class="c1"># Δ( x² dx∧dy ) = 2 dx∧dy</span>
+<span class="go">2</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -1888,6 +1888,156 @@ cohomology class [ω] ∈ H²_dR(M).</p>
 </pre></div>
 </div>
 </section>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian.hodge_decomposition_0form">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">hodge_decomposition_0form</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega_components</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_eval</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#hodge_decomposition_0form"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.hodge_decomposition_0form" title="Link to this definition"></a></dt>
+<dd><p>Decompose a scalar function (0‑form) into co‑exact and harmonic parts.</p>
+<dl class="simple">
+<dt>For a scalar field f = Δu + h₀, where:</dt><dd><ul class="simple">
+<li><p>Δu is the co‑exact part (the Laplacian of a scalar potential u),</p></li>
+<li><p>h₀ is the constant harmonic part (the weighted mean of f).</p></li>
+</ul>
+</dd>
+</dl>
+<p>The potential u solves the Neumann problem Δu = f - h₀, with the gauge
+fixed by pinning one interior grid point to zero.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grid</strong> (<a class="reference internal" href="#riemannian.RiemannianGrid" title="riemannian.RiemannianGrid"><em>RiemannianGrid</em></a>) – The grid on which the decomposition is performed.</p></li>
+<li><p><strong>omega_components</strong> (<em>scalar</em><em> (</em><em>callable</em><em>, </em><em>sympy.Expr</em><em>, or </em><em>ndarray</em><em>)</em>) – The input 0‑form f.</p></li>
+<li><p><strong>_eval</strong> (<em>callable</em>) – Helper that evaluates symbolic or callable inputs on the grid.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>‘potential_u’ : ndarray — scalar potential u.</p></li>
+<li><p>’coexact’     : ndarray — Δu = f - h₀.</p></li>
+<li><p>’harmonic’    : ndarray — constant harmonic part h₀.</p></li>
+<li><p>’grid’        : RiemannianGrid — the grid used.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian.hodge_decomposition_1form">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">hodge_decomposition_1form</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega_components</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_eval</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_codf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_star1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#hodge_decomposition_1form"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.hodge_decomposition_1form" title="Link to this definition"></a></dt>
+<dd><p>Decompose a 1‑form α = αₓ dx + αᵧ dy into exact, co‑exact, and harmonic parts.</p>
+<p>The decomposition follows the Hodge–Helmholtz theorem on a compact manifold
+with boundary:</p>
+<blockquote>
+<div><p>α = dφ + ⋆dψ + h,</p>
+</div></blockquote>
+<dl class="simple">
+<dt>where:</dt><dd><ul class="simple">
+<li><p>dφ is exact,</p></li>
+<li><p>⋆dψ is co‑exact,</p></li>
+<li><p>h is harmonic (Δh = 0).</p></li>
+</ul>
+</dd>
+</dl>
+<p>The potentials φ and ψ are scalar functions satisfying the Poisson equations</p>
+<blockquote>
+<div><p>Δ₀ φ = δα          (exact potential)
+Δ₀ ψ = -δ(⋆α)      (co‑exact potential)</p>
+</div></blockquote>
+<dl class="simple">
+<dt>with boundary conditions:</dt><dd><ul class="simple">
+<li><p>φ satisfies homogeneous Dirichlet BC (φ = 0 on ∂M) to ensure uniqueness,</p></li>
+<li><p>ψ satisfies homogeneous Neumann BC (∂ₙψ = 0 on ∂M) for the same reason.</p></li>
+</ul>
+</dd>
+</dl>
+<p>The gauge for ψ is fixed by pinning one interior grid point to zero.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grid</strong> (<a class="reference internal" href="#riemannian.RiemannianGrid" title="riemannian.RiemannianGrid"><em>RiemannianGrid</em></a>) – The grid on which the decomposition is performed.</p></li>
+<li><p><strong>omega_components</strong> (<em>tuple</em><em> of </em><em>two</em><em> (</em><em>callable</em><em>, </em><em>sympy.Expr</em><em>, or </em><em>ndarray</em><em>)</em>) – The input 1‑form components (αₓ, αᵧ).</p></li>
+<li><p><strong>_eval</strong> (<em>callable</em>) – Helper that evaluates symbolic or callable inputs on the grid.</p></li>
+<li><p><strong>_codf</strong> (<em>callable</em>) – Numerical codifferential operator (δ) for 1‑forms.</p></li>
+<li><p><strong>_star1</strong> (<em>callable</em>) – Numerical Hodge star operator for 1‑forms.</p></li>
+<li><p><strong>dx</strong> (<em>float</em>) – Grid spacings (used for finite‑differences).</p></li>
+<li><p><strong>dy</strong> (<em>float</em>) – Grid spacings (used for finite‑differences).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>‘potential_phi’  : ndarray — scalar potential φ.</p></li>
+<li><p>’potential_psi’  : ndarray — scalar potential ψ.</p></li>
+<li><p>’alpha_exact’    : tuple of two ndarrays — (dφ)ₓ, (dφ)ᵧ.</p></li>
+<li><p>’alpha_coexact’  : tuple of two ndarrays — (⋆dψ)ₓ, (⋆dψ)ᵧ.</p></li>
+<li><p>’alpha_harmonic’ : tuple of two ndarrays — hₓ, hᵧ.</p></li>
+<li><p>’grid’           : RiemannianGrid — the grid used.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian.hodge_decomposition_2form">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">hodge_decomposition_2form</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega_components</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_eval</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_codf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_star1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_star2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#hodge_decomposition_2form"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.hodge_decomposition_2form" title="Link to this definition"></a></dt>
+<dd><p>Decompose a 2‑form ω = f dx∧dy into exact and harmonic parts.</p>
+<p>On a 2‑dimensional oriented manifold with boundary, the Hodge decomposition
+of a 2‑form ω is</p>
+<blockquote>
+<div><p>ω = d(⋆dφ) + h,</p>
+</div></blockquote>
+<dl class="simple">
+<dt>where:</dt><dd><ul class="simple">
+<li><p>d(⋆dφ) is exact (the exterior derivative of a 1‑form),</p></li>
+<li><p>h is harmonic (Δh = 0).</p></li>
+</ul>
+</dd>
+</dl>
+<p>The scalar potential φ satisfies the Poisson equation</p>
+<blockquote>
+<div><p>Δ₀ φ = -⋆ω</p>
+</div></blockquote>
+<p>with homogeneous Dirichlet boundary condition (φ = 0 on ∂M).  This choice
+ensures a unique solution.  The exact part is then computed as</p>
+<blockquote>
+<div><p>ω_exact = d(⋆dφ),</p>
+</div></blockquote>
+<p>and the harmonic part as ω_harmonic = ω − ω_exact.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grid</strong> (<a class="reference internal" href="#riemannian.RiemannianGrid" title="riemannian.RiemannianGrid"><em>RiemannianGrid</em></a>) – The grid on which the decomposition is performed.</p></li>
+<li><p><strong>omega_components</strong> (<em>scalar</em><em> (</em><em>callable</em><em>, </em><em>sympy.Expr</em><em>, or </em><em>ndarray</em><em>)</em>) – The coefficient f of the 2‑form ω = f dx∧dy.</p></li>
+<li><p><strong>_eval</strong> (<em>callable</em>) – Helper that evaluates symbolic or callable inputs on the grid.</p></li>
+<li><p><strong>_codf</strong> (<em>callable</em>) – Numerical codifferential operator for 1‑forms (unused here but kept for
+signature consistency).</p></li>
+<li><p><strong>_star1</strong> (<em>callable</em>) – Numerical Hodge star operator for 1‑forms (used to obtain ⋆dφ).</p></li>
+<li><p><strong>_star2</strong> (<em>callable</em>) – Numerical Hodge star operator for 2‑forms (used to compute ⋆ω).</p></li>
+<li><p><strong>dx</strong> (<em>float</em>) – Grid spacings (used for finite‑differences).</p></li>
+<li><p><strong>dy</strong> (<em>float</em>) – Grid spacings (used for finite‑differences).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>‘potential_phi’   : ndarray — scalar potential φ.</p></li>
+<li><p>’omega_exact’     : ndarray — coefficient of the exact part.</p></li>
+<li><p>’omega_harmonic’  : ndarray — coefficient of the harmonic part.</p></li>
+<li><p>’grid’            : RiemannianGrid — the grid used.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
