@@ -307,7 +307,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">interp1d</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">lambdify</span><span class="p">,</span> <span class="n">diff</span><span class="p">,</span> <span class="n">sqrt</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">zeros</span><span class="p">,</span> <span class="n">Matrix</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">lambdify</span><span class="p">,</span> <span class="n">diff</span><span class="p">,</span> <span class="n">sqrt</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">zeros</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">,</span> <span class="n">DiracDelta</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">lil_matrix</span><span class="p">,</span> <span class="n">diags</span><span class="p">,</span> <span class="n">coo_matrix</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse.linalg</span><span class="w"> </span><span class="kn">import</span> <span class="n">spsolve</span>
@@ -2357,7 +2357,6 @@
 <span class="c1"># =============================================================================</span>
 <span class="c1"># Option A — full symbolic de Rham Laplacian</span>
 <span class="c1"># =============================================================================</span>
-
 <div class="viewcode-block" id="de_rham_laplacian">
 <a class="viewcode-back" href="../riemannian.html#riemannian.de_rham_laplacian">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">de_rham_laplacian</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">):</span>
@@ -2377,16 +2376,18 @@
 
 <span class="sd">        (Δα)ᵢ = (∇*∇α)ᵢ + K αᵢ ,</span>
 
-<span class="sd">    where (∇*∇α)ᵢ is the component-wise rough Laplacian acting on each</span>
-<span class="sd">    1-form component as a scalar.  This is strictly stronger than the</span>
-<span class="sd">    previous implementation, which returned zero for the subprincipal</span>
-<span class="sd">    symbol and omitted the curvature term entirely.</span>
+<span class="sd">    where (∇*∇α)ᵢ is the component-wise rough Laplacian.</span>
+
+<span class="sd">    For ``form_degree=2`` the operator is obtained from the scalar</span>
+<span class="sd">    Laplace–Beltrami via the Hodge star:</span>
+
+<span class="sd">        Δ( f dx∧dy ) = (Δ₀( f / √|g| )) √|g| dx∧dy .</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    metric : Metric</span>
 <span class="sd">        Must have ``metric.dim == 2``.</span>
-<span class="sd">    form_degree : {0, 1}</span>
+<span class="sd">    form_degree : {0, 1, 2}</span>
 <span class="sd">        Degree of the input differential form.</span>
 
 <span class="sd">    Returns</span>
@@ -2395,111 +2396,112 @@
 
 <span class="sd">    * ``&#39;principal&#39;``    : sympy.Expr — leading symbol gⁱʲ ξᵢ ξⱼ.</span>
 <span class="sd">    * ``&#39;subprincipal&#39;`` : sympy.Expr — first-order transport term</span>
-<span class="sd">                          (non-zero for k=0; zero for k=1 at symbol level).</span>
+<span class="sd">                          (non-zero for k=0; zero for k=1,2 at symbol level).</span>
 <span class="sd">    * ``&#39;full&#39;``         : sympy.Expr — σ₂ + i σ₁ (microlocal convention).</span>
 <span class="sd">    * ``&#39;weitzenbock&#39;``  : sympy.Expr or None — the Weitzenböck curvature</span>
-<span class="sd">                          correction K (only present for ``form_degree=1``).</span>
-<span class="sd">    * ``&#39;action&#39;``       : callable — ``action(alpha)`` applies the operator</span>
-<span class="sd">                          symbolically to a form and returns the result.</span>
-<span class="sd">                          - k=0: ``alpha`` is a scalar SymPy expression;</span>
-<span class="sd">                            returns a scalar expression Δf.</span>
-<span class="sd">                          - k=1: ``alpha`` is a 2-tuple of SymPy expressions</span>
-<span class="sd">                            (α₀, α₁); returns a 2-tuple ((Δα)₀, (Δα)₁).</span>
+<span class="sd">                          correction K (present for k=1,2; None for k=0).</span>
+<span class="sd">    * ``&#39;action&#39;``       : callable — ``action(form)`` applies the operator</span>
+<span class="sd">                          symbolically and returns the result.</span>
+<span class="sd">                          - k=0: ``form`` is a scalar SymPy expression;</span>
+<span class="sd">                            returns a scalar Δf.</span>
+<span class="sd">                          - k=1: ``form`` is a 2‑tuple (α₀, α₁);</span>
+<span class="sd">                            returns a 2‑tuple ((Δα)₀, (Δα)₁).</span>
+<span class="sd">                          - k=2: ``form`` is a scalar SymPy expression f;</span>
+<span class="sd">                            returns a scalar representing the coefficient of</span>
+<span class="sd">                            Δ( f dx∧dy ) = (Δ( f/√g )) √g dx∧dy.</span>
 
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    NotImplementedError</span>
-<span class="sd">        If called on a 1D metric, or if ``form_degree`` ≥ 2.</span>
+<span class="sd">        If called on a 1D metric, or if ``form_degree`` is not 0, 1, or 2.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    **Flat metric** — Laplacian of a 0-form:</span>
+<span class="sd">    **Flat metric** — Laplacian of a 2‑form:</span>
 
-<span class="sd">    &gt;&gt;&gt; from sympy import symbols, Matrix, sin, cos, simplify</span>
+<span class="sd">    &gt;&gt;&gt; from sympy import symbols, Matrix, simplify</span>
 <span class="sd">    &gt;&gt;&gt; x, y = symbols(&#39;x y&#39;, real=True)</span>
 <span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
-<span class="sd">    &gt;&gt;&gt; op = de_rham_laplacian(m, form_degree=0)</span>
-<span class="sd">    &gt;&gt;&gt; simplify(op[&#39;action&#39;](sin(x) * cos(y)))   # −sin(x)cos(y) − sin(x)cos(y)</span>
-<span class="sd">    -2*sin(x)*cos(y)</span>
-
-<span class="sd">    **Unit sphere** — Weitzenböck correction K=1 on a 1-form:</span>
-
-<span class="sd">    &gt;&gt;&gt; theta, phi = symbols(&#39;theta phi&#39;, real=True)</span>
-<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, sin(theta)**2]]), (theta, phi))</span>
-<span class="sd">    &gt;&gt;&gt; op = de_rham_laplacian(m, form_degree=1)</span>
-<span class="sd">    &gt;&gt;&gt; simplify(op[&#39;weitzenbock&#39;])</span>
-<span class="sd">    1</span>
+<span class="sd">    &gt;&gt;&gt; op = de_rham_laplacian(m, form_degree=2)</span>
+<span class="sd">    &gt;&gt;&gt; simplify(op[&#39;action&#39;](x**2))   # Δ( x² dx∧dy ) = 2 dx∧dy</span>
+<span class="sd">    2</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;de_rham_laplacian is for 2D metrics only.&quot;</span><span class="p">)</span>
 
+    <span class="c1"># Common symbolic quantities</span>
     <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">g_inv</span>   <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_matrix</span>
+    <span class="n">g_inv</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_matrix</span>
     <span class="n">principal</span> <span class="o">=</span> <span class="p">(</span><span class="n">g_inv</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span>
                  <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">g_inv</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">xi</span> <span class="o">*</span> <span class="n">eta</span>
                  <span class="o">+</span> <span class="n">g_inv</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">eta</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
 
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Common scalar Laplacian builder</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_scalar_laplacian</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the Laplace–Beltrami operator Δ₀ acting on a scalar function.</span>
+
+<span class="sd">        The operator is defined as</span>
+
+<span class="sd">            Δ₀ f = |g|^{-½} ∂ᵢ ( |g|^{½} gⁱʲ ∂ⱼ f ).</span>
+
+<span class="sd">        This function returns the simplified symbolic result.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        expr : sympy.Expr</span>
+<span class="sd">            Scalar function expressed in the metric&#39;s coordinates.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            Symbolic expression for Δ₀ expr.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span>
+        <span class="n">sqrt_g</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">sqrt_det_g</span>
+        <span class="n">g_inv_m</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_matrix</span>
+        <span class="n">div</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="n">diff</span><span class="p">(</span><span class="n">sqrt_g</span> <span class="o">*</span> <span class="n">g_inv_m</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">][</span><span class="n">j</span><span class="p">]),</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">div</span> <span class="o">/</span> <span class="n">sqrt_g</span><span class="p">)</span>
+
     <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="c1"># Identical to laplace_beltrami_symbol — delegate to avoid duplication.</span>
         <span class="n">sym</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">laplace_beltrami_symbol</span><span class="p">()</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">_action_0</span><span class="p">(</span><span class="n">f_expr</span><span class="p">):</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Apply Δ to a scalar function f (0-form).&quot;&quot;&quot;</span>
-            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span>
-            <span class="n">sqrt_g</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">sqrt_det_g</span>
-            <span class="n">g_inv_m</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_matrix</span>
-            <span class="c1"># Δf = |g|^{-½} ∂ᵢ(|g|^{½} gⁱʲ ∂ⱼ f)</span>
-            <span class="n">div</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
-                <span class="n">diff</span><span class="p">(</span><span class="n">sqrt_g</span> <span class="o">*</span> <span class="n">g_inv_m</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="n">f_expr</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">][</span><span class="n">j</span><span class="p">]),</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
-                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">div</span> <span class="o">/</span> <span class="n">sqrt_g</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="n">sym</span><span class="p">,</span> <span class="s1">&#39;weitzenbock&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;action&#39;</span><span class="p">:</span> <span class="n">_action_0</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;principal&#39;</span><span class="p">:</span>    <span class="n">sym</span><span class="p">[</span><span class="s1">&#39;principal&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;subprincipal&#39;</span><span class="p">:</span> <span class="n">sym</span><span class="p">[</span><span class="s1">&#39;subprincipal&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;full&#39;</span><span class="p">:</span>         <span class="n">sym</span><span class="p">[</span><span class="s1">&#39;full&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;weitzenbock&#39;</span><span class="p">:</span>  <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;action&#39;</span><span class="p">:</span>       <span class="n">_scalar_laplacian</span><span class="p">,</span>
+        <span class="p">}</span>
 
     <span class="k">elif</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="c1"># ------------------------------------------------------------------</span>
-        <span class="c1"># Symbol level: principal symbol same as k=0; subprincipal = 0.</span>
-        <span class="c1"># ------------------------------------------------------------------</span>
-        <span class="c1"># ------------------------------------------------------------------</span>
-        <span class="c1"># Weitzenböck term: in 2D, Ric = K·g so the endomorphism on 1-forms</span>
-        <span class="c1"># is K·id.  We extract K from the Riemann tensor.</span>
-        <span class="c1"># ------------------------------------------------------------------</span>
         <span class="n">K</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">gauss_curvature</span><span class="p">())</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">_rough_laplacian_scalar</span><span class="p">(</span><span class="n">f_expr</span><span class="p">):</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">            Rough (connection) Laplacian ∇*∇f = Laplace–Beltrami on a scalar.</span>
-<span class="sd">            Re-uses the 0-form action so the formula is not repeated.</span>
-<span class="sd">            &quot;&quot;&quot;</span>
-            <span class="n">x</span><span class="p">,</span> <span class="n">y</span>    <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span>
-            <span class="n">sqrt_g</span>  <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">sqrt_det_g</span>
-            <span class="n">g_inv_m</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_matrix</span>
-            <span class="n">div</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
-                <span class="n">diff</span><span class="p">(</span><span class="n">sqrt_g</span> <span class="o">*</span> <span class="n">g_inv_m</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="n">f_expr</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">][</span><span class="n">j</span><span class="p">]),</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
-                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">div</span> <span class="o">/</span> <span class="n">sqrt_g</span><span class="p">)</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">_action_1</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">            Apply Δ = ∇*∇ + K to a 1-form α = (α₀, α₁).</span>
+<span class="sd">            Apply the de Rham Laplacian Δ to a 1‑form α.</span>
 
-<span class="sd">            Each component is treated as a scalar by the rough Laplacian,</span>
-<span class="sd">            then the Weitzenböck term K·αᵢ is added.</span>
+<span class="sd">            Uses the Weitzenböck identity Δα = ∇*∇α + K·α, where K is the</span>
+<span class="sd">            Gaussian curvature and ∇*∇ is the rough (connection) Laplacian</span>
+<span class="sd">            acting component‑wise (each component is processed by the scalar</span>
+<span class="sd">            Laplace–Beltrami operator).</span>
 
 <span class="sd">            Parameters</span>
 <span class="sd">            ----------</span>
 <span class="sd">            alpha : tuple of two sympy.Expr</span>
-<span class="sd">                (α₀, α₁) — the two covariant components of the 1-form.</span>
+<span class="sd">                Covariant components (α₀, α₁) of the 1‑form.</span>
 
 <span class="sd">            Returns</span>
 <span class="sd">            -------</span>
 <span class="sd">            tuple of two sympy.Expr</span>
-<span class="sd">                ((Δα)₀, (Δα)₁)</span>
+<span class="sd">                Covariant components ((Δα)₀, (Δα)₁) of the resulting 1‑form.</span>
 <span class="sd">            &quot;&quot;&quot;</span>
             <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
-                <span class="n">simplify</span><span class="p">(</span><span class="n">_rough_laplacian_scalar</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">+</span> <span class="n">K</span> <span class="o">*</span> <span class="n">a</span><span class="p">)</span>
+                <span class="n">simplify</span><span class="p">(</span><span class="n">_scalar_laplacian</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">+</span> <span class="n">K</span> <span class="o">*</span> <span class="n">a</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">alpha</span>
             <span class="p">)</span>
 
@@ -2511,10 +2513,47 @@
             <span class="s1">&#39;action&#39;</span><span class="p">:</span>       <span class="n">_action_1</span><span class="p">,</span>
         <span class="p">}</span>
 
+    <span class="k">elif</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">gauss_curvature</span><span class="p">())</span>
+        <span class="n">sqrt_g</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">sqrt_det_g</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_action_2</span><span class="p">(</span><span class="n">f_expr</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Apply the de Rham Laplacian Δ to a 2‑form ω = f dx∧dy.</span>
+
+<span class="sd">            The operator is obtained via the Hodge star:</span>
+
+<span class="sd">                Δ( f dx∧dy ) = ( Δ₀( f / √g ) ) √g dx∧dy ,</span>
+
+<span class="sd">            where Δ₀ is the scalar Laplace–Beltrami operator.</span>
+
+<span class="sd">            Parameters</span>
+<span class="sd">            ----------</span>
+<span class="sd">            f_expr : sympy.Expr</span>
+<span class="sd">                Coefficient of the 2‑form, i.e. ω = f_expr dx∧dy.</span>
+
+<span class="sd">            Returns</span>
+<span class="sd">            -------</span>
+<span class="sd">            sympy.Expr</span>
+<span class="sd">                Coefficient of Δω, i.e. (Δω) = result dx∧dy.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="c1"># Δ( f dx∧dy ) = (Δ₀( f/√g )) √g dx∧dy</span>
+            <span class="n">g_expr</span> <span class="o">=</span> <span class="n">f_expr</span> <span class="o">/</span> <span class="n">sqrt_g</span>
+            <span class="n">delta_g</span> <span class="o">=</span> <span class="n">_scalar_laplacian</span><span class="p">(</span><span class="n">g_expr</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">delta_g</span> <span class="o">*</span> <span class="n">sqrt_g</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;principal&#39;</span><span class="p">:</span>    <span class="n">simplify</span><span class="p">(</span><span class="n">principal</span><span class="p">),</span>
+            <span class="s1">&#39;subprincipal&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s1">&#39;full&#39;</span><span class="p">:</span>         <span class="n">simplify</span><span class="p">(</span><span class="n">principal</span><span class="p">),</span>
+            <span class="s1">&#39;weitzenbock&#39;</span><span class="p">:</span>  <span class="n">K</span><span class="p">,</span>
+            <span class="s1">&#39;action&#39;</span><span class="p">:</span>       <span class="n">_action_2</span><span class="p">,</span>
+        <span class="p">}</span>
+
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Only form_degree 0 and 1 are implemented.&quot;</span><span class="p">)</span></div>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Only form_degree 0, 1, and 2 are implemented.&quot;</span><span class="p">)</span></div>
 
-
+        
 
 <span class="c1"># =============================================================================</span>
 <span class="c1"># Option B — RiemannianGrid: assembles the sparse FEM Laplacian matrix from</span>
@@ -3102,8 +3141,7 @@
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Hodge decomposition is only implemented for 2D.&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">form_degree</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="s2">&quot;form_degree must be 1 or 2.  &quot;</span>
-            <span class="s2">&quot;0-form decomposition is not supported (see docstring).&quot;</span>
+            <span class="s2">&quot;form_degree must be O, 1 or 2.&quot;</span>
         <span class="p">)</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
@@ -3137,45 +3175,119 @@
     <span class="c1"># Dispatch</span>
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="c1"># Scalar function decomposition</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">_eval</span><span class="p">(</span><span class="n">omega_components</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">omega_components</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="n">omega_components</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">(</span><span class="n">resolution</span><span class="p">,</span> <span class="n">resolution</span><span class="p">))</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-
-        <span class="c1"># Compute weighted mean</span>
-        <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span><span class="p">)</span>
-
-        <span class="c1"># Solve Δu = f - mean with Neumann BC</span>
-        <span class="n">rhs</span> <span class="o">=</span> <span class="n">f</span> <span class="o">-</span> <span class="n">mean</span>
-        <span class="n">u</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">solve_poisson_neumann</span><span class="p">(</span><span class="n">rhs</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s1">&#39;potential_u&#39;</span><span class="p">:</span> <span class="n">u</span><span class="p">,</span>
-            <span class="s1">&#39;coexact&#39;</span><span class="p">:</span>     <span class="n">rhs</span><span class="p">,</span>
-            <span class="s1">&#39;harmonic&#39;</span><span class="p">:</span>    <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">mean</span><span class="p">),</span>
-            <span class="s1">&#39;grid&#39;</span><span class="p">:</span>        <span class="n">grid</span>
-        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">hodge_decomposition_0form</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">_hodge_decomposition_1form</span><span class="p">(</span>
-            <span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">,</span> <span class="n">_codf</span><span class="p">,</span> <span class="n">_star1</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span>
-        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">hodge_decomposition_1form</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">,</span> <span class="n">_codf</span><span class="p">,</span> <span class="n">_star1</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>   <span class="c1"># form_degree == 2</span>
-        <span class="k">return</span> <span class="n">_hodge_decomposition_2form</span><span class="p">(</span>
-            <span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">,</span> <span class="n">_codf</span><span class="p">,</span> <span class="n">_star1</span><span class="p">,</span> <span class="n">_star2</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span>
-        <span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">hodge_decomposition_2form</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">,</span> <span class="n">_codf</span><span class="p">,</span> <span class="n">_star1</span><span class="p">,</span> <span class="n">_star2</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span></div>
 
 
 
 <span class="c1"># -----------------------------------------------------------------------</span>
 <span class="c1"># Private implementations — one per form degree</span>
 <span class="c1"># -----------------------------------------------------------------------</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_hodge_decomposition_1form</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">,</span> <span class="n">_codf</span><span class="p">,</span> <span class="n">_star1</span><span class="p">,</span>
-                                <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">):</span>
+<div class="viewcode-block" id="hodge_decomposition_0form">
+<a class="viewcode-back" href="../riemannian.html#riemannian.hodge_decomposition_0form">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">hodge_decomposition_0form</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Core 1-form Hodge decomposition.  Solves:</span>
+<span class="sd">    Decompose a scalar function (0‑form) into co‑exact and harmonic parts.</span>
+
+<span class="sd">    For a scalar field f = Δu + h₀, where:</span>
+<span class="sd">        - Δu is the co‑exact part (the Laplacian of a scalar potential u),</span>
+<span class="sd">        - h₀ is the constant harmonic part (the weighted mean of f).</span>
+
+<span class="sd">    The potential u solves the Neumann problem Δu = f - h₀, with the gauge</span>
+<span class="sd">    fixed by pinning one interior grid point to zero.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid : RiemannianGrid</span>
+<span class="sd">        The grid on which the decomposition is performed.</span>
+<span class="sd">    omega_components : scalar (callable, sympy.Expr, or ndarray)</span>
+<span class="sd">        The input 0‑form f.</span>
+<span class="sd">    _eval : callable</span>
+<span class="sd">        Helper that evaluates symbolic or callable inputs on the grid.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        - &#39;potential_u&#39; : ndarray — scalar potential u.</span>
+<span class="sd">        - &#39;coexact&#39;     : ndarray — Δu = f - h₀.</span>
+<span class="sd">        - &#39;harmonic&#39;    : ndarray — constant harmonic part h₀.</span>
+<span class="sd">        - &#39;grid&#39;        : RiemannianGrid — the grid used.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Evaluate f on the grid</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">_eval</span><span class="p">(</span><span class="n">omega_components</span><span class="p">)</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">N</span><span class="p">))</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Weighted mean</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span><span class="p">)</span>
+
+    <span class="c1"># Right‑hand side for the Neumann problem</span>
+    <span class="n">rhs</span> <span class="o">=</span> <span class="n">f</span> <span class="o">-</span> <span class="n">mean</span>
+
+    <span class="c1"># Solve Δu = rhs with Neumann BC (gauge fixed)</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">solve_poisson_neumann</span><span class="p">(</span><span class="n">rhs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;potential_u&#39;</span><span class="p">:</span> <span class="n">u</span><span class="p">,</span>
+        <span class="s1">&#39;coexact&#39;</span><span class="p">:</span>     <span class="n">rhs</span><span class="p">,</span>          <span class="c1"># Δu = f - h₀</span>
+        <span class="s1">&#39;harmonic&#39;</span><span class="p">:</span>    <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">mean</span><span class="p">),</span>
+        <span class="s1">&#39;grid&#39;</span><span class="p">:</span>        <span class="n">grid</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="hodge_decomposition_1form">
+<a class="viewcode-back" href="../riemannian.html#riemannian.hodge_decomposition_1form">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">hodge_decomposition_1form</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">,</span> <span class="n">_codf</span><span class="p">,</span> <span class="n">_star1</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Decompose a 1‑form α = αₓ dx + αᵧ dy into exact, co‑exact, and harmonic parts.</span>
+
+<span class="sd">    The decomposition follows the Hodge–Helmholtz theorem on a compact manifold</span>
+<span class="sd">    with boundary:</span>
+
+<span class="sd">        α = dφ + ⋆dψ + h,</span>
+
+<span class="sd">    where:</span>
+<span class="sd">        - dφ is exact,</span>
+<span class="sd">        - ⋆dψ is co‑exact,</span>
+<span class="sd">        - h is harmonic (Δh = 0).</span>
+
+<span class="sd">    The potentials φ and ψ are scalar functions satisfying the Poisson equations</span>
+
 <span class="sd">        Δ₀ φ = δα          (exact potential)</span>
-<span class="sd">        Δ₀ ψ = -δ(⋆α)       (co-exact potential)</span>
-<span class="sd">    with homogeneous Neumann BC (natural BC for Hodge potentials).</span>
-<span class="sd">    The gauge is fixed by pinning one interior node to zero.</span>
+<span class="sd">        Δ₀ ψ = -δ(⋆α)      (co‑exact potential)</span>
+
+<span class="sd">    with boundary conditions:</span>
+<span class="sd">        - φ satisfies homogeneous Dirichlet BC (φ = 0 on ∂M) to ensure uniqueness,</span>
+<span class="sd">        - ψ satisfies homogeneous Neumann BC (∂ₙψ = 0 on ∂M) for the same reason.</span>
+
+<span class="sd">    The gauge for ψ is fixed by pinning one interior grid point to zero.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid : RiemannianGrid</span>
+<span class="sd">        The grid on which the decomposition is performed.</span>
+<span class="sd">    omega_components : tuple of two (callable, sympy.Expr, or ndarray)</span>
+<span class="sd">        The input 1‑form components (αₓ, αᵧ).</span>
+<span class="sd">    _eval : callable</span>
+<span class="sd">        Helper that evaluates symbolic or callable inputs on the grid.</span>
+<span class="sd">    _codf : callable</span>
+<span class="sd">        Numerical codifferential operator (δ) for 1‑forms.</span>
+<span class="sd">    _star1 : callable</span>
+<span class="sd">        Numerical Hodge star operator for 1‑forms.</span>
+<span class="sd">    dx, dy : float</span>
+<span class="sd">        Grid spacings (used for finite‑differences).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        - &#39;potential_phi&#39;  : ndarray — scalar potential φ.</span>
+<span class="sd">        - &#39;potential_psi&#39;  : ndarray — scalar potential ψ.</span>
+<span class="sd">        - &#39;alpha_exact&#39;    : tuple of two ndarrays — (dφ)ₓ, (dφ)ᵧ.</span>
+<span class="sd">        - &#39;alpha_coexact&#39;  : tuple of two ndarrays — (⋆dψ)ₓ, (⋆dψ)ᵧ.</span>
+<span class="sd">        - &#39;alpha_harmonic&#39; : tuple of two ndarrays — hₓ, hᵧ.</span>
+<span class="sd">        - &#39;grid&#39;           : RiemannianGrid — the grid used.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">alpha_x</span> <span class="o">=</span> <span class="n">_eval</span><span class="p">(</span><span class="n">omega_components</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">alpha_y</span> <span class="o">=</span> <span class="n">_eval</span><span class="p">(</span><span class="n">omega_components</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
@@ -3194,14 +3306,61 @@
         <span class="s1">&#39;alpha_harmonic&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">alpha_x</span> <span class="o">-</span> <span class="n">ex_x</span> <span class="o">-</span> <span class="n">co_x</span><span class="p">,</span>
                                     <span class="n">alpha_y</span> <span class="o">-</span> <span class="n">ex_y</span> <span class="o">-</span> <span class="n">co_y</span><span class="p">]),</span>
         <span class="s1">&#39;grid&#39;</span><span class="p">:</span>           <span class="n">grid</span><span class="p">,</span>
-    <span class="p">}</span>
+    <span class="p">}</span></div>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_hodge_decomposition_2form</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">,</span> <span class="n">_codf</span><span class="p">,</span> <span class="n">_star1</span><span class="p">,</span>
-                                <span class="n">_star2</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">):</span>
+
+<div class="viewcode-block" id="hodge_decomposition_2form">
+<a class="viewcode-back" href="../riemannian.html#riemannian.hodge_decomposition_2form">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">hodge_decomposition_2form</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">,</span> <span class="n">_codf</span><span class="p">,</span> <span class="n">_star1</span><span class="p">,</span> <span class="n">_star2</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Decompose a 2-form ω = f dx∧dy.  Uses homogeneous Dirichlet BC for the</span>
-<span class="sd">    scalar potential φ (u = 0 on ∂M).</span>
+<span class="sd">    Decompose a 2‑form ω = f dx∧dy into exact and harmonic parts.</span>
+
+<span class="sd">    On a 2‑dimensional oriented manifold with boundary, the Hodge decomposition</span>
+<span class="sd">    of a 2‑form ω is</span>
+
+<span class="sd">        ω = d(⋆dφ) + h,</span>
+
+<span class="sd">    where:</span>
+<span class="sd">        - d(⋆dφ) is exact (the exterior derivative of a 1‑form),</span>
+<span class="sd">        - h is harmonic (Δh = 0).</span>
+
+<span class="sd">    The scalar potential φ satisfies the Poisson equation</span>
+
+<span class="sd">        Δ₀ φ = -⋆ω</span>
+
+<span class="sd">    with homogeneous Dirichlet boundary condition (φ = 0 on ∂M).  This choice</span>
+<span class="sd">    ensures a unique solution.  The exact part is then computed as</span>
+
+<span class="sd">        ω_exact = d(⋆dφ),</span>
+
+<span class="sd">    and the harmonic part as ω_harmonic = ω − ω_exact.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid : RiemannianGrid</span>
+<span class="sd">        The grid on which the decomposition is performed.</span>
+<span class="sd">    omega_components : scalar (callable, sympy.Expr, or ndarray)</span>
+<span class="sd">        The coefficient f of the 2‑form ω = f dx∧dy.</span>
+<span class="sd">    _eval : callable</span>
+<span class="sd">        Helper that evaluates symbolic or callable inputs on the grid.</span>
+<span class="sd">    _codf : callable</span>
+<span class="sd">        Numerical codifferential operator for 1‑forms (unused here but kept for</span>
+<span class="sd">        signature consistency).</span>
+<span class="sd">    _star1 : callable</span>
+<span class="sd">        Numerical Hodge star operator for 1‑forms (used to obtain ⋆dφ).</span>
+<span class="sd">    _star2 : callable</span>
+<span class="sd">        Numerical Hodge star operator for 2‑forms (used to compute ⋆ω).</span>
+<span class="sd">    dx, dy : float</span>
+<span class="sd">        Grid spacings (used for finite‑differences).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        - &#39;potential_phi&#39;   : ndarray — scalar potential φ.</span>
+<span class="sd">        - &#39;omega_exact&#39;     : ndarray — coefficient of the exact part.</span>
+<span class="sd">        - &#39;omega_harmonic&#39;  : ndarray — coefficient of the harmonic part.</span>
+<span class="sd">        - &#39;grid&#39;            : RiemannianGrid — the grid used.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">f</span>       <span class="o">=</span> <span class="n">_eval</span><span class="p">(</span><span class="n">omega_components</span><span class="p">)</span>
     <span class="n">f_tilde</span> <span class="o">=</span> <span class="n">_star2</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
@@ -3219,7 +3378,8 @@
         <span class="s1">&#39;omega_exact&#39;</span><span class="p">:</span>     <span class="n">omega_exact_coeff</span><span class="p">,</span>
         <span class="s1">&#39;omega_harmonic&#39;</span><span class="p">:</span>  <span class="n">f</span> <span class="o">-</span> <span class="n">omega_exact_coeff</span><span class="p">,</span>
         <span class="s1">&#39;grid&#39;</span><span class="p">:</span>            <span class="n">grid</span><span class="p">,</span>
-    <span class="p">}</span>
+    <span class="p">}</span></div>
+
     
 
 <div class="viewcode-block" id="analyze_hodge_decomposition">
@@ -3700,6 +3860,9 @@
         <span class="n">Y</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">Y</span>
         <span class="n">sqrt_det</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span>
         <span class="n">resolution</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>   <span class="c1"># override</span>
+        <span class="n">gi00</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">g_inv00</span>
+        <span class="n">gi01</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">g_inv01</span>
+        <span class="n">gi11</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">g_inv11</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="c1"># Build a simple mesh without metric weights</span>
         <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -3710,16 +3873,22 @@
         <span class="n">y_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">domain</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">domain</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">resolution</span><span class="p">)</span>
         <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_vals</span><span class="p">,</span> <span class="n">y_vals</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
         <span class="n">sqrt_det</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># indicates no metric weights</span>
+        <span class="n">gi00</span> <span class="o">=</span> <span class="n">gi01</span> <span class="o">=</span> <span class="n">gi11</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Helper functions</span>
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_magnitude</span><span class="p">(</span><span class="n">fx</span><span class="p">,</span> <span class="n">fy</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">gi00</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">gi00</span> <span class="o">*</span> <span class="n">fx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">gi01</span> <span class="o">*</span> <span class="n">fx</span> <span class="o">*</span> <span class="n">fy</span> <span class="o">+</span> <span class="n">gi11</span> <span class="o">*</span> <span class="n">fy</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">fx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">fy</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-
+    
     <span class="k">def</span><span class="w"> </span><span class="nf">_weighted_energy_1form</span><span class="p">(</span><span class="n">fx</span><span class="p">,</span> <span class="n">fy</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Weighted L² energy of a 1‑form.&quot;&quot;&quot;</span>
-        <span class="n">mag2</span> <span class="o">=</span> <span class="n">fx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">fy</span><span class="o">**</span><span class="mi">2</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Weighted L² energy of a 1-form.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">gi00</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mag2</span> <span class="o">=</span> <span class="n">gi00</span> <span class="o">*</span> <span class="n">fx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">gi01</span> <span class="o">*</span> <span class="n">fx</span> <span class="o">*</span> <span class="n">fy</span> <span class="o">+</span> <span class="n">gi11</span> <span class="o">*</span> <span class="n">fy</span><span class="o">**</span><span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mag2</span> <span class="o">=</span> <span class="n">fx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">fy</span><span class="o">**</span><span class="mi">2</span>
         <span class="k">if</span> <span class="n">w</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mag2</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
