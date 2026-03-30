@@ -695,7 +695,7 @@ class PDESolver:
         self.boundary_condition = boundary_condition
         self.plot = plot
 
-        if self.boundary_condition == 'dirichlet' and not self.has_psi:
+        if (self.boundary_condition == 'dirichlet' or self.boundary_condition == 'neumann') and not self.has_psi:
             raise ValueError(
                 "Dirichlet boundary conditions require the equation to be defined via a pseudo-differential operator (psiOp). "
                 "Please provide an equation involving psiOp for non-periodic boundary treatment."
@@ -1098,6 +1098,7 @@ class PDESolver:
         
         - 'periodic': Enforces periodicity by copying opposite boundary values.
         - 'dirichlet': Sets all boundary values to zero (homogeneous Dirichlet condition).
+        - 'neumann': Sets all boundary values to zero (homogeneous Dirichlet condition).
     
         Parameters
         ----------
@@ -1108,7 +1109,7 @@ class PDESolver:
         Raises
         ------
         ValueError
-            If `self.boundary_condition` is not one of {'periodic', 'dirichlet'}.
+            If `self.boundary_condition` is not one of {'periodic', 'dirichlet', 'neumann'}.
     
         Notes
         -----
@@ -1138,11 +1139,19 @@ class PDESolver:
                 u[-1, :] = 0
                 u[:, 0] = 0
                 u[:, -1] = 0
-    
+        elif self.boundary_condition == 'neumann':
+            if self.dim == 1:
+                u[0] = u[1]
+                u[-1] = u[-2]
+            elif self.dim == 2:
+                u[0, :] = u[1, :]
+                u[-1, :] = u[-2, :]
+                u[:, 0] = u[:, 1]
+                u[:, -1] = u[:, -2]
         else:
             raise ValueError(
                 f"Invalid boundary condition '{self.boundary_condition}'. "
-                "Supported types are 'periodic' and 'dirichlet'."
+                "Supported types are 'periodic', 'dirichlet' and 'neumann'."
             )
 
     def _apply_nonlinear(self, u, is_v=False):
@@ -1522,7 +1531,7 @@ class PDESolver:
             u_nl = self._apply_nonlinear(self.u_prev)
             u_new = u_symb + u_nl + source
         else:
-            if not self.is_spatial:
+            if self.boundary_condition in ('dirichlet', 'neumann') and not self.is_spatial:
                 # General case with ETD1
                 u_nl = self._apply_nonlinear(self.u_prev)
     
@@ -1753,10 +1762,10 @@ class PDESolver:
         if self.linear_terms or self.nonlinear_terms:
             raise ValueError("Stationary psiOp problems must be linear and purely pseudo-differential.")
 
-        if self.boundary_condition not in ('periodic', 'dirichlet'):
+        if self.boundary_condition not in ('periodic', 'dirichlet', 'neumann'):
             raise ValueError(
                 "For stationary PDEs, boundary conditions must be explicitly defined. "
-                "Supported types are 'periodic' and 'dirichlet'."
+                "Supported types are 'periodic', 'dirichlet' and 'neumann'."
             )    
             
         if self.dim == 1:
@@ -1871,7 +1880,7 @@ class PDESolver:
             self.u = u
             return u
             
-        elif self.boundary_condition == 'dirichlet':
+        elif (self.boundary_condition == 'dirichlet' or self.boundary_condition == 'neumann'):
             from psiop import kohn_nirenberg_nonperiodic
             
             if self.dim == 1:
@@ -1892,7 +1901,7 @@ class PDESolver:
             return u
         
         else:
-            raise ValueError(f"Invalid boundary condition '{self.boundary_condition}'. Supported types are 'periodic' and 'dirichlet'.")
+            raise ValueError(f"Invalid boundary condition '{self.boundary_condition}'. Supported types are 'periodic', 'dirichlet' and 'neumann'.")
         
     def _step_ETD_RK4(self, u):
         """

@@ -312,6 +312,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">lil_matrix</span><span class="p">,</span> <span class="n">diags</span><span class="p">,</span> <span class="n">coo_matrix</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse.linalg</span><span class="w"> </span><span class="kn">import</span> <span class="n">spsolve</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">diags</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
 
 <span class="c1"># ============================================================================</span>
@@ -4743,6 +4744,691 @@
     <span class="n">plt</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mpl_toolkits.mplot3d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Axes3D</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_eval_metric_grid</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Evaluate the three independent metric components on a meshgrid.</span>
+
+<span class="sd">    Calls the pre-compiled lambdified functions stored in ``metric.g_func``</span>
+<span class="sd">    at every grid point simultaneously and broadcasts scalar results to the</span>
+<span class="sd">    full grid shape.  The copy at the end ensures that downstream mutations</span>
+<span class="sd">    (e.g. in-place clipping) do not alias the cached lambdas.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        A ``Metric`` instance whose ``g_func`` dict contains callable entries</span>
+<span class="sd">        for keys ``(0,0)``, ``(0,1)``, and ``(1,1)``.</span>
+<span class="sd">    U : ndarray, shape (nu, nv)</span>
+<span class="sd">        First coordinate values on the meshgrid (``indexing=&#39;ij&#39;``).</span>
+<span class="sd">    V : ndarray, shape (nu, nv)</span>
+<span class="sd">        Second coordinate values on the meshgrid.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    g11 : ndarray, shape (nu, nv)</span>
+<span class="sd">        Component g_{uu} of the metric tensor.</span>
+<span class="sd">    g12 : ndarray, shape (nu, nv)</span>
+<span class="sd">        Off-diagonal component g_{uv} = g_{vu}.</span>
+<span class="sd">    g22 : ndarray, shape (nu, nv)</span>
+<span class="sd">        Component g_{vv} of the metric tensor.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The metric is assumed to be symmetric, so only the upper triangle</span>
+<span class="sd">    ``(0,0)``, ``(0,1)``, ``(1,1)`` is stored and returned.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">g11</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_func</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)](</span><span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">U</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">g12</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_func</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)](</span><span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">U</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">g22</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_func</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)](</span><span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">U</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_eval_curvature_grid</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Evaluate the Gaussian curvature K on a meshgrid.</span>
+
+<span class="sd">    Lambdifies the symbolic ``gauss_curvature()`` expression from ``metric``</span>
+<span class="sd">    at call time and evaluates it over the full grid in one vectorised pass.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        A 2D ``Metric`` instance.  Calling ``metric.gauss_curvature()``</span>
+<span class="sd">        must return a SymPy expression in the two coordinate symbols stored</span>
+<span class="sd">        in ``metric.coords``.</span>
+<span class="sd">    U : ndarray, shape (nu, nv)</span>
+<span class="sd">        First coordinate values on the meshgrid.</span>
+<span class="sd">    V : ndarray, shape (nu, nv)</span>
+<span class="sd">        Second coordinate values on the meshgrid.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    K : ndarray, shape (nu, nv)</span>
+<span class="sd">        Gaussian curvature K(u, v) at each grid point.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    A fresh ``lambdify`` call is made every time this function is invoked.</span>
+<span class="sd">    For performance-critical loops, consider caching the lambda externally</span>
+<span class="sd">    and calling it directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">K_lam</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">gauss_curvature</span><span class="p">(),</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">K_lam</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">U</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="induced_metric">
+<a class="viewcode-back" href="../riemannian.html#riemannian.induced_metric">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">induced_metric</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the metric tensor induced by a 3D embedding via finite differences.</span>
+
+<span class="sd">    Given a surface parameterised as R(u, v) ∈ ℝ³, the induced (pullback)</span>
+<span class="sd">    metric is defined by</span>
+
+<span class="sd">        g_{ij} = ⟨∂_i R, ∂_j R⟩,</span>
+
+<span class="sd">    i.e.  g11 = |∂R/∂u|², g12 = ⟨∂R/∂u, ∂R/∂v⟩, g22 = |∂R/∂v|².</span>
+
+<span class="sd">    Partial derivatives are approximated with second-order central differences</span>
+<span class="sd">    in the interior and first-order one-sided differences at the boundary rows</span>
+<span class="sd">    and columns.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    R : ndarray, shape (nu, nv, 3)</span>
+<span class="sd">        Embedding array.  ``R[i, j]`` is the position vector in ℝ³ at the</span>
+<span class="sd">        grid point (u_i, v_j).</span>
+<span class="sd">    du : float</span>
+<span class="sd">        Uniform grid spacing in the u-direction.</span>
+<span class="sd">    dv : float</span>
+<span class="sd">        Uniform grid spacing in the v-direction.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    g11 : ndarray, shape (nu, nv)</span>
+<span class="sd">        ⟨∂R/∂u, ∂R/∂u⟩ at each grid point.</span>
+<span class="sd">    g12 : ndarray, shape (nu, nv)</span>
+<span class="sd">        ⟨∂R/∂u, ∂R/∂v⟩ at each grid point.</span>
+<span class="sd">    g22 : ndarray, shape (nu, nv)</span>
+<span class="sd">        ⟨∂R/∂v, ∂R/∂v⟩ at each grid point.</span>
+<span class="sd">    dRdu : ndarray, shape (nu, nv, 3)</span>
+<span class="sd">        Finite-difference approximation of ∂R/∂u.</span>
+<span class="sd">    dRdv : ndarray, shape (nu, nv, 3)</span>
+<span class="sd">        Finite-difference approximation of ∂R/∂v.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The returned ``dRdu`` and ``dRdv`` are reused by ``metric_deficit`` and</span>
+<span class="sd">    ``corrugation_step`` to avoid redundant computation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dRdu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+    <span class="n">dRdu</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span> <span class="o">-</span> <span class="n">R</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">du</span><span class="p">)</span>
+    <span class="n">dRdu</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>    <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="o">-</span> <span class="n">R</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>   <span class="o">/</span> <span class="n">du</span>
+    <span class="n">dRdu</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>   <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">R</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>  <span class="o">/</span> <span class="n">du</span>
+
+    <span class="n">dRdv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+    <span class="n">dRdv</span><span class="p">[:,</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">[:,</span><span class="mi">2</span><span class="p">:]</span> <span class="o">-</span> <span class="n">R</span><span class="p">[:,:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">dv</span><span class="p">)</span>
+    <span class="n">dRdv</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span>    <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span>  <span class="o">-</span> <span class="n">R</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])</span>   <span class="o">/</span> <span class="n">dv</span>
+    <span class="n">dRdv</span><span class="p">[:,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>   <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">[:,</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">R</span><span class="p">[:,</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="n">dv</span>
+
+    <span class="n">g11</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,ijk-&gt;ij&#39;</span><span class="p">,</span> <span class="n">dRdu</span><span class="p">,</span> <span class="n">dRdu</span><span class="p">)</span>
+    <span class="n">g12</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,ijk-&gt;ij&#39;</span><span class="p">,</span> <span class="n">dRdu</span><span class="p">,</span> <span class="n">dRdv</span><span class="p">)</span>
+    <span class="n">g22</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,ijk-&gt;ij&#39;</span><span class="p">,</span> <span class="n">dRdv</span><span class="p">,</span> <span class="n">dRdv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span><span class="p">,</span> <span class="n">dRdu</span><span class="p">,</span> <span class="n">dRdv</span></div>
+
+
+
+<div class="viewcode-block" id="metric_deficit">
+<a class="viewcode-back" href="../riemannian.html#riemannian.metric_deficit">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">metric_deficit</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">g11_t</span><span class="p">,</span> <span class="n">g12_t</span><span class="p">,</span> <span class="n">g22_t</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the pointwise metric deficit and its Frobenius norm.</span>
+
+<span class="sd">    The deficit is the difference between the target metric (the abstract</span>
+<span class="sd">    Riemannian tensor we wish to realise) and the metric actually induced by</span>
+<span class="sd">    the current embedding R:</span>
+
+<span class="sd">        Δg = g_target − g_induced(R).</span>
+
+<span class="sd">    The scalar summary is the root-mean-square Frobenius norm</span>
+
+<span class="sd">        ‖Δg‖_F = sqrt( mean( Δg11² + 2·Δg12² + Δg22² ) ),</span>
+
+<span class="sd">    where the factor of 2 on the off-diagonal term accounts for symmetry.</span>
+<span class="sd">    This quantity monotonically decreasing toward zero is the convergence</span>
+<span class="sd">    criterion used by ``add_corrugations``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    R : ndarray, shape (nu, nv, 3)</span>
+<span class="sd">        Current embedding.</span>
+<span class="sd">    g11_t : ndarray, shape (nu, nv)</span>
+<span class="sd">        Target metric component g_{uu}.</span>
+<span class="sd">    g12_t : ndarray, shape (nu, nv)</span>
+<span class="sd">        Target metric component g_{uv}.</span>
+<span class="sd">    g22_t : ndarray, shape (nu, nv)</span>
+<span class="sd">        Target metric component g_{vv}.</span>
+<span class="sd">    du : float</span>
+<span class="sd">        Uniform grid spacing in the u-direction.</span>
+<span class="sd">    dv : float</span>
+<span class="sd">        Uniform grid spacing in the v-direction.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dg11 : ndarray, shape (nu, nv)</span>
+<span class="sd">        Pointwise deficit in the g_{uu} component.</span>
+<span class="sd">    dg12 : ndarray, shape (nu, nv)</span>
+<span class="sd">        Pointwise deficit in the g_{uv} component.</span>
+<span class="sd">    dg22 : ndarray, shape (nu, nv)</span>
+<span class="sd">        Pointwise deficit in the g_{vv} component.</span>
+<span class="sd">    frob : float</span>
+<span class="sd">        RMS Frobenius norm of the deficit matrix over the grid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">g11_i</span><span class="p">,</span> <span class="n">g12_i</span><span class="p">,</span> <span class="n">g22_i</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">induced_metric</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+    <span class="n">dg11</span> <span class="o">=</span> <span class="n">g11_t</span> <span class="o">-</span> <span class="n">g11_i</span>
+    <span class="n">dg12</span> <span class="o">=</span> <span class="n">g12_t</span> <span class="o">-</span> <span class="n">g12_i</span>
+    <span class="n">dg22</span> <span class="o">=</span> <span class="n">g22_t</span> <span class="o">-</span> <span class="n">g22_i</span>
+    <span class="n">frob</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dg11</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">dg12</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dg22</span><span class="o">**</span><span class="mi">2</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">dg11</span><span class="p">,</span> <span class="n">dg12</span><span class="p">,</span> <span class="n">dg22</span><span class="p">,</span> <span class="n">frob</span></div>
+
+
+<div class="viewcode-block" id="build_embedding">
+<a class="viewcode-back" href="../riemannian.html#riemannian.build_embedding">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_embedding</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">u_range</span><span class="p">,</span> <span class="n">v_range</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">nv</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct a C¹ 3D embedding that approximately realises a given 2D metric.</span>
+
+<span class="sd">    The algorithm marches row by row in the v-direction, maintaining an</span>
+<span class="sd">    orthonormal Darboux frame (E1, E2, N) at each grid point:</span>
+
+<span class="sd">    * **Initialisation (j = 0):** The bottom row is placed along the x-axis</span>
+<span class="sd">      with arc-length spacing determined by √g₁₁ · du.  E1 points along x,</span>
+<span class="sd">      N along z, and E2 along y.  The v-derivative dR/dv is initialised from</span>
+<span class="sd">      the metric components g₁₂ and g₂₂.</span>
+
+<span class="sd">    * **Row advance (j → j+1):**</span>
+<span class="sd">        1. Positions are stepped as R[:, j+1] = R[:, j] + dv · dR/dv[:, j].</span>
+<span class="sd">        2. The surface normal N is evolved via the Weingarten map using the</span>
+<span class="sd">           shape-operator coefficient h₂₂, derived from K and the metric.</span>
+<span class="sd">        3. E1 is re-estimated from a finite difference of the new row.</span>
+<span class="sd">        4. E2 is recomputed as N × E1 to maintain right-handedness.</span>
+<span class="sd">        5. dR/dv for the new row is reconstructed from g₁₂, g₂₂, E1, E2.</span>
+
+<span class="sd">    This is a first-order explicit integration scheme; accuracy improves with</span>
+<span class="sd">    finer grids (larger nu, nv).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        A 2D ``Metric`` instance providing ``g_func`` and ``gauss_curvature()``.</span>
+<span class="sd">    u_range : tuple of float</span>
+<span class="sd">        (u_min, u_max) — parameter range in the u-direction.</span>
+<span class="sd">    v_range : tuple of float</span>
+<span class="sd">        (v_min, v_max) — parameter range in the v-direction.</span>
+<span class="sd">    nu : int</span>
+<span class="sd">        Number of grid points in the u-direction.</span>
+<span class="sd">    nv : int</span>
+<span class="sd">        Number of grid points in the v-direction.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    R : ndarray, shape (nu, nv, 3)</span>
+<span class="sd">        The constructed embedding.</span>
+<span class="sd">    u_vals : ndarray, shape (nu,)</span>
+<span class="sd">        Uniformly spaced u parameter values.</span>
+<span class="sd">    v_vals : ndarray, shape (nv,)</span>
+<span class="sd">        Uniformly spaced v parameter values.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The embedding is not guaranteed to be isometric — use ``metric_deficit``</span>
+<span class="sd">    to assess how well g_induced matches g_target, and pass the result to</span>
+<span class="sd">    ``add_corrugations`` to reduce the deficit iteratively.</span>
+
+<span class="sd">    The sign of the Gaussian curvature K determines whether h₂₂ causes the</span>
+<span class="sd">    normal to tilt toward or away from the surface, which is how positive</span>
+<span class="sd">    and negative curvature are distinguished geometrically.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">u_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">u_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nu</span><span class="p">)</span>
+    <span class="n">v_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">v_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nv</span><span class="p">)</span>
+    <span class="n">du</span> <span class="o">=</span> <span class="n">u_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">u_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">dv</span> <span class="o">=</span> <span class="n">v_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">v_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">U</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">u_vals</span><span class="p">,</span> <span class="n">v_vals</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Pre‑compute metric components and Gaussian curvature on the whole grid</span>
+    <span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span> <span class="o">=</span> <span class="n">_eval_metric_grid</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+    <span class="n">K</span> <span class="o">=</span> <span class="n">_eval_curvature_grid</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+
+    <span class="c1"># Allocate output arrays</span>
+    <span class="n">R</span>    <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nu</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="n">dRdv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nu</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="n">E1</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nu</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="n">E2</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nu</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="n">N</span>    <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nu</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1">#  Bottom row (j = 0)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Place points along the x‑axis using cumulative sum of sqrt(g11) * du</span>
+    <span class="c1"># (average between adjacent grid points)</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">g11</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">g11</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="mi">0</span><span class="p">]))</span> <span class="o">*</span> <span class="n">du</span>
+    <span class="n">x_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">dx</span><span class="p">)))</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_vals</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">R</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="c1"># Initial Darboux frame: E1 along x, N along z, E2 along y</span>
+    <span class="n">E1</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>
+    <span class="n">N</span> <span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]</span>
+    <span class="n">E2</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>
+
+    <span class="c1"># dR/dv at bottom row from metric constraints</span>
+    <span class="n">par</span> <span class="o">=</span> <span class="n">g12</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">g11</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="mf">1e-14</span><span class="p">))</span>
+    <span class="n">rem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">g22</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">par</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+    <span class="n">dRdv</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">par</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="n">E1</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span>
+                  <span class="n">rem</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="n">E2</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1">#  March upward row by row (vectorized over i)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nv</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="c1"># Advance positions</span>
+        <span class="n">R</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">R</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">dv</span> <span class="o">*</span> <span class="n">dRdv</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span>
+
+        <span class="c1"># 1) Weingarten: evolve normal N</span>
+        <span class="n">g11_ij</span> <span class="o">=</span> <span class="n">g11</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span>
+        <span class="n">g22_ij</span> <span class="o">=</span> <span class="n">g22</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span>
+        <span class="n">K_ij</span>   <span class="o">=</span> <span class="n">K</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span>
+
+        <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">K_ij</span><span class="p">)</span>
+        <span class="n">s</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">K_ij</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">1e-12</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>   <span class="c1"># handle near‑zero curvature</span>
+
+        <span class="n">h22</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span> <span class="o">*</span>
+               <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">K_ij</span><span class="p">)</span> <span class="o">*</span>
+                       <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">g22_ij</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">g11_ij</span><span class="p">,</span> <span class="mf">1e-14</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">*</span>
+               <span class="n">g22_ij</span><span class="p">)</span>
+
+        <span class="n">factor</span> <span class="o">=</span> <span class="o">-</span><span class="n">h22</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">g22_ij</span><span class="p">,</span> <span class="mf">1e-14</span><span class="p">)</span>
+        <span class="n">N_new</span> <span class="o">=</span> <span class="n">N</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">dv</span> <span class="o">*</span> <span class="n">factor</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="n">E2</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">N_new</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">N</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">N_new</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">norm</span><span class="p">,</span> <span class="mf">1e-10</span><span class="p">)</span>
+
+        <span class="c1"># 2) Compute dR/du at the new row using finite differences</span>
+        <span class="c1">#    (central difference interior, one‑sided at boundaries)</span>
+        <span class="n">dRdu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nu</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+        <span class="c1"># interior points</span>
+        <span class="n">dRdu</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">R</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">du</span><span class="p">)</span>
+        <span class="c1"># boundaries</span>
+        <span class="n">dRdu</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>    <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>  <span class="o">-</span> <span class="n">R</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>   <span class="o">/</span> <span class="n">du</span>
+        <span class="n">dRdu</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>   <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">R</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>  <span class="o">/</span> <span class="n">du</span>
+
+        <span class="c1"># 3) Update E1 = dRdu / |dRdu|</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">dRdu</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">E1</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">dRdu</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">norm</span><span class="p">,</span> <span class="mf">1e-10</span><span class="p">)</span>
+
+        <span class="c1"># 4) Compute E2 = N x E1  (cross product) and normalise</span>
+        <span class="n">E2</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">N</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">E1</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E2</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">E2</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">norm</span><span class="p">,</span> <span class="mf">1e-10</span><span class="p">)</span>
+
+        <span class="c1"># 5) Compute dR/dv for the new row from metric components</span>
+        <span class="n">par</span> <span class="o">=</span> <span class="n">g12</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">g11</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="mf">1e-14</span><span class="p">))</span>
+        <span class="n">rem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">g22</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">par</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+        <span class="n">dRdv</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">par</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="n">E1</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span>
+                        <span class="n">rem</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="n">E2</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">R</span><span class="p">,</span> <span class="n">u_vals</span><span class="p">,</span> <span class="n">v_vals</span></div>
+
+
+<span class="c1"># ======================================================================</span>
+<span class="c1"># CORRUGATION LAYER  (shared by both methods)</span>
+<span class="c1"># ======================================================================</span>
+
+<div class="viewcode-block" id="corrugation_step">
+<a class="viewcode-back" href="../riemannian.html#riemannian.corrugation_step">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">corrugation_step</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">dg11</span><span class="p">,</span> <span class="n">dg12</span><span class="p">,</span> <span class="n">dg22</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply one Nash–Kuiper corrugation pass to reduce the metric deficit.</span>
+
+<span class="sd">    The Nash–Kuiper theorem guarantees that any short map into ℝ³ can be</span>
+<span class="sd">    approximated arbitrarily closely by a C¹ isometric embedding via an</span>
+<span class="sd">    infinite sequence of corrugation steps.  Each step decomposes the</span>
+<span class="sd">    symmetric deficit tensor Δg pointwise into two rank-1 terms via its</span>
+<span class="sd">    eigendecomposition, then adds a sinusoidal normal oscillation that</span>
+<span class="sd">    fills each positive eigenvalue in the phase-averaged sense.</span>
+
+<span class="sd">    For eigenvalue λ and eigenvector direction w, the oscillation is</span>
+
+<span class="sd">        R ← R + ρ · sin(2π·freq·⟨w, coord⟩ + φ) · n̂,</span>
+
+<span class="sd">    with amplitude  ρ = √λ / (√2 · π · freq),  chosen so that the added</span>
+<span class="sd">    corrugation contributes exactly λ·w⊗w to the induced metric after</span>
+<span class="sd">    phase averaging.  Two phase offsets (0 and π/2) are applied per</span>
+<span class="sd">    eigenvector to improve uniformity across the grid.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    R : ndarray, shape (N, N, 3)</span>
+<span class="sd">        Current embedding.  Must be square (nu == nv == N) as the</span>
+<span class="sd">        coordinate phase arrays are built from a single size N.</span>
+<span class="sd">    dg11 : ndarray, shape (N, N)</span>
+<span class="sd">        Metric deficit in the g_{uu} component (target minus induced).</span>
+<span class="sd">    dg12 : ndarray, shape (N, N)</span>
+<span class="sd">        Metric deficit in the g_{uv} component.</span>
+<span class="sd">    dg22 : ndarray, shape (N, N)</span>
+<span class="sd">        Metric deficit in the g_{vv} component.</span>
+<span class="sd">    du : float</span>
+<span class="sd">        Grid spacing in the u-direction (used to scale the phase coordinate).</span>
+<span class="sd">    dv : float</span>
+<span class="sd">        Grid spacing in the v-direction.</span>
+<span class="sd">    freq : float</span>
+<span class="sd">        Spatial frequency of the corrugation oscillation.  Higher values</span>
+<span class="sd">        produce finer wrinkles.  The corrugation formula is exact only in</span>
+<span class="sd">        the limit freq → ∞; in practice ``freq`` should satisfy</span>
+<span class="sd">        freq ≪ N / (2·L) (Nyquist limit relative to the domain size L).</span>
+<span class="sd">        Recommended range: 2–8 for fine grids.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    R_new : ndarray, shape (N, N, 3)</span>
+<span class="sd">        Updated embedding after the corrugation pass.  The input ``R``</span>
+<span class="sd">        is not modified in place.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Only positive eigenvalues of Δg are corrugated; negative eigenvalues</span>
+<span class="sd">    (where the induced metric already overshoots the target) are ignored.</span>
+<span class="sd">    Repeatedly calling this function with doubling frequency (as done by</span>
+<span class="sd">    ``add_corrugations``) converges to an isometric embedding.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">dRdu</span><span class="p">,</span> <span class="n">dRdv</span> <span class="o">=</span> <span class="n">induced_metric</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+
+    <span class="c1"># Surface normal</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">dRdu</span><span class="p">,</span> <span class="n">dRdv</span><span class="p">)</span>
+    <span class="n">normal</span> <span class="o">=</span> <span class="n">n</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="mf">1e-10</span><span class="p">)</span>
+
+    <span class="c1"># Rank-1 decomposition of delta_g at each point</span>
+    <span class="n">tr</span>   <span class="o">=</span> <span class="n">dg11</span> <span class="o">+</span> <span class="n">dg22</span>
+    <span class="n">disc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mf">0.25</span><span class="o">*</span><span class="p">(</span><span class="n">dg11</span> <span class="o">-</span> <span class="n">dg22</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dg12</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+    <span class="n">lam1</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">tr</span> <span class="o">+</span> <span class="n">disc</span>
+    <span class="n">lam2</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">tr</span> <span class="o">-</span> <span class="n">disc</span>
+
+    <span class="c1"># Grid index arrays scaled to arc-length coordinates</span>
+    <span class="n">ii</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span><span class="p">)[:,</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">N</span><span class="p">)[</span><span class="kc">None</span><span class="p">,:]</span> <span class="o">*</span> <span class="n">du</span>
+    <span class="n">jj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">N</span><span class="p">)[:,</span><span class="kc">None</span><span class="p">]</span>   <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">N</span><span class="p">)[</span><span class="kc">None</span><span class="p">,:]</span> <span class="o">*</span> <span class="n">dv</span>
+
+    <span class="n">R_new</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">lam_grid</span><span class="p">,</span> <span class="n">which</span> <span class="ow">in</span> <span class="p">[(</span><span class="n">lam1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="n">lam2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]:</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">lam_grid</span> <span class="o">&gt;</span> <span class="mf">1e-6</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pos</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Eigenvector of delta_g for this eigenvalue</span>
+        <span class="n">wx</span> <span class="o">=</span> <span class="n">dg12</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">wy</span> <span class="o">=</span> <span class="p">(</span><span class="n">lam1</span> <span class="k">if</span> <span class="n">which</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">lam2</span><span class="p">)</span> <span class="o">-</span> <span class="n">dg11</span>
+        <span class="n">w_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">wx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">wy</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="mf">1e-10</span><span class="p">)</span>
+        <span class="n">wx</span> <span class="o">/=</span> <span class="n">w_norm</span>
+        <span class="n">wy</span> <span class="o">/=</span> <span class="n">w_norm</span>
+
+        <span class="c1"># Phase along eigenvector direction</span>
+        <span class="n">phase</span> <span class="o">=</span> <span class="n">wx</span> <span class="o">*</span> <span class="n">ii</span> <span class="o">+</span> <span class="n">wy</span> <span class="o">*</span> <span class="n">jj</span>
+
+        <span class="c1"># Amplitude: fills deficit in the phase-averaged sense</span>
+        <span class="n">rho</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span>
+                       <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">lam_grid</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">freq</span><span class="p">),</span>
+                       <span class="mf">0.0</span><span class="p">)</span>
+
+        <span class="c1"># Two phases (sin and cos) for more uniform metric addition</span>
+        <span class="k">for</span> <span class="n">phase_offset</span> <span class="ow">in</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">]:</span>
+            <span class="n">osc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">freq</span> <span class="o">*</span> <span class="p">(</span><span class="n">phase</span> <span class="o">+</span> <span class="n">phase_offset</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+                <span class="n">R_new</span><span class="p">[:,:,</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">osc</span> <span class="o">*</span> <span class="n">normal</span><span class="p">[:,:,</span><span class="n">k</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">R_new</span></div>
+
+
+
+<div class="viewcode-block" id="add_corrugations">
+<a class="viewcode-back" href="../riemannian.html#riemannian.add_corrugations">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_corrugations</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span>
+                     <span class="n">n_iterations</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">base_freq</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.85</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Iteratively apply Nash–Kuiper corrugations to drive the metric deficit to zero.</span>
+
+<span class="sd">    Workflow:</span>
+
+<span class="sd">    1. **Short map:** Scale R by ``alpha`` &lt; 1 so that the induced metric</span>
+<span class="sd">       strictly undershoots the target everywhere (a necessary precondition</span>
+<span class="sd">       for the Nash–Kuiper scheme).</span>
+<span class="sd">    2. **Corrugation loop:** For each iteration ``k`` (0-indexed), compute</span>
+<span class="sd">       the current metric deficit, apply ``corrugation_step`` at frequency</span>
+<span class="sd">       ``base_freq · 2^k``, and record the new Frobenius deficit.  Doubling</span>
+<span class="sd">       the frequency at each step ensures that successive passes add</span>
+<span class="sd">       wrinkles at finer and finer scales without interfering destructively</span>
+<span class="sd">       with earlier corrections.</span>
+
+<span class="sd">    Progress is printed to stdout at each iteration.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    R : ndarray, shape (nu, nv, 3)</span>
+<span class="sd">        Initial embedding, typically produced by ``build_embedding``.</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        The target 2D ``Metric`` instance.</span>
+<span class="sd">    du : float</span>
+<span class="sd">        Uniform grid spacing in the u-direction.</span>
+<span class="sd">    dv : float</span>
+<span class="sd">        Uniform grid spacing in the v-direction.</span>
+<span class="sd">    U : ndarray, shape (nu, nv)</span>
+<span class="sd">        Meshgrid of u-coordinate values (``indexing=&#39;ij&#39;``).</span>
+<span class="sd">    V : ndarray, shape (nu, nv)</span>
+<span class="sd">        Meshgrid of v-coordinate values.</span>
+<span class="sd">    n_iterations : int, optional</span>
+<span class="sd">        Number of corrugation passes.  Each pass halves the length scale</span>
+<span class="sd">        of the wrinkles; 6–10 iterations are typical for smooth metrics.</span>
+<span class="sd">        Default is 6.</span>
+<span class="sd">    base_freq : float, optional</span>
+<span class="sd">        Starting spatial frequency for the first corrugation pass.</span>
+<span class="sd">        Frequencies used are ``base_freq · 2^k`` for k = 0, …, n_iterations-1.</span>
+<span class="sd">        Default is 2.</span>
+<span class="sd">    alpha : float, optional</span>
+<span class="sd">        Short-map scaling factor; must be strictly less than 1.  Values</span>
+<span class="sd">        close to 1 (e.g. 0.85–0.95) minimise the initial deficit while</span>
+<span class="sd">        still guaranteeing a true short map.  Default is 0.85.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    result : dict with the following keys:</span>
+
+<span class="sd">        ``&#39;R_short&#39;`` : ndarray, shape (nu, nv, 3)</span>
+<span class="sd">            The scaled short map used as the starting point (R · alpha).</span>
+<span class="sd">        ``&#39;R_final&#39;`` : ndarray, shape (nu, nv, 3)</span>
+<span class="sd">            The embedding after all corrugation passes.</span>
+<span class="sd">        ``&#39;snapshots&#39;`` : list of ndarray</span>
+<span class="sd">            One copy of R per iteration, starting from the short map</span>
+<span class="sd">            (``snapshots[0]``) through the final result</span>
+<span class="sd">            (``snapshots[n_iterations]``).  Useful for animation.</span>
+<span class="sd">        ``&#39;deficits&#39;`` : list of float</span>
+<span class="sd">            Frobenius norm of the metric deficit at each snapshot,</span>
+<span class="sd">            in the same order as ``snapshots``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span> <span class="o">=</span> <span class="n">_eval_metric_grid</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+
+    <span class="c1"># Scale to short map</span>
+    <span class="n">R0</span> <span class="o">=</span> <span class="n">R</span> <span class="o">*</span> <span class="n">alpha</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">d0</span> <span class="o">=</span> <span class="n">metric_deficit</span><span class="p">(</span><span class="n">R0</span><span class="p">,</span> <span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Short map deficit: </span><span class="si">{</span><span class="n">d0</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">snapshots</span> <span class="o">=</span> <span class="p">[</span><span class="n">R0</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
+    <span class="n">deficits</span>  <span class="o">=</span> <span class="p">[</span><span class="n">d0</span><span class="p">]</span>
+    <span class="n">R_curr</span>    <span class="o">=</span> <span class="n">R0</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_iterations</span><span class="p">):</span>
+        <span class="n">freq</span> <span class="o">=</span> <span class="n">base_freq</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="n">it</span><span class="p">)</span>
+        <span class="n">dg11</span><span class="p">,</span> <span class="n">dg12</span><span class="p">,</span> <span class="n">dg22</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">metric_deficit</span><span class="p">(</span><span class="n">R_curr</span><span class="p">,</span> <span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+        <span class="n">R_curr</span> <span class="o">=</span> <span class="n">corrugation_step</span><span class="p">(</span><span class="n">R_curr</span><span class="p">,</span> <span class="n">dg11</span><span class="p">,</span> <span class="n">dg12</span><span class="p">,</span> <span class="n">dg22</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">,</span> <span class="n">freq</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">metric_deficit</span><span class="p">(</span><span class="n">R_curr</span><span class="p">,</span> <span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+        <span class="n">deficits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+        <span class="n">snapshots</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">R_curr</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  iter </span><span class="si">{</span><span class="n">it</span><span class="o">+</span><span class="mi">1</span><span class="si">:</span><span class="s2">2d</span><span class="si">}</span><span class="s2">  freq=</span><span class="si">{</span><span class="n">freq</span><span class="si">:</span><span class="s2">6.1f</span><span class="si">}</span><span class="s2">  deficit=</span><span class="si">{</span><span class="n">d</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;R_short&#39;</span><span class="p">:</span>   <span class="n">R0</span><span class="p">,</span>
+        <span class="s1">&#39;R_final&#39;</span><span class="p">:</span>   <span class="n">R_curr</span><span class="p">,</span>
+        <span class="s1">&#39;snapshots&#39;</span><span class="p">:</span> <span class="n">snapshots</span><span class="p">,</span>
+        <span class="s1">&#39;deficits&#39;</span><span class="p">:</span>  <span class="n">deficits</span><span class="p">,</span>
+    <span class="p">}</span></div>
+
+
+
+<span class="c1"># ======================================================================</span>
+<span class="c1"># VISUALIZATION</span>
+<span class="c1"># ======================================================================</span>
+
+<div class="viewcode-block" id="plot_embedding">
+<a class="viewcode-back" href="../riemannian.html#riemannian.plot_embedding">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_embedding</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">colormap</span><span class="o">=</span><span class="s1">&#39;plasma&#39;</span><span class="p">,</span> <span class="n">dark</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Render a single 3D embedding as a shaded surface coloured by z-height.</span>
+
+<span class="sd">    The z-values are linearly normalised to [0, 1] before being mapped</span>
+<span class="sd">    through the chosen colormap, so the full color range is always used</span>
+<span class="sd">    regardless of the absolute scale of the embedding.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    R : ndarray, shape (nu, nv, 3)</span>
+<span class="sd">        Embedding to display.  Axes 0 and 1 are the u- and v-parameter</span>
+<span class="sd">        directions; axis 2 holds the (x, y, z) coordinates.</span>
+<span class="sd">    title : str, optional</span>
+<span class="sd">        Figure title displayed above the axes.  Default is no title.</span>
+<span class="sd">    colormap : str, optional</span>
+<span class="sd">        Any Matplotlib colormap name.  Default is ``&#39;plasma&#39;``.</span>
+<span class="sd">    dark : bool, optional</span>
+<span class="sd">        If True (default), use a near-black background and white labels,</span>
+<span class="sd">        suitable for publication or presentation slides.  If False, use</span>
+<span class="sd">        a white background with black labels.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fig : matplotlib.figure.Figure</span>
+<span class="sd">        The figure object (10 × 7 inches).</span>
+<span class="sd">    ax : matplotlib.axes.Axes3D</span>
+<span class="sd">        The 3D axes containing the surface plot.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bg</span> <span class="o">=</span> <span class="s1">&#39;#111111&#39;</span> <span class="k">if</span> <span class="n">dark</span> <span class="k">else</span> <span class="s1">&#39;white&#39;</span>
+    <span class="n">tc</span> <span class="o">=</span> <span class="s1">&#39;white&#39;</span>  <span class="k">if</span> <span class="n">dark</span> <span class="k">else</span> <span class="s1">&#39;black&#39;</span>
+
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span> <span class="o">=</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">1</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">Z_n</span> <span class="o">=</span> <span class="p">(</span><span class="n">Z</span> <span class="o">-</span> <span class="n">Z</span><span class="o">.</span><span class="n">min</span><span class="p">())</span> <span class="o">/</span> <span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">Z</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">)</span>
+
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="n">facecolor</span><span class="o">=</span><span class="n">bg</span><span class="p">)</span>
+    <span class="n">ax</span>  <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="n">bg</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot_surface</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span>
+                    <span class="n">facecolors</span><span class="o">=</span><span class="n">plt</span><span class="o">.</span><span class="n">colormaps</span><span class="p">[</span><span class="n">colormap</span><span class="p">](</span><span class="n">Z_n</span><span class="p">),</span>
+                    <span class="n">linewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">antialiased</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shade</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">tc</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div>
+
+
+
+<div class="viewcode-block" id="plot_corrugation_pipeline">
+<a class="viewcode-back" href="../riemannian.html#riemannian.plot_corrugation_pipeline">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_corrugation_pipeline</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">colormap</span><span class="o">=</span><span class="s1">&#39;plasma&#39;</span><span class="p">,</span> <span class="n">dark</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Visualise the full Nash–Kuiper corrugation pipeline in a single figure.</span>
+
+<span class="sd">    The figure has two rows:</span>
+
+<span class="sd">    * **Top row:** Up to 5 evenly spaced 3D surface snapshots from the</span>
+<span class="sd">      pipeline (short map → intermediate iterations → final embedding),</span>
+<span class="sd">      each labelled with its iteration index and Frobenius deficit.</span>
+<span class="sd">    * **Bottom row:** A line plot of the Frobenius metric deficit versus</span>
+<span class="sd">      iteration number, showing convergence toward zero.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    result : dict</span>
+<span class="sd">        The dictionary returned by ``add_corrugations``.  Must contain</span>
+<span class="sd">        keys ``&#39;snapshots&#39;`` (list of ndarray) and ``&#39;deficits&#39;`` (list</span>
+<span class="sd">        of float).</span>
+<span class="sd">    title : str, optional</span>
+<span class="sd">        Overall figure title (``suptitle``).  Default is no title.</span>
+<span class="sd">    colormap : str, optional</span>
+<span class="sd">        Any Matplotlib colormap name applied to z-height colouring.</span>
+<span class="sd">        Default is ``&#39;plasma&#39;``.</span>
+<span class="sd">    dark : bool, optional</span>
+<span class="sd">        If True (default), dark background with white text.  If False,</span>
+<span class="sd">        white background with black text.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fig : matplotlib.figure.Figure</span>
+<span class="sd">        The figure object.  Its size adapts to the number of snapshots</span>
+<span class="sd">        shown: width = 4 × n_snaps inches, height = 9 inches.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    At most 5 snapshots are shown regardless of how many iterations were</span>
+<span class="sd">    run.  The indices are chosen by ``np.linspace`` so the first (short</span>
+<span class="sd">    map) and last (final) snapshots are always included.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bg</span> <span class="o">=</span> <span class="s1">&#39;#111111&#39;</span> <span class="k">if</span> <span class="n">dark</span> <span class="k">else</span> <span class="s1">&#39;white&#39;</span>
+    <span class="n">tc</span> <span class="o">=</span> <span class="s1">&#39;white&#39;</span>   <span class="k">if</span> <span class="n">dark</span> <span class="k">else</span> <span class="s1">&#39;black&#39;</span>
+
+    <span class="n">snaps</span>    <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;snapshots&#39;</span><span class="p">]</span>
+    <span class="n">deficits</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;deficits&#39;</span><span class="p">]</span>
+
+    <span class="n">n_snaps</span>  <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">snaps</span><span class="p">),</span> <span class="mi">5</span><span class="p">)</span>
+    <span class="n">indices</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">snaps</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_snaps</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="n">n_snaps</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="n">facecolor</span><span class="o">=</span><span class="n">bg</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">plot_idx</span><span class="p">,</span> <span class="n">snap_idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">indices</span><span class="p">):</span>
+        <span class="n">R</span>  <span class="o">=</span> <span class="n">snaps</span><span class="p">[</span><span class="n">snap_idx</span><span class="p">]</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_snaps</span><span class="p">,</span> <span class="n">plot_idx</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span>
+                             <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="n">bg</span><span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span> <span class="o">=</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">1</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">Z_n</span> <span class="o">=</span> <span class="p">(</span><span class="n">Z</span> <span class="o">-</span> <span class="n">Z</span><span class="o">.</span><span class="n">min</span><span class="p">())</span> <span class="o">/</span> <span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">Z</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot_surface</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span>
+                        <span class="n">facecolors</span><span class="o">=</span><span class="n">plt</span><span class="o">.</span><span class="n">colormaps</span><span class="p">[</span><span class="n">colormap</span><span class="p">](</span><span class="n">Z_n</span><span class="p">),</span>
+                        <span class="n">linewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">antialiased</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shade</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="s1">&#39;Short map&#39;</span> <span class="k">if</span> <span class="n">snap_idx</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;iter </span><span class="si">{</span><span class="n">snap_idx</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="se">\n</span><span class="s2">deficit=</span><span class="si">{</span><span class="n">deficits</span><span class="p">[</span><span class="n">snap_idx</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                     <span class="n">color</span><span class="o">=</span><span class="n">tc</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_facecolor</span><span class="p">(</span><span class="n">bg</span><span class="p">)</span>
+
+    <span class="c1"># Deficit convergence curve</span>
+    <span class="n">ax2</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="n">bg</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">deficits</span><span class="p">,</span> <span class="s1">&#39;o-&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;#00aaff&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Iteration&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">tc</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Metric deficit (Frobenius)&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">tc</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Convergence&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">tc</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span><span class="n">colors</span><span class="o">=</span><span class="n">tc</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">spine</span> <span class="ow">in</span> <span class="n">ax2</span><span class="o">.</span><span class="n">spines</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="n">spine</span><span class="o">.</span><span class="n">set_color</span><span class="p">(</span><span class="s1">&#39;#444444&#39;</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_facecolor</span><span class="p">(</span><span class="n">bg</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;white&#39;</span> <span class="k">if</span> <span class="n">dark</span> <span class="k">else</span> <span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">tc</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">fig</span></div>
+
 </pre></div>
 
            </div>

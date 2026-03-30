@@ -228,6 +228,7 @@ import numpy as np
 from scipy.sparse import lil_matrix, diags, coo_matrix
 from scipy.sparse.linalg import spsolve
 from scipy.sparse import diags
+import matplotlib.pyplot as plt
 
 
 # ============================================================================
@@ -4548,3 +4549,667 @@ def _visualize_curvature_2d(metric, x_range, y_range, resolution, quantity, cmap
     plt.axis('equal')
     plt.tight_layout()
     plt.show()
+
+
+from mpl_toolkits.mplot3d import Axes3D
+
+
+def _eval_metric_grid(metric, U, V):
+    """
+    Evaluate the three independent metric components on a meshgrid.
+
+    Calls the pre-compiled lambdified functions stored in ``metric.g_func``
+    at every grid point simultaneously and broadcasts scalar results to the
+    full grid shape.  The copy at the end ensures that downstream mutations
+    (e.g. in-place clipping) do not alias the cached lambdas.
+
+    Parameters
+    ----------
+    metric : Metric
+        A ``Metric`` instance whose ``g_func`` dict contains callable entries
+        for keys ``(0,0)``, ``(0,1)``, and ``(1,1)``.
+    U : ndarray, shape (nu, nv)
+        First coordinate values on the meshgrid (``indexing='ij'``).
+    V : ndarray, shape (nu, nv)
+        Second coordinate values on the meshgrid.
+
+    Returns
+    -------
+    g11 : ndarray, shape (nu, nv)
+        Component g_{uu} of the metric tensor.
+    g12 : ndarray, shape (nu, nv)
+        Off-diagonal component g_{uv} = g_{vu}.
+    g22 : ndarray, shape (nu, nv)
+        Component g_{vv} of the metric tensor.
+
+    Notes
+    -----
+    The metric is assumed to be symmetric, so only the upper triangle
+    ``(0,0)``, ``(0,1)``, ``(1,1)`` is stored and returned.
+    """
+    g11 = np.broadcast_to(
+        np.asarray(metric.g_func[(0,0)](U, V), dtype=float), U.shape).copy()
+    g12 = np.broadcast_to(
+        np.asarray(metric.g_func[(0,1)](U, V), dtype=float), U.shape).copy()
+    g22 = np.broadcast_to(
+        np.asarray(metric.g_func[(1,1)](U, V), dtype=float), U.shape).copy()
+    return g11, g12, g22
+
+
+def _eval_curvature_grid(metric, U, V):
+    """
+    Evaluate the Gaussian curvature K on a meshgrid.
+
+    Lambdifies the symbolic ``gauss_curvature()`` expression from ``metric``
+    at call time and evaluates it over the full grid in one vectorised pass.
+
+    Parameters
+    ----------
+    metric : Metric
+        A 2D ``Metric`` instance.  Calling ``metric.gauss_curvature()``
+        must return a SymPy expression in the two coordinate symbols stored
+        in ``metric.coords``.
+    U : ndarray, shape (nu, nv)
+        First coordinate values on the meshgrid.
+    V : ndarray, shape (nu, nv)
+        Second coordinate values on the meshgrid.
+
+    Returns
+    -------
+    K : ndarray, shape (nu, nv)
+        Gaussian curvature K(u, v) at each grid point.
+
+    Notes
+    -----
+    A fresh ``lambdify`` call is made every time this function is invoked.
+    For performance-critical loops, consider caching the lambda externally
+    and calling it directly.
+    """
+    K_lam = lambdify(metric.coords, metric.gauss_curvature(), 'numpy')
+    return np.broadcast_to(
+        np.asarray(K_lam(U, V), dtype=float), U.shape).copy()
+
+
+def induced_metric(R, du, dv):
+    """
+    Compute the metric tensor induced by a 3D embedding via finite differences.
+
+    Given a surface parameterised as R(u, v) ∈ ℝ³, the induced (pullback)
+    metric is defined by
+
+        g_{ij} = ⟨∂_i R, ∂_j R⟩,
+
+    i.e.  g11 = |∂R/∂u|², g12 = ⟨∂R/∂u, ∂R/∂v⟩, g22 = |∂R/∂v|².
+
+    Partial derivatives are approximated with second-order central differences
+    in the interior and first-order one-sided differences at the boundary rows
+    and columns.
+
+    Parameters
+    ----------
+    R : ndarray, shape (nu, nv, 3)
+        Embedding array.  ``R[i, j]`` is the position vector in ℝ³ at the
+        grid point (u_i, v_j).
+    du : float
+        Uniform grid spacing in the u-direction.
+    dv : float
+        Uniform grid spacing in the v-direction.
+
+    Returns
+    -------
+    g11 : ndarray, shape (nu, nv)
+        ⟨∂R/∂u, ∂R/∂u⟩ at each grid point.
+    g12 : ndarray, shape (nu, nv)
+        ⟨∂R/∂u, ∂R/∂v⟩ at each grid point.
+    g22 : ndarray, shape (nu, nv)
+        ⟨∂R/∂v, ∂R/∂v⟩ at each grid point.
+    dRdu : ndarray, shape (nu, nv, 3)
+        Finite-difference approximation of ∂R/∂u.
+    dRdv : ndarray, shape (nu, nv, 3)
+        Finite-difference approximation of ∂R/∂v.
+
+    Notes
+    -----
+    The returned ``dRdu`` and ``dRdv`` are reused by ``metric_deficit`` and
+    ``corrugation_step`` to avoid redundant computation.
+    """
+    dRdu = np.zeros_like(R)
+    dRdu[1:-1] = (R[2:] - R[:-2]) / (2*du)
+    dRdu[0]    = (R[1]  - R[0])   / du
+    dRdu[-1]   = (R[-1] - R[-2])  / du
+
+    dRdv = np.zeros_like(R)
+    dRdv[:,1:-1] = (R[:,2:] - R[:,:-2]) / (2*dv)
+    dRdv[:,0]    = (R[:,1]  - R[:,0])   / dv
+    dRdv[:,-1]   = (R[:,-1] - R[:,-2]) / dv
+
+    g11 = np.einsum('ijk,ijk->ij', dRdu, dRdu)
+    g12 = np.einsum('ijk,ijk->ij', dRdu, dRdv)
+    g22 = np.einsum('ijk,ijk->ij', dRdv, dRdv)
+    return g11, g12, g22, dRdu, dRdv
+
+
+def metric_deficit(R, g11_t, g12_t, g22_t, du, dv):
+    """
+    Compute the pointwise metric deficit and its Frobenius norm.
+
+    The deficit is the difference between the target metric (the abstract
+    Riemannian tensor we wish to realise) and the metric actually induced by
+    the current embedding R:
+
+        Δg = g_target − g_induced(R).
+
+    The scalar summary is the root-mean-square Frobenius norm
+
+        ‖Δg‖_F = sqrt( mean( Δg11² + 2·Δg12² + Δg22² ) ),
+
+    where the factor of 2 on the off-diagonal term accounts for symmetry.
+    This quantity monotonically decreasing toward zero is the convergence
+    criterion used by ``add_corrugations``.
+
+    Parameters
+    ----------
+    R : ndarray, shape (nu, nv, 3)
+        Current embedding.
+    g11_t : ndarray, shape (nu, nv)
+        Target metric component g_{uu}.
+    g12_t : ndarray, shape (nu, nv)
+        Target metric component g_{uv}.
+    g22_t : ndarray, shape (nu, nv)
+        Target metric component g_{vv}.
+    du : float
+        Uniform grid spacing in the u-direction.
+    dv : float
+        Uniform grid spacing in the v-direction.
+
+    Returns
+    -------
+    dg11 : ndarray, shape (nu, nv)
+        Pointwise deficit in the g_{uu} component.
+    dg12 : ndarray, shape (nu, nv)
+        Pointwise deficit in the g_{uv} component.
+    dg22 : ndarray, shape (nu, nv)
+        Pointwise deficit in the g_{vv} component.
+    frob : float
+        RMS Frobenius norm of the deficit matrix over the grid.
+    """
+    g11_i, g12_i, g22_i, _, _ = induced_metric(R, du, dv)
+    dg11 = g11_t - g11_i
+    dg12 = g12_t - g12_i
+    dg22 = g22_t - g22_i
+    frob = float(np.sqrt(np.mean(dg11**2 + 2*dg12**2 + dg22**2)))
+    return dg11, dg12, dg22, frob
+
+def build_embedding(metric, u_range, v_range, nu, nv):
+    """
+    Construct a C¹ 3D embedding that approximately realises a given 2D metric.
+
+    The algorithm marches row by row in the v-direction, maintaining an
+    orthonormal Darboux frame (E1, E2, N) at each grid point:
+
+    * **Initialisation (j = 0):** The bottom row is placed along the x-axis
+      with arc-length spacing determined by √g₁₁ · du.  E1 points along x,
+      N along z, and E2 along y.  The v-derivative dR/dv is initialised from
+      the metric components g₁₂ and g₂₂.
+
+    * **Row advance (j → j+1):**
+        1. Positions are stepped as R[:, j+1] = R[:, j] + dv · dR/dv[:, j].
+        2. The surface normal N is evolved via the Weingarten map using the
+           shape-operator coefficient h₂₂, derived from K and the metric.
+        3. E1 is re-estimated from a finite difference of the new row.
+        4. E2 is recomputed as N × E1 to maintain right-handedness.
+        5. dR/dv for the new row is reconstructed from g₁₂, g₂₂, E1, E2.
+
+    This is a first-order explicit integration scheme; accuracy improves with
+    finer grids (larger nu, nv).
+
+    Parameters
+    ----------
+    metric : Metric
+        A 2D ``Metric`` instance providing ``g_func`` and ``gauss_curvature()``.
+    u_range : tuple of float
+        (u_min, u_max) — parameter range in the u-direction.
+    v_range : tuple of float
+        (v_min, v_max) — parameter range in the v-direction.
+    nu : int
+        Number of grid points in the u-direction.
+    nv : int
+        Number of grid points in the v-direction.
+
+    Returns
+    -------
+    R : ndarray, shape (nu, nv, 3)
+        The constructed embedding.
+    u_vals : ndarray, shape (nu,)
+        Uniformly spaced u parameter values.
+    v_vals : ndarray, shape (nv,)
+        Uniformly spaced v parameter values.
+
+    Notes
+    -----
+    The embedding is not guaranteed to be isometric — use ``metric_deficit``
+    to assess how well g_induced matches g_target, and pass the result to
+    ``add_corrugations`` to reduce the deficit iteratively.
+
+    The sign of the Gaussian curvature K determines whether h₂₂ causes the
+    normal to tilt toward or away from the surface, which is how positive
+    and negative curvature are distinguished geometrically.
+    """
+    u_vals = np.linspace(u_range[0], u_range[1], nu)
+    v_vals = np.linspace(v_range[0], v_range[1], nv)
+    du = u_vals[1] - u_vals[0]
+    dv = v_vals[1] - v_vals[0]
+    U, V = np.meshgrid(u_vals, v_vals, indexing='ij')
+
+    # Pre‑compute metric components and Gaussian curvature on the whole grid
+    g11, g12, g22 = _eval_metric_grid(metric, U, V)
+    K = _eval_curvature_grid(metric, U, V)
+
+    # Allocate output arrays
+    R    = np.zeros((nu, nv, 3))
+    dRdv = np.zeros((nu, nv, 3))
+    E1   = np.zeros((nu, nv, 3))
+    E2   = np.zeros((nu, nv, 3))
+    N    = np.zeros((nu, nv, 3))
+
+    # ------------------------------------------------------------------
+    #  Bottom row (j = 0)
+    # ------------------------------------------------------------------
+    # Place points along the x‑axis using cumulative sum of sqrt(g11) * du
+    # (average between adjacent grid points)
+    dx = np.sqrt(0.5 * (g11[:-1, 0] + g11[1:, 0])) * du
+    x_vals = np.concatenate(([0.0], np.cumsum(dx)))
+    R[:, 0, 0] = x_vals
+    R[:, 0, 1] = 0.0
+    R[:, 0, 2] = 0.0
+
+    # Initial Darboux frame: E1 along x, N along z, E2 along y
+    E1[:, 0] = [1.0, 0.0, 0.0]
+    N [:, 0] = [0.0, 0.0, 1.0]
+    E2[:, 0] = [0.0, 1.0, 0.0]
+
+    # dR/dv at bottom row from metric constraints
+    par = g12[:, 0] / np.sqrt(np.maximum(g11[:, 0], 1e-14))
+    rem = np.sqrt(np.maximum(g22[:, 0] - par**2, 0.0))
+    dRdv[:, 0] = (par[:, np.newaxis] * E1[:, 0] +
+                  rem[:, np.newaxis] * E2[:, 0])
+
+    # ------------------------------------------------------------------
+    #  March upward row by row (vectorized over i)
+    # ------------------------------------------------------------------
+    for j in range(nv - 1):
+        # Advance positions
+        R[:, j+1] = R[:, j] + dv * dRdv[:, j]
+
+        # 1) Weingarten: evolve normal N
+        g11_ij = g11[:, j]
+        g22_ij = g22[:, j]
+        K_ij   = K[:, j]
+
+        s = np.sign(K_ij)
+        s[np.abs(K_ij) <= 1e-12] = 0.0   # handle near‑zero curvature
+
+        h22 = (s *
+               np.sqrt(np.abs(K_ij) *
+                       np.maximum(g22_ij / np.maximum(g11_ij, 1e-14), 0.0)) *
+               g22_ij)
+
+        factor = -h22 / np.maximum(g22_ij, 1e-14)
+        N_new = N[:, j] + dv * factor[:, np.newaxis] * E2[:, j]
+        norm = np.linalg.norm(N_new, axis=1, keepdims=True)
+        N[:, j+1] = N_new / np.maximum(norm, 1e-10)
+
+        # 2) Compute dR/du at the new row using finite differences
+        #    (central difference interior, one‑sided at boundaries)
+        dRdu = np.zeros((nu, 3))
+        # interior points
+        dRdu[1:-1] = (R[2:, j+1] - R[:-2, j+1]) / (2 * du)
+        # boundaries
+        dRdu[0]    = (R[1, j+1]  - R[0, j+1])   / du
+        dRdu[-1]   = (R[-1, j+1] - R[-2, j+1])  / du
+
+        # 3) Update E1 = dRdu / |dRdu|
+        norm = np.linalg.norm(dRdu, axis=1, keepdims=True)
+        E1[:, j+1] = dRdu / np.maximum(norm, 1e-10)
+
+        # 4) Compute E2 = N x E1  (cross product) and normalise
+        E2[:, j+1] = np.cross(N[:, j+1], E1[:, j+1])
+        norm = np.linalg.norm(E2[:, j+1], axis=1, keepdims=True)
+        E2[:, j+1] /= np.maximum(norm, 1e-10)
+
+        # 5) Compute dR/dv for the new row from metric components
+        par = g12[:, j+1] / np.sqrt(np.maximum(g11[:, j+1], 1e-14))
+        rem = np.sqrt(np.maximum(g22[:, j+1] - par**2, 0.0))
+        dRdv[:, j+1] = (par[:, np.newaxis] * E1[:, j+1] +
+                        rem[:, np.newaxis] * E2[:, j+1])
+
+    return R, u_vals, v_vals
+
+# ======================================================================
+# CORRUGATION LAYER  (shared by both methods)
+# ======================================================================
+
+def corrugation_step(R, dg11, dg12, dg22, du, dv, freq):
+    """
+    Apply one Nash–Kuiper corrugation pass to reduce the metric deficit.
+
+    The Nash–Kuiper theorem guarantees that any short map into ℝ³ can be
+    approximated arbitrarily closely by a C¹ isometric embedding via an
+    infinite sequence of corrugation steps.  Each step decomposes the
+    symmetric deficit tensor Δg pointwise into two rank-1 terms via its
+    eigendecomposition, then adds a sinusoidal normal oscillation that
+    fills each positive eigenvalue in the phase-averaged sense.
+
+    For eigenvalue λ and eigenvector direction w, the oscillation is
+
+        R ← R + ρ · sin(2π·freq·⟨w, coord⟩ + φ) · n̂,
+
+    with amplitude  ρ = √λ / (√2 · π · freq),  chosen so that the added
+    corrugation contributes exactly λ·w⊗w to the induced metric after
+    phase averaging.  Two phase offsets (0 and π/2) are applied per
+    eigenvector to improve uniformity across the grid.
+
+    Parameters
+    ----------
+    R : ndarray, shape (N, N, 3)
+        Current embedding.  Must be square (nu == nv == N) as the
+        coordinate phase arrays are built from a single size N.
+    dg11 : ndarray, shape (N, N)
+        Metric deficit in the g_{uu} component (target minus induced).
+    dg12 : ndarray, shape (N, N)
+        Metric deficit in the g_{uv} component.
+    dg22 : ndarray, shape (N, N)
+        Metric deficit in the g_{vv} component.
+    du : float
+        Grid spacing in the u-direction (used to scale the phase coordinate).
+    dv : float
+        Grid spacing in the v-direction.
+    freq : float
+        Spatial frequency of the corrugation oscillation.  Higher values
+        produce finer wrinkles.  The corrugation formula is exact only in
+        the limit freq → ∞; in practice ``freq`` should satisfy
+        freq ≪ N / (2·L) (Nyquist limit relative to the domain size L).
+        Recommended range: 2–8 for fine grids.
+
+    Returns
+    -------
+    R_new : ndarray, shape (N, N, 3)
+        Updated embedding after the corrugation pass.  The input ``R``
+        is not modified in place.
+
+    Notes
+    -----
+    Only positive eigenvalues of Δg are corrugated; negative eigenvalues
+    (where the induced metric already overshoots the target) are ignored.
+    Repeatedly calling this function with doubling frequency (as done by
+    ``add_corrugations``) converges to an isometric embedding.
+    """
+    N = R.shape[0]
+    _, _, _, dRdu, dRdv = induced_metric(R, du, dv)
+
+    # Surface normal
+    n = np.cross(dRdu, dRdv)
+    normal = n / np.maximum(np.linalg.norm(n, axis=2, keepdims=True), 1e-10)
+
+    # Rank-1 decomposition of delta_g at each point
+    tr   = dg11 + dg22
+    disc = np.sqrt(np.maximum(0.25*(dg11 - dg22)**2 + dg12**2, 0.0))
+    lam1 = 0.5*tr + disc
+    lam2 = 0.5*tr - disc
+
+    # Grid index arrays scaled to arc-length coordinates
+    ii = np.arange(N)[:,None] * np.ones(N)[None,:] * du
+    jj = np.ones(N)[:,None]   * np.arange(N)[None,:] * dv
+
+    R_new = R.copy()
+    for lam_grid, which in [(lam1, 1), (lam2, 2)]:
+        pos = lam_grid > 1e-6
+        if not pos.any():
+            continue
+
+        # Eigenvector of delta_g for this eigenvalue
+        wx = dg12.copy()
+        wy = (lam1 if which == 1 else lam2) - dg11
+        w_norm = np.maximum(np.sqrt(wx**2 + wy**2), 1e-10)
+        wx /= w_norm
+        wy /= w_norm
+
+        # Phase along eigenvector direction
+        phase = wx * ii + wy * jj
+
+        # Amplitude: fills deficit in the phase-averaged sense
+        rho = np.where(pos,
+                       np.sqrt(np.maximum(lam_grid, 0.0)) / (np.sqrt(2)*np.pi*freq),
+                       0.0)
+
+        # Two phases (sin and cos) for more uniform metric addition
+        for phase_offset in [0.0, 0.25]:
+            osc = np.sin(2*np.pi*freq * (phase + phase_offset))
+            for k in range(3):
+                R_new[:,:,k] += rho * osc * normal[:,:,k]
+
+    return R_new
+
+
+def add_corrugations(R, metric, du, dv, U, V,
+                     n_iterations=6, base_freq=2, alpha=0.85):
+    """
+    Iteratively apply Nash–Kuiper corrugations to drive the metric deficit to zero.
+
+    Workflow:
+
+    1. **Short map:** Scale R by ``alpha`` < 1 so that the induced metric
+       strictly undershoots the target everywhere (a necessary precondition
+       for the Nash–Kuiper scheme).
+    2. **Corrugation loop:** For each iteration ``k`` (0-indexed), compute
+       the current metric deficit, apply ``corrugation_step`` at frequency
+       ``base_freq · 2^k``, and record the new Frobenius deficit.  Doubling
+       the frequency at each step ensures that successive passes add
+       wrinkles at finer and finer scales without interfering destructively
+       with earlier corrections.
+
+    Progress is printed to stdout at each iteration.
+
+    Parameters
+    ----------
+    R : ndarray, shape (nu, nv, 3)
+        Initial embedding, typically produced by ``build_embedding``.
+    metric : Metric
+        The target 2D ``Metric`` instance.
+    du : float
+        Uniform grid spacing in the u-direction.
+    dv : float
+        Uniform grid spacing in the v-direction.
+    U : ndarray, shape (nu, nv)
+        Meshgrid of u-coordinate values (``indexing='ij'``).
+    V : ndarray, shape (nu, nv)
+        Meshgrid of v-coordinate values.
+    n_iterations : int, optional
+        Number of corrugation passes.  Each pass halves the length scale
+        of the wrinkles; 6–10 iterations are typical for smooth metrics.
+        Default is 6.
+    base_freq : float, optional
+        Starting spatial frequency for the first corrugation pass.
+        Frequencies used are ``base_freq · 2^k`` for k = 0, …, n_iterations-1.
+        Default is 2.
+    alpha : float, optional
+        Short-map scaling factor; must be strictly less than 1.  Values
+        close to 1 (e.g. 0.85–0.95) minimise the initial deficit while
+        still guaranteeing a true short map.  Default is 0.85.
+
+    Returns
+    -------
+    result : dict with the following keys:
+
+        ``'R_short'`` : ndarray, shape (nu, nv, 3)
+            The scaled short map used as the starting point (R · alpha).
+        ``'R_final'`` : ndarray, shape (nu, nv, 3)
+            The embedding after all corrugation passes.
+        ``'snapshots'`` : list of ndarray
+            One copy of R per iteration, starting from the short map
+            (``snapshots[0]``) through the final result
+            (``snapshots[n_iterations]``).  Useful for animation.
+        ``'deficits'`` : list of float
+            Frobenius norm of the metric deficit at each snapshot,
+            in the same order as ``snapshots``.
+    """
+    g11, g12, g22 = _eval_metric_grid(metric, U, V)
+
+    # Scale to short map
+    R0 = R * alpha
+    _, _, _, d0 = metric_deficit(R0, g11, g12, g22, du, dv)
+    print(f"Short map deficit: {d0:.4f}")
+
+    snapshots = [R0.copy()]
+    deficits  = [d0]
+    R_curr    = R0.copy()
+
+    for it in range(n_iterations):
+        freq = base_freq * (2**it)
+        dg11, dg12, dg22, _ = metric_deficit(R_curr, g11, g12, g22, du, dv)
+        R_curr = corrugation_step(R_curr, dg11, dg12, dg22, du, dv, freq)
+        _, _, _, d = metric_deficit(R_curr, g11, g12, g22, du, dv)
+        deficits.append(d)
+        snapshots.append(R_curr.copy())
+        print(f"  iter {it+1:2d}  freq={freq:6.1f}  deficit={d:.4f}")
+
+    return {
+        'R_short':   R0,
+        'R_final':   R_curr,
+        'snapshots': snapshots,
+        'deficits':  deficits,
+    }
+
+
+# ======================================================================
+# VISUALIZATION
+# ======================================================================
+
+def plot_embedding(R, title="", colormap='plasma', dark=True):
+    """
+    Render a single 3D embedding as a shaded surface coloured by z-height.
+
+    The z-values are linearly normalised to [0, 1] before being mapped
+    through the chosen colormap, so the full color range is always used
+    regardless of the absolute scale of the embedding.
+
+    Parameters
+    ----------
+    R : ndarray, shape (nu, nv, 3)
+        Embedding to display.  Axes 0 and 1 are the u- and v-parameter
+        directions; axis 2 holds the (x, y, z) coordinates.
+    title : str, optional
+        Figure title displayed above the axes.  Default is no title.
+    colormap : str, optional
+        Any Matplotlib colormap name.  Default is ``'plasma'``.
+    dark : bool, optional
+        If True (default), use a near-black background and white labels,
+        suitable for publication or presentation slides.  If False, use
+        a white background with black labels.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The figure object (10 × 7 inches).
+    ax : matplotlib.axes.Axes3D
+        The 3D axes containing the surface plot.
+    """
+    bg = '#111111' if dark else 'white'
+    tc = 'white'  if dark else 'black'
+
+    X, Y, Z = R[:,:,0], R[:,:,1], R[:,:,2]
+    Z_n = (Z - Z.min()) / (Z.max() - Z.min() + 1e-12)
+
+    fig = plt.figure(figsize=(10, 7), facecolor=bg)
+    ax  = fig.add_subplot(111, projection='3d', facecolor=bg)
+    ax.plot_surface(X, Y, Z,
+                    facecolors=plt.colormaps[colormap](Z_n),
+                    linewidth=0, antialiased=True, shade=True)
+    ax.set_title(title, color=tc, fontsize=12, pad=15)
+    ax.set_axis_off()
+    plt.tight_layout()
+    plt.show()
+    return fig, ax
+
+
+def plot_corrugation_pipeline(result, title="", colormap='plasma', dark=True):
+    """
+    Visualise the full Nash–Kuiper corrugation pipeline in a single figure.
+
+    The figure has two rows:
+
+    * **Top row:** Up to 5 evenly spaced 3D surface snapshots from the
+      pipeline (short map → intermediate iterations → final embedding),
+      each labelled with its iteration index and Frobenius deficit.
+    * **Bottom row:** A line plot of the Frobenius metric deficit versus
+      iteration number, showing convergence toward zero.
+
+    Parameters
+    ----------
+    result : dict
+        The dictionary returned by ``add_corrugations``.  Must contain
+        keys ``'snapshots'`` (list of ndarray) and ``'deficits'`` (list
+        of float).
+    title : str, optional
+        Overall figure title (``suptitle``).  Default is no title.
+    colormap : str, optional
+        Any Matplotlib colormap name applied to z-height colouring.
+        Default is ``'plasma'``.
+    dark : bool, optional
+        If True (default), dark background with white text.  If False,
+        white background with black text.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The figure object.  Its size adapts to the number of snapshots
+        shown: width = 4 × n_snaps inches, height = 9 inches.
+
+    Notes
+    -----
+    At most 5 snapshots are shown regardless of how many iterations were
+    run.  The indices are chosen by ``np.linspace`` so the first (short
+    map) and last (final) snapshots are always included.
+    """
+    bg = '#111111' if dark else 'white'
+    tc = 'white'   if dark else 'black'
+
+    snaps    = result['snapshots']
+    deficits = result['deficits']
+
+    n_snaps  = min(len(snaps), 5)
+    indices  = np.linspace(0, len(snaps)-1, n_snaps, dtype=int)
+
+    fig = plt.figure(figsize=(4*n_snaps, 9), facecolor=bg)
+
+    for plot_idx, snap_idx in enumerate(indices):
+        R  = snaps[snap_idx]
+        ax = fig.add_subplot(2, n_snaps, plot_idx+1,
+                             projection='3d', facecolor=bg)
+        X, Y, Z = R[:,:,0], R[:,:,1], R[:,:,2]
+        Z_n = (Z - Z.min()) / (Z.max() - Z.min() + 1e-12)
+        ax.plot_surface(X, Y, Z,
+                        facecolors=plt.colormaps[colormap](Z_n),
+                        linewidth=0, antialiased=True, shade=True)
+        label = 'Short map' if snap_idx == 0 else f'iter {snap_idx}'
+        ax.set_title(f"{label}\ndeficit={deficits[snap_idx]:.3f}",
+                     color=tc, fontsize=9)
+        ax.set_axis_off()
+        ax.set_facecolor(bg)
+
+    # Deficit convergence curve
+    ax2 = fig.add_subplot(2, 1, 2, facecolor=bg)
+    ax2.plot(deficits, 'o-', color='#00aaff', linewidth=2, markersize=5)
+    ax2.set_xlabel('Iteration', color=tc)
+    ax2.set_ylabel('Metric deficit (Frobenius)', color=tc)
+    ax2.set_title('Convergence', color=tc)
+    ax2.tick_params(colors=tc)
+    for spine in ax2.spines.values():
+        spine.set_color('#444444')
+    ax2.set_facecolor(bg)
+    ax2.grid(True, alpha=0.2, color='white' if dark else 'gray')
+
+    plt.suptitle(title, color=tc, fontsize=13)
+    plt.tight_layout()
+    plt.show()
+    return fig

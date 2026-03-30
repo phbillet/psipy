@@ -203,7 +203,7 @@ class TestGridAndBoundary:
 
     def test_invalid_boundary_condition_raises(self):
         solver = self._make_solver_1d()
-        solver.boundary_condition = 'neumann'  # unsupported
+        solver.boundary_condition = 'zorglub'  # unsupported
         u = np.zeros(32)
         with pytest.raises(ValueError, match="Invalid boundary condition"):
             solver._apply_boundary(u)

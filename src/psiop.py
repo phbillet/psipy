@@ -333,7 +333,7 @@ class PseudoDifferentialOperator:
             )
         
         # Case 3: Dirichlet BC (non-periodic)
-        elif boundary_condition == 'dirichlet':
+        elif (boundary_condition == 'dirichlet' or boundary_condition == 'neumann'):
             symbol_func = self._get_symbol_func()
             
             if self.dim == 1:

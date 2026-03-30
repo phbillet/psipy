@@ -101,8 +101,11 @@
 <li class="toctree-l3"><a class="reference internal" href="#riemannian.RiemannianGrid.solve_poisson_neumann"><code class="docutils literal notranslate"><span class="pre">RiemannianGrid.solve_poisson_neumann()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.add_corrugations"><code class="docutils literal notranslate"><span class="pre">add_corrugations()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.analyze_hodge_decomposition"><code class="docutils literal notranslate"><span class="pre">analyze_hodge_decomposition()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.build_embedding"><code class="docutils literal notranslate"><span class="pre">build_embedding()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.christoffel"><code class="docutils literal notranslate"><span class="pre">christoffel()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.corrugation_step"><code class="docutils literal notranslate"><span class="pre">corrugation_step()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.de_rham_laplacian"><code class="docutils literal notranslate"><span class="pre">de_rham_laplacian()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.distance"><code class="docutils literal notranslate"><span class="pre">distance()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.exponential_map"><code class="docutils literal notranslate"><span class="pre">exponential_map()</span></code></a></li>
@@ -113,9 +116,13 @@
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_decomposition_1form"><code class="docutils literal notranslate"><span class="pre">hodge_decomposition_1form()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_decomposition_2form"><code class="docutils literal notranslate"><span class="pre">hodge_decomposition_2form()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_star"><code class="docutils literal notranslate"><span class="pre">hodge_star()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.induced_metric"><code class="docutils literal notranslate"><span class="pre">induced_metric()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.jacobi_equation_solver"><code class="docutils literal notranslate"><span class="pre">jacobi_equation_solver()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.laplace_beltrami"><code class="docutils literal notranslate"><span class="pre">laplace_beltrami()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.metric_deficit"><code class="docutils literal notranslate"><span class="pre">metric_deficit()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.parallel_transport"><code class="docutils literal notranslate"><span class="pre">parallel_transport()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.plot_corrugation_pipeline"><code class="docutils literal notranslate"><span class="pre">plot_corrugation_pipeline()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.plot_embedding"><code class="docutils literal notranslate"><span class="pre">plot_embedding()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.sturm_liouville_reduce"><code class="docutils literal notranslate"><span class="pre">sturm_liouville_reduce()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.verify_gauss_bonnet"><code class="docutils literal notranslate"><span class="pre">verify_gauss_bonnet()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.visualize_curvature"><code class="docutils literal notranslate"><span class="pre">visualize_curvature()</span></code></a></li>
@@ -299,7 +306,7 @@ In 1D this simplifies to  x_tt + Gamma^1_11 x_t^2 = 0  with
 Gamma^1_11 = 1/2 (log g_11)’.</p>
 <p><strong>Curvature</strong> is encoded in the Riemann tensor R^i_jkl, the Ricci tensor
 R_ij = R^k_ikj, and the scalar curvature R = g^ij R_ij.  In 2D the Gaussian
-curvature K is the only independent component: R_1212 = K <a href="#id15"><span class="problematic" id="id16">|g|</span></a>.</p>
+curvature K is the only independent component: R_1212 = K <a href="#id19"><span class="problematic" id="id20">|g|</span></a>.</p>
 <p>The <strong>Laplace-Beltrami operator</strong> on scalar functions is</p>
 <blockquote>
 <div><p>Delta = <a href="#id1"><span class="problematic" id="id2">|</span></a>g|^{-1/2} d_i ( <a href="#id3"><span class="problematic" id="id4">|</span></a>g|^{1/2} g^ij d_j ),</p>
@@ -1366,6 +1373,66 @@ the interior node condition.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="riemannian.add_corrugations">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">add_corrugations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">du</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">V</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_iterations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_freq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.85</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#add_corrugations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.add_corrugations" title="Link to this definition"></a></dt>
+<dd><p>Iteratively apply Nash–Kuiper corrugations to drive the metric deficit to zero.</p>
+<p>Workflow:</p>
+<ol class="arabic simple">
+<li><p><strong>Short map:</strong> Scale R by <code class="docutils literal notranslate"><span class="pre">alpha</span></code> &lt; 1 so that the induced metric
+strictly undershoots the target everywhere (a necessary precondition
+for the Nash–Kuiper scheme).</p></li>
+<li><p><strong>Corrugation loop:</strong> For each iteration <code class="docutils literal notranslate"><span class="pre">k</span></code> (0-indexed), compute
+the current metric deficit, apply <code class="docutils literal notranslate"><span class="pre">corrugation_step</span></code> at frequency
+<code class="docutils literal notranslate"><span class="pre">base_freq</span> <span class="pre">·</span> <span class="pre">2^k</span></code>, and record the new Frobenius deficit.  Doubling
+the frequency at each step ensures that successive passes add
+wrinkles at finer and finer scales without interfering destructively
+with earlier corrections.</p></li>
+</ol>
+<p>Progress is printed to stdout at each iteration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>R</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>nu</em><em>, </em><em>nv</em><em>, </em><em>3</em><em>)</em>) – Initial embedding, typically produced by <code class="docutils literal notranslate"><span class="pre">build_embedding</span></code>.</p></li>
+<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian.Metric" title="riemannian.Metric"><em>Metric</em></a>) – The target 2D <code class="docutils literal notranslate"><span class="pre">Metric</span></code> instance.</p></li>
+<li><p><strong>du</strong> (<em>float</em>) – Uniform grid spacing in the u-direction.</p></li>
+<li><p><strong>dv</strong> (<em>float</em>) – Uniform grid spacing in the v-direction.</p></li>
+<li><p><strong>U</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>nu</em><em>, </em><em>nv</em><em>)</em>) – Meshgrid of u-coordinate values (<code class="docutils literal notranslate"><span class="pre">indexing='ij'</span></code>).</p></li>
+<li><p><strong>V</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>nu</em><em>, </em><em>nv</em><em>)</em>) – Meshgrid of v-coordinate values.</p></li>
+<li><p><strong>n_iterations</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of corrugation passes.  Each pass halves the length scale
+of the wrinkles; 6–10 iterations are typical for smooth metrics.
+Default is 6.</p></li>
+<li><p><strong>base_freq</strong> (<em>float</em><em>, </em><em>optional</em>) – Starting spatial frequency for the first corrugation pass.
+Frequencies used are <code class="docutils literal notranslate"><span class="pre">base_freq</span> <span class="pre">·</span> <span class="pre">2^k</span></code> for k = 0, …, n_iterations-1.
+Default is 2.</p></li>
+<li><p><strong>alpha</strong> (<em>float</em><em>, </em><em>optional</em>) – Short-map scaling factor; must be strictly less than 1.  Values
+close to 1 (e.g. 0.85–0.95) minimise the initial deficit while
+still guaranteeing a true short map.  Default is 0.85.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p><strong>result</strong> –</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">'R_short'</span></code><span class="classifier">ndarray, shape (nu, nv, 3)</span></dt><dd><p>The scaled short map used as the starting point (R · alpha).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">'R_final'</span></code><span class="classifier">ndarray, shape (nu, nv, 3)</span></dt><dd><p>The embedding after all corrugation passes.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">'snapshots'</span></code><span class="classifier">list of ndarray</span></dt><dd><p>One copy of R per iteration, starting from the short map
+(<code class="docutils literal notranslate"><span class="pre">snapshots[0]</span></code>) through the final result
+(<code class="docutils literal notranslate"><span class="pre">snapshots[n_iterations]</span></code>).  Useful for animation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">'deficits'</span></code><span class="classifier">list of float</span></dt><dd><p>Frobenius norm of the metric deficit at each snapshot,
+in the same order as <code class="docutils literal notranslate"><span class="pre">snapshots</span></code>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict with the following keys:</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="riemannian.analyze_hodge_decomposition">
 <span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">analyze_hodge_decomposition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">decomp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">original</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">print_report</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#analyze_hodge_decomposition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.analyze_hodge_decomposition" title="Link to this definition"></a></dt>
 <dd><p>Analyse the output of hodge_decomposition and print key metrics.</p>
@@ -1388,6 +1455,60 @@ If not provided, reconstruction errors are not computed.</p></li>
 <dd class="field-odd"><p>dict</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian.build_embedding">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">build_embedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#build_embedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.build_embedding" title="Link to this definition"></a></dt>
+<dd><p>Construct a C¹ 3D embedding that approximately realises a given 2D metric.</p>
+<p>The algorithm marches row by row in the v-direction, maintaining an
+orthonormal Darboux frame (E1, E2, N) at each grid point:</p>
+<ul class="simple">
+<li><p><strong>Initialisation (j = 0):</strong> The bottom row is placed along the x-axis
+with arc-length spacing determined by √g₁₁ · du.  E1 points along x,
+N along z, and E2 along y.  The v-derivative dR/dv is initialised from
+the metric components g₁₂ and g₂₂.</p></li>
+<li><dl class="simple">
+<dt><strong>Row advance (j → j+1):</strong></dt><dd><ol class="arabic simple">
+<li><p>Positions are stepped as R[:, j+1] = R[:, j] + dv · dR/dv[:, j].</p></li>
+<li><p>The surface normal N is evolved via the Weingarten map using the
+shape-operator coefficient h₂₂, derived from K and the metric.</p></li>
+<li><p>E1 is re-estimated from a finite difference of the new row.</p></li>
+<li><p>E2 is recomputed as N × E1 to maintain right-handedness.</p></li>
+<li><p>dR/dv for the new row is reconstructed from g₁₂, g₂₂, E1, E2.</p></li>
+</ol>
+</dd>
+</dl>
+</li>
+</ul>
+<p>This is a first-order explicit integration scheme; accuracy improves with
+finer grids (larger nu, nv).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian.Metric" title="riemannian.Metric"><em>Metric</em></a>) – A 2D <code class="docutils literal notranslate"><span class="pre">Metric</span></code> instance providing <code class="docutils literal notranslate"><span class="pre">g_func</span></code> and <code class="docutils literal notranslate"><span class="pre">gauss_curvature()</span></code>.</p></li>
+<li><p><strong>u_range</strong> (<em>tuple</em><em> of </em><em>float</em>) – (u_min, u_max) — parameter range in the u-direction.</p></li>
+<li><p><strong>v_range</strong> (<em>tuple</em><em> of </em><em>float</em>) – (v_min, v_max) — parameter range in the v-direction.</p></li>
+<li><p><strong>nu</strong> (<em>int</em>) – Number of grid points in the u-direction.</p></li>
+<li><p><strong>nv</strong> (<em>int</em>) – Number of grid points in the v-direction.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>R</strong> (<em>ndarray, shape (nu, nv, 3)</em>) – The constructed embedding.</p></li>
+<li><p><strong>u_vals</strong> (<em>ndarray, shape (nu,)</em>) – Uniformly spaced u parameter values.</p></li>
+<li><p><strong>v_vals</strong> (<em>ndarray, shape (nv,)</em>) – Uniformly spaced v parameter values.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The embedding is not guaranteed to be isometric — use <code class="docutils literal notranslate"><span class="pre">metric_deficit</span></code>
+to assess how well g_induced matches g_target, and pass the result to
+<code class="docutils literal notranslate"><span class="pre">add_corrugations</span></code> to reduce the deficit iteratively.</p>
+<p>The sign of the Gaussian curvature K determines whether h₂₂ causes the
+normal to tilt toward or away from the surface, which is how positive
+and negative curvature are distinguished geometrically.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -1421,6 +1542,56 @@ without needing to remember the attribute name.</p>
 <span class="go">0.5</span>
 </pre></div>
 </div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian.corrugation_step">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">corrugation_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dg11</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dg12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dg22</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">du</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#corrugation_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.corrugation_step" title="Link to this definition"></a></dt>
+<dd><p>Apply one Nash–Kuiper corrugation pass to reduce the metric deficit.</p>
+<p>The Nash–Kuiper theorem guarantees that any short map into ℝ³ can be
+approximated arbitrarily closely by a C¹ isometric embedding via an
+infinite sequence of corrugation steps.  Each step decomposes the
+symmetric deficit tensor Δg pointwise into two rank-1 terms via its
+eigendecomposition, then adds a sinusoidal normal oscillation that
+fills each positive eigenvalue in the phase-averaged sense.</p>
+<p>For eigenvalue λ and eigenvector direction w, the oscillation is</p>
+<blockquote>
+<div><p>R ← R + ρ · sin(2π·freq·⟨w, coord⟩ + φ) · n̂,</p>
+</div></blockquote>
+<p>with amplitude  ρ = √λ / (√2 · π · freq),  chosen so that the added
+corrugation contributes exactly λ·w⊗w to the induced metric after
+phase averaging.  Two phase offsets (0 and π/2) are applied per
+eigenvector to improve uniformity across the grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>R</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>N</em><em>, </em><em>N</em><em>, </em><em>3</em><em>)</em>) – Current embedding.  Must be square (nu == nv == N) as the
+coordinate phase arrays are built from a single size N.</p></li>
+<li><p><strong>dg11</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>N</em><em>, </em><em>N</em><em>)</em>) – Metric deficit in the g_{uu} component (target minus induced).</p></li>
+<li><p><strong>dg12</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>N</em><em>, </em><em>N</em><em>)</em>) – Metric deficit in the g_{uv} component.</p></li>
+<li><p><strong>dg22</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>N</em><em>, </em><em>N</em><em>)</em>) – Metric deficit in the g_{vv} component.</p></li>
+<li><p><strong>du</strong> (<em>float</em>) – Grid spacing in the u-direction (used to scale the phase coordinate).</p></li>
+<li><p><strong>dv</strong> (<em>float</em>) – Grid spacing in the v-direction.</p></li>
+<li><p><strong>freq</strong> (<em>float</em>) – Spatial frequency of the corrugation oscillation.  Higher values
+produce finer wrinkles.  The corrugation formula is exact only in
+the limit freq → ∞; in practice <code class="docutils literal notranslate"><span class="pre">freq</span></code> should satisfy
+freq ≪ N / (2·L) (Nyquist limit relative to the domain size L).
+Recommended range: 2–8 for fine grids.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>R_new</strong> – Updated embedding after the corrugation pass.  The input <code class="docutils literal notranslate"><span class="pre">R</span></code>
+is not modified in place.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray, shape (N, N, 3)</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Only positive eigenvalues of Δg are corrugated; negative eigenvalues
+(where the induced metric already overshoots the target) are ignored.
+Repeatedly calling this function with doubling frequency (as done by
+<code class="docutils literal notranslate"><span class="pre">add_corrugations</span></code>) converges to an isometric embedding.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -2101,6 +2272,44 @@ returning the two components of the Hodge dual 1-form.</p></li>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="riemannian.induced_metric">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">induced_metric</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">du</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#induced_metric"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.induced_metric" title="Link to this definition"></a></dt>
+<dd><p>Compute the metric tensor induced by a 3D embedding via finite differences.</p>
+<p>Given a surface parameterised as R(u, v) ∈ ℝ³, the induced (pullback)
+metric is defined by</p>
+<blockquote>
+<div><p>g_{ij} = ⟨∂_i R, ∂_j R⟩,</p>
+</div></blockquote>
+<p>i.e.  g11 = <a href="#id15"><span class="problematic" id="id16">|</span></a>∂R/∂u|², g12 = ⟨∂R/∂u, ∂R/∂v⟩, g22 = <a href="#id17"><span class="problematic" id="id18">|</span></a>∂R/∂v|².</p>
+<p>Partial derivatives are approximated with second-order central differences
+in the interior and first-order one-sided differences at the boundary rows
+and columns.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>R</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>nu</em><em>, </em><em>nv</em><em>, </em><em>3</em><em>)</em>) – Embedding array.  <code class="docutils literal notranslate"><span class="pre">R[i,</span> <span class="pre">j]</span></code> is the position vector in ℝ³ at the
+grid point (u_i, v_j).</p></li>
+<li><p><strong>du</strong> (<em>float</em>) – Uniform grid spacing in the u-direction.</p></li>
+<li><p><strong>dv</strong> (<em>float</em>) – Uniform grid spacing in the v-direction.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>g11</strong> (<em>ndarray, shape (nu, nv)</em>) – ⟨∂R/∂u, ∂R/∂u⟩ at each grid point.</p></li>
+<li><p><strong>g12</strong> (<em>ndarray, shape (nu, nv)</em>) – ⟨∂R/∂u, ∂R/∂v⟩ at each grid point.</p></li>
+<li><p><strong>g22</strong> (<em>ndarray, shape (nu, nv)</em>) – ⟨∂R/∂v, ∂R/∂v⟩ at each grid point.</p></li>
+<li><p><strong>dRdu</strong> (<em>ndarray, shape (nu, nv, 3)</em>) – Finite-difference approximation of ∂R/∂u.</p></li>
+<li><p><strong>dRdv</strong> (<em>ndarray, shape (nu, nv, 3)</em>) – Finite-difference approximation of ∂R/∂v.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The returned <code class="docutils literal notranslate"><span class="pre">dRdu</span></code> and <code class="docutils literal notranslate"><span class="pre">dRdv</span></code> are reused by <code class="docutils literal notranslate"><span class="pre">metric_deficit</span></code> and
+<code class="docutils literal notranslate"><span class="pre">corrugation_step</span></code> to avoid redundant computation.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="riemannian.jacobi_equation_solver">
 <span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">jacobi_equation_solver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geodesic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_variation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#jacobi_equation_solver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.jacobi_equation_solver" title="Link to this definition"></a></dt>
 <dd><p>Solve the Jacobi equation (geodesic deviation equation) along a geodesic (2D only).</p>
@@ -2202,6 +2411,46 @@ See <a class="reference internal" href="#riemannian.Metric.laplace_beltrami_symb
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="riemannian.metric_deficit">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">metric_deficit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g11_t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g12_t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g22_t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">du</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#metric_deficit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.metric_deficit" title="Link to this definition"></a></dt>
+<dd><p>Compute the pointwise metric deficit and its Frobenius norm.</p>
+<p>The deficit is the difference between the target metric (the abstract
+Riemannian tensor we wish to realise) and the metric actually induced by
+the current embedding R:</p>
+<blockquote>
+<div><p>Δg = g_target − g_induced(R).</p>
+</div></blockquote>
+<p>The scalar summary is the root-mean-square Frobenius norm</p>
+<blockquote>
+<div><p>‖Δg‖_F = sqrt( mean( Δg11² + 2·Δg12² + Δg22² ) ),</p>
+</div></blockquote>
+<p>where the factor of 2 on the off-diagonal term accounts for symmetry.
+This quantity monotonically decreasing toward zero is the convergence
+criterion used by <code class="docutils literal notranslate"><span class="pre">add_corrugations</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>R</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>nu</em><em>, </em><em>nv</em><em>, </em><em>3</em><em>)</em>) – Current embedding.</p></li>
+<li><p><strong>g11_t</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>nu</em><em>, </em><em>nv</em><em>)</em>) – Target metric component g_{uu}.</p></li>
+<li><p><strong>g12_t</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>nu</em><em>, </em><em>nv</em><em>)</em>) – Target metric component g_{uv}.</p></li>
+<li><p><strong>g22_t</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>nu</em><em>, </em><em>nv</em><em>)</em>) – Target metric component g_{vv}.</p></li>
+<li><p><strong>du</strong> (<em>float</em>) – Uniform grid spacing in the u-direction.</p></li>
+<li><p><strong>dv</strong> (<em>float</em>) – Uniform grid spacing in the v-direction.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>dg11</strong> (<em>ndarray, shape (nu, nv)</em>) – Pointwise deficit in the g_{uu} component.</p></li>
+<li><p><strong>dg12</strong> (<em>ndarray, shape (nu, nv)</em>) – Pointwise deficit in the g_{uv} component.</p></li>
+<li><p><strong>dg22</strong> (<em>ndarray, shape (nu, nv)</em>) – Pointwise deficit in the g_{vv} component.</p></li>
+<li><p><strong>frob</strong> (<em>float</em>) – RMS Frobenius norm of the deficit matrix over the grid.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="riemannian.parallel_transport">
 <span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">parallel_transport</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">curve</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'RK45'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#parallel_transport"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.parallel_transport" title="Link to this definition"></a></dt>
 <dd><p>Transport a vector along a curve using parallel transport.</p>
@@ -2233,6 +2482,74 @@ See <a class="reference internal" href="#riemannian.Metric.laplace_beltrami_symb
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian.plot_corrugation_pipeline">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">plot_corrugation_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colormap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'plasma'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dark</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#plot_corrugation_pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.plot_corrugation_pipeline" title="Link to this definition"></a></dt>
+<dd><p>Visualise the full Nash–Kuiper corrugation pipeline in a single figure.</p>
+<p>The figure has two rows:</p>
+<ul class="simple">
+<li><p><strong>Top row:</strong> Up to 5 evenly spaced 3D surface snapshots from the
+pipeline (short map → intermediate iterations → final embedding),
+each labelled with its iteration index and Frobenius deficit.</p></li>
+<li><p><strong>Bottom row:</strong> A line plot of the Frobenius metric deficit versus
+iteration number, showing convergence toward zero.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>result</strong> (<em>dict</em>) – The dictionary returned by <code class="docutils literal notranslate"><span class="pre">add_corrugations</span></code>.  Must contain
+keys <code class="docutils literal notranslate"><span class="pre">'snapshots'</span></code> (list of ndarray) and <code class="docutils literal notranslate"><span class="pre">'deficits'</span></code> (list
+of float).</p></li>
+<li><p><strong>title</strong> (<em>str</em><em>, </em><em>optional</em>) – Overall figure title (<code class="docutils literal notranslate"><span class="pre">suptitle</span></code>).  Default is no title.</p></li>
+<li><p><strong>colormap</strong> (<em>str</em><em>, </em><em>optional</em>) – Any Matplotlib colormap name applied to z-height colouring.
+Default is <code class="docutils literal notranslate"><span class="pre">'plasma'</span></code>.</p></li>
+<li><p><strong>dark</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), dark background with white text.  If False,
+white background with black text.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>fig</strong> – The figure object.  Its size adapts to the number of snapshots
+shown: width = 4 × n_snaps inches, height = 9 inches.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>At most 5 snapshots are shown regardless of how many iterations were
+run.  The indices are chosen by <code class="docutils literal notranslate"><span class="pre">np.linspace</span></code> so the first (short
+map) and last (final) snapshots are always included.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian.plot_embedding">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">plot_embedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colormap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'plasma'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dark</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#plot_embedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.plot_embedding" title="Link to this definition"></a></dt>
+<dd><p>Render a single 3D embedding as a shaded surface coloured by z-height.</p>
+<p>The z-values are linearly normalised to [0, 1] before being mapped
+through the chosen colormap, so the full color range is always used
+regardless of the absolute scale of the embedding.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>R</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>nu</em><em>, </em><em>nv</em><em>, </em><em>3</em><em>)</em>) – Embedding to display.  Axes 0 and 1 are the u- and v-parameter
+directions; axis 2 holds the (x, y, z) coordinates.</p></li>
+<li><p><strong>title</strong> (<em>str</em><em>, </em><em>optional</em>) – Figure title displayed above the axes.  Default is no title.</p></li>
+<li><p><strong>colormap</strong> (<em>str</em><em>, </em><em>optional</em>) – Any Matplotlib colormap name.  Default is <code class="docutils literal notranslate"><span class="pre">'plasma'</span></code>.</p></li>
+<li><p><strong>dark</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), use a near-black background and white labels,
+suitable for publication or presentation slides.  If False, use
+a white background with black labels.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>fig</strong> (<em>matplotlib.figure.Figure</em>) – The figure object (10 × 7 inches).</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes3D</em>) – The 3D axes containing the surface plot.</p></li>
+</ul>
+</p>
 </dd>
 </dl>
 </dd></dl>
@@ -2429,8 +2746,8 @@ initial conditions and plotted using Matplotlib.</p>
 <li><p><strong>y_range</strong> (<em>tuple</em><em> of </em><em>two floats</em><em>, </em><em>optional</em>) – Vertical plotting range (2D only).  Inferred from trajectories if
 <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
 <li><p><strong>colorby</strong> ({‘speed’, ‘time’, ‘curvature’}, default <code class="docutils literal notranslate"><span class="pre">'speed'</span></code>) – <strong>1D only.</strong> Quantity used to colour the scatter plot of each
-geodesic point.  <code class="docutils literal notranslate"><span class="pre">'speed'</span></code> uses <a href="#id17"><span class="problematic" id="id18">|ẋ|</span></a>, <code class="docutils literal notranslate"><span class="pre">'time'</span></code> uses t, and
-<code class="docutils literal notranslate"><span class="pre">'curvature'</span></code> uses <a href="#id19"><span class="problematic" id="id20">|Γ¹₁₁(x(t))|</span></a>.</p></li>
+geodesic point.  <code class="docutils literal notranslate"><span class="pre">'speed'</span></code> uses <a href="#id21"><span class="problematic" id="id22">|ẋ|</span></a>, <code class="docutils literal notranslate"><span class="pre">'time'</span></code> uses t, and
+<code class="docutils literal notranslate"><span class="pre">'curvature'</span></code> uses <a href="#id23"><span class="problematic" id="id24">|Γ¹₁₁(x(t))|</span></a>.</p></li>
 <li><p><strong>plot_curvature</strong> (<em>bool</em><em>, </em><em>default True</em>) – <strong>2D only.</strong> If <code class="docutils literal notranslate"><span class="pre">True</span></code>, render the Gaussian curvature as a
 colour-mapped background heatmap behind the geodesic curves.</p></li>
 <li><p><strong>n_steps</strong> (<em>int</em><em>, </em><em>default 500</em>) – Number of integration time steps per geodesic.</p></li>
