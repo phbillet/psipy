@@ -783,7 +783,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">=</span> <span class="n">boundary_condition</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">plot</span> <span class="o">=</span> <span class="n">plot</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;dirichlet&#39;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;dirichlet&#39;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;neumann&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Dirichlet boundary conditions require the equation to be defined via a pseudo-differential operator (psiOp). &quot;</span>
                 <span class="s2">&quot;Please provide an equation involving psiOp for non-periodic boundary treatment.&quot;</span>
@@ -1187,6 +1187,7 @@
 <span class="sd">        </span>
 <span class="sd">        - &#39;periodic&#39;: Enforces periodicity by copying opposite boundary values.</span>
 <span class="sd">        - &#39;dirichlet&#39;: Sets all boundary values to zero (homogeneous Dirichlet condition).</span>
+<span class="sd">        - &#39;neumann&#39;: Sets all boundary values to zero (homogeneous Dirichlet condition).</span>
 <span class="sd">    </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1197,7 +1198,7 @@
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If `self.boundary_condition` is not one of {&#39;periodic&#39;, &#39;dirichlet&#39;}.</span>
+<span class="sd">            If `self.boundary_condition` is not one of {&#39;periodic&#39;, &#39;dirichlet&#39;, &#39;neumann&#39;}.</span>
 <span class="sd">    </span>
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -1227,11 +1228,19 @@
                 <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-    
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;neumann&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+                <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="p">:]</span>
+                <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">2</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Invalid boundary condition &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
-                <span class="s2">&quot;Supported types are &#39;periodic&#39; and &#39;dirichlet&#39;.&quot;</span>
+                <span class="s2">&quot;Supported types are &#39;periodic&#39;, &#39;dirichlet&#39; and &#39;neumann&#39;.&quot;</span>
             <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
@@ -1611,7 +1620,7 @@
             <span class="n">u_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
             <span class="n">u_new</span> <span class="o">=</span> <span class="n">u_symb</span> <span class="o">+</span> <span class="n">u_nl</span> <span class="o">+</span> <span class="n">source</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_spatial</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;dirichlet&#39;</span><span class="p">,</span> <span class="s1">&#39;neumann&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_spatial</span><span class="p">:</span>
                 <span class="c1"># General case with ETD1</span>
                 <span class="n">u_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
     
@@ -1847,10 +1856,10 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_terms</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Stationary psiOp problems must be linear and purely pseudo-differential.&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;periodic&#39;</span><span class="p">,</span> <span class="s1">&#39;dirichlet&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;periodic&#39;</span><span class="p">,</span> <span class="s1">&#39;dirichlet&#39;</span><span class="p">,</span> <span class="s1">&#39;neumann&#39;</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;For stationary PDEs, boundary conditions must be explicitly defined. &quot;</span>
-                <span class="s2">&quot;Supported types are &#39;periodic&#39; and &#39;dirichlet&#39;.&quot;</span>
+                <span class="s2">&quot;Supported types are &#39;periodic&#39;, &#39;dirichlet&#39; and &#39;neumann&#39;.&quot;</span>
             <span class="p">)</span>    
             
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -1965,7 +1974,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">u</span> <span class="o">=</span> <span class="n">u</span>
             <span class="k">return</span> <span class="n">u</span>
             
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;dirichlet&#39;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;dirichlet&#39;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;neumann&#39;</span><span class="p">):</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">psiop</span><span class="w"> </span><span class="kn">import</span> <span class="n">kohn_nirenberg_nonperiodic</span>
             
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -1986,7 +1995,7 @@
             <span class="k">return</span> <span class="n">u</span>
         
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid boundary condition &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">&#39;. Supported types are &#39;periodic&#39; and &#39;dirichlet&#39;.&quot;</span><span class="p">)</span></div>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid boundary condition &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">&#39;. Supported types are &#39;periodic&#39;, &#39;dirichlet&#39; and &#39;neumann&#39;.&quot;</span><span class="p">)</span></div>
 
         
     <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
