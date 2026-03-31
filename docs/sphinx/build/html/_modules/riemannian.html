@@ -213,6 +213,14 @@
 <span class="sd">      over a rectangular domain and compare with the topological prediction</span>
 <span class="sd">      2 pi chi (2D only).</span>
 
+<span class="sd">Numerical curvature helpers</span>
+<span class="sd">    * ``_brioschi_curvature_grid(g11, g12, g22, du, dv)`` — compute Gaussian</span>
+<span class="sd">      curvature K on a meshgrid via the Brioschi formula, using only the</span>
+<span class="sd">      metric components and their finite-difference derivatives.  Used</span>
+<span class="sd">      internally by ``build_embedding`` in place of the symbolic</span>
+<span class="sd">      ``gauss_curvature()`` path, and available as a standalone helper for</span>
+<span class="sd">      fast numerical K evaluation in the visualisation and corrugation layers.</span>
+
 <span class="sd">Visualisation</span>
 <span class="sd">    * ``visualize_geodesics(metric, initial_conditions, tspan)`` — overlay</span>
 <span class="sd">      geodesic trajectories on a curvature background (1D or 2D).</span>
@@ -2182,8 +2190,15 @@
 <span class="sd">    Large growth indicates negative sectional curvature in the geodesic direction,</span>
 <span class="sd">    while oscillatory behaviour indicates positive curvature.</span>
 
-<span class="sd">    The ODE is solved with high precision (`rtol=1e-9`, `atol=1e-12`) and a stiff</span>
-<span class="sd">    solver (BDF) to handle possible rapid changes in curvature.</span>
+<span class="sd">    The ODE is solved with high precision (``rtol=1e-9``, ``atol=1e-12``) and a</span>
+<span class="sd">    stiff solver (BDF) to handle possible rapid changes in curvature.</span>
+
+<span class="sd">    In 2D the Riemann tensor has only one independent component.  All curvature</span>
+<span class="sd">    terms are evaluated via the Gauss equation</span>
+<span class="sd">    R(J,v)v = K(g(v,v)J - g(J,v)v),</span>
+<span class="sd">    where K is computed numerically along the geodesic via the Brioschi formula</span>
+<span class="sd">    on a local grid.  This replaces the symbolic ``riemann_tensor()`` call and</span>
+<span class="sd">    eliminates its lambdify overhead.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -2199,59 +2214,106 @@
     <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;jacobi_equation_solver is for 2D metrics only.&quot;</span><span class="p">)</span>
 
-    <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span>
-    <span class="n">R</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">riemann_tensor</span><span class="p">()</span>
-    <span class="n">R_func</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">i</span><span class="p">:</span> <span class="p">{</span>
-            <span class="n">j</span><span class="p">:</span> <span class="p">{</span>
-                <span class="n">k</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="n">ell</span><span class="p">:</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">),</span> <span class="n">R</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">][</span><span class="n">ell</span><span class="p">],</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">ell</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-                <span class="p">}</span>
-                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-            <span class="p">}</span>
-            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-        <span class="p">}</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-    <span class="p">}</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># In 2D the Riemann tensor has only one independent component.  By</span>
+    <span class="c1"># the Gauss equation all components reduce to K and the metric:</span>
+    <span class="c1">#</span>
+    <span class="c1">#   R^i_jkl = K (delta^i_k g_jl - delta^i_l g_jk)</span>
+    <span class="c1">#</span>
+    <span class="c1"># so R(J,v)v contracts to:</span>
+    <span class="c1">#</span>
+    <span class="c1">#   [R(J,v)v]^i = K (g(v,v) J^i - g(J,v) v^i)</span>
+    <span class="c1">#</span>
+    <span class="c1"># K is computed numerically from the metric components along the</span>
+    <span class="c1"># geodesic via the Brioschi formula, eliminating the symbolic</span>
+    <span class="c1"># riemann_tensor() call and its lambdify overhead entirely.</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
 
     <span class="n">t_geod</span> <span class="o">=</span> <span class="n">geodesic</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>
-    <span class="n">x_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">t_geod</span><span class="p">,</span> <span class="n">geodesic</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
-    <span class="n">y_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">t_geod</span><span class="p">,</span> <span class="n">geodesic</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
-    <span class="n">vx_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">t_geod</span><span class="p">,</span> <span class="n">geodesic</span><span class="p">[</span><span class="s1">&#39;vx&#39;</span><span class="p">],</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
-    <span class="n">vy_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">t_geod</span><span class="p">,</span> <span class="n">geodesic</span><span class="p">[</span><span class="s1">&#39;vy&#39;</span><span class="p">],</span> <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
-    <span class="n">Gamma</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">christoffel_func</span>
+    <span class="n">x_arr</span>  <span class="o">=</span> <span class="n">geodesic</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+    <span class="n">y_arr</span>  <span class="o">=</span> <span class="n">geodesic</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>
+
+    <span class="c1"># Build a fixed-size auxiliary grid covering the geodesic bounding box,</span>
+    <span class="c1"># compute K once via Brioschi, then interpolate onto the ODE time steps.</span>
+    <span class="c1">#</span>
+    <span class="c1"># IMPORTANT: the grid size is hard-capped at _JACOBI_K_GRID_N x _JACOBI_K_GRID_N</span>
+    <span class="c1"># regardless of how many geodesic steps were requested.  120x120 gives &lt; 0.1 MB</span>
+    <span class="c1"># and is accurate to O(1e-4) for smooth metrics; using len(t_geod) here would</span>
+    <span class="c1"># produce grids of up to 10000x10000 = 10^8 points and exhaust memory.</span>
+    <span class="n">_JACOBI_K_GRID_N</span> <span class="o">=</span> <span class="mi">120</span>
+
+    <span class="n">_x0</span><span class="p">,</span> <span class="n">_x1</span> <span class="o">=</span> <span class="n">x_arr</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x_arr</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">_y0</span><span class="p">,</span> <span class="n">_y1</span> <span class="o">=</span> <span class="n">y_arr</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">y_arr</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">_pad</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">_x1</span> <span class="o">-</span> <span class="n">_x0</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span><span class="p">,</span> <span class="p">(</span><span class="n">_y1</span> <span class="o">-</span> <span class="n">_y0</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">)</span>
+    <span class="n">_u</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">_x0</span> <span class="o">-</span> <span class="n">_pad</span><span class="p">,</span> <span class="n">_x1</span> <span class="o">+</span> <span class="n">_pad</span><span class="p">,</span> <span class="n">_JACOBI_K_GRID_N</span><span class="p">)</span>
+    <span class="n">_v</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">_y0</span> <span class="o">-</span> <span class="n">_pad</span><span class="p">,</span> <span class="n">_y1</span> <span class="o">+</span> <span class="n">_pad</span><span class="p">,</span> <span class="n">_JACOBI_K_GRID_N</span><span class="p">)</span>
+    <span class="n">_du</span>  <span class="o">=</span> <span class="n">_u</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">_u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">_dv</span>  <span class="o">=</span> <span class="n">_v</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">_v</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">_U</span><span class="p">,</span> <span class="n">_V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">_u</span><span class="p">,</span> <span class="n">_v</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+    <span class="n">_g11_grid</span><span class="p">,</span> <span class="n">_g12_grid</span><span class="p">,</span> <span class="n">_g22_grid</span> <span class="o">=</span> <span class="n">_eval_metric_grid</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">_U</span><span class="p">,</span> <span class="n">_V</span><span class="p">)</span>
+    <span class="n">_K_grid</span> <span class="o">=</span> <span class="n">_brioschi_curvature_grid</span><span class="p">(</span><span class="n">_g11_grid</span><span class="p">,</span> <span class="n">_g12_grid</span><span class="p">,</span> <span class="n">_g22_grid</span><span class="p">,</span> <span class="n">_du</span><span class="p">,</span> <span class="n">_dv</span><span class="p">)</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegularGridInterpolator</span>
+    <span class="n">_K_interp_2d</span> <span class="o">=</span> <span class="n">RegularGridInterpolator</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">_u</span><span class="p">,</span> <span class="n">_v</span><span class="p">),</span> <span class="n">_K_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">,</span> <span class="n">bounds_error</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mf">0.0</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Pre-allocate a single (1,2) query array reused on every ODE step to</span>
+    <span class="c1"># avoid per-step list allocation inside the hot path.</span>
+    <span class="n">_query_pt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_K_at</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="n">_query_pt</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="n">_query_pt</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">y</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">_K_interp_2d</span><span class="p">(</span><span class="n">_query_pt</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">x_interp</span>  <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">t_geod</span><span class="p">,</span> <span class="n">x_arr</span><span class="p">,</span>          <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
+    <span class="n">y_interp</span>  <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">t_geod</span><span class="p">,</span> <span class="n">y_arr</span><span class="p">,</span>           <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
+    <span class="n">vx_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">t_geod</span><span class="p">,</span> <span class="n">geodesic</span><span class="p">[</span><span class="s1">&#39;vx&#39;</span><span class="p">],</span>  <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
+    <span class="n">vy_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">t_geod</span><span class="p">,</span> <span class="n">geodesic</span><span class="p">[</span><span class="s1">&#39;vy&#39;</span><span class="p">],</span>  <span class="n">kind</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
+    <span class="n">Gamma</span>     <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">christoffel_func</span>
+
+    <span class="c1"># metric component callables (already lambdified in metric.g_func)</span>
+    <span class="n">g00_f</span>  <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_func</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span>
+    <span class="n">g01_f</span>  <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_func</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
+    <span class="n">g11_f</span>  <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_func</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">jacobi_ode</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
         <span class="n">J_x</span><span class="p">,</span> <span class="n">J_y</span><span class="p">,</span> <span class="n">DJ_x</span><span class="p">,</span> <span class="n">DJ_y</span> <span class="o">=</span> <span class="n">state</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x_interp</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">y_interp</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
-        <span class="n">vx</span> <span class="o">=</span> <span class="n">vx_interp</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
-        <span class="n">vy</span> <span class="o">=</span> <span class="n">vy_interp</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">x</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">x_interp</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+        <span class="n">y</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">y_interp</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+        <span class="n">vx</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">vx_interp</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+        <span class="n">vy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">vy_interp</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
 
-        <span class="n">J</span> <span class="o">=</span> <span class="p">[</span><span class="n">J_x</span><span class="p">,</span> <span class="n">J_y</span><span class="p">]</span>
-        <span class="n">v</span> <span class="o">=</span> <span class="p">[</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">]</span>
+        <span class="n">J</span>  <span class="o">=</span> <span class="p">[</span><span class="n">J_x</span><span class="p">,</span>  <span class="n">J_y</span> <span class="p">]</span>
+        <span class="n">v</span>  <span class="o">=</span> <span class="p">[</span><span class="n">vx</span><span class="p">,</span>   <span class="n">vy</span>  <span class="p">]</span>
         <span class="n">DJ</span> <span class="o">=</span> <span class="p">[</span><span class="n">DJ_x</span><span class="p">,</span> <span class="n">DJ_y</span><span class="p">]</span>
 
-        <span class="c1"># Γ(J, v)</span>
-        <span class="n">gamma_J_x</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">J</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
-        <span class="n">gamma_J_y</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">J</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="c1"># Christoffel contraction terms Gamma(J,v) and Gamma(DJ,v)</span>
+        <span class="n">gamma_J_x</span>  <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">J</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>  <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">gamma_J_y</span>  <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">J</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>  <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">gamma_DJ_x</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">DJ</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">gamma_DJ_y</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">DJ</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
 
-        <span class="c1"># Γ(DJ, v)</span>
-        <span class="n">gamma_DJ_x</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">DJ</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
-        <span class="n">gamma_DJ_y</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">DJ</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="c1"># Curvature term via Gauss equation: [R(J,v)v]^i = K(g(v,v)J^i - g(J,v)v^i)</span>
+        <span class="n">K</span>    <span class="o">=</span> <span class="n">_K_at</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">e00</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">g00_f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="n">e01</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">g01_f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="n">e11</span>  <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">g11_f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="n">gvv</span>  <span class="o">=</span> <span class="n">e00</span><span class="o">*</span><span class="n">vx</span><span class="o">*</span><span class="n">vx</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">e01</span><span class="o">*</span><span class="n">vx</span><span class="o">*</span><span class="n">vy</span> <span class="o">+</span> <span class="n">e11</span><span class="o">*</span><span class="n">vy</span><span class="o">*</span><span class="n">vy</span>
+        <span class="n">gJv</span>  <span class="o">=</span> <span class="n">e00</span><span class="o">*</span><span class="n">J_x</span><span class="o">*</span><span class="n">vx</span> <span class="o">+</span> <span class="n">e01</span><span class="o">*</span><span class="p">(</span><span class="n">J_x</span><span class="o">*</span><span class="n">vy</span> <span class="o">+</span> <span class="n">J_y</span><span class="o">*</span><span class="n">vx</span><span class="p">)</span> <span class="o">+</span> <span class="n">e11</span><span class="o">*</span><span class="n">J_y</span><span class="o">*</span><span class="n">vy</span>
+        <span class="n">curv_x</span> <span class="o">=</span> <span class="n">K</span> <span class="o">*</span> <span class="p">(</span><span class="n">gvv</span> <span class="o">*</span> <span class="n">J_x</span> <span class="o">-</span> <span class="n">gJv</span> <span class="o">*</span> <span class="n">vx</span><span class="p">)</span>
+        <span class="n">curv_y</span> <span class="o">=</span> <span class="n">K</span> <span class="o">*</span> <span class="p">(</span><span class="n">gvv</span> <span class="o">*</span> <span class="n">J_y</span> <span class="o">-</span> <span class="n">gJv</span> <span class="o">*</span> <span class="n">vy</span><span class="p">)</span>
 
-        <span class="c1"># R(J, v)v  (R^i_{jkl} v^j J^k v^l)</span>
-        <span class="n">curv_x</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">R_func</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">][</span><span class="n">ell</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">J</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">ell</span><span class="p">]</span>
-                     <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">ell</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
-        <span class="n">curv_y</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">R_func</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">][</span><span class="n">ell</span><span class="p">](</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">J</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">ell</span><span class="p">]</span>
-                     <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">ell</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="c1"># dJ/dt = DJ - Gamma(J, v)</span>
+        <span class="n">dJ_x</span>  <span class="o">=</span> <span class="n">DJ_x</span>  <span class="o">-</span> <span class="n">gamma_J_x</span>
+        <span class="n">dJ_y</span>  <span class="o">=</span> <span class="n">DJ_y</span>  <span class="o">-</span> <span class="n">gamma_J_y</span>
 
-        <span class="c1"># dJ/dt = DJ - Γ(J, v)</span>
-        <span class="n">dJ_x</span> <span class="o">=</span> <span class="n">DJ_x</span> <span class="o">-</span> <span class="n">gamma_J_x</span>
-        <span class="n">dJ_y</span> <span class="o">=</span> <span class="n">DJ_y</span> <span class="o">-</span> <span class="n">gamma_J_y</span>
-
-        <span class="c1"># d(DJ)/dt = -R(J, v)v - Γ(DJ, v)</span>
+        <span class="c1"># d(DJ)/dt = -R(J,v)v - Gamma(DJ, v)</span>
         <span class="n">dDJ_x</span> <span class="o">=</span> <span class="o">-</span><span class="n">curv_x</span> <span class="o">-</span> <span class="n">gamma_DJ_x</span>
         <span class="n">dDJ_y</span> <span class="o">=</span> <span class="o">-</span><span class="n">curv_y</span> <span class="o">-</span> <span class="n">gamma_DJ_y</span>
 
@@ -4087,6 +4149,12 @@
 <span class="sd">        dv^i/dt = - Γ^i_{jk} v^j ẋ^k,</span>
 <span class="sd">    where ẋ^k are the components of the curve&#39;s velocity.</span>
 
+<span class="sd">    When the ``curve`` dict was produced by :func:`geodesic_solver` it already</span>
+<span class="sd">    contains exact velocity arrays (``&#39;v&#39;`` in 1D, ``&#39;vx&#39;`` / ``&#39;vy&#39;`` in 2D).</span>
+<span class="sd">    These are used directly, avoiding the numerical differentiation noise that</span>
+<span class="sd">    ``np.gradient`` would introduce.  For curves supplied without velocity</span>
+<span class="sd">    arrays the function falls back to ``np.gradient`` automatically.</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    metric : Metric</span>
@@ -4111,42 +4179,54 @@
 <span class="sd">        - For 2D: &#39;vx&#39;, &#39;vy&#39; : transported vector components</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+        <span class="n">x</span>      <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
         <span class="n">t_vals</span> <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>
-        <span class="n">v0</span> <span class="o">=</span> <span class="n">initial_vector</span>
-        <span class="n">Gamma</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">christoffel_func</span>
-        <span class="c1"># approximate velocity from curve (once)</span>
-        <span class="n">dxdt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">)</span>
+        <span class="n">v0</span>     <span class="o">=</span> <span class="n">initial_vector</span>
+        <span class="n">Gamma</span>  <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">christoffel_func</span>
+
+        <span class="c1"># Use the velocity already present in the curve dict if available;</span>
+        <span class="c1"># fall back to np.gradient only when the curve was not produced by</span>
+        <span class="c1"># geodesic_solver (i.e. &#39;v&#39; key is absent).</span>
+        <span class="k">if</span> <span class="s1">&#39;v&#39;</span> <span class="ow">in</span> <span class="n">curve</span><span class="p">:</span>
+            <span class="n">dxdt</span> <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;v&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dxdt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">)</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">ode_1d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
-            <span class="c1"># interpolate position and velocity at time t</span>
-            <span class="n">x_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+            <span class="n">x_t</span>    <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
             <span class="n">dxdt_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">dxdt</span><span class="p">)</span>
             <span class="k">return</span> <span class="o">-</span><span class="n">Gamma</span><span class="p">(</span><span class="n">x_t</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span> <span class="o">*</span> <span class="n">dxdt_t</span>
 
         <span class="k">if</span> <span class="n">tspan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">tspan</span> <span class="o">=</span> <span class="p">(</span><span class="n">t_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t_vals</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-        <span class="c1"># Use the same time grid as the curve (or a subset)</span>
         <span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_vals</span><span class="p">))</span>
-        <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="n">ode_1d</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="p">[</span><span class="n">v0</span><span class="p">],</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+        <span class="n">sol</span>    <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="n">ode_1d</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="p">[</span><span class="n">v0</span><span class="p">],</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span>
 
     <span class="k">else</span><span class="p">:</span>  <span class="c1"># 2D</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">];</span> <span class="n">y</span> <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">];</span> <span class="n">t_vals</span> <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>
+        <span class="n">x</span>      <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+        <span class="n">y</span>      <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>
+        <span class="n">t_vals</span> <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;t&#39;</span><span class="p">]</span>
         <span class="n">vx0</span><span class="p">,</span> <span class="n">vy0</span> <span class="o">=</span> <span class="n">initial_vector</span>
-        <span class="n">Gamma</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">christoffel_func</span>
-        <span class="c1"># approximate velocities</span>
-        <span class="n">dxdt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">)</span>
-        <span class="n">dydt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">)</span>
+        <span class="n">Gamma</span>    <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">christoffel_func</span>
+
+        <span class="c1"># Use the velocity arrays already stored in the curve dict when</span>
+        <span class="c1"># available (produced by geodesic_solver), avoiding numerical</span>
+        <span class="c1"># differentiation noise from np.gradient.</span>
+        <span class="k">if</span> <span class="s1">&#39;vx&#39;</span> <span class="ow">in</span> <span class="n">curve</span> <span class="ow">and</span> <span class="s1">&#39;vy&#39;</span> <span class="ow">in</span> <span class="n">curve</span><span class="p">:</span>
+            <span class="n">dxdt</span> <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;vx&#39;</span><span class="p">]</span>
+            <span class="n">dydt</span> <span class="o">=</span> <span class="n">curve</span><span class="p">[</span><span class="s1">&#39;vy&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dxdt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">)</span>
+            <span class="n">dydt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">)</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">ode_2d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
-            <span class="n">vx</span><span class="p">,</span> <span class="n">vy</span> <span class="o">=</span> <span class="n">state</span>
-            <span class="c1"># interpolate</span>
-            <span class="n">x_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
-            <span class="n">y_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-            <span class="n">dxdt_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">dxdt</span><span class="p">)</span>
-            <span class="n">dydt_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">dydt</span><span class="p">)</span>
-            <span class="c1"># compute Christoffel terms</span>
+            <span class="n">vx</span><span class="p">,</span> <span class="n">vy</span>   <span class="o">=</span> <span class="n">state</span>
+            <span class="n">x_t</span>      <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+            <span class="n">y_t</span>      <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+            <span class="n">dxdt_t</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">dxdt</span><span class="p">)</span>
+            <span class="n">dydt_t</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t_vals</span><span class="p">,</span> <span class="n">dydt</span><span class="p">)</span>
+
             <span class="n">G000</span> <span class="o">=</span> <span class="n">Gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">](</span><span class="n">x_t</span><span class="p">,</span> <span class="n">y_t</span><span class="p">)</span>
             <span class="n">G001</span> <span class="o">=</span> <span class="n">Gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">](</span><span class="n">x_t</span><span class="p">,</span> <span class="n">y_t</span><span class="p">)</span>
             <span class="n">G011</span> <span class="o">=</span> <span class="n">Gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">](</span><span class="n">x_t</span><span class="p">,</span> <span class="n">y_t</span><span class="p">)</span>
@@ -4165,7 +4245,8 @@
         <span class="k">if</span> <span class="n">tspan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">tspan</span> <span class="o">=</span> <span class="p">(</span><span class="n">t_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t_vals</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
         <span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_vals</span><span class="p">))</span>
-        <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="n">ode_2d</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="p">[</span><span class="n">vx0</span><span class="p">,</span> <span class="n">vy0</span><span class="p">],</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+        <span class="n">sol</span>    <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="n">ode_2d</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="p">[</span><span class="n">vx0</span><span class="p">,</span> <span class="n">vy0</span><span class="p">],</span>
+                           <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="s1">&#39;vx&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;vy&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span></div>
 
 
@@ -4482,12 +4563,14 @@
             <span class="n">x_bg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">100</span><span class="p">)</span>
             <span class="n">y_bg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">y_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">y_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">100</span><span class="p">)</span>
             <span class="n">X_bg</span><span class="p">,</span> <span class="n">Y_bg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_bg</span><span class="p">,</span> <span class="n">y_bg</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
-            <span class="n">K_expr</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">gauss_curvature</span><span class="p">()</span>
-            <span class="n">K_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">K_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-            <span class="n">K_vals</span> <span class="o">=</span> <span class="n">K_func</span><span class="p">(</span><span class="n">X_bg</span><span class="p">,</span> <span class="n">Y_bg</span><span class="p">)</span>
+            <span class="n">_du_bg</span> <span class="o">=</span> <span class="n">x_bg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_bg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">_dv_bg</span> <span class="o">=</span> <span class="n">y_bg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y_bg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">_g11_bg</span><span class="p">,</span> <span class="n">_g12_bg</span><span class="p">,</span> <span class="n">_g22_bg</span> <span class="o">=</span> <span class="n">_eval_metric_grid</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">X_bg</span><span class="p">,</span> <span class="n">Y_bg</span><span class="p">)</span>
+            <span class="n">K_vals</span> <span class="o">=</span> <span class="n">_brioschi_curvature_grid</span><span class="p">(</span><span class="n">_g11_bg</span><span class="p">,</span> <span class="n">_g12_bg</span><span class="p">,</span> <span class="n">_g22_bg</span><span class="p">,</span>
+                                              <span class="n">_du_bg</span><span class="p">,</span> <span class="n">_dv_bg</span><span class="p">)</span>
             <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">X_bg</span><span class="p">,</span> <span class="n">Y_bg</span><span class="p">,</span> <span class="n">K_vals</span><span class="p">,</span> <span class="n">shading</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span>
                                <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;RdBu_r&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Gaussian Curvature&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Gaussian Curvature (Brioschi)&#39;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Warning: Could not compute curvature background.&quot;</span><span class="p">)</span>
 
@@ -4825,6 +4908,117 @@
         <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">K_lam</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">U</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_brioschi_curvature_grid</span><span class="p">(</span><span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute Gaussian curvature K on a meshgrid via the Brioschi formula.</span>
+
+<span class="sd">    The Brioschi formula expresses K purely in terms of the metric components</span>
+<span class="sd">    g11, g12, g22 and their first and second partial derivatives — no</span>
+<span class="sd">    Christoffel symbols, no Riemann tensor, no symbolic machinery required.</span>
+<span class="sd">    In local coordinates (u, v) with E = g11, F = g12, G = g22 it reads:</span>
+
+<span class="sd">        K = (B - A) / (E·G - F²)²</span>
+
+<span class="sd">    where A and B are explicit determinants built from E, F, G and their</span>
+<span class="sd">    derivatives (see Brioschi 1852; also Struik, *Lectures on Classical</span>
+<span class="sd">    Differential Geometry*, §2-5).</span>
+
+<span class="sd">    All derivatives are approximated with second-order central finite</span>
+<span class="sd">    differences (one-sided at the boundary).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    g11 : ndarray, shape (nu, nv)</span>
+<span class="sd">        Metric component g_{uu} = E on the meshgrid.</span>
+<span class="sd">    g12 : ndarray, shape (nu, nv)</span>
+<span class="sd">        Off-diagonal component g_{uv} = F.</span>
+<span class="sd">    g22 : ndarray, shape (nu, nv)</span>
+<span class="sd">        Metric component g_{vv} = G.</span>
+<span class="sd">    du : float</span>
+<span class="sd">        Uniform grid spacing in the u-direction.</span>
+<span class="sd">    dv : float</span>
+<span class="sd">        Uniform grid spacing in the v-direction.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    K : ndarray, shape (nu, nv)</span>
+<span class="sd">        Gaussian curvature at each grid point.  Values are clamped to</span>
+<span class="sd">        the finite range [-1e6, 1e6] to suppress boundary artefacts where</span>
+<span class="sd">        the denominator (EG - F²)² is near zero.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This function is numerically consistent with ``induced_metric``: both</span>
+<span class="sd">    use the same second-order finite-difference stencil, so the K returned</span>
+<span class="sd">    here is directly comparable to the K derived from the embedding via</span>
+<span class="sd">    the corrugation pipeline.  The accuracy is O(du², dv²).</span>
+
+<span class="sd">    For the Brioschi formula in full detail see, e.g.,</span>
+<span class="sd">    https://en.wikipedia.org/wiki/Gaussian_curvature#Brioschi_formula</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_grad</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return (dF/du, dF/dv) via second-order central differences.&quot;&quot;&quot;</span>
+        <span class="n">Fu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
+        <span class="n">Fu</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">F</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">F</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="p">:])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">du</span><span class="p">)</span>
+        <span class="n">Fu</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span>    <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">F</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span>  <span class="p">:]</span> <span class="o">-</span> <span class="n">F</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span>  <span class="p">:])</span> <span class="o">/</span> <span class="n">du</span>
+        <span class="n">Fu</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span>   <span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">F</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">F</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="p">:])</span> <span class="o">/</span> <span class="n">du</span>
+
+        <span class="n">Fv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
+        <span class="n">Fv</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">F</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">:]</span> <span class="o">-</span> <span class="n">F</span><span class="p">[:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">dv</span><span class="p">)</span>
+        <span class="n">Fv</span><span class="p">[:,</span> <span class="mi">0</span>   <span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">F</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>  <span class="o">-</span> <span class="n">F</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>   <span class="o">/</span> <span class="n">dv</span>
+        <span class="n">Fv</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span>  <span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">F</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">F</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">2</span><span class="p">])</span>  <span class="o">/</span> <span class="n">dv</span>
+        <span class="k">return</span> <span class="n">Fu</span><span class="p">,</span> <span class="n">Fv</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_lap</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return (d²F/du², d²F/dudv, d²F/dv²).&quot;&quot;&quot;</span>
+        <span class="n">Fu</span><span class="p">,</span> <span class="n">Fv</span>   <span class="o">=</span> <span class="n">_grad</span><span class="p">(</span><span class="n">F</span><span class="p">,</span>  <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+        <span class="n">Fuu</span><span class="p">,</span> <span class="n">_</span>   <span class="o">=</span> <span class="n">_grad</span><span class="p">(</span><span class="n">Fu</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">Fvv</span>   <span class="o">=</span> <span class="n">_grad</span><span class="p">(</span><span class="n">Fv</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">Fuv</span>   <span class="o">=</span> <span class="n">_grad</span><span class="p">(</span><span class="n">Fu</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>   <span class="c1"># d/dv of dF/du</span>
+        <span class="k">return</span> <span class="n">Fuu</span><span class="p">,</span> <span class="n">Fuv</span><span class="p">,</span> <span class="n">Fvv</span>
+
+    <span class="n">E</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">G</span> <span class="o">=</span> <span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span>
+
+    <span class="n">Eu</span><span class="p">,</span>  <span class="n">Ev</span>  <span class="o">=</span> <span class="n">_grad</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+    <span class="n">Fu2</span><span class="p">,</span> <span class="n">Fv2</span> <span class="o">=</span> <span class="n">_grad</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+    <span class="n">Gu</span><span class="p">,</span>  <span class="n">Gv</span>  <span class="o">=</span> <span class="n">_grad</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+
+    <span class="n">Euu</span><span class="p">,</span> <span class="n">Euv</span><span class="p">,</span> <span class="n">Evv</span> <span class="o">=</span> <span class="n">_lap</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+    <span class="n">_</span><span class="p">,</span>   <span class="n">Fuv2</span><span class="p">,</span> <span class="n">_</span>  <span class="o">=</span> <span class="n">_lap</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+    <span class="n">Guu</span><span class="p">,</span> <span class="n">Guv</span><span class="p">,</span> <span class="n">Gvv</span> <span class="o">=</span> <span class="n">_lap</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+
+    <span class="c1"># Denominator</span>
+    <span class="n">W2</span>  <span class="o">=</span> <span class="n">E</span> <span class="o">*</span> <span class="n">G</span> <span class="o">-</span> <span class="n">F</span> <span class="o">*</span> <span class="n">F</span>          <span class="c1"># (EG - F²)</span>
+    <span class="n">W4</span>  <span class="o">=</span> <span class="n">W2</span> <span class="o">*</span> <span class="n">W2</span>                <span class="c1"># (EG - F²)²</span>
+
+    <span class="c1"># Brioschi numerator  (standard determinant form)</span>
+    <span class="c1">#</span>
+    <span class="c1">#        | -½Evv + Fuv - ½Guu    ½Eu    Fu - ½Ev |</span>
+    <span class="c1">#   B =  |  ½Ev              E       F           |</span>
+    <span class="c1">#        |  Fu - ½Gu         F       G           |</span>
+    <span class="c1">#</span>
+    <span class="c1">#        | 0      ½Ev    ½Gu  |</span>
+    <span class="c1">#   A =  | ½Ev    E      F    |</span>
+    <span class="c1">#        | ½Gu    F      G    |</span>
+
+    <span class="n">M00</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">Evv</span> <span class="o">+</span> <span class="n">Fuv2</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Guu</span>
+    <span class="n">M01</span> <span class="o">=</span>  <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Eu</span>
+    <span class="n">M02</span> <span class="o">=</span>  <span class="n">Fu2</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Ev</span>
+    <span class="n">M10</span> <span class="o">=</span>  <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Ev</span>
+    <span class="n">M20</span> <span class="o">=</span>  <span class="n">Fu2</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Gu</span>
+
+    <span class="n">B</span> <span class="o">=</span> <span class="p">(</span>  <span class="n">M00</span> <span class="o">*</span> <span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="n">G</span> <span class="o">-</span> <span class="n">F</span> <span class="o">*</span> <span class="n">F</span><span class="p">)</span>
+         <span class="o">-</span> <span class="n">M01</span> <span class="o">*</span> <span class="p">(</span><span class="n">M10</span> <span class="o">*</span> <span class="n">G</span> <span class="o">-</span> <span class="n">Fv2</span> <span class="o">*</span> <span class="n">F</span><span class="p">)</span>
+         <span class="o">+</span> <span class="n">M02</span> <span class="o">*</span> <span class="p">(</span><span class="n">M10</span> <span class="o">*</span> <span class="n">F</span> <span class="o">-</span> <span class="n">E</span> <span class="o">*</span> <span class="n">Fv2</span><span class="p">))</span>
+
+    <span class="n">A</span> <span class="o">=</span> <span class="p">(</span>  <span class="mf">0.0</span>
+         <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Ev</span>  <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">Ev</span> <span class="o">*</span> <span class="n">G</span>  <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Gu</span> <span class="o">*</span> <span class="n">F</span><span class="p">)</span>
+         <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Gu</span>  <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">Ev</span> <span class="o">*</span> <span class="n">F</span>  <span class="o">-</span> <span class="n">E</span> <span class="o">*</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Gu</span><span class="p">))</span>
+
+    <span class="n">K</span> <span class="o">=</span> <span class="p">(</span><span class="n">B</span> <span class="o">-</span> <span class="n">A</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">W4</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-14</span><span class="p">,</span> <span class="n">W4</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">K</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">posinf</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span> <span class="n">neginf</span><span class="o">=-</span><span class="mf">1e6</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="induced_metric">
 <a class="viewcode-back" href="../riemannian.html#riemannian.induced_metric">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">induced_metric</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">):</span>
@@ -4969,7 +5163,10 @@
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    metric : Metric</span>
-<span class="sd">        A 2D ``Metric`` instance providing ``g_func`` and ``gauss_curvature()``.</span>
+<span class="sd">        A 2D ``Metric`` instance providing ``g_func``.  Gaussian curvature</span>
+<span class="sd">        is now derived numerically via the Brioschi formula applied to the</span>
+<span class="sd">        discrete metric grid, so ``gauss_curvature()`` is no longer called</span>
+<span class="sd">        during embedding construction.</span>
 <span class="sd">    u_range : tuple of float</span>
 <span class="sd">        (u_min, u_max) — parameter range in the u-direction.</span>
 <span class="sd">    v_range : tuple of float</span>
@@ -5004,9 +5201,12 @@
     <span class="n">dv</span> <span class="o">=</span> <span class="n">v_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">v_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">U</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">u_vals</span><span class="p">,</span> <span class="n">v_vals</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
 
-    <span class="c1"># Pre‑compute metric components and Gaussian curvature on the whole grid</span>
+    <span class="c1"># Pre‑compute metric components and Gaussian curvature on the whole grid.</span>
+    <span class="c1"># K is computed via the Brioschi formula applied to the discrete metric</span>
+    <span class="c1"># components, which is faster (no lambdify), avoids symbolic-vs-numerical</span>
+    <span class="c1"># mismatch, and is O(du², dv²) accurate — sufficient for all practical grids.</span>
     <span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span> <span class="o">=</span> <span class="n">_eval_metric_grid</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
-    <span class="n">K</span> <span class="o">=</span> <span class="n">_eval_curvature_grid</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+    <span class="n">K</span> <span class="o">=</span> <span class="n">_brioschi_curvature_grid</span><span class="p">(</span><span class="n">g11</span><span class="p">,</span> <span class="n">g12</span><span class="p">,</span> <span class="n">g22</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
 
     <span class="c1"># Allocate output arrays</span>
     <span class="n">R</span>    <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nu</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
@@ -5294,10 +5494,9 @@
 <span class="c1"># ======================================================================</span>
 <span class="c1"># VISUALIZATION</span>
 <span class="c1"># ======================================================================</span>
-
 <div class="viewcode-block" id="plot_embedding">
 <a class="viewcode-back" href="../riemannian.html#riemannian.plot_embedding">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_embedding</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">colormap</span><span class="o">=</span><span class="s1">&#39;plasma&#39;</span><span class="p">,</span> <span class="n">dark</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_embedding</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">colormap</span><span class="o">=</span><span class="s1">&#39;plasma&#39;</span><span class="p">,</span> <span class="n">dark</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s1">&#39;widget&#39;</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Render a single 3D embedding as a shaded surface coloured by z-height.</span>
 
@@ -5318,22 +5517,37 @@
 <span class="sd">        If True (default), use a near-black background and white labels,</span>
 <span class="sd">        suitable for publication or presentation slides.  If False, use</span>
 <span class="sd">        a white background with black labels.</span>
+<span class="sd">    backend : str, optional</span>
+<span class="sd">        Matplotlib backend to use for this function only.</span>
+<span class="sd">        Options: &#39;widget&#39; (interactive), &#39;inline&#39; (static), or None (use global backend).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    fig : matplotlib.figure.Figure</span>
-<span class="sd">        The figure object (10 × 7 inches).</span>
+<span class="sd">        The figure object.</span>
 <span class="sd">    ax : matplotlib.axes.Axes3D</span>
-<span class="sd">        The 3D axes containing the surface plot.</span>
+<span class="sd">        The 3D axes.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">bg</span> <span class="o">=</span> <span class="s1">&#39;#111111&#39;</span> <span class="k">if</span> <span class="n">dark</span> <span class="k">else</span> <span class="s1">&#39;white&#39;</span>
-    <span class="n">tc</span> <span class="o">=</span> <span class="s1">&#39;white&#39;</span>  <span class="k">if</span> <span class="n">dark</span> <span class="k">else</span> <span class="s1">&#39;black&#39;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
-    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span> <span class="o">=</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">1</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">2</span><span class="p">]</span>
+    <span class="c1"># Save the current backend</span>
+    <span class="n">current_backend</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">get_backend</span><span class="p">()</span>
+
+    <span class="c1"># Set the backend for this function only</span>
+    <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s1">&#39;widget&#39;</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">switch_backend</span><span class="p">(</span><span class="s1">&#39;widget&#39;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s1">&#39;inline&#39;</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">switch_backend</span><span class="p">(</span><span class="s1">&#39;inline&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Plot logic</span>
+    <span class="n">bg</span> <span class="o">=</span> <span class="s1">&#39;#111111&#39;</span> <span class="k">if</span> <span class="n">dark</span> <span class="k">else</span> <span class="s1">&#39;white&#39;</span>
+    <span class="n">tc</span> <span class="o">=</span> <span class="s1">&#39;white&#39;</span> <span class="k">if</span> <span class="n">dark</span> <span class="k">else</span> <span class="s1">&#39;black&#39;</span>
+
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span> <span class="o">=</span> <span class="n">R</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">2</span><span class="p">]</span>
     <span class="n">Z_n</span> <span class="o">=</span> <span class="p">(</span><span class="n">Z</span> <span class="o">-</span> <span class="n">Z</span><span class="o">.</span><span class="n">min</span><span class="p">())</span> <span class="o">/</span> <span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">Z</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">)</span>
 
     <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="n">facecolor</span><span class="o">=</span><span class="n">bg</span><span class="p">)</span>
-    <span class="n">ax</span>  <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="n">bg</span><span class="p">)</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="n">bg</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">plot_surface</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span>
                     <span class="n">facecolors</span><span class="o">=</span><span class="n">plt</span><span class="o">.</span><span class="n">colormaps</span><span class="p">[</span><span class="n">colormap</span><span class="p">](</span><span class="n">Z_n</span><span class="p">),</span>
                     <span class="n">linewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">antialiased</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shade</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -5341,6 +5555,10 @@
     <span class="n">ax</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="c1"># Restore the original backend</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">switch_backend</span><span class="p">(</span><span class="n">current_backend</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div>
 
 

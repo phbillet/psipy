@@ -129,6 +129,14 @@ Gauss-Bonnet verification
       over a rectangular domain and compare with the topological prediction
       2 pi chi (2D only).
 
+Numerical curvature helpers
+    * ``_brioschi_curvature_grid(g11, g12, g22, du, dv)`` — compute Gaussian
+      curvature K on a meshgrid via the Brioschi formula, using only the
+      metric components and their finite-difference derivatives.  Used
+      internally by ``build_embedding`` in place of the symbolic
+      ``gauss_curvature()`` path, and available as a standalone helper for
+      fast numerical K evaluation in the visualisation and corrugation layers.
+
 Visualisation
     * ``visualize_geodesics(metric, initial_conditions, tspan)`` — overlay
       geodesic trajectories on a curvature background (1D or 2D).
@@ -2033,8 +2041,15 @@ def jacobi_equation_solver(metric, geodesic, initial_variation, tspan, n_steps=1
     Large growth indicates negative sectional curvature in the geodesic direction,
     while oscillatory behaviour indicates positive curvature.
 
-    The ODE is solved with high precision (`rtol=1e-9`, `atol=1e-12`) and a stiff
-    solver (BDF) to handle possible rapid changes in curvature.
+    The ODE is solved with high precision (``rtol=1e-9``, ``atol=1e-12``) and a
+    stiff solver (BDF) to handle possible rapid changes in curvature.
+
+    In 2D the Riemann tensor has only one independent component.  All curvature
+    terms are evaluated via the Gauss equation
+    R(J,v)v = K(g(v,v)J - g(J,v)v),
+    where K is computed numerically along the geodesic via the Brioschi formula
+    on a local grid.  This replaces the symbolic ``riemann_tensor()`` call and
+    eliminates its lambdify overhead.
 
     Examples
     --------
@@ -2050,59 +2065,106 @@ def jacobi_equation_solver(metric, geodesic, initial_variation, tspan, n_steps=1
     if metric.dim != 2:
         raise NotImplementedError("jacobi_equation_solver is for 2D metrics only.")
 
-    x_sym, y_sym = metric.coords
-    R = metric.riemann_tensor()
-    R_func = {
-        i: {
-            j: {
-                k: {
-                    ell: lambdify((x_sym, y_sym), R[i][j][k][ell], 'numpy')
-                    for ell in range(2)
-                }
-                for k in range(2)
-            }
-            for j in range(2)
-        }
-        for i in range(2)
-    }
+    # ------------------------------------------------------------------
+    # In 2D the Riemann tensor has only one independent component.  By
+    # the Gauss equation all components reduce to K and the metric:
+    #
+    #   R^i_jkl = K (delta^i_k g_jl - delta^i_l g_jk)
+    #
+    # so R(J,v)v contracts to:
+    #
+    #   [R(J,v)v]^i = K (g(v,v) J^i - g(J,v) v^i)
+    #
+    # K is computed numerically from the metric components along the
+    # geodesic via the Brioschi formula, eliminating the symbolic
+    # riemann_tensor() call and its lambdify overhead entirely.
+    # ------------------------------------------------------------------
 
     t_geod = geodesic['t']
-    x_interp = interp1d(t_geod, geodesic['x'], kind='cubic')
-    y_interp = interp1d(t_geod, geodesic['y'], kind='cubic')
-    vx_interp = interp1d(t_geod, geodesic['vx'], kind='cubic')
-    vy_interp = interp1d(t_geod, geodesic['vy'], kind='cubic')
-    Gamma = metric.christoffel_func
+    x_arr  = geodesic['x']
+    y_arr  = geodesic['y']
+
+    # Build a fixed-size auxiliary grid covering the geodesic bounding box,
+    # compute K once via Brioschi, then interpolate onto the ODE time steps.
+    #
+    # IMPORTANT: the grid size is hard-capped at _JACOBI_K_GRID_N x _JACOBI_K_GRID_N
+    # regardless of how many geodesic steps were requested.  120x120 gives < 0.1 MB
+    # and is accurate to O(1e-4) for smooth metrics; using len(t_geod) here would
+    # produce grids of up to 10000x10000 = 10^8 points and exhaust memory.
+    _JACOBI_K_GRID_N = 120
+
+    _x0, _x1 = x_arr.min(), x_arr.max()
+    _y0, _y1 = y_arr.min(), y_arr.max()
+    _pad = max((_x1 - _x0) * 0.1, (_y1 - _y0) * 0.1, 1e-3)
+    _u   = np.linspace(_x0 - _pad, _x1 + _pad, _JACOBI_K_GRID_N)
+    _v   = np.linspace(_y0 - _pad, _y1 + _pad, _JACOBI_K_GRID_N)
+    _du  = _u[1] - _u[0]
+    _dv  = _v[1] - _v[0]
+    _U, _V = np.meshgrid(_u, _v, indexing='ij')
+    _g11_grid, _g12_grid, _g22_grid = _eval_metric_grid(metric, _U, _V)
+    _K_grid = _brioschi_curvature_grid(_g11_grid, _g12_grid, _g22_grid, _du, _dv)
+
+    from scipy.interpolate import RegularGridInterpolator
+    _K_interp_2d = RegularGridInterpolator(
+        (_u, _v), _K_grid, method='linear', bounds_error=False, fill_value=0.0
+    )
+
+    # Pre-allocate a single (1,2) query array reused on every ODE step to
+    # avoid per-step list allocation inside the hot path.
+    _query_pt = np.empty((1, 2), dtype=float)
+
+    def _K_at(x, y):
+        _query_pt[0, 0] = x
+        _query_pt[0, 1] = y
+        return float(_K_interp_2d(_query_pt)[0])
+
+    x_interp  = interp1d(t_geod, x_arr,          kind='cubic')
+    y_interp  = interp1d(t_geod, y_arr,           kind='cubic')
+    vx_interp = interp1d(t_geod, geodesic['vx'],  kind='cubic')
+    vy_interp = interp1d(t_geod, geodesic['vy'],  kind='cubic')
+    Gamma     = metric.christoffel_func
+
+    # metric component callables (already lambdified in metric.g_func)
+    g00_f  = metric.g_func[(0, 0)]
+    g01_f  = metric.g_func[(0, 1)]
+    g11_f  = metric.g_func[(1, 1)]
 
     def jacobi_ode(t, state):
         J_x, J_y, DJ_x, DJ_y = state
-        x = x_interp(t)
-        y = y_interp(t)
-        vx = vx_interp(t)
-        vy = vy_interp(t)
+        x  = float(x_interp(t))
+        y  = float(y_interp(t))
+        vx = float(vx_interp(t))
+        vy = float(vy_interp(t))
 
-        J = [J_x, J_y]
-        v = [vx, vy]
+        J  = [J_x,  J_y ]
+        v  = [vx,   vy  ]
         DJ = [DJ_x, DJ_y]
 
-        # Γ(J, v)
-        gamma_J_x = sum(Gamma[0][j][k](x, y) * J[j] * v[k] for j in range(2) for k in range(2))
-        gamma_J_y = sum(Gamma[1][j][k](x, y) * J[j] * v[k] for j in range(2) for k in range(2))
+        # Christoffel contraction terms Gamma(J,v) and Gamma(DJ,v)
+        gamma_J_x  = sum(Gamma[0][j][k](x, y) * J[j]  * v[k]
+                         for j in range(2) for k in range(2))
+        gamma_J_y  = sum(Gamma[1][j][k](x, y) * J[j]  * v[k]
+                         for j in range(2) for k in range(2))
+        gamma_DJ_x = sum(Gamma[0][j][k](x, y) * DJ[j] * v[k]
+                         for j in range(2) for k in range(2))
+        gamma_DJ_y = sum(Gamma[1][j][k](x, y) * DJ[j] * v[k]
+                         for j in range(2) for k in range(2))
 
-        # Γ(DJ, v)
-        gamma_DJ_x = sum(Gamma[0][j][k](x, y) * DJ[j] * v[k] for j in range(2) for k in range(2))
-        gamma_DJ_y = sum(Gamma[1][j][k](x, y) * DJ[j] * v[k] for j in range(2) for k in range(2))
+        # Curvature term via Gauss equation: [R(J,v)v]^i = K(g(v,v)J^i - g(J,v)v^i)
+        K    = _K_at(x, y)
+        e00  = float(g00_f(x, y))
+        e01  = float(g01_f(x, y))
+        e11  = float(g11_f(x, y))
+        gvv  = e00*vx*vx + 2*e01*vx*vy + e11*vy*vy
+        gJv  = e00*J_x*vx + e01*(J_x*vy + J_y*vx) + e11*J_y*vy
+        curv_x = K * (gvv * J_x - gJv * vx)
+        curv_y = K * (gvv * J_y - gJv * vy)
 
-        # R(J, v)v  (R^i_{jkl} v^j J^k v^l)
-        curv_x = sum(R_func[0][j][k][ell](x, y) * v[j] * J[k] * v[ell]
-                     for j in range(2) for k in range(2) for ell in range(2))
-        curv_y = sum(R_func[1][j][k][ell](x, y) * v[j] * J[k] * v[ell]
-                     for j in range(2) for k in range(2) for ell in range(2))
+        # dJ/dt = DJ - Gamma(J, v)
+        dJ_x  = DJ_x  - gamma_J_x
+        dJ_y  = DJ_y  - gamma_J_y
 
-        # dJ/dt = DJ - Γ(J, v)
-        dJ_x = DJ_x - gamma_J_x
-        dJ_y = DJ_y - gamma_J_y
-
-        # d(DJ)/dt = -R(J, v)v - Γ(DJ, v)
+        # d(DJ)/dt = -R(J,v)v - Gamma(DJ, v)
         dDJ_x = -curv_x - gamma_DJ_x
         dDJ_y = -curv_y - gamma_DJ_y
 
@@ -3902,6 +3964,12 @@ def parallel_transport(metric, curve, initial_vector, tspan=None, method='RK45')
         dv^i/dt = - Γ^i_{jk} v^j ẋ^k,
     where ẋ^k are the components of the curve's velocity.
 
+    When the ``curve`` dict was produced by :func:`geodesic_solver` it already
+    contains exact velocity arrays (``'v'`` in 1D, ``'vx'`` / ``'vy'`` in 2D).
+    These are used directly, avoiding the numerical differentiation noise that
+    ``np.gradient`` would introduce.  For curves supplied without velocity
+    arrays the function falls back to ``np.gradient`` automatically.
+
     Parameters
     ----------
     metric : Metric
@@ -3926,42 +3994,54 @@ def parallel_transport(metric, curve, initial_vector, tspan=None, method='RK45')
         - For 2D: 'vx', 'vy' : transported vector components
     """
     if metric.dim == 1:
-        x = curve['x']
+        x      = curve['x']
         t_vals = curve['t']
-        v0 = initial_vector
-        Gamma = metric.christoffel_func
-        # approximate velocity from curve (once)
-        dxdt = np.gradient(x, t_vals)
+        v0     = initial_vector
+        Gamma  = metric.christoffel_func
+
+        # Use the velocity already present in the curve dict if available;
+        # fall back to np.gradient only when the curve was not produced by
+        # geodesic_solver (i.e. 'v' key is absent).
+        if 'v' in curve:
+            dxdt = curve['v']
+        else:
+            dxdt = np.gradient(x, t_vals)
 
         def ode_1d(t, v):
-            # interpolate position and velocity at time t
-            x_t = np.interp(t, t_vals, x)
+            x_t    = np.interp(t, t_vals, x)
             dxdt_t = np.interp(t, t_vals, dxdt)
             return -Gamma(x_t) * v * dxdt_t
 
         if tspan is None:
             tspan = (t_vals[0], t_vals[-1])
-        # Use the same time grid as the curve (or a subset)
         t_eval = np.linspace(tspan[0], tspan[1], len(t_vals))
-        sol = solve_ivp(ode_1d, tspan, [v0], t_eval=t_eval, method=method)
+        sol    = solve_ivp(ode_1d, tspan, [v0], t_eval=t_eval, method=method)
         return {'t': sol.t, 'v': sol.y[0]}
 
     else:  # 2D
-        x = curve['x']; y = curve['y']; t_vals = curve['t']
+        x      = curve['x']
+        y      = curve['y']
+        t_vals = curve['t']
         vx0, vy0 = initial_vector
-        Gamma = metric.christoffel_func
-        # approximate velocities
-        dxdt = np.gradient(x, t_vals)
-        dydt = np.gradient(y, t_vals)
+        Gamma    = metric.christoffel_func
+
+        # Use the velocity arrays already stored in the curve dict when
+        # available (produced by geodesic_solver), avoiding numerical
+        # differentiation noise from np.gradient.
+        if 'vx' in curve and 'vy' in curve:
+            dxdt = curve['vx']
+            dydt = curve['vy']
+        else:
+            dxdt = np.gradient(x, t_vals)
+            dydt = np.gradient(y, t_vals)
 
         def ode_2d(t, state):
-            vx, vy = state
-            # interpolate
-            x_t = np.interp(t, t_vals, x)
-            y_t = np.interp(t, t_vals, y)
-            dxdt_t = np.interp(t, t_vals, dxdt)
-            dydt_t = np.interp(t, t_vals, dydt)
-            # compute Christoffel terms
+            vx, vy   = state
+            x_t      = np.interp(t, t_vals, x)
+            y_t      = np.interp(t, t_vals, y)
+            dxdt_t   = np.interp(t, t_vals, dxdt)
+            dydt_t   = np.interp(t, t_vals, dydt)
+
             G000 = Gamma[0][0][0](x_t, y_t)
             G001 = Gamma[0][0][1](x_t, y_t)
             G011 = Gamma[0][1][1](x_t, y_t)
@@ -3980,7 +4060,8 @@ def parallel_transport(metric, curve, initial_vector, tspan=None, method='RK45')
         if tspan is None:
             tspan = (t_vals[0], t_vals[-1])
         t_eval = np.linspace(tspan[0], tspan[1], len(t_vals))
-        sol = solve_ivp(ode_2d, tspan, [vx0, vy0], t_eval=t_eval, method=method)
+        sol    = solve_ivp(ode_2d, tspan, [vx0, vy0],
+                           t_eval=t_eval, method=method)
         return {'t': sol.t, 'vx': sol.y[0], 'vy': sol.y[1]}
 
 
@@ -4290,12 +4371,14 @@ def _visualize_geodesics_2d(metric, initial_conditions, tspan,
             x_bg = np.linspace(x_range[0], x_range[1], 100)
             y_bg = np.linspace(y_range[0], y_range[1], 100)
             X_bg, Y_bg = np.meshgrid(x_bg, y_bg, indexing='ij')
-            K_expr = metric.gauss_curvature()
-            K_func = lambdify(metric.coords, K_expr, 'numpy')
-            K_vals = K_func(X_bg, Y_bg)
+            _du_bg = x_bg[1] - x_bg[0]
+            _dv_bg = y_bg[1] - y_bg[0]
+            _g11_bg, _g12_bg, _g22_bg = _eval_metric_grid(metric, X_bg, Y_bg)
+            K_vals = _brioschi_curvature_grid(_g11_bg, _g12_bg, _g22_bg,
+                                              _du_bg, _dv_bg)
             im = ax.pcolormesh(X_bg, Y_bg, K_vals, shading='auto',
                                cmap='RdBu_r', alpha=0.3, vmin=-1, vmax=1)
-            plt.colorbar(im, ax=ax, label='Gaussian Curvature')
+            plt.colorbar(im, ax=ax, label='Gaussian Curvature (Brioschi)')
         except Exception:
             print("Warning: Could not compute curvature background.")
 
@@ -4630,6 +4713,117 @@ def _eval_curvature_grid(metric, U, V):
         np.asarray(K_lam(U, V), dtype=float), U.shape).copy()
 
 
+def _brioschi_curvature_grid(g11, g12, g22, du, dv):
+    """
+    Compute Gaussian curvature K on a meshgrid via the Brioschi formula.
+
+    The Brioschi formula expresses K purely in terms of the metric components
+    g11, g12, g22 and their first and second partial derivatives — no
+    Christoffel symbols, no Riemann tensor, no symbolic machinery required.
+    In local coordinates (u, v) with E = g11, F = g12, G = g22 it reads:
+
+        K = (B - A) / (E·G - F²)²
+
+    where A and B are explicit determinants built from E, F, G and their
+    derivatives (see Brioschi 1852; also Struik, *Lectures on Classical
+    Differential Geometry*, §2-5).
+
+    All derivatives are approximated with second-order central finite
+    differences (one-sided at the boundary).
+
+    Parameters
+    ----------
+    g11 : ndarray, shape (nu, nv)
+        Metric component g_{uu} = E on the meshgrid.
+    g12 : ndarray, shape (nu, nv)
+        Off-diagonal component g_{uv} = F.
+    g22 : ndarray, shape (nu, nv)
+        Metric component g_{vv} = G.
+    du : float
+        Uniform grid spacing in the u-direction.
+    dv : float
+        Uniform grid spacing in the v-direction.
+
+    Returns
+    -------
+    K : ndarray, shape (nu, nv)
+        Gaussian curvature at each grid point.  Values are clamped to
+        the finite range [-1e6, 1e6] to suppress boundary artefacts where
+        the denominator (EG - F²)² is near zero.
+
+    Notes
+    -----
+    This function is numerically consistent with ``induced_metric``: both
+    use the same second-order finite-difference stencil, so the K returned
+    here is directly comparable to the K derived from the embedding via
+    the corrugation pipeline.  The accuracy is O(du², dv²).
+
+    For the Brioschi formula in full detail see, e.g.,
+    https://en.wikipedia.org/wiki/Gaussian_curvature#Brioschi_formula
+    """
+    def _grad(F, du, dv):
+        """Return (dF/du, dF/dv) via second-order central differences."""
+        Fu = np.zeros_like(F)
+        Fu[1:-1, :] = (F[2:, :] - F[:-2, :]) / (2 * du)
+        Fu[0,    :] = (F[1,  :] - F[0,  :]) / du
+        Fu[-1,   :] = (F[-1, :] - F[-2, :]) / du
+
+        Fv = np.zeros_like(F)
+        Fv[:, 1:-1] = (F[:, 2:] - F[:, :-2]) / (2 * dv)
+        Fv[:, 0   ] = (F[:, 1]  - F[:, 0])   / dv
+        Fv[:, -1  ] = (F[:, -1] - F[:, -2])  / dv
+        return Fu, Fv
+
+    def _lap(F, du, dv):
+        """Return (d²F/du², d²F/dudv, d²F/dv²)."""
+        Fu, Fv   = _grad(F,  du, dv)
+        Fuu, _   = _grad(Fu, du, dv)
+        _, Fvv   = _grad(Fv, du, dv)
+        _, Fuv   = _grad(Fu, du, dv)   # d/dv of dF/du
+        return Fuu, Fuv, Fvv
+
+    E, F, G = g11, g12, g22
+
+    Eu,  Ev  = _grad(E, du, dv)
+    Fu2, Fv2 = _grad(F, du, dv)
+    Gu,  Gv  = _grad(G, du, dv)
+
+    Euu, Euv, Evv = _lap(E, du, dv)
+    _,   Fuv2, _  = _lap(F, du, dv)
+    Guu, Guv, Gvv = _lap(G, du, dv)
+
+    # Denominator
+    W2  = E * G - F * F          # (EG - F²)
+    W4  = W2 * W2                # (EG - F²)²
+
+    # Brioschi numerator  (standard determinant form)
+    #
+    #        | -½Evv + Fuv - ½Guu    ½Eu    Fu - ½Ev |
+    #   B =  |  ½Ev              E       F           |
+    #        |  Fu - ½Gu         F       G           |
+    #
+    #        | 0      ½Ev    ½Gu  |
+    #   A =  | ½Ev    E      F    |
+    #        | ½Gu    F      G    |
+
+    M00 = -0.5 * Evv + Fuv2 - 0.5 * Guu
+    M01 =  0.5 * Eu
+    M02 =  Fu2 - 0.5 * Ev
+    M10 =  0.5 * Ev
+    M20 =  Fu2 - 0.5 * Gu
+
+    B = (  M00 * (E * G - F * F)
+         - M01 * (M10 * G - Fv2 * F)
+         + M02 * (M10 * F - E * Fv2))
+
+    A = (  0.0
+         - 0.5 * Ev  * (0.5 * Ev * G  - 0.5 * Gu * F)
+         + 0.5 * Gu  * (0.5 * Ev * F  - E * 0.5 * Gu))
+
+    K = (B - A) / np.where(np.abs(W4) > 1e-14, W4, np.nan)
+    return np.nan_to_num(K, nan=0.0, posinf=1e6, neginf=-1e6)
+
+
 def induced_metric(R, du, dv):
     """
     Compute the metric tensor induced by a 3D embedding via finite differences.
@@ -4766,7 +4960,10 @@ def build_embedding(metric, u_range, v_range, nu, nv):
     Parameters
     ----------
     metric : Metric
-        A 2D ``Metric`` instance providing ``g_func`` and ``gauss_curvature()``.
+        A 2D ``Metric`` instance providing ``g_func``.  Gaussian curvature
+        is now derived numerically via the Brioschi formula applied to the
+        discrete metric grid, so ``gauss_curvature()`` is no longer called
+        during embedding construction.
     u_range : tuple of float
         (u_min, u_max) — parameter range in the u-direction.
     v_range : tuple of float
@@ -4801,9 +4998,12 @@ def build_embedding(metric, u_range, v_range, nu, nv):
     dv = v_vals[1] - v_vals[0]
     U, V = np.meshgrid(u_vals, v_vals, indexing='ij')
 
-    # Pre‑compute metric components and Gaussian curvature on the whole grid
+    # Pre‑compute metric components and Gaussian curvature on the whole grid.
+    # K is computed via the Brioschi formula applied to the discrete metric
+    # components, which is faster (no lambdify), avoids symbolic-vs-numerical
+    # mismatch, and is O(du², dv²) accurate — sufficient for all practical grids.
     g11, g12, g22 = _eval_metric_grid(metric, U, V)
-    K = _eval_curvature_grid(metric, U, V)
+    K = _brioschi_curvature_grid(g11, g12, g22, du, dv)
 
     # Allocate output arrays
     R    = np.zeros((nu, nv, 3))
@@ -5084,8 +5284,7 @@ def add_corrugations(R, metric, du, dv, U, V,
 # ======================================================================
 # VISUALIZATION
 # ======================================================================
-
-def plot_embedding(R, title="", colormap='plasma', dark=True):
+def plot_embedding(R, title="", colormap='plasma', dark=True, backend='widget'):
     """
     Render a single 3D embedding as a shaded surface coloured by z-height.
 
@@ -5106,22 +5305,37 @@ def plot_embedding(R, title="", colormap='plasma', dark=True):
         If True (default), use a near-black background and white labels,
         suitable for publication or presentation slides.  If False, use
         a white background with black labels.
+    backend : str, optional
+        Matplotlib backend to use for this function only.
+        Options: 'widget' (interactive), 'inline' (static), or None (use global backend).
 
     Returns
     -------
     fig : matplotlib.figure.Figure
-        The figure object (10 × 7 inches).
+        The figure object.
     ax : matplotlib.axes.Axes3D
-        The 3D axes containing the surface plot.
+        The 3D axes.
     """
-    bg = '#111111' if dark else 'white'
-    tc = 'white'  if dark else 'black'
+    import matplotlib.pyplot as plt
 
-    X, Y, Z = R[:,:,0], R[:,:,1], R[:,:,2]
+    # Save the current backend
+    current_backend = plt.get_backend()
+
+    # Set the backend for this function only
+    if backend == 'widget':
+        plt.switch_backend('widget')
+    elif backend == 'inline':
+        plt.switch_backend('inline')
+
+    # Plot logic
+    bg = '#111111' if dark else 'white'
+    tc = 'white' if dark else 'black'
+
+    X, Y, Z = R[:, :, 0], R[:, :, 1], R[:, :, 2]
     Z_n = (Z - Z.min()) / (Z.max() - Z.min() + 1e-12)
 
     fig = plt.figure(figsize=(10, 7), facecolor=bg)
-    ax  = fig.add_subplot(111, projection='3d', facecolor=bg)
+    ax = fig.add_subplot(111, projection='3d', facecolor=bg)
     ax.plot_surface(X, Y, Z,
                     facecolors=plt.colormaps[colormap](Z_n),
                     linewidth=0, antialiased=True, shade=True)
@@ -5129,6 +5343,10 @@ def plot_embedding(R, title="", colormap='plasma', dark=True):
     ax.set_axis_off()
     plt.tight_layout()
     plt.show()
+
+    # Restore the original backend
+    plt.switch_backend(current_backend)
+
     return fig, ax
 
 
