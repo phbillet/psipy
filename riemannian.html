@@ -279,6 +279,15 @@ over a rectangular domain and compare with the topological prediction
 2 pi chi (2D only).</p></li>
 </ul>
 </dd>
+<dt>Numerical curvature helpers</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_brioschi_curvature_grid(g11,</span> <span class="pre">g12,</span> <span class="pre">g22,</span> <span class="pre">du,</span> <span class="pre">dv)</span></code> — compute Gaussian
+curvature K on a meshgrid via the Brioschi formula, using only the
+metric components and their finite-difference derivatives.  Used
+internally by <code class="docutils literal notranslate"><span class="pre">build_embedding</span></code> in place of the symbolic
+<code class="docutils literal notranslate"><span class="pre">gauss_curvature()</span></code> path, and available as a standalone helper for
+fast numerical K evaluation in the visualisation and corrugation layers.</p></li>
+</ul>
+</dd>
 <dt>Visualisation</dt><dd><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">visualize_geodesics(metric,</span> <span class="pre">initial_conditions,</span> <span class="pre">tspan)</span></code> — overlay
 geodesic trajectories on a curvature background (1D or 2D).</p></li>
@@ -1486,7 +1495,10 @@ finer grids (larger nu, nv).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian.Metric" title="riemannian.Metric"><em>Metric</em></a>) – A 2D <code class="docutils literal notranslate"><span class="pre">Metric</span></code> instance providing <code class="docutils literal notranslate"><span class="pre">g_func</span></code> and <code class="docutils literal notranslate"><span class="pre">gauss_curvature()</span></code>.</p></li>
+<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian.Metric" title="riemannian.Metric"><em>Metric</em></a>) – A 2D <code class="docutils literal notranslate"><span class="pre">Metric</span></code> instance providing <code class="docutils literal notranslate"><span class="pre">g_func</span></code>.  Gaussian curvature
+is now derived numerically via the Brioschi formula applied to the
+discrete metric grid, so <code class="docutils literal notranslate"><span class="pre">gauss_curvature()</span></code> is no longer called
+during embedding construction.</p></li>
 <li><p><strong>u_range</strong> (<em>tuple</em><em> of </em><em>float</em>) – (u_min, u_max) — parameter range in the u-direction.</p></li>
 <li><p><strong>v_range</strong> (<em>tuple</em><em> of </em><em>float</em>) – (v_min, v_max) — parameter range in the v-direction.</p></li>
 <li><p><strong>nu</strong> (<em>int</em>) – Number of grid points in the u-direction.</p></li>
@@ -2365,8 +2377,14 @@ covered by <code class="docutils literal notranslate"><span class="pre">geodesic
 <p>Conjugate points along the geodesic occur where the Jacobi field vanishes.
 Large growth indicates negative sectional curvature in the geodesic direction,
 while oscillatory behaviour indicates positive curvature.</p>
-<p>The ODE is solved with high precision (<cite>rtol=1e-9</cite>, <cite>atol=1e-12</cite>) and a stiff
-solver (BDF) to handle possible rapid changes in curvature.</p>
+<p>The ODE is solved with high precision (<code class="docutils literal notranslate"><span class="pre">rtol=1e-9</span></code>, <code class="docutils literal notranslate"><span class="pre">atol=1e-12</span></code>) and a
+stiff solver (BDF) to handle possible rapid changes in curvature.</p>
+<p>In 2D the Riemann tensor has only one independent component.  All curvature
+terms are evaluated via the Gauss equation
+R(J,v)v = K(g(v,v)J - g(J,v)v),
+where K is computed numerically along the geodesic via the Brioschi formula
+on a local grid.  This replaces the symbolic <code class="docutils literal notranslate"><span class="pre">riemann_tensor()</span></code> call and
+eliminates its lambdify overhead.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">,</span> <span class="n">sin</span>
@@ -2459,6 +2477,11 @@ criterion used by <code class="docutils literal notranslate"><span class="pre">a
 </dd>
 </dl>
 <p>where ẋ^k are the components of the curve’s velocity.</p>
+<p>When the <code class="docutils literal notranslate"><span class="pre">curve</span></code> dict was produced by <a class="reference internal" href="#riemannian.geodesic_solver" title="riemannian.geodesic_solver"><code class="xref py py-func docutils literal notranslate"><span class="pre">geodesic_solver()</span></code></a> it already
+contains exact velocity arrays (<code class="docutils literal notranslate"><span class="pre">'v'</span></code> in 1D, <code class="docutils literal notranslate"><span class="pre">'vx'</span></code> / <code class="docutils literal notranslate"><span class="pre">'vy'</span></code> in 2D).
+These are used directly, avoiding the numerical differentiation noise that
+<code class="docutils literal notranslate"><span class="pre">np.gradient</span></code> would introduce.  For curves supplied without velocity
+arrays the function falls back to <code class="docutils literal notranslate"><span class="pre">np.gradient</span></code> automatically.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -2527,7 +2550,7 @@ map) and last (final) snapshots are always included.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="riemannian.plot_embedding">
-<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">plot_embedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colormap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'plasma'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dark</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#plot_embedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.plot_embedding" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">plot_embedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colormap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'plasma'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dark</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'widget'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#plot_embedding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.plot_embedding" title="Link to this definition"></a></dt>
 <dd><p>Render a single 3D embedding as a shaded surface coloured by z-height.</p>
 <p>The z-values are linearly normalised to [0, 1] before being mapped
 through the chosen colormap, so the full color range is always used
@@ -2542,12 +2565,14 @@ directions; axis 2 holds the (x, y, z) coordinates.</p></li>
 <li><p><strong>dark</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), use a near-black background and white labels,
 suitable for publication or presentation slides.  If False, use
 a white background with black labels.</p></li>
+<li><p><strong>backend</strong> (<em>str</em><em>, </em><em>optional</em>) – Matplotlib backend to use for this function only.
+Options: ‘widget’ (interactive), ‘inline’ (static), or None (use global backend).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><ul class="simple">
-<li><p><strong>fig</strong> (<em>matplotlib.figure.Figure</em>) – The figure object (10 × 7 inches).</p></li>
-<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes3D</em>) – The 3D axes containing the surface plot.</p></li>
+<li><p><strong>fig</strong> (<em>matplotlib.figure.Figure</em>) – The figure object.</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes3D</em>) – The 3D axes.</p></li>
 </ul>
 </p>
 </dd>
