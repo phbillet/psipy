@@ -690,6 +690,7 @@
 <span class="sd">    to create vectorized functions from the symbolic components manually:</span>
 
 <span class="sd">        X_components = symplectic_gradient(f, vars_phase, numeric=False)</span>
+<span class="sd">        </span>
 <span class="sd">        funcs = [lambdify(vars_phase, expr, &#39;numpy&#39;) for expr in X_components]</span>
 
 <span class="sd">    Then evaluate on entire arrays:</span>
@@ -1074,6 +1075,7 @@
 <span class="sd">    </span>
 <span class="sd">    For 1-DOF systems, trajectories lie on energy contours, making this an</span>
 <span class="sd">    effective tool for identifying:</span>
+<span class="sd">    </span>
 <span class="sd">    - Fixed points (where vector field vanishes)</span>
 <span class="sd">    - Periodic orbits (closed contours)</span>
 <span class="sd">    - Separatrices (boundaries between different types of motion)</span>
@@ -1532,6 +1534,7 @@
 <span class="sd">    A Poincaré section reduces the 4D continuous flow to a 2D discrete map by</span>
 <span class="sd">    recording intersections of trajectories with a specified surface Σ in phase</span>
 <span class="sd">    space. This reveals the underlying structure of the dynamics:</span>
+<span class="sd">    </span>
 <span class="sd">    - Regular motion appears as closed curves (KAM tori)</span>
 <span class="sd">    - Chaotic motion appears as scattered points</span>
 <span class="sd">    - Periodic orbits appear as fixed points or finite sets</span>
@@ -1644,7 +1647,65 @@
 <div class="viewcode-block" id="first_return_map">
 <a class="viewcode-back" href="../symplectic.html#symplectic.first_return_map">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">first_return_map</span><span class="p">(</span><span class="n">section_points</span><span class="p">,</span> <span class="n">plot_variables</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;x1&#39;</span><span class="p">,</span> <span class="s1">&#39;p1&#39;</span><span class="p">)):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;First return map from Poincaré section points.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct the first return map (Poincaré map) from a Poincaré section.</span>
+
+<span class="sd">    For a 2-DOF Hamiltonian system, a Poincaré section reduces the 4D flow</span>
+<span class="sd">    to a 2D map by recording successive intersections with a chosen surface.</span>
+<span class="sd">    The **first return map** plots each intersection point (in the chosen</span>
+<span class="sd">    coordinates) against the next one.  Regular (KAM) tori appear as closed</span>
+<span class="sd">    curves, while chaotic motion fills area in the return map.</span>
+
+<span class="sd">    This function extracts successive pairs from the list of section points</span>
+<span class="sd">    (returned by `poincare_section`) and organizes them into two arrays:</span>
+<span class="sd">    `current` (the i-th point) and `next` (the (i+1)-th point).  The resulting</span>
+<span class="sd">    dictionary can be directly used with `plt.plot` to visualise the map.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    section_points : list of dict</span>
+<span class="sd">        List of section crossing points as returned by `poincare_section`</span>
+<span class="sd">        (the `&#39;section_points&#39;` field).  Each dict has keys like `&#39;x1&#39;`, `&#39;p1&#39;`,</span>
+<span class="sd">        `&#39;x2&#39;`, `&#39;p2&#39;` containing the coordinates at the crossing.</span>
+<span class="sd">    plot_variables : tuple of str, optional</span>
+<span class="sd">        Two variable names to use as the coordinates for the return map,</span>
+<span class="sd">        e.g. `(&#39;x1&#39;, &#39;p1&#39;)` or `(&#39;x2&#39;, &#39;p2&#39;)`.  Defaults to `(&#39;x1&#39;, &#39;p1&#39;)`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary with the following keys:</span>
+
+<span class="sd">        - `&#39;current&#39;` : ndarray, shape (N-1, 2)</span>
+<span class="sd">          Coordinates of the first N-1 section points in the chosen variables.</span>
+<span class="sd">        - `&#39;next&#39;` : ndarray, shape (N-1, 2)</span>
+<span class="sd">          Coordinates of the subsequent (i+1)-th points.</span>
+<span class="sd">        - `&#39;variables&#39;` : tuple of str</span>
+<span class="sd">          The variable names used (same as `plot_variables`).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If fewer than 2 section points are provided.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # Compute a Poincaré section</span>
+<span class="sd">    &gt;&gt;&gt; ps = poincare_section(H, Sigma_def, z0, tmax=100)</span>
+<span class="sd">    &gt;&gt;&gt; # Extract first return map in (x1, p1)</span>
+<span class="sd">    &gt;&gt;&gt; ret_map = first_return_map(ps[&#39;section_points&#39;], plot_variables=(&#39;x1&#39;, &#39;p1&#39;))</span>
+<span class="sd">    &gt;&gt;&gt; # Plot the map</span>
+<span class="sd">    &gt;&gt;&gt; plt.plot(ret_map[&#39;current&#39;][:, 0], ret_map[&#39;current&#39;][:, 1], &#39;o&#39;, markersize=2)</span>
+<span class="sd">    &gt;&gt;&gt; plt.xlabel(ret_map[&#39;variables&#39;][0])</span>
+<span class="sd">    &gt;&gt;&gt; plt.ylabel(ret_map[&#39;variables&#39;][1])</span>
+<span class="sd">    &gt;&gt;&gt; plt.title(&#39;First return map&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; plt.show()</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    poincare_section : Compute the Poincaré section that produces the points.</span>
+<span class="sd">    visualize_poincare_section : High-level visualisation of multiple sections.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">section_points</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need at least 2 section points&quot;</span><span class="p">)</span>
     <span class="n">var1</span><span class="p">,</span> <span class="n">var2</span> <span class="o">=</span> <span class="n">plot_variables</span>
@@ -1667,6 +1728,7 @@
 <span class="sd">        δz(T) = M · δz(0)</span>
 <span class="sd">    </span>
 <span class="sd">    The eigenvalues of M (Floquet multipliers) determine orbital stability:</span>
+<span class="sd">    </span>
 <span class="sd">    - |λ| = 1 for all λ: neutrally stable (typical for Hamiltonian systems)</span>
 <span class="sd">    - Any |λ| &gt; 1: unstable orbit</span>
 <span class="sd">    - All |λ| &lt; 1: stable (not possible in conservative Hamiltonian systems)</span>
@@ -1905,6 +1967,7 @@
 <span class="sd">    suitable for plotting.</span>
 <span class="sd">    </span>
 <span class="sd">    Available projection planes:</span>
+<span class="sd">    </span>
 <span class="sd">    - &#39;xy&#39; or &#39;config&#39;: Configuration space (x₁, x₂)</span>
 <span class="sd">    - &#39;xp&#39;: Phase space of first DOF (x₁, p₁)</span>
 <span class="sd">    - &#39;pp&#39; or &#39;momentum&#39;: Momentum space (p₁, p₂)</span>
