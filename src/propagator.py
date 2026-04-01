@@ -32,6 +32,12 @@ analysis.  Four visualisation helpers are provided:
 * :func:`plot_ray_fan`            — rays coloured by action, caustics marked
 * :func:`plot_interference_detail`— fringes, density, and action scatter
 
+The module also supports three types of first‑order‑in‑time (or second‑order)
+partial differential equations, selected by the ``equation`` argument:
+
+* **Schrödinger** (default) — −i ∂ψ/∂t = ψOp(p, ψ)   (Van Vleck propagator)
+* **Parabolic** (heat)      — ∂u/∂t = ψOp(p, u)      (real exponent)
+* **Wave** (hyperbolic)     — ∂²u/∂t² = ψOp(p, u)    (two branches, ±√H)
 
 Physical Background
 -------------------
@@ -60,9 +66,22 @@ in time t, and:
 
 The amplitude A_k diverges when det J = 0, i.e. at **caustics**, which are
 the envelopes of the ray family.  Near a caustic the WKB approximation
-breaks down and must be replaced by a uniform asymptotic approximation
-based on the Airy function (fold caustics) or the Pearcey integral (cusp
-caustics).
+breaks down and is replaced by a uniform asymptotic approximation:
+
+* In 1D, a **fold caustic** is corrected with the Airy function Ai(ξ) where
+  ξ(x) = (α/2ℏ)^{1/3} (x − x_c).  The fringe spacing ∝ ℏ^{1/3} is
+  physically correct, and the uniform amplitude is
+  ψ(x) ≈ 2π a_c ℏ^{1/6} |α|^{-1/3} · Ai(ξ(x)) · exp(i S_c/ℏ).
+* In 2D, **fold caustics** are patched with Airy functions in the transverse
+  direction n̂ = ∇det J / |∇det J|, blended with a 2D Gaussian taper.
+  **Cusp caustics** (where ∇det J ≈ 0) are treated with the Pearcey integral
+  via the `asymptotic` module, giving an O(ℏ^{1/4}) scaling.
+
+For the parabolic (heat) equation ∂u/∂t = ψOp(p, u), the WKB ansatz has a
+real exponent, and fold caustics are corrected with the parabolic cylinder
+function D_{-1/2}(ζ), ζ = (α/ℏ)^{1/4} (x − x_c).  For the wave equation
+∂²u/∂t² = ψOp(p, u), the dispersion relation splits into two branches,
+and the wavefunction is the coherent sum of both families.
 
 Connection to the Metric
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -71,11 +90,14 @@ pᵢ = g_{ij} vʲ (covariant, lowered by the metric), so the action becomes
 ∫ p · v dt = ∫ g_{ij} vⁱ vʲ dt.  The inverse metric gⁱʲ governs the
 Hamiltonian equations of motion (Hamilton's equations), while the metric
 g_{ij} maps velocities to momenta.  This distinction is crucial for the
-action fallback when no explicit momentum is stored in the trajectory.
+action fallback: when no explicit momentum is stored in the trajectory,
+the code reconstructs pᵢ = g_{ij}(x) vʲ and integrates ∫ g_{ij} vⁱ vʲ dt,
+which is exact for any Riemannian metric.  The old ∫ v² dt fallback (valid
+only for the flat unit‑mass case) is no longer used.
 
 The Jacobi equation governing the evolution of the Jacobi field J = ∂x/∂p₀
-(sensitivity of position to initial momentum) along a geodesic is the
-geodesic deviation equation, which is curvature-dependent:
+along a geodesic is the geodesic deviation equation, which is curvature‑
+dependent:
 
     D²J/dt² + R(J, ẋ)ẋ = 0
 
@@ -94,12 +116,19 @@ Dependency tree::
     ├── _det_J_from_jacobi        — Jacobi determinant along each ray
     │   ├── _det_J_1d             — 1D: variational ODE via solve_ivp
     │   └── jacobi_equation_solver— 2D: two Jacobi fields (riemannian.py)
-    ├── _cumulative_action        — action integral ∫ p · v dt
+    ├── _cumulative_action        — action integral ∫ p · v dt (exact for metric)
     ├── _maslov_index             — count sign changes of det J
     └── van_vleck_sum             — coherent sum onto output grid
         ├── _asymptotic_correction_1d  — Airy patch at 1D fold caustics
         │   └── _airy_argument         — ξ(x) = (α/2ℏ)^{1/3} (x − x_c)
         └── _asymptotic_correction_2d  — Airy / Pearcey at 2D caustics
+
+The entry point accepts either a `Metric` object (geodesic motion) or a
+general SymPy Hamiltonian.  For metric mode, the fan of initial conditions
+is specified as **velocities** vⁱ (contravariant) via the ``v_fan`` argument;
+the module automatically converts them to canonical momenta pᵢ = g_{ij} vʲ
+before integrating.  For a general Hamiltonian the fan is given directly as
+canonical momenta via ``p_fan``.
 
 Result dataclasses::
 
@@ -138,43 +167,10 @@ Package Dependencies
 
 ``asymptotic.py``
     :class:`Analyzer` / :class:`AsymptoticEvaluator`
-        Evaluate oscillatory integrals I(λ) = ∫ a(t) exp(iλφ(t)) dt via
+        Evaluate oscillatory integrals I(λ) = ∫ a(t) exp(iλ φ(t)) dt via
         stationary-phase methods.  Used here only for cusp (Pearcey) caustics
         in 2D, where the quartic normal-form phase φ(t) = t⁴/4 requires the
         specialised Pearcey evaluator.
-
-
-Improvements over Previous Version
-------------------------------------
-1. **API clarity** — ``v_fan`` replaces the misleading ``p_fan`` parameter.
-   The caller always supplies initial *velocities* (contravariant vectors
-   vⁱ = dxⁱ/dt); the module converts to canonical momenta pᵢ = g_{ij} vʲ
-   internally before passing them to the Hamiltonian integrator.
-
-2. **Correct spatial Airy profile at 1D fold caustics** —
-   :func:`_asymptotic_correction_1d` now evaluates the proper uniform Airy
-   approximation pointwise:
-
-       ψ(x) ≈ 2π a_c ℏ^{1/6} |α|^{-1/3} · Ai(ξ(x)) · exp(i S_c/ℏ)
-
-   with ξ(x) = (α/2ℏ)^{1/3}(x − x_c).  The fringe spacing ∝ ℏ^{1/3} is
-   now physically correct.  The previous implementation evaluated the Airy
-   function only at the caustic point and spread a scalar value with a cosine
-   taper, yielding the right amplitude order but the wrong spatial profile.
-
-3. **Correct action fallback for curved metrics** —
-   :func:`_cumulative_action` no longer falls back to ∫ v² dt when explicit
-   momentum arrays are absent.  Instead it evaluates pᵢ = g_{ij}(x) vʲ along
-   the trajectory and integrates ∫ g_{ij} vⁱ vʲ dt, which is exact for any
-   Riemannian metric.  The old ∫ v² dt fallback was only valid for the flat
-   unit-mass case g_{ij} = δ_{ij}.
-
-4. **2D caustic patching** — :func:`van_vleck_sum` now applies asymptotic
-   corrections in 2D as well as 1D.  For a fold caustic (|∇det J| ≠ 0) the
-   Airy profile is applied along the transverse direction n̂ = ∇det J / |∇det J|
-   and blended with a 2D Gaussian taper.  For a cusp caustic (|∇det J| ≈ 0)
-   the :class:`Analyzer` / :class:`AsymptoticEvaluator` interface is invoked
-   with the quartic normal-form phase, providing an O(ℏ^{1/4}) Pearcey scaling.
 
 
 Typical Usage
@@ -216,6 +212,20 @@ For a curved metric built from a Hamiltonian H = p²/(2 m(x))::
     x, p = sp.symbols('x p', real=True, positive=True)
     metric = Metric.from_hamiltonian(p**2 / (2 / x**2), (x,), (p,))
     # metric.g_expr == x**2
+
+For a general Hamiltonian (e.g. harmonic oscillator)::
+
+    x, xi = sp.symbols('x xi', real=True)
+    H = xi**2/2 + x**2/2
+    result = compute_wavefunction(
+        hamiltonian = H,
+        coords      = (x,),
+        momenta     = (xi,),
+        source      = (0.0,),
+        p_fan       = np.linspace(-2, 2, 80),
+        t_max       = 5.0,
+        hbar        = 0.2,
+    )
 
 References
 ----------

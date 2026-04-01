@@ -137,12 +137,18 @@ Numerical curvature helpers
       ``gauss_curvature()`` path, and available as a standalone helper for
       fast numerical K evaluation in the visualisation and corrugation layers.
 
-Visualisation
-    * ``visualize_geodesics(metric, initial_conditions, tspan)`` — overlay
-      geodesic trajectories on a curvature background (1D or 2D).
-    * ``visualize_curvature(metric, x_range, y_range, quantity)`` — colour map
-      of Gaussian curvature or Ricci scalar (2D), or line plot of the metric
-      component / Christoffel symbol with optional geodesic overlay (1D).
+Embedding and Nash–Kuiper corrugation layer** (2D only)
+    * ``build_embedding(metric, u_range, v_range, nu, nv)`` — constructs an approximate C¹ isometric embedding of a 2D metric into ℝ³ by marching row-by-row along the v-direction while maintaining an orthonormal Darboux frame (E1, E2, N) at each grid point. Gaussian curvature is computed numerically via ``_brioschi_curvature_grid`` and used to evolve the surface normal through the Weingarten map. The result is a first-order explicit approximation; the quality of the embedding can be assessed with ``metric_deficit``.
+    * ``metric_deficit(R, g11_t, g12_t, g22_t, du, dv)`` — computes the pointwise difference between the target metric components and the metric induced by the embedding ``R``, returning the three deficit grids (Δg₁₁, Δg₁₂, Δg₂₂) together with the overall Frobenius norm of the deficit.
+    * ``corrugation_step(R, dg11, dg12, dg22, du, dv, freq)`` — applies one Nash–Kuiper corrugation pass: the deficit tensor is decomposed into rank-1 eigenvalue terms at each grid point, and sinusoidal normal oscillations of amplitude ρ = √λ / (√2 π freq) are added so that each positive eigenvalue is filled in the phase-averaged sense.
+    * ``add_corrugations(R, metric, du, dv, U, V, n_iterations, base_freq, alpha)`` — orchestrates the full Nash–Kuiper pipeline: it first scales ``R`` to a short map with factor α < 1, then repeatedly calls ``corrugation_step`` with geometrically doubling spatial frequency (``base_freq · 2ⁱ``) to drive the Frobenius deficit toward zero. Returns a dict with the short map, the final embedding, per-iteration snapshots, and the deficit convergence history.
+    * ``plot_embedding`` and ``plot_corrugation_pipeline`` complete the embedding workflow with 3D surface visualisation and a convergence diagnostic figure, respectively.
+    Visualisation
+        * ``visualize_geodesics(metric, initial_conditions, tspan)`` — overlay
+          geodesic trajectories on a curvature background (1D or 2D).
+        * ``visualize_curvature(metric, x_range, y_range, quantity)`` — colour map
+          of Gaussian curvature or Ricci scalar (2D), or line plot of the metric
+          component / Christoffel symbol with optional geodesic overlay (1D).
 
 
 Mathematical background
@@ -3628,10 +3634,10 @@ def analyze_hodge_decomposition(decomp, original=None, print_report=True, show_p
         visualize_hodge_decomposition(decomp)
 
     return result
-    
+
 def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
                                    cmap='RdBu_r', quiver_stride=3,
-                                   form_degree=None):
+                                   form_degree=None, use_3d=False):
     """
     Visualise the Hodge decomposition of a differential form on a 2D manifold.
 
@@ -3714,6 +3720,14 @@ def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
 
     >>> dec2 = hodge_decomposition(m, 1, ((0, 1), (0, 1)), form_degree=2)
     >>> visualize_hodge_decomposition(dec2)
+    use_3d : bool, default False
+        If True and a grid is available, render on a 3D embedding of the
+        surface.
+
+    Returns
+    -------
+    None
+        Displays a Matplotlib figure.
     """
     # ------------------------------------------------------------------
     # Determine form degree
@@ -3733,6 +3747,21 @@ def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
 
     # ------------------------------------------------------------------
     # Obtain grid (for coordinates and metric weights)
+    # ------------------------------------------------------------------
+    grid = decomp.get('grid', None)
+
+    # If 3D is requested and grid exists, try to build the embedding
+    if use_3d and grid is not None:
+        try:
+            _visualize_hodge_decomposition_3d(decomp, grid, form_degree,
+                                              cmap, quiver_stride)
+            return
+        except Exception as e:
+            print(f"Warning: 3D embedding failed ({e}). Falling back to 2D.")
+            # fall through to 2D
+
+    # ------------------------------------------------------------------
+    # Fallback to 2D visualisation (original code)
     # ------------------------------------------------------------------
     grid = decomp.get('grid', None)
     if grid is not None:
@@ -3954,7 +3983,283 @@ def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
     plt.tight_layout()
     plt.show()
     
+def _visualize_hodge_decomposition_3d(decomp, grid, form_degree,
+                                       cmap, quiver_stride):
+    """
+    Internal function to render Hodge decomposition on a 3D embedding.
 
+    Parameters
+    ----------
+    decomp : dict
+        Output of hodge_decomposition.
+    grid : RiemannianGrid
+        Grid containing metric data and coordinates.
+    form_degree : int (0,1,2)
+        Degree of the differential form.
+    cmap : str
+        Colormap name for scalar fields.
+    quiver_stride : int
+        Sub‑sampling stride for quiver arrows (1‑forms only).
+    """
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+    from scipy.interpolate import RegularGridInterpolator
+    import warnings
+
+    # Extract grid information
+    X, Y = grid.X, grid.Y
+    N = grid.N
+    xmin, xmax = X.min(), X.max()
+    ymin, ymax = Y.min(), Y.max()
+    metric = grid._metric
+
+    # Compute determinant from stored covariant components
+    det_g = grid.g00 * grid.g11 - grid.g01**2
+    if np.any(np.abs(det_g) < 1e-12):
+        warnings.warn(
+            "Metric determinant is zero (or near zero) in the domain. "
+            "This indicates a coordinate singularity, making the 3D embedding "
+            "unreliable. Falling back to 2D visualisation."
+        )
+        raise ValueError("Singular metric encountered.")
+
+    # Build the embedding
+    try:
+        R, u_vals, v_vals = build_embedding(metric,
+                                             (xmin, xmax), (ymin, ymax),
+                                             N, N)
+    except Exception as e:
+        warnings.warn(f"3D embedding construction failed: {e}. Falling back to 2D.")
+        raise
+
+    du = u_vals[1] - u_vals[0]
+    dv = v_vals[1] - v_vals[0]
+
+    # Compute tangent basis vectors dR/du and dR/dv via finite differences
+    _, _, _, dRdu, dRdv = induced_metric(R, du, dv)
+
+    # Helper to convert a 2‑vector field (Vx, Vy) to 3D components
+    def to_3d_vectors(Vx, Vy):
+        # Mask NaNs (they would propagate)
+        mask = np.isfinite(Vx) & np.isfinite(Vy)
+        Vx = np.where(mask, Vx, 0.0)
+        Vy = np.where(mask, Vy, 0.0)
+        return (Vx[..., None] * dRdu + Vy[..., None] * dRdv).reshape(N, N, 3)
+
+    # Helper to plot a scalar field as colour on the surface
+    def plot_scalar_field(ax, scalar, title, cmap=cmap):
+        # Remove NaNs for normalisation
+        s = np.where(np.isfinite(scalar), scalar, 0.0)
+        s_min, s_max = s.min(), s.max()
+        if s_max - s_min < 1e-12:
+            norm = np.zeros_like(s)
+        else:
+            norm = (s - s_min) / (s_max - s_min)
+        colors = plt.colormaps[cmap](norm)
+        ax.plot_surface(R[:,:,0], R[:,:,1], R[:,:,2],
+                        facecolors=colors, linewidth=0, antialiased=True,
+                        shade=True)
+        ax.set_title(title)
+        ax.set_axis_off()
+
+    # Helper to plot a vector field as 3D arrows
+    def plot_vector_field(ax, Vx, Vy, title, stride=quiver_stride):
+        # Subsample
+        sl = slice(None, None, stride)
+        Xs = R[sl, sl, 0]
+        Ys = R[sl, sl, 1]
+        Zs = R[sl, sl, 2]
+        V3 = to_3d_vectors(Vx, Vy)
+        Vxs = V3[sl, sl, 0]
+        Vys = V3[sl, sl, 1]
+        Vzs = V3[sl, sl, 2]
+
+        # Remove points where the vector is NaN
+        good = np.isfinite(Vxs) & np.isfinite(Vys) & np.isfinite(Vzs)
+        Xs = Xs[good]
+        Ys = Ys[good]
+        Zs = Zs[good]
+        Vxs = Vxs[good]
+        Vys = Vys[good]
+        Vzs = Vzs[good]
+
+        if len(Xs) == 0:
+            # No valid arrows: just show the surface with a message
+            ax.text2D(0.5, 0.5, "Vector field is zero or undefined",
+                      transform=ax.transAxes, ha='center', va='center')
+            plot_scalar_field(ax, np.sqrt(Vx**2 + Vy**2), title, cmap=cmap)
+            return
+
+        # Scale arrows: fixed length relative to grid spacing
+        avg_spacing = (du + dv) / 2
+        # Use normalized arrows to make them visible, scaled by average spacing
+        # to avoid overlapping
+        ax.quiver(Xs, Ys, Zs, Vxs, Vys, Vzs,
+                  length=avg_spacing * 0.2,
+                  normalize=True,
+                  color='k',
+                  alpha=0.7)
+        # Show magnitude as colour on the surface
+        mag = np.sqrt(Vx**2 + Vy**2)
+        plot_scalar_field(ax, mag, title, cmap=cmap)
+
+    # ------------------------------------------------------------------
+    # Dispatch based on form degree (same as before)
+    # ------------------------------------------------------------------
+    if form_degree == 0:
+        u = decomp['potential_u']
+        coexact = decomp['coexact']
+        harmonic = decomp['harmonic']
+        f = coexact + harmonic
+
+        fig = plt.figure(figsize=(15, 10))
+        gs = fig.add_gridspec(2, 3, hspace=0.05, wspace=0.05)
+
+        # Top row: original, coexact, harmonic
+        ax1 = fig.add_subplot(gs[0, 0], projection='3d')
+        plot_scalar_field(ax1, f, 'Original f')
+        ax2 = fig.add_subplot(gs[0, 1], projection='3d')
+        plot_scalar_field(ax2, coexact, 'Co‑exact part Δu')
+        ax3 = fig.add_subplot(gs[0, 2], projection='3d')
+        plot_scalar_field(ax3, harmonic, 'Harmonic part h₀')
+
+        # Bottom row: potential u, residual, energy bar
+        ax4 = fig.add_subplot(gs[1, 0], projection='3d')
+        plot_scalar_field(ax4, u, 'Potential u')
+        residual = f - coexact - harmonic
+        ax5 = fig.add_subplot(gs[1, 1], projection='3d')
+        plot_scalar_field(ax5, residual,
+                         f'Residual\nmax = {np.abs(residual).max():.2e}')
+
+        ax6 = fig.add_subplot(gs[1, 2])
+        # Energy bar (same as 2D version)
+        sqrt_det = grid.sqrt_det
+        if sqrt_det is None:
+            w = 1.0
+        else:
+            w = sqrt_det * grid.dx * grid.dy
+        total = np.sum(f**2 * w)
+        e_co = np.sum(coexact**2 * w)
+        e_ha = np.sum(harmonic**2 * w)
+        fracs = [e_co / total * 100, e_ha / total * 100] if total > 0 else [0,0]
+        bars = ax6.bar(['coexact', 'harmonic'], fracs,
+                       color=['tomato', 'seagreen'])
+        ax6.bar_label(bars, fmt='%.1f%%', padding=3)
+        ax6.set_ylabel('% of total L² energy')
+        ax6.set_title('Energy distribution')
+        ax6.set_ylim(0, max(fracs)*1.2 + 5)
+        fig.suptitle('Hodge Decomposition of a 0‑Form   f = Δu + h₀',
+                     fontsize=14, y=1.01)
+        plt.tight_layout()
+        plt.show()
+
+    elif form_degree == 1:
+        ex_x, ex_y = decomp['alpha_exact']
+        co_x, co_y = decomp['alpha_coexact']
+        ha_x, ha_y = decomp['alpha_harmonic']
+        phi = decomp['potential_phi']
+        psi = decomp['potential_psi']
+        alpha_x = ex_x + co_x + ha_x
+        alpha_y = ex_y + co_y + ha_y
+
+        fig = plt.figure(figsize=(18, 9))
+        gs = fig.add_gridspec(2, 4, hspace=0.05, wspace=0.05)
+
+        # Top row: original, exact, coexact, harmonic
+        ax1 = fig.add_subplot(gs[0, 0], projection='3d')
+        plot_vector_field(ax1, alpha_x, alpha_y, 'Original α')
+        ax2 = fig.add_subplot(gs[0, 1], projection='3d')
+        plot_vector_field(ax2, ex_x, ex_y, 'Exact part dφ')
+        ax3 = fig.add_subplot(gs[0, 2], projection='3d')
+        plot_vector_field(ax3, co_x, co_y, 'Co‑exact part ⋆dψ')
+        ax4 = fig.add_subplot(gs[0, 3], projection='3d')
+        plot_vector_field(ax4, ha_x, ha_y, 'Harmonic part h')
+
+        # Bottom row: φ, ψ, residual, energy bar
+        ax5 = fig.add_subplot(gs[1, 0], projection='3d')
+        plot_scalar_field(ax5, phi, 'Potential φ')
+        ax6 = fig.add_subplot(gs[1, 1], projection='3d')
+        plot_scalar_field(ax6, psi, 'Co‑potential ψ')
+        res_x = alpha_x - ex_x - co_x - ha_x
+        res_y = alpha_y - ex_y - co_y - ha_y
+        ax7 = fig.add_subplot(gs[1, 2], projection='3d')
+        # Use vector magnitude for residual colour
+        mag_res = np.sqrt(res_x**2 + res_y**2)
+        plot_scalar_field(ax7, mag_res,
+                         f'Residual\nmax = {mag_res.max():.2e}')
+
+        ax8 = fig.add_subplot(gs[1, 3])
+        # Energy bar (weighted L²)
+        sqrt_det = grid.sqrt_det
+        if sqrt_det is None:
+            w = 1.0
+        else:
+            w = sqrt_det * grid.dx * grid.dy
+        def energy(vx, vy):
+            return np.sum((grid.g_inv00 * vx**2 +
+                           2 * grid.g_inv01 * vx * vy +
+                           grid.g_inv11 * vy**2) * w)
+        total = energy(alpha_x, alpha_y)
+        e_ex = energy(ex_x, ex_y)
+        e_co = energy(co_x, co_y)
+        e_ha = energy(ha_x, ha_y)
+        fracs = [e_ex/total*100, e_co/total*100, e_ha/total*100] if total>0 else [0,0,0]
+        bars = ax8.bar(['dφ', '⋆dψ', 'h'], fracs,
+                       color=['steelblue', 'tomato', 'seagreen'])
+        ax8.bar_label(bars, fmt='%.1f%%', padding=3)
+        ax8.set_ylabel('% of total L² energy')
+        ax8.set_title('Energy distribution')
+        ax8.set_ylim(0, max(fracs)*1.2 + 5)
+        fig.suptitle('Hodge Decomposition of a 1‑Form   α = dφ + ⋆dψ + h',
+                     fontsize=14, y=1.01)
+        plt.tight_layout()
+        plt.show()
+
+    else:  # form_degree == 2
+        exact = decomp['omega_exact']
+        harmonic = decomp['omega_harmonic']
+        phi = decomp['potential_phi']
+        omega = exact + harmonic
+
+        fig = plt.figure(figsize=(15, 10))
+        gs = fig.add_gridspec(2, 3, hspace=0.05, wspace=0.05)
+
+        # Top row: original, exact, harmonic
+        ax1 = fig.add_subplot(gs[0, 0], projection='3d')
+        plot_scalar_field(ax1, omega, 'Original ω')
+        ax2 = fig.add_subplot(gs[0, 1], projection='3d')
+        plot_scalar_field(ax2, exact, 'Exact part d(⋆dφ)')
+        ax3 = fig.add_subplot(gs[0, 2], projection='3d')
+        plot_scalar_field(ax3, harmonic, 'Harmonic part h')
+
+        # Bottom row: potential φ, residual, energy bar
+        ax4 = fig.add_subplot(gs[1, 0], projection='3d')
+        plot_scalar_field(ax4, phi, 'Potential φ')
+        residual = omega - exact - harmonic
+        ax5 = fig.add_subplot(gs[1, 1], projection='3d')
+        plot_scalar_field(ax5, residual,
+                         f'Residual\nmax = {np.abs(residual).max():.2e}')
+
+        ax6 = fig.add_subplot(gs[1, 2])
+        sqrt_det = grid.sqrt_det
+        if sqrt_det is None:
+            w = 1.0
+        else:
+            w = sqrt_det * grid.dx * grid.dy
+        total = np.sum(omega**2 * w)
+        e_ex = np.sum(exact**2 * w)
+        e_ha = np.sum(harmonic**2 * w)
+        fracs = [e_ex / total * 100, e_ha / total * 100] if total > 0 else [0,0]
+        bars = ax6.bar(['exact', 'harmonic'], fracs,
+                       color=['steelblue', 'seagreen'])
+        ax6.bar_label(bars, fmt='%.1f%%', padding=3)
+        ax6.set_ylabel('% of total L² energy')
+        ax6.set_title('Energy distribution')
+        ax6.set_ylim(0, max(fracs)*1.2 + 5)
+        fig.suptitle('Hodge Decomposition of a 2‑Form   ω = d(⋆dφ) + h',
+                     fontsize=14, y=1.01)
+        plt.tight_layout()
+        plt.show()
 
 def parallel_transport(metric, curve, initial_vector, tspan=None, method='RK45'):
     """

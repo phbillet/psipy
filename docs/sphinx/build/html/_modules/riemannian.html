@@ -221,12 +221,18 @@
 <span class="sd">      ``gauss_curvature()`` path, and available as a standalone helper for</span>
 <span class="sd">      fast numerical K evaluation in the visualisation and corrugation layers.</span>
 
-<span class="sd">Visualisation</span>
-<span class="sd">    * ``visualize_geodesics(metric, initial_conditions, tspan)`` — overlay</span>
-<span class="sd">      geodesic trajectories on a curvature background (1D or 2D).</span>
-<span class="sd">    * ``visualize_curvature(metric, x_range, y_range, quantity)`` — colour map</span>
-<span class="sd">      of Gaussian curvature or Ricci scalar (2D), or line plot of the metric</span>
-<span class="sd">      component / Christoffel symbol with optional geodesic overlay (1D).</span>
+<span class="sd">Embedding and Nash–Kuiper corrugation layer** (2D only)</span>
+<span class="sd">    * ``build_embedding(metric, u_range, v_range, nu, nv)`` — constructs an approximate C¹ isometric embedding of a 2D metric into ℝ³ by marching row-by-row along the v-direction while maintaining an orthonormal Darboux frame (E1, E2, N) at each grid point. Gaussian curvature is computed numerically via ``_brioschi_curvature_grid`` and used to evolve the surface normal through the Weingarten map. The result is a first-order explicit approximation; the quality of the embedding can be assessed with ``metric_deficit``.</span>
+<span class="sd">    * ``metric_deficit(R, g11_t, g12_t, g22_t, du, dv)`` — computes the pointwise difference between the target metric components and the metric induced by the embedding ``R``, returning the three deficit grids (Δg₁₁, Δg₁₂, Δg₂₂) together with the overall Frobenius norm of the deficit.</span>
+<span class="sd">    * ``corrugation_step(R, dg11, dg12, dg22, du, dv, freq)`` — applies one Nash–Kuiper corrugation pass: the deficit tensor is decomposed into rank-1 eigenvalue terms at each grid point, and sinusoidal normal oscillations of amplitude ρ = √λ / (√2 π freq) are added so that each positive eigenvalue is filled in the phase-averaged sense.</span>
+<span class="sd">    * ``add_corrugations(R, metric, du, dv, U, V, n_iterations, base_freq, alpha)`` — orchestrates the full Nash–Kuiper pipeline: it first scales ``R`` to a short map with factor α &lt; 1, then repeatedly calls ``corrugation_step`` with geometrically doubling spatial frequency (``base_freq · 2ⁱ``) to drive the Frobenius deficit toward zero. Returns a dict with the short map, the final embedding, per-iteration snapshots, and the deficit convergence history.</span>
+<span class="sd">    * ``plot_embedding`` and ``plot_corrugation_pipeline`` complete the embedding workflow with 3D surface visualisation and a convergence diagnostic figure, respectively.</span>
+<span class="sd">    Visualisation</span>
+<span class="sd">        * ``visualize_geodesics(metric, initial_conditions, tspan)`` — overlay</span>
+<span class="sd">          geodesic trajectories on a curvature background (1D or 2D).</span>
+<span class="sd">        * ``visualize_curvature(metric, x_range, y_range, quantity)`` — colour map</span>
+<span class="sd">          of Gaussian curvature or Ricci scalar (2D), or line plot of the metric</span>
+<span class="sd">          component / Christoffel symbol with optional geodesic overlay (1D).</span>
 
 
 <span class="sd">Mathematical background</span>
@@ -3808,12 +3814,12 @@
 
     <span class="k">return</span> <span class="n">result</span></div>
 
-    
+
 <div class="viewcode-block" id="visualize_hodge_decomposition">
 <a class="viewcode-back" href="../riemannian.html#riemannian.visualize_hodge_decomposition">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">visualize_hodge_decomposition</span><span class="p">(</span><span class="n">decomp</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
                                    <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;RdBu_r&#39;</span><span class="p">,</span> <span class="n">quiver_stride</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-                                   <span class="n">form_degree</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+                                   <span class="n">form_degree</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">use_3d</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Visualise the Hodge decomposition of a differential form on a 2D manifold.</span>
 
@@ -3896,6 +3902,14 @@
 
 <span class="sd">    &gt;&gt;&gt; dec2 = hodge_decomposition(m, 1, ((0, 1), (0, 1)), form_degree=2)</span>
 <span class="sd">    &gt;&gt;&gt; visualize_hodge_decomposition(dec2)</span>
+<span class="sd">    use_3d : bool, default False</span>
+<span class="sd">        If True and a grid is available, render on a 3D embedding of the</span>
+<span class="sd">        surface.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">        Displays a Matplotlib figure.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Determine form degree</span>
@@ -3915,6 +3929,21 @@
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Obtain grid (for coordinates and metric weights)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">decomp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;grid&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># If 3D is requested and grid exists, try to build the embedding</span>
+    <span class="k">if</span> <span class="n">use_3d</span> <span class="ow">and</span> <span class="n">grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">_visualize_hodge_decomposition_3d</span><span class="p">(</span><span class="n">decomp</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">,</span>
+                                              <span class="n">cmap</span><span class="p">,</span> <span class="n">quiver_stride</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: 3D embedding failed (</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">). Falling back to 2D.&quot;</span><span class="p">)</span>
+            <span class="c1"># fall through to 2D</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Fallback to 2D visualisation (original code)</span>
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">decomp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;grid&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -4137,7 +4166,283 @@
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 
     
+<span class="k">def</span><span class="w"> </span><span class="nf">_visualize_hodge_decomposition_3d</span><span class="p">(</span><span class="n">decomp</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">,</span>
+                                       <span class="n">cmap</span><span class="p">,</span> <span class="n">quiver_stride</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Internal function to render Hodge decomposition on a 3D embedding.</span>
 
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    decomp : dict</span>
+<span class="sd">        Output of hodge_decomposition.</span>
+<span class="sd">    grid : RiemannianGrid</span>
+<span class="sd">        Grid containing metric data and coordinates.</span>
+<span class="sd">    form_degree : int (0,1,2)</span>
+<span class="sd">        Degree of the differential form.</span>
+<span class="sd">    cmap : str</span>
+<span class="sd">        Colormap name for scalar fields.</span>
+<span class="sd">    quiver_stride : int</span>
+<span class="sd">        Sub‑sampling stride for quiver arrows (1‑forms only).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mpl_toolkits.mplot3d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Axes3D</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegularGridInterpolator</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
+    <span class="c1"># Extract grid information</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">Y</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">N</span>
+    <span class="n">xmin</span><span class="p">,</span> <span class="n">xmax</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">X</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">ymin</span><span class="p">,</span> <span class="n">ymax</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">Y</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">_metric</span>
+
+    <span class="c1"># Compute determinant from stored covariant components</span>
+    <span class="n">det_g</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">g00</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">g11</span> <span class="o">-</span> <span class="n">grid</span><span class="o">.</span><span class="n">g01</span><span class="o">**</span><span class="mi">2</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">det_g</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-12</span><span class="p">):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">&quot;Metric determinant is zero (or near zero) in the domain. &quot;</span>
+            <span class="s2">&quot;This indicates a coordinate singularity, making the 3D embedding &quot;</span>
+            <span class="s2">&quot;unreliable. Falling back to 2D visualisation.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Singular metric encountered.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Build the embedding</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">R</span><span class="p">,</span> <span class="n">u_vals</span><span class="p">,</span> <span class="n">v_vals</span> <span class="o">=</span> <span class="n">build_embedding</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span>
+                                             <span class="p">(</span><span class="n">xmin</span><span class="p">,</span> <span class="n">xmax</span><span class="p">),</span> <span class="p">(</span><span class="n">ymin</span><span class="p">,</span> <span class="n">ymax</span><span class="p">),</span>
+                                             <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;3D embedding construction failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. Falling back to 2D.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span>
+
+    <span class="n">du</span> <span class="o">=</span> <span class="n">u_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">u_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">dv</span> <span class="o">=</span> <span class="n">v_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">v_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Compute tangent basis vectors dR/du and dR/dv via finite differences</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">dRdu</span><span class="p">,</span> <span class="n">dRdv</span> <span class="o">=</span> <span class="n">induced_metric</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">du</span><span class="p">,</span> <span class="n">dv</span><span class="p">)</span>
+
+    <span class="c1"># Helper to convert a 2‑vector field (Vx, Vy) to 3D components</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_3d_vectors</span><span class="p">(</span><span class="n">Vx</span><span class="p">,</span> <span class="n">Vy</span><span class="p">):</span>
+        <span class="c1"># Mask NaNs (they would propagate)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">Vx</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">Vy</span><span class="p">)</span>
+        <span class="n">Vx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">Vx</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">Vy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">Vy</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">Vx</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">dRdu</span> <span class="o">+</span> <span class="n">Vy</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">dRdv</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="c1"># Helper to plot a scalar field as colour on the surface</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_scalar_field</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">scalar</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">):</span>
+        <span class="c1"># Remove NaNs for normalisation</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">scalar</span><span class="p">),</span> <span class="n">scalar</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">s_min</span><span class="p">,</span> <span class="n">s_max</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">s</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">s_max</span> <span class="o">-</span> <span class="n">s_min</span> <span class="o">&lt;</span> <span class="mf">1e-12</span><span class="p">:</span>
+            <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">norm</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span> <span class="o">-</span> <span class="n">s_min</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">s_max</span> <span class="o">-</span> <span class="n">s_min</span><span class="p">)</span>
+        <span class="n">colors</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">colormaps</span><span class="p">[</span><span class="n">cmap</span><span class="p">](</span><span class="n">norm</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot_surface</span><span class="p">(</span><span class="n">R</span><span class="p">[:,:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">1</span><span class="p">],</span> <span class="n">R</span><span class="p">[:,:,</span><span class="mi">2</span><span class="p">],</span>
+                        <span class="n">facecolors</span><span class="o">=</span><span class="n">colors</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">antialiased</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">shade</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span>
+
+    <span class="c1"># Helper to plot a vector field as 3D arrows</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_vector_field</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">Vx</span><span class="p">,</span> <span class="n">Vy</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="n">quiver_stride</span><span class="p">):</span>
+        <span class="c1"># Subsample</span>
+        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stride</span><span class="p">)</span>
+        <span class="n">Xs</span> <span class="o">=</span> <span class="n">R</span><span class="p">[</span><span class="n">sl</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">Ys</span> <span class="o">=</span> <span class="n">R</span><span class="p">[</span><span class="n">sl</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">Zs</span> <span class="o">=</span> <span class="n">R</span><span class="p">[</span><span class="n">sl</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="n">V3</span> <span class="o">=</span> <span class="n">to_3d_vectors</span><span class="p">(</span><span class="n">Vx</span><span class="p">,</span> <span class="n">Vy</span><span class="p">)</span>
+        <span class="n">Vxs</span> <span class="o">=</span> <span class="n">V3</span><span class="p">[</span><span class="n">sl</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">Vys</span> <span class="o">=</span> <span class="n">V3</span><span class="p">[</span><span class="n">sl</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">Vzs</span> <span class="o">=</span> <span class="n">V3</span><span class="p">[</span><span class="n">sl</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+
+        <span class="c1"># Remove points where the vector is NaN</span>
+        <span class="n">good</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">Vxs</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">Vys</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">Vzs</span><span class="p">)</span>
+        <span class="n">Xs</span> <span class="o">=</span> <span class="n">Xs</span><span class="p">[</span><span class="n">good</span><span class="p">]</span>
+        <span class="n">Ys</span> <span class="o">=</span> <span class="n">Ys</span><span class="p">[</span><span class="n">good</span><span class="p">]</span>
+        <span class="n">Zs</span> <span class="o">=</span> <span class="n">Zs</span><span class="p">[</span><span class="n">good</span><span class="p">]</span>
+        <span class="n">Vxs</span> <span class="o">=</span> <span class="n">Vxs</span><span class="p">[</span><span class="n">good</span><span class="p">]</span>
+        <span class="n">Vys</span> <span class="o">=</span> <span class="n">Vys</span><span class="p">[</span><span class="n">good</span><span class="p">]</span>
+        <span class="n">Vzs</span> <span class="o">=</span> <span class="n">Vzs</span><span class="p">[</span><span class="n">good</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># No valid arrows: just show the surface with a message</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">text2D</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="s2">&quot;Vector field is zero or undefined&quot;</span><span class="p">,</span>
+                      <span class="n">transform</span><span class="o">=</span><span class="n">ax</span><span class="o">.</span><span class="n">transAxes</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">)</span>
+            <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">Vx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">Vy</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="n">title</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Scale arrows: fixed length relative to grid spacing</span>
+        <span class="n">avg_spacing</span> <span class="o">=</span> <span class="p">(</span><span class="n">du</span> <span class="o">+</span> <span class="n">dv</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="c1"># Use normalized arrows to make them visible, scaled by average spacing</span>
+        <span class="c1"># to avoid overlapping</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">quiver</span><span class="p">(</span><span class="n">Xs</span><span class="p">,</span> <span class="n">Ys</span><span class="p">,</span> <span class="n">Zs</span><span class="p">,</span> <span class="n">Vxs</span><span class="p">,</span> <span class="n">Vys</span><span class="p">,</span> <span class="n">Vzs</span><span class="p">,</span>
+                  <span class="n">length</span><span class="o">=</span><span class="n">avg_spacing</span> <span class="o">*</span> <span class="mf">0.2</span><span class="p">,</span>
+                  <span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                  <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span>
+                  <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+        <span class="c1"># Show magnitude as colour on the surface</span>
+        <span class="n">mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">Vx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">Vy</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">mag</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Dispatch based on form degree (same as before)</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;potential_u&#39;</span><span class="p">]</span>
+        <span class="n">coexact</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;coexact&#39;</span><span class="p">]</span>
+        <span class="n">harmonic</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;harmonic&#39;</span><span class="p">]</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">coexact</span> <span class="o">+</span> <span class="n">harmonic</span>
+
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_gridspec</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">hspace</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+
+        <span class="c1"># Top row: original, coexact, harmonic</span>
+        <span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="s1">&#39;Original f&#39;</span><span class="p">)</span>
+        <span class="n">ax2</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax2</span><span class="p">,</span> <span class="n">coexact</span><span class="p">,</span> <span class="s1">&#39;Co‑exact part Δu&#39;</span><span class="p">)</span>
+        <span class="n">ax3</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax3</span><span class="p">,</span> <span class="n">harmonic</span><span class="p">,</span> <span class="s1">&#39;Harmonic part h₀&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Bottom row: potential u, residual, energy bar</span>
+        <span class="n">ax4</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax4</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="s1">&#39;Potential u&#39;</span><span class="p">)</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="n">f</span> <span class="o">-</span> <span class="n">coexact</span> <span class="o">-</span> <span class="n">harmonic</span>
+        <span class="n">ax5</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax5</span><span class="p">,</span> <span class="n">residual</span><span class="p">,</span>
+                         <span class="sa">f</span><span class="s1">&#39;Residual</span><span class="se">\n</span><span class="s1">max = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s1">.2e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="n">ax6</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="c1"># Energy bar (same as 2D version)</span>
+        <span class="n">sqrt_det</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span>
+        <span class="k">if</span> <span class="n">sqrt_det</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="n">sqrt_det</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">dx</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">dy</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">f</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">e_co</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">coexact</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">e_ha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">harmonic</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">fracs</span> <span class="o">=</span> <span class="p">[</span><span class="n">e_co</span> <span class="o">/</span> <span class="n">total</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="n">e_ha</span> <span class="o">/</span> <span class="n">total</span> <span class="o">*</span> <span class="mi">100</span><span class="p">]</span> <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">bars</span> <span class="o">=</span> <span class="n">ax6</span><span class="o">.</span><span class="n">bar</span><span class="p">([</span><span class="s1">&#39;coexact&#39;</span><span class="p">,</span> <span class="s1">&#39;harmonic&#39;</span><span class="p">],</span> <span class="n">fracs</span><span class="p">,</span>
+                       <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;tomato&#39;</span><span class="p">,</span> <span class="s1">&#39;seagreen&#39;</span><span class="p">])</span>
+        <span class="n">ax6</span><span class="o">.</span><span class="n">bar_label</span><span class="p">(</span><span class="n">bars</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%.1f%%</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">ax6</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">% o</span><span class="s1">f total L² energy&#39;</span><span class="p">)</span>
+        <span class="n">ax6</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Energy distribution&#39;</span><span class="p">)</span>
+        <span class="n">ax6</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">fracs</span><span class="p">)</span><span class="o">*</span><span class="mf">1.2</span> <span class="o">+</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Hodge Decomposition of a 0‑Form   f = Δu + h₀&#39;</span><span class="p">,</span>
+                     <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.01</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">elif</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">ex_x</span><span class="p">,</span> <span class="n">ex_y</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;alpha_exact&#39;</span><span class="p">]</span>
+        <span class="n">co_x</span><span class="p">,</span> <span class="n">co_y</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;alpha_coexact&#39;</span><span class="p">]</span>
+        <span class="n">ha_x</span><span class="p">,</span> <span class="n">ha_y</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;alpha_harmonic&#39;</span><span class="p">]</span>
+        <span class="n">phi</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;potential_phi&#39;</span><span class="p">]</span>
+        <span class="n">psi</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;potential_psi&#39;</span><span class="p">]</span>
+        <span class="n">alpha_x</span> <span class="o">=</span> <span class="n">ex_x</span> <span class="o">+</span> <span class="n">co_x</span> <span class="o">+</span> <span class="n">ha_x</span>
+        <span class="n">alpha_y</span> <span class="o">=</span> <span class="n">ex_y</span> <span class="o">+</span> <span class="n">co_y</span> <span class="o">+</span> <span class="n">ha_y</span>
+
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">18</span><span class="p">,</span> <span class="mi">9</span><span class="p">))</span>
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_gridspec</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">hspace</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+
+        <span class="c1"># Top row: original, exact, coexact, harmonic</span>
+        <span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_vector_field</span><span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">alpha_x</span><span class="p">,</span> <span class="n">alpha_y</span><span class="p">,</span> <span class="s1">&#39;Original α&#39;</span><span class="p">)</span>
+        <span class="n">ax2</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_vector_field</span><span class="p">(</span><span class="n">ax2</span><span class="p">,</span> <span class="n">ex_x</span><span class="p">,</span> <span class="n">ex_y</span><span class="p">,</span> <span class="s1">&#39;Exact part dφ&#39;</span><span class="p">)</span>
+        <span class="n">ax3</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_vector_field</span><span class="p">(</span><span class="n">ax3</span><span class="p">,</span> <span class="n">co_x</span><span class="p">,</span> <span class="n">co_y</span><span class="p">,</span> <span class="s1">&#39;Co‑exact part ⋆dψ&#39;</span><span class="p">)</span>
+        <span class="n">ax4</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_vector_field</span><span class="p">(</span><span class="n">ax4</span><span class="p">,</span> <span class="n">ha_x</span><span class="p">,</span> <span class="n">ha_y</span><span class="p">,</span> <span class="s1">&#39;Harmonic part h&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Bottom row: φ, ψ, residual, energy bar</span>
+        <span class="n">ax5</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax5</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="s1">&#39;Potential φ&#39;</span><span class="p">)</span>
+        <span class="n">ax6</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax6</span><span class="p">,</span> <span class="n">psi</span><span class="p">,</span> <span class="s1">&#39;Co‑potential ψ&#39;</span><span class="p">)</span>
+        <span class="n">res_x</span> <span class="o">=</span> <span class="n">alpha_x</span> <span class="o">-</span> <span class="n">ex_x</span> <span class="o">-</span> <span class="n">co_x</span> <span class="o">-</span> <span class="n">ha_x</span>
+        <span class="n">res_y</span> <span class="o">=</span> <span class="n">alpha_y</span> <span class="o">-</span> <span class="n">ex_y</span> <span class="o">-</span> <span class="n">co_y</span> <span class="o">-</span> <span class="n">ha_y</span>
+        <span class="n">ax7</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="c1"># Use vector magnitude for residual colour</span>
+        <span class="n">mag_res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">res_x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">res_y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax7</span><span class="p">,</span> <span class="n">mag_res</span><span class="p">,</span>
+                         <span class="sa">f</span><span class="s1">&#39;Residual</span><span class="se">\n</span><span class="s1">max = </span><span class="si">{</span><span class="n">mag_res</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s1">.2e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="n">ax8</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+        <span class="c1"># Energy bar (weighted L²)</span>
+        <span class="n">sqrt_det</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span>
+        <span class="k">if</span> <span class="n">sqrt_det</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="n">sqrt_det</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">dx</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">dy</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">energy</span><span class="p">(</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">grid</span><span class="o">.</span><span class="n">g_inv00</span> <span class="o">*</span> <span class="n">vx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span>
+                           <span class="mi">2</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">g_inv01</span> <span class="o">*</span> <span class="n">vx</span> <span class="o">*</span> <span class="n">vy</span> <span class="o">+</span>
+                           <span class="n">grid</span><span class="o">.</span><span class="n">g_inv11</span> <span class="o">*</span> <span class="n">vy</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="n">energy</span><span class="p">(</span><span class="n">alpha_x</span><span class="p">,</span> <span class="n">alpha_y</span><span class="p">)</span>
+        <span class="n">e_ex</span> <span class="o">=</span> <span class="n">energy</span><span class="p">(</span><span class="n">ex_x</span><span class="p">,</span> <span class="n">ex_y</span><span class="p">)</span>
+        <span class="n">e_co</span> <span class="o">=</span> <span class="n">energy</span><span class="p">(</span><span class="n">co_x</span><span class="p">,</span> <span class="n">co_y</span><span class="p">)</span>
+        <span class="n">e_ha</span> <span class="o">=</span> <span class="n">energy</span><span class="p">(</span><span class="n">ha_x</span><span class="p">,</span> <span class="n">ha_y</span><span class="p">)</span>
+        <span class="n">fracs</span> <span class="o">=</span> <span class="p">[</span><span class="n">e_ex</span><span class="o">/</span><span class="n">total</span><span class="o">*</span><span class="mi">100</span><span class="p">,</span> <span class="n">e_co</span><span class="o">/</span><span class="n">total</span><span class="o">*</span><span class="mi">100</span><span class="p">,</span> <span class="n">e_ha</span><span class="o">/</span><span class="n">total</span><span class="o">*</span><span class="mi">100</span><span class="p">]</span> <span class="k">if</span> <span class="n">total</span><span class="o">&gt;</span><span class="mi">0</span> <span class="k">else</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">bars</span> <span class="o">=</span> <span class="n">ax8</span><span class="o">.</span><span class="n">bar</span><span class="p">([</span><span class="s1">&#39;dφ&#39;</span><span class="p">,</span> <span class="s1">&#39;⋆dψ&#39;</span><span class="p">,</span> <span class="s1">&#39;h&#39;</span><span class="p">],</span> <span class="n">fracs</span><span class="p">,</span>
+                       <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;steelblue&#39;</span><span class="p">,</span> <span class="s1">&#39;tomato&#39;</span><span class="p">,</span> <span class="s1">&#39;seagreen&#39;</span><span class="p">])</span>
+        <span class="n">ax8</span><span class="o">.</span><span class="n">bar_label</span><span class="p">(</span><span class="n">bars</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%.1f%%</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">ax8</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">% o</span><span class="s1">f total L² energy&#39;</span><span class="p">)</span>
+        <span class="n">ax8</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Energy distribution&#39;</span><span class="p">)</span>
+        <span class="n">ax8</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">fracs</span><span class="p">)</span><span class="o">*</span><span class="mf">1.2</span> <span class="o">+</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Hodge Decomposition of a 1‑Form   α = dφ + ⋆dψ + h&#39;</span><span class="p">,</span>
+                     <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.01</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># form_degree == 2</span>
+        <span class="n">exact</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;omega_exact&#39;</span><span class="p">]</span>
+        <span class="n">harmonic</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;omega_harmonic&#39;</span><span class="p">]</span>
+        <span class="n">phi</span> <span class="o">=</span> <span class="n">decomp</span><span class="p">[</span><span class="s1">&#39;potential_phi&#39;</span><span class="p">]</span>
+        <span class="n">omega</span> <span class="o">=</span> <span class="n">exact</span> <span class="o">+</span> <span class="n">harmonic</span>
+
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_gridspec</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">hspace</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+
+        <span class="c1"># Top row: original, exact, harmonic</span>
+        <span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="s1">&#39;Original ω&#39;</span><span class="p">)</span>
+        <span class="n">ax2</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax2</span><span class="p">,</span> <span class="n">exact</span><span class="p">,</span> <span class="s1">&#39;Exact part d(⋆dφ)&#39;</span><span class="p">)</span>
+        <span class="n">ax3</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax3</span><span class="p">,</span> <span class="n">harmonic</span><span class="p">,</span> <span class="s1">&#39;Harmonic part h&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Bottom row: potential φ, residual, energy bar</span>
+        <span class="n">ax4</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax4</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="s1">&#39;Potential φ&#39;</span><span class="p">)</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="n">omega</span> <span class="o">-</span> <span class="n">exact</span> <span class="o">-</span> <span class="n">harmonic</span>
+        <span class="n">ax5</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">plot_scalar_field</span><span class="p">(</span><span class="n">ax5</span><span class="p">,</span> <span class="n">residual</span><span class="p">,</span>
+                         <span class="sa">f</span><span class="s1">&#39;Residual</span><span class="se">\n</span><span class="s1">max = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s1">.2e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="n">ax6</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+        <span class="n">sqrt_det</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span>
+        <span class="k">if</span> <span class="n">sqrt_det</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="n">sqrt_det</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">dx</span> <span class="o">*</span> <span class="n">grid</span><span class="o">.</span><span class="n">dy</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">omega</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">e_ex</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">exact</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">e_ha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">harmonic</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">fracs</span> <span class="o">=</span> <span class="p">[</span><span class="n">e_ex</span> <span class="o">/</span> <span class="n">total</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="n">e_ha</span> <span class="o">/</span> <span class="n">total</span> <span class="o">*</span> <span class="mi">100</span><span class="p">]</span> <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">bars</span> <span class="o">=</span> <span class="n">ax6</span><span class="o">.</span><span class="n">bar</span><span class="p">([</span><span class="s1">&#39;exact&#39;</span><span class="p">,</span> <span class="s1">&#39;harmonic&#39;</span><span class="p">],</span> <span class="n">fracs</span><span class="p">,</span>
+                       <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;steelblue&#39;</span><span class="p">,</span> <span class="s1">&#39;seagreen&#39;</span><span class="p">])</span>
+        <span class="n">ax6</span><span class="o">.</span><span class="n">bar_label</span><span class="p">(</span><span class="n">bars</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%.1f%%</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">ax6</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">% o</span><span class="s1">f total L² energy&#39;</span><span class="p">)</span>
+        <span class="n">ax6</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Energy distribution&#39;</span><span class="p">)</span>
+        <span class="n">ax6</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">fracs</span><span class="p">)</span><span class="o">*</span><span class="mf">1.2</span> <span class="o">+</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Hodge Decomposition of a 2‑Form   ω = d(⋆dφ) + h&#39;</span><span class="p">,</span>
+                     <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.01</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
 <div class="viewcode-block" id="parallel_transport">
 <a class="viewcode-back" href="../riemannian.html#riemannian.parallel_transport">[docs]</a>
