@@ -116,11 +116,12 @@ def classify_arnold_1d(f: sp.Expr,
 
     Returns
     -------
-    dict with keys:
-        'type'        : str   e.g. "A2 (Fold)", "A3 (Cusp)", ...
-        'order'       : int   k such that f^(k)(point) ≠ 0
-        'derivatives' : dict  {k: value} for k = 1..max_order
-        'point'       : float
+        dict with keys:
+        
+            - 'type'        : str   e.g. "A2 (Fold)", "A3 (Cusp)", ...
+            - 'order'       : int   k such that f^(k)(point) ≠ 0
+            - 'derivatives' : dict  {k: value} for k = 1..max_order
+            - 'point'       : float
     """
     subs = {xi: point}
     derivs = {}
@@ -161,11 +162,11 @@ def classify_arnold_2d(H: sp.Expr,
     Classify a 2D catastrophe at a critical point of H(xi, eta).
 
     Follows Arnold's classification:
-        Morse   rank 2  → non-degenerate
-        A_k     rank 1  → fold (A2), cusp (A3), swallowtail (A4),
-                          butterfly (A5), A6+
-        D4±     rank 0  → hyperbolic umbilic (I>0) / elliptic umbilic (I<0)
-        higher  rank 0, I=0 → E6 or beyond
+    
+       - Morse   rank 2  → non-degenerate
+       - A_k     rank 1  → fold (A2), cusp (A3), swallowtail (A4), butterfly (A5), A6+
+       - D4±     rank 0  → hyperbolic umbilic (I>0) / elliptic umbilic (I<0)
+       - higher  rank 0, I=0 → E6 or beyond
 
     Parameters
     ----------
@@ -179,12 +180,13 @@ def classify_arnold_2d(H: sp.Expr,
 
     Returns
     -------
-    dict with keys:
-        'type'                   : str
-        'hessian'                : 2×2 list
-        'third_order_tensor'     : dict of H_xxx, H_xxy, H_xyy, H_yyy
-        'directional_derivatives': dict of D3…D6  (rank-1 case)
-        'cubic_invariant_I'      : float           (rank-0 case)
+        dict with keys:
+        
+            - 'type'                   : str
+            - 'hessian'                : 2×2 list
+            - 'third_order_tensor'     : dict of H_xxx, H_xxy, H_xyy, H_yyy
+            - 'directional_derivatives': dict of D3…D6  (rank-1 case)
+            - 'cubic_invariant_I'      : float           (rank-0 case)
     """
 
     # --- Determine xi and eta values (accept both symbol and string keys) ---
@@ -617,10 +619,10 @@ def detect_catastrophes(H_expr: sp.Expr,
 
     Returns
     -------
-    list of dict, each with:
-        'point'      : dict {symbol: value}
-        'type'       : str   Arnold type
-        'details'    : dict  hessian / derivatives / invariants
+        list of dict, each with:
+            - 'point'      : dict {symbol: value}
+            - 'type'       : str   Arnold type
+            - 'details'    : dict  hessian / derivatives / invariants
     """
     dim = len(xi_vars)
     if dim not in (1, 2):
@@ -740,6 +742,7 @@ class RayCausticDetector:
     ----------
     ray_bundle : list of dict
         List of integrated rays.  Each dict contains at least the fields:
+        
         - 't' : ndarray, shape (n_steps,) – integration times.
         - 'x', 'xi' : ndarray (1D) or 'x','y','xi','eta' (2D) – position
           and momentum.
@@ -1049,9 +1052,18 @@ class CausticFunctions:
     All functions include the correct normalisation prefactors for the
     uniform WKB approximation (Maslov-Fedoriuk / Duistermaat).
 
-    Fold (A2)   : Airy function Ai
-    Cusp (A3)   : Pearcey integral P(x,y)
-    Swallowtail (A4) : SW integral (3-parameter oscillatory)
+    .. list-table:: Special Functions for Uniform Asymptotic Corrections
+       :widths: 25 75
+       :header-rows: 1
+
+       * - Caustic Type
+         - Function Description
+       * - Fold (A2)
+         - Airy function Ai
+       * - Cusp (A3)
+         - Pearcey integral P(x,y)
+       * - Swallowtail (A4)
+         - SW integral (3-parameter oscillatory)
     """
 
     # ── Fold : Airy ───────────────────────────────────────────────

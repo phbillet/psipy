@@ -33,9 +33,12 @@ templates_path = ['_templates']
 exclude_patterns = []
 
 
-
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'sphinx_rtd_theme'  # thème Read the Docs, propre et lisible
+html_theme_options = {
+    'body_max_width': '100%',
+    'content_width': '100%',
+}
 html_static_path = ['_static']

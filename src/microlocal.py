@@ -89,11 +89,11 @@ def _infer_dim(symbol, dim=None):
 def characteristic_variety(symbol, dim=None, tol=1e-8):
     """
     Compute the characteristic variety of a pseudo-differential operator.
-
+    
     Char(P) = { (x,ξ) in T*ℝ : p(x,ξ)=0 }   (1D)
     or
     Char(P) = { (x,y,ξ,η) in T*ℝ² : p(x,y,ξ,η)=0 }   (2D)
-
+    
     Parameters
     ----------
     symbol : sympy expression
@@ -102,15 +102,20 @@ def characteristic_variety(symbol, dim=None, tol=1e-8):
         Dimension (1 or 2). If None, inferred from symbol.
     tol : float
         Tolerance for zero detection (unused, kept for compatibility).
-
+    
     Returns
     -------
     dict
-        Contains:
-        - 'implicit': the symbol expression
-        - 'equation': sympy Eq(symbol,0)
-        - 'explicit': list of explicit solutions ξ(x) (1D only) or None
-        - 'function': a callable that evaluates the symbol
+        A dictionary containing the following keys:
+        
+        - 'implicit' : sympy expression
+            The symbol expression.
+        - 'equation' : sympy Eq
+            The equation `symbol = 0`.
+        - 'explicit' : list or None
+            List of explicit solutions ξ(x) (1D only), or None if no explicit solution exists.
+        - 'function' : callable
+            A callable that evaluates the symbol.
     """
     dim = _infer_dim(symbol, dim)
     if dim == 1:

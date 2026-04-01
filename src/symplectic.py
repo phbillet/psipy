@@ -592,6 +592,7 @@ def symplectic_gradient(f, vars_phase=None, numeric=False):
     to create vectorized functions from the symbolic components manually:
 
         X_components = symplectic_gradient(f, vars_phase, numeric=False)
+        
         funcs = [lambdify(vars_phase, expr, 'numpy') for expr in X_components]
 
     Then evaluate on entire arrays:
@@ -964,6 +965,7 @@ def phase_portrait(H, x_range, p_range, vars_phase=None, resolution=50,
     
     For 1-DOF systems, trajectories lie on energy contours, making this an
     effective tool for identifying:
+    
     - Fixed points (where vector field vanishes)
     - Periodic orbits (closed contours)
     - Separatrices (boundaries between different types of motion)
@@ -1404,6 +1406,7 @@ def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000,
     A Poincaré section reduces the 4D continuous flow to a 2D discrete map by
     recording intersections of trajectories with a specified surface Σ in phase
     space. This reveals the underlying structure of the dynamics:
+    
     - Regular motion appears as closed curves (KAM tori)
     - Chaotic motion appears as scattered points
     - Periodic orbits appear as fixed points or finite sets
@@ -1513,7 +1516,65 @@ def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000,
 
 
 def first_return_map(section_points, plot_variables=('x1', 'p1')):
-    """First return map from Poincaré section points."""
+    """
+    Construct the first return map (Poincaré map) from a Poincaré section.
+
+    For a 2-DOF Hamiltonian system, a Poincaré section reduces the 4D flow
+    to a 2D map by recording successive intersections with a chosen surface.
+    The **first return map** plots each intersection point (in the chosen
+    coordinates) against the next one.  Regular (KAM) tori appear as closed
+    curves, while chaotic motion fills area in the return map.
+
+    This function extracts successive pairs from the list of section points
+    (returned by `poincare_section`) and organizes them into two arrays:
+    `current` (the i-th point) and `next` (the (i+1)-th point).  The resulting
+    dictionary can be directly used with `plt.plot` to visualise the map.
+
+    Parameters
+    ----------
+    section_points : list of dict
+        List of section crossing points as returned by `poincare_section`
+        (the `'section_points'` field).  Each dict has keys like `'x1'`, `'p1'`,
+        `'x2'`, `'p2'` containing the coordinates at the crossing.
+    plot_variables : tuple of str, optional
+        Two variable names to use as the coordinates for the return map,
+        e.g. `('x1', 'p1')` or `('x2', 'p2')`.  Defaults to `('x1', 'p1')`.
+
+    Returns
+    -------
+    dict
+        A dictionary with the following keys:
+
+        - `'current'` : ndarray, shape (N-1, 2)
+          Coordinates of the first N-1 section points in the chosen variables.
+        - `'next'` : ndarray, shape (N-1, 2)
+          Coordinates of the subsequent (i+1)-th points.
+        - `'variables'` : tuple of str
+          The variable names used (same as `plot_variables`).
+
+    Raises
+    ------
+    ValueError
+        If fewer than 2 section points are provided.
+
+    Examples
+    --------
+    >>> # Compute a Poincaré section
+    >>> ps = poincare_section(H, Sigma_def, z0, tmax=100)
+    >>> # Extract first return map in (x1, p1)
+    >>> ret_map = first_return_map(ps['section_points'], plot_variables=('x1', 'p1'))
+    >>> # Plot the map
+    >>> plt.plot(ret_map['current'][:, 0], ret_map['current'][:, 1], 'o', markersize=2)
+    >>> plt.xlabel(ret_map['variables'][0])
+    >>> plt.ylabel(ret_map['variables'][1])
+    >>> plt.title('First return map')
+    >>> plt.show()
+
+    See Also
+    --------
+    poincare_section : Compute the Poincaré section that produces the points.
+    visualize_poincare_section : High-level visualisation of multiple sections.
+    """
     if len(section_points) < 2:
         raise ValueError("Need at least 2 section points")
     var1, var2 = plot_variables
@@ -1533,6 +1594,7 @@ def monodromy_matrix(H, periodic_orbit, vars_phase=None, method='finite_differen
         δz(T) = M · δz(0)
     
     The eigenvalues of M (Floquet multipliers) determine orbital stability:
+    
     - |λ| = 1 for all λ: neutrally stable (typical for Hamiltonian systems)
     - Any |λ| > 1: unstable orbit
     - All |λ| < 1: stable (not possible in conservative Hamiltonian systems)
@@ -1765,6 +1827,7 @@ def project(trajectory, plane='xy', vars_phase=None):
     suitable for plotting.
     
     Available projection planes:
+    
     - 'xy' or 'config': Configuration space (x₁, x₂)
     - 'xp': Phase space of first DOF (x₁, p₁)
     - 'pp' or 'momentum': Momentum space (p₁, p₂)

@@ -52,17 +52,10 @@ emanating from a point source at x₀ is
 where the sum runs over all classical paths (rays) k that connect x₀ to x
 in time t, and:
 
-    S_k(x, t) = ∫₀ᵗ p · ẋ dt'   (Hamilton's principal function / action)
-              = ∫₀ᵗ g_{ij}(x) vⁱ vʲ dt'   (on a pure-metric Hamiltonian)
-
-    A_k(x)    = 1 / √|det J_k(x, t)|       (Van Vleck amplitude)
-
-    det J_k   = det(∂x / ∂p₀)              (Jacobi determinant, a.k.a.
-                                             Van Vleck determinant)
-
-    μ_k       = number of caustic crossings (Maslov index)
-                Each sign change of det J contributes +1 to μ_k, adding a
-                phase factor exp(−iπ/2) = −i per crossing.
+    * S_k(x, t) = ∫₀ᵗ p · ẋ dt'   (Hamilton's principal function / action) = ∫₀ᵗ g_{ij}(x) vⁱ vʲ dt' (on a pure-metric Hamiltonian)
+    * A_k(x)    = 1 / √|det J_k(x, t)|  (Van Vleck amplitude)
+    * det J_k   = det(∂x / ∂p₀)         (Jacobi determinant, a.k.a. Van Vleck determinant)
+    * μ_k       = number of caustic crossings (Maslov index). Each sign change of det J contributes +1 to μ_k, adding a phase factor exp(−iπ/2) = −i per crossing.
 
 The amplitude A_k diverges when det J = 0, i.e. at **caustics**, which are
 the envelopes of the ray family.  Near a caustic the WKB approximation

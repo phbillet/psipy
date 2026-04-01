@@ -1220,12 +1220,13 @@ class LaplaceEvaluator:
             lam: Large parameter λ. The approximation improves as λ → +∞.
 
         Returns:
-            AsymptoticContribution with:
-                - leading_term:    I₀(λ), real for real a and φ.
-                - correction_term: I₁(λ), the O(λ^(-n/2-1)) correction.
-                - total_value:     I₀ + I₁.
-                - order_leading:   n/2.
-                - method:          IntegralMethod.LAPLACE.
+            AsymptoticContribution: An object with the following attributes:
+        
+            - **leading_term** (*float*): I₀(λ), real for real a and φ.
+            - **correction_term** (*float*): I₁(λ), the O(λ^(-n/2-1)) correction.
+            - **total_value** (*float*): I₀ + I₁.
+            - **order_leading** (*float*): n/2.
+            - **method** (*IntegralMethod*): IntegralMethod.LAPLACE.
 
         Raises:
             ValueError: If the Hessian is singular (det H ≈ 0).
@@ -1438,11 +1439,11 @@ class SaddlePointEvaluator:
 
         Returns
         -------
-        AsymptoticContribution
-            leading_term  : saddle-point formula value.
-            correction_term : 0j (not implemented for saddle points).
-            order_leading : n/2.
-            method        : IntegralMethod.SADDLE_POINT.
+        AsymptoticContribution:
+            - leading_term  : saddle-point formula value.
+            - correction_term : 0j (not implemented for saddle points).
+            - order_leading : n/2.
+            - method        : IntegralMethod.SADDLE_POINT.
         """
         warnings.warn(
             "SaddlePointEvaluator: contour validity (Picard-Lefschetz) is NOT "
