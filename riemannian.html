@@ -288,6 +288,14 @@ internally by <code class="docutils literal notranslate"><span class="pre">build
 fast numerical K evaluation in the visualisation and corrugation layers.</p></li>
 </ul>
 </dd>
+<dt>Embedding and Nash–Kuiper corrugation layer** (2D only)</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">build_embedding(metric,</span> <span class="pre">u_range,</span> <span class="pre">v_range,</span> <span class="pre">nu,</span> <span class="pre">nv)</span></code> — constructs an approximate C¹ isometric embedding of a 2D metric into ℝ³ by marching row-by-row along the v-direction while maintaining an orthonormal Darboux frame (E1, E2, N) at each grid point. Gaussian curvature is computed numerically via <code class="docutils literal notranslate"><span class="pre">_brioschi_curvature_grid</span></code> and used to evolve the surface normal through the Weingarten map. The result is a first-order explicit approximation; the quality of the embedding can be assessed with <code class="docutils literal notranslate"><span class="pre">metric_deficit</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metric_deficit(R,</span> <span class="pre">g11_t,</span> <span class="pre">g12_t,</span> <span class="pre">g22_t,</span> <span class="pre">du,</span> <span class="pre">dv)</span></code> — computes the pointwise difference between the target metric components and the metric induced by the embedding <code class="docutils literal notranslate"><span class="pre">R</span></code>, returning the three deficit grids (Δg₁₁, Δg₁₂, Δg₂₂) together with the overall Frobenius norm of the deficit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">corrugation_step(R,</span> <span class="pre">dg11,</span> <span class="pre">dg12,</span> <span class="pre">dg22,</span> <span class="pre">du,</span> <span class="pre">dv,</span> <span class="pre">freq)</span></code> — applies one Nash–Kuiper corrugation pass: the deficit tensor is decomposed into rank-1 eigenvalue terms at each grid point, and sinusoidal normal oscillations of amplitude ρ = √λ / (√2 π freq) are added so that each positive eigenvalue is filled in the phase-averaged sense.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">add_corrugations(R,</span> <span class="pre">metric,</span> <span class="pre">du,</span> <span class="pre">dv,</span> <span class="pre">U,</span> <span class="pre">V,</span> <span class="pre">n_iterations,</span> <span class="pre">base_freq,</span> <span class="pre">alpha)</span></code> — orchestrates the full Nash–Kuiper pipeline: it first scales <code class="docutils literal notranslate"><span class="pre">R</span></code> to a short map with factor α &lt; 1, then repeatedly calls <code class="docutils literal notranslate"><span class="pre">corrugation_step</span></code> with geometrically doubling spatial frequency (<code class="docutils literal notranslate"><span class="pre">base_freq</span> <span class="pre">·</span> <span class="pre">2ⁱ</span></code>) to drive the Frobenius deficit toward zero. Returns a dict with the short map, the final embedding, per-iteration snapshots, and the deficit convergence history.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">plot_embedding</span></code> and <code class="docutils literal notranslate"><span class="pre">plot_corrugation_pipeline</span></code> complete the embedding workflow with 3D surface visualisation and a convergence diagnostic figure, respectively.</p></li>
+</ul>
+<dl class="simple">
 <dt>Visualisation</dt><dd><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">visualize_geodesics(metric,</span> <span class="pre">initial_conditions,</span> <span class="pre">tspan)</span></code> — overlay
 geodesic trajectories on a curvature background (1D or 2D).</p></li>
@@ -295,6 +303,8 @@ geodesic trajectories on a curvature background (1D or 2D).</p></li>
 of Gaussian curvature or Ricci scalar (2D), or line plot of the metric
 component / Christoffel symbol with optional geodesic overlay (1D).</p></li>
 </ul>
+</dd>
+</dl>
 </dd>
 </dl>
 </section>
@@ -2802,7 +2812,7 @@ colour-mapped background heatmap behind the geodesic curves.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="riemannian.visualize_hodge_decomposition">
-<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">visualize_hodge_decomposition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">decomp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'RdBu_r'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quiver_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">form_degree</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#visualize_hodge_decomposition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.visualize_hodge_decomposition" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">visualize_hodge_decomposition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">decomp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'RdBu_r'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quiver_stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">form_degree</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_3d</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#visualize_hodge_decomposition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.visualize_hodge_decomposition" title="Link to this definition"></a></dt>
 <dd><p>Visualise the Hodge decomposition of a differential form on a 2D manifold.</p>
 <p>This function works for decompositions of 0‑, 1‑, and 2‑forms as returned by
 <a class="reference internal" href="#riemannian.hodge_decomposition" title="riemannian.hodge_decomposition"><code class="xref py py-func docutils literal notranslate"><span class="pre">hodge_decomposition()</span></code></a>.  It automatically detects the form degree from
@@ -2889,8 +2899,19 @@ inferred from the dictionary keys.</p></li>
 <p><strong>2‑form</strong> on the unit square (constant vorticity):</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dec2</span> <span class="o">=</span> <span class="n">hodge_decomposition</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">form_degree</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">visualize_hodge_decomposition</span><span class="p">(</span><span class="n">dec2</span><span class="p">)</span>
+<span class="go">use_3d : bool, default False</span>
+<span class="go">    If True and a grid is available, render on a 3D embedding of the</span>
+<span class="go">    surface.</span>
 </pre></div>
 </div>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Displays a Matplotlib figure.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
