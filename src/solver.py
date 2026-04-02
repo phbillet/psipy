@@ -1387,8 +1387,8 @@ class PDESolver:
             import os
             from concurrent.futures import ThreadPoolExecutor
 
-            n_workers = int(os.environ.get('PSIOP_WORKERS', os.cpu_count() or 4))
             Nx = self.Nx
+            n_workers = max(w for w in range(1, FFT_WORKERS + 1) if Nx1 % w == 0)
             # Build row-slice boundaries (last block absorbs any remainder)
             base = Nx // n_workers
             boundaries = [(i * base, (i + 1) * base if i < n_workers - 1 else Nx)

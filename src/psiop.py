@@ -3254,7 +3254,7 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
         KX2, KY2 = np.meshgrid(kx_s, ky_s, indexing='ij')   # each (Nkx, Nky)
 
         # Row-block parameters
-        n_workers  = FFT_WORKERS
+        n_workers  = max(w for w in range(1, FFT_WORKERS + 1) if Nx % w == 0)
         base       = max(1, Nx // n_workers)
         boundaries = [(i * base, min((i + 1) * base, Nx))
                       for i in range(n_workers)
@@ -3536,6 +3536,24 @@ def kohn_nirenberg_nonperiodic(
 
         iph2 = np.exp(1j * np.outer(x2, xi2))             # (Nx2, Nxi2)
 
+        # ── Frequency window — calculée UNE SEULE FOIS sur les grids complets ──
+        # BUG CORRIGÉ : était recalculée dans chaque bloc, donnant des
+        # normalisations différentes si le dernier bloc a une taille différente.
+        if freq_window == 'gaussian':
+            s1_global = 0.8 * np.max(np.abs(xi1))
+            s2_global = 0.8 * np.max(np.abs(xi2))
+            # shape (Nxi1, Nxi2) — prêt pour broadcasting dans les blocs
+            freq_win_2d = (np.exp(-(xi1 / s1_global) ** 4)[:, None] *
+                           np.exp(-(xi2 / s2_global) ** 4)[None, :])
+        elif freq_window == 'hann':
+            xi1_max = np.max(np.abs(xi1))
+            xi2_max = np.max(np.abs(xi2))
+            Wx = 0.5 * (1 + np.cos(np.pi * xi1 / xi1_max)) * (np.abs(xi1) < xi1_max)
+            Wy = 0.5 * (1 + np.cos(np.pi * xi2 / xi2_max)) * (np.abs(xi2) < xi2_max)
+            freq_win_2d = Wx[:, None] * Wy[None, :]       # (Nxi1, Nxi2)
+        else:
+            freq_win_2d = None
+
         if space_window:
             y_center = (x2[0] + x2[-1]) / 2.0
             Ly = (x2[-1] - x2[0]) / 2.0
@@ -3543,7 +3561,7 @@ def kohn_nirenberg_nonperiodic(
         else:
             sw_x2 = None
 
-        n_workers = FFT_WORKERS
+        n_workers = max(w for w in range(1, FFT_WORKERS + 1) if Nx1 % w == 0)
         base = max(1, Nx1 // n_workers)
         boundaries = [
             (i * base, min((i + 1) * base, Nx1))
@@ -3557,38 +3575,36 @@ def kohn_nirenberg_nonperiodic(
             i0, i1 = bounds
             x1_blk = x1[i0:i1]
             B = i1 - i0
-
-            X1b = x1_blk[:, None, None, None]
-            X2b = x2[None, :, None, None]
-            XI1b = xi1[None, None, :, None]
-            XI2b = xi2[None, None, None, :]
-
+        
+            X1b  = x1_blk[:, None, None, None]
+            X2b  = x2    [None, :, None, None]
+            XI1b = xi1   [None, None, :, None]
+            XI2b = xi2   [None, None, None, :]
+        
             sv = symbol_func(X1b, X2b, XI1b, XI2b).astype(np.complex128)
+            sv = np.broadcast_to(sv, (B, Nx2, Nxi1, Nxi2)).copy()
             sv = np.clip(sv, -clamp, clamp)
-
-            if freq_window == 'gaussian':
-                s1 = 0.8 * np.max(np.abs(XI1b))
-                s2 = 0.8 * np.max(np.abs(XI2b))
-                sv *= np.exp(-(XI1b / s1) ** 4) * np.exp(-(XI2b / s2) ** 4)
-            elif freq_window == 'hann':
-                Wx = 0.5 * (1 + np.cos(np.pi * XI1b / np.max(np.abs(xi1))))
-                Wy = 0.5 * (1 + np.cos(np.pi * XI2b / np.max(np.abs(xi2))))
-                sv *= (Wx * Wy
-                       * (np.abs(XI1b) < np.max(np.abs(xi1)))
-                       * (np.abs(XI2b) < np.max(np.abs(xi2))))
-
+        
+            if freq_win_2d is not None:
+                sv *= freq_win_2d[None, None, :, :]
+        
             if space_window:
                 x_center = (x1[0] + x1[-1]) / 2.0
                 Lx = (x1[-1] - x1[0]) / 2.0
                 sv *= np.exp(-((x1_blk - x_center) / Lx) ** 2)[:, None, None, None]
                 if sw_x2 is not None:
                     sv *= sw_x2[None, :, None, None]
-
+        
             iph1 = np.exp(1j * np.outer(x1_blk, xi1)).reshape(B, 1, Nxi1, 1)
-            iph2_b = iph2[None, :, None, :]
-            phase = iph1 * iph2_b                        # (B, Nx2, Nxi1, Nxi2)
-
-            integrand = sv * u_hat[None, None, :, :] * phase
+            
+            # ✅ Copie locale de iph2 et u_hat pour éviter tout accès concurrent
+            iph2_local = iph2.copy()
+            u_hat_local = u_hat.copy()
+            
+            iph2_b = iph2_local[None, :, None, :]
+            phase = iph1 * iph2_b
+        
+            integrand = sv * u_hat_local[None, None, :, :] * phase
             blk_res = (dxi1 * dxi2 / (2.0 * np.pi) ** 2) * np.sum(
                 integrand, axis=(2, 3)
             )

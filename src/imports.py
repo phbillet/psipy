@@ -53,5 +53,5 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 
 plt.rcParams['text.usetex'] = False
-FFT_WORKERS = max(1, os.cpu_count() // 2)
+FFT_WORKERS = max(1, os.cpu_count())
 NUM_COLS = 150
