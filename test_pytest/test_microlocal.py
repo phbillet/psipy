@@ -306,6 +306,38 @@ def test_bohr_sommerfeld_no_bound_states():
     assert 'E_n' in quant
 
 
+def test_bichar_flow_1d_stability_matrix():
+    x, xi = symbols('x xi', real=True)
+    p = xi**2 + x**2
+    z0 = (1.0, 0.0)
+    tspan = (0, 2*np.pi)
+    traj = bicharacteristic_flow(p, z0, tspan, method='symplectic', n_steps=2000)  # more steps for accuracy
+
+    assert 'J11' in traj
+    assert np.isclose(traj['J11'][0], 1.0)
+    # After one period, Jacobian should be identity within ~0.02
+    assert np.isclose(traj['J11'][-1], 1.0, atol=2e-2)
+    assert np.isclose(traj['J12'][-1], 0.0, atol=2e-2)
+    assert np.isclose(traj['J21'][-1], 0.0, atol=2e-2)
+    assert np.isclose(traj['J22'][-1], 1.0, atol=2e-2)
+
+def test_compute_maslov_index_1d():
+    """Test Maslov index for a 1D trajectory that crosses a caustic."""
+    x, xi = symbols('x xi', real=True)
+    # Symbol with a focusing point: p = xi**2 - x
+    # Bicharacteristics: x'' = 1/2  (since ẋ = 2ξ, ξ̇ = 1)
+    p = xi**2 - x
+    z0 = (0.0, 1.0)   # start at x=0 with positive momentum
+    tspan = (0, 2.0)  # will cross caustic when x reaches turning point?
+    
+    traj = bicharacteristic_flow(p, z0, tspan, method='symplectic', n_steps=500)
+    maslov = compute_maslov_index(traj)
+    
+    # The Maslov index should be an integer (0, 1, 2, ...)
+    assert isinstance(maslov, (int, np.integer))
+    # For this simple case, we might expect 1 caustic crossing
+    assert maslov >= 0
+
 # ======================================================================
 # 2D TESTS (originally from test_microlocal_2d.py)
 # ======================================================================

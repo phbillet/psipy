@@ -4,6 +4,8 @@ import matplotlib
 matplotlib.use('Agg')  # non-interactive backend – no display required
 import matplotlib.pyplot as plt
 
+from sympy import diff
+
 # ===========================================================================
 # Helpers
 # ===========================================================================
@@ -1076,7 +1078,7 @@ def test_is_spatial_dependent_false():
 # 112. freq_window_2d standalone
 # ===========================================================================
 
-def testfreq_window_2d_gaussian():
+def test_freq_window_2d_gaussian():
     """Gaussian window should attenuate high-frequency content."""
     kx = np.linspace(-10, 10, 20)
     ky = np.linspace(-10, 10, 20)
@@ -1087,7 +1089,7 @@ def testfreq_window_2d_gaussian():
     assert abs(P_windowed[10, 10]) > 0.9
     assert abs(P_windowed[0, 0]) < abs(P_windowed[10, 10])
 
-def testfreq_window_2d_hann():
+def test_freq_window_2d_hann():
     kx = np.linspace(-10, 10, 20)
     ky = np.linspace(-10, 10, 20)
     KXb, KYb = np.meshgrid(kx, ky, indexing='ij')

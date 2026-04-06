@@ -185,43 +185,179 @@ def bicharacteristic_flow(symbol, z0, tspan, dim=None,
         return _bichar_flow_2d(symbol, z0, tspan, method, n_steps)
 
 def _bichar_flow_1d(symbol, z0, tspan, method, n_steps):
+    """
+    Integrate the 1D bicharacteristic flow and the associated stability matrix.
+
+    For a Hamiltonian system defined by the principal symbol p(x,ξ), the
+    bicharacteristics (Hamiltonian flow) satisfy
+
+        dx/dt = ∂p/∂ξ,   dξ/dt = –∂p/∂x.
+
+    Simultaneously, the 2×2 Jacobian matrix
+
+        J(t) = [[ ∂x/∂x₀ , ∂x/∂ξ₀ ],
+                [ ∂ξ/∂x₀ , ∂ξ/∂ξ₀ ]]
+
+    obeys the linearised variational equation
+
+        dJ/dt = A(t) J,   J(0) = I₂,
+
+    where
+
+        A(t) = [[ ∂²p/(∂ξ∂x) , ∂²p/∂ξ² ],
+                [ –∂²p/∂x²  , –∂²p/(∂x∂ξ) ]]
+
+    evaluated along the trajectory.
+
+    Parameters
+    ----------
+    symbol : sympy.Expr
+        Principal symbol p(x,ξ). Must depend on the real symbols `x` and `xi`.
+    z0 : tuple of float
+        Initial condition (x₀, ξ₀).
+    tspan : tuple of float
+        Integration interval (t_start, t_end).
+    method : {'rk45', 'symplectic', 'hamiltonian'}
+        Integration scheme:
+        - 'rk45'      : adaptive Runge‑Kutta 4(5) from `scipy.integrate.solve_ivp`.
+                        The state is augmented with the four entries of J.
+        - 'symplectic': fixed‑step symplectic Euler (position half‑step,
+                        momentum full‑step). The linearised map is derived
+                        from the exact discretisation of the variational
+                        equations, preserving the symplectic structure up to
+                        the order of the integrator.
+        - 'hamiltonian': alias for 'symplectic' (kept for backward compatibility).
+    n_steps : int
+        Number of output points (including the initial state). For fixed‑step
+        methods this equals the number of integration steps; for 'rk45' it
+        specifies the number of equally spaced time values at which the
+        solution is evaluated.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the following fields:
+        - 't'            : 1D ndarray of shape (n_steps,) – time points.
+        - 'x'            : 1D ndarray – position trajectory.
+        - 'xi'           : 1D ndarray – momentum trajectory.
+        - 'symbol_value' : 1D ndarray – p(x,ξ) evaluated along the trajectory.
+        - 'J11', 'J12', 'J21', 'J22' : 1D ndarrays – components of the 2×2
+          stability matrix J(t) at each time point.
+
+    Notes
+    -----
+    - The function uses symbolic differentiation (`sympy.diff`) and generates
+      NumPy callables via `lambdify`. The symbols must be named exactly `x` and
+      `xi` (case‑sensitive).
+    - For the symplectic Euler method, the linearised map M that advances the
+      Jacobian from step i to i+1 is:
+
+          M = [[ 1 + Δt·a11 + Δt²·a12·a21 ,  Δt·a12·(1 + Δt·a22) ],
+               [ Δt·a21                  ,  1 + Δt·a22            ]]
+
+      where a11, a12, a21, a22 are the entries of A(t) evaluated at the
+      beginning of the step. This map is applied as J_{i+1} = M · J_i.
+    - This function is intended for internal use and is not part of the public
+      API of the `microlocal` module.
+    """
     x, xi = sp.symbols('x xi', real=True)
+    
+    # First derivatives (Hamilton's equations)
     dp_dxi = sp.diff(symbol, xi)
     dp_dx  = sp.diff(symbol, x)
     f_x   = sp.lambdify((x, xi), dp_dxi, 'numpy')
     f_xi  = sp.lambdify((x, xi), -dp_dx, 'numpy')
+    
+    # Second derivatives for the stability matrix
+    d2p_dx2   = sp.diff(symbol, x, x)
+    d2p_dxi2  = sp.diff(symbol, xi, xi)
+    d2p_dxdxi = sp.diff(symbol, x, xi)
+    
+    A11 = sp.diff(symbol, xi, x)        # ∂²p/∂ξ∂x
+    A12 = d2p_dxi2                      # ∂²p/∂ξ²
+    A21 = -d2p_dx2                      # -∂²p/∂x²
+    A22 = -d2p_dxdxi                    # -∂²p/∂x∂ξ
+    
+    A_func = sp.lambdify((x, xi), (A11, A12, A21, A22), 'numpy')
     p_func = sp.lambdify((x, xi), symbol, 'numpy')
-
+    
     if method == 'rk45':
+        # Augment state: [x, xi, J11, J12, J21, J22]
         def ode(t, z):
-            xv, xiv = z
-            return [f_x(xv, xiv), f_xi(xv, xiv)]
-        sol = solve_ivp(ode, tspan, z0, method='RK45',
+            xv, xiv = z[0], z[1]
+            J11, J12, J21, J22 = z[2], z[3], z[4], z[5]
+            a11, a12, a21, a22 = A_func(xv, xiv)
+            dJ11 = a11*J11 + a12*J21
+            dJ12 = a11*J12 + a12*J22
+            dJ21 = a21*J11 + a22*J21
+            dJ22 = a21*J12 + a22*J22
+            return [f_x(xv, xiv), f_xi(xv, xiv), dJ11, dJ12, dJ21, dJ22]
+        
+        z0_aug = [z0[0], z0[1], 1.0, 0.0, 0.0, 1.0]   # J(0)=I₂
+        sol = solve_ivp(ode, tspan, z0_aug, method='RK45',
                         t_eval=np.linspace(tspan[0], tspan[1], n_steps),
                         rtol=1e-9, atol=1e-12)
         return {
             't': sol.t,
             'x': sol.y[0],
             'xi': sol.y[1],
-            'symbol_value': p_func(sol.y[0], sol.y[1])
+            'symbol_value': p_func(sol.y[0], sol.y[1]),
+            'J11': sol.y[2], 'J12': sol.y[3],
+            'J21': sol.y[4], 'J22': sol.y[5],
         }
-    elif method in ('hamiltonian', 'symplectic'):
-        dt = (tspan[1]-tspan[0])/n_steps
+    
+    elif method in ('symplectic', 'hamiltonian'):
+        dt = (tspan[1] - tspan[0]) / n_steps
         t = np.linspace(tspan[0], tspan[1], n_steps)
         x_vals = np.zeros(n_steps)
         xi_vals = np.zeros(n_steps)
+        J11_vals = np.zeros(n_steps)
+        J12_vals = np.zeros(n_steps)
+        J21_vals = np.zeros(n_steps)
+        J22_vals = np.zeros(n_steps)
+    
         x_vals[0], xi_vals[0] = z0
-        for i in range(n_steps-1):
-            # symplectic Euler
-            xi_new = xi_vals[i] + dt * f_xi(x_vals[i], xi_vals[i])
-            x_new  = x_vals[i]  + dt * f_x(x_vals[i], xi_new)
+        J11_vals[0], J12_vals[0] = 1.0, 0.0
+        J21_vals[0], J22_vals[0] = 0.0, 1.0
+    
+        for i in range(n_steps - 1):
+            xv, xiv = x_vals[i], xi_vals[i]
+    
+            # Second derivatives at the current point
+            a11, a12, a21, a22 = A_func(xv, xiv)
+    
+            # Symplectic Euler update for position and momentum
+            xi_new = xiv + dt * f_xi(xv, xiv)
+            x_new = xv + dt * f_x(xv, xi_new)
+    
+            # Linearised symplectic Euler map M:
+            #   M = [[1 + dt*a11 + dt²*a12*a21,  dt*a12*(1 + dt*a22)],
+            #        [dt*a21,                   1 + dt*a22]]
+            M11 = 1.0 + dt * a11 + dt * dt * a12 * a21
+            M12 = dt * a12 * (1.0 + dt * a22)
+            M21 = dt * a21
+            M22 = 1.0 + dt * a22
+    
+            # Apply M to the current Jacobian
+            J11_new = M11 * J11_vals[i] + M12 * J21_vals[i]
+            J12_new = M11 * J12_vals[i] + M12 * J22_vals[i]
+            J21_new = M21 * J11_vals[i] + M22 * J21_vals[i]
+            J22_new = M21 * J12_vals[i] + M22 * J22_vals[i]
+    
             x_vals[i+1] = x_new
             xi_vals[i+1] = xi_new
+            J11_vals[i+1] = J11_new
+            J12_vals[i+1] = J12_new
+            J21_vals[i+1] = J21_new
+            J22_vals[i+1] = J22_new
+    
         return {
             't': t,
             'x': x_vals,
             'xi': xi_vals,
-            'symbol_value': p_func(x_vals, xi_vals)
+            'symbol_value': p_func(x_vals, xi_vals),
+            'J11': J11_vals, 'J12': J12_vals,
+            'J21': J21_vals, 'J22': J22_vals,
         }
     else:
         raise ValueError("Invalid method for 1D flow")
@@ -879,17 +1015,23 @@ def plot_wavefront_set(symbol, initial_sing_support, tspan,
 def compute_maslov_index(traj):
     """
     Compute the Maslov index for a single trajectory.
-
+    
     Parameters
     ----------
+    traj : dict
+        Returned by bicharacteristic_flow. Must contain J11..J22 components.
     
-    traj : dict 
-           returned by bicharacteristic_flow (must contain J11..J22 or J)
+    Returns
+    -------
+    int
+        Maslov index (number of sign changes of det(J) or caustic crossings).
     """
-    dim = 2 if 'J22' in traj else 1
+    # Detect dimension: 2D if 'y' is present, otherwise 1D
+    dim = 2 if 'y' in traj else 1
     detector = RayCausticDetector([traj], dimension=dim, det_threshold=0.05)
     detector.detect()
     return detector.maslov_index(0)
+
     
 def compute_caustics_2d(p, initial_curve, tmax, n_rays=None, **kwargs):
     """

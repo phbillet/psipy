@@ -938,6 +938,8 @@ class PDESolver:
         self.inv_omega = np.zeros_like(omega_val)
         nonzero = omega_val != 0
         self.inv_omega[nonzero] = 1.0 / omega_val[nonzero]
+        # For the zero mode, the correct factor is dt
+        self.inv_omega[~nonzero] = self.dt
 
     def _precompile_source_funcs(self):
         """
@@ -1902,7 +1904,7 @@ class PDESolver:
         
         else:
             raise ValueError(f"Invalid boundary condition '{self.boundary_condition}'. Supported types are 'periodic', 'dirichlet' and 'neumann'.")
-        
+    
     def _step_ETD_RK4(self, u):
         """
         Perform one Exponential Time Differencing Runge-Kutta of 4th order (ETD-RK4) time step 
@@ -1980,6 +1982,7 @@ class PDESolver:
         ) / 6
     
         return ifft(u_new_hat)
+
 
     def _step_ETD_RK4_order2(self, u, v):
         """

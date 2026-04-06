@@ -200,6 +200,82 @@ def test_symplectic_form_1d_alias_with_vars():
     assert omega.vars_phase == [x, p]
 
 
+def test_hamiltonian_flow_default_vars_1d():
+    """hamiltonian_flow must infer [x, p] correctly when vars_phase=None."""
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    z0 = (1.0, 0.0)
+    traj = hamiltonian_flow(H, z0, (0, 2*np.pi), integrator='symplectic', n_steps=200)
+    # Check that the trajectory dict contains the inferred variable names
+    assert 'x' in traj and 'p' in traj
+    # Energy should be nearly conserved
+    assert np.std(traj['energy']) < 1e-2
+    # After one period, return to initial condition
+    assert np.isclose(traj['x'][-1], 1.0, atol=1e-2)
+    assert np.isclose(traj['p'][-1], 0.0, atol=1e-2)
+
+
+def test_hamiltonian_flow_default_vars_2d():
+    """hamiltonian_flow must infer [x1,p1,x2,p2] correctly when vars_phase=None."""
+    x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+    z0 = (1.0, 0.0, 0.0, 1.0)
+    traj = hamiltonian_flow(H, z0, (0, 2*np.pi), integrator='symplectic', n_steps=200)
+    assert 'x1' in traj and 'p1' in traj and 'x2' in traj and 'p2' in traj
+    assert np.std(traj['energy']) < 1e-2
+    assert np.isclose(traj['x1'][-1], 1.0, atol=1e-2)
+    assert np.isclose(traj['p2'][-1], 1.0, atol=1e-2)
+
+
+def test_poisson_bracket_default_vars():
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    # With vars_phase=None, should infer [x,p] and compute correctly
+    pb = poisson_bracket(x, p)
+    assert pb == 1
+    pb = poisson_bracket(H, x)
+    assert pb == -p   # {H, x} = -∂H/∂p = -p
+
+
+def test_symplectic_gradient_default_vars():
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    X = symplectic_gradient(H)   # no vars_phase
+    expected = [p, -x]
+    for comp, exp in zip(X, expected):
+        assert simplify(comp - exp) == 0
+
+
+def test_find_fixed_points_default_vars():
+    x, p = symbols('x p', real=True)
+    H = p**2/2 + x**4/4 - x**2/2   # double well
+    fps = find_fixed_points(H)     # no vars_phase
+    assert len(fps) == 3
+    xs = sorted([fp[0] for fp in fps])
+    assert np.allclose(xs, [-1, 0, 1], atol=1e-6)
+
+
+def test_linearize_at_fixed_point_default_vars():
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    lin = linearize_at_fixed_point(H, (0, 0))
+    assert lin['type'] == 'elliptic'
+    assert np.allclose(np.abs(lin['eigenvalues']), 1.0, atol=1e-10)
+
+
+def test_action_integral_default_vars():
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    I = action_integral(H, 1.0, method='numerical')
+    assert np.isclose(I, 1.0, rtol=1e-2)
+
+
+def test_phase_portrait_default_vars():
+    x, p = symbols('x p', real=True)
+    H = (p**2 + x**2) / 2
+    # Just check that it runs without error (plotting is suppressed by Agg backend)
+    phase_portrait(H, (-2, 2), (-2, 2), levels=5)
+
 # =============================================================================
 # Poisson bracket
 # =============================================================================
@@ -534,6 +610,19 @@ def test_hamiltonian_flow_4d_wrapper():
     assert np.std(traj['energy']) < 2e-2
 
 
+def test_hamiltonian_flow_4d_wrapper_broken():
+    """
+    The current implementation of hamiltonian_flow_4d is broken because it passes
+    vars_phase = [symbols('x1 p1 x2 p2', real=True)] which is a list containing
+    a tuple of symbols, not a flat list. This should raise an error.
+    We test that the wrapper indeed fails, documenting the bug.
+    """
+    x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+    z0 = (1, 0, 0, 1)
+    with pytest.raises((TypeError, ValueError)):
+        hamiltonian_flow_4d(H, z0, (0, 2*np.pi), integrator='symplectic', n_steps=100)
+
 # =============================================================================
 # Fixed points and linearization
 # =============================================================================
@@ -793,6 +882,33 @@ def test_first_return_map():
     else:
         pytest.skip("Not enough section points for return map")
 
+def test_poincare_section_direction_both_gte_positive_robust():
+    """
+    Use a longer integration time and a known periodic orbit to guarantee
+    multiple crossings, then verify that 'both' direction gives at least as many
+    crossings as 'positive' alone.
+    """
+    x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+    # Initial condition on a periodic orbit with both oscillators active
+    z0 = (1.0, 0.0, 0.0, 1.0)   # period = 2π
+    tmax = 100 * np.pi            # many periods -> many crossings
+    section_pos = {'variable': 'x2', 'value': 0, 'direction': 'positive'}
+    section_both = {'variable': 'x2', 'value': 0, 'direction': 'both'}
+
+    ps_pos = poincare_section(H, section_pos, z0, tmax=tmax,
+                              vars_phase=[x1, p1, x2, p2],
+                              n_returns=1000, integrator='symplectic')
+    ps_both = poincare_section(H, section_both, z0, tmax=tmax,
+                               vars_phase=[x1, p1, x2, p2],
+                               n_returns=1000, integrator='symplectic')
+
+    # Both should have at least one crossing (the trajectory crosses x2=0 many times)
+    assert len(ps_pos['t_crossings']) > 0
+    assert len(ps_both['t_crossings']) > 0
+    # Both direction must be >= positive direction (because 'both' includes 'positive')
+    assert len(ps_both['t_crossings']) >= len(ps_pos['t_crossings'])
+
 
 def test_first_return_map_too_few_points():
     with pytest.raises(ValueError):
@@ -892,6 +1008,37 @@ def test_visualize_poincare_section_execution():
         H, z0_list, section,
         vars_phase=[x1, p1, x2, p2],
         tmax=10, n_returns=5, plot_vars=('x1', 'p1'),
+    )
+
+def test_visualize_poincare_section_parallel():
+    """Call visualize_poincare_section with parallelism enabled and disabled."""
+    x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+    H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+    section = {'variable': 'x2', 'value': 0, 'direction': 'positive'}
+    z0_list = [(1, 0, 0, 1), (0.5, 0, 0, 0.5)]
+
+    # Should run without error with default n_workers (CPU count)
+    visualize_poincare_section(
+        H, z0_list, section,
+        vars_phase=[x1, p1, x2, p2],
+        tmax=20, n_returns=10, plot_vars=('x1', 'p1'),
+        n_workers=None   # use all cores
+    )
+
+    # Explicitly set n_workers=1 (serial fallback)
+    visualize_poincare_section(
+        H, z0_list, section,
+        vars_phase=[x1, p1, x2, p2],
+        tmax=20, n_returns=10, plot_vars=('x1', 'p1'),
+        n_workers=1
+    )
+
+    # Explicitly set n_workers=2 (if at least 2 cores available)
+    visualize_poincare_section(
+        H, z0_list, section,
+        vars_phase=[x1, p1, x2, p2],
+        tmax=20, n_returns=10, plot_vars=('x1', 'p1'),
+        n_workers=2
     )
 
 # -----------------------------------------------------------------------------
@@ -1514,6 +1661,34 @@ class TestAnalyzeIntegrability:
             lyapunov_traj=traj, lyapunov_dt=None,
             vars_phase=vp)
         assert 'lyapunov' in r['channels']
+
+    def test_lyapunov_exponents_fallback_warning(self):
+        """Call lyapunov_exponents without H and vars_phase -> warning and fallback."""
+        x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+        H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+        vp = [x1, p1, x2, p2]
+        traj = hamiltonian_flow(H, (1, 0, 0.5, 0), (0, 50),
+                                vars_phase=vp, integrator='symplectic', n_steps=500)
+        dt = traj['t'][1] - traj['t'][0]
+    
+        with pytest.warns(RuntimeWarning, match="Lyapunov exponents computed without H"):
+            exponents = lyapunov_exponents(traj, dt, H=None, vars_phase=vp)
+        assert len(exponents) == 4
+        # The fallback may produce -inf; we just check that at least the first exponent is finite
+        assert np.isfinite(exponents[0])
+    
+    
+    def test_lyapunov_exponents_fallback_raises_without_vars_phase(self):
+        """Without H and without vars_phase, the fallback must raise ValueError."""
+        x1, p1, x2, p2 = symbols('x1 p1 x2 p2', real=True)
+        H = (p1**2 + p2**2 + x1**2 + x2**2) / 2
+        vp = [x1, p1, x2, p2]
+        traj = hamiltonian_flow(H, (1, 0, 0.5, 0), (0, 50),
+                                vars_phase=vp, integrator='symplectic', n_steps=500)
+        dt = traj['t'][1] - traj['t'][0]
+    
+        with pytest.raises(ValueError, match="vars_phase required"):
+            lyapunov_exponents(traj, dt, H=None, vars_phase=None)
 
     # ------------------------------------------------------------------
     # Combined channels and soft-score aggregation

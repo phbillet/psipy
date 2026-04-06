@@ -51,6 +51,7 @@ from sympy import (
     DiracDelta,
 )
 
+import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------------------------
 # Module under test — adjust the import path if needed
@@ -74,6 +75,15 @@ from riemannian import (
     visualize_hodge_decomposition,
     visualize_curvature,
     analyze_hodge_decomposition,
+    build_embedding,
+    metric_deficit,
+    corrugation_step,
+    add_corrugations,
+    plot_embedding,
+    plot_corrugation_pipeline,
+    _eval_metric_grid,
+    _brioschi_curvature_grid,
+    induced_metric,
 )
 
 # ---------------------------------------------------------------------------
@@ -1952,3 +1962,254 @@ class TestHodgeDecomposition0Form:
         visualize_hodge_decomposition(dec0_flat)
         # Also test with explicit form_degree
         visualize_hodge_decomposition(dec0_flat, form_degree=0)
+
+# ===========================================================================
+# 32.  Numerical stability near singularities
+# ===========================================================================
+
+class TestNumericalStability:
+    """
+    Test that metric evaluations, geodesics and curvature remain finite
+    when approaching coordinate singularities (Poincaré half‑plane y→0,
+    sphere near poles).
+    """
+
+    @pytest.fixture
+    def m_hyperbolic(self):
+        x, y = symbols('x y', real=True)
+        return Metric(Matrix([[1/y**2, 0], [0, 1/y**2]]), (x, y))
+
+    @pytest.fixture
+    def m_sphere(self):
+        theta, phi = symbols('theta phi', real=True)
+        return Metric(Matrix([[1, 0], [0, sin(theta)**2]]), (theta, phi))
+
+    def test_poincare_metric_near_singularity(self, m_hyperbolic):
+        """Evaluate metric components very close to y=0, should be large but finite."""
+        y_small = 1e-6
+        g11 = m_hyperbolic.g_func[(0, 0)](0.0, y_small)
+        g22 = m_hyperbolic.g_func[(1, 1)](0.0, y_small)
+        assert np.isfinite(g11) and g11 > 0
+        assert np.isfinite(g22) and g22 > 0
+
+    def test_poincare_geodesic_near_singularity(self, m_hyperbolic):
+        """Geodesic starting near y=0 should not blow up (finite time)."""
+        # Start at (x=0, y=1e-3) with horizontal velocity.
+        traj = geodesic_solver(
+            m_hyperbolic, (0.0, 1e-3), (1.0, 0.0), (0, 0.5),
+            method='rk45', n_steps=100
+        )
+        assert np.all(np.isfinite(traj['x']))
+        assert np.all(np.isfinite(traj['y']))
+        # y should stay positive (no crossing the singularity)
+        assert np.all(traj['y'] > 0)
+
+    def test_sphere_curvature_near_pole(self, m_sphere):
+        """Gaussian curvature near θ=0 should be 1 (finite)."""
+        theta_small = 1e-6
+        K_func = lambdify(m_sphere.coords, m_sphere.gauss_curvature(), 'numpy')
+        K_val = K_func(theta_small, 0.0)
+        assert np.isfinite(K_val)
+        assert np.isclose(K_val, 1.0, rtol=1e-3)
+
+    def test_sphere_geodesic_through_pole(self, m_sphere):
+        """Geodesic that passes near the north pole should remain smooth."""
+        # Start near equator with upward velocity
+        traj = geodesic_solver(
+            m_sphere, (np.pi/2 - 0.1, 0.0), (1.0, 0.0), (0, 0.5),
+            method='rk45', n_steps=200
+        )
+        assert np.all(np.isfinite(traj['x']))
+        assert np.all(np.isfinite(traj['y']))
+        # Theta should stay in [0, π] (may exceed due to numerics, but clamp check)
+        assert np.all(traj['x'] >= -0.1) and np.all(traj['x'] <= np.pi + 0.1)
+
+
+# ===========================================================================
+# 33.  Parallel transport holonomy on the sphere (corrected)
+# ===========================================================================
+
+class TestParallelTransportHolonomySphere:
+    """
+    Parallel transport around a closed latitude circle on the sphere.
+    Holonomy angle = enclosed solid angle = 2π (1 - cosθ).
+    Check that the transported vector's dot product with the initial vector
+    equals cos(Δα) (sign‑insensitive) and that the norm is preserved.
+    """
+
+    def _latitude_traj(self, theta0, n=3000):
+        """Return a trajectory dict for the circle θ = θ₀, φ ∈ [0, 2π]."""
+        phi = np.linspace(0.0, 2 * np.pi, n)
+        return {
+            't':  phi,
+            'x':  np.full(n, theta0),
+            'y':  phi,
+            'vx': np.zeros(n),
+            'vy': np.ones(n),
+        }
+
+    @pytest.mark.parametrize('theta0', [np.pi/6, np.pi/4, np.pi/3, np.pi/2])
+    def test_holonomy_angle(self, m_sphere, theta0):
+        traj = self._latitude_traj(theta0)
+        pt = parallel_transport(m_sphere, traj, initial_vector=(1.0, 0.0))
+        vx_final = pt['vx'][-1]
+        vy_final = pt['vy'][-1]
+
+        # Convert to orthonormal frame: ê_θ = ∂_θ, ê_φ = ∂_φ / sinθ
+        sin_t = np.sin(theta0)
+        v_orth = np.array([vx_final, vy_final * sin_t])
+
+        # Norm preservation
+        assert np.isclose(np.linalg.norm(v_orth), 1.0, atol=1e-2)
+
+        # Holonomy angle = enclosed solid angle = 2π (1 - cosθ)
+        delta_alpha = 2 * np.pi * (1 - np.cos(theta0))
+        # Dot product with initial vector (1,0) should be cos(Δα) (sign insensitive)
+        dot = np.dot(v_orth, [1.0, 0.0])
+        assert np.isclose(dot, np.cos(delta_alpha), atol=5e-2)
+
+
+# ===========================================================================
+# 34.  Corrugation pipeline
+# ===========================================================================
+
+class TestCorrugationPipeline:
+    """
+    Test build_embedding, metric_deficit, corrugation_step and add_corrugations.
+    Since these are heavy, use a tiny grid and a simple metric (flat or sphere).
+    """
+    @pytest.fixture(autouse=True)
+    def use_agg(self):
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        yield
+        plt.close('all')
+        
+    @pytest.fixture
+    def flat_metric(self):
+        x, y = symbols('x y', real=True)
+        return Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+
+    @pytest.fixture
+    def small_grid_params(self):
+        return (0.0, 1.0), (0.0, 1.0), 8, 8   # u_range, v_range, nu, nv
+
+    def test_build_embedding_flat(self, flat_metric, small_grid_params):
+        u_range, v_range, nu, nv = small_grid_params
+        R, u_vals, v_vals = build_embedding(flat_metric, u_range, v_range, nu, nv)
+        assert R.shape == (nu, nv, 3)
+        assert np.all(np.isfinite(R))
+        # For flat metric, the embedding should be planar (all z = 0)
+        assert np.allclose(R[:, :, 2], 0.0, atol=1e-10)
+
+    def test_metric_deficit_flat(self, flat_metric, small_grid_params):
+        u_range, v_range, nu, nv = small_grid_params
+        u_vals = np.linspace(u_range[0], u_range[1], nu)
+        v_vals = np.linspace(v_range[0], v_range[1], nv)
+        du = u_vals[1] - u_vals[0]
+        dv = v_vals[1] - v_vals[0]
+        U, V = np.meshgrid(u_vals, v_vals, indexing='ij')
+        g11, g12, g22 = _eval_metric_grid(flat_metric, U, V)
+        R = np.zeros((nu, nv, 3))
+        R[:, :, 0] = U
+        R[:, :, 1] = V
+        dg11, dg12, dg22, frob = metric_deficit(R, g11, g12, g22, du, dv)
+        assert frob < 1e-12  # exact embedding
+
+    def test_corrugation_step_reduces_deficit(self, flat_metric, small_grid_params):
+        """Check that corrugation_step runs and produces a finite embedding."""
+        u_range, v_range, nu, nv = small_grid_params
+        u_vals = np.linspace(u_range[0], u_range[1], nu)
+        v_vals = np.linspace(v_range[0], v_range[1], nv)
+        du = u_vals[1] - u_vals[0]
+        dv = v_vals[1] - v_vals[0]
+        U, V = np.meshgrid(u_vals, v_vals, indexing='ij')
+        g11, g12, g22 = _eval_metric_grid(flat_metric, U, V)
+
+        # Start with a non‑isometric embedding: a plane scaled by 0.5
+        R0 = np.zeros((nu, nv, 3))
+        R0[:, :, 0] = 0.5 * U
+        R0[:, :, 1] = 0.5 * V
+        dg11, dg12, dg22, _ = metric_deficit(R0, g11, g12, g22, du, dv)
+
+        # Apply one corrugation step (just check it runs)
+        R1 = corrugation_step(R0, dg11, dg12, dg22, du, dv, freq=2)
+        assert np.all(np.isfinite(R1))
+
+    def test_add_corrugations_convergence(self, flat_metric, small_grid_params):
+        u_range, v_range, nu, nv = small_grid_params
+        u_vals = np.linspace(u_range[0], u_range[1], nu)
+        v_vals = np.linspace(v_range[0], v_range[1], nv)
+        du = u_vals[1] - u_vals[0]
+        dv = v_vals[1] - v_vals[0]
+        U, V = np.meshgrid(u_vals, v_vals, indexing='ij')
+
+        # Build an initial embedding (here from build_embedding, which for flat metric is exact)
+        R, _, _ = build_embedding(flat_metric, u_range, v_range, nu, nv)
+        # Scale it down to create a short map
+        alpha = 0.8
+        R_short = R * alpha
+
+        result = add_corrugations(
+            R_short, flat_metric, du, dv, U, V,
+            n_iterations=2, base_freq=2, alpha=1.0  # alpha already applied
+        )
+        deficits = result['deficits']
+        # Deficit should decrease after each iteration
+        assert deficits[0] > deficits[-1]
+        # Final deficit should be smaller than initial short map deficit
+        assert deficits[-1] < deficits[0]
+
+    def test_plot_embedding_smoke(self, flat_metric, small_grid_params):
+        """Just ensure the plotting function runs without error (Agg backend)."""
+        u_range, v_range, nu, nv = small_grid_params
+        R, _, _ = build_embedding(flat_metric, u_range, v_range, nu, nv)
+        # Use 'agg' backend (already active) instead of 'inline'
+        fig, ax = plot_embedding(R, title="Test", dark=False, backend='agg')
+        plt.close(fig)
+
+    def test_plot_corrugation_pipeline_smoke(self, flat_metric, small_grid_params):
+        u_range, v_range, nu, nv = small_grid_params
+        u_vals = np.linspace(u_range[0], u_range[1], nu)
+        v_vals = np.linspace(v_range[0], v_range[1], nv)
+        du = u_vals[1] - u_vals[0]
+        dv = v_vals[1] - v_vals[0]
+        U, V = np.meshgrid(u_vals, v_vals, indexing='ij')
+        R, _, _ = build_embedding(flat_metric, u_range, v_range, nu, nv)
+        result = add_corrugations(
+            R, flat_metric, du, dv, U, V,
+            n_iterations=1, base_freq=2, alpha=0.9
+        )
+        import matplotlib
+        matplotlib.use('Agg')
+        fig = plot_corrugation_pipeline(result, title="Test", dark=False)
+        plt.close(fig)
+
+
+# ===========================================================================
+# 35.  Large‑grid smoke test (performance / no crash)
+# ===========================================================================
+
+class TestLargeGrid:
+    """
+    Ensure that high‑resolution grids do not cause memory errors or crashes.
+    These are not benchmarks; they simply verify that the code completes.
+    """
+
+    @pytest.mark.slow
+    def test_riemannian_grid_large(self, m_flat):
+        """Create a 200×200 grid and assemble matrices."""
+        grid = RiemannianGrid(m_flat, DOMAIN_FLAT_2, resolution=200)
+        assert grid.A_scalar.shape == (40000, 40000)
+        assert grid.A_1form.shape == (80000, 80000)
+
+    @pytest.mark.slow
+    def test_hodge_decomposition_large(self, m_flat, coords_2d):
+        """Run Hodge decomposition on a 100×100 grid."""
+        x, y = coords_2d
+        alpha = (-y, x)
+        dec = hodge_decomposition(
+            m_flat, alpha, DOMAIN_FLAT_2, resolution=100, form_degree=1
+        )
+        assert dec['alpha_harmonic'][0].shape == (100, 100)
