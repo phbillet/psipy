@@ -1027,6 +1027,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">omega_val</span><span class="p">)</span>
         <span class="n">nonzero</span> <span class="o">=</span> <span class="n">omega_val</span> <span class="o">!=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">omega_val</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span>
+        <span class="c1"># For the zero mode, the correct factor is dt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inv_omega</span><span class="p">[</span><span class="o">~</span><span class="n">nonzero</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_precompile_source_funcs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1997,7 +1999,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid boundary condition &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">&#39;. Supported types are &#39;periodic&#39;, &#39;dirichlet&#39; and &#39;neumann&#39;.&quot;</span><span class="p">)</span></div>
 
-        
+    
     <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform one Exponential Time Differencing Runge-Kutta of 4th order (ETD-RK4) time step </span>
@@ -2075,6 +2077,7 @@
         <span class="p">)</span> <span class="o">/</span> <span class="mi">6</span>
     
         <span class="k">return</span> <span class="n">ifft</span><span class="p">(</span><span class="n">u_new_hat</span><span class="p">)</span>
+
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>

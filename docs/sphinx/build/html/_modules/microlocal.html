@@ -275,43 +275,179 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_bichar_flow_1d</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Integrate the 1D bicharacteristic flow and the associated stability matrix.</span>
+
+<span class="sd">    For a Hamiltonian system defined by the principal symbol p(x,ξ), the</span>
+<span class="sd">    bicharacteristics (Hamiltonian flow) satisfy</span>
+
+<span class="sd">        dx/dt = ∂p/∂ξ,   dξ/dt = –∂p/∂x.</span>
+
+<span class="sd">    Simultaneously, the 2×2 Jacobian matrix</span>
+
+<span class="sd">        J(t) = [[ ∂x/∂x₀ , ∂x/∂ξ₀ ],</span>
+<span class="sd">                [ ∂ξ/∂x₀ , ∂ξ/∂ξ₀ ]]</span>
+
+<span class="sd">    obeys the linearised variational equation</span>
+
+<span class="sd">        dJ/dt = A(t) J,   J(0) = I₂,</span>
+
+<span class="sd">    where</span>
+
+<span class="sd">        A(t) = [[ ∂²p/(∂ξ∂x) , ∂²p/∂ξ² ],</span>
+<span class="sd">                [ –∂²p/∂x²  , –∂²p/(∂x∂ξ) ]]</span>
+
+<span class="sd">    evaluated along the trajectory.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : sympy.Expr</span>
+<span class="sd">        Principal symbol p(x,ξ). Must depend on the real symbols `x` and `xi`.</span>
+<span class="sd">    z0 : tuple of float</span>
+<span class="sd">        Initial condition (x₀, ξ₀).</span>
+<span class="sd">    tspan : tuple of float</span>
+<span class="sd">        Integration interval (t_start, t_end).</span>
+<span class="sd">    method : {&#39;rk45&#39;, &#39;symplectic&#39;, &#39;hamiltonian&#39;}</span>
+<span class="sd">        Integration scheme:</span>
+<span class="sd">        - &#39;rk45&#39;      : adaptive Runge‑Kutta 4(5) from `scipy.integrate.solve_ivp`.</span>
+<span class="sd">                        The state is augmented with the four entries of J.</span>
+<span class="sd">        - &#39;symplectic&#39;: fixed‑step symplectic Euler (position half‑step,</span>
+<span class="sd">                        momentum full‑step). The linearised map is derived</span>
+<span class="sd">                        from the exact discretisation of the variational</span>
+<span class="sd">                        equations, preserving the symplectic structure up to</span>
+<span class="sd">                        the order of the integrator.</span>
+<span class="sd">        - &#39;hamiltonian&#39;: alias for &#39;symplectic&#39; (kept for backward compatibility).</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of output points (including the initial state). For fixed‑step</span>
+<span class="sd">        methods this equals the number of integration steps; for &#39;rk45&#39; it</span>
+<span class="sd">        specifies the number of equally spaced time values at which the</span>
+<span class="sd">        solution is evaluated.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary containing the following fields:</span>
+<span class="sd">        - &#39;t&#39;            : 1D ndarray of shape (n_steps,) – time points.</span>
+<span class="sd">        - &#39;x&#39;            : 1D ndarray – position trajectory.</span>
+<span class="sd">        - &#39;xi&#39;           : 1D ndarray – momentum trajectory.</span>
+<span class="sd">        - &#39;symbol_value&#39; : 1D ndarray – p(x,ξ) evaluated along the trajectory.</span>
+<span class="sd">        - &#39;J11&#39;, &#39;J12&#39;, &#39;J21&#39;, &#39;J22&#39; : 1D ndarrays – components of the 2×2</span>
+<span class="sd">          stability matrix J(t) at each time point.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - The function uses symbolic differentiation (`sympy.diff`) and generates</span>
+<span class="sd">      NumPy callables via `lambdify`. The symbols must be named exactly `x` and</span>
+<span class="sd">      `xi` (case‑sensitive).</span>
+<span class="sd">    - For the symplectic Euler method, the linearised map M that advances the</span>
+<span class="sd">      Jacobian from step i to i+1 is:</span>
+
+<span class="sd">          M = [[ 1 + Δt·a11 + Δt²·a12·a21 ,  Δt·a12·(1 + Δt·a22) ],</span>
+<span class="sd">               [ Δt·a21                  ,  1 + Δt·a22            ]]</span>
+
+<span class="sd">      where a11, a12, a21, a22 are the entries of A(t) evaluated at the</span>
+<span class="sd">      beginning of the step. This map is applied as J_{i+1} = M · J_i.</span>
+<span class="sd">    - This function is intended for internal use and is not part of the public</span>
+<span class="sd">      API of the `microlocal` module.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="c1"># First derivatives (Hamilton&#39;s equations)</span>
     <span class="n">dp_dxi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
     <span class="n">dp_dx</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
     <span class="n">f_x</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="n">dp_dxi</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
     <span class="n">f_xi</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="o">-</span><span class="n">dp_dx</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Second derivatives for the stability matrix</span>
+    <span class="n">d2p_dx2</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="n">d2p_dxi2</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+    <span class="n">d2p_dxdxi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+    
+    <span class="n">A11</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>        <span class="c1"># ∂²p/∂ξ∂x</span>
+    <span class="n">A12</span> <span class="o">=</span> <span class="n">d2p_dxi2</span>                      <span class="c1"># ∂²p/∂ξ²</span>
+    <span class="n">A21</span> <span class="o">=</span> <span class="o">-</span><span class="n">d2p_dx2</span>                      <span class="c1"># -∂²p/∂x²</span>
+    <span class="n">A22</span> <span class="o">=</span> <span class="o">-</span><span class="n">d2p_dxdxi</span>                    <span class="c1"># -∂²p/∂x∂ξ</span>
+    
+    <span class="n">A_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="p">(</span><span class="n">A11</span><span class="p">,</span> <span class="n">A12</span><span class="p">,</span> <span class="n">A21</span><span class="p">,</span> <span class="n">A22</span><span class="p">),</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
     <span class="n">p_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="n">symbol</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-
+    
     <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;rk45&#39;</span><span class="p">:</span>
+        <span class="c1"># Augment state: [x, xi, J11, J12, J21, J22]</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">ode</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
-            <span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span> <span class="o">=</span> <span class="n">z</span>
-            <span class="k">return</span> <span class="p">[</span><span class="n">f_x</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">),</span> <span class="n">f_xi</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">)]</span>
-        <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="n">ode</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;RK45&#39;</span><span class="p">,</span>
+            <span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">z</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">J11</span><span class="p">,</span> <span class="n">J12</span><span class="p">,</span> <span class="n">J21</span><span class="p">,</span> <span class="n">J22</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">z</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">z</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">z</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
+            <span class="n">a11</span><span class="p">,</span> <span class="n">a12</span><span class="p">,</span> <span class="n">a21</span><span class="p">,</span> <span class="n">a22</span> <span class="o">=</span> <span class="n">A_func</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">)</span>
+            <span class="n">dJ11</span> <span class="o">=</span> <span class="n">a11</span><span class="o">*</span><span class="n">J11</span> <span class="o">+</span> <span class="n">a12</span><span class="o">*</span><span class="n">J21</span>
+            <span class="n">dJ12</span> <span class="o">=</span> <span class="n">a11</span><span class="o">*</span><span class="n">J12</span> <span class="o">+</span> <span class="n">a12</span><span class="o">*</span><span class="n">J22</span>
+            <span class="n">dJ21</span> <span class="o">=</span> <span class="n">a21</span><span class="o">*</span><span class="n">J11</span> <span class="o">+</span> <span class="n">a22</span><span class="o">*</span><span class="n">J21</span>
+            <span class="n">dJ22</span> <span class="o">=</span> <span class="n">a21</span><span class="o">*</span><span class="n">J12</span> <span class="o">+</span> <span class="n">a22</span><span class="o">*</span><span class="n">J22</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">f_x</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">),</span> <span class="n">f_xi</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">),</span> <span class="n">dJ11</span><span class="p">,</span> <span class="n">dJ12</span><span class="p">,</span> <span class="n">dJ21</span><span class="p">,</span> <span class="n">dJ22</span><span class="p">]</span>
+        
+        <span class="n">z0_aug</span> <span class="o">=</span> <span class="p">[</span><span class="n">z0</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">z0</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]</span>   <span class="c1"># J(0)=I₂</span>
+        <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="n">ode</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">z0_aug</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;RK45&#39;</span><span class="p">,</span>
                         <span class="n">t_eval</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">),</span>
                         <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
             <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
             <span class="s1">&#39;xi&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-            <span class="s1">&#39;symbol_value&#39;</span><span class="p">:</span> <span class="n">p_func</span><span class="p">(</span><span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="s1">&#39;symbol_value&#39;</span><span class="p">:</span> <span class="n">p_func</span><span class="p">(</span><span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+            <span class="s1">&#39;J11&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="s1">&#39;J12&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+            <span class="s1">&#39;J21&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s1">&#39;J22&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
         <span class="p">}</span>
-    <span class="k">elif</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;hamiltonian&#39;</span><span class="p">,</span> <span class="s1">&#39;symplectic&#39;</span><span class="p">):</span>
-        <span class="n">dt</span> <span class="o">=</span> <span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">/</span><span class="n">n_steps</span>
+    
+    <span class="k">elif</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;symplectic&#39;</span><span class="p">,</span> <span class="s1">&#39;hamiltonian&#39;</span><span class="p">):</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">n_steps</span>
         <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">tspan</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">)</span>
         <span class="n">x_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
         <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">J11_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">J12_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">J21_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+        <span class="n">J22_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
+    
         <span class="n">x_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">z0</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
-            <span class="c1"># symplectic Euler</span>
-            <span class="n">xi_new</span> <span class="o">=</span> <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_xi</span><span class="p">(</span><span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-            <span class="n">x_new</span>  <span class="o">=</span> <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_x</span><span class="p">(</span><span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">xi_new</span><span class="p">)</span>
+        <span class="n">J11_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">J12_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span>
+        <span class="n">J21_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">J22_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span>
+    
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span> <span class="o">=</span> <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    
+            <span class="c1"># Second derivatives at the current point</span>
+            <span class="n">a11</span><span class="p">,</span> <span class="n">a12</span><span class="p">,</span> <span class="n">a21</span><span class="p">,</span> <span class="n">a22</span> <span class="o">=</span> <span class="n">A_func</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">)</span>
+    
+            <span class="c1"># Symplectic Euler update for position and momentum</span>
+            <span class="n">xi_new</span> <span class="o">=</span> <span class="n">xiv</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_xi</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xiv</span><span class="p">)</span>
+            <span class="n">x_new</span> <span class="o">=</span> <span class="n">xv</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f_x</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">xi_new</span><span class="p">)</span>
+    
+            <span class="c1"># Linearised symplectic Euler map M:</span>
+            <span class="c1">#   M = [[1 + dt*a11 + dt²*a12*a21,  dt*a12*(1 + dt*a22)],</span>
+            <span class="c1">#        [dt*a21,                   1 + dt*a22]]</span>
+            <span class="n">M11</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">a11</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">a12</span> <span class="o">*</span> <span class="n">a21</span>
+            <span class="n">M12</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">a12</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">a22</span><span class="p">)</span>
+            <span class="n">M21</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">a21</span>
+            <span class="n">M22</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">a22</span>
+    
+            <span class="c1"># Apply M to the current Jacobian</span>
+            <span class="n">J11_new</span> <span class="o">=</span> <span class="n">M11</span> <span class="o">*</span> <span class="n">J11_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">M12</span> <span class="o">*</span> <span class="n">J21_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">J12_new</span> <span class="o">=</span> <span class="n">M11</span> <span class="o">*</span> <span class="n">J12_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">M12</span> <span class="o">*</span> <span class="n">J22_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">J21_new</span> <span class="o">=</span> <span class="n">M21</span> <span class="o">*</span> <span class="n">J11_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">M22</span> <span class="o">*</span> <span class="n">J21_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">J22_new</span> <span class="o">=</span> <span class="n">M21</span> <span class="o">*</span> <span class="n">J12_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">M22</span> <span class="o">*</span> <span class="n">J22_vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    
             <span class="n">x_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_new</span>
             <span class="n">xi_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">xi_new</span>
+            <span class="n">J11_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">J11_new</span>
+            <span class="n">J12_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">J12_new</span>
+            <span class="n">J21_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">J21_new</span>
+            <span class="n">J22_vals</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">J22_new</span>
+    
         <span class="k">return</span> <span class="p">{</span>
             <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">t</span><span class="p">,</span>
             <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">x_vals</span><span class="p">,</span>
             <span class="s1">&#39;xi&#39;</span><span class="p">:</span> <span class="n">xi_vals</span><span class="p">,</span>
-            <span class="s1">&#39;symbol_value&#39;</span><span class="p">:</span> <span class="n">p_func</span><span class="p">(</span><span class="n">x_vals</span><span class="p">,</span> <span class="n">xi_vals</span><span class="p">)</span>
+            <span class="s1">&#39;symbol_value&#39;</span><span class="p">:</span> <span class="n">p_func</span><span class="p">(</span><span class="n">x_vals</span><span class="p">,</span> <span class="n">xi_vals</span><span class="p">),</span>
+            <span class="s1">&#39;J11&#39;</span><span class="p">:</span> <span class="n">J11_vals</span><span class="p">,</span> <span class="s1">&#39;J12&#39;</span><span class="p">:</span> <span class="n">J12_vals</span><span class="p">,</span>
+            <span class="s1">&#39;J21&#39;</span><span class="p">:</span> <span class="n">J21_vals</span><span class="p">,</span> <span class="s1">&#39;J22&#39;</span><span class="p">:</span> <span class="n">J22_vals</span><span class="p">,</span>
         <span class="p">}</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid method for 1D flow&quot;</span><span class="p">)</span>
@@ -989,17 +1125,23 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_maslov_index</span><span class="p">(</span><span class="n">traj</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the Maslov index for a single trajectory.</span>
-
+<span class="sd">    </span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
+<span class="sd">    traj : dict</span>
+<span class="sd">        Returned by bicharacteristic_flow. Must contain J11..J22 components.</span>
 <span class="sd">    </span>
-<span class="sd">    traj : dict </span>
-<span class="sd">           returned by bicharacteristic_flow (must contain J11..J22 or J)</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    int</span>
+<span class="sd">        Maslov index (number of sign changes of det(J) or caustic crossings).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">dim</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="s1">&#39;J22&#39;</span> <span class="ow">in</span> <span class="n">traj</span> <span class="k">else</span> <span class="mi">1</span>
+    <span class="c1"># Detect dimension: 2D if &#39;y&#39; is present, otherwise 1D</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="s1">&#39;y&#39;</span> <span class="ow">in</span> <span class="n">traj</span> <span class="k">else</span> <span class="mi">1</span>
     <span class="n">detector</span> <span class="o">=</span> <span class="n">RayCausticDetector</span><span class="p">([</span><span class="n">traj</span><span class="p">],</span> <span class="n">dimension</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">det_threshold</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
     <span class="n">detector</span><span class="o">.</span><span class="n">detect</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">detector</span><span class="o">.</span><span class="n">maslov_index</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
 
     
 <div class="viewcode-block" id="compute_caustics_2d">
