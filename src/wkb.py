@@ -1112,6 +1112,92 @@ def _apply_2d_caustic_corrections(base_solution, caustics, epsilon, mode):
     return result
 
 def compare_orders(symbol, initial_phase, max_order=3, **kwargs):
+    import matplotlib.pyplot as plt
+
+    solutions = {}
+    for order in range(max_order + 1):
+        print(f"\n{'='*60}\nComputing order {order}\n{'='*60}")
+        sol = wkb_approximation(symbol, initial_phase, order=order, **kwargs)
+        solutions[order] = sol
+
+    # Determine dimension by looking at the shape of the 'x' grid
+    if solutions[0]['x'].ndim == 1:
+        dim = 1
+    else:
+        dim = 2
+
+    n_orders = max_order + 1
+
+    if dim == 1:
+        fig, axes = plt.subplots(n_orders, 1, figsize=(12, 3*n_orders))
+        if n_orders == 1:
+            axes = [axes]
+        for order, ax in enumerate(axes):
+            sol = solutions[order]
+            x = sol['x']
+            u = sol['u']
+            ax.plot(x, np.real(u), 'b-', label='Re(u)', linewidth=2)
+            ax.plot(x, np.imag(u), 'r--', label='Im(u)', linewidth=2)
+            ax.plot(x, np.abs(u), 'g:', label='|u|', linewidth=2)
+            ax.set_xlabel('x')
+            ax.set_ylabel('u')
+            ax.set_title(f'Order {order} (ε={sol["epsilon"]:.3f})')
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            ax.text(0.02, 0.98, f'max|u| = {np.max(np.abs(u)):.4f}',
+                    transform=ax.transAxes, va='top',
+                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    else:
+        fig, axes = plt.subplots(2, n_orders, figsize=(5*n_orders, 9))
+        if n_orders == 1:
+            axes = axes.reshape(2, 1)
+        for order in range(n_orders):
+            sol = solutions[order]
+            X, Y = sol['x'], sol['y']
+            u = sol['u']
+            im1 = axes[0, order].contourf(X, Y, np.abs(u), levels=30, cmap='viridis')
+            axes[0, order].set_title(f'Order {order}: |u|')
+            axes[0, order].set_aspect('equal')
+            plt.colorbar(im1, ax=axes[0, order])
+            im2 = axes[1, order].contourf(X, Y, np.real(u), levels=30, cmap='RdBu_r')
+            axes[1, order].set_title(f'Order {order}: Re(u)')
+            axes[1, order].set_aspect('equal')
+            plt.colorbar(im2, ax=axes[1, order])
+            if 'rays' in sol:
+                for ray in sol['rays'][::max(1, len(sol['rays'])//15)]:
+                    axes[0, order].plot(ray['x'], ray['y'], 'k-', alpha=0.2, lw=0.5)
+                    axes[1, order].plot(ray['x'], ray['y'], 'k-', alpha=0.2, lw=0.5)
+    plt.tight_layout()
+
+    # Convergence analysis
+    print("\n" + "="*60 + "\nCONVERGENCE ANALYSIS\n" + "="*60)
+    if dim == 1:
+        idx = len(solutions[0]['x']) // 2
+        xc = float(solutions[0]['x'][idx])
+        print(f"\nAt x = {xc:.3f}:")
+        for order in range(n_orders):
+            u_val = complex(solutions[order]['u'][idx])
+            print(f"  Order {order}: u = {u_val:.6f}, |u| = {abs(u_val):.6f}")
+    else:
+        nx, ny = solutions[0]['x'].shape
+        ix, iy = nx//2, ny//2
+        xc = float(solutions[0]['x'][ix, iy])
+        yc = float(solutions[0]['y'][ix, iy])
+        print(f"\nAt (x,y) = ({xc:.3f}, {yc:.3f}):")
+        for order in range(n_orders):
+            u_val = complex(solutions[order]['u'][ix, iy])
+            print(f"  Order {order}: u = {u_val:.6f}, |u| = {abs(u_val):.6f}")
+
+    print("\nRelative differences between orders:")
+    for order in range(1, n_orders):
+        u_prev = solutions[order-1]['u']
+        u_curr = solutions[order]['u']
+        diff = np.linalg.norm(u_curr - u_prev) / (np.linalg.norm(u_prev) + 1e-10)
+        print(f"  ||u_{order} - u_{order-1}|| / ||u_{order-1}|| = {diff:.6e}")
+
+    return solutions, fig
+
+def compare_orders_old(symbol, initial_phase, max_order=3, **kwargs):
     """
     Compare WKB approximations at different orders.
     Works for both 1D and 2D automatically.
