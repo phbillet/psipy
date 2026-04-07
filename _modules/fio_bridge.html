@@ -664,19 +664,6 @@
     <span class="c1">#  Static precomputation  (x_val-independent, runs once in __init__)</span>
     <span class="c1"># ─────────────────────────────────────────────────────────────────────</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_make_guesses</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_val</span><span class="p">,</span> <span class="n">kernel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Backward-compatible alias for _make_guesses_fast.</span>
-
-<span class="sd">        Tests written against the original API call _make_guesses(x_val, kernel).</span>
-<span class="sd">        This alias delegates to _make_guesses_fast after triggering the WKB</span>
-<span class="sd">        precompute if needed (kernel carries the phase/amp symbols).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">kernel</span><span class="p">,</span> <span class="s1">&#39;phase_sym&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wkb_phase_key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># Precompute hasn&#39;t run yet — run it with kernel&#39;s WKB data</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_precompute_wkb</span><span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">phase_sym</span> <span class="o">-</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">x_val</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_int</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_int</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-                                 <span class="n">kernel</span><span class="o">.</span><span class="n">amp_sym</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">vars_x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_int</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_guesses_fast</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">x_val</span><span class="p">))</span>
-
     <span class="k">def</span><span class="w"> </span><span class="nf">_precompute_static</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Build the guess-offset template and do the integration-method probe.</span>
@@ -1088,35 +1075,6 @@
 </div>
 
 
-
-<span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
-<span class="c1">#  Module-level worker for evaluate_grid parallelism</span>
-<span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_eval_one_grid_point</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Evaluate (Pu)(x) at a single grid point.</span>
-
-<span class="sd">    Must be a module-level function (not a closure) so that</span>
-<span class="sd">    multiprocessing can pickle it for ProcessPoolExecutor.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">bridge</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">xv</span> <span class="o">=</span> <span class="n">args</span>
-    <span class="k">if</span> <span class="n">bridge</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">xv_f</span>   <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">xv</span><span class="p">)</span>
-        <span class="n">xv_obs</span> <span class="o">=</span> <span class="n">xv_f</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">xv_f</span>   <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">xv</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="n">xv_obs</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">xv</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">xv</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
-
-    <span class="n">guesses</span>  <span class="o">=</span> <span class="n">bridge</span><span class="o">.</span><span class="n">_make_guesses_fast</span><span class="p">(</span><span class="n">xv_f</span><span class="p">)</span>
-    <span class="n">analyzer</span> <span class="o">=</span> <span class="n">bridge</span><span class="o">.</span><span class="n">_bound_analyzer</span><span class="p">(</span><span class="n">xv_obs</span><span class="p">)</span>
-    <span class="n">pts</span>      <span class="o">=</span> <span class="n">bridge</span><span class="o">.</span><span class="n">_find_critical_points</span><span class="p">(</span><span class="n">analyzer</span><span class="p">,</span> <span class="n">guesses</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">pts</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="n">j</span><span class="p">,</span> <span class="n">xv_f</span><span class="p">,</span> <span class="kc">False</span>
-
-    <span class="n">value</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">bridge</span><span class="o">.</span><span class="n">_collect_contributions</span><span class="p">(</span><span class="n">analyzer</span><span class="p">,</span> <span class="n">pts</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">i</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">xv_f</span><span class="p">,</span> <span class="kc">True</span>
 
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
 <span class="c1">#  _BoundAnalyzer — zero-SymPy proxy matching the Analyzer interface</span>
