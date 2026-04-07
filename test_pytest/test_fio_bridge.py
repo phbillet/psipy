@@ -303,23 +303,23 @@ class TestMakeGuesses:
 
     def test_returns_list(self):
         bridge, kernel = self._setup()
-        guesses = bridge._make_guesses(0.0, kernel)
+        guesses = bridge._make_guesses_fast(0.0)
         assert isinstance(guesses, list)
 
     def test_elements_are_arrays(self):
         bridge, kernel = self._setup()
-        guesses = bridge._make_guesses(0.0, kernel)
+        guesses = bridge._make_guesses_fast(0.0)
         assert all(isinstance(g, np.ndarray) for g in guesses)
 
     def test_non_empty(self):
         bridge, kernel = self._setup()
-        guesses = bridge._make_guesses(0.0, kernel)
+        guesses = bridge._make_guesses_fast(0.0)
         assert len(guesses) > 0
 
     def test_arrays_have_correct_dim(self):
         """Each guess must have dimension == number of integration variables."""
         bridge, kernel = self._setup()
-        guesses = bridge._make_guesses(0.0, kernel)
+        guesses = bridge._make_guesses_fast(0.0)
         assert all(g.shape == (2,) for g in guesses)
 
 

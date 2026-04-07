@@ -563,19 +563,6 @@ class PsiOpFIOBridge(FourierIntegralOperator):
     #  Static precomputation  (x_val-independent, runs once in __init__)
     # ─────────────────────────────────────────────────────────────────────
 
-    def _make_guesses(self, x_val, kernel) -> list:
-        """Backward-compatible alias for _make_guesses_fast.
-
-        Tests written against the original API call _make_guesses(x_val, kernel).
-        This alias delegates to _make_guesses_fast after triggering the WKB
-        precompute if needed (kernel carries the phase/amp symbols).
-        """
-        if hasattr(kernel, 'phase_sym') and self._wkb_phase_key is None:
-            # Precompute hasn't run yet — run it with kernel's WKB data
-            self._precompute_wkb(kernel.phase_sym - (float(x_val) - self.vars_int[0]) * self.vars_int[1],
-                                 kernel.amp_sym / self.op.symbol.subs(self.op.vars_x[0], self.vars_int[0]))
-        return self._make_guesses_fast(float(x_val))
-
     def _precompute_static(self) -> None:
         """
         Build the guess-offset template and do the integration-method probe.
@@ -977,35 +964,6 @@ class PsiOpFIOBridge(FourierIntegralOperator):
 
         return values
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Module-level worker for evaluate_grid parallelism
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _eval_one_grid_point(args):
-    """
-    Evaluate (Pu)(x) at a single grid point.
-
-    Must be a module-level function (not a closure) so that
-    multiprocessing can pickle it for ProcessPoolExecutor.
-    """
-    bridge, i, xv = args
-    if bridge.op.dim == 1:
-        xv_f   = float(xv)
-        xv_obs = xv_f
-    else:
-        xv_f   = float(xv[0])
-        xv_obs = (float(xv[0]), float(xv[1]))
-
-    guesses  = bridge._make_guesses_fast(xv_f)
-    analyzer = bridge._bound_analyzer(xv_obs)
-    pts      = bridge._find_critical_points(analyzer, guesses)
-
-    if not pts:
-        return i, 0j, xv_f, False
-
-    value, _, _ = bridge._collect_contributions(analyzer, pts)
-    return i, value, xv_f, True
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  _BoundAnalyzer — zero-SymPy proxy matching the Analyzer interface
