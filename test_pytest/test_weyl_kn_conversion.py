@@ -54,12 +54,12 @@ def test_weyl_to_kn_linear_cross_term_1d():
     """
     a(x, xi) = x * xi.
     d_x d_xi (x*xi) = 1, all higher orders vanish.
-    Expected: x*xi + i/2.
+    Expected: x*xi - i/2.
     """
     x, xi = symbols('x xi', real=True)
     op = _make_op_1d(x * xi)
     result = op.weyl_to_kn_symbol(order=4)
-    expected = x * xi + I / 2
+    expected = x * xi - I / 2
     assert simplify(result - expected) == 0, (
         f"Expected {expected}, got {result}"
     )
@@ -68,19 +68,20 @@ def test_weyl_to_kn_linear_cross_term_1d():
 def test_weyl_to_kn_quadratic_1d():
     """
     a(x, xi) = x**2 * xi**2.
-    Order-1 term: i/2 * d_x d_xi (x**2 * xi**2) = i/2 * 4*x*xi = 2*I*x*xi.
-    Order-2 term: (i/2)^2 / 2 * d_x^2 d_xi^2 (x**2*xi**2)
+    Order-1 term: -i/2 * d_x d_xi (x**2 * xi**2) = -i/2 * 4*x*xi = -2*I*x*xi.
+    Order-2 term: (-i/2)^2 / 2 * d_x^2 d_xi^2 (x**2*xi**2)
                 = -1/8 * 4 = -1/2.
     Higher orders vanish (polynomial of degree 2 in each variable).
-    Expected: x**2*xi**2 + 2*I*x*xi - 1/2.
+    Expected: x**2*xi**2 - 2*I*x*xi - 1/2.
     """
     x, xi = symbols('x xi', real=True)
     op = _make_op_1d(x**2 * xi**2)
     result = op.weyl_to_kn_symbol(order=4)
-    expected = x**2 * xi**2 + 2 * I * x * xi - Rational(1, 2)
+    expected = x**2 * xi**2 - 2 * I * x * xi - Rational(1, 2)
     assert simplify(result - expected) == 0, (
         f"Expected {expected}, got {result}"
     )
+
 
 
 def test_weyl_to_kn_polynomial_series_finite_1d():
@@ -115,12 +116,12 @@ def test_kn_to_weyl_constant_1d():
 def test_kn_to_weyl_linear_cross_term_1d():
     """
     a(x, xi) = x * xi.
-    Expected: x*xi - i/2  (opposite sign to weyl_to_kn).
+    Expected: x*xi + i/2  (opposite sign to weyl_to_kn).
     """
     x, xi = symbols('x xi', real=True)
     op = _make_op_1d(x * xi)
     result = op.kn_to_weyl_symbol(order=4)
-    expected = x * xi - I / 2
+    expected = x * xi + I / 2
     assert simplify(result - expected) == 0, (
         f"Expected {expected}, got {result}"
     )
@@ -130,12 +131,12 @@ def test_kn_to_weyl_quadratic_1d():
     """
     a(x, xi) = x**2 * xi**2.
     Same structure as weyl_to_kn but with -i/2 at each order.
-    Expected: x**2*xi**2 - 2*I*x*xi - 1/2.
+    Expected: x**2*xi**2 + 2*I*x*xi - 1/2.
     """
     x, xi = symbols('x xi', real=True)
     op = _make_op_1d(x**2 * xi**2)
     result = op.kn_to_weyl_symbol(order=4)
-    expected = x**2 * xi**2 - 2 * I * x * xi - Rational(1, 2)
+    expected = x**2 * xi**2 + 2 * I * x * xi - Rational(1, 2)
     assert simplify(result - expected) == 0, (
         f"Expected {expected}, got {result}"
     )
@@ -231,14 +232,14 @@ def test_weyl_to_kn_linear_cross_terms_2d():
     """
     a(x, y, xi, eta) = x*xi + y*eta.
     d_x d_xi (x*xi) = 1,  d_y d_eta (y*eta) = 1.
-    Order-1 contribution: i/2 * (1 + 1) = I.
+    Order-1 contribution: -i/2 * (1 + 1) = I.
     Higher orders vanish.
     Expected: x*xi + y*eta + I.
     """
     x, y, xi, eta = symbols('x y xi eta', real=True)
     op = _make_op_2d(x * xi + y * eta)
     result = op.weyl_to_kn_symbol(order=4)
-    expected = x * xi + y * eta + I
+    expected = x * xi + y * eta - I
     assert simplify(result - expected) == 0, (
         f"Expected {expected}, got {result}"
     )
@@ -248,12 +249,12 @@ def test_weyl_to_kn_mixed_2d():
     """
     a = x*xi + y*eta + xi**2 + eta**2.
     The quadratic frequency part contributes no correction (d_x, d_y = 0).
-    Expected: x*xi + y*eta + xi**2 + eta**2 + I.
+    Expected: x*xi + y*eta + xi**2 + eta**2 - I.
     """
     x, y, xi, eta = symbols('x y xi eta', real=True)
     op = _make_op_2d(x * xi + y * eta + xi**2 + eta**2)
     result = op.weyl_to_kn_symbol(order=4)
-    expected = x * xi + y * eta + xi**2 + eta**2 + I
+    expected = x * xi + y * eta + xi**2 + eta**2 - I
     assert simplify(result - expected) == 0, (
         f"Expected {expected}, got {result}"
     )
@@ -295,7 +296,7 @@ def test_kn_to_weyl_linear_cross_terms_2d():
     x, y, xi, eta = symbols('x y xi eta', real=True)
     op = _make_op_2d(x * xi + y * eta)
     result = op.kn_to_weyl_symbol(order=4)
-    expected = x * xi + y * eta - I
+    expected = x * xi + y * eta + I
     assert simplify(result - expected) == 0, (
         f"Expected {expected}, got {result}"
     )
