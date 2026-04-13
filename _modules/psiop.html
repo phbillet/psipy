@@ -203,7 +203,7 @@
 <span class="sd">    &gt;&gt;&gt; op = PseudoDifferentialOperator(expr=expr, vars_x=[x], var_u=u(x), mode=&#39;auto&#39;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">var_u</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">&#39;weyl&#39;</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">var_u</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">&#39;kohn-nirenberg&#39;</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vars_x</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">symbol_cached</span> <span class="o">=</span> <span class="kc">None</span>
@@ -214,6 +214,8 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">x</span><span class="p">,</span> <span class="o">=</span> <span class="n">vars_x</span>
             <span class="n">xi_internal</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="c1">#            if not isinstance(expr, (int, float, complex)):</span>
+            <span class="n">expr</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
             <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">xi_internal</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">fft</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">ifft</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
@@ -236,6 +238,8 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">vars_x</span>
             <span class="n">xi_internal</span><span class="p">,</span> <span class="n">eta_internal</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="c1">#            if not isinstance(expr, (int, float, complex)):</span>
+            <span class="n">expr</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
             <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">xi_internal</span><span class="p">)</span>
             <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">eta_internal</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">fft2</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
@@ -351,7 +355,133 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.apply">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.apply">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">boundary_condition</span><span class="o">=</span><span class="s1">&#39;periodic&#39;</span><span class="p">,</span> 
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">boundary_condition</span><span class="o">=</span><span class="s1">&#39;periodic&#39;</span><span class="p">,</span>
+              <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dealiasing_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">freq_window</span><span class="o">=</span><span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span> <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+              <span class="n">weyl_order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply the pseudo-differential operator to the input field u.</span>
+<span class="sd">     </span>
+<span class="sd">        Dispatches based on:</span>
+<span class="sd">        - Whether the symbol is spatially dependent (x / y).</span>
+<span class="sd">        - The boundary condition (&#39;periodic&#39; or &#39;dirichlet&#39;).</span>
+<span class="sd">        - The quantization convention stored in ``self.quantization``.</span>
+<span class="sd">     </span>
+<span class="sd">        Supported quantizations</span>
+<span class="sd">        -----------------------</span>
+<span class="sd">        &#39;kohn-nirenberg&#39; (default)</span>
+<span class="sd">            Standard KN quantization.  The symbol is used as-is.</span>
+<span class="sd">     </span>
+<span class="sd">        &#39;weyl&#39;</span>
+<span class="sd">            Weyl quantization.  The Weyl symbol is first converted to its</span>
+<span class="sd">            KN equivalent via the asymptotic series</span>
+<span class="sd">     </span>
+<span class="sd">                a_KN = exp(+i/2 * d_x d_xi) a_Weyl</span>
+<span class="sd">     </span>
+<span class="sd">            truncated at ``weyl_order``.  The corrected KN symbol is then</span>
+<span class="sd">            passed to the existing KN numerical backend — no new numerical</span>
+<span class="sd">            kernel is needed.</span>
+<span class="sd">     </span>
+<span class="sd">        Dispatch logic</span>
+<span class="sd">        --------------</span>
+<span class="sd">        if not spatial and periodic  : FFT multiplier (fast path)</span>
+<span class="sd">        elif periodic                : kohn_nirenberg_fft</span>
+<span class="sd">        elif dirichlet               : kohn_nirenberg_nonperiodic</span>
+<span class="sd">     </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        u : ndarray</span>
+<span class="sd">            Function to which the operator is applied.</span>
+<span class="sd">        x_grid : ndarray</span>
+<span class="sd">            Spatial grid in x direction.</span>
+<span class="sd">        kx : ndarray</span>
+<span class="sd">            Frequency grid in x direction.</span>
+<span class="sd">        boundary_condition : {&#39;periodic&#39;, &#39;dirichlet&#39;}, default=&#39;periodic&#39;</span>
+<span class="sd">            Boundary condition type.</span>
+<span class="sd">        y_grid : ndarray, optional</span>
+<span class="sd">            Spatial grid in y direction (2D only).</span>
+<span class="sd">        ky : ndarray, optional</span>
+<span class="sd">            Frequency grid in y direction (2D only).</span>
+<span class="sd">        dealiasing_mask : ndarray, optional</span>
+<span class="sd">            Dealiasing mask applied in Fourier space.</span>
+<span class="sd">        freq_window : {&#39;gaussian&#39;, &#39;hann&#39;, None}, default=&#39;gaussian&#39;</span>
+<span class="sd">            Frequency-domain smoothing window.</span>
+<span class="sd">        clamp : float, default=1e6</span>
+<span class="sd">            Clip symbol values to [-clamp, clamp].</span>
+<span class="sd">        space_window : bool, default=False</span>
+<span class="sd">            Apply a Gaussian spatial taper.</span>
+<span class="sd">        weyl_order : int, default=4</span>
+<span class="sd">            Truncation order for the Weyl -&gt; KN asymptotic correction.</span>
+<span class="sd">            Ignored when ``self.quantization != &#39;weyl&#39;``.</span>
+<span class="sd">            The series is exact and finite for polynomial symbols.</span>
+<span class="sd">     </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray</span>
+<span class="sd">            Result of applying the operator, same shape as u.</span>
+<span class="sd">     </span>
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If boundary_condition is not &#39;periodic&#39; or &#39;dirichlet&#39;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">is_spatial</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_spatial_dependent</span><span class="p">()</span>
+     
+        <span class="c1"># Case 1: constant symbol + periodic BC — fast FFT multiplier</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_spatial</span> <span class="ow">and</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;periodic&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_constant_fft</span><span class="p">(</span>
+                <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">dealiasing_mask</span>
+            <span class="p">)</span>
+     
+        <span class="c1"># For all other cases, obtain the effective (possibly corrected) symbol</span>
+        <span class="n">symbol_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_effective_symbol_func</span><span class="p">(</span><span class="n">weyl_order</span><span class="o">=</span><span class="n">weyl_order</span><span class="p">)</span>
+     
+        <span class="c1"># Case 2: spatial symbol + periodic BC</span>
+        <span class="k">if</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;periodic&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">kohn_nirenberg_fft</span><span class="p">(</span>
+                <span class="n">u_vals</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+                <span class="n">symbol_func</span><span class="o">=</span><span class="n">symbol_func</span><span class="p">,</span>
+                <span class="n">x_grid</span><span class="o">=</span><span class="n">x_grid</span><span class="p">,</span>
+                <span class="n">kx</span><span class="o">=</span><span class="n">kx</span><span class="p">,</span>
+                <span class="n">fft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">,</span>
+                <span class="n">ifft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">,</span>
+                <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>
+                <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span>
+                <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
+                <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
+                <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
+                <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
+            <span class="p">)</span>
+     
+        <span class="c1"># Case 3: Dirichlet BC (non-periodic)</span>
+        <span class="k">if</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;dirichlet&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
+                    <span class="n">u_vals</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+                    <span class="n">x_grid</span><span class="o">=</span><span class="n">x_grid</span><span class="p">,</span>
+                    <span class="n">xi_grid</span><span class="o">=</span><span class="n">kx</span><span class="p">,</span>
+                    <span class="n">symbol_func</span><span class="o">=</span><span class="n">symbol_func</span><span class="p">,</span>
+                    <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
+                    <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
+                    <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
+                    <span class="n">u_vals</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+                    <span class="n">x_grid</span><span class="o">=</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">),</span>
+                    <span class="n">xi_grid</span><span class="o">=</span><span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">),</span>
+                    <span class="n">symbol_func</span><span class="o">=</span><span class="n">symbol_func</span><span class="p">,</span>
+                    <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
+                    <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
+                    <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
+                <span class="p">)</span>
+     
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid boundary condition &#39;</span><span class="si">{</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PseudoDifferentialOperator.apply_old">
+<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.apply_old">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">boundary_condition</span><span class="o">=</span><span class="s1">&#39;periodic&#39;</span><span class="p">,</span> 
               <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dealiasing_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
               <span class="n">freq_window</span><span class="o">=</span><span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span> <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -491,6 +621,61 @@
             <span class="k">return</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D supported&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_effective_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weyl_order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a lambdified callable for the symbol to pass to the KN backend.</span>
+<span class="sd">     </span>
+<span class="sd">        If ``self.quantization == &#39;weyl&#39;``, the Weyl symbol is first converted</span>
+<span class="sd">        to its KN equivalent via ``weyl_to_kn_symbol(order=weyl_order)``.</span>
+<span class="sd">        The corrected expression is then lambdified exactly like a native KN</span>
+<span class="sd">        symbol.</span>
+<span class="sd">     </span>
+<span class="sd">        If ``self.quantization == &#39;kohn-nirenberg&#39;`` (or any other value), the</span>
+<span class="sd">        symbol is lambdified as-is, identical to the previous behaviour of</span>
+<span class="sd">        ``_get_symbol_func()``.</span>
+<span class="sd">     </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        weyl_order : int, default=4</span>
+<span class="sd">            Truncation order passed to ``weyl_to_kn_symbol``.</span>
+<span class="sd">            Has no effect when quantization is not &#39;weyl&#39;.</span>
+<span class="sd">     </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        callable</span>
+<span class="sd">            NumPy-compatible function with signature:</span>
+<span class="sd">            - 1D : f(x, xi)</span>
+<span class="sd">            - 2D : f(x, y, xi, eta)</span>
+<span class="sd">     </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        The corrected symbol is computed symbolically once per call.  For</span>
+<span class="sd">        repeated ``apply()`` calls on the same operator, consider caching the</span>
+<span class="sd">        result via ``self._cached_kn_symbol`` (not implemented here to keep</span>
+<span class="sd">        the patch minimal — add if performance becomes a concern).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">quantization</span> <span class="o">==</span> <span class="s1">&#39;weyl&#39;</span><span class="p">:</span>
+            <span class="n">effective_symbol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weyl_to_kn_symbol</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="n">weyl_order</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># &#39;kohn-nirenberg&#39; or legacy behaviour</span>
+            <span class="n">effective_symbol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span>
+     
+        <span class="c1"># Lambdify with the effective symbol</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">xi</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="n">effective_symbol</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+     
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span>    <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span>
+            <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">),</span> <span class="n">effective_symbol</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+     
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">&quot;_get_effective_symbol_func: only 1D and 2D are supported.&quot;</span>
+            <span class="p">)</span>
     
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_constant_fft</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">dealiasing_mask</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -2234,6 +2419,271 @@
         <span class="n">p_star</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">formal_adjoint</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">p</span> <span class="o">-</span> <span class="n">p_star</span><span class="p">)</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
 
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    They implement the asymptotic conversion between Weyl and Kohn-Nirenberg</span>
+<span class="sd">    quantizations via the exponential operator series:</span>
+<span class="sd">    </span>
+<span class="sd">        Weyl -&gt; KN :  a_KN   = exp(+i/2 * d_x d_xi) a_Weyl</span>
+<span class="sd">        KN -&gt; Weyl :  a_Weyl = exp(-i/2 * d_x d_xi) a_KN</span>
+<span class="sd">    </span>
+<span class="sd">    In 1D, d_x d_xi is the simple cross-derivative operator.</span>
+<span class="sd">    In 2D, it splits as:</span>
+<span class="sd">    </span>
+<span class="sd">        d_x d_xi + d_y d_eta   (sum of the two diagonal cross-derivative terms)</span>
+<span class="sd">    </span>
+<span class="sd">    and each order k of the series accumulates all ways of distributing</span>
+<span class="sd">    k cross-differentiations between the two pairs (x, xi) and (y, eta).</span>
+<span class="sd">    </span>
+<span class="sd">    Recommended insertion point: after `_get_symbol_func`, before</span>
+<span class="sd">    `_apply_constant_fft` (around line 399 of psiop.py).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Dependencies (already present via `from imports import *` in psiop.py)</span>
+    <span class="c1"># from sympy import symbols, diff, simplify, Rational, I, factorial, binomial</span>
+    
+    
+    <span class="c1"># ===========================================================================</span>
+    <span class="c1">#  Private shared helper -- core asymptotic series computation</span>
+    <span class="c1"># ===========================================================================</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_quantization_symbol_correction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sign</span><span class="p">,</span> <span class="n">order</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the corrected symbol via the truncated asymptotic series:</span>
+<span class="sd">    </span>
+<span class="sd">            a_out(x, xi) = sum_{k=0}^{order}  (sign * i/2)^k / k!</span>
+<span class="sd">                             * (d_x d_xi)^k  a_in(x, xi)</span>
+<span class="sd">    </span>
+<span class="sd">        In 2D, (d_x d_xi)^k is expanded using the multinomial theorem:</span>
+<span class="sd">    </span>
+<span class="sd">            (d_x d_xi + d_y d_eta)^k</span>
+<span class="sd">              = sum_{j=0}^{k}  C(k, j) * (d_x d_xi)^j * (d_y d_eta)^{k-j}</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sign : int or sympy expression</span>
+<span class="sd">            +1 for the Weyl -&gt; KN direction, -1 for KN -&gt; Weyl.</span>
+<span class="sd">        order : int</span>
+<span class="sd">            Truncation order of the series (order 0 = identity).</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            Corrected symbol, simplified.</span>
+<span class="sd">    </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        The series is **exact and finite** for symbols that are polynomial in xi</span>
+<span class="sd">        (resp. in (xi, eta) in 2D): terms vanish automatically once the</span>
+<span class="sd">        differentiation order exceeds the polynomial degree.  For S^m class</span>
+<span class="sd">        or WKB symbols this is an asymptotic approximation valid at the</span>
+<span class="sd">        considered order.</span>
+<span class="sd">    </span>
+<span class="sd">        The derivative pyramid ``derivs[(j, l)]`` stores</span>
+<span class="sd">        ``(d_x d_xi)^j (d_y d_eta)^l a`` for j + l = current order k,</span>
+<span class="sd">        computed incrementally to avoid redundant SymPy evaluations.</span>
+<span class="sd">    </span>
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        NotImplementedError</span>
+<span class="sd">            If the spatial dimension is not 1 or 2.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">diff</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">Rational</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">factorial</span><span class="p">,</span> <span class="n">binomial</span>
+    
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span>
+    
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">xi</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+            <span class="n">result</span>  <span class="o">=</span> <span class="n">a</span>          <span class="c1"># k=0 term</span>
+            <span class="n">current</span> <span class="o">=</span> <span class="n">a</span>          <span class="c1"># accumulates (d_x d_xi)^k a</span>
+    
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="c1"># Apply d_x d_xi one more time</span>
+                <span class="n">current</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">xi</span><span class="p">)</span>
+                <span class="n">coeff</span>   <span class="o">=</span> <span class="p">(</span><span class="n">sign</span> <span class="o">*</span> <span class="n">I</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="n">k</span> <span class="o">*</span> <span class="n">Rational</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">factorial</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
+                <span class="n">result</span>  <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">coeff</span> <span class="o">*</span> <span class="n">current</span>
+    
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">x</span><span class="p">,</span>  <span class="n">y</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span>
+            <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+            <span class="n">result</span> <span class="o">=</span> <span class="n">a</span>           <span class="c1"># k=0 term</span>
+    
+            <span class="c1"># Derivative pyramid: derivs[(j, l)] = (d_x d_xi)^j (d_y d_eta)^l a</span>
+            <span class="c1"># Built incrementally order by order to avoid recomputing from scratch.</span>
+            <span class="n">derivs</span> <span class="o">=</span> <span class="p">{(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span> <span class="n">a</span><span class="p">}</span>
+    
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">new_derivs</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">l</span> <span class="o">=</span> <span class="n">k</span> <span class="o">-</span> <span class="n">j</span>
+                    <span class="c1"># (d_x d_xi)^j (d_y d_eta)^l a is obtained from either</span>
+                    <span class="c1"># (j-1, l) or (j, l-1) at the previous level.</span>
+                    <span class="k">if</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="p">(</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span> <span class="ow">in</span> <span class="n">derivs</span><span class="p">:</span>
+                        <span class="n">expr</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">derivs</span><span class="p">[(</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">l</span><span class="p">)],</span> <span class="n">x</span><span class="p">),</span> <span class="n">xi</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">l</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">l</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">in</span> <span class="n">derivs</span><span class="p">:</span>
+                        <span class="n">expr</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">derivs</span><span class="p">[(</span><span class="n">j</span><span class="p">,</span> <span class="n">l</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)],</span> <span class="n">y</span><span class="p">),</span> <span class="n">eta</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># Fallback: compute from scratch (should not be reached)</span>
+                        <span class="n">expr</span> <span class="o">=</span> <span class="n">a</span>
+                        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">j</span><span class="p">):</span>
+                            <span class="n">expr</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">xi</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+                            <span class="n">expr</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="n">eta</span><span class="p">)</span>
+                    <span class="n">new_derivs</span><span class="p">[(</span><span class="n">j</span><span class="p">,</span> <span class="n">l</span><span class="p">)]</span> <span class="o">=</span> <span class="n">expr</span>
+    
+                <span class="n">derivs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">new_derivs</span><span class="p">)</span>
+    
+                <span class="c1"># Order-k contribution via the multinomial expansion:</span>
+                <span class="c1"># (d_x d_xi + d_y d_eta)^k</span>
+                <span class="c1">#   = sum_{j=0}^{k} C(k,j) (d_x d_xi)^j (d_y d_eta)^{k-j}</span>
+                <span class="n">coeff_k</span> <span class="o">=</span> <span class="p">(</span><span class="n">sign</span> <span class="o">*</span> <span class="n">I</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="n">k</span> <span class="o">*</span> <span class="n">Rational</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">factorial</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
+                <span class="n">term_k</span>  <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+                    <span class="n">binomial</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">*</span> <span class="n">derivs</span><span class="p">[(</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="n">j</span><span class="p">)]</span>
+                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">coeff_k</span> <span class="o">*</span> <span class="n">term_k</span>
+    
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;_quantization_symbol_correction: dimension </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2"> not supported. &quot;</span>
+                <span class="s2">&quot;Only 1D and 2D are implemented.&quot;</span>
+            <span class="p">)</span>
+    
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+    
+    
+    <span class="c1"># ===========================================================================</span>
+    <span class="c1">#  weyl_to_kn_symbol</span>
+    <span class="c1"># ===========================================================================</span>
+    
+<div class="viewcode-block" id="PseudoDifferentialOperator.weyl_to_kn_symbol">
+<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.weyl_to_kn_symbol">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">weyl_to_kn_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert the Weyl symbol to its Kohn-Nirenberg equivalent.</span>
+<span class="sd">    </span>
+<span class="sd">        The operator Op^w(a) admits a KN representation Op^KN(a_tilde) where</span>
+<span class="sd">        the corrected symbol is given by the asymptotic series:</span>
+<span class="sd">    </span>
+<span class="sd">            a_tilde(x, xi) = exp(-i/2 * d_x d_xi) a(x, xi)</span>
+<span class="sd">                           ~ sum_{k=0}^{order}  (-i/2)^k / k!</span>
+<span class="sd">                               * (d_x d_xi)^k a(x, xi)</span>
+<span class="sd">    </span>
+<span class="sd">        In 2D, d_x d_xi is replaced by d_x d_xi + d_y d_eta.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        order : int, default=4</span>
+<span class="sd">            Truncation order.  The series is **exact and finite** for symbols</span>
+<span class="sd">            that are polynomial in xi (all terms beyond the polynomial degree</span>
+<span class="sd">            vanish automatically).  For S^m or WKB symbols, order=2 to 4 is</span>
+<span class="sd">            generally sufficient.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            Equivalent KN symbol (simplified SymPy expression).</span>
+<span class="sd">    </span>
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        1D -- multiplication-by-x*xi operator:</span>
+<span class="sd">    </span>
+<span class="sd">        &gt;&gt;&gt; from sympy import symbols</span>
+<span class="sd">        &gt;&gt;&gt; x, xi = symbols(&#39;x xi&#39;, real=True)</span>
+<span class="sd">        &gt;&gt;&gt; op = PseudoDifferentialOperator(x * xi, [x], mode=&#39;symbol&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; op.weyl_to_kn_symbol(order=2)</span>
+<span class="sd">        x*xi - I/2      # order-1 correction: -i/2 * d_x d_xi (x*xi) = -i/2</span>
+<span class="sd">    </span>
+<span class="sd">        2D -- symbol x*xi + y*eta:</span>
+<span class="sd">    </span>
+<span class="sd">        &gt;&gt;&gt; x, y, xi, eta = symbols(&#39;x y xi eta&#39;, real=True)</span>
+<span class="sd">        &gt;&gt;&gt; op2 = PseudoDifferentialOperator(x*xi + y*eta, [x, y], mode=&#39;symbol&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; op2.weyl_to_kn_symbol(order=2)</span>
+<span class="sd">        x*xi + y*eta - I    # two cross terms, each contributing -i/2</span>
+<span class="sd">    </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        The resulting KN symbol is directly usable in ``apply()`` through the</span>
+<span class="sd">        existing KN pipeline (``kohn_nirenberg_fft`` or</span>
+<span class="sd">        ``kohn_nirenberg_nonperiodic``), which avoids any numerical double</span>
+<span class="sd">        integral.</span>
+<span class="sd">    </span>
+<span class="sd">        Typical workflow for Weyl evaluation::</span>
+<span class="sd">    </span>
+<span class="sd">            kn_sym  = op.weyl_to_kn_symbol(order=4)</span>
+<span class="sd">            kn_func = lambdify((x, xi), kn_sym, &#39;numpy&#39;)</span>
+<span class="sd">            result  = kohn_nirenberg_fft(u, kn_func, ...)</span>
+<span class="sd">    </span>
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        kn_to_weyl_symbol : inverse transformation.</span>
+<span class="sd">        _quantization_symbol_correction : underlying series computation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantization_symbol_correction</span><span class="p">(</span><span class="n">sign</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">)</span></div>
+
+    
+    
+    <span class="c1"># ===========================================================================</span>
+    <span class="c1">#  kn_to_weyl_symbol</span>
+    <span class="c1"># ===========================================================================</span>
+    
+<div class="viewcode-block" id="PseudoDifferentialOperator.kn_to_weyl_symbol">
+<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.kn_to_weyl_symbol">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kn_to_weyl_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert the Kohn-Nirenberg symbol to its Weyl equivalent.</span>
+<span class="sd">    </span>
+<span class="sd">        This is the inverse of ``weyl_to_kn_symbol``::</span>
+<span class="sd">    </span>
+<span class="sd">            a_Weyl(x, xi) = exp(+i/2 * d_x d_xi) a_KN(x, xi)</span>
+<span class="sd">                          ~ sum_{k=0}^{order}  (+i/2)^k / k!</span>
+<span class="sd">                              * (d_x d_xi)^k a_KN(x, xi)</span>
+<span class="sd">    </span>
+<span class="sd">        In 2D, d_x d_xi is replaced by d_x d_xi + d_y d_eta.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        order : int, default=4</span>
+<span class="sd">            Truncation order.  Same remarks as for ``weyl_to_kn_symbol``.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            Equivalent Weyl symbol (simplified SymPy expression).</span>
+<span class="sd">    </span>
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        1D -- multiplication-by-x*xi operator:</span>
+<span class="sd">    </span>
+<span class="sd">        &gt;&gt;&gt; op.kn_to_weyl_symbol(order=2)</span>
+<span class="sd">        x*xi + I/2      # opposite sign to weyl_to_kn_symbol</span>
+<span class="sd">    </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Typical use case: the operator is defined by its KN symbol (e.g.</span>
+<span class="sd">        extracted in &#39;auto&#39; mode), and you want the Weyl symbol to exploit</span>
+<span class="sd">        its spectral properties -- self-adjointness when a_Weyl is real,</span>
+<span class="sd">        composition via the Moyal star product, etc.</span>
+<span class="sd">    </span>
+<span class="sd">        Round-trip consistency check::</span>
+<span class="sd">    </span>
+<span class="sd">            op_weyl = PseudoDifferentialOperator(op.kn_to_weyl_symbol(order=N), ...)</span>
+<span class="sd">            op_weyl.weyl_to_kn_symbol(order=N)  # should recover op.symbol up to order N</span>
+<span class="sd">    </span>
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        weyl_to_kn_symbol : inverse transformation.</span>
+<span class="sd">        _quantization_symbol_correction : underlying series computation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantization_symbol_correction</span><span class="p">(</span><span class="n">sign</span><span class="o">=+</span><span class="mi">1</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">)</span></div>
+
+
+<span class="c1">#########################</span>
+<span class="c1">####  Visualizations ####</span>
+<span class="c1">#########################</span>
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_fiber">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_fiber">[docs]</a>
