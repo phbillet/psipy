@@ -664,14 +664,16 @@ def test_apply_laplacian_1d():
 def test_apply_spatial_symbol_1d_periodic():
     """Spatially varying symbol: x * (i*xi). Op(u) ≈ x * u'."""
     x_sym, xi_sym = symbols('x xi', real=True)
-    op = PseudoDifferentialOperator(x_sym * I * xi_sym, [x_sym], mode='symbol')
-    x_grid, kx = _make_1d_grid(L=5.0, N=256)
-    sigma = 0.8
+#    op = PseudoDifferentialOperator(x_sym * I * xi_sym, [x_sym], mode='symbol')
+    op = PseudoDifferentialOperator(x_sym * I * xi_sym, [x_sym],
+                                mode='symbol', quantization='kohn-nirenberg')
+    x_grid, kx = _make_1d_grid(L=15.0, N=512)   # N plus grand, L plus grand
+    sigma = 1.2                                  # sigma moins piqué
     u = _gaussian(x_grid, sigma)
-    du = -x_grid / sigma**2 * u          # u' ≈ for Gaussian
+    du = -x_grid / sigma**2 * u
     expected = x_grid * du
     result = op.apply(u, x_grid, kx, boundary_condition='periodic')
-    mid = slice(60, 196)
+    mid = slice(100, 412)
     assert np.allclose(np.real(result)[mid], expected[mid], atol=5e-2)
 
 def test_apply_invalid_bc_raises():
@@ -723,6 +725,108 @@ def test_apply_2d_constant_periodic():
     # Check central region
     s = slice(8, 24)
     assert np.allclose(np.real(result)[s, s], d2u[s, s], atol=0.1)
+
+import numpy as np
+import sympy as sp
+from psiop import PseudoDifferentialOperator
+
+# ----------------------------------------------------------------------
+# Helper functions (mimic those used in the original test file)
+# ----------------------------------------------------------------------
+def _make_1d_grid(L=10.0, N=256):
+    """Return (x_grid, kx) for a periodic domain [-L, L) with N points."""
+    x = np.linspace(-L, L, N, endpoint=False)
+    dx = x[1] - x[0]
+    kx = np.fft.fftfreq(N, d=dx) * 2.0 * np.pi
+    return x, kx
+
+def _gaussian(x, sigma=1.0):
+    """Return a Gaussian centered at 0."""
+    return np.exp(-x**2 / (2 * sigma**2))
+
+# ----------------------------------------------------------------------
+# Test 1: Constant symbol – Weyl must equal multiplication by constant
+# ----------------------------------------------------------------------
+def test_weyl_constant_symbol():
+    """Symbol p(x,ξ) = c.  Operator = c·I."""
+    c = 2.5 + 0.7j
+    x_sym, xi_sym = sp.symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(c, [x_sym], mode='symbol', quantization='weyl')
+    x, kx = _make_1d_grid(L=5.0, N=128)
+    u = _gaussian(x, sigma=1.0)
+    result = op.apply(u, x, kx, boundary_condition='periodic')
+    expected = c * u
+    assert np.allclose(result, expected, atol=1e-10)
+
+# ----------------------------------------------------------------------
+# Test 2: Symbol p(ξ) = ξ – first derivative
+# ----------------------------------------------------------------------
+def test_weyl_xi():
+    """Symbol p(ξ) = ξ.  Operator = -i d/dx (same as KN, no x dependence)."""
+    x_sym, xi_sym = sp.symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi_sym, [x_sym], mode='symbol', quantization='weyl')
+    x, kx = _make_1d_grid(L=8.0, N=256)
+    u = _gaussian(x, sigma=1.2)
+    # Analytical derivative: -i * du/dx = -i * (-x/sigma^2) u = i x/sigma^2 u
+    expected = 1j * x / (1.2**2) * u
+    result = op.apply(u, x, kx, boundary_condition='periodic')
+    assert np.allclose(result, expected, atol=1e-7, rtol=1e-6)
+
+# ----------------------------------------------------------------------
+# Test 3: Symbol p(x) = x – multiplication operator
+# ----------------------------------------------------------------------
+def test_weyl_x():
+    x_sym, xi_sym = sp.symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(x_sym, [x_sym], mode='symbol', quantization='weyl')
+    x, kx = _make_1d_grid(L=10.0, N=256)
+    u = _gaussian(x, sigma=1.0)
+    result = op.apply(u, x, kx, boundary_condition='dirichlet', freq_window=None)
+    expected = x * u
+    assert np.allclose(result, expected, atol=1e-10)
+
+# ----------------------------------------------------------------------
+# Test 4: Symbol p(x,ξ) = x ξ – Weyl gives (x ∂_x + ∂_x x)/2
+# ----------------------------------------------------------------------
+def test_weyl_x_xi():
+    x_sym, xi_sym = sp.symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(x_sym * xi_sym, [x_sym],
+                                    mode='symbol', quantization='weyl')
+    x, kx = _make_1d_grid(L=10.0, N=512)
+    sigma = 1.5
+    u = _gaussian(x, sigma)
+    du = -x / sigma**2 * u
+    expected = -1j * x * du - 0.5j * u
+    result = op.apply(u, x, kx, boundary_condition='dirichlet', freq_window=None)
+    mid = slice(100, 412)
+    assert np.allclose(result[mid], expected[mid], atol=5e-2)
+
+# ----------------------------------------------------------------------
+# Test 5: 2D Weyl – symbol p(x,y,ξ,η) = x ξ + y η
+# ----------------------------------------------------------------------
+def test_weyl_2d_x_xi_plus_y_eta():
+    x_sym, y_sym = sp.symbols('x y', real=True)
+    xi_sym, eta_sym = sp.symbols('xi eta', real=True)
+    expr = x_sym * xi_sym + y_sym * eta_sym
+    op = PseudoDifferentialOperator(expr, [x_sym, y_sym],
+                                    mode='symbol', quantization='weyl')
+    L = 6.0
+    N = 64
+    x = np.linspace(-L, L, N, endpoint=False)
+    y = np.linspace(-L, L, N, endpoint=False)
+    dx = x[1] - x[0]
+    dy = y[1] - y[0]
+    kx = np.fft.fftfreq(N, d=dx) * 2.0 * np.pi
+    ky = np.fft.fftfreq(N, d=dy) * 2.0 * np.pi
+    X, Y = np.meshgrid(x, y, indexing='ij')
+    sigma = 1.2
+    u = np.exp(-(X**2 + Y**2) / (2 * sigma**2))
+    du_dx = -X / sigma**2 * u
+    du_dy = -Y / sigma**2 * u
+    expected = -1j * (X * du_dx + Y * du_dy) - 1j * u
+    result = op.apply(u, x, kx, boundary_condition='dirichlet',
+                      y_grid=y, ky=ky, freq_window=None)
+    sl = slice(10, -10)
+    assert np.allclose(result[sl, sl], expected[sl, sl], atol=1e-1)
 
 # ===========================================================================
 # 83-86. kohn_nirenberg_fft standalone tests

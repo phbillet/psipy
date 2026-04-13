@@ -117,7 +117,7 @@ class PseudoDifferentialOperator:
     >>> op = PseudoDifferentialOperator(expr=expr, vars_x=[x], var_u=u(x), mode='auto')
     """
 
-    def __init__(self, expr, vars_x, var_u=None, mode='symbol', quantization='weyl'):
+    def __init__(self, expr, vars_x, var_u=None, mode='symbol', quantization='kohn-nirenberg'):
         self.dim = len(vars_x)
         self.mode = mode
         self.symbol_cached = None
@@ -128,6 +128,8 @@ class PseudoDifferentialOperator:
         if self.dim == 1:
             x, = vars_x
             xi_internal = symbols('xi', real=True)
+#            if not isinstance(expr, (int, float, complex)):
+            expr = sympify(expr)
             expr = expr.subs(symbols('xi', real=True), xi_internal)
             self.fft = partial(fft, workers=FFT_WORKERS)
             self.ifft = partial(ifft, workers=FFT_WORKERS)
@@ -150,6 +152,8 @@ class PseudoDifferentialOperator:
         elif self.dim == 2:
             x, y = vars_x
             xi_internal, eta_internal = symbols('xi eta', real=True)
+#            if not isinstance(expr, (int, float, complex)):
+            expr = sympify(expr)
             expr = expr.subs(symbols('xi', real=True), xi_internal)
             expr = expr.subs(symbols('eta', real=True), eta_internal)
             self.fft = partial(fft2, workers=FFT_WORKERS)
@@ -257,7 +261,130 @@ class PseudoDifferentialOperator:
         """        
         self.symbol_cached = None
 
-    def apply(self, u, x_grid, kx, boundary_condition='periodic', 
+    def apply(self, u, x_grid, kx, boundary_condition='periodic',
+              y_grid=None, ky=None, dealiasing_mask=None,
+              freq_window='gaussian', clamp=1e6, space_window=False,
+              weyl_order=4):
+        """
+        Apply the pseudo-differential operator to the input field u.
+     
+        Dispatches based on:
+        - Whether the symbol is spatially dependent (x / y).
+        - The boundary condition ('periodic' or 'dirichlet').
+        - The quantization convention stored in ``self.quantization``.
+     
+        Supported quantizations
+        -----------------------
+        'kohn-nirenberg' (default)
+            Standard KN quantization.  The symbol is used as-is.
+     
+        'weyl'
+            Weyl quantization.  The Weyl symbol is first converted to its
+            KN equivalent via the asymptotic series
+     
+                a_KN = exp(+i/2 * d_x d_xi) a_Weyl
+     
+            truncated at ``weyl_order``.  The corrected KN symbol is then
+            passed to the existing KN numerical backend — no new numerical
+            kernel is needed.
+     
+        Dispatch logic
+        --------------
+        if not spatial and periodic  : FFT multiplier (fast path)
+        elif periodic                : kohn_nirenberg_fft
+        elif dirichlet               : kohn_nirenberg_nonperiodic
+     
+        Parameters
+        ----------
+        u : ndarray
+            Function to which the operator is applied.
+        x_grid : ndarray
+            Spatial grid in x direction.
+        kx : ndarray
+            Frequency grid in x direction.
+        boundary_condition : {'periodic', 'dirichlet'}, default='periodic'
+            Boundary condition type.
+        y_grid : ndarray, optional
+            Spatial grid in y direction (2D only).
+        ky : ndarray, optional
+            Frequency grid in y direction (2D only).
+        dealiasing_mask : ndarray, optional
+            Dealiasing mask applied in Fourier space.
+        freq_window : {'gaussian', 'hann', None}, default='gaussian'
+            Frequency-domain smoothing window.
+        clamp : float, default=1e6
+            Clip symbol values to [-clamp, clamp].
+        space_window : bool, default=False
+            Apply a Gaussian spatial taper.
+        weyl_order : int, default=4
+            Truncation order for the Weyl -> KN asymptotic correction.
+            Ignored when ``self.quantization != 'weyl'``.
+            The series is exact and finite for polynomial symbols.
+     
+        Returns
+        -------
+        ndarray
+            Result of applying the operator, same shape as u.
+     
+        Raises
+        ------
+        ValueError
+            If boundary_condition is not 'periodic' or 'dirichlet'.
+        """
+        is_spatial  = self._is_spatial_dependent()
+     
+        # Case 1: constant symbol + periodic BC — fast FFT multiplier
+        if not is_spatial and boundary_condition == 'periodic':
+            return self._apply_constant_fft(
+                u, x_grid, kx, y_grid, ky, dealiasing_mask
+            )
+     
+        # For all other cases, obtain the effective (possibly corrected) symbol
+        symbol_func = self._get_effective_symbol_func(weyl_order=weyl_order)
+     
+        # Case 2: spatial symbol + periodic BC
+        if boundary_condition == 'periodic':
+            return kohn_nirenberg_fft(
+                u_vals=u,
+                symbol_func=symbol_func,
+                x_grid=x_grid,
+                kx=kx,
+                fft_func=self.fft,
+                ifft_func=self.ifft,
+                dim=self.dim,
+                y_grid=y_grid,
+                ky=ky,
+                freq_window=freq_window,
+                clamp=clamp,
+                space_window=space_window,
+            )
+     
+        # Case 3: Dirichlet BC (non-periodic)
+        if boundary_condition == 'dirichlet':
+            if self.dim == 1:
+                return kohn_nirenberg_nonperiodic(
+                    u_vals=u,
+                    x_grid=x_grid,
+                    xi_grid=kx,
+                    symbol_func=symbol_func,
+                    freq_window=freq_window,
+                    clamp=clamp,
+                    space_window=space_window,
+                )
+            elif self.dim == 2:
+                return kohn_nirenberg_nonperiodic(
+                    u_vals=u,
+                    x_grid=(x_grid, y_grid),
+                    xi_grid=(kx, ky),
+                    symbol_func=symbol_func,
+                    freq_window=freq_window,
+                    clamp=clamp,
+                    space_window=space_window,
+                )
+     
+        raise ValueError(f"Invalid boundary condition '{boundary_condition}'")
+
+    def apply_old(self, u, x_grid, kx, boundary_condition='periodic', 
               y_grid=None, ky=None, dealiasing_mask=None,
               freq_window='gaussian', clamp=1e6, space_window=False):
         """
@@ -396,6 +523,61 @@ class PseudoDifferentialOperator:
             return lambdify((x, y, xi, eta), self.symbol, 'numpy')
         else:
             raise NotImplementedError("Only 1D and 2D supported")
+
+    def _get_effective_symbol_func(self, weyl_order=4):
+        """
+        Return a lambdified callable for the symbol to pass to the KN backend.
+     
+        If ``self.quantization == 'weyl'``, the Weyl symbol is first converted
+        to its KN equivalent via ``weyl_to_kn_symbol(order=weyl_order)``.
+        The corrected expression is then lambdified exactly like a native KN
+        symbol.
+     
+        If ``self.quantization == 'kohn-nirenberg'`` (or any other value), the
+        symbol is lambdified as-is, identical to the previous behaviour of
+        ``_get_symbol_func()``.
+     
+        Parameters
+        ----------
+        weyl_order : int, default=4
+            Truncation order passed to ``weyl_to_kn_symbol``.
+            Has no effect when quantization is not 'weyl'.
+     
+        Returns
+        -------
+        callable
+            NumPy-compatible function with signature:
+            - 1D : f(x, xi)
+            - 2D : f(x, y, xi, eta)
+     
+        Notes
+        -----
+        The corrected symbol is computed symbolically once per call.  For
+        repeated ``apply()`` calls on the same operator, consider caching the
+        result via ``self._cached_kn_symbol`` (not implemented here to keep
+        the patch minimal — add if performance becomes a concern).
+        """
+        if self.quantization == 'weyl':
+            effective_symbol = self.weyl_to_kn_symbol(order=weyl_order)
+        else:
+            # 'kohn-nirenberg' or legacy behaviour
+            effective_symbol = self.symbol
+     
+        # Lambdify with the effective symbol
+        if self.dim == 1:
+            x  = self.vars_x[0]
+            xi = symbols('xi', real=True)
+            return lambdify((x, xi), effective_symbol, 'numpy')
+     
+        elif self.dim == 2:
+            x, y    = self.vars_x
+            xi, eta = symbols('xi eta', real=True)
+            return lambdify((x, y, xi, eta), effective_symbol, 'numpy')
+     
+        else:
+            raise NotImplementedError(
+                "_get_effective_symbol_func: only 1D and 2D are supported."
+            )
     
     def _apply_constant_fft(self, u, x_grid, kx, y_grid, ky, dealiasing_mask):
         """
@@ -2094,6 +2276,265 @@ class PseudoDifferentialOperator:
         p = self.symbol
         p_star = self.formal_adjoint()
         return simplify(p - p_star).equals(0)
+
+    """
+    They implement the asymptotic conversion between Weyl and Kohn-Nirenberg
+    quantizations via the exponential operator series:
+    
+        Weyl -> KN :  a_KN   = exp(+i/2 * d_x d_xi) a_Weyl
+        KN -> Weyl :  a_Weyl = exp(-i/2 * d_x d_xi) a_KN
+    
+    In 1D, d_x d_xi is the simple cross-derivative operator.
+    In 2D, it splits as:
+    
+        d_x d_xi + d_y d_eta   (sum of the two diagonal cross-derivative terms)
+    
+    and each order k of the series accumulates all ways of distributing
+    k cross-differentiations between the two pairs (x, xi) and (y, eta).
+    
+    Recommended insertion point: after `_get_symbol_func`, before
+    `_apply_constant_fft` (around line 399 of psiop.py).
+    """
+    
+    # Dependencies (already present via `from imports import *` in psiop.py)
+    # from sympy import symbols, diff, simplify, Rational, I, factorial, binomial
+    
+    
+    # ===========================================================================
+    #  Private shared helper -- core asymptotic series computation
+    # ===========================================================================
+    
+    def _quantization_symbol_correction(self, sign, order):
+        """
+        Compute the corrected symbol via the truncated asymptotic series:
+    
+            a_out(x, xi) = sum_{k=0}^{order}  (sign * i/2)^k / k!
+                             * (d_x d_xi)^k  a_in(x, xi)
+    
+        In 2D, (d_x d_xi)^k is expanded using the multinomial theorem:
+    
+            (d_x d_xi + d_y d_eta)^k
+              = sum_{j=0}^{k}  C(k, j) * (d_x d_xi)^j * (d_y d_eta)^{k-j}
+    
+        Parameters
+        ----------
+        sign : int or sympy expression
+            +1 for the Weyl -> KN direction, -1 for KN -> Weyl.
+        order : int
+            Truncation order of the series (order 0 = identity).
+    
+        Returns
+        -------
+        sympy.Expr
+            Corrected symbol, simplified.
+    
+        Notes
+        -----
+        The series is **exact and finite** for symbols that are polynomial in xi
+        (resp. in (xi, eta) in 2D): terms vanish automatically once the
+        differentiation order exceeds the polynomial degree.  For S^m class
+        or WKB symbols this is an asymptotic approximation valid at the
+        considered order.
+    
+        The derivative pyramid ``derivs[(j, l)]`` stores
+        ``(d_x d_xi)^j (d_y d_eta)^l a`` for j + l = current order k,
+        computed incrementally to avoid redundant SymPy evaluations.
+    
+        Raises
+        ------
+        NotImplementedError
+            If the spatial dimension is not 1 or 2.
+        """
+        from sympy import symbols, diff, simplify, Rational, I, factorial, binomial
+    
+        a = self.symbol
+    
+        if self.dim == 1:
+            x  = self.vars_x[0]
+            xi = symbols('xi', real=True)
+    
+            result  = a          # k=0 term
+            current = a          # accumulates (d_x d_xi)^k a
+    
+            for k in range(1, order + 1):
+                # Apply d_x d_xi one more time
+                current = diff(diff(current, x), xi)
+                coeff   = (sign * I / 2)**k * Rational(1, factorial(k))
+                result  = result + coeff * current
+    
+        elif self.dim == 2:
+            x,  y   = self.vars_x
+            xi, eta = symbols('xi eta', real=True)
+    
+            result = a           # k=0 term
+    
+            # Derivative pyramid: derivs[(j, l)] = (d_x d_xi)^j (d_y d_eta)^l a
+            # Built incrementally order by order to avoid recomputing from scratch.
+            derivs = {(0, 0): a}
+    
+            for k in range(1, order + 1):
+                new_derivs = {}
+                for j in range(k + 1):
+                    l = k - j
+                    # (d_x d_xi)^j (d_y d_eta)^l a is obtained from either
+                    # (j-1, l) or (j, l-1) at the previous level.
+                    if j > 0 and (j - 1, l) in derivs:
+                        expr = diff(diff(derivs[(j - 1, l)], x), xi)
+                    elif l > 0 and (j, l - 1) in derivs:
+                        expr = diff(diff(derivs[(j, l - 1)], y), eta)
+                    else:
+                        # Fallback: compute from scratch (should not be reached)
+                        expr = a
+                        for _ in range(j):
+                            expr = diff(diff(expr, x), xi)
+                        for _ in range(l):
+                            expr = diff(diff(expr, y), eta)
+                    new_derivs[(j, l)] = expr
+    
+                derivs.update(new_derivs)
+    
+                # Order-k contribution via the multinomial expansion:
+                # (d_x d_xi + d_y d_eta)^k
+                #   = sum_{j=0}^{k} C(k,j) (d_x d_xi)^j (d_y d_eta)^{k-j}
+                coeff_k = (sign * I / 2)**k * Rational(1, factorial(k))
+                term_k  = sum(
+                    binomial(k, j) * derivs[(j, k - j)]
+                    for j in range(k + 1)
+                )
+                result = result + coeff_k * term_k
+    
+        else:
+            raise NotImplementedError(
+                f"_quantization_symbol_correction: dimension {self.dim} not supported. "
+                "Only 1D and 2D are implemented."
+            )
+    
+        return simplify(result)
+    
+    
+    # ===========================================================================
+    #  weyl_to_kn_symbol
+    # ===========================================================================
+    
+    def weyl_to_kn_symbol(self, order=4):
+        """
+        Convert the Weyl symbol to its Kohn-Nirenberg equivalent.
+    
+        The operator Op^w(a) admits a KN representation Op^KN(a_tilde) where
+        the corrected symbol is given by the asymptotic series:
+    
+            a_tilde(x, xi) = exp(-i/2 * d_x d_xi) a(x, xi)
+                           ~ sum_{k=0}^{order}  (-i/2)^k / k!
+                               * (d_x d_xi)^k a(x, xi)
+    
+        In 2D, d_x d_xi is replaced by d_x d_xi + d_y d_eta.
+    
+        Parameters
+        ----------
+        order : int, default=4
+            Truncation order.  The series is **exact and finite** for symbols
+            that are polynomial in xi (all terms beyond the polynomial degree
+            vanish automatically).  For S^m or WKB symbols, order=2 to 4 is
+            generally sufficient.
+    
+        Returns
+        -------
+        sympy.Expr
+            Equivalent KN symbol (simplified SymPy expression).
+    
+        Examples
+        --------
+        1D -- multiplication-by-x*xi operator:
+    
+        >>> from sympy import symbols
+        >>> x, xi = symbols('x xi', real=True)
+        >>> op = PseudoDifferentialOperator(x * xi, [x], mode='symbol')
+        >>> op.weyl_to_kn_symbol(order=2)
+        x*xi - I/2      # order-1 correction: -i/2 * d_x d_xi (x*xi) = -i/2
+    
+        2D -- symbol x*xi + y*eta:
+    
+        >>> x, y, xi, eta = symbols('x y xi eta', real=True)
+        >>> op2 = PseudoDifferentialOperator(x*xi + y*eta, [x, y], mode='symbol')
+        >>> op2.weyl_to_kn_symbol(order=2)
+        x*xi + y*eta - I    # two cross terms, each contributing -i/2
+    
+        Notes
+        -----
+        The resulting KN symbol is directly usable in ``apply()`` through the
+        existing KN pipeline (``kohn_nirenberg_fft`` or
+        ``kohn_nirenberg_nonperiodic``), which avoids any numerical double
+        integral.
+    
+        Typical workflow for Weyl evaluation::
+    
+            kn_sym  = op.weyl_to_kn_symbol(order=4)
+            kn_func = lambdify((x, xi), kn_sym, 'numpy')
+            result  = kohn_nirenberg_fft(u, kn_func, ...)
+    
+        See Also
+        --------
+        kn_to_weyl_symbol : inverse transformation.
+        _quantization_symbol_correction : underlying series computation.
+        """
+        return self._quantization_symbol_correction(sign=-1, order=order)
+    
+    
+    # ===========================================================================
+    #  kn_to_weyl_symbol
+    # ===========================================================================
+    
+    def kn_to_weyl_symbol(self, order=4):
+        """
+        Convert the Kohn-Nirenberg symbol to its Weyl equivalent.
+    
+        This is the inverse of ``weyl_to_kn_symbol``::
+    
+            a_Weyl(x, xi) = exp(+i/2 * d_x d_xi) a_KN(x, xi)
+                          ~ sum_{k=0}^{order}  (+i/2)^k / k!
+                              * (d_x d_xi)^k a_KN(x, xi)
+    
+        In 2D, d_x d_xi is replaced by d_x d_xi + d_y d_eta.
+    
+        Parameters
+        ----------
+        order : int, default=4
+            Truncation order.  Same remarks as for ``weyl_to_kn_symbol``.
+    
+        Returns
+        -------
+        sympy.Expr
+            Equivalent Weyl symbol (simplified SymPy expression).
+    
+        Examples
+        --------
+        1D -- multiplication-by-x*xi operator:
+    
+        >>> op.kn_to_weyl_symbol(order=2)
+        x*xi + I/2      # opposite sign to weyl_to_kn_symbol
+    
+        Notes
+        -----
+        Typical use case: the operator is defined by its KN symbol (e.g.
+        extracted in 'auto' mode), and you want the Weyl symbol to exploit
+        its spectral properties -- self-adjointness when a_Weyl is real,
+        composition via the Moyal star product, etc.
+    
+        Round-trip consistency check::
+    
+            op_weyl = PseudoDifferentialOperator(op.kn_to_weyl_symbol(order=N), ...)
+            op_weyl.weyl_to_kn_symbol(order=N)  # should recover op.symbol up to order N
+    
+        See Also
+        --------
+        weyl_to_kn_symbol : inverse transformation.
+        _quantization_symbol_correction : underlying series computation.
+        """
+        return self._quantization_symbol_correction(sign=+1, order=order)
+
+#########################
+####  Visualizations ####
+#########################
 
     def visualize_fiber(self, x_grid, xi_grid, x0=0.0, y0=0.0):
         """

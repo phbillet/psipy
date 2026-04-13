@@ -27,7 +27,7 @@ from sympy import (
     gegenbauer, chebyshevu, legendre, assoc_legendre, hermite, laguerre, assoc_laguerre,
     diff, Derivative, integrate, 
     fourier_transform, inverse_fourier_transform,zeros,
-    Integer,
+    Integer, Rational, 
 )
 from sympy.core.function import AppliedUndef
 from scipy.special import legendre, eval_hermite, airy, eval_genlaguerre, jv, kv, sph_harm_y, gamma
