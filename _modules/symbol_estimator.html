@@ -1,0 +1,423 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>symbol_estimator &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pde_data_generator.html">pde_data_generator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../propagator.html">propagator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symbol_estimator.html">symbol_estimator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symbol_regression.html">symbol_regression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symplectic.html">symplectic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">symbol_estimator</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for symbol_estimator</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">symbol_estimator.py</span>
+<span class="sd">===================</span>
+<span class="sd">STFT-based numerical estimator for the symbol of a pseudo-differential</span>
+<span class="sd">operator from input/output function pairs.</span>
+
+<span class="sd">Given N_samples pairs (u_in^(i), u_out^(i)) satisfying</span>
+
+<span class="sd">    u_out^(i)(x) = (1/2pi) int a(x, xi) u_in_hat^(i)(xi) e^{ix xi} dxi  [KN]</span>
+
+<span class="sd">this module estimates a(x, xi) on a phase-space grid via the Gabor</span>
+<span class="sd">(short-time Fourier transform) method.</span>
+
+<span class="sd">The key approximation is that a(x, xi) is slowly varying on the spatial</span>
+<span class="sd">support of the analysis window g.  Under this assumption:</span>
+
+<span class="sd">    V_{u_out}(x0, xi) ~= a(x0, xi) * V_{u_in}(x0, xi)</span>
+
+<span class="sd">where V_u(x0, xi) = int u(x) g(x - x0) e^{-ix xi} dx  is the Gabor</span>
+<span class="sd">transform of u centred at x0.</span>
+
+<span class="sd">Averaging over N_samples gives a robust least-squares estimate at each</span>
+<span class="sd">phase-space point (x0_k, xi_j):</span>
+
+<span class="sd">    a(x0_k, xi_j) =  sum_i  V_out^(i) * conj(V_in^(i))</span>
+<span class="sd">                     ----------------------------------------</span>
+<span class="sd">                     sum_i  |V_in^(i)|^2  +  epsilon * scale</span>
+
+<span class="sd">Dependencies: numpy, scipy  (no external packages required)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_window</span>
+
+
+<span class="c1"># ===========================================================================</span>
+<span class="c1">#  Window builder</span>
+<span class="c1"># ===========================================================================</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_make_window</span><span class="p">(</span><span class="n">window_type</span><span class="p">,</span> <span class="n">window_width</span><span class="p">,</span> <span class="n">Nx</span><span class="p">,</span> <span class="n">dx</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build a normalised analysis window on the spatial grid.</span>
+
+<span class="sd">    The window is zero-padded to length Nx and rolled so that its peak</span>
+<span class="sd">    sits at index 0 (ready for the circular-shift / roll trick used in</span>
+<span class="sd">    the Gabor batch).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    window_type  : str</span>
+<span class="sd">        &#39;gaussian&#39; uses window_width as sigma in physical units.</span>
+<span class="sd">        Any other string is forwarded to scipy.signal.get_window with</span>
+<span class="sd">        window_width converted to a sample count.</span>
+<span class="sd">    window_width : float</span>
+<span class="sd">        Characteristic width in physical (x) units.</span>
+<span class="sd">    Nx           : int     number of spatial grid points</span>
+<span class="sd">    dx           : float   spatial step</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    win : (Nx,) ndarray   window, unit L2-norm on the grid (i.e. ||win||_2 * sqrt(dx) = 1)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sigma_samples</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">window_width</span> <span class="o">/</span> <span class="n">dx</span><span class="p">))</span>
+    <span class="n">n_win</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">Nx</span><span class="p">,</span> <span class="mi">6</span> <span class="o">*</span> <span class="n">sigma_samples</span><span class="p">)</span>   <span class="c1"># truncate Gaussian at ±3 sigma</span>
+    <span class="k">if</span> <span class="n">n_win</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">n_win</span> <span class="o">+=</span> <span class="mi">1</span>                        <span class="c1"># keep odd so the peak is centred</span>
+
+    <span class="k">if</span> <span class="n">window_type</span> <span class="o">==</span> <span class="s1">&#39;gaussian&#39;</span><span class="p">:</span>
+        <span class="n">t</span>    <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_win</span><span class="p">)</span> <span class="o">-</span> <span class="n">n_win</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">core</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">sigma_samples</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">core</span> <span class="o">=</span> <span class="n">get_window</span><span class="p">(</span><span class="n">window_type</span><span class="p">,</span> <span class="n">n_win</span><span class="p">)</span>
+
+    <span class="c1"># Zero-pad into a length-Nx array with the peak at the centre</span>
+    <span class="n">win</span>           <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">Nx</span><span class="p">)</span>
+    <span class="n">start</span>         <span class="o">=</span> <span class="n">Nx</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">n_win</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">win</span><span class="p">[</span><span class="n">start</span><span class="p">:</span> <span class="n">start</span> <span class="o">+</span> <span class="n">n_win</span><span class="p">]</span> <span class="o">=</span> <span class="n">core</span>
+
+    <span class="c1"># Roll peak to index 0 so np.roll(win, k) centres the window at x_k</span>
+    <span class="n">win</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">win</span><span class="p">,</span> <span class="o">-</span><span class="p">(</span><span class="n">Nx</span> <span class="o">//</span> <span class="mi">2</span><span class="p">))</span>
+
+    <span class="c1"># L2-normalise: integral approximated as sum * dx</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">win</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">norm</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">win</span> <span class="o">/=</span> <span class="n">norm</span>
+    <span class="k">return</span> <span class="n">win</span>
+
+
+<span class="c1"># ===========================================================================</span>
+<span class="c1">#  Gabor batch  (memory-efficient, vectorised over samples)</span>
+<span class="c1"># ===========================================================================</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_gabor_batch</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">win</span><span class="p">,</span> <span class="n">dx</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the Gabor transform of a batch of signals for all centre</span>
+<span class="sd">    positions x0_k = k * dx simultaneously.</span>
+
+<span class="sd">    Algorithm</span>
+<span class="sd">    ---------</span>
+<span class="sd">    For each centre k, the windowed signal is  u(x) * g(x - x0_k),</span>
+<span class="sd">    which in discrete form is  U[i, :] * roll(win, k).</span>
+<span class="sd">    Its DFT gives V[i, k, :].</span>
+
+<span class="sd">    We loop over centres (one FFT per centre per sample batch) which is</span>
+<span class="sd">    O(Nx) FFTs of length Nx — i.e. O(Nx^2 log Nx) total.  Memory is</span>
+<span class="sd">    O(N_samples * Nx) per step, never O(N_samples * Nx^2).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    U   : (N_samples, Nx) complex array   signals</span>
+<span class="sd">    win : (Nx,) real array                window with peak at index 0</span>
+<span class="sd">    dx  : float                           spatial step</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    V : (N_samples, Nx, Nx) complex array</span>
+<span class="sd">        V[i, k, j] = Gabor transform of U[i] centred at x0_k, frequency xi_j.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">N_samples</span><span class="p">,</span> <span class="n">Nx</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N_samples</span><span class="p">,</span> <span class="n">Nx</span><span class="p">,</span> <span class="n">Nx</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Nx</span><span class="p">):</span>
+        <span class="n">win_k</span>       <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">win</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>           <span class="c1"># window centred at x0_k</span>
+        <span class="n">windowed</span>    <span class="o">=</span> <span class="n">U</span> <span class="o">*</span> <span class="n">win_k</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>        <span class="c1"># (N_samples, Nx)</span>
+        <span class="n">V</span><span class="p">[:,</span> <span class="n">k</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">windowed</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+    <span class="k">return</span> <span class="n">V</span>
+
+
+<span class="c1"># ===========================================================================</span>
+<span class="c1">#  Main estimator</span>
+<span class="c1"># ===========================================================================</span>
+
+<div class="viewcode-block" id="estimate_symbol_stft">
+<a class="viewcode-back" href="../symbol_estimator.html#symbol_estimator.estimate_symbol_stft">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">estimate_symbol_stft</span><span class="p">(</span>
+    <span class="n">U_in</span><span class="p">,</span>
+    <span class="n">U_out</span><span class="p">,</span>
+    <span class="n">x_grid</span><span class="p">,</span>
+    <span class="n">window_type</span>  <span class="o">=</span> <span class="s1">&#39;gaussian&#39;</span><span class="p">,</span>
+    <span class="n">window_width</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">epsilon</span>      <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+    <span class="n">regularize</span>   <span class="o">=</span> <span class="s1">&#39;tikhonov&#39;</span><span class="p">,</span>
+    <span class="n">xi_max</span>       <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Estimate the KN symbol a(x, xi) of a pseudo-differential operator</span>
+<span class="sd">    from input/output sample pairs via the Gabor (STFT) method.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    U_in  : (N_samples, Nx) array</span>
+<span class="sd">        Input function samples on x_grid.  May be real or complex.</span>
+<span class="sd">    U_out : (N_samples, Nx) array</span>
+<span class="sd">        Output samples: Op^KN(a) applied to each row of U_in.</span>
+<span class="sd">    x_grid : (Nx,) array</span>
+<span class="sd">        Uniform spatial grid (periodic domain).</span>
+<span class="sd">    window_type : str, default=&#39;gaussian&#39;</span>
+<span class="sd">        Analysis window.  &#39;gaussian&#39; gives optimal time-frequency</span>
+<span class="sd">        localisation (minimum uncertainty).</span>
+<span class="sd">    window_width : float or None</span>
+<span class="sd">        Window width in physical units.</span>
+<span class="sd">        Default: L / sqrt(Nx), which balances spatial and frequency</span>
+<span class="sd">        resolution (geometric mean of the two extreme choices).</span>
+<span class="sd">    epsilon : float, default=1e-6</span>
+<span class="sd">        Regularisation strength relative to the median input energy.</span>
+<span class="sd">        Prevents division by near-zero in low-energy phase-space regions.</span>
+<span class="sd">    regularize : {&#39;tikhonov&#39;, &#39;threshold&#39;}, default=&#39;tikhonov&#39;</span>
+<span class="sd">        &#39;tikhonov&#39;  : denominator += epsilon * scale  (smooth, always safe)</span>
+<span class="sd">        &#39;threshold&#39; : set estimate to 0 where input energy &lt; epsilon * scale</span>
+<span class="sd">    xi_max : float or None</span>
+<span class="sd">        Discard frequencies |xi| &gt; xi_max.  Useful to suppress</span>
+<span class="sd">        high-frequency noise in the estimated symbol.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    xi_grid       : (Nxi,) array    frequency grid in physical units</span>
+<span class="sd">    symbol_matrix : (Nx, Nxi) complex array   estimated symbol a(x, xi)</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The symbol is assumed **time-independent**.  For time-dependent</span>
+<span class="sd">    operators, call this function on pairs (u(t_k), du/dt(t_k)) at</span>
+<span class="sd">    each time snapshot.</span>
+
+<span class="sd">    The estimate is exact for constant-coefficient symbols regardless</span>
+<span class="sd">    of window width (Parseval / shift-invariance argument).</span>
+<span class="sd">    For spatially varying symbols, accuracy improves with N_samples and</span>
+<span class="sd">    with the spatial smoothness of a(x, xi).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">    &gt;&gt;&gt; from symbol_estimator import estimate_symbol_stft</span>
+<span class="sd">    &gt;&gt;&gt; Nx, Ns = 128, 300</span>
+<span class="sd">    &gt;&gt;&gt; x  = np.linspace(0, 2*np.pi, Nx, endpoint=False)</span>
+<span class="sd">    &gt;&gt;&gt; dx = x[1] - x[0]</span>
+<span class="sd">    &gt;&gt;&gt; xi = np.fft.fftfreq(Nx, d=dx) * 2*np.pi</span>
+<span class="sd">    &gt;&gt;&gt; # True symbol: a(x, xi) = -(1 + 0.5*sin(x)) * 1j * xi</span>
+<span class="sd">    &gt;&gt;&gt; rng = np.random.default_rng(0)</span>
+<span class="sd">    &gt;&gt;&gt; U_in  = rng.standard_normal((Ns, Nx))</span>
+<span class="sd">    &gt;&gt;&gt; c     = 1 + 0.5 * np.sin(x)</span>
+<span class="sd">    &gt;&gt;&gt; U_out = np.real(np.fft.ifft(</span>
+<span class="sd">    ...     1j * xi[None, :] * np.fft.fft(U_in, axis=1), axis=1</span>
+<span class="sd">    ... )) * (-c[None, :])</span>
+<span class="sd">    &gt;&gt;&gt; xi_est, sym_est = estimate_symbol_stft(U_in, U_out, x)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">U_in</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U_in</span><span class="p">,</span>  <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="n">U_out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U_out</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">U_in</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">U_out</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;U_in and U_out must have the same shape, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">U_in</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">U_out</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">N_samples</span><span class="p">,</span> <span class="n">Nx</span> <span class="o">=</span> <span class="n">U_in</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">L</span>  <span class="o">=</span> <span class="n">Nx</span> <span class="o">*</span> <span class="n">dx</span>
+
+    <span class="k">if</span> <span class="n">window_width</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">window_width</span> <span class="o">=</span> <span class="n">L</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">Nx</span><span class="p">)</span>
+
+    <span class="n">win</span>   <span class="o">=</span> <span class="n">_make_window</span><span class="p">(</span><span class="n">window_type</span><span class="p">,</span> <span class="n">window_width</span><span class="p">,</span> <span class="n">Nx</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
+
+    <span class="c1"># Gabor transforms: (N_samples, Nx_centres, Nx_freqs)</span>
+    <span class="n">V_in</span>  <span class="o">=</span> <span class="n">_gabor_batch</span><span class="p">(</span><span class="n">U_in</span><span class="p">,</span>  <span class="n">win</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
+    <span class="n">V_out</span> <span class="o">=</span> <span class="n">_gabor_batch</span><span class="p">(</span><span class="n">U_out</span><span class="p">,</span> <span class="n">win</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
+
+    <span class="c1"># Least-squares estimate: cross-correlation / auto-correlation</span>
+    <span class="n">numerator</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">V_out</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">V_in</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (Nx, Nx)</span>
+    <span class="n">denominator</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">V_in</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span>     <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (Nx, Nx)</span>
+
+    <span class="c1"># Regularisation scale = median input energy (robust to outliers)</span>
+    <span class="n">pos_denom</span> <span class="o">=</span> <span class="n">denominator</span><span class="p">[</span><span class="n">denominator</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">scale</span>     <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">pos_denom</span><span class="p">))</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pos_denom</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1.0</span>
+
+    <span class="k">if</span> <span class="n">regularize</span> <span class="o">==</span> <span class="s1">&#39;tikhonov&#39;</span><span class="p">:</span>
+        <span class="n">symbol_matrix</span> <span class="o">=</span> <span class="n">numerator</span> <span class="o">/</span> <span class="p">(</span><span class="n">denominator</span> <span class="o">+</span> <span class="n">epsilon</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">regularize</span> <span class="o">==</span> <span class="s1">&#39;threshold&#39;</span><span class="p">:</span>
+        <span class="n">safe_denom</span>    <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">denominator</span> <span class="o">&gt;=</span> <span class="n">epsilon</span> <span class="o">*</span> <span class="n">scale</span><span class="p">,</span>
+                                 <span class="n">denominator</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">symbol_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">denominator</span> <span class="o">&gt;=</span> <span class="n">epsilon</span> <span class="o">*</span> <span class="n">scale</span><span class="p">,</span>
+                                 <span class="n">numerator</span> <span class="o">/</span> <span class="n">safe_denom</span><span class="p">,</span>
+                                 <span class="mf">0.0</span> <span class="o">+</span> <span class="mf">0.0</span><span class="n">j</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Unknown regularize=&#39;</span><span class="si">{</span><span class="n">regularize</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+            <span class="s2">&quot;Choose &#39;tikhonov&#39; or &#39;threshold&#39;.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Full frequency grid in physical units</span>
+    <span class="n">xi_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">Nx</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">dx</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>   <span class="c1"># (Nx,)</span>
+
+    <span class="c1"># Optional truncation to |xi| &lt;= xi_max</span>
+    <span class="k">if</span> <span class="n">xi_max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">keep</span>          <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi_grid</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">xi_max</span>
+        <span class="n">xi_grid</span>       <span class="o">=</span> <span class="n">xi_grid</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+        <span class="n">symbol_matrix</span> <span class="o">=</span> <span class="n">symbol_matrix</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">symbol_matrix</span></div>
+
+
+
+<span class="c1"># ===========================================================================</span>
+<span class="c1">#  Reconstruction quality diagnostics</span>
+<span class="c1"># ===========================================================================</span>
+
+<div class="viewcode-block" id="symbol_estimation_diagnostics">
+<a class="viewcode-back" href="../symbol_estimator.html#symbol_estimator.symbol_estimation_diagnostics">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">symbol_estimation_diagnostics</span><span class="p">(</span><span class="n">U_in</span><span class="p">,</span> <span class="n">U_out</span><span class="p">,</span> <span class="n">U_out_reconstructed</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute reconstruction quality metrics after symbol estimation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    U_in               : (N_samples, Nx)</span>
+<span class="sd">    U_out              : (N_samples, Nx)   ground-truth output</span>
+<span class="sd">    U_out_reconstructed: (N_samples, Nx)   output from estimated symbol</span>
+<span class="sd">    x_grid             : (Nx,)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict with keys:</span>
+<span class="sd">        &#39;relative_l2_error&#39;    : mean relative L2 error over samples</span>
+<span class="sd">        &#39;relative_l2_std&#39;      : std  of per-sample relative L2 errors</span>
+<span class="sd">        &#39;max_pointwise_error&#39;  : max absolute pointwise error</span>
+<span class="sd">        &#39;snr_db&#39;               : signal-to-noise ratio in dB</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dx</span>       <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">err</span>      <span class="o">=</span> <span class="n">U_out</span> <span class="o">-</span> <span class="n">U_out_reconstructed</span>
+
+    <span class="n">norm_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>    <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
+    <span class="n">norm_sig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">U_out</span><span class="p">)</span>  <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
+    <span class="n">rel_err</span>  <span class="o">=</span> <span class="n">norm_err</span> <span class="o">/</span> <span class="p">(</span><span class="n">norm_sig</span> <span class="o">+</span> <span class="mf">1e-14</span><span class="p">)</span>
+
+    <span class="n">snr_db</span>   <span class="o">=</span> <span class="mf">20.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">norm_sig</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">norm_err</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-14</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;relative_l2_error&#39;</span>   <span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rel_err</span><span class="p">)),</span>
+        <span class="s1">&#39;relative_l2_std&#39;</span>     <span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">rel_err</span><span class="p">)),</span>
+        <span class="s1">&#39;max_pointwise_error&#39;</span> <span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">err</span><span class="p">))),</span>
+        <span class="s1">&#39;snr_db&#39;</span>              <span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">snr_db</span><span class="p">),</span>
+    <span class="p">}</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
