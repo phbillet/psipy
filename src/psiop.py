@@ -360,7 +360,7 @@ class PseudoDifferentialOperator:
             )
      
         # Case 3: Dirichlet BC (non-periodic)
-        if boundary_condition == 'dirichlet':
+        if (boundary_condition == 'dirichlet' or boundary_condition == 'neumann'):
             if self.dim == 1:
                 return kohn_nirenberg_nonperiodic(
                     u_vals=u,
