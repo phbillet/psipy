@@ -323,23 +323,78 @@ class PDESolver:
                 - External symbolic operators (Op) and pseudo-differential operators (psiOp)
         """
         def _is_nonlinear_term(term, u_func):
-            # If the term contains functions (Abs, sin, exp, ...) applied to u
-            if term.has(u_func):
-                for sub in preorder_traversal(term):
-                    if isinstance(sub, Function) and sub.has(u_func) and sub.func != u_func.func:
-                        return True
-            # If the term contains a nonlinear power of u
-            if term.has(Pow):
-                for pow_term in term.atoms(Pow):
-                    if pow_term.base == u_func and pow_term.exp != 1:
-                        return True
-            # If the term is a product containing u and its derivative
-            if term.func == Mul:
-                factors = term.args
-                has_u = any((f.has(u_func) and not isinstance(f, Derivative) for f in factors))
-                has_derivative = any((isinstance(f, Derivative) and f.expr.func == u_func.func for f in factors))
-                if has_u and has_derivative:
+            """
+            Determine whether a SymPy expression constitutes a nonlinear term
+            with respect to the dependent variable u_func (e.g. u(t, x)).
+        
+            A term is considered nonlinear if any of the following hold:
+        
+            1. A nonlinear function (Abs, sin, exp, ...) is applied to any
+               expression containing u or its derivatives.
+            2. Any Pow node whose base contains u or a Derivative of u,
+               with exponent != 1 (including negative exponents, i.e. rational terms).
+            3. A product (Mul) contains two or more factors that each involve
+               u or any Derivative of u — covers u*u_x, u_x*u_xx, u_x*u_y, etc.
+            4. A single Derivative of u appears inside a nonlinear function,
+               e.g. Abs(u_x), sin(u_xx).
+        
+            Parameters
+            ----------
+            term : sympy.Expr
+                The expression to classify.
+            u_func : sympy.Function
+                The dependent variable, e.g. u(t, x).
+        
+            Returns
+            -------
+            bool
+                True if the term is nonlinear in u_func, False otherwise.
+            """
+            from sympy import (preorder_traversal, Function, Pow, Mul,
+                               Derivative, Add)
+        
+            def _contains_u(expr):
+                """True if expr involves u or any Derivative of u."""
+                return expr.has(u_func)
+        
+            def _is_derivative_of_u(expr):
+                """True if expr is a Derivative whose function is u."""
+                return (isinstance(expr, Derivative)
+                        and expr.args[0].func == u_func.func)
+        
+            def _is_u_or_derivative(expr):
+                """True if expr is u itself or a Derivative of u."""
+                return expr == u_func or _is_derivative_of_u(expr)
+        
+            # 1. Nonlinear function applied to anything containing u or its derivatives
+            #    e.g. Abs(u), sin(u), exp(u_x), Abs(u_xx)
+            for sub in preorder_traversal(term):
+                if (isinstance(sub, Function)
+                        and sub.func != u_func.func          # exclude u(t,x) itself
+                        and not isinstance(sub, Derivative)  # exclude Derivative nodes
+                        and _contains_u(sub)):
                     return True
+        
+            # 2. Pow whose base contains u or a Derivative of u, with exponent != 1
+            #    e.g. u**2, u**-1, u_x**2, (1 + u)**-1, (u_xx)**3
+            for pow_term in term.atoms(Pow):
+                if _contains_u(pow_term.base) and pow_term.exp != 1:
+                    return True
+        
+            # 3. Product containing two or more factors that each involve u or D(u)
+            #    e.g. u*u_x, u_x*u_xx, u_x*u_y, u*u_xxx
+            if isinstance(term, Mul):
+                u_bearing_factors = [
+                    f for f in term.args if _contains_u(f)
+                ]
+                if len(u_bearing_factors) >= 2:
+                    return True
+        
+            # 4. Add: recurse into each summand — catches mixed sums like u_x**2 + u*u_xx
+            if isinstance(term, Add):
+                if any(_is_nonlinear_term(arg, u_func) for arg in term.args):
+                    return True
+        
             return False
     
         print("\n********************")
@@ -1159,84 +1214,317 @@ class PDESolver:
     def _apply_nonlinear(self, u, is_v=False):
         """
         Apply nonlinear terms to the solution using spectral differentiation with dealiasing.
-
-        This method evaluates all nonlinear terms present in the PDE by substituting spatial 
-        derivatives with their spectral approximations computed via FFT. The dealiasing mask 
-        ensures numerical stability by removing high-frequency components that could lead 
-        to aliasing errors.
-
+    
+        This method evaluates all nonlinear contributions present in the PDE at the current
+        time step. Spatial derivatives appearing in nonlinear expressions are approximated
+        spectrally via FFT up to third order in 1D and second order (including cross
+        derivatives) in 2D. A dealiasing mask is applied to u before any nonlinear product
+        is formed, preventing aliasing errors from energy accumulation at high wavenumbers.
+    
+        If no nonlinear terms are registered (self.nonlinear_terms is empty), the method
+        returns a zero array immediately.
+    
+        **Derivative bank:**
+    
+            1D:
+                u_x   = IFFT(i·kₓ         · û)     — ∂ₓu   (first derivative)
+                u_xx  = IFFT((i·kₓ)²      · û)     — ∂ₓₓu  (second derivative)
+                u_xxx = IFFT((i·kₓ)³      · û)     — ∂ₓₓₓu (third derivative)
+    
+            2D:
+                u_x   = IFFT(i·kₓ          · û)    — ∂ₓu
+                u_y   = IFFT(i·kᵧ          · û)    — ∂ᵧu
+                u_xx  = IFFT((i·kₓ)²       · û)    — ∂ₓₓu
+                u_yy  = IFFT((i·kᵧ)²       · û)    — ∂ᵧᵧu
+                u_xy  = IFFT((i·kₓ)(i·kᵧ)  · û)   — ∂ₓᵧu  (mixed cross derivative)
+    
+        All derivatives are computed from the same dealiased û, requiring only pointwise
+        wavenumber multiplications followed by IFFTs — no additional FFT of u is needed.
+    
+        **SymPy Derivative normalisation:**
+            SymPy represents derivatives in several equivalent forms depending on version
+            and context:
+                Derivative(u(t, x), x)       → first order,  implicit
+                Derivative(u(t, x), (x, 2))  → second order, tuple form
+                Derivative(u(t, x), x, x)    → second order, repeated form
+            The internal helper _get_diff_order() normalises all forms to (variable, order)
+            by name-based variable matching, making the substitution robust across SymPy
+            versions and independently constructed symbol objects.
+    
+        **1D procedure:**
+            1. Transform u to Fourier space and apply the dealiasing mask in-place.
+            2. Compute the full derivative bank from û.
+            3. For each symbolic nonlinear term:
+               - Scan all Derivative atoms and substitute them with the corresponding
+                 spectral symbol ('u_x', 'u_xx', 'u_xxx') via _get_diff_order().
+               - Lambdify the resulting expression over (t, x, u, u_x, u_xx, u_xxx).
+               - Evaluate numerically on the physical grid and accumulate.
+    
+        **2D procedure:**
+            1. Transform u to Fourier space and apply the dealiasing mask in-place.
+            2. Compute the full derivative bank (∂ₓ, ∂ᵧ, ∂ₓₓ, ∂ᵧᵧ, ∂ₓᵧ) from û.
+            3. For each symbolic nonlinear term:
+               - Substitute Derivative atoms:
+                   ∂ₓu  → 'u_x',  ∂ᵧu  → 'u_y'
+                   ∂ₓₓu → 'u_xx', ∂ᵧᵧu → 'u_yy', ∂ₓᵧu → 'u_xy'
+               - Lambdify over (t, x, y, u, u_x, u_y, u_xx, u_yy, u_xy).
+               - Evaluate numerically on the physical grid and accumulate.
+            4. When two or more independent terms are present, evaluations are
+               parallelised via ThreadPoolExecutor. For a single term the thread
+               pool overhead is avoided and evaluation is performed directly.
+    
+        **Velocity field variant:**
+            When is_v=True, self.v_prev is passed as the pointwise field value u_sym
+            in each lambdified expression instead of u. Spectral derivatives are still
+            computed from the argument u, so the caller is responsible for passing the
+            correct array for derivative computation.
+    
+        **Aliasing note for high-order terms:**
+            Nonlinear terms involving second or third derivatives (e.g. u·u_xx, u_x·u_xx)
+            have a wider effective wavenumber support than first-order terms. The dealiasing
+            mask on u is necessary but may not be sufficient in strongly nonlinear regimes;
+            consider tightening self.dealiasing_ratio for such problems.
+    
+        **Return scaling:**
+            The accumulated nonlinear contribution is multiplied by self.dt before
+            returning, so the caller can add it directly to the time-stepping update
+            without an extra scaling step.
+    
         Parameters
         ----------
         u : numpy.ndarray
-            Current solution array on the spatial grid.
-        is_v : bool
-            If True, evaluates nonlinear terms for the velocity field v instead of u.
-
-        Returns:
-            numpy.ndarray: Array representing the contribution of nonlinear terms multiplied by dt.
-
-        Notes:
-        
-        - In 1D, computes ∂ₓu via FFT and substitutes any derivative term in the nonlinear expressions.
-        - In 2D, computes ∂ₓu and ∂ᵧu via FFT and performs similar substitutions.
-        - Uses lambdify to evaluate symbolic nonlinear expressions numerically.
-        - Derivatives are replaced symbolically with 'u_x' and 'u_y' before evaluation.
-        - In 2D, multiple independent nonlinear terms are evaluated in parallel via ThreadPoolExecutor.
+            Current solution array on the spatial grid. Shape is (Nx,) in 1D or
+            (Ny, Nx) in 2D. Used for spectral derivative computation and, when
+            is_v=False, as the pointwise field value in nonlinear expressions.
+        is_v : bool, optional (default False)
+            If True, evaluates nonlinear expressions using self.v_prev as the
+            pointwise field value instead of u. Intended for coupled PDE systems
+            where nonlinear terms involve a separate velocity field v.
+    
+        Returns
+        -------
+        numpy.ndarray, dtype complex128
+            Array of shape matching u representing the total nonlinear contribution
+            scaled by Δt:  Δt · N(uₙ).
+            Returns a zero array of the same shape and dtype if no nonlinear terms
+            are present.
+    
+        Raises
+        ------
+        ValueError
+            If self.dim is neither 1 nor 2.
+            If a 1D term contains a mixed derivative.
+            If a Derivative atom references an unsupported variable or order.
         """
         if not self.nonlinear_terms:
             return np.zeros_like(u, dtype=np.complex128)
-        
+    
         nonlinear_term = np.zeros_like(u, dtype=np.complex128)
     
+        from sympy import Symbol, Tuple as SympyTuple
+        
+        def _get_diff_order(deriv):
+            """
+            Normalise a SymPy Derivative atom to (variable_name, order) or None.
+        
+            Handles all known SymPy representations robustly:
+                Derivative(u(t, x), x)        args[1] = Symbol('x')
+                Derivative(u(t, x), (x, 1))   args[1] = sympy.Tuple(Symbol('x'), Integer(1))
+                Derivative(u(t, x), (x, 2))   args[1] = sympy.Tuple(Symbol('x'), Integer(2))
+                Derivative(u(t, x), x, x)     args[1] = Symbol('x'), args[2] = Symbol('x')
+        
+            Variable matching is done by name string to avoid object identity issues
+            across independently constructed SymPy symbols.
+        
+            Returns (variable_name: str, order: int), or None for mixed derivatives.
+            """
+            variable_name = None
+            order = 0
+        
+            for arg in deriv.args[1:]:
+                # Tuple form — covers both Python tuple and sympy.Tuple
+                if isinstance(arg, (tuple, list, SympyTuple)):
+                    var_name = str(arg[0])
+                    n = int(arg[1])
+                # Plain symbol — implicit order 1
+                elif isinstance(arg, Symbol):
+                    var_name = arg.name
+                    n = 1
+                else:
+                    continue
+        
+                if variable_name is None:
+                    variable_name = var_name
+                elif variable_name != var_name:
+                    return None  # mixed derivative
+                order += n
+        
+            if variable_name is None:
+                return None
+        
+            return (variable_name, order)
+    
         if self.dim == 1:
+            x_name = self.x.name
+    
             u_hat = self.fft(u)
             u_hat *= self.dealiasing_mask
-            u = self.ifft(u_hat)
+            u     = self.ifft(u_hat)
     
-            u_x_hat = (1j * self.KX) * u_hat
-            u_x = self.ifft(u_x_hat)
+            # Derivative bank — all from the same dealiased û
+            u_x   = self.ifft((1j * self.KX)      * u_hat)
+            u_xx  = self.ifft((1j * self.KX) ** 2 * u_hat)
+            u_xxx = self.ifft((1j * self.KX) ** 3 * u_hat)
+    
+            order_map = {
+                (x_name, 1): symbols('u_x'),
+                (x_name, 2): symbols('u_xx'),
+                (x_name, 3): symbols('u_xxx'),
+            }
+    
+            field = self.v_prev if is_v else u
     
             for term in self.nonlinear_terms:
                 term_replaced = term
                 if term.has(Derivative):
                     for deriv in term.atoms(Derivative):
-                        if deriv.args[1][0] == self.x:
-                            term_replaced = term_replaced.subs(deriv, symbols('u_x'))            
-                term_func = lambdify((self.t, self.x, self.u_eq, 'u_x'), term_replaced, 'numpy')
-                if is_v:
-                    nonlinear_term += term_func(0, self.X, self.v_prev, u_x)
-                else:
-                    nonlinear_term += term_func(0, self.X, u, u_x)
+                        key = _get_diff_order(deriv)
+                        if key is None:
+                            raise ValueError(
+                                f"Mixed derivative found in 1D nonlinear term: {deriv}."
+                            )
+                        if key not in order_map:
+                            raise ValueError(
+                                f"Unsupported derivative in nonlinear term: {deriv}. "
+                                f"Resolved as order {key[1]} w.r.t. '{key[0]}'. "
+                                f"Supported: orders 1, 2, 3 w.r.t. '{x_name}'."
+                            )
+                        term_replaced = term_replaced.subs(deriv, order_map[key])
+    
+                term_func = lambdify(
+                    (self.t, self.x, self.u_eq, 'u_x', 'u_xx', 'u_xxx'),
+                    term_replaced, 'numpy'
+                )
+                nonlinear_term += term_func(0, self.X, field, u_x, u_xx, u_xxx)
     
         elif self.dim == 2:
+            x_name = self.x.name
+            y_name = self.y.name
+    
             u_hat = self.fft(u)
             u_hat *= self.dealiasing_mask
-            u = self.ifft(u_hat)
+            u     = self.ifft(u_hat)
     
-            u_x_hat = (1j * self.KX) * u_hat
-            u_y_hat = (1j * self.KY) * u_hat
-            u_x = self.ifft(u_x_hat)
-            u_y = self.ifft(u_y_hat)
-
-            # Snapshot of the field to be passed to each worker thread
-            u_phys   = self.v_prev if is_v else u
-            X, Y     = self.X, self.Y
+            # Derivative bank — all from the same dealiased û
+            u_x  = self.ifft((1j * self.KX)                * u_hat)
+            u_y  = self.ifft((1j * self.KY)                * u_hat)
+            u_xx = self.ifft((1j * self.KX) ** 2           * u_hat)
+            u_yy = self.ifft((1j * self.KY) ** 2           * u_hat)
+            u_xy = self.ifft((1j * self.KX) * (1j*self.KY) * u_hat)
+    
+            order_map = {
+                (x_name, 1): symbols('u_x'),
+                (y_name, 1): symbols('u_y'),
+                (x_name, 2): symbols('u_xx'),
+                (y_name, 2): symbols('u_yy'),
+            }
+    
+            u_phys = self.v_prev if is_v else u
+            X, Y   = self.X, self.Y
             t_sym, x_sym, y_sym, u_sym = self.t, self.x, self.y, self.u_eq
-
-            def _eval_nl_term(term):
-                """Evaluate one nonlinear term; called from a thread pool."""
+    
+            def _eval_nl_term_old(term):
+                """Evaluate one nonlinear term; called directly or from a thread pool."""
                 term_replaced = term
                 if term.has(Derivative):
                     for deriv in term.atoms(Derivative):
-                        if deriv.args[1][0] == x_sym:
-                            term_replaced = term_replaced.subs(deriv, symbols('u_x'))
-                        elif deriv.args[1][0] == y_sym:
-                            term_replaced = term_replaced.subs(deriv, symbols('u_y'))
-                fn = lambdify((t_sym, x_sym, y_sym, u_sym, 'u_x', 'u_y'), term_replaced, 'numpy')
-                return fn(0, X, Y, u_phys, u_x, u_y)
-
-            # Parallelise only when there are at least 2 independent terms (overhead
-            # of a thread pool is not worth it for a single term).
+                        key = _get_diff_order(deriv)
+    
+                        # Mixed derivative ∂ₓᵧ: _get_diff_order returns None
+                        if key is None:
+                            vars_in_deriv = {
+                                arg.name if hasattr(arg, 'name') else arg[0].name
+                                for arg in deriv.args[1:]
+                            }
+                            if vars_in_deriv == {x_name, y_name}:
+                                term_replaced = term_replaced.subs(deriv, symbols('u_xy'))
+                            else:
+                                raise ValueError(
+                                    f"Unsupported mixed derivative in nonlinear term: {deriv}."
+                                )
+                            continue
+    
+                        if key not in order_map:
+                            raise ValueError(
+                                f"Unsupported derivative in nonlinear term: {deriv}. "
+                                f"Resolved as order {key[1]} w.r.t. '{key[0]}'. "
+                                f"Supported: orders 1, 2 w.r.t. '{x_name}' or '{y_name}', "
+                                f"and mixed ∂ₓᵧ."
+                            )
+                        term_replaced = term_replaced.subs(deriv, order_map[key])
+    
+                fn = lambdify(
+                    (t_sym, x_sym, y_sym, u_sym, 'u_x', 'u_y', 'u_xx', 'u_yy', 'u_xy'),
+                    term_replaced, 'numpy'
+                )
+                return fn(0, X, Y, u_phys, u_x, u_y, u_xx, u_yy, u_xy)
+                
+            def _eval_nl_term(term):
+                """Evaluate one nonlinear term; called directly or from a thread pool."""
+                from sympy import Symbol, Tuple as SympyTuple
+            
+                # Build a replacement mapping: Derivative atom → placeholder Symbol
+                replacement = {}
+                for deriv in term.atoms(Derivative):
+                    key = _get_diff_order(deriv)
+            
+                    if key is None:
+                        # Mixed derivative — check which variables are involved
+                        vars_in_deriv = set()
+                        for arg in deriv.args[1:]:
+                            if isinstance(arg, (tuple, list, SympyTuple)):
+                                vars_in_deriv.add(str(arg[0]))
+                            elif hasattr(arg, 'name'):
+                                vars_in_deriv.add(arg.name)
+            
+                        if vars_in_deriv == {x_name, y_name}:
+                            replacement[deriv] = symbols('u_xy')
+                        else:
+                            raise ValueError(
+                                f"Unsupported mixed derivative in nonlinear term: {deriv}. "
+                                f"Variables found: {vars_in_deriv}. "
+                                f"Only ∂ₓᵧ is supported as a mixed derivative."
+                            )
+                    elif key not in order_map:
+                        raise ValueError(
+                            f"Unsupported derivative in nonlinear term: {deriv}. "
+                            f"Resolved as order {key[1]} w.r.t. '{key[0]}'. "
+                            f"Supported: orders 1, 2 w.r.t. '{x_name}' or '{y_name}', "
+                            f"and mixed ∂ₓᵧ."
+                        )
+                    else:
+                        replacement[deriv] = order_map[key]
+            
+                # Apply all replacements at once using xreplace — exact structural match,
+                # no ambiguity, no silent misses unlike subs()
+                term_replaced = term.xreplace(replacement)
+            
+                # Safety check — if any Derivative survived, substitution was incomplete
+                remaining = term_replaced.atoms(Derivative)
+                if remaining:
+                    raise ValueError(
+                        f"Incomplete derivative substitution in nonlinear term.\n"
+                        f"Original term: {term}\n"
+                        f"Unresolved derivatives: {remaining}\n"
+                        f"This likely means a derivative involves an unsupported variable or order."
+                    )
+            
+                fn = lambdify(
+                    (t_sym, x_sym, y_sym, u_sym, 'u_x', 'u_y', 'u_xx', 'u_yy', 'u_xy'),
+                    term_replaced, 'numpy'
+                )
+                return fn(0, X, Y, u_phys, u_x, u_y, u_xx, u_yy, u_xy)
+    
             if len(self.nonlinear_terms) >= 2:
                 from concurrent.futures import ThreadPoolExecutor
                 with ThreadPoolExecutor() as executor:
@@ -1246,8 +1534,10 @@ class PDESolver:
                 for term in self.nonlinear_terms:
                     nonlinear_term += _eval_nl_term(term)
         else:
-            raise ValueError("Unsupported spatial dimension.")
-        
+            raise ValueError(
+                f"Unsupported spatial dimension: {self.dim}. Expected 1 or 2."
+            )
+    
         return nonlinear_term * self.dt
 
     def _prepare_symbol_tables(self):
@@ -1458,41 +1748,59 @@ class PDESolver:
     def _step_order1_with_psi(self, source_contribution):
         """
         Perform one time step of a first-order evolution using a pseudo-differential operator.
-    
-        This method updates the solution field using an exponential integrator or explicit Euler scheme,
+        
+        This method updates the solution field using an exponential integrator scheme,
         depending on boundary conditions and the structure of the pseudo-differential symbol.
         It supports:
-        - Linear dynamics via pseudo-differential operator L (possibly nonlocal)
+        - Linear dynamics via pseudo-differential operator L (possibly nonlocal, Kohn-Nirenberg quantization)
         - Nonlinear terms computed via spectral differentiation
         - External source contributions
-    
+        
         The update follows **three distinct computational paths**:
-    
-        1. **Periodic boundaries + diagonalizable symbol**  
-           Symbol is constant in space → use direct Fourier-based exponential integrator:  
+        
+        1. **Periodic boundaries + diagonalizable symbol**
+           Symbol is spatially constant → exact Fourier-based exponential integrator:
+               uₙ₊₁ = e⁻ᴸΔᵗ ⋅ uₙ + Δt ⋅ (N(uₙ) + F)
+        
+        2. **Non-periodic boundaries + spatially uniform symbol**
+           General ETD1 scheme in Fourier space:
                uₙ₊₁ = e⁻ᴸΔᵗ ⋅ uₙ + Δt ⋅ φ₁(−LΔt) ⋅ (N(uₙ) + F)
-    
-        2. **Non-diagonalizable but spatially uniform symbol**  
-           General exponential time differencing of order 1:  
-               uₙ₊₁ = eᴸΔᵗ ⋅ uₙ + Δt ⋅ φ₁(LΔt) ⋅ (N(uₙ) + F)
-    
-        3. **Spatially varying symbol**  
-           No frequency diagonalization available → use explicit Euler:  
-               uₙ₊₁ = uₙ + Δt ⋅ (L(uₙ) + N(uₙ) + F)
-    
+        
+        3. **Spatially varying symbol (Kohn-Nirenberg regime)**
+           Full diagonalization is unavailable. A single call to _apply_psiOp yields
+           the exact operator action L(uₙ); the pointwise symbol σ(x,ξ) then serves
+           as a local integrating factor. The update decomposes as:
+        
+               uₙ₊₁ = e⁻σΔᵗ ⋅ uₙ + Δt ⋅ φ₁(−σΔt) ⋅ (N(uₙ) + F + R(uₙ))
+        
+           where the residual correction:
+        
+               R(uₙ) = L(uₙ) + σ ⋅ uₙ
+        
+           accounts for the difference between the full nonlocal operator and its
+           pointwise-diagonal approximation. This correction vanishes when σ is
+           spatially uniform (recovering exact ETD1), and remains small under the
+           Kohn-Nirenberg slow-variation assumption on the symbol.
+           A spectral filter is applied after the update to control aliasing.
+           This path requires exactly one call to _apply_psiOp per time step.
+        
         where:
-            L(uₙ) = linear part via pseudo-differential operator
-            N(uₙ) = nonlinear contribution at current time step
-            F     = external source term
-            Δt    = time step size
-            φ₁(z) = (eᶻ − 1)/z (with safe handling near z=0)
-    
+            L(uₙ)    = full linear action via Kohn-Nirenberg pseudo-differential operator
+            σ(x,ξ)  = pointwise symbol evaluated on the spatial grid (diagonal approximation of L)
+            R(uₙ)   = L(uₙ) + σ·uₙ, residual between true operator and diagonal approximation
+            N(uₙ)   = nonlinear contribution at current time step
+            F        = external source term
+            Δt       = time step size
+            φ₁(z)   = (eᶻ − 1)/z (analytically continued at z=0 as φ₁(0) = 1)
+        
         Boundary conditions are applied after each update to ensure consistency.
-    
+        
         Parameters
-            source_contribution (np.ndarray): Array representing the external source term at current time step.
+            source_contribution (np.ndarray): Array representing the external source term at the
+                                              current time step. Pass a scalar 0 to indicate no source;
+                                              it will be broadcast to a zero array internally.
                                               Must match the spatial dimensions of self.u_prev.
-    
+        
         Returns:
             np.ndarray: Updated solution array after one time step.
         """
@@ -1552,10 +1860,27 @@ class PDESolver:
                 u_hat_new = exp_L * u_hat + self.dt * phi1_L * (u_nl_hat + source_hat)
                 u_new = self.ifft(u_hat_new)
             else:
-                # if the symbol depends on spatial variables : Euler method
                 Lu_prev = -self._apply_psiOp(self.u_prev)
                 u_nl = self._apply_nonlinear(self.u_prev)
-                u_new = self.u_prev + self.dt * (Lu_prev + u_nl + source)
+                
+                # Use the symbol pointwise as an approximate integrating factor
+                # This is exact when the symbol is spatially constant, and a good
+                # approximation when it varies slowly — which is the Kohn-Nirenberg regime
+                sigma = self.combined_symbol  # shape matches u_prev
+                exp_sigma  = np.exp(-self.dt * sigma)
+                phi1_sigma = np.where(
+                    np.abs(sigma) > 1e-10,
+                    (exp_sigma - 1.0) / (-self.dt * sigma),
+                    1.0
+                )
+                
+                # ETD1-like update using pointwise symbol (no extra _apply_psiOp call)
+                # Lu_prev already incorporates the full nonlocal action;
+                # the exponential factor corrects the linear stiffness locally
+                u_new = exp_sigma * self.u_prev + self.dt * phi1_sigma * (u_nl + source)
+                u_new += self.dt * phi1_sigma * (Lu_prev + sigma * self.u_prev)
+                #                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                #                 correction: full L·u minus the diagonal approximation
                 u_new = _spectral_filter(u_new, cutoff=self.dealiasing_ratio)
         # Applying boundary conditions
         self._apply_boundary(u_new)

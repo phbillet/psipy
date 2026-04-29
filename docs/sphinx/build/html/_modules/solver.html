@@ -46,6 +46,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../metric_catalogue.html">metric_catalogue</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
@@ -409,23 +410,78 @@
 <span class="sd">                - External symbolic operators (Op) and pseudo-differential operators (psiOp)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_is_nonlinear_term</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">u_func</span><span class="p">):</span>
-            <span class="c1"># If the term contains functions (Abs, sin, exp, ...) applied to u</span>
-            <span class="k">if</span> <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">u_func</span><span class="p">):</span>
-                <span class="k">for</span> <span class="n">sub</span> <span class="ow">in</span> <span class="n">preorder_traversal</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sub</span><span class="p">,</span> <span class="n">Function</span><span class="p">)</span> <span class="ow">and</span> <span class="n">sub</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">u_func</span><span class="p">)</span> <span class="ow">and</span> <span class="n">sub</span><span class="o">.</span><span class="n">func</span> <span class="o">!=</span> <span class="n">u_func</span><span class="o">.</span><span class="n">func</span><span class="p">:</span>
-                        <span class="k">return</span> <span class="kc">True</span>
-            <span class="c1"># If the term contains a nonlinear power of u</span>
-            <span class="k">if</span> <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">Pow</span><span class="p">):</span>
-                <span class="k">for</span> <span class="n">pow_term</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">atoms</span><span class="p">(</span><span class="n">Pow</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="n">pow_term</span><span class="o">.</span><span class="n">base</span> <span class="o">==</span> <span class="n">u_func</span> <span class="ow">and</span> <span class="n">pow_term</span><span class="o">.</span><span class="n">exp</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-                        <span class="k">return</span> <span class="kc">True</span>
-            <span class="c1"># If the term is a product containing u and its derivative</span>
-            <span class="k">if</span> <span class="n">term</span><span class="o">.</span><span class="n">func</span> <span class="o">==</span> <span class="n">Mul</span><span class="p">:</span>
-                <span class="n">factors</span> <span class="o">=</span> <span class="n">term</span><span class="o">.</span><span class="n">args</span>
-                <span class="n">has_u</span> <span class="o">=</span> <span class="nb">any</span><span class="p">((</span><span class="n">f</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">u_func</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">factors</span><span class="p">))</span>
-                <span class="n">has_derivative</span> <span class="o">=</span> <span class="nb">any</span><span class="p">((</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span> <span class="ow">and</span> <span class="n">f</span><span class="o">.</span><span class="n">expr</span><span class="o">.</span><span class="n">func</span> <span class="o">==</span> <span class="n">u_func</span><span class="o">.</span><span class="n">func</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">factors</span><span class="p">))</span>
-                <span class="k">if</span> <span class="n">has_u</span> <span class="ow">and</span> <span class="n">has_derivative</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Determine whether a SymPy expression constitutes a nonlinear term</span>
+<span class="sd">            with respect to the dependent variable u_func (e.g. u(t, x)).</span>
+<span class="sd">        </span>
+<span class="sd">            A term is considered nonlinear if any of the following hold:</span>
+<span class="sd">        </span>
+<span class="sd">            1. A nonlinear function (Abs, sin, exp, ...) is applied to any</span>
+<span class="sd">               expression containing u or its derivatives.</span>
+<span class="sd">            2. Any Pow node whose base contains u or a Derivative of u,</span>
+<span class="sd">               with exponent != 1 (including negative exponents, i.e. rational terms).</span>
+<span class="sd">            3. A product (Mul) contains two or more factors that each involve</span>
+<span class="sd">               u or any Derivative of u — covers u*u_x, u_x*u_xx, u_x*u_y, etc.</span>
+<span class="sd">            4. A single Derivative of u appears inside a nonlinear function,</span>
+<span class="sd">               e.g. Abs(u_x), sin(u_xx).</span>
+<span class="sd">        </span>
+<span class="sd">            Parameters</span>
+<span class="sd">            ----------</span>
+<span class="sd">            term : sympy.Expr</span>
+<span class="sd">                The expression to classify.</span>
+<span class="sd">            u_func : sympy.Function</span>
+<span class="sd">                The dependent variable, e.g. u(t, x).</span>
+<span class="sd">        </span>
+<span class="sd">            Returns</span>
+<span class="sd">            -------</span>
+<span class="sd">            bool</span>
+<span class="sd">                True if the term is nonlinear in u_func, False otherwise.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">preorder_traversal</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">Pow</span><span class="p">,</span> <span class="n">Mul</span><span class="p">,</span>
+                               <span class="n">Derivative</span><span class="p">,</span> <span class="n">Add</span><span class="p">)</span>
+        
+            <span class="k">def</span><span class="w"> </span><span class="nf">_contains_u</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;True if expr involves u or any Derivative of u.&quot;&quot;&quot;</span>
+                <span class="k">return</span> <span class="n">expr</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">u_func</span><span class="p">)</span>
+        
+            <span class="k">def</span><span class="w"> </span><span class="nf">_is_derivative_of_u</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;True if expr is a Derivative whose function is u.&quot;&quot;&quot;</span>
+                <span class="k">return</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span>
+                        <span class="ow">and</span> <span class="n">expr</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">func</span> <span class="o">==</span> <span class="n">u_func</span><span class="o">.</span><span class="n">func</span><span class="p">)</span>
+        
+            <span class="k">def</span><span class="w"> </span><span class="nf">_is_u_or_derivative</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;True if expr is u itself or a Derivative of u.&quot;&quot;&quot;</span>
+                <span class="k">return</span> <span class="n">expr</span> <span class="o">==</span> <span class="n">u_func</span> <span class="ow">or</span> <span class="n">_is_derivative_of_u</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+        
+            <span class="c1"># 1. Nonlinear function applied to anything containing u or its derivatives</span>
+            <span class="c1">#    e.g. Abs(u), sin(u), exp(u_x), Abs(u_xx)</span>
+            <span class="k">for</span> <span class="n">sub</span> <span class="ow">in</span> <span class="n">preorder_traversal</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
+                <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">sub</span><span class="p">,</span> <span class="n">Function</span><span class="p">)</span>
+                        <span class="ow">and</span> <span class="n">sub</span><span class="o">.</span><span class="n">func</span> <span class="o">!=</span> <span class="n">u_func</span><span class="o">.</span><span class="n">func</span>          <span class="c1"># exclude u(t,x) itself</span>
+                        <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sub</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span>  <span class="c1"># exclude Derivative nodes</span>
+                        <span class="ow">and</span> <span class="n">_contains_u</span><span class="p">(</span><span class="n">sub</span><span class="p">)):</span>
                     <span class="k">return</span> <span class="kc">True</span>
+        
+            <span class="c1"># 2. Pow whose base contains u or a Derivative of u, with exponent != 1</span>
+            <span class="c1">#    e.g. u**2, u**-1, u_x**2, (1 + u)**-1, (u_xx)**3</span>
+            <span class="k">for</span> <span class="n">pow_term</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">atoms</span><span class="p">(</span><span class="n">Pow</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">_contains_u</span><span class="p">(</span><span class="n">pow_term</span><span class="o">.</span><span class="n">base</span><span class="p">)</span> <span class="ow">and</span> <span class="n">pow_term</span><span class="o">.</span><span class="n">exp</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">True</span>
+        
+            <span class="c1"># 3. Product containing two or more factors that each involve u or D(u)</span>
+            <span class="c1">#    e.g. u*u_x, u_x*u_xx, u_x*u_y, u*u_xxx</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">Mul</span><span class="p">):</span>
+                <span class="n">u_bearing_factors</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">args</span> <span class="k">if</span> <span class="n">_contains_u</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                <span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">u_bearing_factors</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">True</span>
+        
+            <span class="c1"># 4. Add: recurse into each summand — catches mixed sums like u_x**2 + u*u_xx</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">Add</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">_is_nonlinear_term</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">u_func</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">args</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="kc">True</span>
+        
             <span class="k">return</span> <span class="kc">False</span>
     
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">********************&quot;</span><span class="p">)</span>
@@ -1248,84 +1304,317 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Apply nonlinear terms to the solution using spectral differentiation with dealiasing.</span>
-
-<span class="sd">        This method evaluates all nonlinear terms present in the PDE by substituting spatial </span>
-<span class="sd">        derivatives with their spectral approximations computed via FFT. The dealiasing mask </span>
-<span class="sd">        ensures numerical stability by removing high-frequency components that could lead </span>
-<span class="sd">        to aliasing errors.</span>
-
+<span class="sd">    </span>
+<span class="sd">        This method evaluates all nonlinear contributions present in the PDE at the current</span>
+<span class="sd">        time step. Spatial derivatives appearing in nonlinear expressions are approximated</span>
+<span class="sd">        spectrally via FFT up to third order in 1D and second order (including cross</span>
+<span class="sd">        derivatives) in 2D. A dealiasing mask is applied to u before any nonlinear product</span>
+<span class="sd">        is formed, preventing aliasing errors from energy accumulation at high wavenumbers.</span>
+<span class="sd">    </span>
+<span class="sd">        If no nonlinear terms are registered (self.nonlinear_terms is empty), the method</span>
+<span class="sd">        returns a zero array immediately.</span>
+<span class="sd">    </span>
+<span class="sd">        **Derivative bank:**</span>
+<span class="sd">    </span>
+<span class="sd">            1D:</span>
+<span class="sd">                u_x   = IFFT(i·kₓ         · û)     — ∂ₓu   (first derivative)</span>
+<span class="sd">                u_xx  = IFFT((i·kₓ)²      · û)     — ∂ₓₓu  (second derivative)</span>
+<span class="sd">                u_xxx = IFFT((i·kₓ)³      · û)     — ∂ₓₓₓu (third derivative)</span>
+<span class="sd">    </span>
+<span class="sd">            2D:</span>
+<span class="sd">                u_x   = IFFT(i·kₓ          · û)    — ∂ₓu</span>
+<span class="sd">                u_y   = IFFT(i·kᵧ          · û)    — ∂ᵧu</span>
+<span class="sd">                u_xx  = IFFT((i·kₓ)²       · û)    — ∂ₓₓu</span>
+<span class="sd">                u_yy  = IFFT((i·kᵧ)²       · û)    — ∂ᵧᵧu</span>
+<span class="sd">                u_xy  = IFFT((i·kₓ)(i·kᵧ)  · û)   — ∂ₓᵧu  (mixed cross derivative)</span>
+<span class="sd">    </span>
+<span class="sd">        All derivatives are computed from the same dealiased û, requiring only pointwise</span>
+<span class="sd">        wavenumber multiplications followed by IFFTs — no additional FFT of u is needed.</span>
+<span class="sd">    </span>
+<span class="sd">        **SymPy Derivative normalisation:**</span>
+<span class="sd">            SymPy represents derivatives in several equivalent forms depending on version</span>
+<span class="sd">            and context:</span>
+<span class="sd">                Derivative(u(t, x), x)       → first order,  implicit</span>
+<span class="sd">                Derivative(u(t, x), (x, 2))  → second order, tuple form</span>
+<span class="sd">                Derivative(u(t, x), x, x)    → second order, repeated form</span>
+<span class="sd">            The internal helper _get_diff_order() normalises all forms to (variable, order)</span>
+<span class="sd">            by name-based variable matching, making the substitution robust across SymPy</span>
+<span class="sd">            versions and independently constructed symbol objects.</span>
+<span class="sd">    </span>
+<span class="sd">        **1D procedure:**</span>
+<span class="sd">            1. Transform u to Fourier space and apply the dealiasing mask in-place.</span>
+<span class="sd">            2. Compute the full derivative bank from û.</span>
+<span class="sd">            3. For each symbolic nonlinear term:</span>
+<span class="sd">               - Scan all Derivative atoms and substitute them with the corresponding</span>
+<span class="sd">                 spectral symbol (&#39;u_x&#39;, &#39;u_xx&#39;, &#39;u_xxx&#39;) via _get_diff_order().</span>
+<span class="sd">               - Lambdify the resulting expression over (t, x, u, u_x, u_xx, u_xxx).</span>
+<span class="sd">               - Evaluate numerically on the physical grid and accumulate.</span>
+<span class="sd">    </span>
+<span class="sd">        **2D procedure:**</span>
+<span class="sd">            1. Transform u to Fourier space and apply the dealiasing mask in-place.</span>
+<span class="sd">            2. Compute the full derivative bank (∂ₓ, ∂ᵧ, ∂ₓₓ, ∂ᵧᵧ, ∂ₓᵧ) from û.</span>
+<span class="sd">            3. For each symbolic nonlinear term:</span>
+<span class="sd">               - Substitute Derivative atoms:</span>
+<span class="sd">                   ∂ₓu  → &#39;u_x&#39;,  ∂ᵧu  → &#39;u_y&#39;</span>
+<span class="sd">                   ∂ₓₓu → &#39;u_xx&#39;, ∂ᵧᵧu → &#39;u_yy&#39;, ∂ₓᵧu → &#39;u_xy&#39;</span>
+<span class="sd">               - Lambdify over (t, x, y, u, u_x, u_y, u_xx, u_yy, u_xy).</span>
+<span class="sd">               - Evaluate numerically on the physical grid and accumulate.</span>
+<span class="sd">            4. When two or more independent terms are present, evaluations are</span>
+<span class="sd">               parallelised via ThreadPoolExecutor. For a single term the thread</span>
+<span class="sd">               pool overhead is avoided and evaluation is performed directly.</span>
+<span class="sd">    </span>
+<span class="sd">        **Velocity field variant:**</span>
+<span class="sd">            When is_v=True, self.v_prev is passed as the pointwise field value u_sym</span>
+<span class="sd">            in each lambdified expression instead of u. Spectral derivatives are still</span>
+<span class="sd">            computed from the argument u, so the caller is responsible for passing the</span>
+<span class="sd">            correct array for derivative computation.</span>
+<span class="sd">    </span>
+<span class="sd">        **Aliasing note for high-order terms:**</span>
+<span class="sd">            Nonlinear terms involving second or third derivatives (e.g. u·u_xx, u_x·u_xx)</span>
+<span class="sd">            have a wider effective wavenumber support than first-order terms. The dealiasing</span>
+<span class="sd">            mask on u is necessary but may not be sufficient in strongly nonlinear regimes;</span>
+<span class="sd">            consider tightening self.dealiasing_ratio for such problems.</span>
+<span class="sd">    </span>
+<span class="sd">        **Return scaling:**</span>
+<span class="sd">            The accumulated nonlinear contribution is multiplied by self.dt before</span>
+<span class="sd">            returning, so the caller can add it directly to the time-stepping update</span>
+<span class="sd">            without an extra scaling step.</span>
+<span class="sd">    </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        u : numpy.ndarray</span>
-<span class="sd">            Current solution array on the spatial grid.</span>
-<span class="sd">        is_v : bool</span>
-<span class="sd">            If True, evaluates nonlinear terms for the velocity field v instead of u.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            numpy.ndarray: Array representing the contribution of nonlinear terms multiplied by dt.</span>
-
-<span class="sd">        Notes:</span>
-<span class="sd">        </span>
-<span class="sd">        - In 1D, computes ∂ₓu via FFT and substitutes any derivative term in the nonlinear expressions.</span>
-<span class="sd">        - In 2D, computes ∂ₓu and ∂ᵧu via FFT and performs similar substitutions.</span>
-<span class="sd">        - Uses lambdify to evaluate symbolic nonlinear expressions numerically.</span>
-<span class="sd">        - Derivatives are replaced symbolically with &#39;u_x&#39; and &#39;u_y&#39; before evaluation.</span>
-<span class="sd">        - In 2D, multiple independent nonlinear terms are evaluated in parallel via ThreadPoolExecutor.</span>
+<span class="sd">            Current solution array on the spatial grid. Shape is (Nx,) in 1D or</span>
+<span class="sd">            (Ny, Nx) in 2D. Used for spectral derivative computation and, when</span>
+<span class="sd">            is_v=False, as the pointwise field value in nonlinear expressions.</span>
+<span class="sd">        is_v : bool, optional (default False)</span>
+<span class="sd">            If True, evaluates nonlinear expressions using self.v_prev as the</span>
+<span class="sd">            pointwise field value instead of u. Intended for coupled PDE systems</span>
+<span class="sd">            where nonlinear terms involve a separate velocity field v.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        numpy.ndarray, dtype complex128</span>
+<span class="sd">            Array of shape matching u representing the total nonlinear contribution</span>
+<span class="sd">            scaled by Δt:  Δt · N(uₙ).</span>
+<span class="sd">            Returns a zero array of the same shape and dtype if no nonlinear terms</span>
+<span class="sd">            are present.</span>
+<span class="sd">    </span>
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If self.dim is neither 1 nor 2.</span>
+<span class="sd">            If a 1D term contains a mixed derivative.</span>
+<span class="sd">            If a Derivative atom references an unsupported variable or order.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
-        
+    
         <span class="n">nonlinear_term</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
     
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Symbol</span><span class="p">,</span> <span class="n">Tuple</span> <span class="k">as</span> <span class="n">SympyTuple</span>
+        
+        <span class="k">def</span><span class="w"> </span><span class="nf">_get_diff_order</span><span class="p">(</span><span class="n">deriv</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Normalise a SymPy Derivative atom to (variable_name, order) or None.</span>
+<span class="sd">        </span>
+<span class="sd">            Handles all known SymPy representations robustly:</span>
+<span class="sd">                Derivative(u(t, x), x)        args[1] = Symbol(&#39;x&#39;)</span>
+<span class="sd">                Derivative(u(t, x), (x, 1))   args[1] = sympy.Tuple(Symbol(&#39;x&#39;), Integer(1))</span>
+<span class="sd">                Derivative(u(t, x), (x, 2))   args[1] = sympy.Tuple(Symbol(&#39;x&#39;), Integer(2))</span>
+<span class="sd">                Derivative(u(t, x), x, x)     args[1] = Symbol(&#39;x&#39;), args[2] = Symbol(&#39;x&#39;)</span>
+<span class="sd">        </span>
+<span class="sd">            Variable matching is done by name string to avoid object identity issues</span>
+<span class="sd">            across independently constructed SymPy symbols.</span>
+<span class="sd">        </span>
+<span class="sd">            Returns (variable_name: str, order: int), or None for mixed derivatives.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">variable_name</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">order</span> <span class="o">=</span> <span class="mi">0</span>
+        
+            <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+                <span class="c1"># Tuple form — covers both Python tuple and sympy.Tuple</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="n">SympyTuple</span><span class="p">)):</span>
+                    <span class="n">var_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">arg</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="n">n</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">arg</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="c1"># Plain symbol — implicit order 1</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">Symbol</span><span class="p">):</span>
+                    <span class="n">var_name</span> <span class="o">=</span> <span class="n">arg</span><span class="o">.</span><span class="n">name</span>
+                    <span class="n">n</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">continue</span>
+        
+                <span class="k">if</span> <span class="n">variable_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">variable_name</span> <span class="o">=</span> <span class="n">var_name</span>
+                <span class="k">elif</span> <span class="n">variable_name</span> <span class="o">!=</span> <span class="n">var_name</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># mixed derivative</span>
+                <span class="n">order</span> <span class="o">+=</span> <span class="n">n</span>
+        
+            <span class="k">if</span> <span class="n">variable_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+        
+            <span class="k">return</span> <span class="p">(</span><span class="n">variable_name</span><span class="p">,</span> <span class="n">order</span><span class="p">)</span>
+    
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">name</span>
+    
             <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
             <span class="n">u_hat</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dealiasing_mask</span>
-            <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat</span><span class="p">)</span>
+            <span class="n">u</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat</span><span class="p">)</span>
     
-            <span class="n">u_x_hat</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="o">*</span> <span class="n">u_hat</span>
-            <span class="n">u_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_x_hat</span><span class="p">)</span>
+            <span class="c1"># Derivative bank — all from the same dealiased û</span>
+            <span class="n">u_x</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">((</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span>      <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+            <span class="n">u_xx</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">((</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+            <span class="n">u_xxx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">((</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+    
+            <span class="n">order_map</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="p">(</span><span class="n">x_name</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_x&#39;</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">x_name</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_xx&#39;</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">x_name</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_xxx&#39;</span><span class="p">),</span>
+            <span class="p">}</span>
+    
+            <span class="n">field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="k">if</span> <span class="n">is_v</span> <span class="k">else</span> <span class="n">u</span>
     
             <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">:</span>
                 <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term</span>
                 <span class="k">if</span> <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
                     <span class="k">for</span> <span class="n">deriv</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">atoms</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
-                        <span class="k">if</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">:</span>
-                            <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_x&#39;</span><span class="p">))</span>            
-                <span class="n">term_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_eq</span><span class="p">,</span> <span class="s1">&#39;u_x&#39;</span><span class="p">),</span> <span class="n">term_replaced</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">is_v</span><span class="p">:</span>
-                    <span class="n">nonlinear_term</span> <span class="o">+=</span> <span class="n">term_func</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span><span class="p">,</span> <span class="n">u_x</span><span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">nonlinear_term</span> <span class="o">+=</span> <span class="n">term_func</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">u_x</span><span class="p">)</span>
+                        <span class="n">key</span> <span class="o">=</span> <span class="n">_get_diff_order</span><span class="p">(</span><span class="n">deriv</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;Mixed derivative found in 1D nonlinear term: </span><span class="si">{</span><span class="n">deriv</span><span class="si">}</span><span class="s2">.&quot;</span>
+                            <span class="p">)</span>
+                        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">order_map</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;Unsupported derivative in nonlinear term: </span><span class="si">{</span><span class="n">deriv</span><span class="si">}</span><span class="s2">. &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;Resolved as order </span><span class="si">{</span><span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> w.r.t. &#39;</span><span class="si">{</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;Supported: orders 1, 2, 3 w.r.t. &#39;</span><span class="si">{</span><span class="n">x_name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                            <span class="p">)</span>
+                        <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">order_map</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+    
+                <span class="n">term_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span>
+                    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_eq</span><span class="p">,</span> <span class="s1">&#39;u_x&#39;</span><span class="p">,</span> <span class="s1">&#39;u_xx&#39;</span><span class="p">,</span> <span class="s1">&#39;u_xxx&#39;</span><span class="p">),</span>
+                    <span class="n">term_replaced</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span>
+                <span class="p">)</span>
+                <span class="n">nonlinear_term</span> <span class="o">+=</span> <span class="n">term_func</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">u_x</span><span class="p">,</span> <span class="n">u_xx</span><span class="p">,</span> <span class="n">u_xxx</span><span class="p">)</span>
     
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">x_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">name</span>
+            <span class="n">y_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">name</span>
+    
             <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
             <span class="n">u_hat</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dealiasing_mask</span>
-            <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat</span><span class="p">)</span>
+            <span class="n">u</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat</span><span class="p">)</span>
     
-            <span class="n">u_x_hat</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="o">*</span> <span class="n">u_hat</span>
-            <span class="n">u_y_hat</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span> <span class="o">*</span> <span class="n">u_hat</span>
-            <span class="n">u_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_x_hat</span><span class="p">)</span>
-            <span class="n">u_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_y_hat</span><span class="p">)</span>
-
-            <span class="c1"># Snapshot of the field to be passed to each worker thread</span>
-            <span class="n">u_phys</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="k">if</span> <span class="n">is_v</span> <span class="k">else</span> <span class="n">u</span>
-            <span class="n">X</span><span class="p">,</span> <span class="n">Y</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span>
+            <span class="c1"># Derivative bank — all from the same dealiased û</span>
+            <span class="n">u_x</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">((</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span>                <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+            <span class="n">u_y</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">((</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>                <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+            <span class="n">u_xx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">((</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>           <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+            <span class="n">u_yy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">((</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>           <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+            <span class="n">u_xy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">((</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span> <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+    
+            <span class="n">order_map</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="p">(</span><span class="n">x_name</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_x&#39;</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">y_name</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_y&#39;</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">x_name</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_xx&#39;</span><span class="p">),</span>
+                <span class="p">(</span><span class="n">y_name</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_yy&#39;</span><span class="p">),</span>
+            <span class="p">}</span>
+    
+            <span class="n">u_phys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="k">if</span> <span class="n">is_v</span> <span class="k">else</span> <span class="n">u</span>
+            <span class="n">X</span><span class="p">,</span> <span class="n">Y</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span>
             <span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">u_sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_eq</span>
-
-            <span class="k">def</span><span class="w"> </span><span class="nf">_eval_nl_term</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
-<span class="w">                </span><span class="sd">&quot;&quot;&quot;Evaluate one nonlinear term; called from a thread pool.&quot;&quot;&quot;</span>
+    
+            <span class="k">def</span><span class="w"> </span><span class="nf">_eval_nl_term_old</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Evaluate one nonlinear term; called directly or from a thread pool.&quot;&quot;&quot;</span>
                 <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term</span>
                 <span class="k">if</span> <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
                     <span class="k">for</span> <span class="n">deriv</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">atoms</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
-                        <span class="k">if</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">x_sym</span><span class="p">:</span>
-                            <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_x&#39;</span><span class="p">))</span>
-                        <span class="k">elif</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">y_sym</span><span class="p">:</span>
-                            <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_y&#39;</span><span class="p">))</span>
-                <span class="n">fn</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">u_sym</span><span class="p">,</span> <span class="s1">&#39;u_x&#39;</span><span class="p">,</span> <span class="s1">&#39;u_y&#39;</span><span class="p">),</span> <span class="n">term_replaced</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">fn</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">u_phys</span><span class="p">,</span> <span class="n">u_x</span><span class="p">,</span> <span class="n">u_y</span><span class="p">)</span>
-
-            <span class="c1"># Parallelise only when there are at least 2 independent terms (overhead</span>
-            <span class="c1"># of a thread pool is not worth it for a single term).</span>
+                        <span class="n">key</span> <span class="o">=</span> <span class="n">_get_diff_order</span><span class="p">(</span><span class="n">deriv</span><span class="p">)</span>
+    
+                        <span class="c1"># Mixed derivative ∂ₓᵧ: _get_diff_order returns None</span>
+                        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="n">vars_in_deriv</span> <span class="o">=</span> <span class="p">{</span>
+                                <span class="n">arg</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">arg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+                                <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                            <span class="p">}</span>
+                            <span class="k">if</span> <span class="n">vars_in_deriv</span> <span class="o">==</span> <span class="p">{</span><span class="n">x_name</span><span class="p">,</span> <span class="n">y_name</span><span class="p">}:</span>
+                                <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_xy&#39;</span><span class="p">))</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                                    <span class="sa">f</span><span class="s2">&quot;Unsupported mixed derivative in nonlinear term: </span><span class="si">{</span><span class="n">deriv</span><span class="si">}</span><span class="s2">.&quot;</span>
+                                <span class="p">)</span>
+                            <span class="k">continue</span>
+    
+                        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">order_map</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;Unsupported derivative in nonlinear term: </span><span class="si">{</span><span class="n">deriv</span><span class="si">}</span><span class="s2">. &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;Resolved as order </span><span class="si">{</span><span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> w.r.t. &#39;</span><span class="si">{</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;Supported: orders 1, 2 w.r.t. &#39;</span><span class="si">{</span><span class="n">x_name</span><span class="si">}</span><span class="s2">&#39; or &#39;</span><span class="si">{</span><span class="n">y_name</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;and mixed ∂ₓᵧ.&quot;</span>
+                            <span class="p">)</span>
+                        <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">order_map</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+    
+                <span class="n">fn</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">u_sym</span><span class="p">,</span> <span class="s1">&#39;u_x&#39;</span><span class="p">,</span> <span class="s1">&#39;u_y&#39;</span><span class="p">,</span> <span class="s1">&#39;u_xx&#39;</span><span class="p">,</span> <span class="s1">&#39;u_yy&#39;</span><span class="p">,</span> <span class="s1">&#39;u_xy&#39;</span><span class="p">),</span>
+                    <span class="n">term_replaced</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">fn</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">u_phys</span><span class="p">,</span> <span class="n">u_x</span><span class="p">,</span> <span class="n">u_y</span><span class="p">,</span> <span class="n">u_xx</span><span class="p">,</span> <span class="n">u_yy</span><span class="p">,</span> <span class="n">u_xy</span><span class="p">)</span>
+                
+            <span class="k">def</span><span class="w"> </span><span class="nf">_eval_nl_term</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Evaluate one nonlinear term; called directly or from a thread pool.&quot;&quot;&quot;</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Symbol</span><span class="p">,</span> <span class="n">Tuple</span> <span class="k">as</span> <span class="n">SympyTuple</span>
+            
+                <span class="c1"># Build a replacement mapping: Derivative atom → placeholder Symbol</span>
+                <span class="n">replacement</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">for</span> <span class="n">deriv</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">atoms</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
+                    <span class="n">key</span> <span class="o">=</span> <span class="n">_get_diff_order</span><span class="p">(</span><span class="n">deriv</span><span class="p">)</span>
+            
+                    <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="c1"># Mixed derivative — check which variables are involved</span>
+                        <span class="n">vars_in_deriv</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+                            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="n">SympyTuple</span><span class="p">)):</span>
+                                <span class="n">vars_in_deriv</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">arg</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+                            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">):</span>
+                                <span class="n">vars_in_deriv</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            
+                        <span class="k">if</span> <span class="n">vars_in_deriv</span> <span class="o">==</span> <span class="p">{</span><span class="n">x_name</span><span class="p">,</span> <span class="n">y_name</span><span class="p">}:</span>
+                            <span class="n">replacement</span><span class="p">[</span><span class="n">deriv</span><span class="p">]</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_xy&#39;</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;Unsupported mixed derivative in nonlinear term: </span><span class="si">{</span><span class="n">deriv</span><span class="si">}</span><span class="s2">. &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;Variables found: </span><span class="si">{</span><span class="n">vars_in_deriv</span><span class="si">}</span><span class="s2">. &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;Only ∂ₓᵧ is supported as a mixed derivative.&quot;</span>
+                            <span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">order_map</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Unsupported derivative in nonlinear term: </span><span class="si">{</span><span class="n">deriv</span><span class="si">}</span><span class="s2">. &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;Resolved as order </span><span class="si">{</span><span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> w.r.t. &#39;</span><span class="si">{</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;Supported: orders 1, 2 w.r.t. &#39;</span><span class="si">{</span><span class="n">x_name</span><span class="si">}</span><span class="s2">&#39; or &#39;</span><span class="si">{</span><span class="n">y_name</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;and mixed ∂ₓᵧ.&quot;</span>
+                        <span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">replacement</span><span class="p">[</span><span class="n">deriv</span><span class="p">]</span> <span class="o">=</span> <span class="n">order_map</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            
+                <span class="c1"># Apply all replacements at once using xreplace — exact structural match,</span>
+                <span class="c1"># no ambiguity, no silent misses unlike subs()</span>
+                <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term</span><span class="o">.</span><span class="n">xreplace</span><span class="p">(</span><span class="n">replacement</span><span class="p">)</span>
+            
+                <span class="c1"># Safety check — if any Derivative survived, substitution was incomplete</span>
+                <span class="n">remaining</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">atoms</span><span class="p">(</span><span class="n">Derivative</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">remaining</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Incomplete derivative substitution in nonlinear term.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Original term: </span><span class="si">{</span><span class="n">term</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Unresolved derivatives: </span><span class="si">{</span><span class="n">remaining</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;This likely means a derivative involves an unsupported variable or order.&quot;</span>
+                    <span class="p">)</span>
+            
+                <span class="n">fn</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">u_sym</span><span class="p">,</span> <span class="s1">&#39;u_x&#39;</span><span class="p">,</span> <span class="s1">&#39;u_y&#39;</span><span class="p">,</span> <span class="s1">&#39;u_xx&#39;</span><span class="p">,</span> <span class="s1">&#39;u_yy&#39;</span><span class="p">,</span> <span class="s1">&#39;u_xy&#39;</span><span class="p">),</span>
+                    <span class="n">term_replaced</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">fn</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">u_phys</span><span class="p">,</span> <span class="n">u_x</span><span class="p">,</span> <span class="n">u_y</span><span class="p">,</span> <span class="n">u_xx</span><span class="p">,</span> <span class="n">u_yy</span><span class="p">,</span> <span class="n">u_xy</span><span class="p">)</span>
+    
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
                 <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
@@ -1335,8 +1624,10 @@
                 <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span><span class="p">:</span>
                     <span class="n">nonlinear_term</span> <span class="o">+=</span> <span class="n">_eval_nl_term</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported spatial dimension.&quot;</span><span class="p">)</span>
-        
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Unsupported spatial dimension: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2">. Expected 1 or 2.&quot;</span>
+            <span class="p">)</span>
+    
         <span class="k">return</span> <span class="n">nonlinear_term</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_symbol_tables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1547,41 +1838,59 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_step_order1_with_psi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_contribution</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform one time step of a first-order evolution using a pseudo-differential operator.</span>
-<span class="sd">    </span>
-<span class="sd">        This method updates the solution field using an exponential integrator or explicit Euler scheme,</span>
+<span class="sd">        </span>
+<span class="sd">        This method updates the solution field using an exponential integrator scheme,</span>
 <span class="sd">        depending on boundary conditions and the structure of the pseudo-differential symbol.</span>
 <span class="sd">        It supports:</span>
-<span class="sd">        - Linear dynamics via pseudo-differential operator L (possibly nonlocal)</span>
+<span class="sd">        - Linear dynamics via pseudo-differential operator L (possibly nonlocal, Kohn-Nirenberg quantization)</span>
 <span class="sd">        - Nonlinear terms computed via spectral differentiation</span>
 <span class="sd">        - External source contributions</span>
-<span class="sd">    </span>
+<span class="sd">        </span>
 <span class="sd">        The update follows **three distinct computational paths**:</span>
-<span class="sd">    </span>
-<span class="sd">        1. **Periodic boundaries + diagonalizable symbol**  </span>
-<span class="sd">           Symbol is constant in space → use direct Fourier-based exponential integrator:  </span>
+<span class="sd">        </span>
+<span class="sd">        1. **Periodic boundaries + diagonalizable symbol**</span>
+<span class="sd">           Symbol is spatially constant → exact Fourier-based exponential integrator:</span>
+<span class="sd">               uₙ₊₁ = e⁻ᴸΔᵗ ⋅ uₙ + Δt ⋅ (N(uₙ) + F)</span>
+<span class="sd">        </span>
+<span class="sd">        2. **Non-periodic boundaries + spatially uniform symbol**</span>
+<span class="sd">           General ETD1 scheme in Fourier space:</span>
 <span class="sd">               uₙ₊₁ = e⁻ᴸΔᵗ ⋅ uₙ + Δt ⋅ φ₁(−LΔt) ⋅ (N(uₙ) + F)</span>
-<span class="sd">    </span>
-<span class="sd">        2. **Non-diagonalizable but spatially uniform symbol**  </span>
-<span class="sd">           General exponential time differencing of order 1:  </span>
-<span class="sd">               uₙ₊₁ = eᴸΔᵗ ⋅ uₙ + Δt ⋅ φ₁(LΔt) ⋅ (N(uₙ) + F)</span>
-<span class="sd">    </span>
-<span class="sd">        3. **Spatially varying symbol**  </span>
-<span class="sd">           No frequency diagonalization available → use explicit Euler:  </span>
-<span class="sd">               uₙ₊₁ = uₙ + Δt ⋅ (L(uₙ) + N(uₙ) + F)</span>
-<span class="sd">    </span>
+<span class="sd">        </span>
+<span class="sd">        3. **Spatially varying symbol (Kohn-Nirenberg regime)**</span>
+<span class="sd">           Full diagonalization is unavailable. A single call to _apply_psiOp yields</span>
+<span class="sd">           the exact operator action L(uₙ); the pointwise symbol σ(x,ξ) then serves</span>
+<span class="sd">           as a local integrating factor. The update decomposes as:</span>
+<span class="sd">        </span>
+<span class="sd">               uₙ₊₁ = e⁻σΔᵗ ⋅ uₙ + Δt ⋅ φ₁(−σΔt) ⋅ (N(uₙ) + F + R(uₙ))</span>
+<span class="sd">        </span>
+<span class="sd">           where the residual correction:</span>
+<span class="sd">        </span>
+<span class="sd">               R(uₙ) = L(uₙ) + σ ⋅ uₙ</span>
+<span class="sd">        </span>
+<span class="sd">           accounts for the difference between the full nonlocal operator and its</span>
+<span class="sd">           pointwise-diagonal approximation. This correction vanishes when σ is</span>
+<span class="sd">           spatially uniform (recovering exact ETD1), and remains small under the</span>
+<span class="sd">           Kohn-Nirenberg slow-variation assumption on the symbol.</span>
+<span class="sd">           A spectral filter is applied after the update to control aliasing.</span>
+<span class="sd">           This path requires exactly one call to _apply_psiOp per time step.</span>
+<span class="sd">        </span>
 <span class="sd">        where:</span>
-<span class="sd">            L(uₙ) = linear part via pseudo-differential operator</span>
-<span class="sd">            N(uₙ) = nonlinear contribution at current time step</span>
-<span class="sd">            F     = external source term</span>
-<span class="sd">            Δt    = time step size</span>
-<span class="sd">            φ₁(z) = (eᶻ − 1)/z (with safe handling near z=0)</span>
-<span class="sd">    </span>
+<span class="sd">            L(uₙ)    = full linear action via Kohn-Nirenberg pseudo-differential operator</span>
+<span class="sd">            σ(x,ξ)  = pointwise symbol evaluated on the spatial grid (diagonal approximation of L)</span>
+<span class="sd">            R(uₙ)   = L(uₙ) + σ·uₙ, residual between true operator and diagonal approximation</span>
+<span class="sd">            N(uₙ)   = nonlinear contribution at current time step</span>
+<span class="sd">            F        = external source term</span>
+<span class="sd">            Δt       = time step size</span>
+<span class="sd">            φ₁(z)   = (eᶻ − 1)/z (analytically continued at z=0 as φ₁(0) = 1)</span>
+<span class="sd">        </span>
 <span class="sd">        Boundary conditions are applied after each update to ensure consistency.</span>
-<span class="sd">    </span>
+<span class="sd">        </span>
 <span class="sd">        Parameters</span>
-<span class="sd">            source_contribution (np.ndarray): Array representing the external source term at current time step.</span>
+<span class="sd">            source_contribution (np.ndarray): Array representing the external source term at the</span>
+<span class="sd">                                              current time step. Pass a scalar 0 to indicate no source;</span>
+<span class="sd">                                              it will be broadcast to a zero array internally.</span>
 <span class="sd">                                              Must match the spatial dimensions of self.u_prev.</span>
-<span class="sd">    </span>
+<span class="sd">        </span>
 <span class="sd">        Returns:</span>
 <span class="sd">            np.ndarray: Updated solution array after one time step.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1641,10 +1950,27 @@
                 <span class="n">u_hat_new</span> <span class="o">=</span> <span class="n">exp_L</span> <span class="o">*</span> <span class="n">u_hat</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="n">phi1_L</span> <span class="o">*</span> <span class="p">(</span><span class="n">u_nl_hat</span> <span class="o">+</span> <span class="n">source_hat</span><span class="p">)</span>
                 <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat_new</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># if the symbol depends on spatial variables : Euler method</span>
                 <span class="n">Lu_prev</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
                 <span class="n">u_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
-                <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="p">(</span><span class="n">Lu_prev</span> <span class="o">+</span> <span class="n">u_nl</span> <span class="o">+</span> <span class="n">source</span><span class="p">)</span>
+                
+                <span class="c1"># Use the symbol pointwise as an approximate integrating factor</span>
+                <span class="c1"># This is exact when the symbol is spatially constant, and a good</span>
+                <span class="c1"># approximation when it varies slowly — which is the Kohn-Nirenberg regime</span>
+                <span class="n">sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">combined_symbol</span>  <span class="c1"># shape matches u_prev</span>
+                <span class="n">exp_sigma</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="n">sigma</span><span class="p">)</span>
+                <span class="n">phi1_sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-10</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">exp_sigma</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="n">sigma</span><span class="p">),</span>
+                    <span class="mf">1.0</span>
+                <span class="p">)</span>
+                
+                <span class="c1"># ETD1-like update using pointwise symbol (no extra _apply_psiOp call)</span>
+                <span class="c1"># Lu_prev already incorporates the full nonlocal action;</span>
+                <span class="c1"># the exponential factor corrects the linear stiffness locally</span>
+                <span class="n">u_new</span> <span class="o">=</span> <span class="n">exp_sigma</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="n">phi1_sigma</span> <span class="o">*</span> <span class="p">(</span><span class="n">u_nl</span> <span class="o">+</span> <span class="n">source</span><span class="p">)</span>
+                <span class="n">u_new</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">*</span> <span class="n">phi1_sigma</span> <span class="o">*</span> <span class="p">(</span><span class="n">Lu_prev</span> <span class="o">+</span> <span class="n">sigma</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
+                <span class="c1">#                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>
+                <span class="c1">#                 correction: full L·u minus the diagonal approximation</span>
                 <span class="n">u_new</span> <span class="o">=</span> <span class="n">_spectral_filter</span><span class="p">(</span><span class="n">u_new</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dealiasing_ratio</span><span class="p">)</span>
         <span class="c1"># Applying boundary conditions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_apply_boundary</span><span class="p">(</span><span class="n">u_new</span><span class="p">)</span>
@@ -2930,11 +3256,10 @@
                 <span class="c1"># remove previous contour if exists</span>
                 <span class="k">if</span> <span class="n">overlay</span> <span class="o">==</span> <span class="s1">&#39;contour&#39;</span><span class="p">:</span>
                     <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">update_im</span><span class="p">,</span> <span class="s1">&#39;contour_art&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="k">for</span> <span class="n">coll</span> <span class="ow">in</span> <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="o">.</span><span class="n">collections</span><span class="p">:</span>
-                            <span class="k">try</span><span class="p">:</span>
-                                <span class="n">coll</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
-                            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                                <span class="k">pass</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+                        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+                            <span class="k">pass</span>
                         <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="o">=</span> <span class="kc">None</span>
                     <span class="c1"># draw new contours (use meshgrid coords)</span>
                     <span class="k">try</span><span class="p">:</span>
@@ -2971,7 +3296,9 @@
                 <span class="c1"># return main image plus any overlay artists present so Matplotlib can redraw them</span>
                 <span class="n">artists</span> <span class="o">=</span> <span class="p">[</span><span class="n">im</span><span class="p">]</span>
                 <span class="k">if</span> <span class="n">overlay</span> <span class="o">==</span> <span class="s1">&#39;contour&#39;</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">update_im</span><span class="p">,</span> <span class="s1">&#39;contour_art&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">artists</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="o">.</span><span class="n">collections</span><span class="p">)</span>
+                    <span class="n">artists</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="o">.</span><span class="n">collections</span>
+                                   <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="p">,</span> <span class="s1">&#39;collections&#39;</span><span class="p">)</span>
+                                   <span class="k">else</span> <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="o">.</span><span class="n">get_paths</span><span class="p">()</span> <span class="ow">and</span> <span class="p">[</span><span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="p">])</span>
                 <span class="k">if</span> <span class="n">overlay</span> <span class="o">==</span> <span class="s1">&#39;front&#39;</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">update_im</span><span class="p">,</span> <span class="s1">&#39;scatter_art&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">update_im</span><span class="o">.</span><span class="n">scatter_art</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">artists</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">update_im</span><span class="o">.</span><span class="n">scatter_art</span><span class="p">)</span>
                 <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">artists</span><span class="p">)</span>
