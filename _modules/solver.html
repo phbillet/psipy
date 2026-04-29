@@ -46,6 +46,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../metric_catalogue.html">metric_catalogue</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
@@ -2930,11 +2931,10 @@
                 <span class="c1"># remove previous contour if exists</span>
                 <span class="k">if</span> <span class="n">overlay</span> <span class="o">==</span> <span class="s1">&#39;contour&#39;</span><span class="p">:</span>
                     <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">update_im</span><span class="p">,</span> <span class="s1">&#39;contour_art&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="k">for</span> <span class="n">coll</span> <span class="ow">in</span> <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="o">.</span><span class="n">collections</span><span class="p">:</span>
-                            <span class="k">try</span><span class="p">:</span>
-                                <span class="n">coll</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
-                            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                                <span class="k">pass</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+                        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+                            <span class="k">pass</span>
                         <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="o">=</span> <span class="kc">None</span>
                     <span class="c1"># draw new contours (use meshgrid coords)</span>
                     <span class="k">try</span><span class="p">:</span>
@@ -2971,7 +2971,9 @@
                 <span class="c1"># return main image plus any overlay artists present so Matplotlib can redraw them</span>
                 <span class="n">artists</span> <span class="o">=</span> <span class="p">[</span><span class="n">im</span><span class="p">]</span>
                 <span class="k">if</span> <span class="n">overlay</span> <span class="o">==</span> <span class="s1">&#39;contour&#39;</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">update_im</span><span class="p">,</span> <span class="s1">&#39;contour_art&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">artists</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="o">.</span><span class="n">collections</span><span class="p">)</span>
+                    <span class="n">artists</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="o">.</span><span class="n">collections</span>
+                                   <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="p">,</span> <span class="s1">&#39;collections&#39;</span><span class="p">)</span>
+                                   <span class="k">else</span> <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="o">.</span><span class="n">get_paths</span><span class="p">()</span> <span class="ow">and</span> <span class="p">[</span><span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span><span class="p">])</span>
                 <span class="k">if</span> <span class="n">overlay</span> <span class="o">==</span> <span class="s1">&#39;front&#39;</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">update_im</span><span class="p">,</span> <span class="s1">&#39;scatter_art&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">update_im</span><span class="o">.</span><span class="n">scatter_art</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">artists</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">update_im</span><span class="o">.</span><span class="n">scatter_art</span><span class="p">)</span>
                 <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">artists</span><span class="p">)</span>
