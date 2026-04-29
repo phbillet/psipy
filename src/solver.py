@@ -2827,11 +2827,10 @@ class PDESolver:
                 # remove previous contour if exists
                 if overlay == 'contour':
                     if hasattr(update_im, 'contour_art') and update_im.contour_art is not None:
-                        for coll in update_im.contour_art.collections:
-                            try:
-                                coll.remove()
-                            except Exception:
-                                pass
+                        try:
+                            update_im.contour_art.remove()
+                        except (ValueError, AttributeError):
+                            pass
                         update_im.contour_art = None
                     # draw new contours (use meshgrid coords)
                     try:
@@ -2868,7 +2867,9 @@ class PDESolver:
                 # return main image plus any overlay artists present so Matplotlib can redraw them
                 artists = [im]
                 if overlay == 'contour' and hasattr(update_im, 'contour_art') and update_im.contour_art is not None:
-                    artists.extend(update_im.contour_art.collections)
+                    artists.extend(update_im.contour_art.collections
+                                   if hasattr(update_im.contour_art, 'collections')
+                                   else update_im.contour_art.get_paths() and [update_im.contour_art])
                 if overlay == 'front' and hasattr(update_im, 'scatter_art') and update_im.scatter_art is not None:
                     artists.append(update_im.scatter_art)
                 return tuple(artists)

@@ -1258,7 +1258,6 @@ class PropagatorBridge:
         bridge = PsiOpFIOBridge(exp_op, self.lam, **self.bridge_kwargs)
         return bridge.evaluate_grid(x_grid, u0_phase_sym, u0_amp_sym)
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 #  CompositionBridge  --  P∘Q evaluated via asymptotic composition
 # ─────────────────────────────────────────────────────────────────────────────
