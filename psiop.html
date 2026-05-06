@@ -65,7 +65,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.p_func"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.p_func</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.animate_singularity"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.animate_singularity()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.apply"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.apply_old"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply_old()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.asymptotic_expansion"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.asymptotic_expansion()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.clear_cache"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.clear_cache()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.commutator_symbolic"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.commutator_symbolic()</span></code></a></li>
@@ -341,9 +340,10 @@ kernel is needed.</p>
 </section>
 <section id="dispatch-logic">
 <h2>Dispatch logic<a class="headerlink" href="#dispatch-logic" title="Link to this heading"></a></h2>
-<p>if not spatial and periodic  : FFT multiplier (fast path)
-elif periodic                : kohn_nirenberg_fft
-elif dirichlet               : kohn_nirenberg_nonperiodic</p>
+<p>Dispatch Logic:</p>
+<p>if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]</p>
+<p>elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)</p>
+<p>elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)</p>
 <dl class="field-list simple">
 <dt class="field-odd">param u<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Function to which the operator is applied.</p>
@@ -424,49 +424,6 @@ The series is exact and finite for polynomial symbols.</p>
 </dd>
 </dl>
 </section>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.apply_old">
-<span class="sig-name descname"><span class="pre">apply_old</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary_condition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'periodic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dealiasing_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'gaussian'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">space_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.apply_old"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.apply_old" title="Link to this definition"></a></dt>
-<dd><p>Apply the pseudo-differential operator to the input field u.</p>
-<p>This method dispatches the application of the pseudo-differential operator based on:</p>
-<ul class="simple">
-<li><p>Whether the symbol is spatially dependent (x/y)</p></li>
-<li><p>The boundary condition in use (periodic or dirichlet)</p></li>
-</ul>
-<p>Supported operations:</p>
-<ul class="simple">
-<li><p>Constant-coefficient symbols: applied via Fourier multiplication.</p></li>
-<li><p>Spatially varying symbols: applied via Kohn–Nirenberg quantization.</p></li>
-<li><p>Dirichlet boundary conditions: handled with non-periodic convolution-like quantization.</p></li>
-</ul>
-<p>Dispatch Logic:</p>
-<p>if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]</p>
-<p>elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)</p>
-<p>elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>u</strong> (<em>ndarray</em>) – Function to which the operator is applied</p></li>
-<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grid in x direction</p></li>
-<li><p><strong>kx</strong> (<em>ndarray</em>) – Frequency grid in x direction</p></li>
-<li><p><strong>boundary_condition</strong> (<em>str</em>) – ‘periodic’ or ‘dirichlet’</p></li>
-<li><p><strong>y_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Spatial grid in y direction (for 2D)</p></li>
-<li><p><strong>ky</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Frequency grid in y direction (for 2D)</p></li>
-<li><p><strong>dealiasing_mask</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Dealiasing mask</p></li>
-<li><p><strong>freq_window</strong> (<em>str</em>) – Frequency windowing (‘gaussian’ or ‘hann’)</p></li>
-<li><p><strong>clamp</strong> (<em>float</em>) – Clamp symbol values to [-clamp, clamp]</p></li>
-<li><p><strong>space_window</strong> (<em>bool</em>) – Apply spatial windowing</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Result of applying the operator</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>ndarray</p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py method">
