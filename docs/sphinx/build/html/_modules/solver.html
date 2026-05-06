@@ -46,7 +46,6 @@
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../metric_catalogue.html">metric_catalogue</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
@@ -1522,42 +1521,6 @@
             <span class="n">u_phys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="k">if</span> <span class="n">is_v</span> <span class="k">else</span> <span class="n">u</span>
             <span class="n">X</span><span class="p">,</span> <span class="n">Y</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span>
             <span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">u_sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_eq</span>
-    
-            <span class="k">def</span><span class="w"> </span><span class="nf">_eval_nl_term_old</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
-<span class="w">                </span><span class="sd">&quot;&quot;&quot;Evaluate one nonlinear term; called directly or from a thread pool.&quot;&quot;&quot;</span>
-                <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term</span>
-                <span class="k">if</span> <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
-                    <span class="k">for</span> <span class="n">deriv</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">atoms</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
-                        <span class="n">key</span> <span class="o">=</span> <span class="n">_get_diff_order</span><span class="p">(</span><span class="n">deriv</span><span class="p">)</span>
-    
-                        <span class="c1"># Mixed derivative ∂ₓᵧ: _get_diff_order returns None</span>
-                        <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                            <span class="n">vars_in_deriv</span> <span class="o">=</span> <span class="p">{</span>
-                                <span class="n">arg</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">arg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
-                                <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">deriv</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
-                            <span class="p">}</span>
-                            <span class="k">if</span> <span class="n">vars_in_deriv</span> <span class="o">==</span> <span class="p">{</span><span class="n">x_name</span><span class="p">,</span> <span class="n">y_name</span><span class="p">}:</span>
-                                <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;u_xy&#39;</span><span class="p">))</span>
-                            <span class="k">else</span><span class="p">:</span>
-                                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                                    <span class="sa">f</span><span class="s2">&quot;Unsupported mixed derivative in nonlinear term: </span><span class="si">{</span><span class="n">deriv</span><span class="si">}</span><span class="s2">.&quot;</span>
-                                <span class="p">)</span>
-                            <span class="k">continue</span>
-    
-                        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">order_map</span><span class="p">:</span>
-                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                                <span class="sa">f</span><span class="s2">&quot;Unsupported derivative in nonlinear term: </span><span class="si">{</span><span class="n">deriv</span><span class="si">}</span><span class="s2">. &quot;</span>
-                                <span class="sa">f</span><span class="s2">&quot;Resolved as order </span><span class="si">{</span><span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> w.r.t. &#39;</span><span class="si">{</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
-                                <span class="sa">f</span><span class="s2">&quot;Supported: orders 1, 2 w.r.t. &#39;</span><span class="si">{</span><span class="n">x_name</span><span class="si">}</span><span class="s2">&#39; or &#39;</span><span class="si">{</span><span class="n">y_name</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
-                                <span class="sa">f</span><span class="s2">&quot;and mixed ∂ₓᵧ.&quot;</span>
-                            <span class="p">)</span>
-                        <span class="n">term_replaced</span> <span class="o">=</span> <span class="n">term_replaced</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">order_map</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
-    
-                <span class="n">fn</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span>
-                    <span class="p">(</span><span class="n">t_sym</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">u_sym</span><span class="p">,</span> <span class="s1">&#39;u_x&#39;</span><span class="p">,</span> <span class="s1">&#39;u_y&#39;</span><span class="p">,</span> <span class="s1">&#39;u_xx&#39;</span><span class="p">,</span> <span class="s1">&#39;u_yy&#39;</span><span class="p">,</span> <span class="s1">&#39;u_xy&#39;</span><span class="p">),</span>
-                    <span class="n">term_replaced</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span>
-                <span class="p">)</span>
-                <span class="k">return</span> <span class="n">fn</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">u_phys</span><span class="p">,</span> <span class="n">u_x</span><span class="p">,</span> <span class="n">u_y</span><span class="p">,</span> <span class="n">u_xx</span><span class="p">,</span> <span class="n">u_yy</span><span class="p">,</span> <span class="n">u_xy</span><span class="p">)</span>
                 
             <span class="k">def</span><span class="w"> </span><span class="nf">_eval_nl_term</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
 <span class="w">                </span><span class="sd">&quot;&quot;&quot;Evaluate one nonlinear term; called directly or from a thread pool.&quot;&quot;&quot;</span>

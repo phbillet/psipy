@@ -1432,42 +1432,6 @@ class PDESolver:
             u_phys = self.v_prev if is_v else u
             X, Y   = self.X, self.Y
             t_sym, x_sym, y_sym, u_sym = self.t, self.x, self.y, self.u_eq
-    
-            def _eval_nl_term_old(term):
-                """Evaluate one nonlinear term; called directly or from a thread pool."""
-                term_replaced = term
-                if term.has(Derivative):
-                    for deriv in term.atoms(Derivative):
-                        key = _get_diff_order(deriv)
-    
-                        # Mixed derivative ∂ₓᵧ: _get_diff_order returns None
-                        if key is None:
-                            vars_in_deriv = {
-                                arg.name if hasattr(arg, 'name') else arg[0].name
-                                for arg in deriv.args[1:]
-                            }
-                            if vars_in_deriv == {x_name, y_name}:
-                                term_replaced = term_replaced.subs(deriv, symbols('u_xy'))
-                            else:
-                                raise ValueError(
-                                    f"Unsupported mixed derivative in nonlinear term: {deriv}."
-                                )
-                            continue
-    
-                        if key not in order_map:
-                            raise ValueError(
-                                f"Unsupported derivative in nonlinear term: {deriv}. "
-                                f"Resolved as order {key[1]} w.r.t. '{key[0]}'. "
-                                f"Supported: orders 1, 2 w.r.t. '{x_name}' or '{y_name}', "
-                                f"and mixed ∂ₓᵧ."
-                            )
-                        term_replaced = term_replaced.subs(deriv, order_map[key])
-    
-                fn = lambdify(
-                    (t_sym, x_sym, y_sym, u_sym, 'u_x', 'u_y', 'u_xx', 'u_yy', 'u_xy'),
-                    term_replaced, 'numpy'
-                )
-                return fn(0, X, Y, u_phys, u_x, u_y, u_xx, u_yy, u_xy)
                 
             def _eval_nl_term(term):
                 """Evaluate one nonlinear term; called directly or from a thread pool."""

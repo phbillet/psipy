@@ -46,7 +46,6 @@
 <li class="toctree-l1"><a class="reference internal" href="../fio_bridge.html">fio_bridge</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../geometry.html">geometry</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../metric_catalogue.html">metric_catalogue</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
@@ -385,9 +384,10 @@
 <span class="sd">     </span>
 <span class="sd">        Dispatch logic</span>
 <span class="sd">        --------------</span>
-<span class="sd">        if not spatial and periodic  : FFT multiplier (fast path)</span>
-<span class="sd">        elif periodic                : kohn_nirenberg_fft</span>
-<span class="sd">        elif dirichlet               : kohn_nirenberg_nonperiodic</span>
+<span class="sd">        Dispatch Logic:\n</span>
+<span class="sd">        if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n</span>
+<span class="sd">        elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n</span>
+<span class="sd">        elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n</span>
 <span class="sd">     </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -480,112 +480,6 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid boundary condition &#39;</span><span class="si">{</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="PseudoDifferentialOperator.apply_old">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.apply_old">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">apply_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">boundary_condition</span><span class="o">=</span><span class="s1">&#39;periodic&#39;</span><span class="p">,</span> 
-              <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dealiasing_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-              <span class="n">freq_window</span><span class="o">=</span><span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span> <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Apply the pseudo-differential operator to the input field u.</span>
-<span class="sd">    </span>
-<span class="sd">        This method dispatches the application of the pseudo-differential operator based on:</span>
-<span class="sd">        </span>
-<span class="sd">        - Whether the symbol is spatially dependent (x/y)</span>
-<span class="sd">        - The boundary condition in use (periodic or dirichlet)</span>
-<span class="sd">    </span>
-<span class="sd">        Supported operations:</span>
-<span class="sd">        </span>
-<span class="sd">        - Constant-coefficient symbols: applied via Fourier multiplication.</span>
-<span class="sd">        - Spatially varying symbols: applied via Kohn–Nirenberg quantization.</span>
-<span class="sd">        - Dirichlet boundary conditions: handled with non-periodic convolution-like quantization.</span>
-<span class="sd">    </span>
-<span class="sd">        Dispatch Logic:\n</span>
-<span class="sd">        if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n</span>
-<span class="sd">        elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n</span>
-<span class="sd">        elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n</span>
-<span class="sd">        </span>
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        u : ndarray</span>
-<span class="sd">            Function to which the operator is applied</span>
-<span class="sd">        x_grid : ndarray</span>
-<span class="sd">            Spatial grid in x direction</span>
-<span class="sd">        kx : ndarray</span>
-<span class="sd">            Frequency grid in x direction</span>
-<span class="sd">        boundary_condition : str</span>
-<span class="sd">            &#39;periodic&#39; or &#39;dirichlet&#39;</span>
-<span class="sd">        y_grid : ndarray, optional</span>
-<span class="sd">            Spatial grid in y direction (for 2D)</span>
-<span class="sd">        ky : ndarray, optional</span>
-<span class="sd">            Frequency grid in y direction (for 2D)</span>
-<span class="sd">        dealiasing_mask : ndarray, optional</span>
-<span class="sd">            Dealiasing mask</span>
-<span class="sd">        freq_window : str</span>
-<span class="sd">            Frequency windowing (&#39;gaussian&#39; or &#39;hann&#39;)</span>
-<span class="sd">        clamp : float</span>
-<span class="sd">            Clamp symbol values to [-clamp, clamp]</span>
-<span class="sd">        space_window : bool</span>
-<span class="sd">            Apply spatial windowing</span>
-<span class="sd">            </span>
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        ndarray</span>
-<span class="sd">            Result of applying the operator</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># Check if symbol depends on spatial variables</span>
-        <span class="n">is_spatial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_spatial_dependent</span><span class="p">()</span>
-            
-        <span class="c1"># Case 1: Constant symbol with periodic BC (fast path)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_spatial</span> <span class="ow">and</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;periodic&#39;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_constant_fft</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">dealiasing_mask</span><span class="p">)</span>
-        
-        <span class="c1"># Case 2: Spatial symbol with periodic BC</span>
-        <span class="k">elif</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;periodic&#39;</span><span class="p">:</span>
-            <span class="n">symbol_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_symbol_func</span><span class="p">()</span>
-            <span class="k">return</span> <span class="n">kohn_nirenberg_fft</span><span class="p">(</span>
-                <span class="n">u_vals</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
-                <span class="n">symbol_func</span><span class="o">=</span><span class="n">symbol_func</span><span class="p">,</span>
-                <span class="n">x_grid</span><span class="o">=</span><span class="n">x_grid</span><span class="p">,</span>
-                <span class="n">kx</span><span class="o">=</span><span class="n">kx</span><span class="p">,</span>
-                <span class="n">fft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">,</span>
-                <span class="n">ifft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">,</span>
-                <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>
-                <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span>
-                <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
-                <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
-                <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
-                <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span>
-            <span class="p">)</span>
-        
-        <span class="c1"># Case 3: Dirichlet BC (non-periodic)</span>
-        <span class="k">elif</span> <span class="p">(</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;dirichlet&#39;</span> <span class="ow">or</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;neumann&#39;</span><span class="p">):</span>
-            <span class="n">symbol_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_symbol_func</span><span class="p">()</span>
-            
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
-                    <span class="n">u_vals</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
-                    <span class="n">x_grid</span><span class="o">=</span><span class="n">x_grid</span><span class="p">,</span>
-                    <span class="n">xi_grid</span><span class="o">=</span><span class="n">kx</span><span class="p">,</span>
-                    <span class="n">symbol_func</span><span class="o">=</span><span class="n">symbol_func</span><span class="p">,</span>
-                    <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
-                    <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
-                    <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span>
-                <span class="p">)</span>
-            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
-                    <span class="n">u_vals</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
-                    <span class="n">x_grid</span><span class="o">=</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">),</span>
-                    <span class="n">xi_grid</span><span class="o">=</span><span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">),</span>
-                    <span class="n">symbol_func</span><span class="o">=</span><span class="n">symbol_func</span><span class="p">,</span>
-                    <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
-                    <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
-                    <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span>
-                <span class="p">)</span>
-        
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid boundary condition &#39;</span><span class="si">{</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
-
-    
     <span class="k">def</span><span class="w"> </span><span class="nf">_is_spatial_dependent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Check if the symbol depends on spatial variables.</span>

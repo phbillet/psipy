@@ -290,9 +290,10 @@ class PseudoDifferentialOperator:
      
         Dispatch logic
         --------------
-        if not spatial and periodic  : FFT multiplier (fast path)
-        elif periodic                : kohn_nirenberg_fft
-        elif dirichlet               : kohn_nirenberg_nonperiodic
+        Dispatch Logic:\n
+        if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n
+        elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n
+        elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n
      
         Parameters
         ----------
@@ -384,109 +385,6 @@ class PseudoDifferentialOperator:
      
         raise ValueError(f"Invalid boundary condition '{boundary_condition}'")
 
-    def apply_old(self, u, x_grid, kx, boundary_condition='periodic', 
-              y_grid=None, ky=None, dealiasing_mask=None,
-              freq_window='gaussian', clamp=1e6, space_window=False):
-        """
-        Apply the pseudo-differential operator to the input field u.
-    
-        This method dispatches the application of the pseudo-differential operator based on:
-        
-        - Whether the symbol is spatially dependent (x/y)
-        - The boundary condition in use (periodic or dirichlet)
-    
-        Supported operations:
-        
-        - Constant-coefficient symbols: applied via Fourier multiplication.
-        - Spatially varying symbols: applied via Kohn–Nirenberg quantization.
-        - Dirichlet boundary conditions: handled with non-periodic convolution-like quantization.
-    
-        Dispatch Logic:\n
-        if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n
-        elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n
-        elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n
-        
-        Parameters
-        ----------
-        u : ndarray
-            Function to which the operator is applied
-        x_grid : ndarray
-            Spatial grid in x direction
-        kx : ndarray
-            Frequency grid in x direction
-        boundary_condition : str
-            'periodic' or 'dirichlet'
-        y_grid : ndarray, optional
-            Spatial grid in y direction (for 2D)
-        ky : ndarray, optional
-            Frequency grid in y direction (for 2D)
-        dealiasing_mask : ndarray, optional
-            Dealiasing mask
-        freq_window : str
-            Frequency windowing ('gaussian' or 'hann')
-        clamp : float
-            Clamp symbol values to [-clamp, clamp]
-        space_window : bool
-            Apply spatial windowing
-            
-        Returns
-        -------
-        ndarray
-            Result of applying the operator
-        """
-        # Check if symbol depends on spatial variables
-        is_spatial = self._is_spatial_dependent()
-            
-        # Case 1: Constant symbol with periodic BC (fast path)
-        if not is_spatial and boundary_condition == 'periodic':
-            return self._apply_constant_fft(u, x_grid, kx, y_grid, ky, dealiasing_mask)
-        
-        # Case 2: Spatial symbol with periodic BC
-        elif boundary_condition == 'periodic':
-            symbol_func = self._get_symbol_func()
-            return kohn_nirenberg_fft(
-                u_vals=u,
-                symbol_func=symbol_func,
-                x_grid=x_grid,
-                kx=kx,
-                fft_func=self.fft,
-                ifft_func=self.ifft,
-                dim=self.dim,
-                y_grid=y_grid,
-                ky=ky,
-                freq_window=freq_window,
-                clamp=clamp,
-                space_window=space_window
-            )
-        
-        # Case 3: Dirichlet BC (non-periodic)
-        elif (boundary_condition == 'dirichlet' or boundary_condition == 'neumann'):
-            symbol_func = self._get_symbol_func()
-            
-            if self.dim == 1:
-                return kohn_nirenberg_nonperiodic(
-                    u_vals=u,
-                    x_grid=x_grid,
-                    xi_grid=kx,
-                    symbol_func=symbol_func,
-                    freq_window=freq_window,
-                    clamp=clamp,
-                    space_window=space_window
-                )
-            elif self.dim == 2:
-                return kohn_nirenberg_nonperiodic(
-                    u_vals=u,
-                    x_grid=(x_grid, y_grid),
-                    xi_grid=(kx, ky),
-                    symbol_func=symbol_func,
-                    freq_window=freq_window,
-                    clamp=clamp,
-                    space_window=space_window
-                )
-        
-        else:
-            raise ValueError(f"Invalid boundary condition '{boundary_condition}'")
-    
     def _is_spatial_dependent(self):
         """
         Check if the symbol depends on spatial variables.
