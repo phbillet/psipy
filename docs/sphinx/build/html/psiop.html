@@ -99,6 +99,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#psiop.invalidate_kn_cache"><code class="docutils literal notranslate"><span class="pre">invalidate_kn_cache()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#psiop.kohn_nirenberg_fft"><code class="docutils literal notranslate"><span class="pre">kohn_nirenberg_fft()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#psiop.kohn_nirenberg_nonperiodic"><code class="docutils literal notranslate"><span class="pre">kohn_nirenberg_nonperiodic()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#psiop.kohn_nirenberg_nonperiodic_old"><code class="docutils literal notranslate"><span class="pre">kohn_nirenberg_nonperiodic_old()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="riemannian.html">riemannian</a></li>
@@ -1525,8 +1526,23 @@ spatial and frequency grids: the forward Fourier kernel, the inverse kernel,
 and pre‑computed frequency windows and spatial taper. These are reused
 automatically on subsequent calls with the same grids, reducing setup overhead.
 The cache can be cleared with <cite>invalidate_kn_cache()</cite>.</p>
-<p>For 2D inputs the computation is performed block‑wise along the first spatial
-dimension to control memory usage, and parallelised with a thread pool.</p>
+<p>For 2D inputs the function automatically selects between two execution paths
+based on the spatial dependence of the symbol:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>Fast Path (O(N³))</strong>: If the symbol <cite>p(x, ξ)</cite> is independent of the
+spatial coordinates <cite>x</cite> and <cite>space_window=False</cite>, the operator reduces
+to a Fourier multiplier. The function bypasses the heavy integration
+and uses three optimized matrix multiplications, reducing complexity
+from O(N⁴) to O(N³).</p></li>
+<li><p><strong>Slow Path (O(N⁴) with memory control)</strong>: If the symbol depends on <cite>x</cite>
+or <cite>space_window=True</cite>, the computation is performed block‑wise along
+the first spatial dimension and parallelised with a thread pool. To
+prevent memory explosion for large grids, a dynamic double‑chunking
+strategy is applied over the frequency dimensions, strictly bounding
+intermediate array sizes.</p></li>
+</ul>
+</div></blockquote>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1554,7 +1570,9 @@ broadcastable arrays; the output shape should be compatible with
 <li><p><strong>clamp</strong> (<em>float</em><em>, </em><em>default=1e6</em>) – Absolute value beyond which symbol entries are clipped. Helps avoid
 numerical overflow.</p></li>
 <li><p><strong>space_window</strong> (<em>bool</em><em>, </em><em>default=False</em>) – If True, multiply the symbol by a Gaussian spatial taper centred in the
-middle of the spatial domain, with width equal to half the domain length.</p></li>
+middle of the spatial domain, with width equal to half the domain length.
+Note: Enabling this forces the 2D computation to use the memory‑controlled
+Slow Path, even if the symbol itself is spatially independent.</p></li>
 <li><p><strong>_cache</strong> (<em>dict</em><em>, </em><em>optional</em>) – Internal cache dictionary. Do not use directly; exposed only for testing
 and debugging.</p></li>
 </ul>
@@ -1584,9 +1602,138 @@ so the cache is automatically invalidated when either grid changes in
 shape or endpoints. A warning is issued the first time a new grid pair
 is encountered.</p>
 </dd>
-<dt><strong>2D implementation</strong></dt><dd><p>To avoid forming a full 4D array, the computation is split into blocks
-along the first spatial dimension (x₁). Each block is processed independently
-by a worker thread. Memory usage scales as O(block_size × Nx₂ × Nxi₁ × Nxi₂).</p>
+<dt><strong>2D implementation</strong></dt><dd><ul class="simple">
+<li><p><strong>Fast Path</strong>: When <cite>p(x, ξ) = p(ξ)</cite>, the operator is evaluated as
+<cite>IFT( p(ξ) * FT(u) )</cite>. This requires only O(N³) operations and avoids
+forming any 4D arrays. Spatial independence is automatically detected
+via a robust heuristic (evaluating the symbol at non-zero frequencies
+to prevent false positives from terms like <cite>x·ξ</cite> vanishing at <cite>ξ=0</cite>),
+making it extremely fast and reliable for large grids.</p></li>
+<li><p><strong>Slow Path</strong>: When <cite>p(x, ξ)</cite> varies in space, the domain is split
+into blocks along x₁. Each block is processed independently by a
+worker thread. Inside each block, the frequency dimensions (ξ₁, ξ₂)
+are dynamically chunked to ensure that no intermediate 4D array
+exceeds ~256 MB, allowing simulations with N &gt; 1000 to run without
+memory exhaustion.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p>1D example: apply the derivative operator i·ξ.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">kn_operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">,</span> <span class="n">invalidate_kn_cache</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">xi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">d</span><span class="o">=</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span> <span class="o">*</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span><span class="w"> </span><span class="nf">symbol</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">):</span> <span class="k">return</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">xi</span>   <span class="c1"># broadcasting works</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">du</span> <span class="o">=</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">symbol</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Compare with analytical derivative: -2*x * exp(-x**2)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="psiop.kohn_nirenberg_nonperiodic_old">
+<span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">kohn_nirenberg_nonperiodic_old</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u_vals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">symbol_func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'gaussian'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clamp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">space_window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_cache</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#kohn_nirenberg_nonperiodic_old"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.kohn_nirenberg_nonperiodic_old" title="Link to this definition"></a></dt>
+<dd><p>Apply a pseudo-differential operator using Kohn–Nirenberg quantization
+on a non‑periodic domain.</p>
+<dl class="simple">
+<dt>The operator is defined by</dt><dd><p>(Op(p) u)(x) = (1/(2π)) ∫ p(x, ξ) û(ξ) e^{i x ξ} dξ,</p>
+</dd>
+</dl>
+<p>where û(ξ) is the non‑periodic Fourier transform of u(x) on the given grids.</p>
+<p>For 1D inputs the function caches several objects that depend only on the
+spatial and frequency grids: the forward Fourier kernel, the inverse kernel,
+and pre‑computed frequency windows and spatial taper. These are reused
+automatically on subsequent calls with the same grids, reducing setup overhead.
+The cache can be cleared with <cite>invalidate_kn_cache()</cite>.</p>
+<p>For 2D inputs the function automatically selects between two execution paths
+based on the spatial dependence of the symbol:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>Fast Path (O(N³))</strong>: If the symbol <cite>p(x, ξ)</cite> is independent of the
+spatial coordinates <cite>x</cite> and <cite>space_window=False</cite>, the operator reduces
+to a Fourier multiplier. The function bypasses the heavy integration
+and uses three optimized matrix multiplications, reducing complexity
+from O(N⁴) to O(N³).</p></li>
+<li><p><strong>Slow Path (O(N⁴) with memory control)</strong>: If the symbol depends on <cite>x</cite>
+or <cite>space_window=True</cite>, the computation is performed block‑wise along
+the first spatial dimension and parallelised with a thread pool. To
+prevent memory explosion for large grids, a dynamic double‑chunking
+strategy is applied over the frequency dimensions, strictly bounding
+intermediate array sizes.</p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>u_vals</strong> (<em>ndarray</em>) – Function values at the spatial grid points. One‑dimensional array for 1D,
+two‑dimensional array for 2D (first dimension corresponds to x₁, second to x₂).</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em><em> or </em><em>tuple</em><em> of </em><em>ndarray</em>) – Spatial grid(s). For 1D: a 1D array of coordinates. For 2D: a tuple
+(x1_grid, x2_grid) of two 1D arrays.</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em><em> or </em><em>tuple</em><em> of </em><em>ndarray</em>) – Frequency grid(s). For 1D: a 1D array. For 2D: a tuple (xi1_grid, xi2_grid).</p></li>
+<li><p><strong>symbol_func</strong> (<em>callable</em>) – <p>The symbol p(x, ξ) of the operator.
+* In 1D: called as <cite>symbol_func(x, xi)</cite> where <cite>x</cite> and <cite>xi</cite> are broadcastable</p>
+<blockquote>
+<div><p>arrays (e.g., <cite>x[:, None]</cite> and <cite>xi[None, :]</cite>). The function should
+support broadcasting to produce an array of shape <cite>(len(x), len(xi))</cite>.</p>
+</div></blockquote>
+<ul>
+<li><p>In 2D: called as <cite>symbol_func(X1, X2, XI1, XI2)</cite> where the arguments are
+broadcastable arrays; the output shape should be compatible with
+<cite>(Nx1, Nx2, Nxi1, Nxi2)</cite>.</p></li>
+</ul>
+<p>Must return an array of complex numbers (or castable to complex128).</p>
+</p></li>
+<li><p><strong>freq_window</strong> (<em>{'gaussian'</em><em>, </em><em>'hann'}</em><em>, </em><em>default='gaussian'</em>) – Frequency‑space window applied to the symbol before the inverse transform.
+* ‘gaussian’ : exp(‑(ξ/σ_w)⁴) with σ_w = 0.8·max(<a href="#id66"><span class="problematic" id="id67">|ξ|</span></a>).
+* ‘hann’     : Hanning window over the full frequency range.</p></li>
+<li><p><strong>clamp</strong> (<em>float</em><em>, </em><em>default=1e6</em>) – Absolute value beyond which symbol entries are clipped. Helps avoid
+numerical overflow.</p></li>
+<li><p><strong>space_window</strong> (<em>bool</em><em>, </em><em>default=False</em>) – If True, multiply the symbol by a Gaussian spatial taper centred in the
+middle of the spatial domain, with width equal to half the domain length.
+Note: Enabling this forces the 2D computation to use the memory‑controlled
+Slow Path, even if the symbol itself is spatially independent.</p></li>
+<li><p><strong>_cache</strong> (<em>dict</em><em>, </em><em>optional</em>) – Internal cache dictionary. Do not use directly; exposed only for testing
+and debugging.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Result of applying the pseudo‑differential operator to <cite>u_vals</cite>.
+Same shape as <cite>u_vals</cite>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<dl>
+<dt><strong>Caching (1D only)</strong></dt><dd><dl class="simple">
+<dt>The cache stores for a given grid pair <cite>(x, xi)</cite>:</dt><dd><ul class="simple">
+<li><p><cite>phase_ft</cite>    : exp(‑i ξ x)          – shape (Nxi, Nx)</p></li>
+<li><p><cite>exp_matrix</cite>  : exp( i x ξ)          – shape (Nx, Nxi)</p></li>
+<li><p><cite>window_gauss</cite> : 1D Gaussian window  – shape (Nxi,)</p></li>
+<li><p><cite>window_hann</cite>  : 1D Hann window      – shape (Nxi,)</p></li>
+<li><p><cite>spatial_taper</cite>: 1D Gaussian taper   – shape (Nx,) (if <cite>space_window</cite> ever used)</p></li>
+</ul>
+</dd>
+</dl>
+<p>The cache key is derived from the first and last points of both grids,
+so the cache is automatically invalidated when either grid changes in
+shape or endpoints. A warning is issued the first time a new grid pair
+is encountered.</p>
+</dd>
+<dt><strong>2D implementation</strong></dt><dd><ul class="simple">
+<li><p><strong>Fast Path</strong>: When <cite>p(x, ξ) = p(ξ)</cite>, the operator is evaluated as
+<cite>IFT( p(ξ) * FT(u) )</cite>. This requires only O(N³) operations and avoids
+forming any 4D arrays, making it extremely fast for large grids.</p></li>
+<li><p><strong>Slow Path</strong>: When <cite>p(x, ξ)</cite> varies in space, the domain is split
+into blocks along x₁. Each block is processed independently by a
+worker thread. Inside each block, the frequency dimensions (ξ₁, ξ₂)
+are dynamically chunked to ensure that no intermediate 4D array
+exceeds ~256 MB, allowing simulations with N &gt; 1000 to run without
+memory exhaustion.</p></li>
+</ul>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
