@@ -548,9 +548,9 @@ METRICS = {
         shift       = (0.0, 0.0),
         ic_center   = (0.0, 0.0),
         ic_sigma    = 0.4,
-        Lt          = 3.0,
+        Lt          = 0.5,
         Nt          = 100,
-        Nx          = 64, Ny = 64,
+        Nx          = 128, Ny = 128,
         description = 'Ellis wormhole throat (b=1, K = -1/(1+l²)²)',
     ),
 
