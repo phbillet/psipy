@@ -2905,7 +2905,7 @@ class PDESolver:
         else:
             raise ValueError("Only 1D and 2D display are supported.")
         
-    def animate(self, component='abs', overlay='contour', mode='surface'):
+    def animate(self, component='abs', overlay='contour', mode='surface', physical=True):
         """
         Create an animated plot of the solution evolution over time.
     
@@ -2936,6 +2936,9 @@ class PDESolver:
             2D rendering mode. 'surface' keeps the original 3D surface plot.
             'imshow' draws a 2D raster (faster, often more readable).
             Default is 'surface' for backward compatibility.
+
+        physical : bool, default=True
+            If True, the animation is displayed using true physical proportions of the domain.
     
         Returns
         -------
@@ -3018,7 +3021,7 @@ class PDESolver:
     
         if mode == 'surface':
             # original surface behavior, but ensure clean updates
-            fig = plt.figure(figsize=(14, 8))
+            fig = plt.figure(figsize=(20, 12))
             ax = fig.add_subplot(111, projection='3d')
             ax.set_xlabel('x')
             ax.set_ylabel('y')
@@ -3026,6 +3029,10 @@ class PDESolver:
             ax.zaxis.labelpad = 0
             ax.set_title('Initial condition')
     
+            # Calculate physical domain lengths
+            Lx = self.x_grid[-1] - self.x_grid[0]
+            Ly = self.y_grid[-1] - self.y_grid[0]
+            
             surf = ax.plot_surface(self.X, self.Y, data0, cmap='viridis')
             plt.tight_layout()
     
@@ -3035,6 +3042,13 @@ class PDESolver:
                 z_offset = np.max(current_data) + 0.05 * (np.max(current_data) - np.min(current_data))
     
                 ax.clear()
+
+                # This forces the X-Y plane to match your Lx and Ly (e.g., 10 and 40)
+                # The '1' represents the Z-axis scale. 
+                if physical:
+                    ax.set_box_aspect([Lx, Ly, 1])
+                # --------------------------------
+                
                 surf_obj = ax.plot_surface(self.X, self.Y, current_data,
                                            cmap='viridis',
                                            vmin=(-np.pi if component == 'angle' else None),
@@ -3089,9 +3103,14 @@ class PDESolver:
             else:
                 vmin, vmax = np.min(data0), np.max(data0)
                 cmap = 'viridis'
-    
+
+            if physical:
+                aspect = 'equal'
+            else:
+                aspect = 'auto'
+                
             im = ax.imshow(data0, extent=extent, origin='lower', cmap=cmap,
-                           vmin=vmin, vmax=vmax, aspect='auto')
+                           vmin=vmin, vmax=vmax, aspect=aspect)
             cbar = fig.colorbar(im, ax=ax)
             cbar.set_label(f"{component} of u")
             plt.tight_layout()
