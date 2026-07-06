@@ -1470,96 +1470,53 @@ Kohn–Nirenberg quantization:</p>
 <p>where ℱ[u] is the discrete Fourier transform of u, and p(x, ξ) is a symbol
 that may depend on both spatial variables x and frequency variables ξ.</p>
 <p>This method supports both 1D and 2D cases and includes optional smoothing
-techniques (frequency and spatial windows) to improve numerical stability
-and suppress edge effects.</p>
-<p>For 2D inputs, the computation is highly optimized to prevent memory
-explosion for large grids:</p>
+techniques (frequency and spatial windows) to improve numerical stability.</p>
+<dl>
+<dt><strong>Fast-Path Optimization (x-independent symbols)</strong></dt><dd><p>If the symbol <cite>p(x, ξ)</cite> is independent of the spatial coordinates <cite>x</cite>
+(and <cite>y</cite> in 2D), the operator reduces to a pure Fourier multiplier.
+The function automatically detects this via a robust heuristic (evaluating
+the symbol at strictly non-zero frequencies to prevent false positives
+from terms like <cite>x·ξ</cite> vanishing at the DC component <cite>ξ=0</cite>).
+When detected, the computation bypasses the heavy spatial integration and
+uses the highly optimized <cite>ifft(P * fft(u))</cite> approach. This reduces the
+complexity from O(N^2) to O(N log N) in 1D, and from O(N^4) to O(N^2 log N)
+in 2D, providing massive speedups and strictly bounding memory to O(N^d).</p>
+</dd>
+<dt><strong>Memory-Bounded Slow Path (x-dependent symbols)</strong></dt><dd><p>For symbols that vary in space, the 2D implementation employs a three-tier
+memory optimization strategy to prevent RAM exhaustion:
+1. <strong>Spatial Row-Blocking</strong>: The x-axis is sliced and processed in parallel.
+2. <strong>Phase Factoring</strong>: The 2D phase kernel is factored into 1D outer products.
+3. <strong>Dynamic Frequency Chunking</strong>: Frequency dimensions are iterated in small</p>
 <blockquote>
-<div><ul class="simple">
-<li><p><strong>Row-blocking</strong>: The spatial x-axis is sliced into blocks, processed
-in parallel using a thread pool.</p></li>
-<li><p><strong>Phase factoring</strong>: The 2D phase kernel is factored as
-exp(i*(x*kx + y*ky)) = exp(i*x*kx) * exp(i*y*ky), avoiding the
-materialization of a full 4D phase tensor.</p></li>
-<li><p><strong>Dynamic double-chunking</strong>: Inside each spatial block, the frequency
-dimensions (kx, ky) are dynamically chunked. This guarantees that no
-intermediate 4D array exceeds ~256 MB, strictly bounding memory usage
-and allowing simulations with N &gt; 256 to run without memory exhaustion.</p></li>
-</ul>
+<div><p>chunks, guaranteeing intermediate arrays never exceed ~256 MB.</p>
 </div></blockquote>
+</dd>
+</dl>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>u_vals</strong> (<em>ndarray</em>) – Spatial samples of the input function u(x) or u(x, y), defined on a
-uniform grid. Shape is (Nx,) for 1D or (Nx, Ny) for 2D.</p></li>
-<li><p><strong>symbol_func</strong> (<em>callable</em>) – A function representing the full symbol p(x, ξ) in 1D or p(x, y, ξ, η)
-in 2D. Must accept NumPy-compatible array inputs (supporting broadcasting)
-and return a complex-valued array.</p></li>
-<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grid in the x direction.</p></li>
-<li><p><strong>kx</strong> (<em>ndarray</em>) – Frequency grid in the x direction.</p></li>
-<li><p><strong>fft_func</strong> (<em>callable</em>) – Forward FFT function (e.g., <cite>scipy.fft.fft</cite> or <cite>scipy.fft.fft2</cite>).</p></li>
-<li><p><strong>ifft_func</strong> (<em>callable</em>) – Inverse FFT function (e.g., <cite>scipy.fft.ifft</cite> or <cite>scipy.fft.ifft2</cite>).</p></li>
+<li><p><strong>u_vals</strong> (<em>ndarray</em>) – Spatial samples of the input function u(x) or u(x, y).</p></li>
+<li><p><strong>symbol_func</strong> (<em>callable</em>) – The symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D. Must support NumPy broadcasting.</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial and frequency grids in the x direction.</p></li>
+<li><p><strong>kx</strong> (<em>ndarray</em>) – Spatial and frequency grids in the x direction.</p></li>
+<li><p><strong>fft_func</strong> (<em>callable</em>) – Forward and inverse FFT functions (e.g., <cite>scipy.fft.fft</cite> / <cite>ifft</cite>).</p></li>
+<li><p><strong>ifft_func</strong> (<em>callable</em>) – Forward and inverse FFT functions (e.g., <cite>scipy.fft.fft</cite> / <cite>ifft</cite>).</p></li>
 <li><p><strong>dim</strong> (<em>int</em><em>, </em><em>{1</em><em>, </em><em>2}</em>) – Spatial dimension of the problem.</p></li>
-<li><p><strong>y_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Spatial grid in the y direction (required for 2D).</p></li>
-<li><p><strong>ky</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Frequency grid in the y direction (required for 2D).</p></li>
-<li><p><strong>freq_window</strong> (<em>{'gaussian'</em><em>, </em><em>'hann'</em><em>, </em><em>None}</em><em>, </em><em>default='gaussian'</em>) – Frequency-space window applied to the symbol before the inverse transform.
-* ‘gaussian’ : exp(‑(ξ/σ_w)⁴) with σ_w = 0.8·max(<a href="#id64"><span class="problematic" id="id65">|ξ|</span></a>).
-* ‘hann’     : Hanning window over the full frequency range.
-* None       : No window applied.</p></li>
-<li><p><strong>clamp</strong> (<em>float</em><em>, </em><em>default=1e6</em>) – Absolute value beyond which symbol entries are clipped. Helps avoid
-numerical overflow or blow-up from large values.</p></li>
-<li><p><strong>space_window</strong> (<em>bool</em><em>, </em><em>default=False</em>) – If True, multiply the symbol by a Gaussian spatial taper centred in the
-middle of the spatial domain, with width equal to half the domain length.
-This suppresses edge effects in physical space.</p></li>
+<li><p><strong>y_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Spatial and frequency grids in the y direction (required for 2D).</p></li>
+<li><p><strong>ky</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Spatial and frequency grids in the y direction (required for 2D).</p></li>
+<li><p><strong>freq_window</strong> (<em>{'gaussian'</em><em>, </em><em>'hann'</em><em>, </em><em>None}</em><em>, </em><em>default='gaussian'</em>) – Frequency-space window applied to the symbol.</p></li>
+<li><p><strong>clamp</strong> (<em>float</em><em>, </em><em>default=1e6</em>) – Absolute value beyond which symbol entries are clipped to prevent overflow.</p></li>
+<li><p><strong>space_window</strong> (<em>bool</em><em>, </em><em>default=False</em>) – If True, applies a Gaussian spatial taper to suppress edge effects.
+Note: Enabling this forces the slow path, even for x-independent symbols.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Result of applying the pseudo-differential operator to <cite>u_vals</cite>.
-Same shape as <cite>u_vals</cite>.</p>
+<dd class="field-even"><p>Result of applying the pseudo-differential operator to <cite>u_vals</cite>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>ndarray</p>
 </dd>
 </dl>
-<p class="rubric">Notes</p>
-<dl>
-<dt><strong>1D implementation</strong></dt><dd><p>For 1D inputs, the operator is applied via a direct matrix-vector product
-over the frequency domain. This is already highly efficient for typical
-1D grid sizes.</p>
-</dd>
-<dt><strong>2D implementation</strong></dt><dd><p>To handle large 2D grids without exhausting RAM, the algorithm employs
-a three-tier memory optimization strategy:
-1. <strong>Spatial Row-Blocking</strong>: The x-axis is divided into slices. Each</p>
-<blockquote>
-<div><p>slice is processed independently by a worker thread via
-<cite>ThreadPoolExecutor</cite>.</p>
-</div></blockquote>
-<ol class="arabic simple" start="2">
-<li><p><strong>Phase Factoring</strong>: Instead of building a 4D tensor for the phase
-kernel <cite>exp(i*(x*kx + y*ky))</cite>, it is factored into the outer product
-of 1D arrays <cite>exp(i*x*kx)</cite> and <cite>exp(i*y*ky)</cite>.</p></li>
-<li><p><strong>Dynamic Frequency Chunking</strong>: Within each spatial row-block, the
-frequency dimensions (kx, ky) are iterated over in small chunks.
-The chunk sizes are dynamically calculated to ensure that the
-intermediate 4D arrays (symbol × phase × FFT) never exceed ~256 MB.
-This reduces the peak memory footprint from O(N⁴) to O(N²), making
-it possible to run N=512 or N=1024 on standard workstations.</p></li>
-</ol>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<p>1D example: apply the second derivative operator -ξ².</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.fft</span><span class="w"> </span><span class="kn">import</span> <span class="n">fft</span><span class="p">,</span> <span class="n">ifft</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dx</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">kx</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">d</span><span class="o">=</span><span class="n">dx</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span><span class="w"> </span><span class="nf">symbol</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">):</span> <span class="k">return</span> <span class="o">-</span><span class="n">kx</span><span class="o">**</span><span class="mi">2</span>   <span class="c1"># broadcasting works</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">d2u</span> <span class="o">=</span> <span class="n">kohn_nirenberg_fft</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">fft</span><span class="p">,</span> <span class="n">ifft</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Compare with analytical second derivative: (4*x**2 - 2) * exp(-x**2)</span>
-</pre></div>
-</div>
 </dd></dl>
 
 <dl class="py function">
@@ -1616,7 +1573,7 @@ broadcastable arrays; the output shape should be compatible with
 <p>Must return an array of complex numbers (or castable to complex128).</p>
 </p></li>
 <li><p><strong>freq_window</strong> (<em>{'gaussian'</em><em>, </em><em>'hann'}</em><em>, </em><em>default='gaussian'</em>) – Frequency‑space window applied to the symbol before the inverse transform.
-* ‘gaussian’ : exp(‑(ξ/σ_w)⁴) with σ_w = 0.8·max(<a href="#id66"><span class="problematic" id="id67">|ξ|</span></a>).
+* ‘gaussian’ : exp(‑(ξ/σ_w)⁴) with σ_w = 0.8·max(<a href="#id64"><span class="problematic" id="id65">|ξ|</span></a>).
 * ‘hann’     : Hanning window over the full frequency range.</p></li>
 <li><p><strong>clamp</strong> (<em>float</em><em>, </em><em>default=1e6</em>) – Absolute value beyond which symbol entries are clipped. Helps avoid
 numerical overflow.</p></li>
