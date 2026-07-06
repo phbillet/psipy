@@ -2982,6 +2982,8 @@ class PDESolver:
     
         # Map target times to nearest frame indices
         frame_indices = [np.argmin(np.abs(frame_times - t)) for t in target_times]
+
+        plt.ioff()
     
         # -------------------------
         # 1D case (unchanged logic)
@@ -3006,7 +3008,7 @@ class PDESolver:
                 ax.set_title(f't = {current_time:.2f}')
                 return (line,)
     
-            ani = FuncAnimation(fig, _update_1d, frames=len(target_times), interval=50)
+            ani = FuncAnimation(fig, _update_1d, frames=len(target_times), blit=True, interval=50)
             return ani
     
         # -------------------------

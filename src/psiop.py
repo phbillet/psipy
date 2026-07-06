@@ -3470,111 +3470,104 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
     that may depend on both spatial variables x and frequency variables ξ.
 
     This method supports both 1D and 2D cases and includes optional smoothing 
-    techniques (frequency and spatial windows) to improve numerical stability 
-    and suppress edge effects.
+    techniques (frequency and spatial windows) to improve numerical stability.
 
-    For 2D inputs, the computation is highly optimized to prevent memory 
-    explosion for large grids:
-        * **Row-blocking**: The spatial x-axis is sliced into blocks, processed 
-          in parallel using a thread pool.
-        * **Phase factoring**: The 2D phase kernel is factored as 
-          exp(i*(x*kx + y*ky)) = exp(i*x*kx) * exp(i*y*ky), avoiding the 
-          materialization of a full 4D phase tensor.
-        * **Dynamic double-chunking**: Inside each spatial block, the frequency 
-          dimensions (kx, ky) are dynamically chunked. This guarantees that no 
-          intermediate 4D array exceeds ~256 MB, strictly bounding memory usage 
-          and allowing simulations with N > 256 to run without memory exhaustion.
+    **Fast-Path Optimization (x-independent symbols)**
+        If the symbol `p(x, ξ)` is independent of the spatial coordinates `x` 
+        (and `y` in 2D), the operator reduces to a pure Fourier multiplier. 
+        The function automatically detects this via a robust heuristic (evaluating 
+        the symbol at strictly non-zero frequencies to prevent false positives 
+        from terms like `x·ξ` vanishing at the DC component `ξ=0`). 
+        When detected, the computation bypasses the heavy spatial integration and 
+        uses the highly optimized `ifft(P * fft(u))` approach. This reduces the 
+        complexity from O(N^2) to O(N log N) in 1D, and from O(N^4) to O(N^2 log N) 
+        in 2D, providing massive speedups and strictly bounding memory to O(N^d).
+
+    **Memory-Bounded Slow Path (x-dependent symbols)**
+        For symbols that vary in space, the 2D implementation employs a three-tier 
+        memory optimization strategy to prevent RAM exhaustion:
+        1. **Spatial Row-Blocking**: The x-axis is sliced and processed in parallel.
+        2. **Phase Factoring**: The 2D phase kernel is factored into 1D outer products.
+        3. **Dynamic Frequency Chunking**: Frequency dimensions are iterated in small 
+           chunks, guaranteeing intermediate arrays never exceed ~256 MB.
 
     Parameters
     ----------
     u_vals : ndarray
-        Spatial samples of the input function u(x) or u(x, y), defined on a 
-        uniform grid. Shape is (Nx,) for 1D or (Nx, Ny) for 2D.
+        Spatial samples of the input function u(x) or u(x, y).
     symbol_func : callable
-        A function representing the full symbol p(x, ξ) in 1D or p(x, y, ξ, η) 
-        in 2D. Must accept NumPy-compatible array inputs (supporting broadcasting) 
-        and return a complex-valued array.
-    x_grid : ndarray
-        Spatial grid in the x direction.
-    kx : ndarray
-        Frequency grid in the x direction.
-    fft_func : callable
-        Forward FFT function (e.g., `scipy.fft.fft` or `scipy.fft.fft2`).
-    ifft_func : callable
-        Inverse FFT function (e.g., `scipy.fft.ifft` or `scipy.fft.ifft2`).
+        The symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D. Must support NumPy broadcasting.
+    x_grid, kx : ndarray
+        Spatial and frequency grids in the x direction.
+    fft_func, ifft_func : callable
+        Forward and inverse FFT functions (e.g., `scipy.fft.fft` / `ifft`).
     dim : int, {1, 2}
         Spatial dimension of the problem.
-    y_grid : ndarray, optional
-        Spatial grid in the y direction (required for 2D).
-    ky : ndarray, optional
-        Frequency grid in the y direction (required for 2D).
+    y_grid, ky : ndarray, optional
+        Spatial and frequency grids in the y direction (required for 2D).
     freq_window : {'gaussian', 'hann', None}, default='gaussian'
-        Frequency-space window applied to the symbol before the inverse transform.
-        * 'gaussian' : exp(‑(ξ/σ_w)⁴) with σ_w = 0.8·max(|ξ|).
-        * 'hann'     : Hanning window over the full frequency range.
-        * None       : No window applied.
+        Frequency-space window applied to the symbol.
     clamp : float, default=1e6
-        Absolute value beyond which symbol entries are clipped. Helps avoid 
-        numerical overflow or blow-up from large values.
+        Absolute value beyond which symbol entries are clipped to prevent overflow.
     space_window : bool, default=False
-        If True, multiply the symbol by a Gaussian spatial taper centred in the 
-        middle of the spatial domain, with width equal to half the domain length. 
-        This suppresses edge effects in physical space.
+        If True, applies a Gaussian spatial taper to suppress edge effects.
+        Note: Enabling this forces the slow path, even for x-independent symbols.
 
     Returns
     -------
     ndarray
-        Result of applying the pseudo-differential operator to `u_vals`. 
-        Same shape as `u_vals`.
-
-    Notes
-    -----
-    **1D implementation**
-        For 1D inputs, the operator is applied via a direct matrix-vector product 
-        over the frequency domain. This is already highly efficient for typical 
-        1D grid sizes.
-
-    **2D implementation**
-        To handle large 2D grids without exhausting RAM, the algorithm employs 
-        a three-tier memory optimization strategy:
-        1. **Spatial Row-Blocking**: The x-axis is divided into slices. Each 
-           slice is processed independently by a worker thread via 
-           `ThreadPoolExecutor`.
-        2. **Phase Factoring**: Instead of building a 4D tensor for the phase 
-           kernel `exp(i*(x*kx + y*ky))`, it is factored into the outer product 
-           of 1D arrays `exp(i*x*kx)` and `exp(i*y*ky)`.
-        3. **Dynamic Frequency Chunking**: Within each spatial row-block, the 
-           frequency dimensions (kx, ky) are iterated over in small chunks. 
-           The chunk sizes are dynamically calculated to ensure that the 
-           intermediate 4D arrays (symbol × phase × FFT) never exceed ~256 MB. 
-           This reduces the peak memory footprint from O(N⁴) to O(N²), making 
-           it possible to run N=512 or N=1024 on standard workstations.
-
-    Examples
-    --------
-    1D example: apply the second derivative operator -ξ².
-
-    >>> import numpy as np
-    >>> from scipy.fft import fft, ifft
-    >>> x = np.linspace(-10, 10, 256, endpoint=False)
-    >>> dx = x[1] - x[0]
-    >>> kx = 2 * np.pi * np.fft.fftshift(np.fft.fftfreq(len(x), d=dx))
-    >>> u = np.exp(-x**2)
-    >>> def symbol(x, kx): return -kx**2   # broadcasting works
-    >>> d2u = kohn_nirenberg_fft(u, symbol, x, kx, fft, ifft, dim=1)
-    >>> # Compare with analytical second derivative: (4*x**2 - 2) * exp(-x**2)
+        Result of applying the pseudo-differential operator to `u_vals`.
     """
 
-    # -----------------------------------------------------------------------
-    # 1-D  (unchanged – already fast for typical Nx)
-    # -----------------------------------------------------------------------
+    # =========================================================================
+    # 1-D  IMPLEMENTATION
+    # =========================================================================
     if dim == 1:
         dx = x_grid[1] - x_grid[0]
         Nx = len(x_grid)
-        k = 2 * np.pi * fftshift(fftfreq(Nx, d=dx))
+        
+        # Unshifted frequencies match the native output of standard FFT functions
+        k_unshifted = 2 * np.pi * np.fft.fftfreq(Nx, d=dx)
+        
+        # --- FAST PATH CHECK ---
+        is_x_independent = False
+        if not space_window:
+            try:
+                # CRITICAL FIX: Test at strictly NON-ZERO frequencies to avoid 
+                # false positives from terms like x*xi vanishing at xi=0.
+                non_zero_idx = np.where(k_unshifted != 0)[0]
+                if len(non_zero_idx) >= 2:
+                    idx_test = non_zero_idx[[len(non_zero_idx)//4, len(non_zero_idx)//2]]
+                    k_test = k_unshifted[idx_test]
+                    x_test = x_grid[[0, Nx // 2]]
+                    
+                    val1 = symbol_func(x_test[:, None], k_test[None, :])
+                    val2 = symbol_func((x_test + dx)[:, None], k_test[None, :])
+                    is_x_independent = np.allclose(val1, val2)
+            except Exception:
+                is_x_independent = False
+
+        if is_x_independent:
+            U = fft_func(u_vals)
+            P = symbol_func(x_grid[0], k_unshifted).astype(np.complex128)
+            P = np.clip(P, -clamp, clamp)
+            
+            if freq_window == 'gaussian':
+                sigma = 0.8 * np.max(np.abs(k_unshifted))
+                P *= np.exp(-(k_unshifted / sigma) ** 4)
+            elif freq_window == 'hann':
+                k_max = np.max(np.abs(k_unshifted))
+                W = 0.5 * (1 + np.cos(np.pi * k_unshifted / k_max))
+                P *= W * (np.abs(k_unshifted) < k_max)
+                
+            # Spectrally accurate inverse transform (spatial shifts cancel out exactly!)
+            return ifft_func(P * U)
+
+        # --- SLOW PATH (O(N^2) Integration) ---
+        k = 2 * np.pi * np.fft.fftshift(np.fft.fftfreq(Nx, d=dx))
         dk = k[1] - k[0]
 
-        f_hat = fftshift(fft_func(fftshift(u_vals)) * dx)
+        f_hat = np.fft.fftshift(fft_func(np.fft.fftshift(u_vals)) * dx)
 
         X, K = np.meshgrid(x_grid, k, indexing='ij')
         P = symbol_func(X, K)
@@ -3596,40 +3589,85 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
         u = np.sum(P * f_hat[None, :] * kernel, axis=1) * dk / (2 * np.pi)
         return u
 
-    # -----------------------------------------------------------------------
-    # 2-D  (block-parallel, memory-efficient with FREQUENCY CHUNKING)
-    # -----------------------------------------------------------------------
+    # =========================================================================
+    # 2-D  IMPLEMENTATION
+    # =========================================================================
     elif dim == 2:
         dx = x_grid[1] - x_grid[0]
         dy = y_grid[1] - y_grid[0]
         Nx, Ny = len(x_grid), len(y_grid)
+        
+        kx_unshifted = 2 * np.pi * np.fft.fftfreq(Nx, d=dx)
+        ky_unshifted = 2 * np.pi * np.fft.fftfreq(Ny, d=dy)
 
-        kx_s = 2 * np.pi * fftshift(fftfreq(Nx, d=dx))   # (Nkx,)
-        ky_s = 2 * np.pi * fftshift(fftfreq(Ny, d=dy))   # (Nky,)
+        # --- FAST PATH CHECK ---
+        is_independent = False
+        if not space_window:
+            try:
+                non_zero_kx = np.where(kx_unshifted != 0)[0]
+                non_zero_ky = np.where(ky_unshifted != 0)[0]
+                
+                if len(non_zero_kx) > 0 and len(non_zero_ky) > 0:
+                    idx_x = non_zero_kx[[len(non_zero_kx)//4, len(non_zero_kx)//2]]
+                    idx_y = non_zero_ky[[len(non_zero_ky)//4, len(non_zero_ky)//2]]
+                    
+                    kx_test = kx_unshifted[idx_x]
+                    ky_test = ky_unshifted[idx_y]
+                    x_test = x_grid[[0, Nx // 2]]
+                    y_test = y_grid[[0, Ny // 2]]
+                    
+                    X_t, Y_t = np.meshgrid(x_test, y_test, indexing='ij')
+                    KX_t, KY_t = np.meshgrid(kx_test, ky_test, indexing='ij')
+                    
+                    val1 = symbol_func(X_t[..., None, None], Y_t[..., None, None], 
+                                       KX_t[None, None, ...], KY_t[None, None, ...])
+                    val2 = symbol_func((X_t + dx)[..., None, None], (Y_t + dy)[..., None, None], 
+                                       KX_t[None, None, ...], KY_t[None, None, ...])
+                    is_independent = np.allclose(val1, val2)
+            except Exception:
+                is_independent = False
+
+        if is_independent:
+            U = fft_func(u_vals)
+            KX, KY = np.meshgrid(kx_unshifted, ky_unshifted, indexing='ij')
+            
+            P = symbol_func(x_grid[0], y_grid[0], KX, KY).astype(np.complex128)
+            P = np.clip(P, -clamp, clamp)
+            
+            if freq_window == 'gaussian':
+                sx = 0.8 * np.max(np.abs(kx_unshifted))
+                sy = 0.8 * np.max(np.abs(ky_unshifted))
+                P *= np.exp(-(KX / sx) ** 4) * np.exp(-(KY / sy) ** 4)
+            elif freq_window == 'hann':
+                kx_max = np.max(np.abs(kx_unshifted))
+                ky_max = np.max(np.abs(ky_unshifted))
+                Wx = 0.5 * (1 + np.cos(np.pi * KX / kx_max)) * (np.abs(KX) < kx_max)
+                Wy = 0.5 * (1 + np.cos(np.pi * KY / ky_max)) * (np.abs(KY) < ky_max)
+                P *= Wx * Wy
+                
+            return ifft_func(P * U)
+
+        # --- SLOW PATH (O(N^4) Memory-Bounded Integration) ---
+        kx_s = 2 * np.pi * np.fft.fftshift(np.fft.fftfreq(Nx, d=dx))
+        ky_s = 2 * np.pi * np.fft.fftshift(np.fft.fftfreq(Ny, d=dy))
         dkx  = kx_s[1] - kx_s[0]
         dky  = ky_s[1] - ky_s[0]
-        
         Nkx, Nky = len(kx_s), len(ky_s)
 
-        # Global FFT of u  →  f_hat shape (Nkx, Nky)
-        f_hat = fftshift(fft_func(fftshift(u_vals)) * dx * dy)  # (Nx, Ny)
-
-        # Pre-factored phase components
-        exp_y = np.exp(1j * np.outer(y_grid, ky_s))          # (Ny, Nky)
+        f_hat = np.fft.fftshift(fft_func(np.fft.fftshift(u_vals)) * dx * dy)
+        exp_y = np.exp(1j * np.outer(y_grid, ky_s))
 
         if space_window:
             y0 = (y_grid[0] + y_grid[-1]) / 2
             Ly = (y_grid[-1] - y_grid[0]) / 2
-            sw_y = np.exp(-((y_grid - y0) / Ly) ** 2)        # (Ny,)
+            sw_y = np.exp(-((y_grid - y0) / Ly) ** 2)
         else:
             sw_y = None
 
-        # Row-block parameters
         n_workers  = max(w for w in range(1, FFT_WORKERS + 1) if Nx % w == 0)
         base       = max(1, Nx // n_workers)
         boundaries = [(i * base, min((i + 1) * base, Nx))
-                      for i in range(n_workers)
-                      if i * base < Nx]
+                      for i in range(n_workers) if i * base < Nx]
 
         result = np.zeros((Nx, Ny), dtype=np.complex128)
 
@@ -3638,11 +3676,7 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
             x_blk  = x_grid[i0:i1]
             B      = i1 - i0
 
-            # =========================================================================
-            # ✅ MEMORY FIX: Dynamic double-chunking over frequency dimensions
-            # Limits intermediate arrays to ~256 MB each, preventing O(N^4) explosion
-            # =========================================================================
-            MAX_ELEMENTS = 16 * 1024 * 1024  # 16M elements ≈ 256 MB for complex128
+            MAX_ELEMENTS = 16 * 1024 * 1024  # ~256 MB for complex128
             prod_C = max(1, MAX_ELEMENTS // (B * Ny))
             C1 = min(int(np.sqrt(prod_C)), Nkx)
             C2 = min(max(1, prod_C // C1), Nky)
@@ -3650,11 +3684,7 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
             Xb  = x_blk[:, None, None, None]
             Yb  = y_grid[None, :, None, None]
 
-            # Precompute full exponential arrays to slice them during chunking
-            exp_x_full = np.exp(1j * np.outer(x_blk, kx_s))      # (B, Nkx)
-            exp_y_full = exp_y                                   # (Ny, Nky)
-            
-            fh_local = f_hat.copy()
+            exp_x_full = np.exp(1j * np.outer(x_blk, kx_s))
             res_block = np.zeros((B, Ny), dtype=np.complex128)
 
             if space_window:
@@ -3662,39 +3692,40 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
                 Lx = (x_grid[-1] - x_grid[0]) / 2
                 sw_x = np.exp(-((x_blk - x0) / Lx) ** 2)
 
-            # Loop over chunks of kx
             for m0 in range(0, Nkx, C1):
                 m1 = min(m0 + C1, Nkx)
                 KXb_chunk = kx_s[None, None, m0:m1, None]
                 exp_x_chunk = exp_x_full[:, m0:m1].reshape(B, 1, m1-m0, 1)
-                fh_m = fh_local[m0:m1, :]
+                fh_m = f_hat[m0:m1, :]  # Direct read, no copy needed
 
-                # Loop over chunks of ky
                 for n0 in range(0, Nky, C2):
                     n1 = min(n0 + C2, Nky)
                     KYb_chunk = ky_s[None, None, None, n0:n1]
 
-                    # Evaluate symbol on the small chunk
                     P_chunk = symbol_func(Xb, Yb, KXb_chunk, KYb_chunk).astype(np.complex128)
                     P_chunk = np.clip(P_chunk, -clamp, clamp)
 
-                    # Apply frequency window (helper works in-place on the chunk)
-                    freq_window_2d(P_chunk, KXb_chunk, KYb_chunk, kx_s, ky_s, freq_window)
+                    # Inline frequency window logic (previously an external helper)
+                    if freq_window == 'gaussian':
+                        sigma_x = 0.8 * np.max(np.abs(kx_s))
+                        sigma_y = 0.8 * np.max(np.abs(ky_s))
+                        P_chunk *= np.exp(-(KXb_chunk / sigma_x) ** 4) * np.exp(-(KYb_chunk / sigma_y) ** 4)
+                    elif freq_window == 'hann':
+                        kx_max = np.max(np.abs(kx_s))
+                        ky_max = np.max(np.abs(ky_s))
+                        Wx = 0.5 * (1 + np.cos(np.pi * KXb_chunk / kx_max)) * (np.abs(KXb_chunk) < kx_max)
+                        Wy = 0.5 * (1 + np.cos(np.pi * KYb_chunk / ky_max)) * (np.abs(KYb_chunk) < ky_max)
+                        P_chunk *= Wx * Wy
 
-                    # Apply spatial window
                     if space_window:
                         P_chunk *= sw_x[:, None, None, None]
                         if sw_y is not None:
                             P_chunk *= sw_y[None, :, None, None]
 
-                    # Phase for this chunk
-                    exp_y_chunk = exp_y_full[:, n0:n1]
+                    exp_y_chunk = exp_y[:, n0:n1]
                     phase_chunk = exp_x_chunk * exp_y_chunk[None, :, None, :]
-
-                    # f_hat sub-chunk
                     fh_sub = fh_m[:, n0:n1]
 
-                    # Integrate over this frequency chunk
                     integrand = P_chunk * fh_sub[None, None, :, :] * phase_chunk
                     res_block += np.sum(integrand, axis=(2, 3)) * dkx * dky / (2 * np.pi) ** 2
 
@@ -3708,8 +3739,7 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
 
     else:
         raise ValueError("Only 1D and 2D are supported")
-
-
+        
 # ===========================================================================
 # kohn_nirenberg_nonperiodic  (Dirichlet / non-periodic)
 # ===========================================================================
