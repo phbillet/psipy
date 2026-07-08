@@ -275,6 +275,18 @@ class PDESolver:
             self.kx = symbols('kx')
         elif self.dim == 2:
             self.kx, self.ky = symbols('kx ky')
+
+        if not self.is_stationary:
+            time_derivs = [
+                deriv for deriv in self.linear_terms.keys()
+                if isinstance(deriv, Derivative) and self.t in [var for var, _ in deriv.variable_count]
+            ]
+            if len(time_derivs) > 1:
+                raise ValueError(
+                    "The temporal part of the equation must be a single monomial "
+                    "(e.g., a*du/dt or a*d2u/dt2). Mixed time derivatives "
+                    "(like a*d2u/dt2 + b*du/dt) are not supported."
+                )
     
         # Compute linear operator
         if not self.is_stationary:
