@@ -362,6 +362,18 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">kx</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;kx&#39;</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">kx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ky</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;kx ky&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_stationary</span><span class="p">:</span>
+            <span class="n">time_derivs</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">deriv</span> <span class="k">for</span> <span class="n">deriv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_terms</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="n">var</span> <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">deriv</span><span class="o">.</span><span class="n">variable_count</span><span class="p">]</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_derivs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;The temporal part of the equation must be a single monomial &quot;</span>
+                    <span class="s2">&quot;(e.g., a*du/dt or a*d2u/dt2). Mixed time derivatives &quot;</span>
+                    <span class="s2">&quot;(like a*d2u/dt2 + b*du/dt) are not supported.&quot;</span>
+                <span class="p">)</span>
     
         <span class="c1"># Compute linear operator</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_stationary</span><span class="p">:</span>
