@@ -519,6 +519,9 @@ class HamiltonianSymbolicConverter:
             E = sp.Symbol("E", real=True)
             pde = sp.Eq(psiOp_H_u, E * u)
             formal = "ψOp(H, u) = E u"
+        elif mode == "heat":
+            pde = sp.Eq(sp.Derivative(u, t), -psiOp_H_u)
+            formal = "∂_t u = -ψOp(H, u)"
         elif mode == "schrodinger":
             pde = sp.Eq(sp.I * sp.Derivative(u, t), psiOp_H_u)
             formal = "i ∂_t u = ψOp(H, u)"
@@ -526,7 +529,7 @@ class HamiltonianSymbolicConverter:
             pde = sp.Eq(sp.Derivative(u, (t, 2)), -psiOp_H_u)
             formal = "∂_{tt} u + ψOp(H, u) = 0"
         else:
-            raise ValueError("mode must be one of: 'stationary', 'schrodinger', 'wave'.")
+            raise ValueError("mode must be one of: 'stationary', 'heat', 'schrodinger' or 'wave'.")
 
         coord_str = ", ".join(str(c) for c in coords)
         xi_str = ", ".join(str(x) for x in xi_vars)

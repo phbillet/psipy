@@ -361,6 +361,18 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">kx</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;kx&#39;</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">kx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ky</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;kx ky&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_stationary</span><span class="p">:</span>
+            <span class="n">time_derivs</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">deriv</span> <span class="k">for</span> <span class="n">deriv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_terms</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">deriv</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="n">var</span> <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">deriv</span><span class="o">.</span><span class="n">variable_count</span><span class="p">]</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_derivs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;The temporal part of the equation must be a single monomial &quot;</span>
+                    <span class="s2">&quot;(e.g., a*du/dt or a*d2u/dt2). Mixed time derivatives &quot;</span>
+                    <span class="s2">&quot;(like a*d2u/dt2 + b*du/dt) are not supported.&quot;</span>
+                <span class="p">)</span>
     
         <span class="c1"># Compute linear operator</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_stationary</span><span class="p">:</span>
@@ -561,37 +573,73 @@
                 <span class="n">source_terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  --&gt; Classified as source term&quot;</span><span class="p">)</span>
     
+        <span class="k">if</span> <span class="n">pseudo_terms</span><span class="p">:</span>
+            <span class="c1"># Check if a time derivative is present among the linear terms</span>
+            <span class="n">has_time_derivative</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">variable_count</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">linear_terms</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Extract non-temporal linear terms (pure spatial derivatives of u,</span>
+            <span class="c1"># or terms that mix spatial derivatives without t)</span>
+            <span class="n">invalid_linear_terms</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">term</span><span class="p">:</span> <span class="n">coeff</span> <span class="k">for</span> <span class="n">term</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">linear_terms</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+                    <span class="nb">isinstance</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span>
+                    <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">variable_count</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="ow">and</span> <span class="n">term</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span>  <span class="c1"># exclusion of the simple u term (without derivative)</span>
+            <span class="p">}</span>
+
+            <span class="k">if</span> <span class="n">invalid_linear_terms</span><span class="p">:</span>
+                <span class="c1"># Instead of forbidding these, fold them into a pseudo-differential</span>
+                <span class="c1"># operator acting on u, so they end up handled by the same psiOp</span>
+                <span class="c1"># machinery as the rest of the equation.</span>
+                <span class="n">var_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">)</span>  <span class="c1"># u(x) or u(x, y), stripped of t</span>
+
+                <span class="k">def</span><span class="w"> </span><span class="nf">_to_var_u</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
+<span class="w">                    </span><span class="sd">&quot;&quot;&quot;Rewrite a pure-spatial Derivative of self.u in terms of var_u.&quot;&quot;&quot;</span>
+                    <span class="k">if</span> <span class="n">term</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">var_u</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">):</span>
+                        <span class="n">diff_args</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">variable_count</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">c</span><span class="p">)]</span>
+                        <span class="k">return</span> <span class="n">Derivative</span><span class="p">(</span><span class="n">var_u</span><span class="p">,</span> <span class="o">*</span><span class="n">diff_args</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">term</span>
+
+                <span class="n">expr</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">coeff</span> <span class="o">*</span> <span class="n">_to_var_u</span><span class="p">(</span><span class="n">term</span><span class="p">)</span> <span class="k">for</span> <span class="n">term</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">invalid_linear_terms</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Converting invalid linear terms into a pseudo-differential operator: </span><span class="si">{</span><span class="n">expr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="n">op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">expr</span><span class="o">=</span><span class="n">expr</span><span class="p">,</span>
+                    <span class="n">vars_x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span>
+                    <span class="n">var_u</span><span class="o">=</span><span class="n">var_u</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="c1"># NOTE: assumes PseudoDifferentialOperator exposes the resulting</span>
+                <span class="c1"># symbol as `op.symbol` — adjust to whatever attribute/method</span>
+                <span class="c1"># your class actually uses (e.g. op.get_symbol()).</span>
+                <span class="n">pseudo_terms</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">symbol</span><span class="p">))</span>
+
+                <span class="c1"># Drop the now-converted terms so they aren&#39;t double-counted</span>
+                <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">invalid_linear_terms</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">linear_terms</span><span class="p">[</span><span class="n">term</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">symbol_terms</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;When psiOp is used, symbolic operators (Op) are forbidden. &quot;</span>
+                    <span class="s2">&quot;Only nonlinear terms, source terms, a time derivative, and &quot;</span>
+                    <span class="s2">&quot;spatial linear terms (now converted to psiOp) are allowed.&quot;</span>
+                <span class="p">)</span>
+
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final linear terms: </span><span class="si">{</span><span class="n">linear_terms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final nonlinear terms: </span><span class="si">{</span><span class="n">nonlinear_terms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Symbol terms: </span><span class="si">{</span><span class="n">symbol_terms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pseudo terms: </span><span class="si">{</span><span class="n">pseudo_terms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Source terms: </span><span class="si">{</span><span class="n">source_terms</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     
-        <span class="k">if</span> <span class="n">pseudo_terms</span><span class="p">:</span>
-            <span class="c1"># Check if a time derivative is present among the linear terms</span>
-            <span class="n">has_time_derivative</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
-                <span class="nb">isinstance</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">_</span>  <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">variable_count</span><span class="p">]</span>
-                <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">linear_terms</span>
-            <span class="p">)</span>
-            <span class="c1"># Extract non-temporal linear terms</span>
-            <span class="n">invalid_linear_terms</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="n">term</span><span class="p">:</span> <span class="n">coeff</span> <span class="k">for</span> <span class="n">term</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">linear_terms</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
-                    <span class="nb">isinstance</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span>
-                    <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">_</span>  <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">variable_count</span><span class="p">]</span>
-                <span class="p">)</span>
-                <span class="ow">and</span> <span class="n">term</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span>  <span class="c1"># exclusion of the simple u term (without derivative)</span>
-            <span class="p">}</span>
-    
-            <span class="k">if</span> <span class="n">invalid_linear_terms</span> <span class="ow">or</span> <span class="n">symbol_terms</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;When psiOp is used, only nonlinear terms, source terms, &quot;</span>
-                    <span class="s2">&quot;and possibly a time derivative are allowed. &quot;</span>
-                    <span class="s2">&quot;Other linear terms and Ops are forbidden.&quot;</span>
-                <span class="p">)</span>
-    
         <span class="k">return</span> <span class="n">linear_terms</span><span class="p">,</span> <span class="n">nonlinear_terms</span><span class="p">,</span> <span class="n">symbol_terms</span><span class="p">,</span> <span class="n">source_terms</span><span class="p">,</span> <span class="n">pseudo_terms</span>
-
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compute_linear_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -702,7 +750,6 @@
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not determine temporal order: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="ne">RuntimeWarning</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Temporal order from dispersion relation: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;self.pseudo_terms = &#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pseudo_terms</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pseudo_terms</span><span class="p">:</span>
             <span class="n">coeff_time</span> <span class="o">=</span> <span class="mi">1</span>
             <span class="k">for</span> <span class="n">term</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_terms</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -715,6 +762,22 @@
                 <span class="n">psi</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">sym_expr</span> <span class="o">/</span> <span class="n">coeff_time</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">)</span>
                 
                 <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">coeff</span><span class="p">,</span> <span class="n">psi</span><span class="p">))</span>
+
+            <span class="c1"># For second-order-in-time equations, precompute the operator</span>
+            <span class="c1"># Op(sqrt(|P|)) where P = sum(coeff_i * symbol_i) is the total</span>
+            <span class="c1"># pseudo-differential symbol. This is the psiOp analogue of the</span>
+            <span class="c1"># sqrt(|L(k)|) Fourier multiplier used by _compute_energy for the</span>
+            <span class="c1"># non-psiOp case, and is built once here (not every time step).</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Abs</span>
+                <span class="n">total_symbol</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">coeff</span> <span class="o">*</span> <span class="n">psi</span><span class="o">.</span><span class="n">expr</span> <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">psi</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="p">)</span>
+                <span class="n">energy_symbol</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">Abs</span><span class="p">(</span><span class="n">total_symbol</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_energy_psi_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">energy_symbol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_energy_is_spatial</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+                    <span class="n">energy_symbol</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span>
+                <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">dispersion</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="n">Eq</span><span class="p">(</span><span class="n">equation</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">omega</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">dispersion</span><span class="p">:</span>
@@ -840,7 +903,7 @@
 
         <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;dirichlet&#39;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;neumann&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Dirichlet boundary conditions require the equation to be defined via a pseudo-differential operator (psiOp). &quot;</span>
+                <span class="s2">&quot;Dirichlet or Neumann boundary conditions require the equation to be defined via a pseudo-differential operator (psiOp). &quot;</span>
                 <span class="s2">&quot;Please provide an equation involving psiOp for non-periodic boundary treatment.&quot;</span>
             <span class="p">)</span>
     
@@ -1682,9 +1745,9 @@
             <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">),</span> <span class="n">expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_psiOp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_psiOp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">psi_ops</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">is_spatial</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Apply the pseudo-differential operator to the input field u.</span>
+<span class="sd">        Apply a pseudo-differential operator to the input field u.</span>
 <span class="sd">    </span>
 <span class="sd">        This method dispatches the application of the pseudo-differential operator based on:</span>
 <span class="sd">        </span>
@@ -1698,7 +1761,7 @@
 <span class="sd">        - Dirichlet boundary conditions: handled with non-periodic convolution-like quantization.</span>
 <span class="sd">    </span>
 <span class="sd">        Dispatch Logic:\n</span>
-<span class="sd">        if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n</span>
+<span class="sd">        if not is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n</span>
 <span class="sd">        elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n</span>
 <span class="sd">        elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n</span>
 
@@ -1713,13 +1776,29 @@
 <span class="sd">        ----------</span>
 <span class="sd">        u : ndarray</span>
 <span class="sd">            Function to which operators are applied</span>
+<span class="sd">        psi_ops : list of (coeff, PseudoDifferentialOperator), optional</span>
+<span class="sd">            Operators to apply, as (coefficient, operator) pairs. Defaults to</span>
+<span class="sd">            ``self.psi_ops`` (the operators parsed from the equation). Passing</span>
+<span class="sd">            an explicit list allows reusing this dispatch logic for auxiliary</span>
+<span class="sd">            operators derived from the equation&#39;s symbol, e.g. the sqrt(|symbol|)</span>
+<span class="sd">            operator used for energy monitoring.</span>
+<span class="sd">        is_spatial : bool, optional</span>
+<span class="sd">            Whether the symbol(s) being applied depend on the spatial variable(s).</span>
+<span class="sd">            Defaults to ``self.is_spatial``. Must be passed explicitly together</span>
+<span class="sd">            with a custom ``psi_ops`` whenever that operator&#39;s x/y-dependence</span>
+<span class="sd">            differs from the equation&#39;s main operator.</span>
 <span class="sd">            </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        ndarray</span>
 <span class="sd">            Result of applying all operators with their coefficients</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;psi_ops&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">psi_ops</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">psi_ops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span>
+        <span class="k">if</span> <span class="n">is_spatial</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">is_spatial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_spatial</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">psi_ops</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No pseudo-differential operators defined&quot;</span><span class="p">)</span>
 
         <span class="c1"># -----------------------------------------------------------------------</span>
@@ -1728,7 +1807,7 @@
         <span class="c1"># processed independently by a worker thread, then results are assembled.</span>
         <span class="c1"># This is safe because each block only reads/writes its own rows of u.</span>
         <span class="c1"># -----------------------------------------------------------------------</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_spatial</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">is_spatial</span><span class="p">:</span>
             <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
 
@@ -1747,7 +1826,7 @@
                 <span class="n">u_block</span>   <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="n">i0</span><span class="p">:</span><span class="n">i1</span><span class="p">,</span> <span class="p">:]</span>
                 <span class="n">x_block</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">[</span><span class="n">i0</span><span class="p">:</span><span class="n">i1</span><span class="p">]</span>
                 <span class="n">block_res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u_block</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">psi_op</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">psi_op</span> <span class="ow">in</span> <span class="n">psi_ops</span><span class="p">:</span>
                     <span class="n">block_res</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">(</span><span class="n">coeff</span><span class="p">)</span> <span class="o">*</span> <span class="n">psi_op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
                         <span class="n">u</span><span class="o">=</span><span class="n">u_block</span><span class="p">,</span>
                         <span class="n">x_grid</span><span class="o">=</span><span class="n">x_block</span><span class="p">,</span>
@@ -1771,7 +1850,7 @@
         <span class="c1"># -----------------------------------------------------------------------</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
         
-        <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">psi_op</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">psi_op</span> <span class="ow">in</span> <span class="n">psi_ops</span><span class="p">:</span>
             <span class="n">coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">(</span><span class="n">coeff</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">contribution</span> <span class="o">=</span> <span class="n">psi_op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
@@ -2016,7 +2095,7 @@
 <span class="sd">                        - Default: second-order leapfrog-style update</span>
 <span class="sd">                3. Enforce boundary conditions</span>
 <span class="sd">                4. Save solution snapshot periodically</span>
-<span class="sd">                5. Record energy (for second-order systems without psiOp)</span>
+<span class="sd">                5. Record energy (for second-order systems, with or without psiOp)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">*******************&#39;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;* Solving the PDE *&#39;</span><span class="p">)</span>
@@ -2042,7 +2121,7 @@
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
                     <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_order1_with_psi</span><span class="p">(</span><span class="n">source_contribution</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;time_scheme&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_scheme</span> <span class="o">==</span> <span class="s1">&#39;ETD-RK4&#39;</span><span class="p">:</span>
-                    <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_ETD_RK4</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
+                    <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_ETD_RK4_order1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
                     <span class="n">u_hat</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exp_L</span>
@@ -2078,7 +2157,7 @@
             <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="n">save_interval</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
 
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="n">E</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_energy</span><span class="p">()</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
 
@@ -2289,7 +2368,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid boundary condition &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">&#39;. Supported types are &#39;periodic&#39;, &#39;dirichlet&#39; and &#39;neumann&#39;.&quot;</span><span class="p">)</span></div>
 
     
-    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform one Exponential Time Differencing Runge-Kutta of 4th order (ETD-RK4) time step </span>
 <span class="sd">        for first-order in time PDEs of the form:</span>
@@ -2613,6 +2692,7 @@
         <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✔ Symbol analysis completed.&quot;</span><span class="p">)</span>
 
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_analyze_wave_propagation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform a detailed analysis of wave propagation characteristics based on the dispersion relation ω(k).</span>
@@ -2826,49 +2906,80 @@
 <span class="sd">        The energy is defined as:</span>
 <span class="sd">            E(t) = 1/2 ∫ [ (∂ₜu)² + |L¹ᐟ²u|² ] dx</span>
 <span class="sd">        where L is the linear operator associated with the spatial part of the PDE,</span>
-<span class="sd">        and L¹ᐟ² denotes its square root in Fourier space.</span>
+<span class="sd">        and L¹ᐟ² denotes its square root.</span>
 <span class="sd">    </span>
 <span class="sd">        This method supports both 1D and 2D problems and is only meaningful when </span>
-<span class="sd">        self.temporal_order == 2 (second-order time derivative).</span>
+<span class="sd">        self.temporal_order == 2 (second-order time derivative). Two cases are handled:</span>
+<span class="sd">    </span>
+<span class="sd">        - Standard case (no psiOp): L is a Fourier multiplier L(k), applied via FFT,</span>
+<span class="sd">          and the velocity ∂ₜu is read directly from self.v_prev, which is advanced</span>
+<span class="sd">          alongside u at every step.</span>
+<span class="sd">        - psiOp case: L is a (possibly spatially-varying) pseudo-differential symbol.</span>
+<span class="sd">          |L|^(1/2) is applied via the same Kohn-Nirenberg/FFT dispatch used for the</span>
+<span class="sd">          operator itself (see ``_apply_psiOp``), using the operator precomputed once</span>
+<span class="sd">          in ``_compute_linear_operator`` (``self._energy_psi_op``). Because the psiOp</span>
+<span class="sd">          time-stepping (`_step_order2_with_psi`) is a leapfrog scheme that only tracks</span>
+<span class="sd">          u_prev and u_prev2 (self.v_prev is not advanced in that path), the velocity is</span>
+<span class="sd">          estimated from those two levels via a first-order finite difference:</span>
+<span class="sd">          v ≈ (u_prev - u_prev2) / dt. This estimate is centered half a step behind</span>
+<span class="sd">          u_prev, so the reported energy lags the true value by O(dt) — negligible for</span>
+<span class="sd">          monitoring purposes at typical time-step sizes.</span>
 <span class="sd">    </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        float or None: </span>
-<span class="sd">            Total energy at current time step. Returns None if the temporal order is not 2 or if no valid velocity data (v_prev) is available.</span>
+<span class="sd">            Total energy at current time step. Returns None if the temporal order is not 2</span>
+<span class="sd">            or if the data needed to evaluate it (v_prev, or u_prev2 in the psiOp case)</span>
+<span class="sd">            is not yet available.</span>
 <span class="sd">    </span>
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        - Uses FFT-based spectral differentiation to compute the spatial contributions.</span>
+<span class="sd">        - Uses FFT-based / Kohn-Nirenberg spectral evaluation for the spatial contribution.</span>
 <span class="sd">        - Assumes periodic boundary conditions.</span>
 <span class="sd">        - Handles both real and complex-valued solutions.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
     
         <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span>
-        <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span>
     
-        <span class="c1"># Fourier transform of u</span>
-        <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="c1"># Leapfrog velocity estimate from the two most recent time levels.</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+    
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_energy_psi_op&#39;</span><span class="p">):</span>
+                <span class="c1"># Defensive fallback: should always be set by _compute_linear_operator</span>
+                <span class="c1"># for temporal_order == 2, but avoid a hard crash if not.</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">Lu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span>
+                <span class="n">u</span><span class="p">,</span> <span class="n">psi_ops</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_energy_psi_op</span><span class="p">)],</span> <span class="n">is_spatial</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_energy_is_spatial</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span>
+    
+            <span class="c1"># Fourier transform of u</span>
+            <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+    
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported dimension for u.&quot;</span><span class="p">)</span>
+    
+            <span class="n">sqrt_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">L_vals</span><span class="p">))</span>
+            <span class="n">Lu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">sqrt_L</span> <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>  <span class="c1"># Apply sqrt(|L(k)|) in Fourier space</span>
     
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="c1"># 1D case</span>
-            <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span>
-            <span class="n">sqrt_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">L_vals</span><span class="p">))</span>
-            <span class="n">Lu_hat</span> <span class="o">=</span> <span class="n">sqrt_L</span> <span class="o">*</span> <span class="n">u_hat</span>  <span class="c1"># Apply sqrt(|L(k)|) in Fourier space</span>
-            <span class="n">Lu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">Lu_hat</span><span class="p">)</span>
-    
             <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
             <span class="n">energy_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Lu</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
             <span class="n">total_energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
     
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="c1"># 2D case</span>
-            <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
-            <span class="n">sqrt_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">L_vals</span><span class="p">))</span>
-            <span class="n">Lu_hat</span> <span class="o">=</span> <span class="n">sqrt_L</span> <span class="o">*</span> <span class="n">u_hat</span>
-            <span class="n">Lu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">Lu_hat</span><span class="p">)</span>
-    
             <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
             <span class="n">dy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ly</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ny</span>
             <span class="n">energy_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Lu</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>

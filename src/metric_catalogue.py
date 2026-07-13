@@ -124,8 +124,8 @@ METRICS = {
         ic_center   = (0.0, 0.0),
         ic_sigma    = 0.3,
         Lt          = 3.0,
-        Nt          = 150,
-        Nx          = 64, Ny = 64,
+        Nt          = 300,
+        Nx          = 128, Ny = 128,
         description = 'Unit sphere (K = +1)',
     ),
 
@@ -609,13 +609,13 @@ METRICS = {
     'zoll': dict(
         g           = Matrix([[(1 + 0.3*cos(x))**2, 0], [0, sin(x)**2]]),
         coords      = (x, y),
-        domain      = (2.54, 6.283185),
+        domain      = (6.283185, 6.283185),
         shift       = (1.57, 0.0),
         ic_center   = (0.0, 0.0),
         ic_sigma    = 0.3,
         Lt          = 3.0,
         Nt          = 150,
-        Nx          = 64, Ny = 64,
+        Nx          = 128, Ny = 128,
         description = 'Zoll metric (a=0.3, all geodesics closed)',
     ),
 
@@ -1373,8 +1373,8 @@ METRICS = {
         ic_center   = (0.0, 0.0),
         ic_sigma    = 0.3,
         Lt          = 4.0,
-        Nt          = 125,
-        Nx          = 64, Ny = 64,
+        Nt          = 300,
+        Nx          = 128, Ny = 128,
         description = 'Soliton metric (1 + sech²x cos²y) (K variable, periodic in y)',
     ),
 
@@ -1505,8 +1505,8 @@ METRICS = {
         ic_center   = (0.0, 0.0),
         ic_sigma    = 0.3,
         Lt          = 4.0,
-        Nt          = 150,
-        Nx          = 64, Ny = 64,
+        Nt          = 300,
+        Nx          = 128, Ny = 128,
         description = 'Butterfly metric (K alternates sign, four lobes, on T²)',
     ),
 
@@ -1650,7 +1650,7 @@ METRICS = {
         ic_sigma    = 0.2,
         Lt          = 2.0,
         Nt          = 100,
-        Nx          = 64, Ny = 64,
+        Nx          = 128, Ny = 128,
         description = 'Lens metric (sin²(2r), perfect focusing, caustics)',
     ),
 

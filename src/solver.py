@@ -487,37 +487,73 @@ class PDESolver:
                 source_terms.append(term)
                 print("  --> Classified as source term")
     
+        if pseudo_terms:
+            # Check if a time derivative is present among the linear terms
+            has_time_derivative = any(
+                isinstance(term, Derivative) and self.t in [v for v, _ in term.variable_count]
+                for term in linear_terms
+            )
+
+            # Extract non-temporal linear terms (pure spatial derivatives of u,
+            # or terms that mix spatial derivatives without t)
+            invalid_linear_terms = {
+                term: coeff for term, coeff in linear_terms.items()
+                if not (
+                    isinstance(term, Derivative)
+                    and self.t in [v for v, _ in term.variable_count]
+                )
+                and term != self.u  # exclusion of the simple u term (without derivative)
+            }
+
+            if invalid_linear_terms:
+                # Instead of forbidding these, fold them into a pseudo-differential
+                # operator acting on u, so they end up handled by the same psiOp
+                # machinery as the rest of the equation.
+                var_u = self.u.func(self.spatial_vars)  # u(x) or u(x, y), stripped of t
+
+                def _to_var_u(term):
+                    """Rewrite a pure-spatial Derivative of self.u in terms of var_u."""
+                    if term == self.u:
+                        return var_u
+                    if isinstance(term, Derivative):
+                        diff_args = [v for v, c in term.variable_count for _ in range(c)]
+                        return Derivative(var_u, *diff_args)
+                    return term
+
+                expr = sum(coeff * _to_var_u(term) for term, coeff in invalid_linear_terms.items())
+
+                print(f"  Converting invalid linear terms into a pseudo-differential operator: {expr}")
+
+                op = PseudoDifferentialOperator(
+                    expr=expr,
+                    vars_x=self.spatial_vars,
+                    var_u=var_u,
+                    mode='auto',
+                )
+
+                # NOTE: assumes PseudoDifferentialOperator exposes the resulting
+                # symbol as `op.symbol` — adjust to whatever attribute/method
+                # your class actually uses (e.g. op.get_symbol()).
+                pseudo_terms.append((1, op.symbol))
+
+                # Drop the now-converted terms so they aren't double-counted
+                for term in invalid_linear_terms:
+                    del linear_terms[term]
+
+            if symbol_terms:
+                raise ValueError(
+                    "When psiOp is used, symbolic operators (Op) are forbidden. "
+                    "Only nonlinear terms, source terms, a time derivative, and "
+                    "spatial linear terms (now converted to psiOp) are allowed."
+                )
+
         print(f"Final linear terms: {linear_terms}")
         print(f"Final nonlinear terms: {nonlinear_terms}")
         print(f"Symbol terms: {symbol_terms}")
         print(f"Pseudo terms: {pseudo_terms}")
         print(f"Source terms: {source_terms}")
     
-        if pseudo_terms:
-            # Check if a time derivative is present among the linear terms
-            has_time_derivative = any(
-                isinstance(term, Derivative) and self.t in [v for v, _  in term.variable_count]
-                for term in linear_terms
-            )
-            # Extract non-temporal linear terms
-            invalid_linear_terms = {
-                term: coeff for term, coeff in linear_terms.items()
-                if not (
-                    isinstance(term, Derivative)
-                    and self.t in [v for v, _  in term.variable_count]
-                )
-                and term != self.u  # exclusion of the simple u term (without derivative)
-            }
-    
-            if invalid_linear_terms or symbol_terms:
-                raise ValueError(
-                    "When psiOp is used, only nonlinear terms, source terms, "
-                    "and possibly a time derivative are allowed. "
-                    "Other linear terms and Ops are forbidden."
-                )
-    
         return linear_terms, nonlinear_terms, symbol_terms, source_terms, pseudo_terms
-
 
     def _compute_linear_operator(self):
         """
@@ -628,7 +664,6 @@ class PDESolver:
             warnings.warn(f"Could not determine temporal order: {e}", RuntimeWarning)
             self.temporal_order = 0
         print(f"Temporal order from dispersion relation: {self.temporal_order}")
-        print('self.pseudo_terms = ', self.pseudo_terms)
         if self.pseudo_terms:
             coeff_time = 1
             for term, coeff in self.linear_terms.items():
@@ -641,6 +676,22 @@ class PDESolver:
                 psi = PseudoDifferentialOperator(sym_expr / coeff_time, self.spatial_vars, self.u, mode='symbol')
                 
                 self.psi_ops.append((coeff, psi))
+
+            # For second-order-in-time equations, precompute the operator
+            # Op(sqrt(|P|)) where P = sum(coeff_i * symbol_i) is the total
+            # pseudo-differential symbol. This is the psiOp analogue of the
+            # sqrt(|L(k)|) Fourier multiplier used by _compute_energy for the
+            # non-psiOp case, and is built once here (not every time step).
+            if self.temporal_order == 2:
+                from sympy import Abs
+                total_symbol = sum(coeff * psi.expr for coeff, psi in self.psi_ops)
+                energy_symbol = sqrt(Abs(total_symbol))
+                self._energy_psi_op = PseudoDifferentialOperator(
+                    energy_symbol, self.spatial_vars, self.u, mode='symbol'
+                )
+                self._energy_is_spatial = any(
+                    energy_symbol.has(var) for var in self.spatial_vars
+                )
         else:
             dispersion = solve(Eq(equation, 0), omega)
             if not dispersion:
@@ -764,7 +815,7 @@ class PDESolver:
 
         if (self.boundary_condition == 'dirichlet' or self.boundary_condition == 'neumann') and not self.has_psi:
             raise ValueError(
-                "Dirichlet boundary conditions require the equation to be defined via a pseudo-differential operator (psiOp). "
+                "Dirichlet or Neumann boundary conditions require the equation to be defined via a pseudo-differential operator (psiOp). "
                 "Please provide an equation involving psiOp for non-periodic boundary treatment."
             )
     
@@ -1605,9 +1656,9 @@ class PDESolver:
             x, y, xi, eta = symbols('x y xi eta', real=True)
             return lambdify((x, y, xi, eta), expr, 'numpy')
 
-    def _apply_psiOp(self, u):
+    def _apply_psiOp(self, u, psi_ops=None, is_spatial=None):
         """
-        Apply the pseudo-differential operator to the input field u.
+        Apply a pseudo-differential operator to the input field u.
     
         This method dispatches the application of the pseudo-differential operator based on:
         
@@ -1621,7 +1672,7 @@ class PDESolver:
         - Dirichlet boundary conditions: handled with non-periodic convolution-like quantization.
     
         Dispatch Logic:\n
-        if not self.is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n
+        if not is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n
         elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n
         elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n
 
@@ -1636,13 +1687,29 @@ class PDESolver:
         ----------
         u : ndarray
             Function to which operators are applied
+        psi_ops : list of (coeff, PseudoDifferentialOperator), optional
+            Operators to apply, as (coefficient, operator) pairs. Defaults to
+            ``self.psi_ops`` (the operators parsed from the equation). Passing
+            an explicit list allows reusing this dispatch logic for auxiliary
+            operators derived from the equation's symbol, e.g. the sqrt(|symbol|)
+            operator used for energy monitoring.
+        is_spatial : bool, optional
+            Whether the symbol(s) being applied depend on the spatial variable(s).
+            Defaults to ``self.is_spatial``. Must be passed explicitly together
+            with a custom ``psi_ops`` whenever that operator's x/y-dependence
+            differs from the equation's main operator.
             
         Returns
         -------
         ndarray
             Result of applying all operators with their coefficients
         """
-        if not hasattr(self, 'psi_ops') or not self.psi_ops:
+        if psi_ops is None:
+            psi_ops = self.psi_ops
+        if is_spatial is None:
+            is_spatial = self.is_spatial
+
+        if not psi_ops:
             raise ValueError("No pseudo-differential operators defined")
 
         # -----------------------------------------------------------------------
@@ -1651,7 +1718,7 @@ class PDESolver:
         # processed independently by a worker thread, then results are assembled.
         # This is safe because each block only reads/writes its own rows of u.
         # -----------------------------------------------------------------------
-        if self.dim == 2 and self.is_spatial:
+        if self.dim == 2 and is_spatial:
             import os
             from concurrent.futures import ThreadPoolExecutor
 
@@ -1670,7 +1737,7 @@ class PDESolver:
                 u_block   = u[i0:i1, :]
                 x_block   = self.x_grid[i0:i1]
                 block_res = np.zeros_like(u_block, dtype=np.complex128)
-                for coeff, psi_op in self.psi_ops:
+                for coeff, psi_op in psi_ops:
                     block_res += np.complex128(coeff) * psi_op.apply(
                         u=u_block,
                         x_grid=x_block,
@@ -1694,7 +1761,7 @@ class PDESolver:
         # -----------------------------------------------------------------------
         result = np.zeros_like(u, dtype=np.complex128)
         
-        for coeff, psi_op in self.psi_ops:
+        for coeff, psi_op in psi_ops:
             coeff = np.complex128(coeff)
             if self.dim == 1:
                 contribution = psi_op.apply(
@@ -1937,7 +2004,7 @@ class PDESolver:
                         - Default: second-order leapfrog-style update
                 3. Enforce boundary conditions
                 4. Save solution snapshot periodically
-                5. Record energy (for second-order systems without psiOp)
+                5. Record energy (for second-order systems, with or without psiOp)
         """
         print('\n*******************')
         print('* Solving the PDE *')
@@ -1963,7 +2030,7 @@ class PDESolver:
                 if self.has_psi:
                     u_new = self._step_order1_with_psi(source_contribution)
                 elif hasattr(self, 'time_scheme') and self.time_scheme == 'ETD-RK4':
-                    u_new = self._step_ETD_RK4(self.u_prev)
+                    u_new = self._step_ETD_RK4_order1(self.u_prev)
                 else:
                     u_hat = self.fft(self.u_prev)
                     u_hat *= self.exp_L
@@ -1999,7 +2066,7 @@ class PDESolver:
             if step % save_interval == 0:
                 self.frames.append(self.u_prev.copy())
 
-            if self.temporal_order == 2 and (not self.has_psi):
+            if self.temporal_order == 2:
                 E = self._compute_energy()
                 self.energy_history.append(E)
 
@@ -2206,7 +2273,7 @@ class PDESolver:
         else:
             raise ValueError(f"Invalid boundary condition '{self.boundary_condition}'. Supported types are 'periodic', 'dirichlet' and 'neumann'.")
     
-    def _step_ETD_RK4(self, u):
+    def _step_ETD_RK4_order1(self, u):
         """
         Perform one Exponential Time Differencing Runge-Kutta of 4th order (ETD-RK4) time step 
         for first-order in time PDEs of the form:
@@ -2530,6 +2597,7 @@ class PDESolver:
         if verbose:
             print("✔ Symbol analysis completed.")
 
+
     def _analyze_wave_propagation(self):
         """
         Perform a detailed analysis of wave propagation characteristics based on the dispersion relation ω(k).
@@ -2743,49 +2811,80 @@ class PDESolver:
         The energy is defined as:
             E(t) = 1/2 ∫ [ (∂ₜu)² + |L¹ᐟ²u|² ] dx
         where L is the linear operator associated with the spatial part of the PDE,
-        and L¹ᐟ² denotes its square root in Fourier space.
+        and L¹ᐟ² denotes its square root.
     
         This method supports both 1D and 2D problems and is only meaningful when 
-        self.temporal_order == 2 (second-order time derivative).
+        self.temporal_order == 2 (second-order time derivative). Two cases are handled:
+    
+        - Standard case (no psiOp): L is a Fourier multiplier L(k), applied via FFT,
+          and the velocity ∂ₜu is read directly from self.v_prev, which is advanced
+          alongside u at every step.
+        - psiOp case: L is a (possibly spatially-varying) pseudo-differential symbol.
+          |L|^(1/2) is applied via the same Kohn-Nirenberg/FFT dispatch used for the
+          operator itself (see ``_apply_psiOp``), using the operator precomputed once
+          in ``_compute_linear_operator`` (``self._energy_psi_op``). Because the psiOp
+          time-stepping (`_step_order2_with_psi`) is a leapfrog scheme that only tracks
+          u_prev and u_prev2 (self.v_prev is not advanced in that path), the velocity is
+          estimated from those two levels via a first-order finite difference:
+          v ≈ (u_prev - u_prev2) / dt. This estimate is centered half a step behind
+          u_prev, so the reported energy lags the true value by O(dt) — negligible for
+          monitoring purposes at typical time-step sizes.
     
         Returns
         -------
         float or None: 
-            Total energy at current time step. Returns None if the temporal order is not 2 or if no valid velocity data (v_prev) is available.
+            Total energy at current time step. Returns None if the temporal order is not 2
+            or if the data needed to evaluate it (v_prev, or u_prev2 in the psiOp case)
+            is not yet available.
     
         Notes
         -----
-        - Uses FFT-based spectral differentiation to compute the spatial contributions.
+        - Uses FFT-based / Kohn-Nirenberg spectral evaluation for the spatial contribution.
         - Assumes periodic boundary conditions.
         - Handles both real and complex-valued solutions.
         """
-        if self.temporal_order != 2 or self.v_prev is None:
+        if self.temporal_order != 2:
             return None
     
         u = self.u_prev
-        v = self.v_prev
     
-        # Fourier transform of u
-        u_hat = self.fft(u)
+        if self.has_psi:
+            if self.u_prev2 is None:
+                return None
+            # Leapfrog velocity estimate from the two most recent time levels.
+            v = (self.u_prev - self.u_prev2) / self.dt
+    
+            if not hasattr(self, '_energy_psi_op'):
+                # Defensive fallback: should always be set by _compute_linear_operator
+                # for temporal_order == 2, but avoid a hard crash if not.
+                return None
+            Lu = self._apply_psiOp(
+                u, psi_ops=[(1, self._energy_psi_op)], is_spatial=self._energy_is_spatial
+            )
+        else:
+            if self.v_prev is None:
+                return None
+            v = self.v_prev
+    
+            # Fourier transform of u
+            u_hat = self.fft(u)
+    
+            if self.dim == 1:
+                L_vals = self.L(self.KX)
+            elif self.dim == 2:
+                L_vals = self.L(self.KX, self.KY)
+            else:
+                raise ValueError("Unsupported dimension for u.")
+    
+            sqrt_L = np.sqrt(np.abs(L_vals))
+            Lu = self.ifft(sqrt_L * u_hat)  # Apply sqrt(|L(k)|) in Fourier space
     
         if self.dim == 1:
-            # 1D case
-            L_vals = self.L(self.KX)
-            sqrt_L = np.sqrt(np.abs(L_vals))
-            Lu_hat = sqrt_L * u_hat  # Apply sqrt(|L(k)|) in Fourier space
-            Lu = self.ifft(Lu_hat)
-    
             dx = self.Lx / self.Nx
             energy_density = 0.5 * (np.abs(v)**2 + np.abs(Lu)**2)
             total_energy = np.sum(energy_density) * dx
     
         elif self.dim == 2:
-            # 2D case
-            L_vals = self.L(self.KX, self.KY)
-            sqrt_L = np.sqrt(np.abs(L_vals))
-            Lu_hat = sqrt_L * u_hat
-            Lu = self.ifft(Lu_hat)
-    
             dx = self.Lx / self.Nx
             dy = self.Ly / self.Ny
             energy_density = 0.5 * (np.abs(v)**2 + np.abs(Lu)**2)
