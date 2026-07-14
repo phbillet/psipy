@@ -554,7 +554,7 @@
                 <span class="k">continue</span>
     
             <span class="k">if</span> <span class="n">_is_nonlinear_term</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">):</span>
-                <span class="n">nonlinear_terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
+                <span class="n">nonlinear_terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="n">term</span><span class="p">)</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  --&gt; Classified as nonlinear&quot;</span><span class="p">)</span>
                 <span class="k">continue</span>
     
@@ -570,7 +570,7 @@
                 <span class="n">linear_terms</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">]</span> <span class="o">=</span> <span class="n">linear_terms</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">coeff</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  --&gt; Classified as linear&quot;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">source_terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
+                <span class="n">source_terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="n">term</span><span class="p">)</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  --&gt; Classified as source term&quot;</span><span class="p">)</span>
     
         <span class="k">if</span> <span class="n">pseudo_terms</span><span class="p">:</span>
@@ -1217,7 +1217,7 @@
                 <span class="nb">sum</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">x_val</span><span class="p">)</span><span class="o">.</span><span class="n">evalf</span><span class="p">()</span>
                     <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">x_val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span>
-            <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float128</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Evaluation on the 2D spatial grid</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
@@ -1225,7 +1225,7 @@
                       <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">)</span>
                  <span class="k">for</span> <span class="n">y_val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span><span class="p">]</span>
                 <span class="k">for</span> <span class="n">x_val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span>
-            <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float128</span><span class="p">)</span>
     
     <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_conditions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial_condition</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -2103,25 +2103,14 @@
         <span class="n">save_interval</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nt</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_frames</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Nt</span><span class="p">):</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_compiled_source_funcs&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span><span class="p">:</span>
-                <span class="n">source_contribution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-                <span class="n">t_val</span> <span class="o">=</span> <span class="n">step</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
-                <span class="k">for</span> <span class="n">fn</span><span class="p">,</span> <span class="n">dim</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span><span class="p">:</span>
-                    <span class="k">try</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                            <span class="n">source_contribution</span> <span class="o">+=</span> <span class="n">fn</span><span class="p">(</span><span class="n">t_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
-                        <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                            <span class="n">source_contribution</span> <span class="o">+=</span> <span class="n">fn</span><span class="p">(</span><span class="n">t_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">)</span>
-                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Error evaluating pre-compiled source term: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">source_contribution</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">t_val</span> <span class="o">=</span> <span class="n">step</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+            <span class="n">source_contribution</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t_val</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
                     <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_order1_with_psi</span><span class="p">(</span><span class="n">source_contribution</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;time_scheme&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_scheme</span> <span class="o">==</span> <span class="s1">&#39;ETD-RK4&#39;</span><span class="p">:</span>
-                    <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_ETD_RK4_order1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
+                    <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_ETD_RK4_order1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="n">t_val</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
                     <span class="n">u_hat</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exp_L</span>
@@ -2137,7 +2126,7 @@
                     <span class="n">u_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_order2_with_psi</span><span class="p">(</span><span class="n">source_contribution</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;time_scheme&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_scheme</span> <span class="o">==</span> <span class="s1">&#39;ETD-RK4&#39;</span><span class="p">:</span>
-                        <span class="n">u_new</span><span class="p">,</span> <span class="n">v_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_ETD_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span><span class="p">)</span>
+                        <span class="n">u_new</span><span class="p">,</span> <span class="n">v_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_ETD_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span><span class="p">,</span> <span class="n">t_val</span><span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
                         <span class="n">v_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span><span class="p">)</span>
@@ -2277,7 +2266,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
             <span class="n">f_expr</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">)</span>
             <span class="n">used_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">spatial_vars</span> <span class="k">if</span> <span class="n">f_expr</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">v</span><span class="p">)]</span>
-            <span class="n">f_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">used_vars</span><span class="p">,</span> <span class="o">-</span><span class="n">f_expr</span><span class="p">,</span> <span class="n">modules</span><span class="o">=</span><span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+            <span class="n">f_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">used_vars</span><span class="p">,</span> <span class="n">f_expr</span><span class="p">,</span> <span class="n">modules</span><span class="o">=</span><span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">rhs</span> <span class="o">=</span> <span class="n">f_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">)</span> <span class="k">if</span> <span class="n">used_vars</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
@@ -2368,12 +2357,42 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid boundary condition &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">&#39;. Supported types are &#39;periodic&#39;, &#39;dirichlet&#39; and &#39;neumann&#39;.&quot;</span><span class="p">)</span></div>
 
     
-    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_eval_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_val</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate the total source term f(x,t) (or f(x,y,t)) at a given time `t_val`.</span>
+
+<span class="sd">        This factors out the source-evaluation logic used in the main time-stepping</span>
+<span class="sd">        loop so that sub-step schemes (e.g. ETD-RK4) can sample the source at the</span>
+<span class="sd">        intermediate stage times they require (t, t+dt/2, t+dt, ...) instead of</span>
+<span class="sd">        reusing a single value computed at the start of the step.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">            t_val (float): Time at which to evaluate the source term(s).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            np.ndarray or float: Source contribution on the spatial grid, or 0.0</span>
+<span class="sd">            if no source terms are registered.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_compiled_source_funcs&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span><span class="p">:</span>
+            <span class="n">source</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float128</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">fn</span><span class="p">,</span> <span class="n">dim</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">source</span> <span class="o">+=</span> <span class="n">fn</span><span class="p">(</span><span class="n">t_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">source</span> <span class="o">+=</span> <span class="n">fn</span><span class="p">(</span><span class="n">t_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Error evaluating pre-compiled source term: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">source</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform one Exponential Time Differencing Runge-Kutta of 4th order (ETD-RK4) time step </span>
 <span class="sd">        for first-order in time PDEs of the form:</span>
 <span class="sd">        </span>
-<span class="sd">            ∂ₜu = L u + N(u)</span>
+<span class="sd">            ∂ₜu = L u + N(u) + f(x,t)</span>
 <span class="sd">        </span>
 <span class="sd">        where L is a linear operator (possibly nonlocal or pseudo-differential), and N is a </span>
 <span class="sd">        nonlinear term treated via pseudo-spectral methods. This method evaluates the </span>
@@ -2428,17 +2447,22 @@
         <span class="n">fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span>
         <span class="n">ifft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span>
     
+        <span class="c1"># Source term sampled at the stage times required for 4th-order accuracy</span>
+        <span class="n">f0</span>    <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">fhalf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="n">f1</span>    <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="p">)</span>
+    
         <span class="n">u_hat</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
-        <span class="n">N1</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">u</span><span class="p">))</span>
+        <span class="n">N1</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">+</span> <span class="n">f0</span><span class="p">)</span>
     
         <span class="n">a</span> <span class="o">=</span> <span class="n">ifft</span><span class="p">(</span><span class="n">E2</span> <span class="o">*</span> <span class="p">(</span><span class="n">u_hat</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">N1</span> <span class="o">*</span> <span class="n">phi1_dtL</span><span class="p">))</span>
-        <span class="n">N2</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+        <span class="n">N2</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">+</span> <span class="n">fhalf</span><span class="p">)</span>
     
         <span class="n">b</span> <span class="o">=</span> <span class="n">ifft</span><span class="p">(</span><span class="n">E2</span> <span class="o">*</span> <span class="p">(</span><span class="n">u_hat</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">N2</span> <span class="o">*</span> <span class="n">phi1_dtL</span><span class="p">))</span>
-        <span class="n">N3</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+        <span class="n">N3</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">+</span> <span class="n">fhalf</span><span class="p">)</span>
     
         <span class="n">c</span> <span class="o">=</span> <span class="n">ifft</span><span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="p">(</span><span class="n">u_hat</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">N3</span> <span class="o">*</span> <span class="n">phi1_dtL</span><span class="p">))</span>
-        <span class="n">N4</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+        <span class="n">N4</span> <span class="o">=</span> <span class="n">fft</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">+</span> <span class="n">f1</span><span class="p">)</span>
     
         <span class="n">u_new_hat</span> <span class="o">=</span> <span class="n">E</span> <span class="o">*</span> <span class="n">u_hat</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="p">(</span>
             <span class="n">N1</span> <span class="o">*</span> <span class="n">phi1_dtL</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">N2</span> <span class="o">+</span> <span class="n">N3</span><span class="p">)</span> <span class="o">*</span> <span class="n">phi2_dtL</span> <span class="o">+</span> <span class="n">N4</span> <span class="o">*</span> <span class="n">phi1_dtL</span>
@@ -2447,14 +2471,14 @@
         <span class="k">return</span> <span class="n">ifft</span><span class="p">(</span><span class="n">u_new_hat</span><span class="p">)</span>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform one time step of the Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) scheme for second-order PDEs.</span>
 <span class="sd">    </span>
 <span class="sd">        This method evolves the solution u and its time derivative v forward in time by one step using the ETD-RK4 integrator. </span>
 <span class="sd">        It is designed for systems of the form:</span>
 <span class="sd">        </span>
-<span class="sd">            ∂ₜ²u = L u + N(u)</span>
+<span class="sd">            ∂ₜ²u = L u + N(u) + f(x,t)</span>
 <span class="sd">            </span>
 <span class="sd">        where L is a linear operator and N is a nonlinear term computed via self._apply_nonlinear.</span>
 <span class="sd">        </span>
@@ -2480,31 +2504,34 @@
         <span class="n">fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span>
         <span class="n">ifft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span>
     
-        <span class="k">def</span><span class="w"> </span><span class="nf">rhs</span><span class="p">(</span><span class="n">u_val</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">ifft</span><span class="p">(</span><span class="n">L_fft</span> <span class="o">*</span> <span class="n">fft</span><span class="p">(</span><span class="n">u_val</span><span class="p">))</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">rhs</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">t_val</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">ifft</span><span class="p">(</span><span class="n">L_fft</span> <span class="o">*</span> <span class="n">fft</span><span class="p">(</span><span class="n">u_val</span><span class="p">))</span>
+                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t_val</span><span class="p">))</span>
     
-        <span class="c1"># Stage A</span>
-        <span class="n">A</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="c1"># Stage A (t)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
         <span class="n">ua</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span>
         <span class="n">va</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">A</span>
     
-        <span class="c1"># Stage B</span>
-        <span class="n">B</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ua</span><span class="p">)</span>
+        <span class="c1"># Stage B (t + dt/2)</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ua</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
         <span class="n">ub</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">va</span>
         <span class="n">vb</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">B</span>
     
-        <span class="c1"># Stage C</span>
-        <span class="n">C</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ub</span><span class="p">)</span>
+        <span class="c1"># Stage C (t + dt/2)</span>
+        <span class="n">C</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">ub</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
         <span class="n">uc</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">vb</span>
     
-        <span class="c1"># Stage D</span>
-        <span class="n">D</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">uc</span><span class="p">)</span>
+        <span class="c1"># Stage D (t + dt)</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">rhs</span><span class="p">(</span><span class="n">uc</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="p">)</span>
     
         <span class="c1"># Final update</span>
         <span class="n">u_new</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span> <span class="o">+</span> <span class="p">(</span><span class="n">dt</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">B</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">C</span> <span class="o">+</span> <span class="n">D</span><span class="p">)</span>
         <span class="n">v_new</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="p">(</span><span class="n">dt</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">A</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">B</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">C</span> <span class="o">+</span> <span class="n">D</span><span class="p">)</span>
     
         <span class="k">return</span> <span class="n">u_new</span><span class="p">,</span> <span class="n">v_new</span>
+
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_cfl_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>

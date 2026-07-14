@@ -705,6 +705,44 @@ class TestTimeDependent1D:
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
                             threshold=5e-2, component='real')
 
+    # ---------------------------------------------
+    #  Heat equation with a source term
+    # ---------------------------------------------
+    def test_heat_source(self):
+        # Define the symbols and the heat equation with a source term
+        t, x, kx, xi, omega = symbols('t x kx xi omega')
+        u_func = Function('u')
+        u = u_func(t, x)
+        
+        # Source term
+        source_term = 3 * exp(-t) * sin(2*x) + (t**2 + 2*t) * cos(x)
+        
+        # Equation with source term
+        eq = Eq(diff(u, t), diff(u, x, x) + source_term)
+        
+        # Create the solver with ETD-RK4 scheme
+        solver = PDESolver(eq, time_scheme="ETD-RK4")
+        
+        # Simulation parameters
+        Lt = 5.0  # Total simulation time
+        solver.setup(
+            Lx=4 * np.pi, Nx=1024, Lt=Lt, Nt=2000,
+            initial_condition=lambda x: np.sin(2 * x),
+            initial_velocity=lambda x: np.zeros_like(x),
+            plot=False
+        )
+
+        # Solving
+        solver.solve()
+        # Exact solution
+        def u_exact(x, t):
+            return np.exp(-t) * np.sin(2*x) + t**2 * np.cos(x)
+        
+        n_test = 5
+        for i in range(n_test + 1):
+            _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
+                            threshold=3, component='real')
+
 
 # ===========================================================================
 # 6.  Time‑dependent solver — 2D problems

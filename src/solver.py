@@ -468,7 +468,7 @@ class PDESolver:
                 continue
     
             if _is_nonlinear_term(term, self.u):
-                nonlinear_terms.append(term)
+                nonlinear_terms.append(-term)
                 print("  --> Classified as nonlinear")
                 continue
     
@@ -484,7 +484,7 @@ class PDESolver:
                 linear_terms[self.u] = linear_terms.get(self.u, 0) + coeff
                 print("  --> Classified as linear")
             else:
-                source_terms.append(term)
+                source_terms.append(-term)
                 print("  --> Classified as source term")
     
         if pseudo_terms:
@@ -1128,7 +1128,7 @@ class PDESolver:
                 sum(term.subs(self.t, 0).subs(self.x, x_val).evalf()
                     for term in self.source_terms)
                 for x_val in self.x_grid
-            ], dtype=np.float64)
+            ], dtype=np.float128)
         else:
             # Evaluation on the 2D spatial grid
             return np.array([
@@ -1136,7 +1136,7 @@ class PDESolver:
                       for term in self.source_terms)
                  for y_val in self.y_grid]
                 for x_val in self.x_grid
-            ], dtype=np.float64)
+            ], dtype=np.float128)
     
     def _initialize_conditions(self, initial_condition, initial_velocity):
         """
@@ -2012,25 +2012,14 @@ class PDESolver:
         save_interval = max(1, self.Nt // self.n_frames)
         self.energy_history = []
         for step in range(self.Nt):
-            if hasattr(self, '_compiled_source_funcs') and self._compiled_source_funcs:
-                source_contribution = np.zeros_like(self.X, dtype=np.float64)
-                t_val = step * self.dt
-                for fn, dim in self._compiled_source_funcs:
-                    try:
-                        if dim == 1:
-                            source_contribution += fn(t_val, self.X)
-                        elif dim == 2:
-                            source_contribution += fn(t_val, self.X, self.Y)
-                    except Exception as e:
-                        print(f'Error evaluating pre-compiled source term: {e}')
-            else:
-                source_contribution = 0
+            t_val = step * self.dt
+            source_contribution = self._eval_source(t_val)
 
             if self.temporal_order == 1:
                 if self.has_psi:
                     u_new = self._step_order1_with_psi(source_contribution)
                 elif hasattr(self, 'time_scheme') and self.time_scheme == 'ETD-RK4':
-                    u_new = self._step_ETD_RK4_order1(self.u_prev)
+                    u_new = self._step_ETD_RK4_order1(self.u_prev, t_val)
                 else:
                     u_hat = self.fft(self.u_prev)
                     u_hat *= self.exp_L
@@ -2046,7 +2035,7 @@ class PDESolver:
                     u_new = self._step_order2_with_psi(source_contribution)
                 else:
                     if hasattr(self, 'time_scheme') and self.time_scheme == 'ETD-RK4':
-                        u_new, v_new = self._step_ETD_RK4_order2(self.u_prev, self.v_prev)
+                        u_new, v_new = self._step_ETD_RK4_order2(self.u_prev, self.v_prev, t_val)
                     else:
                         u_hat = self.fft(self.u_prev)
                         v_hat = self.fft(self.v_prev)
@@ -2183,7 +2172,7 @@ class PDESolver:
         if self.source_terms:
             f_expr = sum(self.source_terms)
             used_vars = [v for v in spatial_vars if f_expr.has(v)]
-            f_func = lambdify(used_vars, -f_expr, modules='numpy')
+            f_func = lambdify(used_vars, f_expr, modules='numpy')
             if self.dim == 1:
                 rhs = f_func(self.x_grid) if used_vars else np.zeros_like(self.x_grid)
             else:
@@ -2273,12 +2262,42 @@ class PDESolver:
         else:
             raise ValueError(f"Invalid boundary condition '{self.boundary_condition}'. Supported types are 'periodic', 'dirichlet' and 'neumann'.")
     
-    def _step_ETD_RK4_order1(self, u):
+    def _eval_source(self, t_val):
+        """
+        Evaluate the total source term f(x,t) (or f(x,y,t)) at a given time `t_val`.
+
+        This factors out the source-evaluation logic used in the main time-stepping
+        loop so that sub-step schemes (e.g. ETD-RK4) can sample the source at the
+        intermediate stage times they require (t, t+dt/2, t+dt, ...) instead of
+        reusing a single value computed at the start of the step.
+
+        Parameters
+            t_val (float): Time at which to evaluate the source term(s).
+
+        Returns
+            np.ndarray or float: Source contribution on the spatial grid, or 0.0
+            if no source terms are registered.
+        """
+        if hasattr(self, '_compiled_source_funcs') and self._compiled_source_funcs:
+            source = np.zeros_like(self.X, dtype=np.float128)
+            for fn, dim in self._compiled_source_funcs:
+                try:
+                    if dim == 1:
+                        source += fn(t_val, self.X)
+                    elif dim == 2:
+                        source += fn(t_val, self.X, self.Y)
+                except Exception as e:
+                    print(f'Error evaluating pre-compiled source term: {e}')
+            return source
+        else:
+            return 0.0
+
+    def _step_ETD_RK4_order1(self, u, t=0.0):
         """
         Perform one Exponential Time Differencing Runge-Kutta of 4th order (ETD-RK4) time step 
         for first-order in time PDEs of the form:
         
-            ∂ₜu = L u + N(u)
+            ∂ₜu = L u + N(u) + f(x,t)
         
         where L is a linear operator (possibly nonlocal or pseudo-differential), and N is a 
         nonlinear term treated via pseudo-spectral methods. This method evaluates the 
@@ -2333,17 +2352,22 @@ class PDESolver:
         fft = self.fft
         ifft = self.ifft
     
+        # Source term sampled at the stage times required for 4th-order accuracy
+        f0    = self._eval_source(t)
+        fhalf = self._eval_source(t + 0.5 * dt)
+        f1    = self._eval_source(t + dt)
+    
         u_hat = fft(u)
-        N1 = fft(self._apply_nonlinear(u))
+        N1 = fft(self._apply_nonlinear(u) + f0)
     
         a = ifft(E2 * (u_hat + 0.5 * dt * N1 * phi1_dtL))
-        N2 = fft(self._apply_nonlinear(a))
+        N2 = fft(self._apply_nonlinear(a) + fhalf)
     
         b = ifft(E2 * (u_hat + 0.5 * dt * N2 * phi1_dtL))
-        N3 = fft(self._apply_nonlinear(b))
+        N3 = fft(self._apply_nonlinear(b) + fhalf)
     
         c = ifft(E * (u_hat + dt * N3 * phi1_dtL))
-        N4 = fft(self._apply_nonlinear(c))
+        N4 = fft(self._apply_nonlinear(c) + f1)
     
         u_new_hat = E * u_hat + dt * (
             N1 * phi1_dtL + 2 * (N2 + N3) * phi2_dtL + N4 * phi1_dtL
@@ -2352,14 +2376,14 @@ class PDESolver:
         return ifft(u_new_hat)
 
 
-    def _step_ETD_RK4_order2(self, u, v):
+    def _step_ETD_RK4_order2(self, u, v, t=0.0):
         """
         Perform one time step of the Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) scheme for second-order PDEs.
     
         This method evolves the solution u and its time derivative v forward in time by one step using the ETD-RK4 integrator. 
         It is designed for systems of the form:
         
-            ∂ₜ²u = L u + N(u)
+            ∂ₜ²u = L u + N(u) + f(x,t)
             
         where L is a linear operator and N is a nonlinear term computed via self._apply_nonlinear.
         
@@ -2385,31 +2409,34 @@ class PDESolver:
         fft = self.fft
         ifft = self.ifft
     
-        def rhs(u_val):
-            return ifft(L_fft * fft(u_val)) + self._apply_nonlinear(u_val, is_v=False)
+        def rhs(u_val, t_val):
+            return (ifft(L_fft * fft(u_val))
+                    + self._apply_nonlinear(u_val, is_v=False)
+                    + self._eval_source(t_val))
     
-        # Stage A
-        A = rhs(u)
+        # Stage A (t)
+        A = rhs(u, t)
         ua = u + 0.5 * dt * v
         va = v + 0.5 * dt * A
     
-        # Stage B
-        B = rhs(ua)
+        # Stage B (t + dt/2)
+        B = rhs(ua, t + 0.5 * dt)
         ub = u + 0.5 * dt * va
         vb = v + 0.5 * dt * B
     
-        # Stage C
-        C = rhs(ub)
+        # Stage C (t + dt/2)
+        C = rhs(ub, t + 0.5 * dt)
         uc = u + dt * vb
     
-        # Stage D
-        D = rhs(uc)
+        # Stage D (t + dt)
+        D = rhs(uc, t + dt)
     
         # Final update
         u_new = u + dt * v + (dt**2 / 6.0) * (A + 2*B + 2*C + D)
         v_new = v + (dt / 6.0) * (A + 2*B + 2*C + D)
     
         return u_new, v_new
+
 
     def _check_cfl_condition(self):
         """
