@@ -583,7 +583,7 @@
 
             <span class="c1"># Extract non-temporal linear terms (pure spatial derivatives of u,</span>
             <span class="c1"># or terms that mix spatial derivatives without t)</span>
-            <span class="n">invalid_linear_terms</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">other_linear_terms</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="n">term</span><span class="p">:</span> <span class="n">coeff</span> <span class="k">for</span> <span class="n">term</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">linear_terms</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
                     <span class="nb">isinstance</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">Derivative</span><span class="p">)</span>
@@ -592,7 +592,7 @@
                 <span class="ow">and</span> <span class="n">term</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span>  <span class="c1"># exclusion of the simple u term (without derivative)</span>
             <span class="p">}</span>
 
-            <span class="k">if</span> <span class="n">invalid_linear_terms</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">other_linear_terms</span><span class="p">:</span>
                 <span class="c1"># Instead of forbidding these, fold them into a pseudo-differential</span>
                 <span class="c1"># operator acting on u, so they end up handled by the same psiOp</span>
                 <span class="c1"># machinery as the rest of the equation.</span>
@@ -607,7 +607,7 @@
                         <span class="k">return</span> <span class="n">Derivative</span><span class="p">(</span><span class="n">var_u</span><span class="p">,</span> <span class="o">*</span><span class="n">diff_args</span><span class="p">)</span>
                     <span class="k">return</span> <span class="n">term</span>
 
-                <span class="n">expr</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">coeff</span> <span class="o">*</span> <span class="n">_to_var_u</span><span class="p">(</span><span class="n">term</span><span class="p">)</span> <span class="k">for</span> <span class="n">term</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">invalid_linear_terms</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+                <span class="n">expr</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">coeff</span> <span class="o">*</span> <span class="n">_to_var_u</span><span class="p">(</span><span class="n">term</span><span class="p">)</span> <span class="k">for</span> <span class="n">term</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">other_linear_terms</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
 
                 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Converting invalid linear terms into a pseudo-differential operator: </span><span class="si">{</span><span class="n">expr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
@@ -624,7 +624,7 @@
                 <span class="n">pseudo_terms</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">symbol</span><span class="p">))</span>
 
                 <span class="c1"># Drop the now-converted terms so they aren&#39;t double-counted</span>
-                <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">invalid_linear_terms</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">other_linear_terms</span><span class="p">:</span>
                     <span class="k">del</span> <span class="n">linear_terms</span><span class="p">[</span><span class="n">term</span><span class="p">]</span>
 
             <span class="k">if</span> <span class="n">symbol_terms</span><span class="p">:</span>
@@ -765,17 +765,32 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">coeff</span><span class="p">,</span> <span class="n">psi</span><span class="p">))</span>
 
             <span class="c1"># For second-order-in-time equations, precompute the operator</span>
-            <span class="c1"># Op(sqrt(|P|)) where P = sum(coeff_i * symbol_i) is the total</span>
-            <span class="c1"># pseudo-differential symbol. This is the psiOp analogue of the</span>
-            <span class="c1"># sqrt(|L(k)|) Fourier multiplier used by _compute_energy for the</span>
-            <span class="c1"># non-psiOp case, and is built once here (not every time step).</span>
+            <span class="c1"># Op(P^{1/2}) where P is the total pseudo-differential symbol.</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Abs</span>
+                <span class="c1"># 1. Build the total operator first</span>
                 <span class="n">total_symbol</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">coeff</span> <span class="o">*</span> <span class="n">psi</span><span class="o">.</span><span class="n">expr</span> <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">psi</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="p">)</span>
-                <span class="n">energy_symbol</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">Abs</span><span class="p">(</span><span class="n">total_symbol</span><span class="p">))</span>
+                <span class="n">total_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">total_symbol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span>
+                <span class="p">)</span>
+                
+                <span class="c1"># 2. Compute the fractional power P^{1/2}</span>
+                <span class="c1"># We use order=1 to capture the first microlocal spatial corrections.</span>
+                <span class="c1"># (If you only want the principal symbol, use order=0).</span>
+                <span class="c1"># Note: We drop Abs() to preserve the C^\infty smoothness required </span>
+                <span class="c1"># for pseudo-differential calculus. If the operator is positive-definite, </span>
+                <span class="c1"># this is exact. If not, it correctly handles complex branch cuts.</span>
+                <span class="n">energy_symbol</span> <span class="o">=</span> <span class="n">total_op</span><span class="o">.</span><span class="n">fractional_power</span><span class="p">(</span>
+                    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> 
+                    <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> 
+                    <span class="n">method</span><span class="o">=</span><span class="s1">&#39;symbolic&#39;</span>
+                <span class="p">)</span>
+                
+                <span class="c1"># 3. Create the final energy operator</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_energy_psi_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
                     <span class="n">energy_symbol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span>
                 <span class="p">)</span>
+                
+                <span class="c1"># 4. Check for spatial dependence</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_energy_is_spatial</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
                     <span class="n">energy_symbol</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span>
                 <span class="p">)</span>
@@ -1218,7 +1233,7 @@
                 <span class="nb">sum</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">x_val</span><span class="p">)</span><span class="o">.</span><span class="n">evalf</span><span class="p">()</span>
                     <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">x_val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span>
-            <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float128</span><span class="p">)</span>
+            <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Evaluation on the 2D spatial grid</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
@@ -1226,7 +1241,7 @@
                       <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">)</span>
                  <span class="k">for</span> <span class="n">y_val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span><span class="p">]</span>
                 <span class="k">for</span> <span class="n">x_val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span>
-            <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float128</span><span class="p">)</span>
+            <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
     
     <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_conditions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial_condition</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -2375,7 +2390,7 @@
 <span class="sd">            if no source terms are registered.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_compiled_source_funcs&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span><span class="p">:</span>
-            <span class="n">source</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float128</span><span class="p">)</span>
+            <span class="n">source</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">fn</span><span class="p">,</span> <span class="n">dim</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
