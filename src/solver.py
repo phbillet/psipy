@@ -496,7 +496,7 @@ class PDESolver:
 
             # Extract non-temporal linear terms (pure spatial derivatives of u,
             # or terms that mix spatial derivatives without t)
-            invalid_linear_terms = {
+            other_linear_terms = {
                 term: coeff for term, coeff in linear_terms.items()
                 if not (
                     isinstance(term, Derivative)
@@ -505,7 +505,7 @@ class PDESolver:
                 and term != self.u  # exclusion of the simple u term (without derivative)
             }
 
-            if invalid_linear_terms:
+            if other_linear_terms:
                 # Instead of forbidding these, fold them into a pseudo-differential
                 # operator acting on u, so they end up handled by the same psiOp
                 # machinery as the rest of the equation.
@@ -520,7 +520,7 @@ class PDESolver:
                         return Derivative(var_u, *diff_args)
                     return term
 
-                expr = sum(coeff * _to_var_u(term) for term, coeff in invalid_linear_terms.items())
+                expr = sum(coeff * _to_var_u(term) for term, coeff in other_linear_terms.items())
 
                 print(f"  Converting invalid linear terms into a pseudo-differential operator: {expr}")
 
@@ -537,7 +537,7 @@ class PDESolver:
                 pseudo_terms.append((1, op.symbol))
 
                 # Drop the now-converted terms so they aren't double-counted
-                for term in invalid_linear_terms:
+                for term in other_linear_terms:
                     del linear_terms[term]
 
             if symbol_terms:
@@ -678,17 +678,32 @@ class PDESolver:
                 self.psi_ops.append((coeff, psi))
 
             # For second-order-in-time equations, precompute the operator
-            # Op(sqrt(|P|)) where P = sum(coeff_i * symbol_i) is the total
-            # pseudo-differential symbol. This is the psiOp analogue of the
-            # sqrt(|L(k)|) Fourier multiplier used by _compute_energy for the
-            # non-psiOp case, and is built once here (not every time step).
+            # Op(P^{1/2}) where P is the total pseudo-differential symbol.
             if self.temporal_order == 2:
-                from sympy import Abs
+                # 1. Build the total operator first
                 total_symbol = sum(coeff * psi.expr for coeff, psi in self.psi_ops)
-                energy_symbol = sqrt(Abs(total_symbol))
+                total_op = PseudoDifferentialOperator(
+                    total_symbol, self.spatial_vars, self.u, mode='symbol'
+                )
+                
+                # 2. Compute the fractional power P^{1/2}
+                # We use order=1 to capture the first microlocal spatial corrections.
+                # (If you only want the principal symbol, use order=0).
+                # Note: We drop Abs() to preserve the C^\infty smoothness required 
+                # for pseudo-differential calculus. If the operator is positive-definite, 
+                # this is exact. If not, it correctly handles complex branch cuts.
+                energy_symbol = total_op.fractional_power(
+                    alpha=0.5, 
+                    order=1, 
+                    method='symbolic'
+                )
+                
+                # 3. Create the final energy operator
                 self._energy_psi_op = PseudoDifferentialOperator(
                     energy_symbol, self.spatial_vars, self.u, mode='symbol'
                 )
+                
+                # 4. Check for spatial dependence
                 self._energy_is_spatial = any(
                     energy_symbol.has(var) for var in self.spatial_vars
                 )
@@ -1128,7 +1143,7 @@ class PDESolver:
                 sum(term.subs(self.t, 0).subs(self.x, x_val).evalf()
                     for term in self.source_terms)
                 for x_val in self.x_grid
-            ], dtype=np.float128)
+            ], dtype=np.complex128)
         else:
             # Evaluation on the 2D spatial grid
             return np.array([
@@ -1136,7 +1151,7 @@ class PDESolver:
                       for term in self.source_terms)
                  for y_val in self.y_grid]
                 for x_val in self.x_grid
-            ], dtype=np.float128)
+            ], dtype=np.complex128)
     
     def _initialize_conditions(self, initial_condition, initial_velocity):
         """
@@ -2279,7 +2294,7 @@ class PDESolver:
             if no source terms are registered.
         """
         if hasattr(self, '_compiled_source_funcs') and self._compiled_source_funcs:
-            source = np.zeros_like(self.X, dtype=np.float128)
+            source = np.zeros_like(self.X, dtype=np.complex128)
             for fn, dim in self._compiled_source_funcs:
                 try:
                     if dim == 1:

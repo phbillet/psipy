@@ -1201,3 +1201,80 @@ def test_freq_window_2d_hann():
     P_windowed = freq_window_2d(P.copy(), KXb, KYb, kx, ky, 'hann')
     assert P_windowed.shape == P.shape
 
+# ===========================================================================
+# 113-119. Fractional Power (fractional_power)
+# ===========================================================================
+
+def test_fractional_power_symbolic_1d_multiplier():
+    """For a pure multiplier p(xi) = xi^2 + 1, the fractional power should 
+    return a valid symbolic expression without crashing."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + 1, [x], mode='symbol')
+    res = op.fractional_power(alpha=0.5, order=2, method='symbolic')
+    assert res is not None
+    from sympy import Expr
+    assert isinstance(res, Expr)
+
+def test_fractional_power_symbolic_spatial_smoke():
+    """Smoke test for spatially dependent symbol. 
+    We use order=1 to avoid SymPy hanging on high-order derivatives of log(xi**2 + x).
+    We just verify it returns a valid expression without crashing."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + x, [x], mode='symbol')
+    
+    # order=1 prevents the exp(alpha * log P) series from expanding into massive terms
+    res_frac = op.fractional_power(alpha=0.5, order=1, method='symbolic')
+    assert res_frac is not None
+    from sympy import Expr
+    assert isinstance(res_frac, Expr)
+
+def test_fractional_power_symbolic_multiplier_exact():
+    """For a pure multiplier p(xi), the fractional power should be exactly p(xi)^alpha.
+    Because there is no x-dependence, R=0, and the fast-path is exact."""
+    from sympy import Rational, sqrt
+    x, xi = symbols('x xi', real=True, positive=True)
+    op = PseudoDifferentialOperator(xi**2 + 1, [x], mode='symbol')
+
+    # Compute (xi^2 + 1)^(1/2) using an exact Rational to prevent Float exponent issues
+    res_frac = op.fractional_power(alpha=Rational(1, 2), order=2, method='symbolic')
+
+    # Expected result is exactly sqrt(xi^2 + 1)
+    expected = sqrt(xi**2 + 1)
+
+    # For multipliers, simplify is extremely fast and should yield exactly 0
+    diff_expr = powsimp(res_frac - expected)
+    assert diff_expr == 0
+
+def test_fractional_power_numerical_matrix_square_root():
+    """Numerical fractional power: P^0.5 squared should equal P."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + 1, [x], mode='symbol')
+    x_grid = np.linspace(-np.pi, np.pi, 32, endpoint=False)
+    
+    # Build the reference matrix
+    H, _, _ = op._build_operator_matrix(x_grid, 'spectral', L=np.pi, N=32)
+    
+    # Compute fractional power using the exact same grid parameters
+    H_half = op.fractional_power(alpha=0.5, method='numerical', x_grid=x_grid, L=np.pi, N=32)
+        
+    # (P^0.5)^2 should reconstruct P
+    H_reconstructed = H_half @ H_half
+    assert np.allclose(H_reconstructed, H, atol=1e-5)
+
+def test_fractional_power_symbolic_2d():
+    """Test symbolic fractional power for a 2D elliptic operator (e.g., shifted Laplacian)."""
+    x, y = symbols('x y', real=True)
+    xi, eta = symbols('xi eta', real=True)
+    op = PseudoDifferentialOperator(xi**2 + eta**2 + 1, [x, y], mode='symbol')
+    res = op.fractional_power(alpha=0.5, order=2, method='symbolic')
+    assert res is not None
+
+def test_fractional_power_invalid_method():
+    """Passing an invalid method should raise ValueError."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + 1, [x], mode='symbol')
+    try:
+        op.fractional_power(alpha=0.5, method='invalid')
+        assert False, "Should raise ValueError for invalid method"
+    except ValueError:
+        pass

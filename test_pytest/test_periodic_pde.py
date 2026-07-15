@@ -590,6 +590,9 @@ class TestTimeDependent1D:
             _run_and_assert(solver, u_exact, t_eval=i * Lt / n_test,
                             threshold=0.2, component='real')
 
+    # -----------------------------------------------------------------------
+    # Wave equation (second order) with a source term
+    # -----------------------------------------------------------------------
     def test_wave_with_source(self):
         t, x = symbols('t x')
         u = Function('u')(t, x)

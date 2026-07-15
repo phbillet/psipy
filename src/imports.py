@@ -13,7 +13,7 @@ from scipy.interpolate import griddata, interp1d
 from sympy import (
     symbols, Function, 
     solve, pprint, Mul,
-    lambdify, expand, Eq, simplify, trigsimp, N,
+    lambdify, expand, Eq, simplify, trigsimp, N, powsimp,
     radsimp, ratsimp, cancel, 
     Lambda, Piecewise, Basic, degree, Pow, preorder_traversal, Heaviside, 
     powdenest, expand, Matrix,

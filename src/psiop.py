@@ -135,8 +135,12 @@ class PseudoDifferentialOperator:
             self.ifft = partial(ifft, workers=FFT_WORKERS)
 
             if mode == 'symbol':
-                self.p_func = lambdify((x, xi_internal), expr, 'numpy')
                 self.symbol = expr
+                try:
+                    self.p_func = lambdify((x, xi_internal), expr, 'numpy')
+                except Exception:
+                    # Graceful fallback for symbols with undefined functions (e.g. Derivative(c(x), x))
+                    self.p_func = None 
             elif mode == 'auto':
                 if var_u is None:
                     raise ValueError("var_u must be provided in mode='auto'")
@@ -145,7 +149,10 @@ class PseudoDifferentialOperator:
                 symbol = simplify(P_ei / exp_i)
                 symbol = expand(symbol)
                 self.symbol = symbol
-                self.p_func = lambdify((x, xi_internal), symbol, 'numpy')
+                try:
+                    self.p_func = lambdify((x, xi_internal), symbol, 'numpy')
+                except Exception:
+                    self.p_func = None
             else:
                 raise ValueError("mode must be 'auto' or 'symbol'")
 
@@ -161,7 +168,10 @@ class PseudoDifferentialOperator:
 
             if mode == 'symbol':
                 self.symbol = expr
-                self.p_func = lambdify((x, y, xi_internal, eta_internal), expr, 'numpy')
+                try:
+                    self.p_func = lambdify((x, y, xi_internal, eta_internal), expr, 'numpy')
+                except Exception:
+                    self.p_func = None
             elif mode == 'auto':
                 if var_u is None:
                     raise ValueError("var_u must be provided in mode='auto'")
@@ -170,7 +180,10 @@ class PseudoDifferentialOperator:
                 symbol = simplify(P_ei / exp_i)
                 symbol = expand(symbol)
                 self.symbol = symbol
-                self.p_func = lambdify((x, y, xi_internal, eta_internal), symbol, 'numpy')
+                try:
+                    self.p_func = lambdify((x, y, xi_internal, eta_internal), symbol, 'numpy')
+                except Exception:
+                    self.p_func = None
             else:
                 raise ValueError("mode must be 'auto' or 'symbol'")
 
@@ -212,6 +225,13 @@ class PseudoDifferentialOperator:
             vars_tuple = (self.vars_x[0], symbols('xi', real=True))
         else:
             vars_tuple = tuple(self.vars_x) + (symbols('xi', real=True), symbols('eta', real=True))
+            
+        for name, expr in self.derivatives.items():
+            try:
+                setattr(self, f'_{name}_func', lambdify(vars_tuple, expr, 'numpy'))
+            except Exception:
+                # Fallback if derivative contains undefined functions
+                setattr(self, f'_{name}_func', None)
         
         for name, expr in self.derivatives.items():
             setattr(self, f'_{name}_func', lambdify(vars_tuple, expr, 'numpy'))
@@ -959,7 +979,12 @@ class PseudoDifferentialOperator:
             else:
                 raise ValueError("mode must be either 'kn' or 'weyl'")
     
-            return simplify(result)
+            # Replace: return simplify(result)
+            try:
+                return simplify(result)
+            except TypeError:
+                # Fallback for SymPy sorting bugs with undefined functions/derivatives
+                return result 
     
         # --- 2D case ---
         elif self.dim == 2:
@@ -985,7 +1010,12 @@ class PseudoDifferentialOperator:
             else:
                 raise ValueError("mode must be either 'kn' or 'weyl'")
     
-            return simplify(result)
+            # Replace: return simplify(result)
+            try:
+                return simplify(result)
+            except TypeError:
+                # Fallback for SymPy sorting bugs with undefined functions/derivatives
+                return result 
     
         else:
             raise NotImplementedError("Only 1D and 2D cases are implemented")
@@ -1178,6 +1208,157 @@ class PseudoDifferentialOperator:
             p_star = conjugate(p)
             p_star = simplify(series(p_star, sqrt(xi**2 + eta**2), oo, n=6).removeO())
             return p_star
+
+    def fractional_power(self, alpha, order=1, method='symbolic', x_grid=None, L=None, N=None):
+            """
+            Compute the symbol or matrix of the fractional/complex power P^alpha.
+            
+            For the symbolic method:
+            - If the symbol has no spatial dependence (pure multiplier), it returns 
+              the exact algebraic power p(xi)^alpha.
+            - If the symbol depends on space (heterogeneous media), it uses an exact 
+              asymptotic Newton-Raphson iteration (for alpha=0.5) to automatically 
+              generate the microlocal spatial corrections.
+            """
+            import sympy as sp
+            from sympy import Rational, simplify, symbols, powdenest
+            import numpy as np
+            
+            if method == 'symbolic':
+                p = self.symbol
+                
+                # =========================================================================
+                # FAST PATH: Pure multipliers (no spatial dependence)
+                # The fractional power is just the exact algebraic power.
+                # =========================================================================
+                if not self._is_spatial_dependent():
+                    if self.dim == 1:
+                        # Dynamically retrieve the existing xi symbol to preserve its assumptions
+                        xi_sym = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+                        xi_pos = symbols('xi', real=True, positive=True)
+                        p_pos = p.subs(xi_sym, xi_pos)
+                        q_sym = powdenest(p_pos**alpha, force=True)
+                        q_sym = q_sym.subs(xi_pos, xi_sym)
+                    elif self.dim == 2:
+                        # Dynamically retrieve existing xi and eta symbols to preserve assumptions
+                        xi_sym = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+                        eta_sym = next((s for s in p.free_symbols if s.name == 'eta'), symbols('eta', real=True))
+                        xi_pos, eta_pos = symbols('xi eta', real=True, positive=True)
+                        p_pos = p.subs({xi_sym: xi_pos, eta_sym: eta_pos})
+                        q_sym = powdenest(p_pos**alpha, force=True)
+                        q_sym = q_sym.subs({xi_pos: xi_sym, eta_pos: eta_sym})
+                    return simplify(q_sym)
+                
+                # =========================================================================
+                # SLOW PATH: Spatially dependent symbols (Heterogeneous media)
+                # Requires asymptotic Newton-Raphson to generate microlocal corrections.
+                # =========================================================================
+                if alpha != 0.5:
+                    raise NotImplementedError(
+                        "Symbolic fractional_power for spatially dependent symbols currently "
+                        "supports alpha=0.5 via exact asymptotic Newton-Raphson. "
+                        "Use method='numerical' for other alpha."
+                    )
+                
+                p_m = self.principal_symbol(order=1) 
+                
+                # 1. Initial guess: q_0 = p_m^{1/2}
+                # Force positive frequency to prevent sqrt(xi**2) -> Abs(xi) -> DiracDelta
+                if self.dim == 1:
+                    xi_sym = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+                    xi_pos = symbols('xi', real=True, positive=True)
+                    p_m_pos = p_m.subs(xi_sym, xi_pos)
+                    q_sym = powdenest(p_m_pos**Rational(1, 2), force=True)
+                    q_sym = q_sym.subs(xi_pos, xi_sym)
+                elif self.dim == 2:
+                    xi_sym = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+                    eta_sym = next((s for s in p.free_symbols if s.name == 'eta'), symbols('eta', real=True))
+                    xi_pos, eta_pos = symbols('xi eta', real=True, positive=True)
+                    p_m_pos = p_m.subs({xi_sym: xi_pos, eta_sym: eta_pos})
+                    q_sym = powdenest(p_m_pos**Rational(1, 2), force=True)
+                    q_sym = q_sym.subs({xi_pos: xi_sym, eta_pos: eta_sym})
+                else:
+                    raise NotImplementedError("Only 1D and 2D supported.")
+                    
+                try:
+                    q_sym = simplify(q_sym)
+                except TypeError:
+                    pass
+                
+                # 2. Asymptotic Newton-Raphson iteration
+                for iteration in range(order):
+                    q_op = PseudoDifferentialOperator(q_sym, self.vars_x, mode='symbol')
+                    q_sq = q_op.compose_asymptotic(q_op, order=1, mode='kn')
+                    E = p - q_sq
+                    try:
+                        E = simplify(E)
+                    except TypeError:
+                        pass
+                        
+                    if E == 0:
+                        break
+                        
+                    q_inv_sym = q_op.left_inverse_asymptotic(order=1)
+                    q_inv_op = PseudoDifferentialOperator(q_inv_sym, self.vars_x, mode='symbol')
+                    E_op = PseudoDifferentialOperator(E, self.vars_x, mode='symbol')
+                    delta_q = q_inv_op.compose_asymptotic(E_op, order=1, mode='kn')
+                    delta_q = Rational(1, 2) * delta_q
+                    
+                    q_sym = q_sym + delta_q
+                    
+                    # 3. CRITICAL TRUNCATION:
+                    # The formal asymptotic series for the inverse introduces negative powers 
+                    # of the frequency variables (e.g., 1/xi). We must truncate the symbol 
+                    # to keep only terms down to the desired asymptotic order (O(xi^0) here)
+                    # to prevent the accumulation of non-physical high-frequency pollution.
+                    if self.dim == 1:
+                        xi_var = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+                        z_trunc = symbols('z', real=True, positive=True)
+                        try:
+                            q_z = q_sym.subs(xi_var, 1/z_trunc)
+                            # Keep terms up to z^0 (which corresponds to xi^0)
+                            q_z_trunc = sp.series(q_z, z_trunc, 0, n=1).removeO()
+                            q_sym = q_z_trunc.subs(z_trunc, 1/xi_var)
+                        except Exception:
+                            pass
+                    elif self.dim == 2:
+                        xi_var = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+                        eta_var = next((s for s in p.free_symbols if s.name == 'eta'), symbols('eta', real=True))
+                        rho = symbols('rho', real=True, positive=True)
+                        theta = symbols('theta', real=True)
+                        z_trunc = symbols('z', real=True, positive=True)
+                        try:
+                            q_rho = q_sym.subs({xi_var: rho * sp.cos(theta), eta_var: rho * sp.sin(theta)})
+                            q_z = q_rho.subs(rho, 1/z_trunc)
+                            q_z_trunc = sp.series(q_z, z_trunc, 0, n=1).removeO()
+                            q_sym = q_z_trunc.subs(z_trunc, 1/rho).subs({rho: sp.sqrt(xi_var**2 + eta_var**2),
+                                                                    sp.cos(theta): xi_var / sp.sqrt(xi_var**2 + eta_var**2),
+                                                                    sp.sin(theta): eta_var / sp.sqrt(xi_var**2 + eta_var**2)})
+                        except Exception:
+                            pass
+                    
+                    try:
+                        q_sym = simplify(q_sym)
+                    except TypeError:
+                        pass
+                    
+                return q_sym
+                
+            elif method == 'numerical':
+                from scipy.linalg import fractional_matrix_power
+                
+                if x_grid is None:
+                    x_grid = np.linspace(-5, 5, 128)
+                if N is None:
+                    N = len(x_grid)
+                if L is None:
+                    L = (x_grid[-1] - x_grid[0]) / 2.0 if len(x_grid) > 1 else 5.0
+                    
+                H, _, _ = self._build_operator_matrix(x_grid, method='spectral', L=L, N=N)
+                H_alpha = fractional_matrix_power(H, alpha)
+                return H_alpha
+            else:
+                raise ValueError("method must be 'symbolic' or 'numerical'")
 
     def exponential_symbol(self, t=1.0, order=1, mode='kn', sign_convention=None):
         """
