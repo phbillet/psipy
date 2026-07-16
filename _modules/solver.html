@@ -2950,10 +2950,12 @@
 <span class="sd">            E(t) = 1/2 ∫ [ (∂ₜu)² + |L¹ᐟ²u|² ] dx</span>
 <span class="sd">        where L is the linear operator associated with the spatial part of the PDE,</span>
 <span class="sd">        and L¹ᐟ² denotes its square root.</span>
-<span class="sd">    </span>
+<span class="sd">        </span>
+<span class="sd">        NOTE: This metric only accounts for the linear part of the PDE. If nonlinear </span>
+<span class="sd">        or source terms are present, they are NOT included in this computation.</span>
+<span class="sd">        </span>
 <span class="sd">        This method supports both 1D and 2D problems and is only meaningful when </span>
 <span class="sd">        self.temporal_order == 2 (second-order time derivative). Two cases are handled:</span>
-<span class="sd">    </span>
 <span class="sd">        - Standard case (no psiOp): L is a Fourier multiplier L(k), applied via FFT,</span>
 <span class="sd">          and the velocity ∂ₜu is read directly from self.v_prev, which is advanced</span>
 <span class="sd">          alongside u at every step.</span>
@@ -2967,31 +2969,34 @@
 <span class="sd">          v ≈ (u_prev - u_prev2) / dt. This estimate is centered half a step behind</span>
 <span class="sd">          u_prev, so the reported energy lags the true value by O(dt) — negligible for</span>
 <span class="sd">          monitoring purposes at typical time-step sizes.</span>
-<span class="sd">    </span>
+<span class="sd">          </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        float or None: </span>
 <span class="sd">            Total energy at current time step. Returns None if the temporal order is not 2</span>
 <span class="sd">            or if the data needed to evaluate it (v_prev, or u_prev2 in the psiOp case)</span>
 <span class="sd">            is not yet available.</span>
-<span class="sd">    </span>
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        - Uses FFT-based / Kohn-Nirenberg spectral evaluation for the spatial contribution.</span>
-<span class="sd">        - Assumes periodic boundary conditions.</span>
-<span class="sd">        - Handles both real and complex-valued solutions.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-    
+
+        <span class="c1"># --- Warning for Nonlinear / Source terms ---</span>
+        <span class="c1"># Emit a one-time warning if the PDE contains nonlinearities or sources, </span>
+        <span class="c1"># as the standard linear energy metric will not capture their physical effects.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_energy_warning_issued&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;⚠️ Warning: The computed energy only accounts for the linear part of the PDE.&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   Nonlinear terms and source terms are NOT included in this energy metric.&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   Therefore, it may not represent the true physical energy or exhibit conservation.&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_energy_warning_issued</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="c1"># --------------------------------------------</span>
+
         <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span>
-    
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="c1"># Leapfrog velocity estimate from the two most recent time levels.</span>
             <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
-    
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_energy_psi_op&#39;</span><span class="p">):</span>
                 <span class="c1"># Defensive fallback: should always be set by _compute_linear_operator</span>
                 <span class="c1"># for temporal_order == 2, but avoid a hard crash if not.</span>
@@ -3003,34 +3008,29 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">None</span>
             <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span>
-    
             <span class="c1"># Fourier transform of u</span>
             <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
-    
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported dimension for u.&quot;</span><span class="p">)</span>
-    
             <span class="n">sqrt_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">L_vals</span><span class="p">))</span>
             <span class="n">Lu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">sqrt_L</span> <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>  <span class="c1"># Apply sqrt(|L(k)|) in Fourier space</span>
-    
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
             <span class="n">energy_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Lu</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
             <span class="n">total_energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
-    
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
             <span class="n">dy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ly</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ny</span>
             <span class="n">energy_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Lu</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
             <span class="n">total_energy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span>
-    
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported dimension for u.&quot;</span><span class="p">)</span>
-    
+
         <span class="k">return</span> <span class="n">total_energy</span>
 
 <div class="viewcode-block" id="PDESolver.plot_energy">
