@@ -582,10 +582,14 @@ class PseudoDifferentialOperator:
 
         p = self.symbol
         if self.dim == 1:
-            xi = symbols('xi', real=True, positive=True)
+            # Reuse the xi symbol actually present in self.symbol; a fresh
+            # symbols('xi', real=True, positive=True) is a distinct object and
+            # series(p, xi, ...) would silently treat p as constant in xi.
+            xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
             return simplify(series(p, xi, oo, n=order).removeO())
         elif self.dim == 2:
-            xi, eta = symbols('xi eta', real=True, positive=True)
+            xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+            eta = next((s for s in p.free_symbols if s.name == 'eta'), symbols('eta', real=True))
             # Homogeneous radial expansion: we set (ξ, η) = ρ (cosθ, sinθ)
             rho, theta = symbols('rho theta', real=True, positive=True)
             p_rho = p.subs({xi: rho * cos(theta), eta: rho * sin(theta)})
@@ -607,34 +611,46 @@ class PseudoDifferentialOperator:
             - is_homogeneous: True if the symbol satisfies p(λξ, λη) = λ^m * p(ξ, η)
             - degree: the detected degree m if homogeneous, or None
         """
-        from sympy import symbols, simplify, expand, Eq
-        from sympy.abc import l
+        from sympy import symbols, simplify, expand, Eq, nsimplify
     
         if self.dim == 1:
-            xi = symbols('xi', real=True, positive=True)
-            l = symbols('l', real=True, positive=True)
             p = self.symbol
+            # IMPORTANT: reuse the xi symbol actually present in self.symbol.
+            # Creating a fresh symbols('xi', real=True, positive=True) here is a
+            # *different* sympy Symbol object from the one baked into p (which is
+            # typically only real=True), so p.subs(xi, ...) would silently no-op.
+            xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+            l = symbols('l', real=True, positive=True)
             p_scaled = p.subs(xi, l * xi)
             ratio = simplify(p_scaled / p)
             if ratio.has(xi):
                 return False, None
             try:
-                deg = simplify(ratio).as_base_exp()[1]
-                return True, deg
+                # Float alpha (e.g. 0.5) can leave stray 1.0 coefficients (e.g.
+                # 1.0*l**1.0) that keep the ratio a Mul instead of a bare Pow, so
+                # as_base_exp() would return (1.0*l**1.0, 1) instead of (l, 1).
+                # nsimplify(..., rational=True) restores the exact form first.
+                ratio_clean = nsimplify(simplify(ratio), rational=True)
+                base, deg = ratio_clean.as_base_exp()
+                if base == l:
+                    return True, deg
+                return False, None
             except Exception:
                 return False, None
     
         elif self.dim == 2:
-            xi, eta = symbols('xi eta', real=True, positive=True)
-            l = symbols('l', real=True, positive=True)
             p = self.symbol
+            xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+            eta = next((s for s in p.free_symbols if s.name == 'eta'), symbols('eta', real=True))
+            l = symbols('l', real=True, positive=True)
             p_scaled = p.subs({xi: l * xi, eta: l * eta})
             ratio = simplify(p_scaled / p)
             # If ratio == l**m with no (xi, eta) left, it's homogeneous
             if ratio.has(xi, eta):
                 return False, None
             try:
-                base, exp = ratio.as_base_exp()
+                ratio_clean = nsimplify(ratio, rational=True)
+                base, exp = ratio_clean.as_base_exp()
                 if base == l:
                     return True, exp
             except Exception:
@@ -712,17 +728,14 @@ class PseudoDifferentialOperator:
         def validate_order(power, coeff, vars_x, tol):
             if power is None:
                 return None
-            if any(v in coeff.free_symbols for v in vars_x):
-                print("⚠️ Coefficient depends on spatial variables; ignoring")
+#            if any(v in coeff.free_symbols for v in vars_x):
+#                print("⚠️ Coefficient depends on spatial variables; ignoring")
+#                return None
+                
+            if simplify(coeff) == 0 or coeff.equals(0):
+                print("⚠️ Coefficient is symbolically zero; ignoring")
                 return None
-            try:
-                coeff_val = abs(float(coeff.evalf()))
-                if coeff_val < tol:
-                    print(f"⚠️ Coefficient too small ({coeff_val:.2e} < {tol})")
-                    return None
-            except Exception as e:
-                print(f"⚠️ Coefficient evaluation failed: {e}")
-                return None
+                
             return int(power) if power == int(power) else float(power)
     
         # Homogeneity check
@@ -734,7 +747,9 @@ class PseudoDifferentialOperator:
     
         if self.dim == 1:
             x = self.vars_x[0]
-            xi = symbols('xi', real=True, positive=True)
+            # Reuse the xi symbol actually present in self.symbol (see the same
+            # fix in is_homogeneous) instead of a fresh, mismatched positive one.
+            xi = next((s for s in self.symbol.free_symbols if s.name == 'xi'), symbols('xi', real=True))
     
             try:
                 print("1D symbol_order - method 1")
@@ -772,7 +787,8 @@ class PseudoDifferentialOperator:
     
         elif self.dim == 2:
             x, y = self.vars_x
-            xi, eta = symbols('xi eta', real=True, positive=True)
+            xi = next((s for s in self.symbol.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+            eta = next((s for s in self.symbol.free_symbols if s.name == 'eta'), symbols('eta', real=True))
             rho, theta = symbols('rho theta', real=True, positive=True)
     
             try:
@@ -850,7 +866,7 @@ class PseudoDifferentialOperator:
         p = self.symbol
     
         if self.dim == 1:
-            xi = symbols('xi', real=True, positive=True)
+            xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
     
             try:
                 # Case: exponential function
@@ -868,7 +884,8 @@ class PseudoDifferentialOperator:
                 return p
     
         elif self.dim == 2:
-            xi, eta = symbols('xi eta', real=True, positive=True)
+            xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+            eta = next((s for s in p.free_symbols if s.name == 'eta'), symbols('eta', real=True))
             rho, theta = symbols('rho theta', real=True, positive=True)
     
             # Normalize before substitution
@@ -1207,6 +1224,134 @@ class PseudoDifferentialOperator:
             return p_star
 
     def fractional_power(self, alpha, order=1, method='symbolic', x_grid=None, L=None, N=None):
+        """
+        Compute the symbol or matrix of the fractional/complex power P^alpha.
+        """
+        import sympy as sp
+        from sympy import Rational, simplify, symbols, powdenest
+        import numpy as np
+        if method == 'numerical':
+            from scipy.linalg import fractional_matrix_power
+            if x_grid is None: x_grid = np.linspace(-5, 5, 128)
+            if N is None: N = len(x_grid)
+            if L is None: L = (x_grid[-1] - x_grid[0]) / 2.0 if len(x_grid) > 1 else 5.0
+            H, _, _ = self._build_operator_matrix(x_grid, method='spectral', L=L, N=N)
+            return fractional_matrix_power(H, alpha)
+        if method != 'symbolic':
+            raise ValueError("method must be 'symbolic' or 'numerical'")
+            
+        # ─── SYMBOLIC PATH ───
+        p = self.symbol
+        if isinstance(alpha, float):
+            alpha = sp.nsimplify(alpha, rational=True)
+            
+        # 1. Robustly check if the overall symbol is negative (e.g., -xi**2 - eta**2)
+        is_negative = False
+        if p.free_symbols:
+            test_val = p.subs({s: 1 for s in p.free_symbols})
+            try:
+                if float(test_val) < 0:
+                    is_negative = True
+            except (TypeError, ValueError):
+                pass
+        p_abs = -p if is_negative else p
+        
+        # 2. FAST PATH: Pure multipliers (no spatial dependence)
+        if not self._is_spatial_dependent():
+            sub_to_pos = {}
+            sub_back = {}
+            for s in p_abs.free_symbols:
+                if s.name in ['xi', 'eta']:
+                    s_pos = symbols(s.name, real=True, positive=True)
+                    sub_to_pos[s] = s_pos
+                    sub_back[s_pos] = s
+            p_pos = p_abs.subs(sub_to_pos)
+            q_pos = powdenest(p_pos**alpha, force=True)
+            q_sym = q_pos.subs(sub_back)
+            
+            # --- FIX: Simplify the radical first, then multiply with evaluate=False ---
+            q_sym = simplify(q_sym)
+            if is_negative:
+                phase = sp.I**(2*alpha)
+                q_sym = sp.Mul(phase, q_sym, evaluate=False)
+            return q_sym
+            
+        # 3. SLOW PATH: Spatially dependent symbols (Heterogeneous media)
+        if alpha != 0.5 and alpha != sp.Rational(1, 2):
+            raise NotImplementedError("Spatially dependent fractional powers only support alpha=0.5")
+        p_m = self.principal_symbol(order=1)
+        p_m_abs = -p_m if is_negative else p_m
+        
+        sub_to_pos = {}
+        sub_back = {}
+        for s in p_m_abs.free_symbols:
+            if s.name in ['xi', 'eta']:
+                s_pos = symbols(s.name, real=True, positive=True)
+                sub_to_pos[s] = s_pos
+                sub_back[s_pos] = s
+        p_m_pos = p_m_abs.subs(sub_to_pos)
+        q_pos = powdenest(p_m_pos**Rational(1, 2), force=True)
+        q_sym = q_pos.subs(sub_back)
+        
+        # --- FIX: Simplify the radical first, then multiply with evaluate=False ---
+        try:
+            q_sym = simplify(q_sym)
+        except TypeError:
+            pass
+        if is_negative:
+            q_sym = sp.Mul(sp.I, q_sym, evaluate=False)
+            
+        # Asymptotic Newton-Raphson iteration
+        for iteration in range(order):
+            q_op = PseudoDifferentialOperator(q_sym, self.vars_x, mode='symbol')
+            q_sq = q_op.compose_asymptotic(q_op, order=1, mode='kn')
+            E = p - q_sq
+            try:
+                E = simplify(E)
+            except TypeError:
+                pass
+            if E == 0:
+                break
+            q_inv_sym = q_op.left_inverse_asymptotic(order=1)
+            q_inv_op = PseudoDifferentialOperator(q_inv_sym, self.vars_x, mode='symbol')
+            E_op = PseudoDifferentialOperator(E, self.vars_x, mode='symbol')
+            delta_q = q_inv_op.compose_asymptotic(E_op, order=1, mode='kn')
+            delta_q = Rational(1, 2) * delta_q
+            q_sym = q_sym + delta_q
+            
+            # Truncation logic (dimension-dependent but safely isolated)
+            if self.dim == 1:
+                xi_var = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+                z_trunc = symbols('z', real=True, positive=True)
+                try:
+                    q_z = q_sym.subs(xi_var, 1/z_trunc)
+                    q_z_trunc = sp.series(q_z, z_trunc, 0, n=1).removeO()
+                    q_sym = q_z_trunc.subs(z_trunc, 1/xi_var)
+                except Exception:
+                    pass
+            elif self.dim == 2:
+                xi_var = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+                eta_var = next((s for s in p.free_symbols if s.name == 'eta'), symbols('eta', real=True))
+                rho = symbols('rho', real=True, positive=True)
+                theta = symbols('theta', real=True)
+                z_trunc = symbols('z', real=True, positive=True)
+                try:
+                    q_rho = q_sym.subs({xi_var: rho * sp.cos(theta), eta_var: rho * sp.sin(theta)})
+                    q_z = q_rho.subs(rho, 1/z_trunc)
+                    q_z_trunc = sp.series(q_z, z_trunc, 0, n=1).removeO()
+                    q_sym = q_z_trunc.subs(z_trunc, 1/rho).subs({rho: sp.sqrt(xi_var**2 + eta_var**2),
+                                                                 sp.cos(theta): xi_var / sp.sqrt(xi_var**2 + eta_var**2),
+                                                                 sp.sin(theta): eta_var / sp.sqrt(xi_var**2 + eta_var**2)})
+                except Exception:
+                    pass
+            try:
+                q_sym = simplify(q_sym)
+            except TypeError:
+                pass
+                
+        return q_sym
+
+    def fractional_power_old(self, alpha, order=1, method='symbolic', x_grid=None, L=None, N=None):
             """
             Compute the symbol or matrix of the fractional/complex power P^alpha.
             
@@ -1229,6 +1374,12 @@ class PseudoDifferentialOperator:
                 # The fractional power is just the exact algebraic power.
                 # =========================================================================
                 if not self._is_spatial_dependent():
+                    # A Python float alpha (e.g. 0.5) makes sympy carry float
+                    # coefficients (e.g. 1.0) through powdenest, which later
+                    # breaks exact structural checks like is_homogeneous's
+                    # `base == l`. Snap "nice" floats back to exact Rationals.
+                    if isinstance(alpha, float):
+                        alpha = sp.nsimplify(alpha, rational=True)
                     if self.dim == 1:
                         # Dynamically retrieve the existing xi symbol to preserve its assumptions
                         xi_sym = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
@@ -2220,7 +2371,220 @@ class PseudoDifferentialOperator:
                 'deta/dt': -diff(self.symbol, y)
             }
 
-    def is_elliptic_numerically(self, x_grid, xi_grid, threshold=1e-8):
+    def is_elliptic_numerically(self, x_grid, xi_grid, order=None, threshold=1e-6,
+                                 xi_frac=0.5, n_random=100_000, n_edge=32, seed=None):
+        """
+        Check ellipticity using the standard asymptotic (high-frequency) definition.
+    
+        A symbol p(x, ξ) of order m is elliptic if there exist constants C > 0 and
+        R > 0 such that
+    
+            |p(x, ξ)| ≥ C · (1 + |ξ|²)^(m/2)     for all |ξ| ≥ R (and x in the
+                                                    region of interest).
+    
+        Ellipticity is a *high-frequency* condition: it makes no requirement on the
+        symbol near ξ = 0, so this method only probes the region |ξ| ≥ R, where R
+        is taken as a fraction (`xi_frac`) of the largest |ξ| present in `xi_grid`.
+        This intentionally excludes the low-frequency region, so a symbol like the
+        harmonic oscillator x² + ξ² — which has an isolated zero at (0, 0) but is
+        the textbook example of a globally elliptic symbol — is correctly detected
+        as elliptic instead of being penalised for vanishing at a single point that
+        asymptotic ellipticity doesn't care about.
+    
+        Parameters
+        ----------
+        x_grid : ndarray or tuple of ndarray
+            Spatial grid(s). For 1D: a 1D array of x coordinates.
+            For 2D: a tuple (x, y) of two 1D arrays.
+        xi_grid : ndarray or tuple of ndarray
+            Frequency grid(s). For 1D: a 1D array of ξ coordinates.
+            For 2D: a tuple (ξ, η) of two 1D arrays.
+        order : float, optional
+            The homogeneity order m used in the (1 + |ξ|²)^(m/2) normalization.
+            If None (default), it is auto-detected via `self.symbol_order()`. Raises
+            ValueError if auto-detection fails and no `order` was supplied.
+        threshold : float, optional
+            Minimum acceptable value of the *normalized* symbol
+            |p(x,ξ)| / (1 + |ξ|²)^(m/2), i.e. the constant C in the ellipticity
+            definition above. Default is 1e-6.
+        xi_frac : float, optional
+            Fraction (in (0, 1)) of the largest |ξ| available in `xi_grid` used as
+            the high-frequency cutoff R. Only points with |ξ| ≥ R are tested.
+            Default is 0.5.
+        n_random : int, optional
+            Number of random points sampled in the high-frequency region. Default
+            100_000.
+        n_edge : int, optional
+            Number of spatial points per dimension used in the deterministic check
+            performed at the largest available |ξ| (the edge of the supplied grid).
+            Default 32.
+        seed : int, optional
+            Seed for the random sampling, for reproducible results. Default None
+            (non-deterministic across calls).
+    
+        Returns
+        -------
+        bool
+            True if the normalized symbol stays above `threshold` on every tested
+            point in the high-frequency region, otherwise False.
+    
+        Notes
+        -----
+        This method combines two checks:
+            1. **Random sampling** in the shell |ξ| ≥ R (rejection-sampled from the
+               hyperrectangle defined by `xi_grid`'s extremes).
+            2. **Deterministic edge sampling** — the symbol is evaluated at the
+               largest available |ξ| (the corners/extremes of `xi_grid`) over a
+               spatial grid of `n_edge` points per dimension, to guarantee the most
+               informative high-frequency points are always checked, not just
+               randomly sampled ones.
+        Because random sampling is probabilistic, a True result does not guarantee
+        ellipticity in the strict mathematical sense — it only indicates that no
+        tested point violated the condition. For rigorous analysis, combine this
+        with symbolic methods (e.g., :meth:`principal_symbol` and
+        :meth:`is_homogeneous`).
+        """
+        import numpy as np
+    
+        rng = np.random.default_rng(seed)
+    
+        # ------------------------------------------------------------------
+        # Determine the order m used to normalize the symbol
+        # ------------------------------------------------------------------
+        if order is None:
+            order = self.symbol_order()
+            if order is None:
+                raise ValueError(
+                    "Could not auto-detect the symbol's order (symbol_order() "
+                    "returned None). Pass `order` explicitly, e.g. "
+                    "is_elliptic_numerically(x_grid, xi_grid, order=2)."
+                )
+        m = float(order)
+    
+        dim = self.dim
+    
+        # ------------------------------------------------------------------
+        # Extract bounds from the input grids
+        # ------------------------------------------------------------------
+        if dim == 1:
+            x_min, x_max = x_grid.min(), x_grid.max()
+            xi_min, xi_max = xi_grid.min(), xi_grid.max()
+            xi_abs_max = max(abs(xi_min), abs(xi_max))
+        else:  # dim == 2
+            x_arr, y_arr = x_grid
+            xi_arr, eta_arr = xi_grid
+            x_min, x_max = x_arr.min(), x_arr.max()
+            y_min, y_max = y_arr.min(), y_arr.max()
+            xi_min, xi_max = xi_arr.min(), xi_arr.max()
+            eta_min, eta_max = eta_arr.min(), eta_arr.max()
+            xi_abs_max = max(abs(xi_min), abs(xi_max), abs(eta_min), abs(eta_max))
+    
+        if not (0.0 < xi_frac < 1.0):
+            raise ValueError("xi_frac must be in (0, 1).")
+        R = xi_frac * xi_abs_max
+        if R <= 0:
+            raise ValueError(
+                "The frequency grid does not extend far enough from zero to "
+                "define a high-frequency region; widen xi_grid."
+            )
+    
+        def normalized_vals(p_vals, xi_norm_sq):
+            return np.abs(p_vals) / (1.0 + xi_norm_sq) ** (m / 2.0)
+    
+        # ------------------------------------------------------------------
+        # 1. Random sampling restricted to the high-frequency shell |ξ| ≥ R
+        # ------------------------------------------------------------------
+        if dim == 1:
+            # |ξ| >= R within [xi_min, xi_max] is (up to) two sub-intervals.
+            intervals = []
+            if xi_max > R:
+                intervals.append((max(xi_min, R), xi_max))
+            if xi_min < -R:
+                intervals.append((xi_min, min(xi_max, -R)))
+            if not intervals:
+                raise ValueError(
+                    "No part of xi_grid lies in the high-frequency region "
+                    "|xi| >= R; widen xi_grid or lower xi_frac."
+                )
+            lengths = np.array([b - a for a, b in intervals])
+            starts = np.array([a for a, b in intervals])
+            cum = np.cumsum(lengths)
+            u = rng.uniform(0.0, cum[-1], n_random)
+            idx = np.searchsorted(cum, u, side='right')
+            offset = u - (cum - lengths)[idx]
+            xi_rand = starts[idx] + offset
+    
+            x_rand = rng.uniform(x_min, x_max, n_random)
+            vals_rand = self.p_func(x_rand, xi_rand)
+            ratio_rand = normalized_vals(vals_rand, xi_rand ** 2)
+    
+        else:  # dim == 2
+            # Rejection-sample within the box until enough points satisfy
+            # sqrt(xi^2 + eta^2) >= R.
+            collected_xi, collected_eta = [], []
+            n_have = 0
+            max_attempts = 20
+            batch = n_random
+            for _ in range(max_attempts):
+                xi_try = rng.uniform(xi_min, xi_max, batch)
+                eta_try = rng.uniform(eta_min, eta_max, batch)
+                mask = xi_try ** 2 + eta_try ** 2 >= R ** 2
+                if np.any(mask):
+                    collected_xi.append(xi_try[mask])
+                    collected_eta.append(eta_try[mask])
+                    n_have += int(mask.sum())
+                if n_have >= n_random:
+                    break
+            if n_have == 0:
+                raise ValueError(
+                    "No part of xi_grid lies in the high-frequency region "
+                    "|xi| >= R; widen xi_grid or lower xi_frac."
+                )
+            xi_rand = np.concatenate(collected_xi)[:n_random]
+            eta_rand = np.concatenate(collected_eta)[:n_random]
+            n_pts = xi_rand.shape[0]
+    
+            x_rand = rng.uniform(x_min, x_max, n_pts)
+            y_rand = rng.uniform(y_min, y_max, n_pts)
+            vals_rand = self.p_func(x_rand, y_rand, xi_rand, eta_rand)
+            ratio_rand = normalized_vals(vals_rand, xi_rand ** 2 + eta_rand ** 2)
+    
+        if np.any(ratio_rand < threshold):
+            return False
+    
+        # ------------------------------------------------------------------
+        # 2. Deterministic check at the largest available |ξ| (grid edges)
+        # ------------------------------------------------------------------
+        if dim == 1:
+            x_edge = np.linspace(x_min, x_max, n_edge)
+            for xi_edge_val in {xi_min, xi_max}:
+                if abs(xi_edge_val) < R:
+                    continue
+                xi_edge = np.full_like(x_edge, xi_edge_val)
+                vals_edge = self.p_func(x_edge, xi_edge)
+                ratio_edge = normalized_vals(vals_edge, xi_edge ** 2)
+                if np.any(ratio_edge < threshold):
+                    return False
+        else:  # dim == 2
+            x_edge = np.linspace(x_min, x_max, n_edge)
+            y_edge = np.linspace(y_min, y_max, n_edge)
+            X, Y = np.meshgrid(x_edge, y_edge, indexing='ij')
+            X_flat, Y_flat = X.ravel(), Y.ravel()
+            for xi_edge_val in {xi_min, xi_max}:
+                for eta_edge_val in {eta_min, eta_max}:
+                    if xi_edge_val ** 2 + eta_edge_val ** 2 < R ** 2:
+                        continue
+                    xi_edge = np.full_like(X_flat, xi_edge_val)
+                    eta_edge = np.full_like(Y_flat, eta_edge_val)
+                    vals_edge = self.p_func(X_flat, Y_flat, xi_edge, eta_edge)
+                    ratio_edge = normalized_vals(vals_edge, xi_edge ** 2 + eta_edge ** 2)
+                    if np.any(ratio_edge < threshold):
+                        return False
+    
+        # All checks passed
+        return True
+    
+    def is_elliptic_numerically_old(self, x_grid, xi_grid, threshold=1e-8):
         """
         Check ellipticity by random sampling of phase space plus an explicit check at zero frequency.
     

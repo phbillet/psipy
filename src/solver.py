@@ -2854,10 +2854,12 @@ class PDESolver:
             E(t) = 1/2 ∫ [ (∂ₜu)² + |L¹ᐟ²u|² ] dx
         where L is the linear operator associated with the spatial part of the PDE,
         and L¹ᐟ² denotes its square root.
-    
+        
+        NOTE: This metric only accounts for the linear part of the PDE. If nonlinear 
+        or source terms are present, they are NOT included in this computation.
+        
         This method supports both 1D and 2D problems and is only meaningful when 
         self.temporal_order == 2 (second-order time derivative). Two cases are handled:
-    
         - Standard case (no psiOp): L is a Fourier multiplier L(k), applied via FFT,
           and the velocity ∂ₜu is read directly from self.v_prev, which is advanced
           alongside u at every step.
@@ -2871,31 +2873,34 @@ class PDESolver:
           v ≈ (u_prev - u_prev2) / dt. This estimate is centered half a step behind
           u_prev, so the reported energy lags the true value by O(dt) — negligible for
           monitoring purposes at typical time-step sizes.
-    
+          
         Returns
         -------
         float or None: 
             Total energy at current time step. Returns None if the temporal order is not 2
             or if the data needed to evaluate it (v_prev, or u_prev2 in the psiOp case)
             is not yet available.
-    
-        Notes
-        -----
-        - Uses FFT-based / Kohn-Nirenberg spectral evaluation for the spatial contribution.
-        - Assumes periodic boundary conditions.
-        - Handles both real and complex-valued solutions.
         """
         if self.temporal_order != 2:
             return None
-    
+
+        # --- Warning for Nonlinear / Source terms ---
+        # Emit a one-time warning if the PDE contains nonlinearities or sources, 
+        # as the standard linear energy metric will not capture their physical effects.
+        if not getattr(self, '_energy_warning_issued', False):
+            if self.nonlinear_terms or self.source_terms:
+                print("⚠️ Warning: The computed energy only accounts for the linear part of the PDE.")
+                print("   Nonlinear terms and source terms are NOT included in this energy metric.")
+                print("   Therefore, it may not represent the true physical energy or exhibit conservation.")
+                self._energy_warning_issued = True
+        # --------------------------------------------
+
         u = self.u_prev
-    
         if self.has_psi:
             if self.u_prev2 is None:
                 return None
             # Leapfrog velocity estimate from the two most recent time levels.
             v = (self.u_prev - self.u_prev2) / self.dt
-    
             if not hasattr(self, '_energy_psi_op'):
                 # Defensive fallback: should always be set by _compute_linear_operator
                 # for temporal_order == 2, but avoid a hard crash if not.
@@ -2907,34 +2912,29 @@ class PDESolver:
             if self.v_prev is None:
                 return None
             v = self.v_prev
-    
             # Fourier transform of u
             u_hat = self.fft(u)
-    
             if self.dim == 1:
                 L_vals = self.L(self.KX)
             elif self.dim == 2:
                 L_vals = self.L(self.KX, self.KY)
             else:
                 raise ValueError("Unsupported dimension for u.")
-    
             sqrt_L = np.sqrt(np.abs(L_vals))
             Lu = self.ifft(sqrt_L * u_hat)  # Apply sqrt(|L(k)|) in Fourier space
-    
+
         if self.dim == 1:
             dx = self.Lx / self.Nx
             energy_density = 0.5 * (np.abs(v)**2 + np.abs(Lu)**2)
             total_energy = np.sum(energy_density) * dx
-    
         elif self.dim == 2:
             dx = self.Lx / self.Nx
             dy = self.Ly / self.Ny
             energy_density = 0.5 * (np.abs(v)**2 + np.abs(Lu)**2)
             total_energy = np.sum(energy_density) * dx * dy
-    
         else:
             raise ValueError("Unsupported dimension for u.")
-    
+
         return total_energy
 
     def plot_energy(self, log=False):

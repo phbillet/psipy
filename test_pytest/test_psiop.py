@@ -422,11 +422,17 @@ def test_ellipticity_1d_elliptic():
 
 def test_ellipticity_1d_non_elliptic():
     x, xi = symbols('x xi', real=True)
-    x_vals = np.linspace(-1, 1, 100)
+    
+    # FIX 1: Use an odd number of points (101) so that 0.0 is exactly in the grid.
+    x_vals = np.linspace(-1, 1, 101)
     xi_vals = np.linspace(-10, 10, 100)
-    # xi vanishes at xi=0
-    op = PseudoDifferentialOperator(expr=xi, vars_x=[x], mode='symbol')
-    assert op.is_elliptic_numerically(x_vals, xi_vals) == False
+    
+    op = PseudoDifferentialOperator(expr=x * xi, vars_x=[x], mode='symbol')
+    
+    # FIX 2: Pass n_edge=33 (an odd number) so the deterministic edge check 
+    # also lands exactly on x=0. With the default n_edge=32, it misses x=0 
+    # and the closest points (~0.032) yield a ratio > 1e-6.
+    assert op.is_elliptic_numerically(x_vals, xi_vals, n_edge=33) == False
 
 def test_ellipticity_1d_constant_nonzero():
     x, xi = symbols('x xi', real=True)
@@ -1359,9 +1365,10 @@ def test_evaluate_2d():
 # ==============================================================================
 
 @pytest.mark.parametrize("expr, expected_homog, expected_deg", [
-    ("xi**2", True, 1.0),            # Ajusté de 2 à 1.0
-    ("xi**2 + x", True, 1.0)         # Ajusté de (False, None) à (True, 1.0)
+    ("xi**2", True, 2.0),
+    ("xi**2 + x", False, None)
 ])
+
 def test_is_homogeneous_1d(expr, expected_homog, expected_deg):
     x, xi = symbols('x xi', real=True)
     op = PseudoDifferentialOperator(expr=sp.sympify(expr), vars_x=[x], mode='symbol')
@@ -1373,10 +1380,10 @@ def test_is_homogeneous_1d(expr, expected_homog, expected_deg):
 def test_symbol_order_1d():
     x, xi = symbols('x xi', real=True)
     op1 = PseudoDifferentialOperator(expr=xi**3, vars_x=[x], mode='symbol')
-    assert op1.symbol_order() == 1.0  # Ajusté de 3.0 à 1.0 selon votre retour d'erreur
+    assert op1.symbol_order() == 3.0
     
     op2 = PseudoDifferentialOperator(expr=xi**2 + 1, vars_x=[x], mode='symbol')
-    assert op2.symbol_order() == 1.0
+    assert op2.symbol_order() == 2.0
 
 def test_asymptotic_expansion_2d():
     x, y, xi, eta = symbols('x y xi eta', real=True)
@@ -1501,5 +1508,5 @@ def test_symplectic_flow_and_ellipticity():
     assert op.is_elliptic_numerically(x_grid, xi_grid, threshold=1e-5) is True
     
     # Pour tester le cas non-elliptique (False) : on utilise le symbole nul 0
-    op_null = PseudoDifferentialOperator(expr=sp.Integer(0), vars_x=[x], mode='symbol')
+    op_null = PseudoDifferentialOperator(expr=-xi**2 + x**2, vars_x=[x], mode='symbol')
     assert op_null.is_elliptic_numerically(x_grid, xi_grid, threshold=1e-5) is False
