@@ -1228,8 +1228,8 @@ class PseudoDifferentialOperator:
         Compute the symbol or discrete matrix representation of the fractional 
         or complex power P^alpha of the pseudo-differential operator.
         
-        This method calculates the fractional power using either a symbolic 
-        asymptotic approach or a numerical matrix approach. 
+        This method calculates the fractional power using either an optimized 
+        symbolic asymptotic approach or a numerical matrix approach. 
         
         For the **symbolic** method, the algorithm distinguishes between 
         spatially independent symbols (pure Fourier multipliers) and 
@@ -1240,11 +1240,12 @@ class PseudoDifferentialOperator:
               extracts the appropriate complex phase factor to ensure the 
               correct branch of the complex power is taken.
             - *Slow Path (Spatially Dependent)*: If the symbol depends on 
-              space, it uses an asymptotic Newton-Raphson iteration to 
-              construct the microlocal spatial corrections. The principal 
-              symbol is used as the initial guess, and the series is 
-              truncated at the specified asymptotic `order`.
-              
+              space, the fractional power is currently restricted to square roots 
+              (alpha = 0.5). For order=0, it returns the principal square root. 
+              For order=1, it skips heavy iterative Newton-Raphson routines and 
+              directly computes the first-order microlocal spatial correction via 
+              the subprincipal error: delta_q = E / (2 * q_0).
+
         For the **numerical** method, the operator is discretized into a 
         matrix (via spectral or finite-difference methods) and the fractional 
         matrix power is computed using SciPy.
@@ -1254,14 +1255,14 @@ class PseudoDifferentialOperator:
         alpha : float or complex
             The exponent to which the operator is raised.
         order : int, default=1
-            The asymptotic expansion order for the symbolic Newton-Raphson 
-            iteration. This controls the number of microlocal correction terms 
-            generated for spatially dependent symbols. Ignored for pure 
-            multipliers and the numerical method.
+            The asymptotic expansion order for the symbolic correction.
+            - 0: Returns the principal symbol's fractional power (q_0).
+            - 1: Computes the first-order microlocal correction term (delta_q).
+            Ignored for pure multipliers and the numerical method.
         method : str, {'symbolic', 'numerical'}, default='symbolic'
             The computation method to use.
             - 'symbolic': Returns a SymPy expression for the fractional power 
-              symbol using asymptotic calculus.
+              symbol using direct asymptotic calculus.
             - 'numerical': Returns a NumPy array representing the discrete 
               fractional power matrix.
         x_grid : ndarray, optional
@@ -1284,20 +1285,17 @@ class PseudoDifferentialOperator:
         ------
         NotImplementedError
             If `method='symbolic'` is used on a spatially dependent symbol 
-            with `alpha != 0.5`. The asymptotic Newton-Raphson iteration for 
-            heterogeneous media is currently restricted to square roots to 
-            maintain tractable series expansions.
+            with `alpha != 0.5`. The direct subprincipal asymptotic correction 
+            for heterogeneous media is currently optimized strictly for square roots 
+            to maintain clean, high-performance symbolic evaluations.
         ValueError
             If `method` is not 'symbolic' or 'numerical'.
 
         Notes
         -----
-        - In the symbolic path for spatially dependent symbols, the iteration 
-          relies on the non-vanishing of the principal symbol to ensure 
-          invertibility at each Newton-Raphson step.
         - The symbolic method automatically handles negative overall symbols 
-          (e.g., the negative Laplacian) by applying the complex phase 
-          (e.g., `I**(2*alpha)`) to the absolute value of the symbol.
+          (e.g., the negative Laplacian) by factoring out the complex phase 
+          (e.g., `I` or `I**(2*alpha)`) and evaluating the absolute value.
         - For the numerical method, the underlying discrete operator is built 
           using `_build_operator_matrix`, defaulting to a spectral method if 
           `x_grid`, `L`, and `N` are not explicitly provided.
@@ -1358,76 +1356,44 @@ class PseudoDifferentialOperator:
         # 3. SLOW PATH: Spatially dependent symbols (Heterogeneous media)
         if alpha != 0.5 and alpha != sp.Rational(1, 2):
             raise NotImplementedError("Spatially dependent fractional powers only support alpha=0.5")
+            
         p_m = self.principal_symbol(order=1)
         p_m_abs = -p_m if is_negative else p_m
         
-        sub_to_pos = {}
-        sub_back = {}
-        for s in p_m_abs.free_symbols:
-            if s.name in ['xi', 'eta']:
-                s_pos = symbols(s.name, real=True, positive=True)
-                sub_to_pos[s] = s_pos
-                sub_back[s_pos] = s
-        p_m_pos = p_m_abs.subs(sub_to_pos)
-        q_pos = powdenest(p_m_pos**Rational(1, 2), force=True)
-        q_sym = q_pos.subs(sub_back)
-        
-        # --- FIX: Simplify the radical first, then multiply with evaluate=False ---
-        try:
-            q_sym = simplify(q_sym)
-        except TypeError:
-            pass
+        # Calculate the principal symbol square root directly (q_0)
+        # Avoid powdenest/simplify chain which hangs on multi-variable radicals
+        q_0 = sp.sqrt(p_m_abs)
         if is_negative:
-            q_sym = sp.Mul(sp.I, q_sym, evaluate=False)
+            q_0 = sp.Mul(sp.I, q_0, evaluate=False)
+
+        if order == 0:
+            return q_0
             
-        # Asymptotic Newton-Raphson iteration
-        for iteration in range(order):
-            q_op = PseudoDifferentialOperator(q_sym, self.vars_x, mode='symbol')
-            q_sq = q_op.compose_asymptotic(q_op, order=1, mode='kn')
-            E = p - q_sq
-            try:
-                E = simplify(E)
-            except TypeError:
-                pass
-            if E == 0:
-                break
-            q_inv_sym = q_op.left_inverse_asymptotic(order=1)
-            q_inv_op = PseudoDifferentialOperator(q_inv_sym, self.vars_x, mode='symbol')
-            E_op = PseudoDifferentialOperator(E, self.vars_x, mode='symbol')
-            delta_q = q_inv_op.compose_asymptotic(E_op, order=1, mode='kn')
-            delta_q = Rational(1, 2) * delta_q
-            q_sym = q_sym + delta_q
+        # --- RAPID ORDER 1 CORRECTION ---
+        # Instead of generic Newton-Raphson + full left-inverse + sp.series, 
+        # we can compute the first asymptotic correction directly from the error.
+        # E = p - q_0^2 (which is the subprincipal part of the operator)
+        
+        q_op = PseudoDifferentialOperator(q_0, self.vars_x, mode='symbol')
+        
+        # Fast composition for order=1
+        q_sq = q_op.compose_asymptotic(q_op, order=1, mode='kn')
+        E = p - q_sq
+        
+        # The first correction term in standard pseudo-differential calculus satisfies:
+        # delta_q = E / (2 * q_0)
+        # We can form this directly and use basic algebraic expansion
+        delta_q = E / (2 * q_0)
+        
+        # Combine them structurally
+        q_sym = q_0 + delta_q
+        
+        # Fast, non-blocking cleanup
+        try:
+            q_sym = sp.powsimp(q_sym, combine='all')
+        except Exception:
+            pass
             
-            # Truncation logic (dimension-dependent but safely isolated)
-            if self.dim == 1:
-                xi_var = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
-                z_trunc = symbols('z', real=True, positive=True)
-                try:
-                    q_z = q_sym.subs(xi_var, 1/z_trunc)
-                    q_z_trunc = sp.series(q_z, z_trunc, 0, n=1).removeO()
-                    q_sym = q_z_trunc.subs(z_trunc, 1/xi_var)
-                except Exception:
-                    pass
-            elif self.dim == 2:
-                xi_var = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
-                eta_var = next((s for s in p.free_symbols if s.name == 'eta'), symbols('eta', real=True))
-                rho = symbols('rho', real=True, positive=True)
-                theta = symbols('theta', real=True)
-                z_trunc = symbols('z', real=True, positive=True)
-                try:
-                    q_rho = q_sym.subs({xi_var: rho * sp.cos(theta), eta_var: rho * sp.sin(theta)})
-                    q_z = q_rho.subs(rho, 1/z_trunc)
-                    q_z_trunc = sp.series(q_z, z_trunc, 0, n=1).removeO()
-                    q_sym = q_z_trunc.subs(z_trunc, 1/rho).subs({rho: sp.sqrt(xi_var**2 + eta_var**2),
-                                                                 sp.cos(theta): xi_var / sp.sqrt(xi_var**2 + eta_var**2),
-                                                                 sp.sin(theta): eta_var / sp.sqrt(xi_var**2 + eta_var**2)})
-                except Exception:
-                    pass
-            try:
-                q_sym = simplify(q_sym)
-            except TypeError:
-                pass
-                
         return q_sym
 
     def exponential_symbol(self, t=1.0, order=1, mode='kn', sign_convention=None):
