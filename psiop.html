@@ -641,8 +641,8 @@ at infinity to ensure proper behavior under integration by parts.</p>
 <span class="sig-name descname"><span class="pre">fractional_power</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'symbolic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.fractional_power"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.fractional_power" title="Link to this definition"></a></dt>
 <dd><p>Compute the symbol or discrete matrix representation of the fractional
 or complex power P^alpha of the pseudo-differential operator.</p>
-<p>This method calculates the fractional power using either a symbolic
-asymptotic approach or a numerical matrix approach.</p>
+<p>This method calculates the fractional power using either an optimized
+symbolic asymptotic approach or a numerical matrix approach.</p>
 <p>For the <strong>symbolic</strong> method, the algorithm distinguishes between
 spatially independent symbols (pure Fourier multipliers) and
 spatially dependent symbols (heterogeneous media):</p>
@@ -654,10 +654,11 @@ It automatically detects negative symbols (e.g., -xi**2) and
 extracts the appropriate complex phase factor to ensure the
 correct branch of the complex power is taken.</p></li>
 <li><p><em>Slow Path (Spatially Dependent)</em>: If the symbol depends on
-space, it uses an asymptotic Newton-Raphson iteration to
-construct the microlocal spatial corrections. The principal
-symbol is used as the initial guess, and the series is
-truncated at the specified asymptotic <cite>order</cite>.</p></li>
+space, the fractional power is currently restricted to square roots
+(alpha = 0.5). For order=0, it returns the principal square root.
+For order=1, it skips heavy iterative Newton-Raphson routines and
+directly computes the first-order microlocal spatial correction via
+the subprincipal error: delta_q = E / (2 * q_0).</p></li>
 </ul>
 </div></blockquote>
 <p>For the <strong>numerical</strong> method, the operator is discretized into a
@@ -667,14 +668,14 @@ matrix power is computed using SciPy.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>alpha</strong> (<em>float</em><em> or </em><em>complex</em>) – The exponent to which the operator is raised.</p></li>
-<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default=1</em>) – The asymptotic expansion order for the symbolic Newton-Raphson
-iteration. This controls the number of microlocal correction terms
-generated for spatially dependent symbols. Ignored for pure
-multipliers and the numerical method.</p></li>
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default=1</em>) – The asymptotic expansion order for the symbolic correction.
+- 0: Returns the principal symbol’s fractional power (q_0).
+- 1: Computes the first-order microlocal correction term (delta_q).
+Ignored for pure multipliers and the numerical method.</p></li>
 <li><p><strong>method</strong> (<em>str</em><em>, </em><em>{'symbolic'</em><em>, </em><em>'numerical'}</em><em>, </em><em>default='symbolic'</em>) – <p>The computation method to use.
 - ‘symbolic’: Returns a SymPy expression for the fractional power</p>
 <blockquote>
-<div><p>symbol using asymptotic calculus.</p>
+<div><p>symbol using direct asymptotic calculus.</p>
 </div></blockquote>
 <ul>
 <li><p>’numerical’: Returns a NumPy array representing the discrete
@@ -702,21 +703,18 @@ the fractional power matrix.</p></li>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>NotImplementedError</strong> – If <cite>method=’symbolic’</cite> is used on a spatially dependent symbol
-    with <cite>alpha != 0.5</cite>. The asymptotic Newton-Raphson iteration for
-    heterogeneous media is currently restricted to square roots to
-    maintain tractable series expansions.</p></li>
+    with <cite>alpha != 0.5</cite>. The direct subprincipal asymptotic correction
+    for heterogeneous media is currently optimized strictly for square roots
+    to maintain clean, high-performance symbolic evaluations.</p></li>
 <li><p><strong>ValueError</strong> – If <cite>method</cite> is not ‘symbolic’ or ‘numerical’.</p></li>
 </ul>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
 <ul class="simple">
-<li><p>In the symbolic path for spatially dependent symbols, the iteration
-relies on the non-vanishing of the principal symbol to ensure
-invertibility at each Newton-Raphson step.</p></li>
 <li><p>The symbolic method automatically handles negative overall symbols
-(e.g., the negative Laplacian) by applying the complex phase
-(e.g., <cite>I**(2*alpha)</cite>) to the absolute value of the symbol.</p></li>
+(e.g., the negative Laplacian) by factoring out the complex phase
+(e.g., <cite>I</cite> or <cite>I**(2*alpha)</cite>) and evaluating the absolute value.</p></li>
 <li><p>For the numerical method, the underlying discrete operator is built
 using <cite>_build_operator_matrix</cite>, defaulting to a spectral method if
 <cite>x_grid</cite>, <cite>L</cite>, and <cite>N</cite> are not explicitly provided.</p></li>

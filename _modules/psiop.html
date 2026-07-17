@@ -1353,8 +1353,8 @@
 <span class="sd">        Compute the symbol or discrete matrix representation of the fractional </span>
 <span class="sd">        or complex power P^alpha of the pseudo-differential operator.</span>
 <span class="sd">        </span>
-<span class="sd">        This method calculates the fractional power using either a symbolic </span>
-<span class="sd">        asymptotic approach or a numerical matrix approach. </span>
+<span class="sd">        This method calculates the fractional power using either an optimized </span>
+<span class="sd">        symbolic asymptotic approach or a numerical matrix approach. </span>
 <span class="sd">        </span>
 <span class="sd">        For the **symbolic** method, the algorithm distinguishes between </span>
 <span class="sd">        spatially independent symbols (pure Fourier multipliers) and </span>
@@ -1365,11 +1365,12 @@
 <span class="sd">              extracts the appropriate complex phase factor to ensure the </span>
 <span class="sd">              correct branch of the complex power is taken.</span>
 <span class="sd">            - *Slow Path (Spatially Dependent)*: If the symbol depends on </span>
-<span class="sd">              space, it uses an asymptotic Newton-Raphson iteration to </span>
-<span class="sd">              construct the microlocal spatial corrections. The principal </span>
-<span class="sd">              symbol is used as the initial guess, and the series is </span>
-<span class="sd">              truncated at the specified asymptotic `order`.</span>
-<span class="sd">              </span>
+<span class="sd">              space, the fractional power is currently restricted to square roots </span>
+<span class="sd">              (alpha = 0.5). For order=0, it returns the principal square root. </span>
+<span class="sd">              For order=1, it skips heavy iterative Newton-Raphson routines and </span>
+<span class="sd">              directly computes the first-order microlocal spatial correction via </span>
+<span class="sd">              the subprincipal error: delta_q = E / (2 * q_0).</span>
+
 <span class="sd">        For the **numerical** method, the operator is discretized into a </span>
 <span class="sd">        matrix (via spectral or finite-difference methods) and the fractional </span>
 <span class="sd">        matrix power is computed using SciPy.</span>
@@ -1379,14 +1380,14 @@
 <span class="sd">        alpha : float or complex</span>
 <span class="sd">            The exponent to which the operator is raised.</span>
 <span class="sd">        order : int, default=1</span>
-<span class="sd">            The asymptotic expansion order for the symbolic Newton-Raphson </span>
-<span class="sd">            iteration. This controls the number of microlocal correction terms </span>
-<span class="sd">            generated for spatially dependent symbols. Ignored for pure </span>
-<span class="sd">            multipliers and the numerical method.</span>
+<span class="sd">            The asymptotic expansion order for the symbolic correction.</span>
+<span class="sd">            - 0: Returns the principal symbol&#39;s fractional power (q_0).</span>
+<span class="sd">            - 1: Computes the first-order microlocal correction term (delta_q).</span>
+<span class="sd">            Ignored for pure multipliers and the numerical method.</span>
 <span class="sd">        method : str, {&#39;symbolic&#39;, &#39;numerical&#39;}, default=&#39;symbolic&#39;</span>
 <span class="sd">            The computation method to use.</span>
 <span class="sd">            - &#39;symbolic&#39;: Returns a SymPy expression for the fractional power </span>
-<span class="sd">              symbol using asymptotic calculus.</span>
+<span class="sd">              symbol using direct asymptotic calculus.</span>
 <span class="sd">            - &#39;numerical&#39;: Returns a NumPy array representing the discrete </span>
 <span class="sd">              fractional power matrix.</span>
 <span class="sd">        x_grid : ndarray, optional</span>
@@ -1409,20 +1410,17 @@
 <span class="sd">        ------</span>
 <span class="sd">        NotImplementedError</span>
 <span class="sd">            If `method=&#39;symbolic&#39;` is used on a spatially dependent symbol </span>
-<span class="sd">            with `alpha != 0.5`. The asymptotic Newton-Raphson iteration for </span>
-<span class="sd">            heterogeneous media is currently restricted to square roots to </span>
-<span class="sd">            maintain tractable series expansions.</span>
+<span class="sd">            with `alpha != 0.5`. The direct subprincipal asymptotic correction </span>
+<span class="sd">            for heterogeneous media is currently optimized strictly for square roots </span>
+<span class="sd">            to maintain clean, high-performance symbolic evaluations.</span>
 <span class="sd">        ValueError</span>
 <span class="sd">            If `method` is not &#39;symbolic&#39; or &#39;numerical&#39;.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        - In the symbolic path for spatially dependent symbols, the iteration </span>
-<span class="sd">          relies on the non-vanishing of the principal symbol to ensure </span>
-<span class="sd">          invertibility at each Newton-Raphson step.</span>
 <span class="sd">        - The symbolic method automatically handles negative overall symbols </span>
-<span class="sd">          (e.g., the negative Laplacian) by applying the complex phase </span>
-<span class="sd">          (e.g., `I**(2*alpha)`) to the absolute value of the symbol.</span>
+<span class="sd">          (e.g., the negative Laplacian) by factoring out the complex phase </span>
+<span class="sd">          (e.g., `I` or `I**(2*alpha)`) and evaluating the absolute value.</span>
 <span class="sd">        - For the numerical method, the underlying discrete operator is built </span>
 <span class="sd">          using `_build_operator_matrix`, defaulting to a spectral method if </span>
 <span class="sd">          `x_grid`, `L`, and `N` are not explicitly provided.</span>
@@ -1483,76 +1481,44 @@
         <span class="c1"># 3. SLOW PATH: Spatially dependent symbols (Heterogeneous media)</span>
         <span class="k">if</span> <span class="n">alpha</span> <span class="o">!=</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">alpha</span> <span class="o">!=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Rational</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Spatially dependent fractional powers only support alpha=0.5&quot;</span><span class="p">)</span>
+            
         <span class="n">p_m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">principal_symbol</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">p_m_abs</span> <span class="o">=</span> <span class="o">-</span><span class="n">p_m</span> <span class="k">if</span> <span class="n">is_negative</span> <span class="k">else</span> <span class="n">p_m</span>
         
-        <span class="n">sub_to_pos</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">sub_back</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">p_m_abs</span><span class="o">.</span><span class="n">free_symbols</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">]:</span>
-                <span class="n">s_pos</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="n">sub_to_pos</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">s_pos</span>
-                <span class="n">sub_back</span><span class="p">[</span><span class="n">s_pos</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span>
-        <span class="n">p_m_pos</span> <span class="o">=</span> <span class="n">p_m_abs</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">sub_to_pos</span><span class="p">)</span>
-        <span class="n">q_pos</span> <span class="o">=</span> <span class="n">powdenest</span><span class="p">(</span><span class="n">p_m_pos</span><span class="o">**</span><span class="n">Rational</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">q_sym</span> <span class="o">=</span> <span class="n">q_pos</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">sub_back</span><span class="p">)</span>
-        
-        <span class="c1"># --- FIX: Simplify the radical first, then multiply with evaluate=False ---</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">q_sym</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">q_sym</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-            <span class="k">pass</span>
+        <span class="c1"># Calculate the principal symbol square root directly (q_0)</span>
+        <span class="c1"># Avoid powdenest/simplify chain which hangs on multi-variable radicals</span>
+        <span class="n">q_0</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">p_m_abs</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">is_negative</span><span class="p">:</span>
-            <span class="n">q_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Mul</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">I</span><span class="p">,</span> <span class="n">q_sym</span><span class="p">,</span> <span class="n">evaluate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">q_0</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Mul</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">I</span><span class="p">,</span> <span class="n">q_0</span><span class="p">,</span> <span class="n">evaluate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">q_0</span>
             
-        <span class="c1"># Asymptotic Newton-Raphson iteration</span>
-        <span class="k">for</span> <span class="n">iteration</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span><span class="p">):</span>
-            <span class="n">q_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">q_sym</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">)</span>
-            <span class="n">q_sq</span> <span class="o">=</span> <span class="n">q_op</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span><span class="n">q_op</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;kn&#39;</span><span class="p">)</span>
-            <span class="n">E</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="n">q_sq</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">E</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-                <span class="k">pass</span>
-            <span class="k">if</span> <span class="n">E</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">break</span>
-            <span class="n">q_inv_sym</span> <span class="o">=</span> <span class="n">q_op</span><span class="o">.</span><span class="n">left_inverse_asymptotic</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">q_inv_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">q_inv_sym</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">)</span>
-            <span class="n">E_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">)</span>
-            <span class="n">delta_q</span> <span class="o">=</span> <span class="n">q_inv_op</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span><span class="n">E_op</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;kn&#39;</span><span class="p">)</span>
-            <span class="n">delta_q</span> <span class="o">=</span> <span class="n">Rational</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">delta_q</span>
-            <span class="n">q_sym</span> <span class="o">=</span> <span class="n">q_sym</span> <span class="o">+</span> <span class="n">delta_q</span>
+        <span class="c1"># --- RAPID ORDER 1 CORRECTION ---</span>
+        <span class="c1"># Instead of generic Newton-Raphson + full left-inverse + sp.series, </span>
+        <span class="c1"># we can compute the first asymptotic correction directly from the error.</span>
+        <span class="c1"># E = p - q_0^2 (which is the subprincipal part of the operator)</span>
+        
+        <span class="n">q_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">q_0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">)</span>
+        
+        <span class="c1"># Fast composition for order=1</span>
+        <span class="n">q_sq</span> <span class="o">=</span> <span class="n">q_op</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span><span class="n">q_op</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;kn&#39;</span><span class="p">)</span>
+        <span class="n">E</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="n">q_sq</span>
+        
+        <span class="c1"># The first correction term in standard pseudo-differential calculus satisfies:</span>
+        <span class="c1"># delta_q = E / (2 * q_0)</span>
+        <span class="c1"># We can form this directly and use basic algebraic expansion</span>
+        <span class="n">delta_q</span> <span class="o">=</span> <span class="n">E</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">q_0</span><span class="p">)</span>
+        
+        <span class="c1"># Combine them structurally</span>
+        <span class="n">q_sym</span> <span class="o">=</span> <span class="n">q_0</span> <span class="o">+</span> <span class="n">delta_q</span>
+        
+        <span class="c1"># Fast, non-blocking cleanup</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">q_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">powsimp</span><span class="p">(</span><span class="n">q_sym</span><span class="p">,</span> <span class="n">combine</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
             
-            <span class="c1"># Truncation logic (dimension-dependent but safely isolated)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">xi_var</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;xi&#39;</span><span class="p">),</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-                <span class="n">z_trunc</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">q_z</span> <span class="o">=</span> <span class="n">q_sym</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">xi_var</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">z_trunc</span><span class="p">)</span>
-                    <span class="n">q_z_trunc</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">series</span><span class="p">(</span><span class="n">q_z</span><span class="p">,</span> <span class="n">z_trunc</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
-                    <span class="n">q_sym</span> <span class="o">=</span> <span class="n">q_z_trunc</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">z_trunc</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">xi_var</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                    <span class="k">pass</span>
-            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="n">xi_var</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;xi&#39;</span><span class="p">),</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-                <span class="n">eta_var</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;eta&#39;</span><span class="p">),</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-                <span class="n">rho</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;rho&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="n">theta</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;theta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="n">z_trunc</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">q_rho</span> <span class="o">=</span> <span class="n">q_sym</span><span class="o">.</span><span class="n">subs</span><span class="p">({</span><span class="n">xi_var</span><span class="p">:</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">sp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="n">eta_var</span><span class="p">:</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">sp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)})</span>
-                    <span class="n">q_z</span> <span class="o">=</span> <span class="n">q_rho</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">z_trunc</span><span class="p">)</span>
-                    <span class="n">q_z_trunc</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">series</span><span class="p">(</span><span class="n">q_z</span><span class="p">,</span> <span class="n">z_trunc</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
-                    <span class="n">q_sym</span> <span class="o">=</span> <span class="n">q_z_trunc</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">z_trunc</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">rho</span><span class="p">)</span><span class="o">.</span><span class="n">subs</span><span class="p">({</span><span class="n">rho</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">xi_var</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">eta_var</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span>
-                                                                 <span class="n">sp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">):</span> <span class="n">xi_var</span> <span class="o">/</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">xi_var</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">eta_var</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span>
-                                                                 <span class="n">sp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">):</span> <span class="n">eta_var</span> <span class="o">/</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">xi_var</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">eta_var</span><span class="o">**</span><span class="mi">2</span><span class="p">)})</span>
-                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                    <span class="k">pass</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">q_sym</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">q_sym</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-                <span class="k">pass</span>
-                
         <span class="k">return</span> <span class="n">q_sym</span></div>
 
 
