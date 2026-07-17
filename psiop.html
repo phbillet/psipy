@@ -73,7 +73,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.exponential_symbol"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.exponential_symbol()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.formal_adjoint"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.formal_adjoint()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.fractional_power"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.fractional_power()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.fractional_power_old"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.fractional_power_old()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.group_velocity_field"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.group_velocity_field()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.interactive_symbol_analysis"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.interactive_symbol_analysis()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.is_elliptic_numerically"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.is_elliptic_numerically()</span></code></a></li>
@@ -640,22 +639,91 @@ at infinity to ensure proper behavior under integration by parts.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.fractional_power">
 <span class="sig-name descname"><span class="pre">fractional_power</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'symbolic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.fractional_power"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.fractional_power" title="Link to this definition"></a></dt>
-<dd><p>Compute the symbol or matrix of the fractional/complex power P^alpha.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.fractional_power_old">
-<span class="sig-name descname"><span class="pre">fractional_power_old</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'symbolic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.fractional_power_old"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.fractional_power_old" title="Link to this definition"></a></dt>
-<dd><p>Compute the symbol or matrix of the fractional/complex power P^alpha.</p>
-<p>For the symbolic method:
-- If the symbol has no spatial dependence (pure multiplier), it returns</p>
+<dd><p>Compute the symbol or discrete matrix representation of the fractional
+or complex power P^alpha of the pseudo-differential operator.</p>
+<p>This method calculates the fractional power using either a symbolic
+asymptotic approach or a numerical matrix approach.</p>
+<p>For the <strong>symbolic</strong> method, the algorithm distinguishes between
+spatially independent symbols (pure Fourier multipliers) and
+spatially dependent symbols (heterogeneous media):</p>
 <blockquote>
-<div><p>the exact algebraic power p(xi)^alpha.</p>
+<div><ul class="simple">
+<li><p><em>Fast Path (Pure Multipliers)</em>: If the symbol has no spatial
+dependence, it computes the exact algebraic power p(xi)^alpha.
+It automatically detects negative symbols (e.g., -xi**2) and
+extracts the appropriate complex phase factor to ensure the
+correct branch of the complex power is taken.</p></li>
+<li><p><em>Slow Path (Spatially Dependent)</em>: If the symbol depends on
+space, it uses an asymptotic Newton-Raphson iteration to
+construct the microlocal spatial corrections. The principal
+symbol is used as the initial guess, and the series is
+truncated at the specified asymptotic <cite>order</cite>.</p></li>
+</ul>
 </div></blockquote>
+<p>For the <strong>numerical</strong> method, the operator is discretized into a
+matrix (via spectral or finite-difference methods) and the fractional
+matrix power is computed using SciPy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>alpha</strong> (<em>float</em><em> or </em><em>complex</em>) – The exponent to which the operator is raised.</p></li>
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default=1</em>) – The asymptotic expansion order for the symbolic Newton-Raphson
+iteration. This controls the number of microlocal correction terms
+generated for spatially dependent symbols. Ignored for pure
+multipliers and the numerical method.</p></li>
+<li><p><strong>method</strong> (<em>str</em><em>, </em><em>{'symbolic'</em><em>, </em><em>'numerical'}</em><em>, </em><em>default='symbolic'</em>) – <p>The computation method to use.
+- ‘symbolic’: Returns a SymPy expression for the fractional power</p>
+<blockquote>
+<div><p>symbol using asymptotic calculus.</p>
+</div></blockquote>
+<ul>
+<li><p>’numerical’: Returns a NumPy array representing the discrete
+fractional power matrix.</p></li>
+</ul>
+</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Spatial grid for the numerical method. If None, a default grid
+is generated based on <cite>L</cite> and <cite>N</cite>.</p></li>
+<li><p><strong>L</strong> (<em>float</em><em>, </em><em>optional</em>) – Domain half-length for the numerical spectral method.</p></li>
+<li><p><strong>N</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of grid points for the numerical method.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>If <cite>method=’symbolic’</cite>, returns the SymPy expression of the
+fractional power symbol.</p></li>
+<li><p>If <cite>method=’numerical’</cite>, returns the NumPy array representing
+the fractional power matrix.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sympy.Expr or ndarray</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>NotImplementedError</strong> – If <cite>method=’symbolic’</cite> is used on a spatially dependent symbol
+    with <cite>alpha != 0.5</cite>. The asymptotic Newton-Raphson iteration for
+    heterogeneous media is currently restricted to square roots to
+    maintain tractable series expansions.</p></li>
+<li><p><strong>ValueError</strong> – If <cite>method</cite> is not ‘symbolic’ or ‘numerical’.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
 <ul class="simple">
-<li><p>If the symbol depends on space (heterogeneous media), it uses an exact
-asymptotic Newton-Raphson iteration (for alpha=0.5) to automatically
-generate the microlocal spatial corrections.</p></li>
+<li><p>In the symbolic path for spatially dependent symbols, the iteration
+relies on the non-vanishing of the principal symbol to ensure
+invertibility at each Newton-Raphson step.</p></li>
+<li><p>The symbolic method automatically handles negative overall symbols
+(e.g., the negative Laplacian) by applying the complex phase
+(e.g., <cite>I**(2*alpha)</cite>) to the absolute value of the symbol.</p></li>
+<li><p>For the numerical method, the underlying discrete operator is built
+using <cite>_build_operator_matrix</cite>, defaulting to a spectral method if
+<cite>x_grid</cite>, <cite>L</cite>, and <cite>N</cite> are not explicitly provided.</p></li>
+<li><p>The fractional power of a pseudo-differential operator is a
+cornerstone in defining fractional PDEs (e.g., fractional
+Schrödinger equations, anomalous diffusion) and spectral zeta
+functions.</p></li>
 </ul>
 </dd></dl>
 
