@@ -76,7 +76,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.group_velocity_field"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.group_velocity_field()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.interactive_symbol_analysis"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.interactive_symbol_analysis()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.is_elliptic_numerically"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.is_elliptic_numerically()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.is_elliptic_numerically_old"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.is_elliptic_numerically_old()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.is_homogeneous"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.is_homogeneous()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.is_self_adjoint"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.is_self_adjoint()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.kn_to_weyl_symbol"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.kn_to_weyl_symbol()</span></code></a></li>
@@ -878,45 +877,6 @@ with symbolic methods (e.g., <a class="reference internal" href="#psiop.PseudoDi
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.is_elliptic_numerically_old">
-<span class="sig-name descname"><span class="pre">is_elliptic_numerically_old</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.is_elliptic_numerically_old"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.is_elliptic_numerically_old" title="Link to this definition"></a></dt>
-<dd><p>Check ellipticity by random sampling of phase space plus an explicit check at zero frequency.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>x_grid</strong> (<em>ndarray</em><em> or </em><em>tuple</em><em> of </em><em>ndarray</em>) – Spatial grid(s). For 1D: a 1D array of x coordinates.
-For 2D: a tuple (x, y) of two 1D arrays.</p></li>
-<li><p><strong>xi_grid</strong> (<em>ndarray</em><em> or </em><em>tuple</em><em> of </em><em>ndarray</em>) – Frequency grid(s). For 1D: a 1D array of ξ coordinates.
-For 2D: a tuple (ξ, η) of two 1D arrays.</p></li>
-<li><p><strong>threshold</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum acceptable value for <a href="#id50"><span class="problematic" id="id51">|p(x,ξ)|</span></a>. If any evaluated point falls below this,
-the symbol is considered non‑elliptic.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>True if all sampled points satisfy <a href="#id52"><span class="problematic" id="id53">|p|</span></a> &gt; threshold, otherwise False.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>bool</p>
-</dd>
-</dl>
-<p class="rubric">Notes</p>
-<dl class="simple">
-<dt>This method uses two sampling strategies to keep memory usage low:</dt><dd><ol class="arabic simple">
-<li><p><strong>Random sampling</strong> – <cite>N_RANDOM</cite> points are drawn uniformly from the
-hyperrectangle defined by the extremes of the input grids.</p></li>
-<li><p><strong>Zero‑frequency sampling</strong> – the symbol is evaluated at ξ=0 (and η=0 in 2D)
-on a coarse spatial grid of <cite>N_ZERO</cite> points per spatial dimension.</p></li>
-</ol>
-</dd>
-</dl>
-<p>If any evaluated value falls below <cite>threshold</cite>, the method returns False immediately.
-Because random sampling is probabilistic, a True result does not guarantee
-ellipticity in the strict mathematical sense – it only indicates that no sampled
-point violated the condition. For rigorous analysis, combine this with symbolic
-methods (e.g., <a class="reference internal" href="#psiop.PseudoDifferentialOperator.principal_symbol" title="psiop.PseudoDifferentialOperator.principal_symbol"><code class="xref py py-meth docutils literal notranslate"><span class="pre">principal_symbol()</span></code></a> and <a class="reference internal" href="#psiop.PseudoDifferentialOperator.is_homogeneous" title="psiop.PseudoDifferentialOperator.is_homogeneous"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_homogeneous()</span></code></a>).</p>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.is_homogeneous">
 <span class="sig-name descname"><span class="pre">is_homogeneous</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.is_homogeneous"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.is_homogeneous" title="Link to this definition"></a></dt>
 <dd><p>Check whether the symbol is homogeneous in the frequency variables.</p>
@@ -1113,12 +1073,12 @@ of the pseudo-differential operator. This field governs the bicharacteristic flo
 <span class="sig-name descname"><span class="pre">principal_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.principal_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.principal_symbol" title="Link to this definition"></a></dt>
 <dd><p>Compute the leading homogeneous component of the pseudo-differential symbol.</p>
 <p>This method extracts the principal part of the symbol, which is the dominant
-term under high-frequency asymptotics (<a href="#id54"><span class="problematic" id="id55">|ξ|</span></a> → ∞). The expansion is performed
+term under high-frequency asymptotics (<a href="#id50"><span class="problematic" id="id51">|ξ|</span></a> → ∞). The expansion is performed
 in polar coordinates for 2D symbols to maintain rotational symmetry, then
 converted back to Cartesian form.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>order</strong> (<em>int</em>) – Order of the asymptotic expansion in powers of 1/ρ, where ρ = <a href="#id56"><span class="problematic" id="id57">|ξ|</span></a> in 1D
+<dd class="field-odd"><p><strong>order</strong> (<em>int</em>) – Order of the asymptotic expansion in powers of 1/ρ, where ρ = <a href="#id52"><span class="problematic" id="id53">|ξ|</span></a> in 1D
 or ρ = sqrt(ξ² + η²) in 2D. Only the leading-order term is returned.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1206,7 +1166,7 @@ between the operator P and the current approximation of R.</p></li>
 <span class="sig-name descname"><span class="pre">symbol_order</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.symbol_order"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.symbol_order" title="Link to this definition"></a></dt>
 <dd><p>Estimate the homogeneity order of the pseudo-differential symbol in high-frequency asymptotics.</p>
 <p>This method attempts to determine the leading-order behavior of the symbol p(x, ξ) or p(x, y, ξ, η)
-as <a href="#id58"><span class="problematic" id="id59">|ξ|</span></a> → ∞ (in 1D) or <a href="#id60"><span class="problematic" id="id61">|(ξ, η)|</span></a> → ∞ (in 2D). The returned value represents the asymptotic growth or decay rate,
+as <a href="#id54"><span class="problematic" id="id55">|ξ|</span></a> → ∞ (in 1D) or <a href="#id56"><span class="problematic" id="id57">|(ξ, η)|</span></a> → ∞ (in 2D). The returned value represents the asymptotic growth or decay rate,
 which is essential for understanding the regularity and mapping properties of the corresponding operator.</p>
 <p>The function uses symbolic preprocessing to ensure proper factorization of frequency variables,
 especially in sqrt and power expressions, to avoid erroneous order detection (e.g., due to hidden scaling).</p>
@@ -1351,7 +1311,7 @@ coherent states / Weyl quantization.</p></li>
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_characteristic_gradient">
 <span class="sig-name descname"><span class="pre">visualize_characteristic_gradient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_characteristic_gradient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_characteristic_gradient" title="Link to this definition"></a></dt>
 <dd><p>Visualize the norm of the gradient of the symbol in phase space.</p>
-<p>This method computes the magnitude of the gradient <a href="#id62"><span class="problematic" id="id63">|∇p|</span></a> of a pseudo-differential
+<p>This method computes the magnitude of the gradient <a href="#id58"><span class="problematic" id="id59">|∇p|</span></a> of a pseudo-differential
 symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D. The resulting colormap reveals
 regions where the symbol varies rapidly or remains nearly stationary,
 which is particularly useful for analyzing characteristic sets.</p>
@@ -1367,7 +1327,7 @@ which is particularly useful for analyzing characteristic sets.</p>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Displays a 2D colormap of <a href="#id64"><span class="problematic" id="id65">|∇p|</span></a> over the relevant phase-space domain.</p>
+<dd class="field-even"><p>Displays a 2D colormap of <a href="#id60"><span class="problematic" id="id61">|∇p|</span></a> over the relevant phase-space domain.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
@@ -1378,7 +1338,7 @@ which is particularly useful for analyzing characteristic sets.</p>
 <li><p>In 1D, the full gradient ∇p = (∂ₓp, ∂ξp) is computed over the (x, ξ) grid.</p></li>
 <li><p>In 2D, the gradient ∇p = (∂ξp, ∂ηp) is computed at a fixed spatial point (x₀, y₀) over the (ξ, η) grid.</p></li>
 <li><p>Numerical differentiation is performed using <cite>np.gradient</cite>.</p></li>
-<li><p>High values of <a href="#id66"><span class="problematic" id="id67">|∇p|</span></a> indicate rapid variation of the symbol, while low values typically suggest characteristic regions.</p></li>
+<li><p>High values of <a href="#id62"><span class="problematic" id="id63">|∇p|</span></a> indicate rapid variation of the symbol, while low values typically suggest characteristic regions.</p></li>
 </ul>
 </dd></dl>
 
@@ -1400,7 +1360,7 @@ playing a key role in understanding propagation of singularities.</p>
 </dl>
 <p class="rubric">Notes</p>
 <ul class="simple">
-<li><p>For 1D, this method plots the contour of <a href="#id68"><span class="problematic" id="id69">|p(x, ξ)|</span></a> = ε with ε = 1e-5 over the (x, ξ) plane.</p></li>
+<li><p>For 1D, this method plots the contour of <a href="#id64"><span class="problematic" id="id65">|p(x, ξ)|</span></a> = ε with ε = 1e-5 over the (x, ξ) plane.</p></li>
 <li><p>For 2D, it evaluates the symbol at fixed (x₀, y₀) and plots the characteristic set in the (ξ, η) frequency plane.</p></li>
 <li><p>This visualization helps identify directions of degeneracy or hypoellipticity of the operator.</p></li>
 </ul>
@@ -1439,7 +1399,7 @@ the frequency content of the operator at that location.</p>
 </dl>
 <p class="rubric">Notes</p>
 <ul class="simple">
-<li><p>In 1D: Displays <a href="#id70"><span class="problematic" id="id71">|p(x, ξ)|</span></a> over the (x, ξ) phase plane near the fixed point.</p></li>
+<li><p>In 1D: Displays <a href="#id66"><span class="problematic" id="id67">|p(x, ξ)|</span></a> over the (x, ξ) phase plane near the fixed point.</p></li>
 <li><p>In 2D: Fixes (x₀, y₀) and evaluates p(x₀, y₀, ξ, η), showing the fiber over that point.</p></li>
 <li><p>The color map represents the magnitude of the symbol, highlighting regions where it vanishes or becomes singular.</p></li>
 </ul>
@@ -1453,16 +1413,16 @@ the frequency content of the operator at that location.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_micro_support">
 <span class="sig-name descname"><span class="pre">visualize_micro_support</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-10,</span> <span class="pre">10)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_micro_support"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_micro_support" title="Link to this definition"></a></dt>
-<dd><p>Visualize the micro-support of the operator by plotting the inverse of the symbol magnitude 1 / <a href="#id72"><span class="problematic" id="id73">|p(x, ξ)|</span></a>.</p>
+<dd><p>Visualize the micro-support of the operator by plotting the inverse of the symbol magnitude 1 / <a href="#id68"><span class="problematic" id="id69">|p(x, ξ)|</span></a>.</p>
 <p>The micro-support provides insight into the singularities of a pseudo-differential operator
-in phase space (x, ξ). Regions where <a href="#id74"><span class="problematic" id="id75">|p(x, ξ)|</span></a> is small correspond to large values in 1/<a href="#id76"><span class="problematic" id="id77">|p(x, ξ)|</span></a>,
+in phase space (x, ξ). Regions where <a href="#id70"><span class="problematic" id="id71">|p(x, ξ)|</span></a> is small correspond to large values in 1/<a href="#id72"><span class="problematic" id="id73">|p(x, ξ)|</span></a>,
 highlighting areas of significant operator influence or singularity.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>xlim</strong> (<em>tuple</em>) – Spatial domain limits (x_min, x_max).</p></li>
 <li><p><strong>klim</strong> (<em>tuple</em>) – Frequency domain limits (ξ_min, ξ_max).</p></li>
-<li><p><strong>threshold</strong> (<em>float</em>) – Threshold below which <a href="#id78"><span class="problematic" id="id79">|p(x, ξ)|</span></a> is considered effectively zero; used for numerical stability.</p></li>
+<li><p><strong>threshold</strong> (<em>float</em>) – Threshold below which <a href="#id74"><span class="problematic" id="id75">|p(x, ξ)|</span></a> is considered effectively zero; used for numerical stability.</p></li>
 <li><p><strong>density</strong> (<em>int</em>) – Number of grid points along each axis for visualization resolution.</p></li>
 </ul>
 </dd>
@@ -1509,7 +1469,7 @@ a cyclic colormap (‘twilight’) to emphasize its periodic nature.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_symbol_amplitude">
 <span class="sig-name descname"><span class="pre">visualize_symbol_amplitude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_symbol_amplitude"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_symbol_amplitude" title="Link to this definition"></a></dt>
-<dd><p>Display the modulus <a href="#id80"><span class="problematic" id="id81">|p(x, ξ)|</span></a> or <a href="#id82"><span class="problematic" id="id83">|p(x, y, ξ₀, η₀)|</span></a> as a color map.</p>
+<dd><p>Display the modulus <a href="#id76"><span class="problematic" id="id77">|p(x, ξ)|</span></a> or <a href="#id78"><span class="problematic" id="id79">|p(x, y, ξ₀, η₀)|</span></a> as a color map.</p>
 <p>This method visualizes the amplitude of the pseudodifferential operator’s symbol
 in either 1D or 2D spatial configuration. In 2D, the frequency variables are fixed
 to specified values (ξ₀, η₀) for visualization purposes.</p>
@@ -1529,8 +1489,8 @@ but the visualization fixes ξ = ξ₀ and η = η₀.</p></li>
 </dl>
 <p class="rubric">Notes</p>
 <ul class="simple">
-<li><p>In 1D: Visualizes <a href="#id84"><span class="problematic" id="id85">|p(x, ξ)|</span></a> over the (x, ξ) grid.</p></li>
-<li><p>In 2D: Visualizes <a href="#id86"><span class="problematic" id="id87">|p(x, y, ξ₀, η₀)|</span></a> at fixed frequencies ξ₀ and η₀.</p></li>
+<li><p>In 1D: Visualizes <a href="#id80"><span class="problematic" id="id81">|p(x, ξ)|</span></a> over the (x, ξ) grid.</p></li>
+<li><p>In 2D: Visualizes <a href="#id82"><span class="problematic" id="id83">|p(x, y, ξ₀, η₀)|</span></a> at fixed frequencies ξ₀ and η₀.</p></li>
 <li><p>The color intensity represents the magnitude of the symbol, highlighting regions where the symbol is large or small.</p></li>
 </ul>
 </dd></dl>
@@ -1737,7 +1697,7 @@ broadcastable arrays; the output shape should be compatible with
 <p>Must return an array of complex numbers (or castable to complex128).</p>
 </p></li>
 <li><p><strong>freq_window</strong> (<em>{'gaussian'</em><em>, </em><em>'hann'}</em><em>, </em><em>default='gaussian'</em>) – Frequency‑space window applied to the symbol before the inverse transform.
-* ‘gaussian’ : exp(‑(ξ/σ_w)⁴) with σ_w = 0.8·max(<a href="#id88"><span class="problematic" id="id89">|ξ|</span></a>).
+* ‘gaussian’ : exp(‑(ξ/σ_w)⁴) with σ_w = 0.8·max(<a href="#id84"><span class="problematic" id="id85">|ξ|</span></a>).
 * ‘hann’     : Hanning window over the full frequency range.</p></li>
 <li><p><strong>clamp</strong> (<em>float</em><em>, </em><em>default=1e6</em>) – Absolute value beyond which symbol entries are clipped. Helps avoid
 numerical overflow.</p></li>

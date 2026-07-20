@@ -384,6 +384,12 @@
                 <span class="n">psi</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">sym_expr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">coeff</span><span class="p">,</span> <span class="n">psi</span><span class="p">))</span>
 
+        <span class="c1"># --- Inside __init__ ---</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">work_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_energy_history</span> <span class="o">=</span> <span class="p">[]</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_parse_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">equation</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parse the PDE to separate linear and nonlinear terms, symbolic operators (Op), </span>
@@ -2118,9 +2124,18 @@
         <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;*******************</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
         <span class="n">save_interval</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nt</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_frames</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># RESET!</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_energy_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">work_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># For trapezoidal rule</span>
+        
         <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Nt</span><span class="p">):</span>
             <span class="n">t_val</span> <span class="o">=</span> <span class="n">step</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
             <span class="n">source_contribution</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t_val</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="c1"># Pass current time and source contribution</span>
+                <span class="n">E</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_energy</span><span class="p">(</span><span class="n">t_val</span><span class="p">,</span> <span class="n">source_contribution</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
@@ -2161,10 +2176,6 @@
 
             <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="n">save_interval</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
-
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="n">E</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_energy</span><span class="p">()</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">frames</span>  </div>
 
@@ -2519,8 +2530,13 @@
         <span class="n">L_fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
         <span class="n">fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span>
         <span class="n">ifft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span>
-    
+
         <span class="k">def</span><span class="w"> </span><span class="nf">rhs</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">t_val</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">ifft</span><span class="p">(</span><span class="n">L_fft</span> <span class="o">*</span> <span class="n">fft</span><span class="p">(</span><span class="n">u_val</span><span class="p">))</span>
+                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t_val</span><span class="p">))</span>
+            
+        <span class="k">def</span><span class="w"> </span><span class="nf">rhs_old</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">t_val</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">ifft</span><span class="p">(</span><span class="n">L_fft</span> <span class="o">*</span> <span class="n">fft</span><span class="p">(</span><span class="n">u_val</span><span class="p">))</span>
                     <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="n">u_val</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
                     <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_eval_source</span><span class="p">(</span><span class="n">t_val</span><span class="p">))</span>
@@ -2942,8 +2958,100 @@
     
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D supported.&quot;</span><span class="p">)</span>
+            
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_contribution</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Compute the total energy with proper handling of source and nonlinear terms.</span>
+<span class="sd">            Uses the energy balance: dE_mech/dt = P(t) where P is the power from nonlinear/source terms.</span>
+<span class="sd">            Total conserved energy: E_total = E_mech - W where W = ∫P dt</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_order</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+        
+            <span class="c1"># Warning for nonlinear/source terms (once)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_energy_warning_issued&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonlinear_terms</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_terms</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;⚠️ Warning: Energy monitoring includes work from nonlinear/source terms.&quot;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_energy_warning_issued</span> <span class="o">=</span> <span class="kc">True</span>
+        
+            <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span>
+            <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lx</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Nx</span>
+            <span class="n">dy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ly</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">Ny</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">1.0</span>
+            
+            <span class="c1"># 1. Compute Velocity and Potential Operator Terms Consistent with Physics</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> 
+                    <span class="k">return</span> <span class="kc">None</span>
+                <span class="c1"># Centered difference for velocity when using staggered states</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_prev2</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_energy_psi_op&#39;</span><span class="p">):</span> 
+                    <span class="k">return</span> <span class="kc">None</span>
+                
+                <span class="c1"># For psi_op path, Lu already represents the correct square-root potential mapped state</span>
+                <span class="n">Lu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span>
+                    <span class="n">u</span><span class="p">,</span> <span class="n">psi_ops</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_energy_psi_op</span><span class="p">)],</span> 
+                    <span class="n">is_spatial</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_energy_is_spatial</span>
+                <span class="p">)</span>
+                <span class="n">pot_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Lu</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> 
+                    <span class="k">return</span> <span class="kc">None</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_prev</span>
+                
+                <span class="c1"># FIXED: Compute Potential Energy via explicit Fourier representation of -L</span>
+                <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+                <span class="n">L_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
+                
+                <span class="c1"># If L is negative definite (e.g. -xi^2), -L_vals represents the positive energy operator</span>
+                <span class="c1"># We use np.abs to ensure safety across varying user sign conventions</span>
+                <span class="n">minus_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">L_vals</span><span class="p">)</span> 
+                
+                <span class="c1"># Compute potential energy density directly via inverse FFT of (-L * u_hat) multiplied by u</span>
+                <span class="n">Lu_pot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">minus_L</span> <span class="o">*</span> <span class="n">u_hat</span><span class="p">)</span>
+                <span class="n">pot_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">Lu_pot</span><span class="p">))</span>
+        
+            <span class="c1"># 2. Compute Total Mechanical Energy</span>
+            <span class="n">kin_density</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">energy_density</span> <span class="o">=</span> <span class="n">kin_density</span> <span class="o">+</span> <span class="n">pot_density</span>
+            
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">E_mech</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">E_mech</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">energy_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span>
+        
+            <span class="c1"># 3. Compute Instantaneous Power: P = ∫ v · (N(u) + f) dx</span>
+            <span class="n">N_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">source_contribution</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">source_contribution</span><span class="p">):</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">source_contribution</span>
+        
+            <span class="n">power_density</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">N_u</span> <span class="o">+</span> <span class="n">f</span><span class="p">))</span>
+            
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">power_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">power_density</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span>
+        
+            <span class="c1"># 4. Accumulate Work via Trapezoidal Rule</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_prev_power&#39;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">=</span> <span class="n">power</span>
+            
+            <span class="n">work_increment</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">+</span> <span class="n">power</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span> <span class="o">+=</span> <span class="n">work_increment</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_prev_power</span> <span class="o">=</span> <span class="n">power</span>
+            
+            <span class="c1"># Store histories</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_energy_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">E_mech</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">work_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span><span class="p">)</span>
+        
+            <span class="c1"># Total conserved energy</span>
+            <span class="n">E_total</span> <span class="o">=</span> <span class="n">E_mech</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">accumulated_work</span>
+            
+            <span class="k">return</span> <span class="n">E_total</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_energy_old</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the total energy of the wave equation solution for second-order temporal PDEs. </span>
 <span class="sd">        The energy is defined as:</span>
@@ -3036,6 +3144,56 @@
 <div class="viewcode-block" id="PDESolver.plot_energy">
 <a class="viewcode-back" href="../solver.html#solver.PDESolver.plot_energy">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_energy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Plot energy components: mechanical, work, and total.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;energy_history&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No energy data recorded.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+    
+        <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lt</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">))</span>
+        
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">9</span><span class="p">))</span>
+        
+        <span class="c1"># Mechanical Energy</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;mechanical_energy_history&#39;</span><span class="p">):</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_energy_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Mechanical Energy&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Mechanical Energy (Oscillates/Grows due to terms)&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        
+        <span class="c1"># Accumulated Work</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;work_history&#39;</span><span class="p">):</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">work_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;orange&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Accumulated Work&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Accumulated Work (Energy injected/extracted by terms)&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        
+        <span class="c1"># Total Conserved Energy</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">log</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Time&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Total Energy&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Total Conserved Energy $E_</span><span class="si">{mech}</span><span class="s1"> - W$ (Should be perfectly flat)&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        
+        <span class="c1"># Print diagnostics</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">E0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">drift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">)</span> <span class="o">-</span> <span class="n">E0</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">E0</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Initial Total Energy: </span><span class="si">{</span><span class="n">E0</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Max Relative Drift:   </span><span class="si">{</span><span class="n">drift</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> (Should be ~1e-4 or smaller)&quot;</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="PDESolver.plot_energy_old">
+<a class="viewcode-back" href="../solver.html#solver.PDESolver.plot_energy_old">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot_energy_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Plot the time evolution of the total energy for wave equations. </span>
 <span class="sd">        Visualizes the energy computed during simulation for both 1D and 2D cases. </span>
