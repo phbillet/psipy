@@ -1334,37 +1334,42 @@ def frequency(H, I_val, method='derivative'):
         _check_ndof(vars_phase, 1)
         x, p = vars_phase
         E_val = float(I_val)   # in this branch I_val is treated as energy
-    
-        # Solve for p(x, E)
+
         eq = H - E_val
         p_solutions = solve(eq, p)
         p_expr = next((s for s in p_solutions if im(s) == 0 or s.is_real), p_solutions[0])
     
         # dH/dp = dx/dt  →  dt = dx / (dH/dp)
         dHdp_expr = diff(H, p)
-        # Substitute p = p(x, E) into dH/dp
         dHdp_sub = dHdp_expr.subs(p, p_expr)
         dHdp_func = lambdify(x, dHdp_sub, 'numpy')
     
-        # Find turning points (where p = 0)
-        p_func_zero = lambdify(x, p_expr, 'numpy')
-        x_scan = np.linspace(-20, 20, 2000)
-        p_vals = np.real(p_func_zero(x_scan).astype(complex))
-        crossings = np.where(np.diff(np.sign(p_vals)))[0]
-        if len(crossings) < 2:
-            amp = np.sqrt(2 * E_val)
-            x_min, x_max = -amp, amp
+        # --- FIX: Compute exact turning points symbolically ---
+        turning_points = solve(p_expr, x)
+        real_pts = [float(pt.evalf()) for pt in turning_points if im(pt) == 0 or pt.is_real]
+        
+        if len(real_pts) >= 2:
+            x_min, x_max = min(real_pts), max(real_pts)
         else:
-            x_min = x_scan[crossings[0]]
-            x_max = x_scan[crossings[-1]]
+            # Fallback to the original scan method if symbolic solve yields no real roots
+            p_func_zero = lambdify(x, p_expr, 'numpy')
+            x_scan = np.linspace(-20, 20, 2000)
+            p_vals = np.real(p_func_zero(x_scan).astype(complex))
+            crossings = np.where(np.diff(np.sign(p_vals)))[0]
+            if len(crossings) < 2:
+                amp = np.sqrt(2 * E_val)
+                x_min, x_max = -amp, amp
+            else:
+                x_min = x_scan[crossings[0]]
+                x_max = x_scan[crossings[-1]]
     
         def integrand(xv):
             val = dHdp_func(xv)
             val = np.real(complex(val))
             return 1.0 / val if abs(val) > 1e-14 else 0.0
     
-        eps = 1e-8
-        half_period, _ = quad(integrand, x_min + eps, x_max - eps, limit=200)
+        # --- FIX: Remove or minimize the arbitrary eps since endpoints are now exact ---
+        half_period, _ = quad(integrand, x_min, x_max, limit=200)
         T = 2 * abs(half_period)
         return 2 * np.pi / T
 

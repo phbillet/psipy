@@ -297,6 +297,12 @@ class PDESolver:
                 psi = PseudoDifferentialOperator(sym_expr, self.spatial_vars, self.u, mode='symbol')
                 self.psi_ops.append((coeff, psi))
 
+        # --- Inside __init__ ---
+        self.energy_history = []
+        self.accumulated_work = 0.0
+        self.work_history = []
+        self.mechanical_energy_history = []
+
     def _parse_equation(self, equation):
         """
         Parse the PDE to separate linear and nonlinear terms, symbolic operators (Op), 
@@ -2026,9 +2032,18 @@ class PDESolver:
         print('*******************\n')
         save_interval = max(1, self.Nt // self.n_frames)
         self.energy_history = []
+        self.accumulated_work = 0.0  # RESET!
+        self.mechanical_energy_history = []
+        self.work_history = []
+        self._prev_power = 0.0  # For trapezoidal rule
+        
         for step in range(self.Nt):
             t_val = step * self.dt
             source_contribution = self._eval_source(t_val)
+            if self.temporal_order == 2:
+                # Pass current time and source contribution
+                E = self._compute_energy(t_val, source_contribution)
+                self.energy_history.append(E)
 
             if self.temporal_order == 1:
                 if self.has_psi:
@@ -2069,10 +2084,6 @@ class PDESolver:
 
             if step % save_interval == 0:
                 self.frames.append(self.u_prev.copy())
-
-            if self.temporal_order == 2:
-                E = self._compute_energy()
-                self.energy_history.append(E)
 
         return self.frames  
                 
@@ -2423,8 +2434,13 @@ class PDESolver:
         L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
         fft = self.fft
         ifft = self.ifft
-    
+
         def rhs(u_val, t_val):
+            return (ifft(L_fft * fft(u_val))
+                    + self._apply_nonlinear(u_val, is_v=False)
+                    + self._eval_source(t_val))
+            
+        def rhs_old(u_val, t_val):
             return (ifft(L_fft * fft(u_val))
                     + self._apply_nonlinear(u_val, is_v=False)
                     + self._eval_source(t_val))
@@ -2846,8 +2862,100 @@ class PDESolver:
     
         else:
             raise ValueError("Only 1D and 2D supported.")
+            
+    def _compute_energy(self, t_val=None, source_contribution=None):
+            """
+            Compute the total energy with proper handling of source and nonlinear terms.
+            Uses the energy balance: dE_mech/dt = P(t) where P is the power from nonlinear/source terms.
+            Total conserved energy: E_total = E_mech - W where W = ∫P dt
+            """
+            if self.temporal_order != 2:
+                return None
+        
+            # Warning for nonlinear/source terms (once)
+            if not getattr(self, '_energy_warning_issued', False):
+                if self.nonlinear_terms or self.source_terms:
+                    print("⚠️ Warning: Energy monitoring includes work from nonlinear/source terms.")
+                    self._energy_warning_issued = True
+        
+            u = self.u_prev
+            dx = self.Lx / self.Nx
+            dy = self.Ly / self.Ny if self.dim > 1 else 1.0
+            
+            # 1. Compute Velocity and Potential Operator Terms Consistent with Physics
+            if self.has_psi:
+                if self.u_prev2 is None: 
+                    return None
+                # Centered difference for velocity when using staggered states
+                v = (self.u_prev - self.u_prev2) / self.dt
+                if not hasattr(self, '_energy_psi_op'): 
+                    return None
+                
+                # For psi_op path, Lu already represents the correct square-root potential mapped state
+                Lu = self._apply_psiOp(
+                    u, psi_ops=[(1, self._energy_psi_op)], 
+                    is_spatial=self._energy_is_spatial
+                )
+                pot_density = 0.5 * np.abs(Lu)**2
+            else:
+                if self.v_prev is None: 
+                    return None
+                v = self.v_prev
+                
+                # FIXED: Compute Potential Energy via explicit Fourier representation of -L
+                u_hat = self.fft(u)
+                L_vals = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
+                
+                # If L is negative definite (e.g. -xi^2), -L_vals represents the positive energy operator
+                # We use np.abs to ensure safety across varying user sign conventions
+                minus_L = np.abs(L_vals) 
+                
+                # Compute potential energy density directly via inverse FFT of (-L * u_hat) multiplied by u
+                Lu_pot = self.ifft(minus_L * u_hat)
+                pot_density = 0.5 * np.real(u * np.conj(Lu_pot))
+        
+            # 2. Compute Total Mechanical Energy
+            kin_density = 0.5 * np.abs(v)**2
+            energy_density = kin_density + pot_density
+            
+            if self.dim == 1:
+                E_mech = np.sum(energy_density) * dx
+            else:
+                E_mech = np.sum(energy_density) * dx * dy
+        
+            # 3. Compute Instantaneous Power: P = ∫ v · (N(u) + f) dx
+            N_u = self._apply_nonlinear(self.u_prev, is_v=False)
+            
+            if source_contribution is None or np.isscalar(source_contribution):
+                f = np.zeros_like(u)
+            else:
+                f = source_contribution
+        
+            power_density = np.real(v * np.conj(N_u + f))
+            
+            if self.dim == 1:
+                power = np.sum(power_density) * dx
+            else:
+                power = np.sum(power_density) * dx * dy
+        
+            # 4. Accumulate Work via Trapezoidal Rule
+            if not hasattr(self, '_prev_power'):
+                self._prev_power = power
+            
+            work_increment = 0.5 * (self._prev_power + power) * self.dt
+            self.accumulated_work += work_increment
+            self._prev_power = power
+            
+            # Store histories
+            self.mechanical_energy_history.append(E_mech)
+            self.work_history.append(self.accumulated_work)
+        
+            # Total conserved energy
+            E_total = E_mech - self.accumulated_work
+            
+            return E_total
 
-    def _compute_energy(self):
+    def _compute_energy_old(self):
         """
         Compute the total energy of the wave equation solution for second-order temporal PDEs. 
         The energy is defined as:
@@ -2938,6 +3046,53 @@ class PDESolver:
         return total_energy
 
     def plot_energy(self, log=False):
+        """Plot energy components: mechanical, work, and total."""
+        if not hasattr(self, 'energy_history') or not self.energy_history:
+            print("No energy data recorded.")
+            return
+    
+        t = np.linspace(0, self.Lt, len(self.energy_history))
+        
+        plt.figure(figsize=(10, 9))
+        
+        # Mechanical Energy
+        if hasattr(self, 'mechanical_energy_history'):
+            plt.subplot(3, 1, 1)
+            plt.plot(t, self.mechanical_energy_history, color='blue')
+            plt.ylabel('Mechanical Energy')
+            plt.title('Mechanical Energy (Oscillates/Grows due to terms)')
+            plt.grid(True)
+        
+        # Accumulated Work
+        if hasattr(self, 'work_history'):
+            plt.subplot(3, 1, 2)
+            plt.plot(t, self.work_history, color='orange')
+            plt.ylabel('Accumulated Work')
+            plt.title('Accumulated Work (Energy injected/extracted by terms)')
+            plt.grid(True)
+        
+        # Total Conserved Energy
+        plt.subplot(3, 1, 3)
+        if log:
+            plt.semilogy(t, self.energy_history, color='green', linewidth=2)
+        else:
+            plt.plot(t, self.energy_history, color='green', linewidth=2)
+        plt.xlabel('Time')
+        plt.ylabel('Total Energy')
+        plt.title('Total Conserved Energy $E_{mech} - W$ (Should be perfectly flat)')
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # Print diagnostics
+        if len(self.energy_history) > 0:
+            E0 = self.energy_history[0]
+            drift = np.max(np.abs(np.array(self.energy_history) - E0)) / np.abs(E0)
+            print(f"✅ Initial Total Energy: {E0:.6f}")
+            print(f"✅ Max Relative Drift:   {drift:.2e} (Should be ~1e-4 or smaller)")
+    
+    def plot_energy_old(self, log=False):
         """
         Plot the time evolution of the total energy for wave equations. 
         Visualizes the energy computed during simulation for both 1D and 2D cases. 
