@@ -2439,11 +2439,6 @@ class PDESolver:
             return (ifft(L_fft * fft(u_val))
                     + self._apply_nonlinear(u_val, is_v=False)
                     + self._eval_source(t_val))
-            
-        def rhs_old(u_val, t_val):
-            return (ifft(L_fft * fft(u_val))
-                    + self._apply_nonlinear(u_val, is_v=False)
-                    + self._eval_source(t_val))
     
         # Stage A (t)
         A = rhs(u, t)
@@ -2863,11 +2858,34 @@ class PDESolver:
         else:
             raise ValueError("Only 1D and 2D supported.")
             
-    def _compute_energy(self, t_val=None, source_contribution=None):
+    def _compute_energy(self, t_val, source_contribution=0.0):
             """
-            Compute the total energy with proper handling of source and nonlinear terms.
-            Uses the energy balance: dE_mech/dt = P(t) where P is the power from nonlinear/source terms.
-            Total conserved energy: E_total = E_mech - W where W = ∫P dt
+            Compute the total energy of the system at time `t_val`.
+    
+            For second-order time-dependent equations (∂ₜ²u = L u + N(u) + f), the total energy 
+            is defined as the sum of kinetic and potential energy:
+            
+            E(t) = Eₖ(t) + Eₚ(t)
+    
+            where:
+            - Eₖ(t) = ½ ∫ |∂ₜu|² dx is the kinetic energy.
+            - Eₚ(t) = -½ ∫ u · (L u + N(u) + f(x,t)) dx is the potential energy.
+    
+            For equations involving pseudo-differential operators (ψOp), the linear 
+            part L u is evaluated using Kohn–Nirenberg quantization, and the fractional 
+            power P¹/² symbol is used where applicable.
+    
+            Parameters
+            ----------
+            t_val : float
+                Current simulation time t.
+            source_contribution : np.ndarray or float, optional
+                Evaluated source term f(x,t) on the spatial grid at time `t_val`. Default is 0.0.
+    
+            Returns
+            -------
+            float
+                Total mechanical energy E(t) integrated over the spatial domain.
             """
             if self.temporal_order != 2:
                 return None
@@ -2955,98 +2973,69 @@ class PDESolver:
             
             return E_total
 
-    def _compute_energy_old(self):
-        """
-        Compute the total energy of the wave equation solution for second-order temporal PDEs. 
-        The energy is defined as:
-            E(t) = 1/2 ∫ [ (∂ₜu)² + |L¹ᐟ²u|² ] dx
-        where L is the linear operator associated with the spatial part of the PDE,
-        and L¹ᐟ² denotes its square root.
-        
-        NOTE: This metric only accounts for the linear part of the PDE. If nonlinear 
-        or source terms are present, they are NOT included in this computation.
-        
-        This method supports both 1D and 2D problems and is only meaningful when 
-        self.temporal_order == 2 (second-order time derivative). Two cases are handled:
-        - Standard case (no psiOp): L is a Fourier multiplier L(k), applied via FFT,
-          and the velocity ∂ₜu is read directly from self.v_prev, which is advanced
-          alongside u at every step.
-        - psiOp case: L is a (possibly spatially-varying) pseudo-differential symbol.
-          |L|^(1/2) is applied via the same Kohn-Nirenberg/FFT dispatch used for the
-          operator itself (see ``_apply_psiOp``), using the operator precomputed once
-          in ``_compute_linear_operator`` (``self._energy_psi_op``). Because the psiOp
-          time-stepping (`_step_order2_with_psi`) is a leapfrog scheme that only tracks
-          u_prev and u_prev2 (self.v_prev is not advanced in that path), the velocity is
-          estimated from those two levels via a first-order finite difference:
-          v ≈ (u_prev - u_prev2) / dt. This estimate is centered half a step behind
-          u_prev, so the reported energy lags the true value by O(dt) — negligible for
-          monitoring purposes at typical time-step sizes.
-          
-        Returns
-        -------
-        float or None: 
-            Total energy at current time step. Returns None if the temporal order is not 2
-            or if the data needed to evaluate it (v_prev, or u_prev2 in the psiOp case)
-            is not yet available.
-        """
-        if self.temporal_order != 2:
-            return None
-
-        # --- Warning for Nonlinear / Source terms ---
-        # Emit a one-time warning if the PDE contains nonlinearities or sources, 
-        # as the standard linear energy metric will not capture their physical effects.
-        if not getattr(self, '_energy_warning_issued', False):
-            if self.nonlinear_terms or self.source_terms:
-                print("⚠️ Warning: The computed energy only accounts for the linear part of the PDE.")
-                print("   Nonlinear terms and source terms are NOT included in this energy metric.")
-                print("   Therefore, it may not represent the true physical energy or exhibit conservation.")
-                self._energy_warning_issued = True
-        # --------------------------------------------
-
-        u = self.u_prev
-        if self.has_psi:
-            if self.u_prev2 is None:
-                return None
-            # Leapfrog velocity estimate from the two most recent time levels.
-            v = (self.u_prev - self.u_prev2) / self.dt
-            if not hasattr(self, '_energy_psi_op'):
-                # Defensive fallback: should always be set by _compute_linear_operator
-                # for temporal_order == 2, but avoid a hard crash if not.
-                return None
-            Lu = self._apply_psiOp(
-                u, psi_ops=[(1, self._energy_psi_op)], is_spatial=self._energy_is_spatial
-            )
-        else:
-            if self.v_prev is None:
-                return None
-            v = self.v_prev
-            # Fourier transform of u
-            u_hat = self.fft(u)
-            if self.dim == 1:
-                L_vals = self.L(self.KX)
-            elif self.dim == 2:
-                L_vals = self.L(self.KX, self.KY)
-            else:
-                raise ValueError("Unsupported dimension for u.")
-            sqrt_L = np.sqrt(np.abs(L_vals))
-            Lu = self.ifft(sqrt_L * u_hat)  # Apply sqrt(|L(k)|) in Fourier space
-
-        if self.dim == 1:
-            dx = self.Lx / self.Nx
-            energy_density = 0.5 * (np.abs(v)**2 + np.abs(Lu)**2)
-            total_energy = np.sum(energy_density) * dx
-        elif self.dim == 2:
-            dx = self.Lx / self.Nx
-            dy = self.Ly / self.Ny
-            energy_density = 0.5 * (np.abs(v)**2 + np.abs(Lu)**2)
-            total_energy = np.sum(energy_density) * dx * dy
-        else:
-            raise ValueError("Unsupported dimension for u.")
-
-        return total_energy
-
     def plot_energy(self, log=False):
-        """Plot energy components: mechanical, work, and total."""
+        """
+        Plot the temporal evolution of energy components and print conservation diagnostics.
+
+        Generates a 3-panel subplot tracking:
+        1. Mechanical Energy: Eₘₑ꜀ₕ(t) = Eₖ(t) + Eₚ(t)
+        2. Accumulated Work: W(t) = ∫₀ᵗ ⟨∂ₜu, f⟩ dx
+        3. Total Conserved Energy: Eₜₒₜₐₗ(t) = Eₘₑ꜀ₕ(t) - W(t)
+
+        Prints the initial total energy E₀ and the maximum relative drift:
+        
+            Relative Drift = max |Eₜₒₜₐₗ(t) - E₀| / |E₀|
+
+        Parameters
+        ----------
+        log : bool, optional
+            If True, plots the total conserved energy using a logarithmic 
+            y-axis (semilogy). Default is False.
+        """
+        if not hasattr(self, 'energy_history') or not self.energy_history:
+            print("No energy data recorded.")
+            return
+        
+        t = np.linspace(0, self.Lt, len(self.energy_history))
+        
+        plt.figure(figsize=(10, 9))
+        
+        # Mechanical Energy
+        if hasattr(self, 'mechanical_energy_history'):
+            plt.subplot(3, 1, 1)
+            plt.plot(t, self.mechanical_energy_history, color='blue')
+            plt.ylabel('Mechanical Energy')
+            plt.title('Mechanical Energy (Oscillates/Grows due to terms)')
+            plt.grid(True)
+        
+        # Accumulated Work
+        if hasattr(self, 'work_history'):
+            plt.subplot(3, 1, 2)
+            plt.plot(t, self.work_history, color='orange')
+            plt.ylabel('Accumulated Work')
+            plt.title('Accumulated Work (Energy injected/extracted by terms)')
+            plt.grid(True)
+        
+        # Total Conserved Energy
+        plt.subplot(3, 1, 3)
+        if log:
+            plt.semilogy(t, self.energy_history, color='green', linewidth=2)
+        else:
+            plt.plot(t, self.energy_history, color='green', linewidth=2)
+        plt.xlabel('Time')
+        plt.ylabel('Total Energy')
+        plt.title('Total Conserved Energy Eₘₑ꜀ₕ - W')
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # Print diagnostics
+        if len(self.energy_history) > 0:
+            E0 = self.energy_history[0]
+            drift = np.max(np.abs(np.array(self.energy_history) - E0)) / np.abs(E0)
+            print(f"✅ Initial Total Energy: {E0:.6f}")
+            print(f"✅ Max Relative Drift:   {drift:.2e}")
         if not hasattr(self, 'energy_history') or not self.energy_history:
             print("No energy data recorded.")
             return
@@ -3079,7 +3068,7 @@ class PDESolver:
             plt.plot(t, self.energy_history, color='green', linewidth=2)
         plt.xlabel('Time')
         plt.ylabel('Total Energy')
-        plt.title('Total Conserved Energy $E_{mech} - W$ (Should be perfectly flat)')
+        plt.title('Total Conserved Energy $E_{mech} - W$ ')
         plt.grid(True)
         
         plt.tight_layout()
@@ -3090,52 +3079,7 @@ class PDESolver:
             E0 = self.energy_history[0]
             drift = np.max(np.abs(np.array(self.energy_history) - E0)) / np.abs(E0)
             print(f"✅ Initial Total Energy: {E0:.6f}")
-            print(f"✅ Max Relative Drift:   {drift:.2e} (Should be ~1e-4 or smaller)")
-    
-    def plot_energy_old(self, log=False):
-        """
-        Plot the time evolution of the total energy for wave equations. 
-        Visualizes the energy computed during simulation for both 1D and 2D cases. 
-        Requires temporal_order=2 and prior execution of compute_energy() during solve().
-        
-        Parameters:
-            log : bool
-                If True, displays energy on a logarithmic scale to highlight exponential decay/growth.
-        
-        Notes:
-            - Energy is defined as E(t) = 1/2 ∫ [ (∂ₜu)² + |L¹⸍²u|² ] dx
-            - Only available if energy monitoring was activated in solve()
-            - Automatically skips plotting if no energy data is available
-        
-        Displays:
-            - Time vs. Total Energy plot with grid and legend
-            - Appropriate axis labels and dimensional context (1D/2D)
-            - Logarithmic or linear scaling based on input parameter
-        """
-        if not hasattr(self, 'energy_history') or not self.energy_history:
-            print("No energy data recorded. Call compute_energy() within solve().")
-            return
-    
-        # Time vector for plotting
-        t = np.linspace(0, self.Lt, len(self.energy_history))
-    
-        # Create the figure
-        plt.figure(figsize=(6, 4))
-        if log:
-            plt.semilogy(t, self.energy_history, label="Energy (log scale)")
-        else:
-            plt.plot(t, self.energy_history, label="Energy")
-    
-        # Axis labels and title
-        plt.xlabel("Time")
-        plt.ylabel("Total energy")
-        plt.title("Energy evolution ({}D)".format(self.dim))
-    
-        # Display options
-        plt.grid(True)
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+            print(f"✅ Max Relative Drift:   {drift:.2e}")
 
     def show_stationary_solution(self, u=None, component='abs', cmap='viridis'):
         """

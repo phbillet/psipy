@@ -254,7 +254,7 @@ often clearer for large grids.</p></li>
 <dt>Which component of the complex field to visualize:</dt><dd><ul>
 <li><p>’real’  : Re(u)</p></li>
 <li><p>’imag’  : Im(u)</p></li>
-<li><p>’abs’   : <a href="#id8"><span class="problematic" id="id9">|u|</span></a></p></li>
+<li><p>’abs’   : <a href="#id6"><span class="problematic" id="id7">|u|</span></a></p></li>
 <li><p>’angle’ : arg(u)</p></li>
 </ul>
 </dd>
@@ -300,27 +300,19 @@ before drawing the next frame to avoid memory/visual accumulation.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="solver.PDESolver.plot_energy">
 <span class="sig-name descname"><span class="pre">plot_energy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver.plot_energy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.plot_energy" title="Link to this definition"></a></dt>
-<dd><p>Plot the time evolution of the total energy for wave equations.
-Visualizes the energy computed during simulation for both 1D and 2D cases.
-Requires temporal_order=2 and prior execution of compute_energy() during solve().</p>
+<dd><p>Plot the temporal evolution of energy components and print conservation diagnostics.</p>
+<p>Generates a 3-panel subplot tracking:
+1. Mechanical Energy: Eₘₑ꜀ₕ(t) = Eₖ(t) + Eₚ(t)
+2. Accumulated Work: W(t) = ∫₀ᵗ ⟨∂ₜu, f⟩ dx
+3. Total Conserved Energy: Eₜₒₜₐₗ(t) = Eₘₑ꜀ₕ(t) - W(t)</p>
+<p>Prints the initial total energy E₀ and the maximum relative drift:</p>
+<blockquote>
+<div><p>Relative Drift = max <a href="#id8"><span class="problematic" id="id9">|Eₜₒₜₐₗ(t) - E₀|</span></a> / <a href="#id10"><span class="problematic" id="id11">|E₀|</span></a></p>
+</div></blockquote>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>log</strong> – bool
-If True, displays energy on a logarithmic scale to highlight exponential decay/growth.</p>
-</dd>
-</dl>
-<p class="rubric">Notes</p>
-<ul class="simple">
-<li><p>Energy is defined as E(t) = 1/2 ∫ [ (∂ₜu)² + <a href="#id6"><span class="problematic" id="id7">|</span></a>L¹⸍²u|² ] dx</p></li>
-<li><p>Only available if energy monitoring was activated in solve()</p></li>
-<li><p>Automatically skips plotting if no energy data is available</p></li>
-</ul>
-<dl class="simple">
-<dt>Displays:</dt><dd><ul class="simple">
-<li><p>Time vs. Total Energy plot with grid and legend</p></li>
-<li><p>Appropriate axis labels and dimensional context (1D/2D)</p></li>
-<li><p>Logarithmic or linear scaling based on input parameter</p></li>
-</ul>
+<dd class="field-odd"><p><strong>log</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, plots the total conserved energy using a logarithmic
+y-axis (semilogy). Default is False.</p>
 </dd>
 </dl>
 </dd></dl>
