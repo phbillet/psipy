@@ -52,6 +52,7 @@ from itertools import product
 from mpl_toolkits.mplot3d import Axes3D
 import os
 from concurrent.futures import ThreadPoolExecutor
+from typing import Callable, Tuple, Union, Optional, Dict
 
 plt.rcParams['text.usetex'] = False
 FFT_WORKERS = max(1, os.cpu_count())

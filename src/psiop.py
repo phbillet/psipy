@@ -3757,110 +3757,146 @@ class PseudoDifferentialOperator:
             out = interactive_output(plot_2d, {'mode': mode_selector_2D, 'xi0': xi_slider, 'eta0': eta_slider, 'x0': x_slider, 'y0': y_slider})
             display(VBox([controls_box, out]))
 
+
 # ============================================================================
 # Standalone functions for Kohn-Nirenberg quantization
 # ============================================================================
 
-# ---------------------------------------------------------------------------
-# Frequency-domain window helpers (reused in both functions)
-# ---------------------------------------------------------------------------
-def freq_window_2d(P, KXb, KYb, kx_shift, ky_shift, mode):
-    """Apply a 2-D frequency window in-place and return P."""
-    if mode == 'gaussian':
-        sigma_kx = 0.8 * np.max(np.abs(kx_shift))
-        sigma_ky = 0.8 * np.max(np.abs(ky_shift))
-        P *= np.exp(-(KXb / sigma_kx) ** 4) * np.exp(-(KYb / sigma_ky) ** 4)
-    elif mode == 'hann':
-        Wx = 0.5 * (1 + np.cos(np.pi * KXb / np.max(np.abs(kx_shift))))
-        Wy = 0.5 * (1 + np.cos(np.pi * KYb / np.max(np.abs(ky_shift))))
-        P *= Wx * Wy * (np.abs(KXb) < np.max(np.abs(kx_shift))) \
-                     * (np.abs(KYb) < np.max(np.abs(ky_shift)))
+
+_KN_CACHE: Dict[Tuple, Dict[str, np.ndarray]] = {}
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+def _clip_complex_magnitude(P: np.ndarray, clamp: float) -> np.ndarray:
+    """
+    Clip a complex array by magnitude, preserving phase.
+    Modifies the array in-place to minimize memory allocation.
+    """
+    if P.dtype != np.complex128:
+        P = np.asarray(P, dtype=np.complex128)
+    
+    mag = np.abs(P)
+    over = mag > clamp
+    if np.any(over):
+        # In-place multiplication preserves memory and phase
+        P[over] *= (clamp / mag[over])
     return P
 
 
-# ===========================================================================
-# kohn_nirenberg_fft  (periodic boundary, FFT-based)
-# ===========================================================================
+def _cache_key_1d(x: np.ndarray, xi: np.ndarray) -> Tuple:
+    """Stable cache key that invalidates automatically when the grid changes."""
+    return (
+        x.shape, float(x[0]), float(x[-1]),
+        xi.shape, float(xi[0]), float(xi[-1]),
+    )
 
-def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
-                       dim=1, y_grid=None, ky=None,
-                       freq_window='gaussian', clamp=1e6, space_window=False):
+
+def invalidate_kn_cache() -> None:
+    """Clear the phase-matrix cache for non-periodic 1D operations."""
+    _KN_CACHE.clear()
+
+
+# ============================================================================
+# Periodic Kohn-Nirenberg Quantization (FFT-based)
+# ============================================================================
+
+def kohn_nirenberg_fft(
+    u_vals: np.ndarray,
+    symbol_func: Callable[..., np.ndarray],
+    x_grid: np.ndarray,
+    kx: np.ndarray,
+    fft_func: Callable,
+    ifft_func: Callable,
+    dim: int = 1,
+    y_grid: Optional[np.ndarray] = None,
+    ky: Optional[np.ndarray] = None,
+    freq_window: Optional[str] = 'gaussian',
+    clamp: float = 1e6,
+    space_window: bool = False,
+) -> np.ndarray:
     """
     Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator
     on a periodic domain using FFTs.
-
+    
     Applies the pseudo-differential operator Op(p) to the function u via the 
     Kohn–Nirenberg quantization:
         [Op(p) u](x) = (1/(2π)^d) ∫ p(x, ξ) e^{i x·ξ} ℱ[u](ξ) dξ,
     where ℱ[u] is the discrete Fourier transform of u, and p(x, ξ) is a symbol 
-    that may depend on both spatial variables x and frequency variables ξ.
-
-    This method supports both 1D and 2D cases and includes optional smoothing 
-    techniques (frequency and spatial windows) to improve numerical stability.
-
-    **Fast-Path Optimization (x-independent symbols)**
-        If the symbol `p(x, ξ)` is independent of the spatial coordinates `x` 
-        (and `y` in 2D), the operator reduces to a pure Fourier multiplier. 
-        The function automatically detects this via a robust heuristic (evaluating 
-        the symbol at strictly non-zero frequencies to prevent false positives 
-        from terms like `x·ξ` vanishing at the DC component `ξ=0`). 
-        When detected, the computation bypasses the heavy spatial integration and 
-        uses the highly optimized `ifft(P * fft(u))` approach. This reduces the 
-        complexity from O(N^2) to O(N log N) in 1D, and from O(N^4) to O(N^2 log N) 
-        in 2D, providing massive speedups and strictly bounding memory to O(N^d).
-
-    **Memory-Bounded Slow Path (x-dependent symbols)**
-        For symbols that vary in space, the 2D implementation employs a three-tier 
-        memory optimization strategy to prevent RAM exhaustion:
-        1. **Spatial Row-Blocking**: The x-axis is sliced and processed in parallel.
-        2. **Phase Factoring**: The 2D phase kernel is factored into 1D outer products.
-        3. **Dynamic Frequency Chunking**: Frequency dimensions are iterated in small 
-           chunks, guaranteeing intermediate arrays never exceed ~256 MB.
-
+    that may depend on both spatial variables (x, y) and frequency variables (ξ, η).
+    
+    This implementation supports 1D and 2D spatial dimensions, providing numerical 
+    stability through symbol magnitude clamping, optional frequency windowing 
+    (Gaussian/Hann), and optional spatial tapering.
+    
+    **Fast-Path Optimization (Spatial Independence)**
+        When the symbol `p` is independent of spatial coordinates (and `space_window=False`), 
+        the operator simplifies to a pure Fourier multiplier: `ifft(P * fft(u))`.
+        
+        The function detects spatial independence using a multi-point evaluation 
+        heuristic across non-zero frequencies (to avoid false positives at ξ = 0). 
+        When active, computational complexity drops from O(N^2) to O(N log N) in 1D, 
+        and from O(N^4) to O(N^2 log N) in 2D.
+    
+    **Memory-Bounded Slow Path (Spatial Dependence)**
+        For space-dependent symbols, the implementation avoids O(N^2d) RAM allocation:
+        - **1D**: Slices spatial evaluation into memory-bounded chunks (~256 MB max).
+        - **2D**: Combines parallel multi-threaded row-blocking with 2D frequency chunking 
+          and phased factorized inner products (`np.einsum`).
+    
     Parameters
     ----------
     u_vals : ndarray
-        Spatial samples of the input function u(x) or u(x, y).
+        Spatial samples of the input field u(x) or u(x, y).
     symbol_func : callable
-        The symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D. Must support NumPy broadcasting.
-    x_grid, kx : ndarray
-        Spatial and frequency grids in the x direction.
-    fft_func, ifft_func : callable
-        Forward and inverse FFT functions (e.g., `scipy.fft.fft` / `ifft`).
-    dim : int, {1, 2}
-        Spatial dimension of the problem.
-    y_grid, ky : ndarray, optional
-        Spatial and frequency grids in the y direction (required for 2D).
+        Symbol evaluator p(x, ξ) in 1D or p(x, y, ξ, η) in 2D. Must accept 
+        NumPy-broadcastable positional arguments. Return arrays are automatically 
+        broadcasted and cast to complex128 to handle scalar outputs safely (e.g., from `sympy.lambdify`).
+    x_grid : ndarray
+        1D array of spatial coordinates along the x-axis.
+    kx : ndarray
+        1D array of spatial frequencies in the x-direction.
+    fft_func : callable
+        Forward Fourier transform function (e.g., `scipy.fft.fft` or `fft2`).
+    ifft_func : callable
+        Inverse Fourier transform function (e.g., `scipy.fft.ifft` or `ifft2`).
+    dim : {1, 2}, default=1
+        Spatial dimensionality of the domain.
+    y_grid : ndarray, optional
+        1D array of spatial coordinates along the y-axis (required if `dim=2`).
+    ky : ndarray, optional
+        1D array of spatial frequencies in the y-direction (required if `dim=2`).
     freq_window : {'gaussian', 'hann', None}, default='gaussian'
-        Frequency-space window applied to the symbol.
+        Frequency-domain window/taper applied to attenuate high-frequency instabilities.
     clamp : float, default=1e6
-        Absolute value beyond which symbol entries are clipped to prevent overflow.
+        Maximum allowed magnitude for the symbol entries. Magnitudes exceeding this 
+        value are clipped to prevent overflow.
     space_window : bool, default=False
-        If True, applies a Gaussian spatial taper to suppress edge effects.
-        Note: Enabling this forces the slow path, even for x-independent symbols.
-
+        If True, applies a centered Gaussian spatial taper to mitigate edge boundary artifacts. 
+        *Note: Setting `space_window=True` forces execution through the slow path.*
+    
     Returns
     -------
     ndarray
-        Result of applying the pseudo-differential operator to `u_vals`.
+        Resulting array of the same shape and type (`complex128`) as `u_vals` after 
+        applying the pseudo-differential operator.
+    
+    Raises
+    ------
+    ValueError
+        If `dim=2` and `y_grid` or `ky` are not supplied, or if `dim` is not 1 or 2.
     """
-
-    # =========================================================================
-    # 1-D  IMPLEMENTATION
-    # =========================================================================
     if dim == 1:
         dx = x_grid[1] - x_grid[0]
         Nx = len(x_grid)
-        
-        # Unshifted frequencies match the native output of standard FFT functions
         k_unshifted = 2 * np.pi * np.fft.fftfreq(Nx, d=dx)
         
         # --- FAST PATH CHECK ---
         is_x_independent = False
         if not space_window:
             try:
-                # CRITICAL FIX: Test at strictly NON-ZERO frequencies to avoid 
-                # false positives from terms like x*xi vanishing at xi=0.
                 non_zero_idx = np.where(k_unshifted != 0)[0]
                 if len(non_zero_idx) >= 2:
                     idx_test = non_zero_idx[[len(non_zero_idx)//4, len(non_zero_idx)//2]]
@@ -3875,8 +3911,10 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
 
         if is_x_independent:
             U = fft_func(u_vals)
-            P = symbol_func(x_grid[0], k_unshifted).astype(np.complex128)
-            P = np.clip(P, -clamp, clamp)
+            # FIX: Enforce shape to prevent scalar/reduced-dim returns from lambdify
+            P_raw = symbol_func(x_grid[0], k_unshifted)
+            P = np.broadcast_to(P_raw, k_unshifted.shape).astype(np.complex128).copy()
+            P = _clip_complex_magnitude(P, clamp)
             
             if freq_window == 'gaussian':
                 sigma = 0.8 * np.max(np.abs(k_unshifted))
@@ -3886,39 +3924,60 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
                 W = 0.5 * (1 + np.cos(np.pi * k_unshifted / k_max))
                 P *= W * (np.abs(k_unshifted) < k_max)
                 
-            # Spectrally accurate inverse transform (spatial shifts cancel out exactly!)
             return ifft_func(P * U)
 
-        # --- SLOW PATH (O(N^2) Integration) ---
+        # --- SLOW PATH (O(N) Memory-Bounded Integration) ---
         k = 2 * np.pi * np.fft.fftshift(np.fft.fftfreq(Nx, d=dx))
         dk = k[1] - k[0]
-
         f_hat = np.fft.fftshift(fft_func(np.fft.fftshift(u_vals)) * dx)
-
-        X, K = np.meshgrid(x_grid, k, indexing='ij')
-        P = symbol_func(X, K)
-        P = np.clip(P.astype(np.complex128), -clamp, clamp)
-
+        
+        win_k = None
         if freq_window == 'gaussian':
             sigma = 0.8 * np.max(np.abs(k))
-            P *= np.exp(-(K / sigma) ** 4)
+            win_k = np.exp(-(k / sigma) ** 4)
         elif freq_window == 'hann':
-            W = 0.5 * (1 + np.cos(np.pi * K / np.max(np.abs(K))))
-            P *= W * (np.abs(K) < np.max(np.abs(K)))
-
+            k_max = np.max(np.abs(k))
+            win_k = 0.5 * (1 + np.cos(np.pi * k / k_max)) * (np.abs(k) < k_max)
+            
+        sw_x = None
         if space_window:
             x0 = (x_grid[0] + x_grid[-1]) / 2
-            L  = (x_grid[-1] - x_grid[0]) / 2
-            P *= np.exp(-((X - x0) / L) ** 2)
+            L = (x_grid[-1] - x_grid[0]) / 2
+            sw_x = np.exp(-((x_grid - x0) / L) ** 2)
 
-        kernel = np.exp(1j * X * K)
-        u = np.sum(P * f_hat[None, :] * kernel, axis=1) * dk / (2 * np.pi)
-        return u
+        MAX_ELEMENTS = 16 * 1024 * 1024  # ~256 MB for complex128
+        chunk_size = max(1, min(Nx, MAX_ELEMENTS // len(k)))
+        result = np.zeros(Nx, dtype=np.complex128)
 
-    # =========================================================================
-    # 2-D  IMPLEMENTATION
-    # =========================================================================
+        for i0 in range(0, Nx, chunk_size):
+            i1 = min(i0 + chunk_size, Nx)
+            x_blk = x_grid[i0:i1]
+            B = i1 - i0
+            
+            Xb = x_blk[:, None]
+            Kb = k[None, :]
+            
+            # FIX: Enforce target shape (B, len(k)) before any in-place ops
+            P_raw = symbol_func(Xb, Kb)
+            P_blk = np.broadcast_to(P_raw, (B, len(k))).astype(np.complex128).copy()
+            P_blk = _clip_complex_magnitude(P_blk, clamp)
+            
+            if win_k is not None:
+                P_blk *= win_k[None, :]
+            if sw_x is not None:
+                P_blk *= sw_x[i0:i1, None]
+                
+            kernel_blk = np.exp(1j * Xb * Kb)
+            
+            result[i0:i1] = (dk / (2 * np.pi)) * np.einsum(
+                'bk, k, bk -> b', P_blk, f_hat, kernel_blk, optimize=True
+            )
+        return result
+
     elif dim == 2:
+        if y_grid is None or ky is None:
+            raise ValueError("y_grid and ky are required for dim=2")
+            
         dx = x_grid[1] - x_grid[0]
         dy = y_grid[1] - y_grid[0]
         Nx, Ny = len(x_grid), len(y_grid)
@@ -3957,8 +4016,10 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
             U = fft_func(u_vals)
             KX, KY = np.meshgrid(kx_unshifted, ky_unshifted, indexing='ij')
             
-            P = symbol_func(x_grid[0], y_grid[0], KX, KY).astype(np.complex128)
-            P = np.clip(P, -clamp, clamp)
+            # FIX: Enforce target shape
+            P_raw = symbol_func(x_grid[0], y_grid[0], KX, KY)
+            P = np.broadcast_to(P_raw, KX.shape).astype(np.complex128).copy()
+            P = _clip_complex_magnitude(P, clamp)
             
             if freq_window == 'gaussian':
                 sx = 0.8 * np.max(np.abs(kx_unshifted))
@@ -3973,78 +4034,77 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
                 
             return ifft_func(P * U)
 
-        # --- SLOW PATH (O(N^4) Memory-Bounded Integration) ---
+        # --- SLOW PATH ---
         kx_s = 2 * np.pi * np.fft.fftshift(np.fft.fftfreq(Nx, d=dx))
         ky_s = 2 * np.pi * np.fft.fftshift(np.fft.fftfreq(Ny, d=dy))
-        dkx  = kx_s[1] - kx_s[0]
-        dky  = ky_s[1] - ky_s[0]
+        dkx, dky = kx_s[1] - kx_s[0], ky_s[1] - ky_s[0]
         Nkx, Nky = len(kx_s), len(ky_s)
 
         f_hat = np.fft.fftshift(fft_func(np.fft.fftshift(u_vals)) * dx * dy)
         exp_y = np.exp(1j * np.outer(y_grid, ky_s))
 
+        win_kx, win_ky = None, None
+        if freq_window == 'gaussian':
+            sx = 0.8 * np.max(np.abs(kx_s))
+            sy = 0.8 * np.max(np.abs(ky_s))
+            win_kx = np.exp(-(kx_s / sx) ** 4)
+            win_ky = np.exp(-(ky_s / sy) ** 4)
+        elif freq_window == 'hann':
+            kx_max, ky_max = np.max(np.abs(kx_s)), np.max(np.abs(ky_s))
+            win_kx = 0.5 * (1 + np.cos(np.pi * kx_s / kx_max)) * (np.abs(kx_s) < kx_max)
+            win_ky = 0.5 * (1 + np.cos(np.pi * ky_s / ky_max)) * (np.abs(ky_s) < ky_max)
+
+        sw_x, sw_y = None, None
         if space_window:
-            y0 = (y_grid[0] + y_grid[-1]) / 2
-            Ly = (y_grid[-1] - y_grid[0]) / 2
+            x0, Lx = (x_grid[0] + x_grid[-1]) / 2, (x_grid[-1] - x_grid[0]) / 2
+            y0, Ly = (y_grid[0] + y_grid[-1]) / 2, (y_grid[-1] - y_grid[0]) / 2
+            sw_x = np.exp(-((x_grid - x0) / Lx) ** 2)
             sw_y = np.exp(-((y_grid - y0) / Ly) ** 2)
-        else:
-            sw_y = None
 
-        n_workers  = max(w for w in range(1, FFT_WORKERS + 1) if Nx % w == 0)
-        base       = max(1, Nx // n_workers)
-        boundaries = [(i * base, min((i + 1) * base, Nx))
-                      for i in range(n_workers) if i * base < Nx]
-
+        n_workers = max(w for w in range(1, int(FFT_WORKERS) + 1) if Nx % w == 0)
+        base = max(1, Nx // n_workers)
+        boundaries = [(i * base, min((i + 1) * base, Nx)) for i in range(n_workers) if i * base < Nx]
         result = np.zeros((Nx, Ny), dtype=np.complex128)
 
-        def _process_block(bounds):
+        def _process_block(bounds: Tuple[int, int]) -> Tuple[int, int, np.ndarray]:
             i0, i1 = bounds
-            x_blk  = x_grid[i0:i1]
-            B      = i1 - i0
+            x_blk = x_grid[i0:i1]
+            B = i1 - i0
 
-            MAX_ELEMENTS = 16 * 1024 * 1024  # ~256 MB for complex128
+            MAX_ELEMENTS = 16 * 1024 * 1024
             prod_C = max(1, MAX_ELEMENTS // (B * Ny))
             C1 = min(int(np.sqrt(prod_C)), Nkx)
             C2 = min(max(1, prod_C // C1), Nky)
 
-            Xb  = x_blk[:, None, None, None]
-            Yb  = y_grid[None, :, None, None]
-
+            Xb = x_blk[:, None, None, None]
+            Yb = y_grid[None, :, None, None]
             exp_x_full = np.exp(1j * np.outer(x_blk, kx_s))
             res_block = np.zeros((B, Ny), dtype=np.complex128)
-
-            if space_window:
-                x0 = (x_grid[0] + x_grid[-1]) / 2
-                Lx = (x_grid[-1] - x_grid[0]) / 2
-                sw_x = np.exp(-((x_blk - x0) / Lx) ** 2)
+            
+            sw_x_blk = sw_x[i0:i1, None, None, None] if sw_x is not None else None
 
             for m0 in range(0, Nkx, C1):
                 m1 = min(m0 + C1, Nkx)
-                KXb_chunk = kx_s[None, None, m0:m1, None]
                 exp_x_chunk = exp_x_full[:, m0:m1].reshape(B, 1, m1-m0, 1)
-                fh_m = f_hat[m0:m1, :]  # Direct read, no copy needed
+                fh_m = f_hat[m0:m1, :]
+                
+                w_kx = win_kx[m0:m1, None] if win_kx is not None else 1.0
 
                 for n0 in range(0, Nky, C2):
                     n1 = min(n0 + C2, Nky)
-                    KYb_chunk = ky_s[None, None, None, n0:n1]
+                    
+                    P_chunk = symbol_func(Xb, Yb, kx_s[None, None, m0:m1, None], ky_s[None, None, None, n0:n1])
+                    # FIX: Enforce target shape and ensure writability
+                    P_chunk = np.broadcast_to(P_chunk, (B, Ny, m1-m0, n1-n0)).astype(np.complex128).copy()
+                    P_chunk = _clip_complex_magnitude(P_chunk, clamp)
 
-                    P_chunk = symbol_func(Xb, Yb, KXb_chunk, KYb_chunk).astype(np.complex128)
-                    P_chunk = np.clip(P_chunk, -clamp, clamp)
-
-                    # Inline frequency window logic (previously an external helper)
-                    if freq_window == 'gaussian':
-                        sigma_x = 0.8 * np.max(np.abs(kx_s))
-                        sigma_y = 0.8 * np.max(np.abs(ky_s))
-                        P_chunk *= np.exp(-(KXb_chunk / sigma_x) ** 4) * np.exp(-(KYb_chunk / sigma_y) ** 4)
-                    elif freq_window == 'hann':
-                        kx_max = np.max(np.abs(kx_s))
-                        ky_max = np.max(np.abs(ky_s))
-                        Wx = 0.5 * (1 + np.cos(np.pi * KXb_chunk / kx_max)) * (np.abs(KXb_chunk) < kx_max)
-                        Wy = 0.5 * (1 + np.cos(np.pi * KYb_chunk / ky_max)) * (np.abs(KYb_chunk) < ky_max)
-                        P_chunk *= Wx * Wy
-
+                    if freq_window is not None:
+                        w_ky = win_ky[None, n0:n1] if isinstance(win_ky, np.ndarray) else 1.0
+                        P_chunk *= (w_kx * w_ky)
+                        
                     if space_window:
-                        P_chunk *= sw_x[:, None, None, None]
+                        if sw_x_blk is not None:
+                            P_chunk *= sw_x_blk
                         if sw_y is not None:
                             P_chunk *= sw_y[None, :, None, None]
 
@@ -4052,9 +4112,11 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
                     phase_chunk = exp_x_chunk * exp_y_chunk[None, :, None, :]
                     fh_sub = fh_m[:, n0:n1]
 
-                    integrand = P_chunk * fh_sub[None, None, :, :] * phase_chunk
-                    res_block += np.sum(integrand, axis=(2, 3)) * dkx * dky / (2 * np.pi) ** 2
-
+                    res_block += (dkx * dky / (2 * np.pi) ** 2) * np.einsum(
+                        'bxky, ky, bxky -> bx', 
+                        P_chunk, fh_sub, phase_chunk, 
+                        optimize=True
+                    )
             return i0, i1, res_block
 
         with ThreadPoolExecutor(max_workers=n_workers) as executor:
@@ -4062,152 +4124,93 @@ def kohn_nirenberg_fft(u_vals, symbol_func, x_grid, kx, fft_func, ifft_func,
                 result[i0:i1, :] = blk
 
         return result
-
     else:
-        raise ValueError("Only 1D and 2D are supported")
-        
-# ===========================================================================
-# kohn_nirenberg_nonperiodic  (Dirichlet / non-periodic)
-# ===========================================================================
-
-# ── module-level phase-matrix cache (1-D only) ───────────────────────────────
-_KN_CACHE: dict = {}
+        raise ValueError("Only dim=1 and dim=2 are supported")
 
 
-def _cache_key_1d(x: np.ndarray, xi: np.ndarray) -> tuple:
-    """
-    Stable cache key that invalidates automatically when the grid changes.
-    Uses shape + endpoint values (not object id, which can be reused by Python).
-    """
-    return (
-        x.shape,  float(x[0]),  float(x[-1]),
-        xi.shape, float(xi[0]), float(xi[-1]),
-    )
+# ============================================================================
+# Non-Periodic Kohn-Nirenberg Quantization (Dirichlet)
+# ============================================================================
 
-# Assuming _KN_CACHE and FFT_WORKERS are defined globally in your module
 def kohn_nirenberg_nonperiodic(
-    u_vals,
-    x_grid,
-    xi_grid,
-    symbol_func,
-    freq_window: str = 'gaussian',
+    u_vals: np.ndarray,
+    x_grid: Union[np.ndarray, Tuple[np.ndarray, np.ndarray]],
+    xi_grid: Union[np.ndarray, Tuple[np.ndarray, np.ndarray]],
+    symbol_func: Callable[..., np.ndarray],
+    freq_window: Optional[str] = 'gaussian',
     clamp: float = 1e6,
     space_window: bool = False,
-    _cache: dict = _KN_CACHE,
-):
+    _cache: Dict = _KN_CACHE,
+) -> np.ndarray:
     """
-    Apply a pseudo-differential operator using Kohn–Nirenberg quantization
-    on a non‑periodic domain.
-
-    The operator is defined by
-        (Op(p) u)(x) = (1/(2π)) ∫ p(x, ξ) û(ξ) e^{i x ξ} dξ,
-    where û(ξ) is the non‑periodic Fourier transform of u(x) on the given grids.
-
-    For 1D inputs the function caches several objects that depend only on the
-    spatial and frequency grids: the forward Fourier kernel, the inverse kernel,
-    and pre‑computed frequency windows and spatial taper. These are reused
-    automatically on subsequent calls with the same grids, reducing setup overhead.
-    The cache can be cleared with `invalidate_kn_cache()`.
-
-    For 2D inputs the function automatically selects between two execution paths
-    based on the spatial dependence of the symbol:
-        * **Fast Path (O(N³))**: If the symbol `p(x, ξ)` is independent of the
-          spatial coordinates `x` and `space_window=False`, the operator reduces
-          to a Fourier multiplier. The function bypasses the heavy integration
-          and uses three optimized matrix multiplications, reducing complexity
-          from O(N⁴) to O(N³).
-        * **Slow Path (O(N⁴) with memory control)**: If the symbol depends on `x`
-          or `space_window=True`, the computation is performed block‑wise along
-          the first spatial dimension and parallelised with a thread pool. To
-          prevent memory explosion for large grids, a dynamic double‑chunking
-          strategy is applied over the frequency dimensions, strictly bounding
-          intermediate array sizes.
-
+    Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator
+    on a non-periodic domain using direct matrix/quadrature-based transforms.
+    
+    Applies the pseudo-differential operator Op(p) to the input function u via the 
+    non-periodic Kohn–Nirenberg integral formula:
+        [Op(p) u](x) = (1/(2π)^d) ∫ p(x, ξ) e^{i x·ξ} ℱ_NP[u](ξ) dξ,
+    where ℱ_NP[u] is the direct discrete Fourier integral transform evaluated over an 
+    arbitrary non-periodic spatial grid `x` and frequency grid `xi`.
+    
+    Supports 1D and 2D spatial dimensions, featuring a caching mechanism for 1D phase 
+    matrices, symbol magnitude clamping, optional frequency windowing (Gaussian/Hann), 
+    and spatial tapering.
+    
+    **1D Cached Path**
+        In 1D, precalculates and caches discrete Fourier transform phases (`phase_ft`), 
+        reconstruction phases (`exp_matrix`), and window arrays in `_cache` to accelerate 
+        repeated function evaluations on identical grids.
+    
+    **2D Fast-Path Optimization (Spatial Independence)**
+        When `u_vals` is 2D, the function tests whether the symbol `p` is independent of 
+        spatial coordinates (x1, x2) via a multi-point sampling heuristic (if `space_window=False`). 
+        When spatial independence holds, matrix multiplications perform global frequency filtering 
+        in O(N^3) complexity instead of the full O(N^4) space-dependent integration.
+    
+    **2D Memory-Bounded Slow Path (Spatial Dependence)**
+        For space-dependent symbols in 2D, a multi-tiered execution strategy prevents RAM spikes:
+        - **Row-Based Parallelization**: Slices `x1` into spatial blocks distributed across 
+          a worker thread pool (`ThreadPoolExecutor`).
+        - **Dual Frequency Chunking**: Iterates across sub-blocks of `xi1` and `xi2` to guarantee 
+          intermediate tensor evaluation (`sv_chunk`, `phase_chunk`) remains strictly bounded (~256 MB max).
+        - **Tensor Contraction**: Employs optimized Einstein summation (`np.einsum`) for localized quadrature integration.
+    
     Parameters
     ----------
     u_vals : ndarray
-        Function values at the spatial grid points. One‑dimensional array for 1D,
-        two‑dimensional array for 2D (first dimension corresponds to x₁, second to x₂).
+        Spatial samples of the input field u(x) [1D] or u(x1, x2) [2D].
     x_grid : ndarray or tuple of ndarray
-        Spatial grid(s). For 1D: a 1D array of coordinates. For 2D: a tuple
-        (x1_grid, x2_grid) of two 1D arrays.
+        Spatial coordinate grid `x` (1D) or tuple `(x1, x2)` (2D).
     xi_grid : ndarray or tuple of ndarray
-        Frequency grid(s). For 1D: a 1D array. For 2D: a tuple (xi1_grid, xi2_grid).
+        Frequency grid `xi` (1D) or tuple `(xi1, xi2)` (2D).
     symbol_func : callable
-        The symbol p(x, ξ) of the operator.
-        * In 1D: called as `symbol_func(x, xi)` where `x` and `xi` are broadcastable
-          arrays (e.g., `x[:, None]` and `xi[None, :]`). The function should
-          support broadcasting to produce an array of shape `(len(x), len(xi))`.
-        * In 2D: called as `symbol_func(X1, X2, XI1, XI2)` where the arguments are
-          broadcastable arrays; the output shape should be compatible with
-          `(Nx1, Nx2, Nxi1, Nxi2)`.
-        Must return an array of complex numbers (or castable to complex128).
-    freq_window : {'gaussian', 'hann'}, default='gaussian'
-        Frequency‑space window applied to the symbol before the inverse transform.
-        * 'gaussian' : exp(‑(ξ/σ_w)⁴) with σ_w = 0.8·max(|ξ|).
-        * 'hann'     : Hanning window over the full frequency range.
+        Symbol evaluator p(x, ξ) in 1D or p(x1, x2, ξ1, ξ2) in 2D. Must accept 
+        NumPy-broadcastable positional arguments. Returns are automatically 
+        broadcasted, type-cast to `complex128`, and reshaped/copied safely to handle scalar 
+        or reduced-dimension outputs (e.g., from `sympy.lambdify`).
+    freq_window : {'gaussian', 'hann', None}, default='gaussian'
+        Frequency-domain window/taper applied to attenuate high-frequency numerical artifacts.
     clamp : float, default=1e6
-        Absolute value beyond which symbol entries are clipped. Helps avoid
-        numerical overflow.
+        Maximum allowed magnitude for symbol values. Entries exceeding this threshold 
+        are clipped to prevent overflow.
     space_window : bool, default=False
-        If True, multiply the symbol by a Gaussian spatial taper centred in the
-        middle of the spatial domain, with width equal to half the domain length.
-        Note: Enabling this forces the 2D computation to use the memory‑controlled
-        Slow Path, even if the symbol itself is spatially independent.
+        If True, applies a centered Gaussian spatial taper to attenuate edge boundary artifacts. 
+        *Note: Enabling this disables the 2D spatial-independence fast path.*
     _cache : dict, optional
-        Internal cache dictionary. Do not use directly; exposed only for testing
-        and debugging.
-
+        Global or local cache dictionary storing reusable 1D phase and window matrices. 
+        Defaults to module-level `_KN_CACHE`.
+    
     Returns
     -------
     ndarray
-        Result of applying the pseudo‑differential operator to `u_vals`.
-        Same shape as `u_vals`.
-
-    Notes
-    -----
-    **Caching (1D only)**
-        The cache stores for a given grid pair `(x, xi)`:
-            * `phase_ft`    : exp(‑i ξ x)          – shape (Nxi, Nx)
-            * `exp_matrix`  : exp( i x ξ)          – shape (Nx, Nxi)
-            * `window_gauss` : 1D Gaussian window  – shape (Nxi,)
-            * `window_hann`  : 1D Hann window      – shape (Nxi,)
-            * `spatial_taper`: 1D Gaussian taper   – shape (Nx,) (if `space_window` ever used)
-        The cache key is derived from the first and last points of both grids,
-        so the cache is automatically invalidated when either grid changes in
-        shape or endpoints. A warning is issued the first time a new grid pair
-        is encountered.
-
-    **2D implementation**
-        * **Fast Path**: When `p(x, ξ) = p(ξ)`, the operator is evaluated as
-          `IFT( p(ξ) * FT(u) )`. This requires only O(N³) operations and avoids
-          forming any 4D arrays. Spatial independence is automatically detected
-          via a robust heuristic (evaluating the symbol at non-zero frequencies
-          to prevent false positives from terms like `x·ξ` vanishing at `ξ=0`),
-          making it extremely fast and reliable for large grids.
-        * **Slow Path**: When `p(x, ξ)` varies in space, the domain is split
-          into blocks along x₁. Each block is processed independently by a
-          worker thread. Inside each block, the frequency dimensions (ξ₁, ξ₂)
-          are dynamically chunked to ensure that no intermediate 4D array
-          exceeds ~256 MB, allowing simulations with N > 1000 to run without
-          memory exhaustion.
-
-    Examples
-    --------
-    1D example: apply the derivative operator i·ξ.
-
-    >>> import numpy as np
-    >>> from kn_operator import kohn_nirenberg_nonperiodic, invalidate_kn_cache
-    >>> x = np.linspace(-10, 10, 200)
-    >>> xi = np.fft.fftshift(np.fft.fftfreq(len(x), d=x[1]-x[0])) * 2*np.pi
-    >>> u = np.exp(-x**2)
-    >>> def symbol(x, xi): return 1j * xi   # broadcasting works
-    >>> du = kohn_nirenberg_nonperiodic(u, x, xi, symbol)
-    >>> # Compare with analytical derivative: -2*x * exp(-x**2)
+        Resulting complex-valued array (`complex128`) of the same dimensionality and shape 
+        as `u_vals` after applying the non-periodic pseudo-differential operator.
+    
+    Raises
+    ------
+    NotImplementedError
+        If `u_vals.ndim` is not 1 or 2.
     """
-    # =========================================================================
-    # 1-D  — with phase‑matrix cache and precomputed windows
-    # =========================================================================
     if u_vals.ndim == 1:
         x = np.asarray(x_grid)
         xi = np.asarray(xi_grid)
@@ -4222,6 +4225,7 @@ def kohn_nirenberg_nonperiodic(
             xi_abs_max = np.max(np.abs(xi))
             sigma_w = 0.8 * xi_abs_max
             window_gauss = np.exp(-(xi / sigma_w) ** 4)
+            
             window_hann = np.zeros_like(xi)
             mask = np.abs(xi) < xi_abs_max
             window_hann[mask] = 0.5 * (1.0 + np.cos(np.pi * xi[mask] / xi_abs_max))
@@ -4236,161 +4240,127 @@ def kohn_nirenberg_nonperiodic(
                 spatial_taper=spatial_taper,
             )
             warnings.warn(
-                f"kohn_nirenberg_nonperiodic: building 1D cache "
-                f"(Nx={len(x)}, Nxi={len(xi)}).", stacklevel=2,
+                f"kohn_nirenberg_nonperiodic: building 1D cache (Nx={len(x)}, Nxi={len(xi)}).", 
+                stacklevel=2,
             )
 
         entry = _cache[key]
-        phase_ft = entry['phase_ft']
-        exp_matrix = entry['exp_matrix']
-        window_gauss = entry['window_gauss']
-        window_hann = entry['window_hann']
-        spatial_taper = entry['spatial_taper']
-
-        u_hat = dx * (phase_ft @ u_vals)
-        sigma_raw = symbol_func(x[:, None], xi[None, :]).astype(np.complex128, copy=False)
-        np.clip(sigma_raw, -clamp, clamp, out=sigma_raw)
+        u_hat = dx * (entry['phase_ft'] @ u_vals)
+        
+        # FIX: Enforce target shape
+        sigma_raw = symbol_func(x[:, None], xi[None, :])
+        sigma = np.broadcast_to(sigma_raw, (len(x), len(xi))).astype(np.complex128).copy()
+        sigma = _clip_complex_magnitude(sigma, clamp)
 
         if freq_window == 'gaussian':
-            sigma = sigma_raw * window_gauss[None, :]
+            sigma *= entry['window_gauss'][None, :]
         elif freq_window == 'hann':
-            sigma = sigma_raw * window_hann[None, :]
-        else:
-            sigma = sigma_raw
+            sigma *= entry['window_hann'][None, :]
 
         if space_window:
-            sigma = sigma * spatial_taper[:, None]
+            sigma *= entry['spatial_taper'][:, None]
 
-        weighted_exp = sigma * exp_matrix
-        result = (dxi / (2.0 * np.pi)) * (weighted_exp @ u_hat)
-        return result
+        weighted_exp = sigma * entry['exp_matrix']
+        return (dxi / (2.0 * np.pi)) * (weighted_exp @ u_hat)
 
-    # =========================================================================
-    # 2-D  
-    # =========================================================================
     elif u_vals.ndim == 2:
         x1, x2 = x_grid
         xi1, xi2 = xi_grid
-        dx1 = x1[1] - x1[0]
-        dx2 = x2[1] - x2[0]
-        dxi1 = xi1[1] - xi1[0]
-        dxi2 = xi2[1] - xi2[0]
-
+        dx1, dx2 = x1[1] - x1[0], x2[1] - x2[0]
+        dxi1, dxi2 = xi1[1] - xi1[0], xi2[1] - xi2[0]
         Nx1, Nx2 = len(x1), len(x2)
         Nxi1, Nxi2 = len(xi1), len(xi2)
 
-        # ── Global non‑periodic FT of u ─────────────────────────────────────
         phase1 = np.exp(-1j * np.outer(xi1, x1))
         phase2 = np.exp(-1j * np.outer(x2, xi2))
         u_hat = dx1 * dx2 * (phase1 @ u_vals @ phase2)
 
-        # ── Frequency window ──
+        freq_win_2d = None
         if freq_window == 'gaussian':
-            s1_global = 0.8 * np.max(np.abs(xi1))
-            s2_global = 0.8 * np.max(np.abs(xi2))
-            freq_win_2d = (np.exp(-(xi1 / s1_global) ** 4)[:, None] *
-                           np.exp(-(xi2 / s2_global) ** 4)[None, :])
+            s1 = 0.8 * np.max(np.abs(xi1))
+            s2 = 0.8 * np.max(np.abs(xi2))
+            freq_win_2d = np.exp(-(xi1 / s1) ** 4)[:, None] * np.exp(-(xi2 / s2) ** 4)[None, :]
         elif freq_window == 'hann':
-            xi1_max = np.max(np.abs(xi1))
-            xi2_max = np.max(np.abs(xi2))
+            xi1_max, xi2_max = np.max(np.abs(xi1)), np.max(np.abs(xi2))
             Wx = 0.5 * (1 + np.cos(np.pi * xi1 / xi1_max)) * (np.abs(xi1) < xi1_max)
             Wy = 0.5 * (1 + np.cos(np.pi * xi2 / xi2_max)) * (np.abs(xi2) < xi2_max)
             freq_win_2d = Wx[:, None] * Wy[None, :]
-        else:
-            freq_win_2d = None
 
-        # =========================================================================
-        # ✅ FAST PATH: If symbol is x-independent and no space_window,
-        # =========================================================================
+        # --- FAST PATH CHECK ---
+        is_x_independent = False
         if not space_window:
             try:
-                x_test = x1[[0, -1]]
-                
-                # FIX: Test at a NON-ZERO frequency to avoid false positives.
-                # fftfreq puts 0.0 at index 0, which makes terms like x*xi vanish!
+                x1_test = x1[[0, -1]]
+                x2_test = x2[[0, -1]]
                 xi_idx = max(1, Nxi1 // 2)
                 eta_idx = max(1, Nxi2 // 2)
-                
+
                 val1 = symbol_func(
-                    x_test[:, None, None, None], 
-                    x2[[0, -1], None, None], 
-                    xi1[None, None, xi_idx:xi_idx+1, None], 
+                    x1_test[:, None, None, None],
+                    x2_test[None, :, None, None],
+                    xi1[None, None, xi_idx:xi_idx+1, None],
                     xi2[None, None, None, eta_idx:eta_idx+1]
                 )
                 val2 = symbol_func(
-                    (x_test + 1.0)[:, None, None, None], 
-                    x2[[0, -1], None, None], 
-                    xi1[None, None, xi_idx:xi_idx+1, None], 
+                    (x1_test + dx1)[:, None, None, None],
+                    (x2_test + dx2)[None, :, None, None],
+                    xi1[None, None, xi_idx:xi_idx+1, None],
                     xi2[None, None, None, eta_idx:eta_idx+1]
                 )
                 is_x_independent = np.allclose(val1, val2)
             except Exception:
                 is_x_independent = False
-        else:
-            is_x_independent = False
 
         if is_x_independent:
-            # Evaluate symbol on the full frequency grid (dummy x values)
-            p_full = symbol_func(
+            # FIX: Broadcast to 4D first, then reshape to 2D. 
+            # np.broadcast_to cannot reduce dimensions directly, so we must 
+            # explicitly reshape after ensuring the 4D structure is consistent.
+            p_full_raw = symbol_func(
                 np.full((1, 1, Nxi1, 1), x1[0]),
                 np.full((1, 1, 1, Nxi2), x2[0]),
                 xi1[None, None, :, None],
                 xi2[None, None, None, :]
             )
-            p_full = np.broadcast_to(p_full, (1, 1, Nxi1, Nxi2)).squeeze()
-            p_full = np.clip(p_full, -clamp, clamp).astype(np.complex128)
+            p_full = np.broadcast_to(p_full_raw, (1, 1, Nxi1, Nxi2)).astype(np.complex128).reshape(Nxi1, Nxi2).copy()
+            p_full = _clip_complex_magnitude(p_full, clamp)
             
             if freq_win_2d is not None:
                 p_full *= freq_win_2d
                 
             u_hat_filtered = p_full * u_hat
+            exp1 = np.exp(1j * np.outer(x1, xi1))
+            exp2 = np.exp(1j * np.outer(x2, xi2))
             
-            exp1 = np.exp(1j * np.outer(x1, xi1)) # (Nx1, Nxi1)
-            exp2 = np.exp(1j * np.outer(x2, xi2)) # (Nx2, Nxi2)
-            
-            result = (dxi1 * dxi2 / (2.0 * np.pi) ** 2) * (exp1 @ u_hat_filtered @ exp2.T)
-            return result
+            return (dxi1 * dxi2 / (2.0 * np.pi) ** 2) * (exp1 @ u_hat_filtered @ exp2.T)
 
-        # =========================================================================
-        # SLOW PATH: Symbol depends on x, or space_window is active.
-        # =========================================================================
+        # --- SLOW PATH ---
+        sw_x2 = None
         if space_window:
             y_center = (x2[0] + x2[-1]) / 2.0
             Ly = (x2[-1] - x2[0]) / 2.0
             sw_x2 = np.exp(-((x2 - y_center) / Ly) ** 2)
-        else:
-            sw_x2 = None
 
         iph2 = np.exp(1j * np.outer(x2, xi2))
-
-        n_workers = max(w for w in range(1, FFT_WORKERS + 1) if Nx1 % w == 0)
+        n_workers = max(w for w in range(1, int(FFT_WORKERS) + 1) if Nx1 % w == 0)
         base = max(1, Nx1 // n_workers)
-        boundaries = [
-            (i * base, min((i + 1) * base, Nx1))
-            for i in range(n_workers)
-            if i * base < Nx1
-        ]
-
+        boundaries = [(i * base, min((i + 1) * base, Nx1)) for i in range(n_workers) if i * base < Nx1]
         result = np.zeros((Nx1, Nx2), dtype=np.complex128)
 
-        def _process_block(bounds):
+        def _process_block(bounds: Tuple[int, int]) -> Tuple[int, int, np.ndarray]:
             i0, i1 = bounds
             x1_blk = x1[i0:i1]
             B = i1 - i0
             
-            MAX_ELEMENTS = 16 * 1024 * 1024  # 16M elements ≈ 256 MB for complex128
+            MAX_ELEMENTS = 16 * 1024 * 1024
             prod_C = max(1, MAX_ELEMENTS // (B * Nx2))
             C1 = min(int(np.sqrt(prod_C)), Nxi1)
             C2 = min(max(1, prod_C // C1), Nxi2)
             
-            X1b  = x1_blk[:, None, None, None]
-            X2b  = x2    [None, :, None, None]
-            
-            iph2_local = iph2.copy()
-            u_hat_local = u_hat.copy()
-            
+            X1b = x1_blk[:, None, None, None]
+            X2b = x2[None, :, None, None]
             res_block = np.zeros((B, Nx2), dtype=np.complex128)
             
+            sw_x1_blk = None
             if space_window:
                 x_center = (x1[0] + x1[-1]) / 2.0
                 Lx = (x1[-1] - x1[0]) / 2.0
@@ -4398,34 +4368,35 @@ def kohn_nirenberg_nonperiodic(
             
             for k0 in range(0, Nxi1, C1):
                 k1 = min(k0 + C1, Nxi1)
-                XI1b_chunk = xi1[None, None, k0:k1, None]
                 iph1_chunk = np.exp(1j * np.outer(x1_blk, xi1[k0:k1])).reshape(B, 1, k1-k0, 1)
-                u_hat_k = u_hat_local[k0:k1, :] 
-                
+                u_hat_k = u_hat[k0:k1, :]
+
                 for m0 in range(0, Nxi2, C2):
                     m1 = min(m0 + C2, Nxi2)
-                    XI2b_chunk = xi2[None, None, None, m0:m1]
                     
-                    sv_chunk = symbol_func(X1b, X2b, XI1b_chunk, XI2b_chunk)
-                    sv_chunk = np.broadcast_to(sv_chunk, (B, Nx2, k1-k0, m1-m0)).copy()
-                    sv_chunk = np.clip(sv_chunk, -clamp, clamp)
-                    
+                    sv_chunk = symbol_func(X1b, X2b, xi1[None, None, k0:k1, None], xi2[None, None, None, m0:m1])
+                    # FIX: Enforce target shape and ensure writability
+                    sv_chunk = np.broadcast_to(sv_chunk, (B, Nx2, k1-k0, m1-m0)).astype(np.complex128).copy()
+                    sv_chunk = _clip_complex_magnitude(sv_chunk, clamp)
+                        
                     if freq_win_2d is not None:
-                        sv_chunk *= freq_win_2d[None, None, k0:k1, m0:m1]
+                        sv_chunk *= freq_win_2d[k0:k1, m0:m1][None, None, :, :]
                         
                     if space_window:
-                        sv_chunk *= sw_x1_blk
+                        if sw_x1_blk is not None:
+                            sv_chunk *= sw_x1_blk
                         if sw_x2 is not None:
                             sv_chunk *= sw_x2[None, :, None, None]
                             
-                    iph2_chunk = iph2_local[:, m0:m1] 
+                    iph2_chunk = iph2[:, m0:m1]
                     phase_chunk = iph1_chunk * iph2_chunk[None, :, None, :] 
-                    
                     u_hat_sub = u_hat_k[:, m0:m1] 
                     
-                    integrand = sv_chunk * u_hat_sub[None, None, :, :] * phase_chunk
-                    res_block += (dxi1 * dxi2 / (2.0 * np.pi) ** 2) * np.sum(integrand, axis=(2, 3))
-                    
+                    res_block += (dxi1 * dxi2 / (2.0 * np.pi) ** 2) * np.einsum(
+                        'bxky, ky, bxky -> bx', 
+                        sv_chunk, u_hat_sub, phase_chunk, 
+                        optimize=True
+                    )
             return i0, i1, res_block
 
         with ThreadPoolExecutor(max_workers=n_workers) as executor:
@@ -4433,16 +4404,5 @@ def kohn_nirenberg_nonperiodic(
                 result[i0:i1, :] = blk
 
         return result
-
     else:
-        raise NotImplementedError("Only 1D and 2D supported")
-        
-
-def invalidate_kn_cache():
-    """
-    Clear the phase-matrix cache.
-
-    Call this after any solver.setup() call that changes Lx, Nx, or the
-    frequency grid, so the next apply re-builds the matrices for the new grid.
-    """
-    _KN_CACHE.clear()
+        raise NotImplementedError("Only 1D (ndim=1) and 2D (ndim=2) inputs are supported")

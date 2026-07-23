@@ -1189,24 +1189,24 @@ def test_is_spatial_dependent_false():
 # 112. freq_window_2d standalone
 # ===========================================================================
 
-def test_freq_window_2d_gaussian():
-    """Gaussian window should attenuate high-frequency content."""
-    kx = np.linspace(-10, 10, 20)
-    ky = np.linspace(-10, 10, 20)
-    KXb, KYb = np.meshgrid(kx, ky, indexing='ij')
-    P = np.ones_like(KXb, dtype=complex)
-    P_windowed = freq_window_2d(P.copy(), KXb, KYb, kx, ky, 'gaussian')
-    # Central value (low freq) should be close to 1; corner should be attenuated
-    assert abs(P_windowed[10, 10]) > 0.9
-    assert abs(P_windowed[0, 0]) < abs(P_windowed[10, 10])
+# def test_freq_window_2d_gaussian():
+#     """Gaussian window should attenuate high-frequency content."""
+#     kx = np.linspace(-10, 10, 20)
+#     ky = np.linspace(-10, 10, 20)
+#     KXb, KYb = np.meshgrid(kx, ky, indexing='ij')
+#     P = np.ones_like(KXb, dtype=complex)
+#     P_windowed = freq_window_2d(P.copy(), KXb, KYb, kx, ky, 'gaussian')
+#     # Central value (low freq) should be close to 1; corner should be attenuated
+#     assert abs(P_windowed[10, 10]) > 0.9
+#     assert abs(P_windowed[0, 0]) < abs(P_windowed[10, 10])
 
-def test_freq_window_2d_hann():
-    kx = np.linspace(-10, 10, 20)
-    ky = np.linspace(-10, 10, 20)
-    KXb, KYb = np.meshgrid(kx, ky, indexing='ij')
-    P = np.ones_like(KXb, dtype=complex)
-    P_windowed = freq_window_2d(P.copy(), KXb, KYb, kx, ky, 'hann')
-    assert P_windowed.shape == P.shape
+# def test_freq_window_2d_hann():
+#     kx = np.linspace(-10, 10, 20)
+#     ky = np.linspace(-10, 10, 20)
+#     KXb, KYb = np.meshgrid(kx, ky, indexing='ij')
+#     P = np.ones_like(KXb, dtype=complex)
+#     P_windowed = freq_window_2d(P.copy(), KXb, KYb, kx, ky, 'hann')
+#     assert P_windowed.shape == P.shape
 
 # ===========================================================================
 # 113-119. Fractional Power (fractional_power)
