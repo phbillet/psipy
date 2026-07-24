@@ -359,7 +359,7 @@ class PseudoDifferentialOperator:
      
         # For all other cases, obtain the effective (possibly corrected) symbol
         symbol_func = self._get_effective_symbol_func(weyl_order=weyl_order)
-     
+
         # Case 2: spatial symbol + periodic BC
         if boundary_condition == 'periodic':
             return kohn_nirenberg_fft(

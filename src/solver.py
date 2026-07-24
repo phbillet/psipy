@@ -2995,91 +2995,43 @@ class PDESolver:
         if not hasattr(self, 'energy_history') or not self.energy_history:
             print("No energy data recorded.")
             return
-        
-        t = np.linspace(0, self.Lt, len(self.energy_history))
-        
-        plt.figure(figsize=(10, 9))
-        
-        # Mechanical Energy
-        if hasattr(self, 'mechanical_energy_history'):
-            plt.subplot(3, 1, 1)
-            plt.plot(t, self.mechanical_energy_history, color='blue')
-            plt.ylabel('Mechanical Energy')
-            plt.title('Mechanical Energy (Oscillates/Grows due to terms)')
-            plt.grid(True)
-        
-        # Accumulated Work
-        if hasattr(self, 'work_history'):
-            plt.subplot(3, 1, 2)
-            plt.plot(t, self.work_history, color='orange')
-            plt.ylabel('Accumulated Work')
-            plt.title('Accumulated Work (Energy injected/extracted by terms)')
-            plt.grid(True)
-        
-        # Total Conserved Energy
-        plt.subplot(3, 1, 3)
-        if log:
-            plt.semilogy(t, self.energy_history, color='green', linewidth=2)
-        else:
-            plt.plot(t, self.energy_history, color='green', linewidth=2)
-        plt.xlabel('Time')
-        plt.ylabel('Total Energy')
-        plt.title('Total Conserved Energy Eₘₑ꜀ₕ - W')
-        plt.grid(True)
-        
-        plt.tight_layout()
-        plt.show()
-        
-        # Print diagnostics
-        if len(self.energy_history) > 0:
-            E0 = self.energy_history[0]
-            drift = np.max(np.abs(np.array(self.energy_history) - E0)) / np.abs(E0)
-            print(f"✅ Initial Total Energy: {E0:.6f}")
-            print(f"✅ Max Relative Drift:   {drift:.2e}")
-        if not hasattr(self, 'energy_history') or not self.energy_history:
-            print("No energy data recorded.")
-            return
     
         t = np.linspace(0, self.Lt, len(self.energy_history))
-        
+    
         plt.figure(figsize=(10, 9))
-        
-        # Mechanical Energy
+    
         if hasattr(self, 'mechanical_energy_history'):
             plt.subplot(3, 1, 1)
             plt.plot(t, self.mechanical_energy_history, color='blue')
             plt.ylabel('Mechanical Energy')
             plt.title('Mechanical Energy (Oscillates/Grows due to terms)')
             plt.grid(True)
-        
-        # Accumulated Work
+    
         if hasattr(self, 'work_history'):
             plt.subplot(3, 1, 2)
             plt.plot(t, self.work_history, color='orange')
             plt.ylabel('Accumulated Work')
             plt.title('Accumulated Work (Energy injected/extracted by terms)')
             plt.grid(True)
-        
-        # Total Conserved Energy
+    
         plt.subplot(3, 1, 3)
         if log:
             plt.semilogy(t, self.energy_history, color='green', linewidth=2)
         else:
             plt.plot(t, self.energy_history, color='green', linewidth=2)
+    
         plt.xlabel('Time')
         plt.ylabel('Total Energy')
-        plt.title('Total Conserved Energy $E_{mech} - W$ ')
+        plt.title(r'Total Conserved Energy $E_{\mathrm{mech}} - W$')
         plt.grid(True)
-        
+    
         plt.tight_layout()
         plt.show()
-        
-        # Print diagnostics
-        if len(self.energy_history) > 0:
-            E0 = self.energy_history[0]
-            drift = np.max(np.abs(np.array(self.energy_history) - E0)) / np.abs(E0)
-            print(f"✅ Initial Total Energy: {E0:.6f}")
-            print(f"✅ Max Relative Drift:   {drift:.2e}")
+    
+        E0 = self.energy_history[0]
+        drift = np.max(np.abs(np.asarray(self.energy_history) - E0)) / np.abs(E0)
+        print(f"✅ Initial Total Energy: {E0:.6f}")
+        print(f"✅ Max Relative Drift:   {drift:.2e}")
 
     def show_stationary_solution(self, u=None, component='abs', cmap='viridis'):
         """

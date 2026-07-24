@@ -666,7 +666,7 @@ class TestTimeDependentSolver1D:
     def test_gaussian_equation_1d(self):
         t, x, xi = symbols('t x xi', real=True)
         u = Function('u')
-        p_expr = x**2 + xi**2
+        p_expr = x**2 + xi**2 +0.01
         equation = Eq(diff(u(t, x), t, t), -psiOp(p_expr, u(t, x)))
 
         solver = PDESolver(equation)
@@ -674,13 +674,14 @@ class TestTimeDependentSolver1D:
         Lt, Nt = 2 * np.pi, 1000
 
         def initial_condition(x):
-            return np.exp(-x**2)
+            return np.exp(-0.5 * x**2)
 
         def initial_velocity(x):
             return 0.0 * x
 
         def u_exact(x, t):
-            return np.cos(t) * np.exp(-x**2)
+            omega = np.sqrt(1.01)
+            return np.cos(omega * t) * np.exp(-0.5 * x**2)
 
         solver.setup(
             Lx=Lx, Nx=Nx, Lt=Lt, Nt=Nt,
@@ -695,8 +696,8 @@ class TestTimeDependentSolver1D:
         for i in range(n_test + 1):
             t_eval = i * Lt / n_test
             err = solver.test(u_exact=u_exact, t_eval=t_eval,
-                              threshold=50, component='real')
-            assert err < 50
+                              threshold=0.2, component='real')
+            assert err < 0.2
 
     def test_legendre_equation_1d(self):
         t, x, xi = symbols('t x xi', real=True)
@@ -735,9 +736,8 @@ class TestTimeDependentSolver1D:
         for i in range(n_test + 1):
             t_eval = i * Lt / n_test
             err = solver.test(u_exact=u_exact, t_eval=t_eval,
-                              threshold=50, component='real')
-            assert err < 50
-
+                              threshold=5, component='real')
+            assert err < 5
 
 # ===========================================================================
 # 6.  Time‑dependent solver — 2D (strengthened)
