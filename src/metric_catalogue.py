@@ -462,7 +462,7 @@ METRICS = {
         ic_sigma    = 0.3,
         Lt          = 2.0,
         Nt          = 150,
-        Nx          = 64, Ny = 64,
+        Nx          = 256, Ny = 256,
         description = 'Schwarzschild 2D r-φ slice (M=1, r ∈ [2.5, 5])',
     ),
 
@@ -1251,7 +1251,7 @@ METRICS = {
         ic_sigma    = 0.3,
         Lt          = 3.0,
         Nt          = 150,
-        Nx          = 64, Ny = 64,
+        Nx          = 128, Ny = 128,
         description = 'Elliptic paraboloid in polar coords (K = 4/(1+4r²)² > 0)',
     ),
 
@@ -1278,13 +1278,13 @@ METRICS = {
     'poincare_cusp': dict(
         g           = Matrix([[1/x**2, 0], [0, 1/x**2]]),
         coords      = (x, y),
-        domain      = (0.8, 2*np.pi),
+        domain      = (0.8, np.pi),
         shift       = (0.5, 0.0),
         ic_center   = (0.0, 0.0),
         ic_sigma    = 0.1,
         Lt          = 2.0,
         Nt          = 100,
-        Nx          = 64, Ny = 64,
+        Nx          = 128, Ny = 128,
         description = 'Poincaré cusp (y ∈ [0.1,0.9], K = -1, extreme elongation)',
     ),
 
@@ -1786,8 +1786,8 @@ METRICS = {
         ic_center   = (0.0, 0.0),
         ic_sigma    = 0.3,
         Lt          = 4.0,
-        Nt          = 125,
-        Nx          = 64, Ny = 64,
+        Nt          = 400,
+        Nx          = 128, Ny = 128,
         description = 'Clairaut metric (a=1, b=0.5, equator non‑closed)',
     ),
 

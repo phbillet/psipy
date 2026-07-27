@@ -1320,7 +1320,7 @@ class PDESolver:
                 u_y   = IFFT(i·kᵧ          · û)    — ∂ᵧu
                 u_xx  = IFFT((i·kₓ)²       · û)    — ∂ₓₓu
                 u_yy  = IFFT((i·kᵧ)²       · û)    — ∂ᵧᵧu
-                u_xy  = IFFT((i·kₓ)(i·kᵧ)  · û)   — ∂ₓᵧu  (mixed cross derivative)
+                u_xy  = IFFT((i·kₓ)(i·kᵧ)  · û)    — ∂ₓᵧu  (mixed cross derivative)
     
         All derivatives are computed from the same dealiased û, requiring only pointwise
         wavenumber multiplications followed by IFFTs — no additional FFT of u is needed.
@@ -1587,8 +1587,47 @@ class PDESolver:
             )
     
         return nonlinear_term * self.dt
-
+    
     def _prepare_symbol_tables(self):
+        """
+        Precompute and store evaluated pseudo-differential operator symbols for spectral methods.
+        ...
+        """
+        self.precomputed_symbols = []
+        combined = None
+    
+        for coeff, psi in self.psi_ops:
+            # Evaluate operator on spatial and frequency grids
+            if self.dim == 1:
+                raw = psi.evaluate(self.X, None, self.KX, None)
+            elif self.dim == 2:
+                raw = psi.evaluate(self.X, self.Y, self.KX, self.KY)
+            else:
+                raise ValueError('Unsupported spatial dimension.')
+    
+            # Fast vectorized conversion to complex128 array (bypassing per-element SymPy N() evaluation)
+            if isinstance(raw, np.ndarray):
+                raw_eval = raw.astype(np.complex128, copy=False)
+            else:
+                raw_eval = np.array(raw, dtype=np.complex128)
+    
+            # Convert the scalar coefficient explicitly (cheap: one N() call per operator, not per grid point)
+            if not isinstance(coeff, (int, float, complex, np.number)):
+                coeff_val = complex(N(coeff))
+            else:
+                coeff_val = complex(coeff)
+    
+            self.precomputed_symbols.append((coeff_val, raw_eval))
+    
+            # Vectorized accumulation directly in NumPy memory
+            if combined is None:
+                combined = np.zeros_like(raw_eval, dtype=np.complex128)
+    
+            combined += coeff_val * raw_eval
+    
+        self.combined_symbol = combined
+        
+    def _prepare_symbol_tables_old(self):
         """
         Precompute and store evaluated pseudo-differential operator symbols for spectral methods.
 
@@ -1893,8 +1932,8 @@ class PDESolver:
                 raise ValueError("Only 1D and 2D arrays are supported.")
 
         # Recalculate symbol if necessary
-        if self.is_spatial:
-            self._prepare_symbol_tables()  # Recalculates self.combined_symbol
+        # if self.is_spatial:
+        #     self._prepare_symbol_tables()  # Recalculates self.combined_symbol
     
         # Case with FFT (symbol diagonalizable in Fourier space)
         if self.boundary_condition == 'periodic' and not self.is_spatial:
