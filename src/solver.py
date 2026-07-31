@@ -120,7 +120,7 @@ class PDESolver:
     >>> ani = solver.animate()
     >>> HTML(ani.to_jshtml())  # Display animation in Jupyter notebook
     """
-    def __init__(self, equation, time_scheme='default', dealiasing_ratio=2/3):
+    def __init__(self, equation, time_scheme='default', dealiasing_ratio=2/3, compute_energy=True):
         """
         Initialize the PDE solver with a given equation.
 
@@ -153,6 +153,9 @@ class PDESolver:
         dealiasing_ratio : float
             Fraction of high-frequency modes to zero out 
             during dealiasing (e.g., 2/3 for standard truncation).
+        compute_energy : bool, optional (default True)
+            Turn it off if setup is too long, there is maybe a problem during
+            computation of the square root of the operator.
 
         Attributes initialized:
         
@@ -172,8 +175,10 @@ class PDESolver:
             ValueError: If the equation does not contain exactly one unknown function,
                         if unsupported dimensions are detected, or invalid dependencies.
         """
+        self.equation = equation
         self.time_scheme = time_scheme # 'default'  or 'ETD-RK4'
         self.dealiasing_ratio = dealiasing_ratio
+        self.compute_energy = compute_energy
         
         print("\n*********************************")
         print("* Partial differential equation *")
@@ -264,7 +269,6 @@ class PDESolver:
         # flag : pseudo‑differential operator present ?
         self.has_psi = bool(self.pseudo_terms)
         if self.has_psi:
-            print('⚠️  Pseudo‑differential operator detected: all other linear terms have been rejected.')
             self.is_spatial = False
             for coeff, expr in self.pseudo_terms:
                 if expr.has(self.x) or (self.dim == 2 and expr.has(self.y)):
@@ -691,28 +695,28 @@ class PDESolver:
                 total_op = PseudoDifferentialOperator(
                     total_symbol, self.spatial_vars, self.u, mode='symbol'
                 )
+                if self.compute_energy:
+                    # 2. Compute the fractional power P^{1/2}
+                    # We use order=1 to capture the first microlocal spatial corrections.
+                    # (If you only want the principal symbol, use order=0).
+                    # Note: We drop Abs() to preserve the C^\infty smoothness required 
+                    # for pseudo-differential calculus. If the operator is positive-definite, 
+                    # this is exact. If not, it correctly handles complex branch cuts.
+                    energy_symbol = total_op.fractional_power(
+                        alpha=0.5, 
+                        order=1, 
+                        method='symbolic'
+                    )
+                    
+                    # 3. Create the final energy operator
+                    self._energy_psi_op = PseudoDifferentialOperator(
+                        energy_symbol, self.spatial_vars, self.u, mode='symbol'
+                    )
                 
-                # 2. Compute the fractional power P^{1/2}
-                # We use order=1 to capture the first microlocal spatial corrections.
-                # (If you only want the principal symbol, use order=0).
-                # Note: We drop Abs() to preserve the C^\infty smoothness required 
-                # for pseudo-differential calculus. If the operator is positive-definite, 
-                # this is exact. If not, it correctly handles complex branch cuts.
-                energy_symbol = total_op.fractional_power(
-                    alpha=0.5, 
-                    order=1, 
-                    method='symbolic'
-                )
-                
-                # 3. Create the final energy operator
-                self._energy_psi_op = PseudoDifferentialOperator(
-                    energy_symbol, self.spatial_vars, self.u, mode='symbol'
-                )
-                
-                # 4. Check for spatial dependence
-                self._energy_is_spatial = any(
-                    energy_symbol.has(var) for var in self.spatial_vars
-                )
+                    # 4. Check for spatial dependence
+                    self._energy_is_spatial = any(
+                        energy_symbol.has(var) for var in self.spatial_vars
+                    )
         else:
             dispersion = solve(Eq(equation, 0), omega)
             if not dispersion:
@@ -2274,7 +2278,8 @@ class PDESolver:
                         kx=self.kx,
                         fft_func=self.fft,
                         ifft_func=self.ifft,
-                        dim=1
+                        dim=1,
+                        is_spatial=True,
                     )
                     
             elif self.dim == 2:
@@ -2299,7 +2304,8 @@ class PDESolver:
                         ifft_func=self.ifft,
                         dim=2,
                         y_grid=self.y_grid,
-                        ky=self.ky
+                        ky=self.ky,
+                        is_spatial=True,
                     )
             self.u = u
             return u
@@ -2312,14 +2318,16 @@ class PDESolver:
                     u_vals=rhs,
                     x_grid=self.x_grid,
                     xi_grid=self.kx,
-                    symbol_func=R_func  # Now has correct signature (x, xi)
+                    symbol_func=R_func,  # Now has correct signature (x, xi)
+                    is_spatial=True,
                 )
             elif self.dim == 2:
                 u = kohn_nirenberg_nonperiodic(
                     u_vals=rhs,
                     x_grid=(self.x_grid, self.y_grid),
                     xi_grid=(self.kx, self.ky),
-                    symbol_func=R_func  # Now has correct signature (x, y, xi, eta)
+                    symbol_func=R_func,  # Now has correct signature (x, y, xi, eta)
+                    is_spatial=True,
                 )
             self.u = u
             return u
@@ -3031,7 +3039,7 @@ class PDESolver:
             If True, plots the total conserved energy using a logarithmic 
             y-axis (semilogy). Default is False.
         """
-        if not hasattr(self, 'energy_history') or not self.energy_history:
+        if not hasattr(self, 'energy_history') or not self.energy_history or not self.compute_energy:
             print("No energy data recorded.")
             return
     
@@ -3238,8 +3246,8 @@ class PDESolver:
             ax.set_ylim(np.min(initial), np.max(initial))
             ax.set_xlabel('x')
             ax.set_ylabel(f'{component} of u')
-            ax.set_title('Initial condition')
-            plt.tight_layout()
+            ax.set_title('Initial condition', pad=20)
+            plt.tight_layout(rect=[0, 0, 1, 0.95])
     
             def _update_1d(frame_number):
                 frame = frame_indices[frame_number]
@@ -3248,10 +3256,13 @@ class PDESolver:
                 line.set_ydata(ydata_real)
                 ax.set_ylim(np.min(ydata_real), np.max(ydata_real))
                 current_time = target_times[frame_number]
-                ax.set_title(f't = {current_time:.2f}')
+                eq_latex = latex(self.equation) if hasattr(self, 'equation') else ''
+                title = f'${eq_latex}$\nSolution at t = {current_time:.2f}' if eq_latex else f'Solution at t = {current_time:.2f}'
+                ax.set_title(title, pad=20)
                 return (line,)
     
             ani = FuncAnimation(fig, _update_1d, frames=len(target_times), blit=True, interval=50)
+            plt.close(fig)
             return ani
     
         # -------------------------
@@ -3272,14 +3283,15 @@ class PDESolver:
             ax.set_ylabel('y')
             ax.set_zlabel(f'{component.title()} of u')
             ax.zaxis.labelpad = 0
-            ax.set_title('Initial condition')
+            ax.set_title('Initial condition', pad=20)
+            plt.tight_layout(rect=[0, 0, 1, 0.95])
     
             # Calculate physical domain lengths
             Lx = self.x_grid[-1] - self.x_grid[0]
             Ly = self.y_grid[-1] - self.y_grid[0]
             
             surf = ax.plot_surface(self.X, self.Y, data0, cmap='viridis')
-            plt.tight_layout()
+            plt.tight_layout(rect=[0, 0, 1, 0.95])
     
             def _update_surface(frame_number):
                 frame = frame_indices[frame_number]
@@ -3327,17 +3339,22 @@ class PDESolver:
                 ax.set_ylabel('y')
                 ax.set_zlabel(f'{component.title()} of u')
                 current_time = target_times[frame_number]
-                ax.set_title(f'Solution at t = {current_time:.2f}')
+                eq_latex = latex(self.equation) if hasattr(self, 'equation') else ''
+                title = f'${eq_latex}$\nSolution at t = {current_time:.2f}' if eq_latex else f'Solution at t = {current_time:.2f}'
+                ax.set_title(title, pad=2)
                 return (surf_obj,)
     
             ani = FuncAnimation(fig, _update_surface, frames=len(target_times), interval=50)
+            plt.close(fig)
             return ani
     
         else:  # mode == 'imshow'
-            fig, ax = plt.subplots(figsize=(7, 6))
+            fig, ax = plt.subplots(figsize=(8, 7))
             ax.set_xlabel('x')
             ax.set_ylabel('y')
-            ax.set_title('Initial condition')
+            eq_latex = latex(self.equation) if hasattr(self, 'equation') else ''
+            init_title = 'Initial condition\n$' + eq_latex + '$' if eq_latex else 'Initial condition'
+            ax.set_title(init_title, fontsize=9)
     
             # extent uses physical coordinates so axes show real x/y values
             extent = [self.x_grid[0], self.x_grid[-1], self.y_grid[0], self.y_grid[-1]]
@@ -3358,7 +3375,8 @@ class PDESolver:
                            vmin=vmin, vmax=vmax, aspect=aspect)
             cbar = fig.colorbar(im, ax=ax)
             cbar.set_label(f"{component} of u")
-            plt.tight_layout()
+            plt.tight_layout(rect=[0, 0, 1, 0.95])
+            fig.subplots_adjust(top=0.85)
     
             # containers for dynamic overlay artists (stored on function object)
             # update_im.contour_art and update_im.scatter_art will be created dynamically
@@ -3387,11 +3405,11 @@ class PDESolver:
                         update_im.contour_art = None
                     # draw new contours (use meshgrid coords)
                     try:
-                        update_im.contour_art = ax.contour(self.X, self.Y, current_data, levels=10, cmap='cool')
+                        update_im.contour_art = ax.contour(self.X, self.Y, current_data.T, levels=10, cmap='cool')
                     except Exception:
                         # fallback: contour with axis coordinates (x_grid, y_grid)
                         Xc, Yc = np.meshgrid(self.x_grid, self.y_grid)
-                        update_im.contour_art = ax.contour(Xc, Yc, current_data, levels=10, cmap='cool')
+                        update_im.contour_art = ax.contour(Xc, Yc, current_data.T, levels=10, cmap='cool')
     
                 # remove previous scatter if exists
                 if overlay == 'front':
@@ -3416,7 +3434,9 @@ class PDESolver:
                                                        c=colors, s=10, alpha=0.8)
     
                 current_time = target_times[frame_number]
-                ax.set_title(f'Solution at t = {current_time:.2f}')
+                eq_latex = latex(self.equation) if hasattr(self, 'equation') else ''
+                title = f'${eq_latex}$\nSolution at t = {current_time:.2f}' if eq_latex else f'Solution at t = {current_time:.2f}'
+                ax.set_title(title, pad=2, fontsize=9)
                 # return main image plus any overlay artists present so Matplotlib can redraw them
                 artists = [im]
                 if overlay == 'contour' and hasattr(update_im, 'contour_art') and update_im.contour_art is not None:
@@ -3428,6 +3448,7 @@ class PDESolver:
                 return tuple(artists)
     
             ani = FuncAnimation(fig, update_im, frames=len(target_times), interval=50)
+            plt.close(fig)
             return ani
 
     def test(self, u_exact, t_eval=None, norm='relative', threshold=1e-2, component='real'):

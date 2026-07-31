@@ -453,7 +453,7 @@
      
         <span class="c1"># For all other cases, obtain the effective (possibly corrected) symbol</span>
         <span class="n">symbol_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_effective_symbol_func</span><span class="p">(</span><span class="n">weyl_order</span><span class="o">=</span><span class="n">weyl_order</span><span class="p">)</span>
-     
+
         <span class="c1"># Case 2: spatial symbol + periodic BC</span>
         <span class="k">if</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;periodic&#39;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">kohn_nirenberg_fft</span><span class="p">(</span>
@@ -469,6 +469,7 @@
                 <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
                 <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
                 <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
+                <span class="n">is_spatial</span><span class="o">=</span><span class="n">is_spatial</span><span class="p">,</span>
             <span class="p">)</span>
      
         <span class="c1"># Case 3: Dirichlet BC (non-periodic)</span>
@@ -482,6 +483,7 @@
                     <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
                     <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
                     <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
+                    <span class="n">is_spatial</span><span class="o">=</span><span class="n">is_spatial</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
@@ -492,6 +494,7 @@
                     <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
                     <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
                     <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
+                    <span class="n">is_spatial</span><span class="o">=</span><span class="n">is_spatial</span><span class="p">,</span>
                 <span class="p">)</span>
      
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid boundary condition &#39;</span><span class="si">{</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
@@ -4004,6 +4007,7 @@
     <span class="n">freq_window</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;gaussian&#39;</span><span class="p">,</span>
     <span class="n">clamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e6</span><span class="p">,</span>
     <span class="n">space_window</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">is_spatial</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator</span>
@@ -4080,22 +4084,32 @@
         <span class="n">dx</span> <span class="o">=</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">Nx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
         <span class="n">k_unshifted</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">Nx</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">dx</span><span class="p">)</span>
-        
-        <span class="c1"># --- FAST PATH CHECK ---</span>
-        <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">space_window</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">non_zero_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">k_unshifted</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_idx</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
-                    <span class="n">idx_test</span> <span class="o">=</span> <span class="n">non_zero_idx</span><span class="p">[[</span><span class="nb">len</span><span class="p">(</span><span class="n">non_zero_idx</span><span class="p">)</span><span class="o">//</span><span class="mi">4</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_idx</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span><span class="p">]]</span>
-                    <span class="n">k_test</span> <span class="o">=</span> <span class="n">k_unshifted</span><span class="p">[</span><span class="n">idx_test</span><span class="p">]</span>
-                    <span class="n">x_test</span> <span class="o">=</span> <span class="n">x_grid</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="n">Nx</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]]</span>
-                    
-                    <span class="n">val1</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span><span class="n">x_test</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">k_test</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
-                    <span class="n">val2</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">((</span><span class="n">x_test</span> <span class="o">+</span> <span class="n">dx</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">k_test</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
-                    <span class="n">is_x_independent</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">val1</span><span class="p">,</span> <span class="n">val2</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># --- FAST/SLOW PATH SELECTION ---</span>
+        <span class="c1"># is_spatial=True  -&gt; force slow path (symbol IS space-dependent)</span>
+        <span class="c1"># is_spatial=False -&gt; force fast path (symbol is NOT space-dependent)</span>
+        <span class="c1"># is_spatial=None  -&gt; heuristic decides (always slow if space_window=True,</span>
+        <span class="c1">#                     since the taper itself makes the integrand x-dependent)</span>
+        <span class="k">if</span> <span class="n">is_spatial</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="n">is_spatial</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># --- FAST PATH CHECK ---</span>
+            <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">space_window</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">non_zero_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">k_unshifted</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_idx</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">idx_test</span> <span class="o">=</span> <span class="n">non_zero_idx</span><span class="p">[[</span><span class="nb">len</span><span class="p">(</span><span class="n">non_zero_idx</span><span class="p">)</span><span class="o">//</span><span class="mi">4</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_idx</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span><span class="p">]]</span>
+                        <span class="n">k_test</span> <span class="o">=</span> <span class="n">k_unshifted</span><span class="p">[</span><span class="n">idx_test</span><span class="p">]</span>
+                        <span class="n">x_test</span> <span class="o">=</span> <span class="n">x_grid</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="n">Nx</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]]</span>
+                        
+                        <span class="n">val1</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span><span class="n">x_test</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">k_test</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
+                        <span class="n">val2</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">((</span><span class="n">x_test</span> <span class="o">+</span> <span class="n">dx</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">k_test</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
+                        <span class="n">is_x_independent</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">val1</span><span class="p">,</span> <span class="n">val2</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">False</span>
 
         <span class="k">if</span> <span class="n">is_x_independent</span><span class="p">:</span>
             <span class="n">U</span> <span class="o">=</span> <span class="n">fft_func</span><span class="p">(</span><span class="n">u_vals</span><span class="p">)</span>
@@ -4173,32 +4187,42 @@
         <span class="n">kx_unshifted</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">Nx</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">dx</span><span class="p">)</span>
         <span class="n">ky_unshifted</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">Ny</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">dy</span><span class="p">)</span>
 
+        <span class="c1"># --- FAST/SLOW PATH SELECTION ---</span>
+        <span class="c1"># is_spatial=True  -&gt; force slow path (symbol IS space-dependent)</span>
+        <span class="c1"># is_spatial=False -&gt; force fast path (symbol is NOT space-dependent)</span>
+        <span class="c1"># is_spatial=None  -&gt; heuristic decides (always slow if space_window=True,</span>
+        <span class="c1">#                     since the taper itself makes the integrand x-dependent)</span>
+        <span class="k">if</span> <span class="n">is_spatial</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">is_independent</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="n">is_spatial</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">is_independent</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
         <span class="c1"># --- FAST PATH CHECK ---</span>
-        <span class="n">is_independent</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">space_window</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">non_zero_kx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">kx_unshifted</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">non_zero_ky</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ky_unshifted</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-                
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_kx</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_ky</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">idx_x</span> <span class="o">=</span> <span class="n">non_zero_kx</span><span class="p">[[</span><span class="nb">len</span><span class="p">(</span><span class="n">non_zero_kx</span><span class="p">)</span><span class="o">//</span><span class="mi">4</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_kx</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span><span class="p">]]</span>
-                    <span class="n">idx_y</span> <span class="o">=</span> <span class="n">non_zero_ky</span><span class="p">[[</span><span class="nb">len</span><span class="p">(</span><span class="n">non_zero_ky</span><span class="p">)</span><span class="o">//</span><span class="mi">4</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_ky</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span><span class="p">]]</span>
+            <span class="n">is_independent</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">space_window</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">non_zero_kx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">kx_unshifted</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">non_zero_ky</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ky_unshifted</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
                     
-                    <span class="n">kx_test</span> <span class="o">=</span> <span class="n">kx_unshifted</span><span class="p">[</span><span class="n">idx_x</span><span class="p">]</span>
-                    <span class="n">ky_test</span> <span class="o">=</span> <span class="n">ky_unshifted</span><span class="p">[</span><span class="n">idx_y</span><span class="p">]</span>
-                    <span class="n">x_test</span> <span class="o">=</span> <span class="n">x_grid</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="n">Nx</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]]</span>
-                    <span class="n">y_test</span> <span class="o">=</span> <span class="n">y_grid</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="n">Ny</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]]</span>
-                    
-                    <span class="n">X_t</span><span class="p">,</span> <span class="n">Y_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
-                    <span class="n">KX_t</span><span class="p">,</span> <span class="n">KY_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">kx_test</span><span class="p">,</span> <span class="n">ky_test</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
-                    
-                    <span class="n">val1</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span><span class="n">X_t</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">Y_t</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> 
-                                       <span class="n">KX_t</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">KY_t</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
-                    <span class="n">val2</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">((</span><span class="n">X_t</span> <span class="o">+</span> <span class="n">dx</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="p">(</span><span class="n">Y_t</span> <span class="o">+</span> <span class="n">dy</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> 
-                                       <span class="n">KX_t</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">KY_t</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
-                    <span class="n">is_independent</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">val1</span><span class="p">,</span> <span class="n">val2</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                <span class="n">is_independent</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_kx</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_ky</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">idx_x</span> <span class="o">=</span> <span class="n">non_zero_kx</span><span class="p">[[</span><span class="nb">len</span><span class="p">(</span><span class="n">non_zero_kx</span><span class="p">)</span><span class="o">//</span><span class="mi">4</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_kx</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span><span class="p">]]</span>
+                        <span class="n">idx_y</span> <span class="o">=</span> <span class="n">non_zero_ky</span><span class="p">[[</span><span class="nb">len</span><span class="p">(</span><span class="n">non_zero_ky</span><span class="p">)</span><span class="o">//</span><span class="mi">4</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_zero_ky</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span><span class="p">]]</span>
+                        
+                        <span class="n">kx_test</span> <span class="o">=</span> <span class="n">kx_unshifted</span><span class="p">[</span><span class="n">idx_x</span><span class="p">]</span>
+                        <span class="n">ky_test</span> <span class="o">=</span> <span class="n">ky_unshifted</span><span class="p">[</span><span class="n">idx_y</span><span class="p">]</span>
+                        <span class="n">x_test</span> <span class="o">=</span> <span class="n">x_grid</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="n">Nx</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]]</span>
+                        <span class="n">y_test</span> <span class="o">=</span> <span class="n">y_grid</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="n">Ny</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]]</span>
+                        
+                        <span class="n">X_t</span><span class="p">,</span> <span class="n">Y_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+                        <span class="n">KX_t</span><span class="p">,</span> <span class="n">KY_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">kx_test</span><span class="p">,</span> <span class="n">ky_test</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+                        
+                        <span class="n">val1</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span><span class="n">X_t</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">Y_t</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> 
+                                           <span class="n">KX_t</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">KY_t</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
+                        <span class="n">val2</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">((</span><span class="n">X_t</span> <span class="o">+</span> <span class="n">dx</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="p">(</span><span class="n">Y_t</span> <span class="o">+</span> <span class="n">dy</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> 
+                                           <span class="n">KX_t</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">KY_t</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
+                        <span class="n">is_independent</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">val1</span><span class="p">,</span> <span class="n">val2</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="n">is_independent</span> <span class="o">=</span> <span class="kc">False</span>
 
         <span class="k">if</span> <span class="n">is_independent</span><span class="p">:</span>
             <span class="n">U</span> <span class="o">=</span> <span class="n">fft_func</span><span class="p">(</span><span class="n">u_vals</span><span class="p">)</span>
@@ -4321,6 +4345,21 @@
 <span class="c1"># Non-Periodic Kohn-Nirenberg Quantization (Dirichlet)</span>
 <span class="c1"># ============================================================================</span>
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_cache_key_2d</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">xi1</span><span class="p">,</span> <span class="n">xi2</span><span class="p">,</span> <span class="n">freq_window</span><span class="p">,</span> <span class="n">space_window</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Clé de cache pour la branche 2D. Contrairement à la clé 1D, elle doit encoder</span>
+<span class="sd">    `freq_window` et `space_window` car ces options changent le CONTENU des</span>
+<span class="sd">    matrices/fenêtres mises en cache (et pas seulement la grille sous-jacente).</span>
+<span class="sd">    Réutilise _cache_key_1d par axe pour rester cohérent avec le hachage 1D existant.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">_cache_key_1d</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">xi1</span><span class="p">),</span>
+        <span class="n">_cache_key_1d</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">xi2</span><span class="p">),</span>
+        <span class="n">freq_window</span><span class="p">,</span>
+        <span class="nb">bool</span><span class="p">(</span><span class="n">space_window</span><span class="p">),</span>
+    <span class="p">)</span>
+
+
 <div class="viewcode-block" id="kohn_nirenberg_nonperiodic">
 <a class="viewcode-back" href="../psiop.html#psiop.kohn_nirenberg_nonperiodic">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
@@ -4331,41 +4370,54 @@
     <span class="n">freq_window</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;gaussian&#39;</span><span class="p">,</span>
     <span class="n">clamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e6</span><span class="p">,</span>
     <span class="n">space_window</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">is_spatial</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">_cache</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="n">_KN_CACHE</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator</span>
 <span class="sd">    on a non-periodic domain using direct matrix/quadrature-based transforms.</span>
-<span class="sd">    </span>
-<span class="sd">    Applies the pseudo-differential operator Op(p) to the input function u via the </span>
+
+<span class="sd">    Applies the pseudo-differential operator Op(p) to the input function u via the</span>
 <span class="sd">    non-periodic Kohn–Nirenberg integral formula:</span>
 <span class="sd">        [Op(p) u](x) = (1/(2π)^d) ∫ p(x, ξ) e^{i x·ξ} ℱ_NP[u](ξ) dξ,</span>
-<span class="sd">    where ℱ_NP[u] is the direct discrete Fourier integral transform evaluated over an </span>
+<span class="sd">    where ℱ_NP[u] is the direct discrete Fourier integral transform evaluated over an</span>
 <span class="sd">    arbitrary non-periodic spatial grid `x` and frequency grid `xi`.</span>
-<span class="sd">    </span>
-<span class="sd">    Supports 1D and 2D spatial dimensions, featuring a caching mechanism for 1D phase </span>
-<span class="sd">    matrices, symbol magnitude clamping, optional frequency windowing (Gaussian/Hann), </span>
-<span class="sd">    and spatial tapering.</span>
-<span class="sd">    </span>
+
+<span class="sd">    Supports 1D and 2D spatial dimensions, featuring a caching mechanism for both</span>
+<span class="sd">    1D and 2D phase/window matrices, symbol magnitude clamping, optional frequency</span>
+<span class="sd">    windowing (Gaussian/Hann), and spatial tapering.</span>
+
 <span class="sd">    **1D Cached Path**</span>
-<span class="sd">        In 1D, precalculates and caches discrete Fourier transform phases (`phase_ft`), </span>
-<span class="sd">        reconstruction phases (`exp_matrix`), and window arrays in `_cache` to accelerate </span>
+<span class="sd">        In 1D, precalculates and caches discrete Fourier transform phases (`phase_ft`),</span>
+<span class="sd">        reconstruction phases (`exp_matrix`), and window arrays in `_cache` to accelerate</span>
 <span class="sd">        repeated function evaluations on identical grids.</span>
-<span class="sd">    </span>
+
+<span class="sd">    **2D Cached Path**</span>
+<span class="sd">        In 2D, precalculates and caches the analogous grid-only objects — forward phase</span>
+<span class="sd">        matrices (`phase1`, `phase2`), reconstruction phase matrices (`exp1`, `exp2`),</span>
+<span class="sd">        the frequency window (`freq_win_2d`), and (if `space_window=True`) the spatial</span>
+<span class="sd">        taper arrays (`sw_x1_full`, `sw_x2`). The cache key includes `freq_window` and</span>
+<span class="sd">        `space_window` since, unlike the 1D case, these options change the cached</span>
+<span class="sd">        content itself, not just which arrays get used.</span>
+
 <span class="sd">    **2D Fast-Path Optimization (Spatial Independence)**</span>
-<span class="sd">        When `u_vals` is 2D, the function tests whether the symbol `p` is independent of </span>
-<span class="sd">        spatial coordinates (x1, x2) via a multi-point sampling heuristic (if `space_window=False`). </span>
-<span class="sd">        When spatial independence holds, matrix multiplications perform global frequency filtering </span>
-<span class="sd">        in O(N^3) complexity instead of the full O(N^4) space-dependent integration.</span>
-<span class="sd">    </span>
+<span class="sd">        Symbol spatial-dependence is controlled by `is_spatial`:</span>
+<span class="sd">          - `is_spatial=False` forces the fast path (symbol treated as x-independent).</span>
+<span class="sd">          - `is_spatial=True` forces the slow path (symbol treated as x-dependent).</span>
+<span class="sd">          - `is_spatial=None` (default) runs a multi-point sampling heuristic (skipped,</span>
+<span class="sd">            and slow path forced, whenever `space_window=True`, since the taper itself</span>
+<span class="sd">            introduces x-dependence).</span>
+<span class="sd">        When spatial independence holds, matrix multiplications perform global frequency</span>
+<span class="sd">        filtering in O(N^3) complexity instead of the full O(N^4) space-dependent integration.</span>
+
 <span class="sd">    **2D Memory-Bounded Slow Path (Spatial Dependence)**</span>
 <span class="sd">        For space-dependent symbols in 2D, a multi-tiered execution strategy prevents RAM spikes:</span>
-<span class="sd">        - **Row-Based Parallelization**: Slices `x1` into spatial blocks distributed across </span>
+<span class="sd">        - **Row-Based Parallelization**: Slices `x1` into spatial blocks distributed across</span>
 <span class="sd">          a worker thread pool (`ThreadPoolExecutor`).</span>
-<span class="sd">        - **Dual Frequency Chunking**: Iterates across sub-blocks of `xi1` and `xi2` to guarantee </span>
+<span class="sd">        - **Dual Frequency Chunking**: Iterates across sub-blocks of `xi1` and `xi2` to guarantee</span>
 <span class="sd">          intermediate tensor evaluation (`sv_chunk`, `phase_chunk`) remains strictly bounded (~256 MB max).</span>
 <span class="sd">        - **Tensor Contraction**: Employs optimized Einstein summation (`np.einsum`) for localized quadrature integration.</span>
-<span class="sd">    </span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    u_vals : ndarray</span>
@@ -4375,28 +4427,32 @@
 <span class="sd">    xi_grid : ndarray or tuple of ndarray</span>
 <span class="sd">        Frequency grid `xi` (1D) or tuple `(xi1, xi2)` (2D).</span>
 <span class="sd">    symbol_func : callable</span>
-<span class="sd">        Symbol evaluator p(x, ξ) in 1D or p(x1, x2, ξ1, ξ2) in 2D. Must accept </span>
-<span class="sd">        NumPy-broadcastable positional arguments. Returns are automatically </span>
-<span class="sd">        broadcasted, type-cast to `complex128`, and reshaped/copied safely to handle scalar </span>
+<span class="sd">        Symbol evaluator p(x, ξ) in 1D or p(x1, x2, ξ1, ξ2) in 2D. Must accept</span>
+<span class="sd">        NumPy-broadcastable positional arguments. Returns are automatically</span>
+<span class="sd">        broadcasted, type-cast to `complex128`, and reshaped/copied safely to handle scalar</span>
 <span class="sd">        or reduced-dimension outputs (e.g., from `sympy.lambdify`).</span>
 <span class="sd">    freq_window : {&#39;gaussian&#39;, &#39;hann&#39;, None}, default=&#39;gaussian&#39;</span>
 <span class="sd">        Frequency-domain window/taper applied to attenuate high-frequency numerical artifacts.</span>
 <span class="sd">    clamp : float, default=1e6</span>
-<span class="sd">        Maximum allowed magnitude for symbol values. Entries exceeding this threshold </span>
+<span class="sd">        Maximum allowed magnitude for symbol values. Entries exceeding this threshold</span>
 <span class="sd">        are clipped to prevent overflow.</span>
 <span class="sd">    space_window : bool, default=False</span>
-<span class="sd">        If True, applies a centered Gaussian spatial taper to attenuate edge boundary artifacts. </span>
+<span class="sd">        If True, applies a centered Gaussian spatial taper to attenuate edge boundary artifacts.</span>
 <span class="sd">        *Note: Enabling this disables the 2D spatial-independence fast path.*</span>
+<span class="sd">    is_spatial : bool or None, default=None</span>
+<span class="sd">        Explicit hint about whether the 2D symbol depends on (x1, x2).</span>
+<span class="sd">        True forces the slow (space-dependent) path, False forces the fast</span>
+<span class="sd">        (space-independent) path, None triggers the sampling heuristic.</span>
 <span class="sd">    _cache : dict, optional</span>
-<span class="sd">        Global or local cache dictionary storing reusable 1D phase and window matrices. </span>
+<span class="sd">        Global or local cache dictionary storing reusable 1D and 2D phase/window matrices.</span>
 <span class="sd">        Defaults to module-level `_KN_CACHE`.</span>
-<span class="sd">    </span>
+
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    ndarray</span>
-<span class="sd">        Resulting complex-valued array (`complex128`) of the same dimensionality and shape </span>
+<span class="sd">        Resulting complex-valued array (`complex128`) of the same dimensionality and shape</span>
 <span class="sd">        as `u_vals` after applying the non-periodic pseudo-differential operator.</span>
-<span class="sd">    </span>
+
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    NotImplementedError</span>
@@ -4416,7 +4472,7 @@
             <span class="n">xi_abs_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi</span><span class="p">))</span>
             <span class="n">sigma_w</span> <span class="o">=</span> <span class="mf">0.8</span> <span class="o">*</span> <span class="n">xi_abs_max</span>
             <span class="n">window_gauss</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">xi</span> <span class="o">/</span> <span class="n">sigma_w</span><span class="p">)</span> <span class="o">**</span> <span class="mi">4</span><span class="p">)</span>
-            
+
             <span class="n">window_hann</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xi</span><span class="p">)</span>
             <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">xi_abs_max</span>
             <span class="n">window_hann</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">xi</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">/</span> <span class="n">xi_abs_max</span><span class="p">))</span>
@@ -4431,14 +4487,13 @@
                 <span class="n">spatial_taper</span><span class="o">=</span><span class="n">spatial_taper</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;kohn_nirenberg_nonperiodic: building 1D cache (Nx=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2">, Nxi=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">xi</span><span class="p">)</span><span class="si">}</span><span class="s2">).&quot;</span><span class="p">,</span> 
+                <span class="sa">f</span><span class="s2">&quot;kohn_nirenberg_nonperiodic: building 1D cache (Nx=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2">, Nxi=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">xi</span><span class="p">)</span><span class="si">}</span><span class="s2">).&quot;</span><span class="p">,</span>
                 <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
             <span class="p">)</span>
 
         <span class="n">entry</span> <span class="o">=</span> <span class="n">_cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
         <span class="n">u_hat</span> <span class="o">=</span> <span class="n">dx</span> <span class="o">*</span> <span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s1">&#39;phase_ft&#39;</span><span class="p">]</span> <span class="o">@</span> <span class="n">u_vals</span><span class="p">)</span>
-        
-        <span class="c1"># FIX: Enforce target shape</span>
+
         <span class="n">sigma_raw</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">xi</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
         <span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">sigma_raw</span><span class="p">,</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi</span><span class="p">)))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">sigma</span> <span class="o">=</span> <span class="n">_clip_complex_magnitude</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">clamp</span><span class="p">)</span>
@@ -4462,50 +4517,90 @@
         <span class="n">Nx1</span><span class="p">,</span> <span class="n">Nx2</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x1</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">x2</span><span class="p">)</span>
         <span class="n">Nxi1</span><span class="p">,</span> <span class="n">Nxi2</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi1</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi2</span><span class="p">)</span>
 
-        <span class="n">phase1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">xi1</span><span class="p">,</span> <span class="n">x1</span><span class="p">))</span>
-        <span class="n">phase2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">xi2</span><span class="p">))</span>
+        <span class="c1"># --- CACHE 2D : objets qui ne dépendent que de la grille + des options</span>
+        <span class="c1"># de fenêtrage (jamais de symbol_func ni de u_vals) ---</span>
+        <span class="n">key2d</span> <span class="o">=</span> <span class="n">_cache_key_2d</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">xi1</span><span class="p">,</span> <span class="n">xi2</span><span class="p">,</span> <span class="n">freq_window</span><span class="p">,</span> <span class="n">space_window</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">key2d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_cache</span><span class="p">:</span>
+            <span class="n">phase1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">xi1</span><span class="p">,</span> <span class="n">x1</span><span class="p">))</span>
+            <span class="n">phase2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">xi2</span><span class="p">))</span>
+            <span class="n">exp1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">xi1</span><span class="p">))</span>
+            <span class="n">exp2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">xi2</span><span class="p">))</span>
+
+            <span class="n">freq_win_2d</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">freq_window</span> <span class="o">==</span> <span class="s1">&#39;gaussian&#39;</span><span class="p">:</span>
+                <span class="n">s1</span> <span class="o">=</span> <span class="mf">0.8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi1</span><span class="p">))</span>
+                <span class="n">s2</span> <span class="o">=</span> <span class="mf">0.8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi2</span><span class="p">))</span>
+                <span class="n">freq_win_2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">xi1</span> <span class="o">/</span> <span class="n">s1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">4</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">xi2</span> <span class="o">/</span> <span class="n">s2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">4</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
+            <span class="k">elif</span> <span class="n">freq_window</span> <span class="o">==</span> <span class="s1">&#39;hann&#39;</span><span class="p">:</span>
+                <span class="n">xi1_max</span><span class="p">,</span> <span class="n">xi2_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi1</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi2</span><span class="p">))</span>
+                <span class="n">Wx</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">xi1</span> <span class="o">/</span> <span class="n">xi1_max</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">xi1_max</span><span class="p">)</span>
+                <span class="n">Wy</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">xi2</span> <span class="o">/</span> <span class="n">xi2_max</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi2</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">xi2_max</span><span class="p">)</span>
+                <span class="n">freq_win_2d</span> <span class="o">=</span> <span class="n">Wx</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">Wy</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
+
+            <span class="n">sw_x1_full</span> <span class="o">=</span> <span class="n">sw_x2</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">space_window</span><span class="p">:</span>
+                <span class="n">xc</span> <span class="o">=</span> <span class="p">(</span><span class="n">x1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">x1</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
+                <span class="n">Lx</span> <span class="o">=</span> <span class="p">(</span><span class="n">x1</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
+                <span class="n">sw_x1_full</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x1</span> <span class="o">-</span> <span class="n">xc</span><span class="p">)</span> <span class="o">/</span> <span class="n">Lx</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+                <span class="n">yc</span> <span class="o">=</span> <span class="p">(</span><span class="n">x2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">x2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
+                <span class="n">Ly</span> <span class="o">=</span> <span class="p">(</span><span class="n">x2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x2</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
+                <span class="n">sw_x2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x2</span> <span class="o">-</span> <span class="n">yc</span><span class="p">)</span> <span class="o">/</span> <span class="n">Ly</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+            <span class="n">_cache</span><span class="p">[</span><span class="n">key2d</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                <span class="n">phase1</span><span class="o">=</span><span class="n">phase1</span><span class="p">,</span> <span class="n">phase2</span><span class="o">=</span><span class="n">phase2</span><span class="p">,</span> <span class="n">exp1</span><span class="o">=</span><span class="n">exp1</span><span class="p">,</span> <span class="n">exp2</span><span class="o">=</span><span class="n">exp2</span><span class="p">,</span>
+                <span class="n">freq_win_2d</span><span class="o">=</span><span class="n">freq_win_2d</span><span class="p">,</span> <span class="n">sw_x1_full</span><span class="o">=</span><span class="n">sw_x1_full</span><span class="p">,</span> <span class="n">sw_x2</span><span class="o">=</span><span class="n">sw_x2</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;kohn_nirenberg_nonperiodic: building 2D cache &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(Nx1=</span><span class="si">{</span><span class="n">Nx1</span><span class="si">}</span><span class="s2">, Nx2=</span><span class="si">{</span><span class="n">Nx2</span><span class="si">}</span><span class="s2">, Nxi1=</span><span class="si">{</span><span class="n">Nxi1</span><span class="si">}</span><span class="s2">, Nxi2=</span><span class="si">{</span><span class="n">Nxi2</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;freq_window=</span><span class="si">{</span><span class="n">freq_window</span><span class="si">!r}</span><span class="s2">, space_window=</span><span class="si">{</span><span class="n">space_window</span><span class="si">}</span><span class="s2">).&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">entry2d</span> <span class="o">=</span> <span class="n">_cache</span><span class="p">[</span><span class="n">key2d</span><span class="p">]</span>
+        <span class="n">phase1</span><span class="p">,</span> <span class="n">phase2</span> <span class="o">=</span> <span class="n">entry2d</span><span class="p">[</span><span class="s1">&#39;phase1&#39;</span><span class="p">],</span> <span class="n">entry2d</span><span class="p">[</span><span class="s1">&#39;phase2&#39;</span><span class="p">]</span>
+        <span class="n">exp1</span><span class="p">,</span> <span class="n">exp2</span> <span class="o">=</span> <span class="n">entry2d</span><span class="p">[</span><span class="s1">&#39;exp1&#39;</span><span class="p">],</span> <span class="n">entry2d</span><span class="p">[</span><span class="s1">&#39;exp2&#39;</span><span class="p">]</span>
+        <span class="n">freq_win_2d</span> <span class="o">=</span> <span class="n">entry2d</span><span class="p">[</span><span class="s1">&#39;freq_win_2d&#39;</span><span class="p">]</span>
+        <span class="n">sw_x1_full</span><span class="p">,</span> <span class="n">sw_x2</span> <span class="o">=</span> <span class="n">entry2d</span><span class="p">[</span><span class="s1">&#39;sw_x1_full&#39;</span><span class="p">],</span> <span class="n">entry2d</span><span class="p">[</span><span class="s1">&#39;sw_x2&#39;</span><span class="p">]</span>
+
         <span class="n">u_hat</span> <span class="o">=</span> <span class="n">dx1</span> <span class="o">*</span> <span class="n">dx2</span> <span class="o">*</span> <span class="p">(</span><span class="n">phase1</span> <span class="o">@</span> <span class="n">u_vals</span> <span class="o">@</span> <span class="n">phase2</span><span class="p">)</span>
 
-        <span class="n">freq_win_2d</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">freq_window</span> <span class="o">==</span> <span class="s1">&#39;gaussian&#39;</span><span class="p">:</span>
-            <span class="n">s1</span> <span class="o">=</span> <span class="mf">0.8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi1</span><span class="p">))</span>
-            <span class="n">s2</span> <span class="o">=</span> <span class="mf">0.8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi2</span><span class="p">))</span>
-            <span class="n">freq_win_2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">xi1</span> <span class="o">/</span> <span class="n">s1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">4</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">xi2</span> <span class="o">/</span> <span class="n">s2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">4</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
-        <span class="k">elif</span> <span class="n">freq_window</span> <span class="o">==</span> <span class="s1">&#39;hann&#39;</span><span class="p">:</span>
-            <span class="n">xi1_max</span><span class="p">,</span> <span class="n">xi2_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi1</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi2</span><span class="p">))</span>
-            <span class="n">Wx</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">xi1</span> <span class="o">/</span> <span class="n">xi1_max</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">xi1_max</span><span class="p">)</span>
-            <span class="n">Wy</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">xi2</span> <span class="o">/</span> <span class="n">xi2_max</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi2</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">xi2_max</span><span class="p">)</span>
-            <span class="n">freq_win_2d</span> <span class="o">=</span> <span class="n">Wx</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">Wy</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="c1"># --- FAST/SLOW PATH SELECTION ---</span>
+        <span class="c1"># is_spatial=True  -&gt; force slow path (symbol IS space-dependent)</span>
+        <span class="c1"># is_spatial=False -&gt; force fast path (symbol is NOT space-dependent)</span>
+        <span class="c1"># is_spatial=None  -&gt; heuristic decides (always slow if space_window=True,</span>
+        <span class="c1">#                     since the taper itself makes the integrand x-dependent)</span>
+        <span class="k">if</span> <span class="n">is_spatial</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="n">is_spatial</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">space_window</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">x1_test</span> <span class="o">=</span> <span class="n">x1</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+                    <span class="n">x2_test</span> <span class="o">=</span> <span class="n">x2</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+                    <span class="n">xi_idx</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">Nxi1</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>
+                    <span class="n">eta_idx</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">Nxi2</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>
 
-        <span class="c1"># --- FAST PATH CHECK ---</span>
-        <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">space_window</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">x1_test</span> <span class="o">=</span> <span class="n">x1</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
-                <span class="n">x2_test</span> <span class="o">=</span> <span class="n">x2</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
-                <span class="n">xi_idx</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">Nxi1</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>
-                <span class="n">eta_idx</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">Nxi2</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>
-
-                <span class="n">val1</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span>
-                    <span class="n">x1_test</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
-                    <span class="n">x2_test</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
-                    <span class="n">xi1</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">xi_idx</span><span class="p">:</span><span class="n">xi_idx</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
-                    <span class="n">xi2</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">eta_idx</span><span class="p">:</span><span class="n">eta_idx</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
-                <span class="p">)</span>
-                <span class="n">val2</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span>
-                    <span class="p">(</span><span class="n">x1_test</span> <span class="o">+</span> <span class="n">dx1</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
-                    <span class="p">(</span><span class="n">x2_test</span> <span class="o">+</span> <span class="n">dx2</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
-                    <span class="n">xi1</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">xi_idx</span><span class="p">:</span><span class="n">xi_idx</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
-                    <span class="n">xi2</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">eta_idx</span><span class="p">:</span><span class="n">eta_idx</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
-                <span class="p">)</span>
-                <span class="n">is_x_independent</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">val1</span><span class="p">,</span> <span class="n">val2</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="n">val1</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span>
+                        <span class="n">x1_test</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                        <span class="n">x2_test</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                        <span class="n">xi1</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">xi_idx</span><span class="p">:</span><span class="n">xi_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                        <span class="n">xi2</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">eta_idx</span><span class="p">:</span><span class="n">eta_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                    <span class="p">)</span>
+                    <span class="n">val2</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">x1_test</span> <span class="o">+</span> <span class="n">dx1</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                        <span class="p">(</span><span class="n">x2_test</span> <span class="o">+</span> <span class="n">dx2</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                        <span class="n">xi1</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">xi_idx</span><span class="p">:</span><span class="n">xi_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+                        <span class="n">xi2</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">eta_idx</span><span class="p">:</span><span class="n">eta_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                    <span class="p">)</span>
+                    <span class="n">is_x_independent</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">val1</span><span class="p">,</span> <span class="n">val2</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="n">is_x_independent</span> <span class="o">=</span> <span class="kc">False</span>
 
         <span class="k">if</span> <span class="n">is_x_independent</span><span class="p">:</span>
-            <span class="c1"># FIX: Broadcast to 4D first, then reshape to 2D. </span>
-            <span class="c1"># np.broadcast_to cannot reduce dimensions directly, so we must </span>
-            <span class="c1"># explicitly reshape after ensuring the 4D structure is consistent.</span>
             <span class="n">p_full_raw</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span>
                 <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">Nxi1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">x1</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
                 <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">Nxi2</span><span class="p">),</span> <span class="n">x2</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
@@ -4514,24 +4609,16 @@
             <span class="p">)</span>
             <span class="n">p_full</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">p_full_raw</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">Nxi1</span><span class="p">,</span> <span class="n">Nxi2</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">Nxi1</span><span class="p">,</span> <span class="n">Nxi2</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="n">p_full</span> <span class="o">=</span> <span class="n">_clip_complex_magnitude</span><span class="p">(</span><span class="n">p_full</span><span class="p">,</span> <span class="n">clamp</span><span class="p">)</span>
-            
+
             <span class="k">if</span> <span class="n">freq_win_2d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">p_full</span> <span class="o">*=</span> <span class="n">freq_win_2d</span>
-                
+
             <span class="n">u_hat_filtered</span> <span class="o">=</span> <span class="n">p_full</span> <span class="o">*</span> <span class="n">u_hat</span>
-            <span class="n">exp1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">xi1</span><span class="p">))</span>
-            <span class="n">exp2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">xi2</span><span class="p">))</span>
-            
+
             <span class="k">return</span> <span class="p">(</span><span class="n">dxi1</span> <span class="o">*</span> <span class="n">dxi2</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">exp1</span> <span class="o">@</span> <span class="n">u_hat_filtered</span> <span class="o">@</span> <span class="n">exp2</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
 
         <span class="c1"># --- SLOW PATH ---</span>
-        <span class="n">sw_x2</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">space_window</span><span class="p">:</span>
-            <span class="n">y_center</span> <span class="o">=</span> <span class="p">(</span><span class="n">x2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">x2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
-            <span class="n">Ly</span> <span class="o">=</span> <span class="p">(</span><span class="n">x2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x2</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
-            <span class="n">sw_x2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x2</span> <span class="o">-</span> <span class="n">y_center</span><span class="p">)</span> <span class="o">/</span> <span class="n">Ly</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
-
-        <span class="n">iph2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">xi2</span><span class="p">))</span>
+        <span class="n">iph2</span> <span class="o">=</span> <span class="n">exp2</span>  <span class="c1"># np.exp(1j * outer(x2, xi2)), déjà en cache</span>
         <span class="n">n_workers</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">w</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">FFT_WORKERS</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">Nx1</span> <span class="o">%</span> <span class="n">w</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
         <span class="n">base</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">Nx1</span> <span class="o">//</span> <span class="n">n_workers</span><span class="p">)</span>
         <span class="n">boundaries</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span> <span class="o">*</span> <span class="n">base</span><span class="p">,</span> <span class="nb">min</span><span class="p">((</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">base</span><span class="p">,</span> <span class="n">Nx1</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_workers</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="o">*</span> <span class="n">base</span> <span class="o">&lt;</span> <span class="n">Nx1</span><span class="p">]</span>
@@ -4541,51 +4628,46 @@
             <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span> <span class="o">=</span> <span class="n">bounds</span>
             <span class="n">x1_blk</span> <span class="o">=</span> <span class="n">x1</span><span class="p">[</span><span class="n">i0</span><span class="p">:</span><span class="n">i1</span><span class="p">]</span>
             <span class="n">B</span> <span class="o">=</span> <span class="n">i1</span> <span class="o">-</span> <span class="n">i0</span>
-            
+
             <span class="n">MAX_ELEMENTS</span> <span class="o">=</span> <span class="mi">16</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>
             <span class="n">prod_C</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">MAX_ELEMENTS</span> <span class="o">//</span> <span class="p">(</span><span class="n">B</span> <span class="o">*</span> <span class="n">Nx2</span><span class="p">))</span>
             <span class="n">C1</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">prod_C</span><span class="p">)),</span> <span class="n">Nxi1</span><span class="p">)</span>
             <span class="n">C2</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">prod_C</span> <span class="o">//</span> <span class="n">C1</span><span class="p">),</span> <span class="n">Nxi2</span><span class="p">)</span>
-            
+
             <span class="n">X1b</span> <span class="o">=</span> <span class="n">x1_blk</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
             <span class="n">X2b</span> <span class="o">=</span> <span class="n">x2</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
             <span class="n">res_block</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">B</span><span class="p">,</span> <span class="n">Nx2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
-            
-            <span class="n">sw_x1_blk</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">if</span> <span class="n">space_window</span><span class="p">:</span>
-                <span class="n">x_center</span> <span class="o">=</span> <span class="p">(</span><span class="n">x1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">x1</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
-                <span class="n">Lx</span> <span class="o">=</span> <span class="p">(</span><span class="n">x1</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
-                <span class="n">sw_x1_blk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x1_blk</span> <span class="o">-</span> <span class="n">x_center</span><span class="p">)</span> <span class="o">/</span> <span class="n">Lx</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
-            
+
+            <span class="n">sw_x1_blk</span> <span class="o">=</span> <span class="n">sw_x1_full</span><span class="p">[</span><span class="n">i0</span><span class="p">:</span><span class="n">i1</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="k">if</span> <span class="n">space_window</span> <span class="k">else</span> <span class="kc">None</span>
+
             <span class="k">for</span> <span class="n">k0</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Nxi1</span><span class="p">,</span> <span class="n">C1</span><span class="p">):</span>
                 <span class="n">k1</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">k0</span> <span class="o">+</span> <span class="n">C1</span><span class="p">,</span> <span class="n">Nxi1</span><span class="p">)</span>
-                <span class="n">iph1_chunk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x1_blk</span><span class="p">,</span> <span class="n">xi1</span><span class="p">[</span><span class="n">k0</span><span class="p">:</span><span class="n">k1</span><span class="p">]))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">k1</span><span class="o">-</span><span class="n">k0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">iph1_chunk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">x1_blk</span><span class="p">,</span> <span class="n">xi1</span><span class="p">[</span><span class="n">k0</span><span class="p">:</span><span class="n">k1</span><span class="p">]))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">k1</span> <span class="o">-</span> <span class="n">k0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
                 <span class="n">u_hat_k</span> <span class="o">=</span> <span class="n">u_hat</span><span class="p">[</span><span class="n">k0</span><span class="p">:</span><span class="n">k1</span><span class="p">,</span> <span class="p">:]</span>
 
                 <span class="k">for</span> <span class="n">m0</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Nxi2</span><span class="p">,</span> <span class="n">C2</span><span class="p">):</span>
                     <span class="n">m1</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">m0</span> <span class="o">+</span> <span class="n">C2</span><span class="p">,</span> <span class="n">Nxi2</span><span class="p">)</span>
-                    
+
                     <span class="n">sv_chunk</span> <span class="o">=</span> <span class="n">symbol_func</span><span class="p">(</span><span class="n">X1b</span><span class="p">,</span> <span class="n">X2b</span><span class="p">,</span> <span class="n">xi1</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">k0</span><span class="p">:</span><span class="n">k1</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">xi2</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">m0</span><span class="p">:</span><span class="n">m1</span><span class="p">])</span>
-                    <span class="c1"># FIX: Enforce target shape and ensure writability</span>
-                    <span class="n">sv_chunk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">sv_chunk</span><span class="p">,</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Nx2</span><span class="p">,</span> <span class="n">k1</span><span class="o">-</span><span class="n">k0</span><span class="p">,</span> <span class="n">m1</span><span class="o">-</span><span class="n">m0</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                    <span class="n">sv_chunk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">sv_chunk</span><span class="p">,</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Nx2</span><span class="p">,</span> <span class="n">k1</span> <span class="o">-</span> <span class="n">k0</span><span class="p">,</span> <span class="n">m1</span> <span class="o">-</span> <span class="n">m0</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
                     <span class="n">sv_chunk</span> <span class="o">=</span> <span class="n">_clip_complex_magnitude</span><span class="p">(</span><span class="n">sv_chunk</span><span class="p">,</span> <span class="n">clamp</span><span class="p">)</span>
-                        
+
                     <span class="k">if</span> <span class="n">freq_win_2d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                         <span class="n">sv_chunk</span> <span class="o">*=</span> <span class="n">freq_win_2d</span><span class="p">[</span><span class="n">k0</span><span class="p">:</span><span class="n">k1</span><span class="p">,</span> <span class="n">m0</span><span class="p">:</span><span class="n">m1</span><span class="p">][</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
-                        
+
                     <span class="k">if</span> <span class="n">space_window</span><span class="p">:</span>
                         <span class="k">if</span> <span class="n">sw_x1_blk</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                             <span class="n">sv_chunk</span> <span class="o">*=</span> <span class="n">sw_x1_blk</span>
                         <span class="k">if</span> <span class="n">sw_x2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                             <span class="n">sv_chunk</span> <span class="o">*=</span> <span class="n">sw_x2</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
-                            
+
                     <span class="n">iph2_chunk</span> <span class="o">=</span> <span class="n">iph2</span><span class="p">[:,</span> <span class="n">m0</span><span class="p">:</span><span class="n">m1</span><span class="p">]</span>
-                    <span class="n">phase_chunk</span> <span class="o">=</span> <span class="n">iph1_chunk</span> <span class="o">*</span> <span class="n">iph2_chunk</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> 
-                    <span class="n">u_hat_sub</span> <span class="o">=</span> <span class="n">u_hat_k</span><span class="p">[:,</span> <span class="n">m0</span><span class="p">:</span><span class="n">m1</span><span class="p">]</span> 
-                    
+                    <span class="n">phase_chunk</span> <span class="o">=</span> <span class="n">iph1_chunk</span> <span class="o">*</span> <span class="n">iph2_chunk</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
+                    <span class="n">u_hat_sub</span> <span class="o">=</span> <span class="n">u_hat_k</span><span class="p">[:,</span> <span class="n">m0</span><span class="p">:</span><span class="n">m1</span><span class="p">]</span>
+
                     <span class="n">res_block</span> <span class="o">+=</span> <span class="p">(</span><span class="n">dxi1</span> <span class="o">*</span> <span class="n">dxi2</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span>
-                        <span class="s1">&#39;bxky, ky, bxky -&gt; bx&#39;</span><span class="p">,</span> 
-                        <span class="n">sv_chunk</span><span class="p">,</span> <span class="n">u_hat_sub</span><span class="p">,</span> <span class="n">phase_chunk</span><span class="p">,</span> 
+                        <span class="s1">&#39;bxky, ky, bxky -&gt; bx&#39;</span><span class="p">,</span>
+                        <span class="n">sv_chunk</span><span class="p">,</span> <span class="n">u_hat_sub</span><span class="p">,</span> <span class="n">phase_chunk</span><span class="p">,</span>
                         <span class="n">optimize</span><span class="o">=</span><span class="kc">True</span>
                     <span class="p">)</span>
             <span class="k">return</span> <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span><span class="p">,</span> <span class="n">res_block</span>

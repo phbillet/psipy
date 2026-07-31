@@ -206,7 +206,7 @@
 <span class="sd">    &gt;&gt;&gt; ani = solver.animate()</span>
 <span class="sd">    &gt;&gt;&gt; HTML(ani.to_jshtml())  # Display animation in Jupyter notebook</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">equation</span><span class="p">,</span> <span class="n">time_scheme</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="n">dealiasing_ratio</span><span class="o">=</span><span class="mi">2</span><span class="o">/</span><span class="mi">3</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">equation</span><span class="p">,</span> <span class="n">time_scheme</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="n">dealiasing_ratio</span><span class="o">=</span><span class="mi">2</span><span class="o">/</span><span class="mi">3</span><span class="p">,</span> <span class="n">compute_energy</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize the PDE solver with a given equation.</span>
 
@@ -239,6 +239,9 @@
 <span class="sd">        dealiasing_ratio : float</span>
 <span class="sd">            Fraction of high-frequency modes to zero out </span>
 <span class="sd">            during dealiasing (e.g., 2/3 for standard truncation).</span>
+<span class="sd">        compute_energy : bool, optional (default True)</span>
+<span class="sd">            Turn it off if setup is too long, there is maybe a problem during</span>
+<span class="sd">            computation of the square root of the operator.</span>
 
 <span class="sd">        Attributes initialized:</span>
 <span class="sd">        </span>
@@ -258,8 +261,10 @@
 <span class="sd">            ValueError: If the equation does not contain exactly one unknown function,</span>
 <span class="sd">                        if unsupported dimensions are detected, or invalid dependencies.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation</span> <span class="o">=</span> <span class="n">equation</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">time_scheme</span> <span class="o">=</span> <span class="n">time_scheme</span> <span class="c1"># &#39;default&#39;  or &#39;ETD-RK4&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dealiasing_ratio</span> <span class="o">=</span> <span class="n">dealiasing_ratio</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compute_energy</span> <span class="o">=</span> <span class="n">compute_energy</span>
         
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">*********************************&quot;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;* Partial differential equation *&quot;</span><span class="p">)</span>
@@ -350,7 +355,6 @@
         <span class="c1"># flag : pseudo‑differential operator present ?</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pseudo_terms</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_psi</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;⚠️  Pseudo‑differential operator detected: all other linear terms have been rejected.&#39;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">is_spatial</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">expr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pseudo_terms</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">expr</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">)):</span>
@@ -777,28 +781,28 @@
                 <span class="n">total_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
                     <span class="n">total_symbol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span>
                 <span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_energy</span><span class="p">:</span>
+                    <span class="c1"># 2. Compute the fractional power P^{1/2}</span>
+                    <span class="c1"># We use order=1 to capture the first microlocal spatial corrections.</span>
+                    <span class="c1"># (If you only want the principal symbol, use order=0).</span>
+                    <span class="c1"># Note: We drop Abs() to preserve the C^\infty smoothness required </span>
+                    <span class="c1"># for pseudo-differential calculus. If the operator is positive-definite, </span>
+                    <span class="c1"># this is exact. If not, it correctly handles complex branch cuts.</span>
+                    <span class="n">energy_symbol</span> <span class="o">=</span> <span class="n">total_op</span><span class="o">.</span><span class="n">fractional_power</span><span class="p">(</span>
+                        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> 
+                        <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> 
+                        <span class="n">method</span><span class="o">=</span><span class="s1">&#39;symbolic&#39;</span>
+                    <span class="p">)</span>
+                    
+                    <span class="c1"># 3. Create the final energy operator</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_energy_psi_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                        <span class="n">energy_symbol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span>
+                    <span class="p">)</span>
                 
-                <span class="c1"># 2. Compute the fractional power P^{1/2}</span>
-                <span class="c1"># We use order=1 to capture the first microlocal spatial corrections.</span>
-                <span class="c1"># (If you only want the principal symbol, use order=0).</span>
-                <span class="c1"># Note: We drop Abs() to preserve the C^\infty smoothness required </span>
-                <span class="c1"># for pseudo-differential calculus. If the operator is positive-definite, </span>
-                <span class="c1"># this is exact. If not, it correctly handles complex branch cuts.</span>
-                <span class="n">energy_symbol</span> <span class="o">=</span> <span class="n">total_op</span><span class="o">.</span><span class="n">fractional_power</span><span class="p">(</span>
-                    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> 
-                    <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> 
-                    <span class="n">method</span><span class="o">=</span><span class="s1">&#39;symbolic&#39;</span>
-                <span class="p">)</span>
-                
-                <span class="c1"># 3. Create the final energy operator</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_energy_psi_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
-                    <span class="n">energy_symbol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span>
-                <span class="p">)</span>
-                
-                <span class="c1"># 4. Check for spatial dependence</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_energy_is_spatial</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
-                    <span class="n">energy_symbol</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span>
-                <span class="p">)</span>
+                    <span class="c1"># 4. Check for spatial dependence</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_energy_is_spatial</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+                        <span class="n">energy_symbol</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span>
+                    <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">dispersion</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="n">Eq</span><span class="p">(</span><span class="n">equation</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">omega</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">dispersion</span><span class="p">:</span>
@@ -1409,7 +1413,7 @@
 <span class="sd">                u_y   = IFFT(i·kᵧ          · û)    — ∂ᵧu</span>
 <span class="sd">                u_xx  = IFFT((i·kₓ)²       · û)    — ∂ₓₓu</span>
 <span class="sd">                u_yy  = IFFT((i·kᵧ)²       · û)    — ∂ᵧᵧu</span>
-<span class="sd">                u_xy  = IFFT((i·kₓ)(i·kᵧ)  · û)   — ∂ₓᵧu  (mixed cross derivative)</span>
+<span class="sd">                u_xy  = IFFT((i·kₓ)(i·kᵧ)  · û)    — ∂ₓᵧu  (mixed cross derivative)</span>
 <span class="sd">    </span>
 <span class="sd">        All derivatives are computed from the same dealiased û, requiring only pointwise</span>
 <span class="sd">        wavenumber multiplications followed by IFFTs — no additional FFT of u is needed.</span>
@@ -1676,8 +1680,47 @@
             <span class="p">)</span>
     
         <span class="k">return</span> <span class="n">nonlinear_term</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
-
+    
     <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_symbol_tables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Precompute and store evaluated pseudo-differential operator symbols for spectral methods.</span>
+<span class="sd">        ...</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">precomputed_symbols</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">combined</span> <span class="o">=</span> <span class="kc">None</span>
+    
+        <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">psi</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="p">:</span>
+            <span class="c1"># Evaluate operator on spatial and frequency grids</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">raw</span> <span class="o">=</span> <span class="n">psi</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">raw</span> <span class="o">=</span> <span class="n">psi</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unsupported spatial dimension.&#39;</span><span class="p">)</span>
+    
+            <span class="c1"># Fast vectorized conversion to complex128 array (bypassing per-element SymPy N() evaluation)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="n">raw_eval</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">raw_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+    
+            <span class="c1"># Convert the scalar coefficient explicitly (cheap: one N() call per operator, not per grid point)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coeff</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">)):</span>
+                <span class="n">coeff_val</span> <span class="o">=</span> <span class="nb">complex</span><span class="p">(</span><span class="n">N</span><span class="p">(</span><span class="n">coeff</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">coeff_val</span> <span class="o">=</span> <span class="nb">complex</span><span class="p">(</span><span class="n">coeff</span><span class="p">)</span>
+    
+            <span class="bp">self</span><span class="o">.</span><span class="n">precomputed_symbols</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">coeff_val</span><span class="p">,</span> <span class="n">raw_eval</span><span class="p">))</span>
+    
+            <span class="c1"># Vectorized accumulation directly in NumPy memory</span>
+            <span class="k">if</span> <span class="n">combined</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">combined</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">raw_eval</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+    
+            <span class="n">combined</span> <span class="o">+=</span> <span class="n">coeff_val</span> <span class="o">*</span> <span class="n">raw_eval</span>
+    
+        <span class="bp">self</span><span class="o">.</span><span class="n">combined_symbol</span> <span class="o">=</span> <span class="n">combined</span>
+        
+    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_symbol_tables_old</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Precompute and store evaluated pseudo-differential operator symbols for spectral methods.</span>
 
@@ -1982,8 +2025,8 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D arrays are supported.&quot;</span><span class="p">)</span>
 
         <span class="c1"># Recalculate symbol if necessary</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_spatial</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_symbol_tables</span><span class="p">()</span>  <span class="c1"># Recalculates self.combined_symbol</span>
+        <span class="c1"># if self.is_spatial:</span>
+        <span class="c1">#     self._prepare_symbol_tables()  # Recalculates self.combined_symbol</span>
     
         <span class="c1"># Case with FFT (symbol diagonalizable in Fourier space)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">boundary_condition</span> <span class="o">==</span> <span class="s1">&#39;periodic&#39;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_spatial</span><span class="p">:</span>
@@ -2329,7 +2372,8 @@
                         <span class="n">kx</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kx</span><span class="p">,</span>
                         <span class="n">fft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">,</span>
                         <span class="n">ifft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">,</span>
-                        <span class="n">dim</span><span class="o">=</span><span class="mi">1</span>
+                        <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                        <span class="n">is_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="p">)</span>
                     
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
@@ -2354,7 +2398,8 @@
                         <span class="n">ifft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">,</span>
                         <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
                         <span class="n">y_grid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span><span class="p">,</span>
-                        <span class="n">ky</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ky</span>
+                        <span class="n">ky</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ky</span><span class="p">,</span>
+                        <span class="n">is_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">u</span> <span class="o">=</span> <span class="n">u</span>
             <span class="k">return</span> <span class="n">u</span>
@@ -2367,14 +2412,16 @@
                     <span class="n">u_vals</span><span class="o">=</span><span class="n">rhs</span><span class="p">,</span>
                     <span class="n">x_grid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span>
                     <span class="n">xi_grid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kx</span><span class="p">,</span>
-                    <span class="n">symbol_func</span><span class="o">=</span><span class="n">R_func</span>  <span class="c1"># Now has correct signature (x, xi)</span>
+                    <span class="n">symbol_func</span><span class="o">=</span><span class="n">R_func</span><span class="p">,</span>  <span class="c1"># Now has correct signature (x, xi)</span>
+                    <span class="n">is_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="n">u</span> <span class="o">=</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
                     <span class="n">u_vals</span><span class="o">=</span><span class="n">rhs</span><span class="p">,</span>
                     <span class="n">x_grid</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span><span class="p">),</span>
                     <span class="n">xi_grid</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ky</span><span class="p">),</span>
-                    <span class="n">symbol_func</span><span class="o">=</span><span class="n">R_func</span>  <span class="c1"># Now has correct signature (x, y, xi, eta)</span>
+                    <span class="n">symbol_func</span><span class="o">=</span><span class="n">R_func</span><span class="p">,</span>  <span class="c1"># Now has correct signature (x, y, xi, eta)</span>
+                    <span class="n">is_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">u</span> <span class="o">=</span> <span class="n">u</span>
             <span class="k">return</span> <span class="n">u</span>
@@ -3089,94 +3136,46 @@
 <span class="sd">            If True, plots the total conserved energy using a logarithmic </span>
 <span class="sd">            y-axis (semilogy). Default is False.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;energy_history&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No energy data recorded.&quot;</span><span class="p">)</span>
-            <span class="k">return</span>
-        
-        <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lt</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">))</span>
-        
-        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">9</span><span class="p">))</span>
-        
-        <span class="c1"># Mechanical Energy</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;mechanical_energy_history&#39;</span><span class="p">):</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_energy_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Mechanical Energy&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Mechanical Energy (Oscillates/Grows due to terms)&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-        
-        <span class="c1"># Accumulated Work</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;work_history&#39;</span><span class="p">):</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">work_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;orange&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Accumulated Work&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Accumulated Work (Energy injected/extracted by terms)&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-        
-        <span class="c1"># Total Conserved Energy</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">log</span><span class="p">:</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Time&#39;</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Total Energy&#39;</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Total Conserved Energy Eₘₑ꜀ₕ - W&#39;</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-        
-        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-        
-        <span class="c1"># Print diagnostics</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">E0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">drift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">)</span> <span class="o">-</span> <span class="n">E0</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">E0</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Initial Total Energy: </span><span class="si">{</span><span class="n">E0</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Max Relative Drift:   </span><span class="si">{</span><span class="n">drift</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;energy_history&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;energy_history&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_energy</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No energy data recorded.&quot;</span><span class="p">)</span>
             <span class="k">return</span>
     
         <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Lt</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">))</span>
-        
+    
         <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">9</span><span class="p">))</span>
-        
-        <span class="c1"># Mechanical Energy</span>
+    
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;mechanical_energy_history&#39;</span><span class="p">):</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_energy_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Mechanical Energy&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Mechanical Energy (Oscillates/Grows due to terms)&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-        
-        <span class="c1"># Accumulated Work</span>
+    
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;work_history&#39;</span><span class="p">):</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">work_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;orange&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Accumulated Work&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Accumulated Work (Energy injected/extracted by terms)&#39;</span><span class="p">)</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-        
-        <span class="c1"># Total Conserved Energy</span>
+    
         <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">log</span><span class="p">:</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    
         <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Time&#39;</span><span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Total Energy&#39;</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Total Conserved Energy $E_</span><span class="si">{mech}</span><span class="s1"> - W$ &#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;Total Conserved Energy $E_{\mathrm</span><span class="si">{mech}</span><span class="s1">} - W$&#39;</span><span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-        
+    
         <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-        
-        <span class="c1"># Print diagnostics</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">E0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">drift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">)</span> <span class="o">-</span> <span class="n">E0</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">E0</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Initial Total Energy: </span><span class="si">{</span><span class="n">E0</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Max Relative Drift:   </span><span class="si">{</span><span class="n">drift</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+    
+        <span class="n">E0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">drift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">energy_history</span><span class="p">)</span> <span class="o">-</span> <span class="n">E0</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">E0</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Initial Total Energy: </span><span class="si">{</span><span class="n">E0</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Max Relative Drift:   </span><span class="si">{</span><span class="n">drift</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PDESolver.show_stationary_solution">
@@ -3350,8 +3349,8 @@
             <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">initial</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">initial</span><span class="p">))</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">component</span><span class="si">}</span><span class="s1"> of u&#39;</span><span class="p">)</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Initial condition&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Initial condition&#39;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">(</span><span class="n">rect</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">])</span>
     
             <span class="k">def</span><span class="w"> </span><span class="nf">_update_1d</span><span class="p">(</span><span class="n">frame_number</span><span class="p">):</span>
                 <span class="n">frame</span> <span class="o">=</span> <span class="n">frame_indices</span><span class="p">[</span><span class="n">frame_number</span><span class="p">]</span>
@@ -3360,10 +3359,13 @@
                 <span class="n">line</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">ydata_real</span><span class="p">)</span>
                 <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">ydata_real</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">ydata_real</span><span class="p">))</span>
                 <span class="n">current_time</span> <span class="o">=</span> <span class="n">target_times</span><span class="p">[</span><span class="n">frame_number</span><span class="p">]</span>
-                <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;t = </span><span class="si">{</span><span class="n">current_time</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">eq_latex</span> <span class="o">=</span> <span class="n">latex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equation</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;equation&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+                <span class="n">title</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;$</span><span class="si">{</span><span class="n">eq_latex</span><span class="si">}</span><span class="s1">$</span><span class="se">\n</span><span class="s1">Solution at t = </span><span class="si">{</span><span class="n">current_time</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">if</span> <span class="n">eq_latex</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;Solution at t = </span><span class="si">{</span><span class="n">current_time</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
                 <span class="k">return</span> <span class="p">(</span><span class="n">line</span><span class="p">,)</span>
     
             <span class="n">ani</span> <span class="o">=</span> <span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">_update_1d</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">target_times</span><span class="p">),</span> <span class="n">blit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">ani</span>
     
         <span class="c1"># -------------------------</span>
@@ -3384,14 +3386,15 @@
             <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">set_zlabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">component</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="si">}</span><span class="s1"> of u&#39;</span><span class="p">)</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">zaxis</span><span class="o">.</span><span class="n">labelpad</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Initial condition&#39;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Initial condition&#39;</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">(</span><span class="n">rect</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">])</span>
     
             <span class="c1"># Calculate physical domain lengths</span>
             <span class="n">Lx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">Ly</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             
             <span class="n">surf</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">plot_surface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="n">data0</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">(</span><span class="n">rect</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">])</span>
     
             <span class="k">def</span><span class="w"> </span><span class="nf">_update_surface</span><span class="p">(</span><span class="n">frame_number</span><span class="p">):</span>
                 <span class="n">frame</span> <span class="o">=</span> <span class="n">frame_indices</span><span class="p">[</span><span class="n">frame_number</span><span class="p">]</span>
@@ -3439,17 +3442,22 @@
                 <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
                 <span class="n">ax</span><span class="o">.</span><span class="n">set_zlabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">component</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="si">}</span><span class="s1"> of u&#39;</span><span class="p">)</span>
                 <span class="n">current_time</span> <span class="o">=</span> <span class="n">target_times</span><span class="p">[</span><span class="n">frame_number</span><span class="p">]</span>
-                <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Solution at t = </span><span class="si">{</span><span class="n">current_time</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">eq_latex</span> <span class="o">=</span> <span class="n">latex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equation</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;equation&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+                <span class="n">title</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;$</span><span class="si">{</span><span class="n">eq_latex</span><span class="si">}</span><span class="s1">$</span><span class="se">\n</span><span class="s1">Solution at t = </span><span class="si">{</span><span class="n">current_time</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">if</span> <span class="n">eq_latex</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;Solution at t = </span><span class="si">{</span><span class="n">current_time</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
                 <span class="k">return</span> <span class="p">(</span><span class="n">surf_obj</span><span class="p">,)</span>
     
             <span class="n">ani</span> <span class="o">=</span> <span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">_update_surface</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">target_times</span><span class="p">),</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">ani</span>
     
         <span class="k">else</span><span class="p">:</span>  <span class="c1"># mode == &#39;imshow&#39;</span>
-            <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
-            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Initial condition&#39;</span><span class="p">)</span>
+            <span class="n">eq_latex</span> <span class="o">=</span> <span class="n">latex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equation</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;equation&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">init_title</span> <span class="o">=</span> <span class="s1">&#39;Initial condition</span><span class="se">\n</span><span class="s1">$&#39;</span> <span class="o">+</span> <span class="n">eq_latex</span> <span class="o">+</span> <span class="s1">&#39;$&#39;</span> <span class="k">if</span> <span class="n">eq_latex</span> <span class="k">else</span> <span class="s1">&#39;Initial condition&#39;</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">init_title</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
     
             <span class="c1"># extent uses physical coordinates so axes show real x/y values</span>
             <span class="n">extent</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
@@ -3470,7 +3478,8 @@
                            <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="n">aspect</span><span class="p">)</span>
             <span class="n">cbar</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>
             <span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">component</span><span class="si">}</span><span class="s2"> of u&quot;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">(</span><span class="n">rect</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">])</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="mf">0.85</span><span class="p">)</span>
     
             <span class="c1"># containers for dynamic overlay artists (stored on function object)</span>
             <span class="c1"># update_im.contour_art and update_im.scatter_art will be created dynamically</span>
@@ -3499,11 +3508,11 @@
                         <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="o">=</span> <span class="kc">None</span>
                     <span class="c1"># draw new contours (use meshgrid coords)</span>
                     <span class="k">try</span><span class="p">:</span>
-                        <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="n">current_data</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;cool&#39;</span><span class="p">)</span>
+                        <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="n">current_data</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;cool&#39;</span><span class="p">)</span>
                     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                         <span class="c1"># fallback: contour with axis coordinates (x_grid, y_grid)</span>
                         <span class="n">Xc</span><span class="p">,</span> <span class="n">Yc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span><span class="p">)</span>
-                        <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">Xc</span><span class="p">,</span> <span class="n">Yc</span><span class="p">,</span> <span class="n">current_data</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;cool&#39;</span><span class="p">)</span>
+                        <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">Xc</span><span class="p">,</span> <span class="n">Yc</span><span class="p">,</span> <span class="n">current_data</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;cool&#39;</span><span class="p">)</span>
     
                 <span class="c1"># remove previous scatter if exists</span>
                 <span class="k">if</span> <span class="n">overlay</span> <span class="o">==</span> <span class="s1">&#39;front&#39;</span><span class="p">:</span>
@@ -3528,7 +3537,9 @@
                                                        <span class="n">c</span><span class="o">=</span><span class="n">colors</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
     
                 <span class="n">current_time</span> <span class="o">=</span> <span class="n">target_times</span><span class="p">[</span><span class="n">frame_number</span><span class="p">]</span>
-                <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Solution at t = </span><span class="si">{</span><span class="n">current_time</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">eq_latex</span> <span class="o">=</span> <span class="n">latex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equation</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;equation&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+                <span class="n">title</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;$</span><span class="si">{</span><span class="n">eq_latex</span><span class="si">}</span><span class="s1">$</span><span class="se">\n</span><span class="s1">Solution at t = </span><span class="si">{</span><span class="n">current_time</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">if</span> <span class="n">eq_latex</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;Solution at t = </span><span class="si">{</span><span class="n">current_time</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
                 <span class="c1"># return main image plus any overlay artists present so Matplotlib can redraw them</span>
                 <span class="n">artists</span> <span class="o">=</span> <span class="p">[</span><span class="n">im</span><span class="p">]</span>
                 <span class="k">if</span> <span class="n">overlay</span> <span class="o">==</span> <span class="s1">&#39;contour&#39;</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">update_im</span><span class="p">,</span> <span class="s1">&#39;contour_art&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">update_im</span><span class="o">.</span><span class="n">contour_art</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -3540,6 +3551,7 @@
                 <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">artists</span><span class="p">)</span>
     
             <span class="n">ani</span> <span class="o">=</span> <span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">update_im</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">target_times</span><span class="p">),</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">ani</span></div>
 
 
