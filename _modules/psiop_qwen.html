@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>psiop &mdash; psipy  documentation</title>
+  <title>psiop_qwen &mdash; psipy  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
@@ -76,7 +76,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
-      <li class="breadcrumb-item active">psiop</li>
+      <li class="breadcrumb-item active">psiop_qwen</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -85,7 +85,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for psiop</h1><div class="highlight"><pre>
+  <h1>Source code for psiop_qwen</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
 <span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
@@ -158,7 +158,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
 <div class="viewcode-block" id="PseudoDifferentialOperator">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PseudoDifferentialOperator</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Pseudo-differential operator with dynamic symbol evaluation on spatial grids.</span>
@@ -324,7 +324,7 @@
                 <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_func&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         
 <div class="viewcode-block" id="PseudoDifferentialOperator.evaluate">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.evaluate">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.evaluate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">KX</span><span class="p">,</span> <span class="n">KY</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Evaluate the pseudo-differential operator&#39;s symbol on a grid of spatial and frequency coordinates.</span>
@@ -366,16 +366,19 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.clear_cache">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.clear_cache">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.clear_cache">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Clear cached symbol evaluations.</span>
-<span class="sd">        &quot;&quot;&quot;</span>        
-        <span class="bp">self</span><span class="o">.</span><span class="n">symbol_cached</span> <span class="o">=</span> <span class="kc">None</span></div>
+<span class="sd">        Clear cached symbol evaluations and Peetre decompositions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">symbol_cached</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_peetre_cache&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_cache</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.apply">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.apply">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.apply">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">boundary_condition</span><span class="o">=</span><span class="s1">&#39;periodic&#39;</span><span class="p">,</span>
               <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dealiasing_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
               <span class="n">freq_window</span><span class="o">=</span><span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span> <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -656,7 +659,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">u_hat</span><span class="p">)</span>
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.principal_symbol">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.principal_symbol">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.principal_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">principal_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the leading homogeneous component of the pseudo-differential symbol.</span>
@@ -706,7 +709,7 @@
 
                        
 <div class="viewcode-block" id="PseudoDifferentialOperator.is_homogeneous">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.is_homogeneous">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.is_homogeneous">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_homogeneous</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Check whether the symbol is homogeneous in the frequency variables.</span>
@@ -766,7 +769,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.symbol_order">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.symbol_order">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.symbol_order">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">symbol_order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Estimate the homogeneity order of the pseudo-differential symbol in high-frequency asymptotics.</span>
@@ -943,7 +946,7 @@
 
     
 <div class="viewcode-block" id="PseudoDifferentialOperator.asymptotic_expansion">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.asymptotic_expansion">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.asymptotic_expansion">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">asymptotic_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the asymptotic expansion of the symbol as |ξ| → ∞ (high-frequency regime).</span>
@@ -1038,7 +1041,7 @@
 
             
 <div class="viewcode-block" id="PseudoDifferentialOperator.compose_asymptotic">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.compose_asymptotic">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.compose_asymptotic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">compose_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;kn&#39;</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compose two pseudo-differential operators using an asymptotic expansion</span>
@@ -1151,8 +1154,1295 @@
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D cases are implemented&quot;</span><span class="p">)</span></div>
 
 
+    <span class="c1"># ======================================================================</span>
+    <span class="c1"># Peetre-style symbolic decomposition</span>
+    <span class="c1"># ======================================================================</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_frequency_symbols</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the frequency symbols actually used in the symbol.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple</span>
+<span class="sd">            (xi,) in 1D or (xi, eta) in 2D.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">xi</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;xi&quot;</span><span class="p">),</span>
+                <span class="n">symbols</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">xi</span><span class="p">,)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">xi</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;xi&quot;</span><span class="p">),</span>
+                <span class="n">symbols</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">eta</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;eta&quot;</span><span class="p">),</span>
+                <span class="n">symbols</span><span class="p">(</span><span class="s2">&quot;eta&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span>
+
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Peetre decomposition supports only 1D and 2D operators.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_merge_local</span><span class="p">(</span><span class="n">dst</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Merge local coefficient dictionaries.</span>
+
+<span class="sd">        dst, src : dict</span>
+<span class="sd">            Dictionaries mapping multi-index tuples to symbolic coefficients.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">together</span>
+
+        <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">src</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">dst</span><span class="p">[</span><span class="n">monom</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">together</span><span class="p">(</span><span class="n">dst</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">monom</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">))</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_is_zero</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Conservative symbolic zero test.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">simplify</span>
+
+        <span class="k">if</span> <span class="n">expr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="n">expr</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">is_zero</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">is_zero</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_classify_terms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Classify a symbolic expression into local, separable and joint terms.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        expr : sympy.Expr</span>
+<span class="sd">            Symbol expression to classify.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        local_coeffs : dict</span>
+<span class="sd">            Dictionary mapping frequency multi-indices to x-dependent coefficients.</span>
+<span class="sd">            Example in 1D:</span>
+<span class="sd">                {(2,): 1 + x**2, (1,): x, (0,): V(x)}</span>
+<span class="sd">            represents</span>
+<span class="sd">                (1 + x**2) xi**2 + x xi + V(x).</span>
+
+<span class="sd">        separable : list of tuple</span>
+<span class="sd">            List of pairs (a_expr, q_expr), where a_expr depends only on space</span>
+<span class="sd">            variables and q_expr depends only on frequency variables.</span>
+
+<span class="sd">        joint : list of sympy.Expr</span>
+<span class="sd">            Terms still entangled between space and frequency variables.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Poly</span><span class="p">,</span> <span class="n">expand</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">together</span>
+
+        <span class="n">xi_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_frequency_symbols</span><span class="p">()</span>
+        <span class="n">x_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span>
+
+        <span class="n">expr</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+
+        <span class="n">local_terms</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">separable</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">joint</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">as_independent</span><span class="p">(</span><span class="o">*</span><span class="n">xi_vars</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">t</span>
+
+            <span class="c1"># If the frequency-dependent part still contains space variables,</span>
+            <span class="c1"># the term is genuinely joint.</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">xv</span><span class="p">)</span> <span class="k">for</span> <span class="n">xv</span> <span class="ow">in</span> <span class="n">x_vars</span><span class="p">):</span>
+                <span class="n">joint</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+
+            <span class="c1"># Polynomial in frequency variables =&gt; local/differential part.</span>
+            <span class="k">elif</span> <span class="n">q</span><span class="o">.</span><span class="n">is_polynomial</span><span class="p">(</span><span class="o">*</span><span class="n">xi_vars</span><span class="p">):</span>
+                <span class="n">local_terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+
+            <span class="c1"># Non-polynomial but frequency-only =&gt; separable Fourier multiplier</span>
+            <span class="c1"># with spatial amplitude.</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">separable</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">simplify</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">simplify</span><span class="p">(</span><span class="n">q</span><span class="p">)))</span>
+
+        <span class="n">local_coeffs</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="n">local_terms</span><span class="p">:</span>
+            <span class="n">p_local</span> <span class="o">=</span> <span class="n">Add</span><span class="p">(</span><span class="o">*</span><span class="n">local_terms</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">poly</span> <span class="o">=</span> <span class="n">Poly</span><span class="p">(</span><span class="n">p_local</span><span class="p">,</span> <span class="o">*</span><span class="n">xi_vars</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">poly</span> <span class="o">=</span> <span class="n">Poly</span><span class="p">(</span><span class="n">p_local</span><span class="p">,</span> <span class="o">*</span><span class="n">xi_vars</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="c1"># If Poly cannot safely parse the polynomial part, keep it</span>
+                    <span class="c1"># as joint rather than producing wrong coefficients.</span>
+                    <span class="n">joint</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">local_terms</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">local_coeffs</span><span class="p">,</span> <span class="n">separable</span><span class="p">,</span> <span class="n">joint</span>
+
+            <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">poly</span><span class="o">.</span><span class="n">terms</span><span class="p">():</span>
+                <span class="n">local_coeffs</span><span class="p">[</span><span class="n">monom</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span>
+                    <span class="n">together</span><span class="p">(</span><span class="n">local_coeffs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">monom</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">)</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">local_coeffs</span><span class="p">,</span> <span class="n">separable</span><span class="p">,</span> <span class="n">joint</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_coeffs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Rebuild the local polynomial symbol from its coefficient dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span>
+
+        <span class="n">xi_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_frequency_symbols</span><span class="p">()</span>
+        <span class="n">expr</span> <span class="o">=</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">local_coeffs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">term</span> <span class="o">=</span> <span class="n">coeff</span>
+            <span class="k">for</span> <span class="n">xi_var</span><span class="p">,</span> <span class="n">power</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">,</span> <span class="n">monom</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">power</span><span class="p">:</span>
+                    <span class="n">term</span> <span class="o">=</span> <span class="n">term</span> <span class="o">*</span> <span class="n">xi_var</span><span class="o">**</span><span class="n">power</span>
+            <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span> <span class="o">+</span> <span class="n">term</span>
+
+        <span class="k">return</span> <span class="n">expand</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_separable_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">separable</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Rebuild the separable symbol from a list of (a, q) pairs.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">separable</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">expand</span><span class="p">(</span><span class="n">Add</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">a</span> <span class="o">*</span> <span class="n">q</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">separable</span><span class="p">]))</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Peetre refinement via exact Taylor expansion in space variables</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_refine_with_taylor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_terms</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Refine joint terms by exact Taylor expansion in the spatial variable(s).</span>
+
+<span class="sd">        The Taylor polynomial is classified into local/separable parts.</span>
+<span class="sd">        The Taylor remainder is kept as an exact joint residual and is NOT</span>
+<span class="sd">        re-classified, otherwise the negative of the Taylor polynomial can</span>
+<span class="sd">        be extracted again and cancel the accepted terms.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        joint_terms : list of sympy.Expr</span>
+<span class="sd">            Joint terms to refine.</span>
+
+<span class="sd">        order : int</span>
+<span class="sd">            Maximum total Taylor degree kept.</span>
+
+<span class="sd">        x0 : list or tuple, optional</span>
+<span class="sd">            Expansion point.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        local_coeffs : dict</span>
+<span class="sd">            Additional local polynomial coefficients extracted from Taylor.</span>
+
+<span class="sd">        separable : list</span>
+<span class="sd">            Additional separable terms extracted from Taylor.</span>
+
+<span class="sd">        residual_joint : list</span>
+<span class="sd">            Remaining exact joint residuals.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Add</span><span class="p">,</span> <span class="n">expand</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">joint_terms</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{},</span> <span class="p">[],</span> <span class="p">[]</span>
+
+        <span class="n">order</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">order</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{},</span> <span class="p">[],</span> <span class="p">[</span><span class="n">expand</span><span class="p">(</span><span class="n">Add</span><span class="p">(</span><span class="o">*</span><span class="n">joint_terms</span><span class="p">))]</span>
+
+        <span class="n">local_coeffs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">separable</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">residuals</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">joint_terms</span><span class="p">:</span>
+            <span class="n">taylor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_taylor_polynomial</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">x0</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">taylor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">residuals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">expand</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+                <span class="k">continue</span>
+
+            <span class="n">taylor</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">taylor</span><span class="p">)</span>
+            <span class="n">remainder</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">taylor</span><span class="p">)</span>
+
+            <span class="c1"># Classify only the Taylor polynomial.</span>
+            <span class="n">lc_t</span><span class="p">,</span> <span class="n">sep_t</span><span class="p">,</span> <span class="n">jt_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_classify_terms</span><span class="p">(</span><span class="n">taylor</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_merge_local</span><span class="p">(</span><span class="n">local_coeffs</span><span class="p">,</span> <span class="n">lc_t</span><span class="p">)</span>
+            <span class="n">separable</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sep_t</span><span class="p">)</span>
+
+            <span class="c1"># If some Taylor terms are still joint, keep them in the residual.</span>
+            <span class="k">if</span> <span class="n">jt_t</span><span class="p">:</span>
+                <span class="n">residuals</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">expand</span><span class="p">(</span><span class="n">term</span><span class="p">)</span> <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">jt_t</span><span class="p">])</span>
+
+            <span class="c1"># The Taylor remainder is exact and must remain joint.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">remainder</span><span class="p">):</span>
+                <span class="n">residuals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">remainder</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">local_coeffs</span><span class="p">,</span> <span class="n">separable</span><span class="p">,</span> <span class="n">residuals</span>
+    
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Peetre refinement via existing asymptotic_expansion()</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_refine_with_asymptotic_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_terms</span><span class="p">,</span> <span class="n">order</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Refine joint terms using the existing asymptotic_expansion() method.</span>
+
+<span class="sd">        The refinement is symbolic. Accepted local/separable pieces are</span>
+<span class="sd">        subtracted from the original joint expression, leaving an exact</span>
+<span class="sd">        symbolic residual.</span>
+
+<span class="sd">        Important:</span>
+<span class="sd">        --------</span>
+<span class="sd">        The residual is NOT re-classified. Re-classifying the residual can</span>
+<span class="sd">        extract the negative of previously accepted Taylor/asymptotic terms</span>
+<span class="sd">        and cancel them.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        joint_terms : list of sympy.Expr</span>
+<span class="sd">            Joint terms to refine.</span>
+
+<span class="sd">        order : int</span>
+<span class="sd">            Order passed to asymptotic_expansion().</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        local_coeffs : dict</span>
+<span class="sd">            Additional local coefficients extracted from asymptotic expansion.</span>
+
+<span class="sd">        separable : list</span>
+<span class="sd">            Additional separable terms extracted from asymptotic expansion.</span>
+
+<span class="sd">        residual_joint : list</span>
+<span class="sd">            Remaining exact joint residuals.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Add</span><span class="p">,</span> <span class="n">expand</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">joint_terms</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{},</span> <span class="p">[],</span> <span class="p">[]</span>
+
+        <span class="n">local_coeffs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">separable</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">residuals</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">joint_terms</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">tmp_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">t</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">,</span>
+                    <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="c1"># The existing asymptotic_expansion() prints warnings for</span>
+                <span class="c1"># oscillatory/non-expandable terms such as sin(x*xi).</span>
+                <span class="c1"># We suppress stdout here to avoid noisy harmless messages.</span>
+                <span class="c1"># If you want to see them, remove the redirect_stdout block.</span>
+                <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">redirect_stdout</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">()):</span>
+                    <span class="n">expansion</span> <span class="o">=</span> <span class="n">tmp_op</span><span class="o">.</span><span class="n">asymptotic_expansion</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Peetre asymptotic refinement failed for a term: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">residuals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">expansion</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">expansion</span><span class="p">)</span>
+
+            <span class="c1"># If the asymptotic routine returned the same expression,</span>
+            <span class="c1"># do NOT classify it. Otherwise it may peel off counter-terms</span>
+            <span class="c1"># coming from a previous Taylor refinement and cancel them.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">expand</span><span class="p">(</span><span class="n">expansion</span> <span class="o">-</span> <span class="n">t</span><span class="p">)):</span>
+                <span class="n">residuals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">lc_exp</span><span class="p">,</span> <span class="n">sep_exp</span><span class="p">,</span> <span class="n">_joint_exp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_classify_terms</span><span class="p">(</span><span class="n">expansion</span><span class="p">)</span>
+
+            <span class="n">accepted</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_local_symbol</span><span class="p">(</span><span class="n">lc_exp</span><span class="p">)</span>
+                <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_separable_symbol</span><span class="p">(</span><span class="n">sep_exp</span><span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">accepted</span><span class="p">):</span>
+                <span class="n">residuals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">residual</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">accepted</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_merge_local</span><span class="p">(</span><span class="n">local_coeffs</span><span class="p">,</span> <span class="n">lc_exp</span><span class="p">)</span>
+            <span class="n">separable</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sep_exp</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">residual</span><span class="p">):</span>
+                <span class="n">residuals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">residual</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">local_coeffs</span><span class="p">,</span> <span class="n">separable</span><span class="p">,</span> <span class="n">residuals</span>
+
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="c1"># Taylor polynomial helper: total-degree multivariate Taylor</span>
+    <span class="c1"># ------------------------------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_taylor_polynomial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the Taylor polynomial of expr in the spatial variables.</span>
+
+<span class="sd">        The expansion is performed around x0.</span>
+
+<span class="sd">        In 1D:</span>
+<span class="sd">            expands in x around x0.</span>
+
+<span class="sd">        In 2D:</span>
+<span class="sd">            expands in (x, y) around (x0, y0) and keeps only monomials</span>
+<span class="sd">            whose total spatial degree is &lt;= order.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        expr : sympy.Expr</span>
+<span class="sd">            Expression to expand.</span>
+
+<span class="sd">        order : int</span>
+<span class="sd">            Maximum total Taylor degree kept.</span>
+<span class="sd">            order=0 keeps the constant term.</span>
+<span class="sd">            order=3 keeps terms of total degree &lt;= 3.</span>
+
+<span class="sd">        x0 : list or tuple, optional</span>
+<span class="sd">            Expansion point.</span>
+<span class="sd">            1D: [x0]</span>
+<span class="sd">            2D: [x0, y0]</span>
+<span class="sd">            If None, expands around 0.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr or None</span>
+<span class="sd">            Taylor polynomial, or None if the expansion fails.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dummy</span><span class="p">,</span> <span class="n">Poly</span><span class="p">,</span> <span class="n">expand</span><span class="p">,</span> <span class="n">sympify</span><span class="p">,</span> <span class="n">Integer</span>
+
+        <span class="n">order</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">order</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">x_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span>
+
+        <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x0_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">Integer</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">x_vars</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_vars</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;taylor_x0 must have the same length as vars_x. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">x_vars</span><span class="p">)</span><span class="si">}</span><span class="s2"> values, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">x0_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">sympify</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
+
+        <span class="c1"># Use dummy variables h_i = x_i - x0_i.</span>
+        <span class="n">h_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">Dummy</span><span class="p">(</span><span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">x_vars</span><span class="p">]</span>
+
+        <span class="n">subs_to_h</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">xv</span><span class="p">:</span> <span class="n">x0v</span> <span class="o">+</span> <span class="n">hv</span>
+            <span class="k">for</span> <span class="n">xv</span><span class="p">,</span> <span class="n">x0v</span><span class="p">,</span> <span class="n">hv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">x_vars</span><span class="p">,</span> <span class="n">x0_vars</span><span class="p">,</span> <span class="n">h_vars</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="n">subs_from_h</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">hv</span><span class="p">:</span> <span class="n">xv</span> <span class="o">-</span> <span class="n">x0v</span>
+            <span class="k">for</span> <span class="n">xv</span><span class="p">,</span> <span class="n">x0v</span><span class="p">,</span> <span class="n">hv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">x_vars</span><span class="p">,</span> <span class="n">x0_vars</span><span class="p">,</span> <span class="n">h_vars</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs_to_h</span><span class="p">)</span>
+
+            <span class="c1"># SymPy series convention:</span>
+            <span class="c1"># series(..., n=N) keeps terms with degree &lt; N.</span>
+            <span class="c1"># Therefore, to keep total degree &lt;= order, use n = order + 1.</span>
+            <span class="n">n_series</span> <span class="o">=</span> <span class="n">order</span> <span class="o">+</span> <span class="mi">1</span>
+
+            <span class="n">taylor</span> <span class="o">=</span> <span class="n">e</span>
+
+            <span class="c1"># Series in each dummy variable.</span>
+            <span class="k">for</span> <span class="n">hv</span> <span class="ow">in</span> <span class="n">h_vars</span><span class="p">:</span>
+                <span class="n">taylor</span> <span class="o">=</span> <span class="n">taylor</span><span class="o">.</span><span class="n">series</span><span class="p">(</span><span class="n">hv</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n_series</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
+
+            <span class="n">taylor</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">taylor</span><span class="p">)</span>
+
+            <span class="c1"># Keep only total degree &lt;= order.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">poly</span> <span class="o">=</span> <span class="n">Poly</span><span class="p">(</span><span class="n">taylor</span><span class="p">,</span> <span class="o">*</span><span class="n">h_vars</span><span class="p">)</span>
+                <span class="n">filtered</span> <span class="o">=</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">poly</span><span class="o">.</span><span class="n">terms</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">monom</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">order</span><span class="p">:</span>
+                        <span class="n">term</span> <span class="o">=</span> <span class="n">coeff</span>
+                        <span class="k">for</span> <span class="n">hv</span><span class="p">,</span> <span class="n">power</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">h_vars</span><span class="p">,</span> <span class="n">monom</span><span class="p">):</span>
+                            <span class="k">if</span> <span class="n">power</span><span class="p">:</span>
+                                <span class="n">term</span> <span class="o">=</span> <span class="n">term</span> <span class="o">*</span> <span class="n">hv</span><span class="o">**</span><span class="n">power</span>
+                        <span class="n">filtered</span> <span class="o">=</span> <span class="n">filtered</span> <span class="o">+</span> <span class="n">term</span>
+
+                <span class="n">taylor</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">filtered</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="c1"># If total-degree filtering fails, keep the nested series.</span>
+                <span class="k">pass</span>
+
+            <span class="k">return</span> <span class="n">expand</span><span class="p">(</span><span class="n">taylor</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs_from_h</span><span class="p">))</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Peetre Taylor polynomial failed for an expression: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_merge_separable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">separable</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Merge separable terms having the same frequency factor q.</span>
+
+<span class="sd">        This is purely cosmetic but makes the decomposition much easier to read.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">simplify</span>
+
+        <span class="n">merged</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">ordered_keys</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">separable</span><span class="p">:</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="n">key</span> <span class="o">=</span> <span class="n">q</span>
+
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">merged</span><span class="p">:</span>
+                <span class="n">merged</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">merged</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+</span> <span class="n">a</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">merged</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span>
+                <span class="n">ordered_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">merged</span><span class="p">[</span><span class="n">q</span><span class="p">],</span> <span class="n">q</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">ordered_keys</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">merged</span><span class="p">[</span><span class="n">q</span><span class="p">])</span>
+        <span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_to_separable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_coeffs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert local polynomial coefficients into separable terms.</span>
+<span class="sd">    </span>
+<span class="sd">        A local term</span>
+<span class="sd">    </span>
+<span class="sd">            coeff(x) * xi^alpha</span>
+<span class="sd">    </span>
+<span class="sd">        is converted into</span>
+<span class="sd">    </span>
+<span class="sd">            (coeff(x), xi^alpha)</span>
+<span class="sd">    </span>
+<span class="sd">        Terms with the same spatial coefficient are merged.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span><span class="p">,</span> <span class="n">simplify</span>
+    
+        <span class="n">xi_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_frequency_symbols</span><span class="p">()</span>
+        <span class="n">separable</span> <span class="o">=</span> <span class="p">[]</span>
+    
+        <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">local_coeffs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">coeff</span><span class="p">):</span>
+                <span class="k">continue</span>
+    
+            <span class="n">q</span> <span class="o">=</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">power</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">,</span> <span class="n">monom</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">power</span><span class="p">:</span>
+                    <span class="n">q</span> <span class="o">=</span> <span class="n">q</span> <span class="o">*</span> <span class="n">var</span><span class="o">**</span><span class="n">power</span>
+    
+            <span class="n">coeff</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">coeff</span><span class="p">)</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+    
+            <span class="c1"># Merge if the same spatial coefficient already exists.</span>
+            <span class="n">merged</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">c0</span><span class="p">,</span> <span class="n">q0</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">separable</span><span class="p">):</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">c0</span> <span class="o">-</span> <span class="n">coeff</span><span class="p">):</span>
+                    <span class="n">separable</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">c0</span><span class="p">,</span> <span class="n">expand</span><span class="p">(</span><span class="n">q0</span> <span class="o">+</span> <span class="n">q</span><span class="p">))</span>
+                    <span class="n">merged</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">break</span>
+    
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">merged</span><span class="p">:</span>
+                <span class="n">separable</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">coeff</span><span class="p">,</span> <span class="n">q</span><span class="p">))</span>
+    
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">expand</span><span class="p">(</span><span class="n">q</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">separable</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+        <span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_as_separable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_coeffs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Represent local polynomial coefficients as separable-style pairs</span>
+<span class="sd">        (a(x), q(xi)).</span>
+
+<span class="sd">        This does not change the mathematical classification: the terms are</span>
+<span class="sd">        still local because q(xi) is a polynomial in the frequency variables.</span>
+<span class="sd">        It only gives the local part in the same operational form used for</span>
+<span class="sd">        separable terms, namely:</span>
+
+<span class="sd">            a(x) * q(D) u</span>
+
+<span class="sd">        which is the efficient application path.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">local_coeffs</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_merge_separable</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_local_to_separable</span><span class="p">(</span><span class="n">local_coeffs</span><span class="p">)</span>
+        <span class="p">)</span>
+        
+<div class="viewcode-block" id="PseudoDifferentialOperator.peetre_decomposition">
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.peetre_decomposition">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">peetre_decomposition</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">asymptotic_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">refine_joint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">taylor_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">taylor_x0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">refinement_sequence</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;taylor&quot;</span><span class="p">,</span> <span class="s2">&quot;asymptotic&quot;</span><span class="p">),</span>
+        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">separable_local</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Symbolic Peetre-style decomposition of the operator symbol.</span>
+
+<span class="sd">        The symbol is split into:</span>
+
+<span class="sd">            local:</span>
+<span class="sd">                Polynomial part in the frequency variables.</span>
+
+<span class="sd">            separable:</span>
+<span class="sd">                Sum of terms a(x) q(xi), with q frequency-only.</span>
+
+<span class="sd">            joint_residual:</span>
+<span class="sd">                Remaining genuinely entangled terms.</span>
+
+<span class="sd">        Optional refinements</span>
+<span class="sd">        --------------------</span>
+<span class="sd">        Taylor refinement:</span>
+<span class="sd">            Expands joint terms in space around taylor_x0.</span>
+
+<span class="sd">            Enabled when:</span>
+<span class="sd">                refine_joint=True</span>
+<span class="sd">                taylor_order is not None</span>
+<span class="sd">                refinement_sequence contains &quot;taylor&quot;</span>
+
+<span class="sd">        Asymptotic refinement:</span>
+<span class="sd">            Uses self.asymptotic_expansion(order=asymptotic_order)</span>
+<span class="sd">            on the remaining joint terms.</span>
+
+<span class="sd">            Enabled when:</span>
+<span class="sd">                refine_joint=True</span>
+<span class="sd">                asymptotic_order is not None and &gt; 0</span>
+<span class="sd">                refinement_sequence contains &quot;asymptotic&quot;</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        asymptotic_order : int, optional</span>
+<span class="sd">            Order for asymptotic_expansion().</span>
+
+<span class="sd">        refine_joint : bool, default=True</span>
+<span class="sd">            Master switch for joint refinement.</span>
+
+<span class="sd">        taylor_order : int, optional</span>
+<span class="sd">            Maximum Taylor degree kept.</span>
+<span class="sd">            order=0 keeps constant term.</span>
+<span class="sd">            order=3 keeps terms up to degree 3.</span>
+
+<span class="sd">        taylor_x0 : list or tuple, optional</span>
+<span class="sd">            Taylor expansion point.</span>
+<span class="sd">            1D: [x0]</span>
+<span class="sd">            2D: [x0, y0]</span>
+<span class="sd">            If None, uses [0] or [0, 0].</span>
+
+<span class="sd">        refinement_sequence : tuple, default=(&quot;taylor&quot;, &quot;asymptotic&quot;)</span>
+<span class="sd">            Order of refinements.</span>
+<span class="sd">            Examples:</span>
+<span class="sd">                (&quot;taylor&quot;, &quot;asymptotic&quot;)</span>
+<span class="sd">                (&quot;asymptotic&quot;, &quot;taylor&quot;)</span>
+<span class="sd">                (&quot;taylor&quot;,)</span>
+<span class="sd">                (&quot;asymptotic&quot;,)</span>
+
+<span class="sd">        use_cache : bool, default=True</span>
+<span class="sd">            Cache the decomposition.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            Decomposition dictionary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span><span class="p">,</span> <span class="n">sympify</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">refinement_sequence</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">refinement_sequence</span> <span class="o">=</span> <span class="p">(</span><span class="n">refinement_sequence</span><span class="p">,)</span>
+
+        <span class="n">refinement_sequence</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">refinement_sequence</span> <span class="ow">or</span> <span class="p">())</span>
+
+        <span class="k">if</span> <span class="n">taylor_x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">taylor_x0</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;taylor_x0 must have the same length as vars_x. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2"> values, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">taylor_x0</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">x0_key</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">sympify</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">taylor_x0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x0_key</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">cache</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_peetre_cache&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">use_cache</span>
+            <span class="ow">and</span> <span class="n">cache</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;symbol&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span>
+            <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;asymptotic_order&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">asymptotic_order</span>
+            <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;refine_joint&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">refine_joint</span>
+            <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;taylor_order&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">taylor_order</span>
+            <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;taylor_x0&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">x0_key</span>
+            <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;refinement_sequence&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">refinement_sequence</span>
+            <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;separable_local&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">separable_local</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="n">cache</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">]</span>
+
+        <span class="n">local_coeffs</span><span class="p">,</span> <span class="n">separable</span><span class="p">,</span> <span class="n">joint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_classify_terms</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">refine_joint</span> <span class="ow">and</span> <span class="n">joint</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">refinement_sequence</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">joint</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+                <span class="k">if</span> <span class="n">step</span> <span class="o">==</span> <span class="s2">&quot;taylor&quot;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">taylor_order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">taylor_order</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">lc_extra</span><span class="p">,</span> <span class="n">sep_extra</span><span class="p">,</span> <span class="n">joint_refined</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_refine_with_taylor</span><span class="p">(</span>
+                                <span class="n">joint</span><span class="p">,</span>
+                                <span class="nb">int</span><span class="p">(</span><span class="n">taylor_order</span><span class="p">),</span>
+                                <span class="n">x0_key</span><span class="p">,</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_merge_local</span><span class="p">(</span><span class="n">local_coeffs</span><span class="p">,</span> <span class="n">lc_extra</span><span class="p">)</span>
+                        <span class="n">separable</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sep_extra</span><span class="p">)</span>
+                        <span class="n">joint</span> <span class="o">=</span> <span class="n">joint_refined</span>
+
+                <span class="k">elif</span> <span class="n">step</span> <span class="o">==</span> <span class="s2">&quot;asymptotic&quot;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">asymptotic_order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">asymptotic_order</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">lc_extra</span><span class="p">,</span> <span class="n">sep_extra</span><span class="p">,</span> <span class="n">joint_refined</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_refine_with_asymptotic_expansion</span><span class="p">(</span>
+                                <span class="n">joint</span><span class="p">,</span>
+                                <span class="nb">int</span><span class="p">(</span><span class="n">asymptotic_order</span><span class="p">),</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_merge_local</span><span class="p">(</span><span class="n">local_coeffs</span><span class="p">,</span> <span class="n">lc_extra</span><span class="p">)</span>
+                        <span class="n">separable</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sep_extra</span><span class="p">)</span>
+                        <span class="n">joint</span> <span class="o">=</span> <span class="n">joint_refined</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Unknown Peetre refinement step: &#39;</span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                        <span class="s2">&quot;Use &#39;taylor&#39; or &#39;asymptotic&#39;.&quot;</span>
+                    <span class="p">)</span>
+
+        <span class="c1"># ------------------------------------------------------------------</span>
+        <span class="c1"># Add this before removing zero terms</span>
+        <span class="c1"># ------------------------------------------------------------------</span>
+        <span class="n">separable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_merge_separable</span><span class="p">(</span><span class="n">separable</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">joint</span><span class="p">:</span>
+            <span class="n">joint_combined</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">Add</span><span class="p">(</span><span class="o">*</span><span class="n">joint</span><span class="p">))</span>
+            <span class="n">joint</span> <span class="o">=</span> <span class="p">[</span><span class="n">joint_combined</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">joint_combined</span><span class="p">)</span> <span class="k">else</span> <span class="p">[]</span>
+
+        <span class="c1"># ------------------------------------------------------------------</span>
+        <span class="c1"># Remove zero terms.</span>
+        <span class="c1"># ------------------------------------------------------------------</span>
+        <span class="n">local_coeffs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">local_coeffs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="n">separable</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">separable</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="n">joint</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">joint</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="c1"># ------------------------------------------------------------------</span>
+        <span class="c1"># Represent the local polynomial part in the same operational form</span>
+        <span class="c1"># as separable terms:</span>
+        <span class="c1">#</span>
+        <span class="c1">#     a(x) * q(xi)</span>
+        <span class="c1">#</span>
+        <span class="c1"># This is useful because application is then performed as</span>
+        <span class="c1">#</span>
+        <span class="c1">#     a(x) * q(D) u</span>
+        <span class="c1">#</span>
+        <span class="c1"># which is the same efficient path used for separable terms.</span>
+        <span class="c1">#</span>
+        <span class="c1"># However, unlike the previous behavior, we do NOT force these terms</span>
+        <span class="c1"># into the separable non-local category by default. They remain</span>
+        <span class="c1"># mathematically classified as local terms.</span>
+        <span class="c1"># ------------------------------------------------------------------</span>
+        <span class="n">local_terms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_local_as_separable</span><span class="p">(</span><span class="n">local_coeffs</span><span class="p">)</span>
+    
+        <span class="k">if</span> <span class="n">separable_local</span> <span class="ow">and</span> <span class="n">local_terms</span><span class="p">:</span>
+            <span class="c1">#</span>
+            <span class="c1"># Legacy behavior:</span>
+            <span class="c1"># local polynomial terms are exposed as separable terms and the</span>
+            <span class="c1"># local dictionary/symbol are cleared.</span>
+            <span class="c1">#</span>
+            <span class="n">separable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_merge_separable</span><span class="p">(</span><span class="n">local_terms</span> <span class="o">+</span> <span class="n">separable</span><span class="p">)</span>
+            <span class="n">local_coeffs</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">local_terms</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">local_symbol</span> <span class="o">=</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">local_symbol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_local_symbol</span><span class="p">(</span><span class="n">local_coeffs</span><span class="p">)</span>
+    
+        <span class="n">separable_symbol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_separable_symbol</span><span class="p">(</span><span class="n">separable</span><span class="p">)</span>
+        <span class="n">joint_symbol</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">Add</span><span class="p">(</span><span class="o">*</span><span class="n">joint</span><span class="p">))</span> <span class="k">if</span> <span class="n">joint</span> <span class="k">else</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    
+        <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;local&quot;</span><span class="p">:</span> <span class="n">local_coeffs</span><span class="p">,</span>
+            <span class="s2">&quot;local_terms&quot;</span><span class="p">:</span> <span class="n">local_terms</span><span class="p">,</span>
+            <span class="s2">&quot;separable&quot;</span><span class="p">:</span> <span class="n">separable</span><span class="p">,</span>
+            <span class="s2">&quot;joint_residual&quot;</span><span class="p">:</span> <span class="n">joint</span><span class="p">,</span>
+            <span class="s2">&quot;local_symbol&quot;</span><span class="p">:</span> <span class="n">local_symbol</span><span class="p">,</span>
+            <span class="s2">&quot;separable_symbol&quot;</span><span class="p">:</span> <span class="n">separable_symbol</span><span class="p">,</span>
+            <span class="s2">&quot;joint_symbol&quot;</span><span class="p">:</span> <span class="n">joint_symbol</span><span class="p">,</span>
+            <span class="s2">&quot;asymptotic_order&quot;</span><span class="p">:</span> <span class="n">asymptotic_order</span><span class="p">,</span>
+            <span class="s2">&quot;refine_joint&quot;</span><span class="p">:</span> <span class="n">refine_joint</span><span class="p">,</span>
+            <span class="s2">&quot;taylor_order&quot;</span><span class="p">:</span> <span class="n">taylor_order</span><span class="p">,</span>
+            <span class="s2">&quot;taylor_x0&quot;</span><span class="p">:</span> <span class="n">x0_key</span><span class="p">,</span>
+            <span class="s2">&quot;refinement_sequence&quot;</span><span class="p">:</span> <span class="n">refinement_sequence</span><span class="p">,</span>
+            <span class="s2">&quot;separable_local&quot;</span><span class="p">:</span> <span class="n">separable_local</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_cache</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;symbol&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span>
+            <span class="s2">&quot;asymptotic_order&quot;</span><span class="p">:</span> <span class="n">asymptotic_order</span><span class="p">,</span>
+            <span class="s2">&quot;refine_joint&quot;</span><span class="p">:</span> <span class="n">refine_joint</span><span class="p">,</span>
+            <span class="s2">&quot;taylor_order&quot;</span><span class="p">:</span> <span class="n">taylor_order</span><span class="p">,</span>
+            <span class="s2">&quot;taylor_x0&quot;</span><span class="p">:</span> <span class="n">x0_key</span><span class="p">,</span>
+            <span class="s2">&quot;refinement_sequence&quot;</span><span class="p">:</span> <span class="n">refinement_sequence</span><span class="p">,</span>
+            <span class="s2">&quot;separable_local&quot;</span><span class="p">:</span> <span class="n">separable_local</span><span class="p">,</span>
+            <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="PseudoDifferentialOperator.decompose_symbol_peetre">
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.decompose_symbol_peetre">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">decompose_symbol_peetre</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Alias for peetre_decomposition(), for compatibility with the</span>
+<span class="sd">        standalone symbolic_decompose.py naming style.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">peetre_decomposition</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PseudoDifferentialOperator.print_peetre_decomposition">
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.print_peetre_decomposition">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">print_peetre_decomposition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pretty-print the Peetre decomposition.</span>
+
+<span class="sd">        All keyword arguments are passed to peetre_decomposition().</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        op.print_peetre_decomposition()</span>
+
+<span class="sd">        op.print_peetre_decomposition(</span>
+<span class="sd">            taylor_order=4,</span>
+<span class="sd">            taylor_x0=[0],</span>
+<span class="sd">            asymptotic_order=4,</span>
+<span class="sd">        )</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">deco</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peetre_decomposition</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">xi_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_frequency_symbols</span><span class="p">()</span>
+
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="c1"># Local terms.</span>
+        <span class="c1">#</span>
+        <span class="c1"># If local_terms is available, print it in the same style as</span>
+        <span class="c1"># separable terms:</span>
+        <span class="c1">#</span>
+        <span class="c1">#     (a(x)) * (q(xi))</span>
+        <span class="c1">#</span>
+        <span class="c1"># This is more natural for variable-coefficient polynomial symbols.</span>
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="n">local_terms</span> <span class="o">=</span> <span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;local_terms&quot;</span><span class="p">,</span> <span class="p">[])</span>
+
+        <span class="k">if</span> <span class="n">local_terms</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;--- </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">local_terms</span><span class="p">)</span><span class="si">}</span><span class="s2"> local term(s), &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;represented as a(x)*q(</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">xi_vars</span><span class="p">)</span><span class="si">}</span><span class="s2">) ---&quot;</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">local_terms</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  (</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2">) * (</span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;--- </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s1">&#39;local&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2"> local term(s), &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;polynomial in </span><span class="si">{</span><span class="n">xi_vars</span><span class="si">}</span><span class="s2"> ---&quot;</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">&quot;local&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">factors</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">power</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">,</span> <span class="n">monom</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">power</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">factors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">var</span><span class="p">))</span>
+                    <span class="k">elif</span> <span class="n">power</span><span class="p">:</span>
+                        <span class="n">factors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2">**</span><span class="si">{</span><span class="n">power</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="n">monom_str</span> <span class="o">=</span> <span class="s2">&quot;*&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">factors</span><span class="p">)</span> <span class="k">if</span> <span class="n">factors</span> <span class="k">else</span> <span class="s2">&quot;1&quot;</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  (</span><span class="si">{</span><span class="n">coeff</span><span class="si">}</span><span class="s2">) * </span><span class="si">{</span><span class="n">monom_str</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="c1"># Separable non-local terms.</span>
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;--- </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s1">&#39;separable&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2"> separable non-local term(s) ---&quot;</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">&quot;separable&quot;</span><span class="p">]:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  (</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2">) * (</span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="c1"># Joint residual.</span>
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;--- </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s1">&#39;joint_residual&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2"> irreducible joint term(s) ---&quot;</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">&quot;joint_residual&quot;</span><span class="p">]:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;local_symbol = </span><span class="si">{</span><span class="n">deco</span><span class="p">[</span><span class="s1">&#39;local_symbol&#39;</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;separable_symbol = </span><span class="si">{</span><span class="n">deco</span><span class="p">[</span><span class="s1">&#39;separable_symbol&#39;</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;joint_symbol = </span><span class="si">{</span><span class="n">deco</span><span class="p">[</span><span class="s1">&#39;joint_symbol&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
+
+
+        
+    <span class="c1"># ======================================================================</span>
+    <span class="c1"># Peetre-based application</span>
+    <span class="c1"># ======================================================================</span>
+<div class="viewcode-block" id="PseudoDifferentialOperator.apply_peetre">
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.apply_peetre">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_peetre</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">u</span><span class="p">,</span>
+        <span class="n">x_grid</span><span class="p">,</span>
+        <span class="n">kx</span><span class="p">,</span>
+        <span class="n">boundary_condition</span><span class="o">=</span><span class="s2">&quot;periodic&quot;</span><span class="p">,</span>
+        <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">dealiasing_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">freq_window</span><span class="o">=</span><span class="s2">&quot;gaussian&quot;</span><span class="p">,</span>
+        <span class="n">clamp</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span>
+        <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">weyl_order</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+        <span class="n">asymptotic_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">refine_joint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">taylor_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">taylor_x0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">refinement_sequence</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;taylor&quot;</span><span class="p">,</span> <span class="s2">&quot;asymptotic&quot;</span><span class="p">),</span>
+        <span class="n">apply_joint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">decomposition</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">separable_local</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply the operator using its Peetre decomposition.</span>
+
+<span class="sd">        The local polynomial part is now represented as pairs (a(x), q(xi))</span>
+<span class="sd">        and applied using the same efficient strategy as separable terms:</span>
+
+<span class="sd">            a(x) * q(D) u</span>
+
+<span class="sd">        If a decomposition is provided, it is used directly and the</span>
+<span class="sd">        decomposition-related parameters are ignored.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">lambdify</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="p">(</span><span class="n">y_grid</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ky</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;y_grid and ky are required for 2D operators.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">decomposition</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">decomposition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peetre_decomposition</span><span class="p">(</span>
+                <span class="n">asymptotic_order</span><span class="o">=</span><span class="n">asymptotic_order</span><span class="p">,</span>
+                <span class="n">refine_joint</span><span class="o">=</span><span class="n">refine_joint</span><span class="p">,</span>
+                <span class="n">taylor_order</span><span class="o">=</span><span class="n">taylor_order</span><span class="p">,</span>
+                <span class="n">taylor_x0</span><span class="o">=</span><span class="n">taylor_x0</span><span class="p">,</span>
+                <span class="n">refinement_sequence</span><span class="o">=</span><span class="n">refinement_sequence</span><span class="p">,</span>
+                <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
+                <span class="n">separable_local</span><span class="o">=</span><span class="n">separable_local</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">deco</span> <span class="o">=</span> <span class="n">decomposition</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+
+        <span class="n">common_apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">boundary_condition</span><span class="o">=</span><span class="n">boundary_condition</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span>
+            <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
+            <span class="n">dealiasing_mask</span><span class="o">=</span><span class="n">dealiasing_mask</span><span class="p">,</span>
+            <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
+            <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
+            <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
+            <span class="n">weyl_order</span><span class="o">=</span><span class="n">weyl_order</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="c1"># Resolve local terms.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Preferred form:</span>
+        <span class="c1">#</span>
+        <span class="c1">#     deco[&quot;local_terms&quot;] = [(a_1, q_1), (a_2, q_2), ...]</span>
+        <span class="c1">#</span>
+        <span class="c1"># where each q_i is polynomial in the frequency variables.</span>
+        <span class="c1">#</span>
+        <span class="c1"># For backward compatibility, if local_terms is absent, rebuild it</span>
+        <span class="c1"># from deco[&quot;local&quot;] if possible.</span>
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="n">local_terms</span> <span class="o">=</span> <span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;local_terms&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">local_terms</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">local_terms</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;local&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+                <span class="n">local_terms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_local_as_separable</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s2">&quot;local&quot;</span><span class="p">])</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;local_symbol&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)):</span>
+                <span class="c1">#</span>
+                <span class="c1"># Very old/custom decomposition format:</span>
+                <span class="c1"># only local_symbol is available. Fall back to direct</span>
+                <span class="c1"># application of the full local symbol.</span>
+                <span class="c1">#</span>
+                <span class="n">op_local</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">deco</span><span class="p">[</span><span class="s2">&quot;local_symbol&quot;</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">,</span>
+                    <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">op_local</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                    <span class="n">u</span><span class="p">,</span>
+                    <span class="n">x_grid</span><span class="p">,</span>
+                    <span class="n">kx</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">common_apply_kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">local_terms</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">local_terms</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">x_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_apply_separable_pair</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">q</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Apply a term a(x) q(xi) as:</span>
+
+<span class="sd">                a(x) * Op(q) u</span>
+
+<span class="sd">            This is exact for Kohn-Nirenberg quantization and is the</span>
+<span class="sd">            efficient path because Op(q) has no spatial dependence.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">op_q</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">q</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">v</span> <span class="o">=</span> <span class="n">op_q</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                <span class="n">u</span><span class="p">,</span>
+                <span class="n">x_grid</span><span class="p">,</span>
+                <span class="n">kx</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">common_apply_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">a_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">x_tuple</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">a_vals</span> <span class="o">=</span> <span class="n">a_func</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span><span class="p">)</span>
+                    <span class="n">a_vals</span> <span class="o">=</span> <span class="n">a_func</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a_vals</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Could not lambdify a local/separable spatial amplitude. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Falling back to full symbol application: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+                <span class="n">op_full</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">a</span> <span class="o">*</span> <span class="n">q</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">,</span>
+                    <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="k">return</span> <span class="n">op_full</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                    <span class="n">u</span><span class="p">,</span>
+                    <span class="n">x_grid</span><span class="p">,</span>
+                    <span class="n">kx</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">common_apply_kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="c1"># 1. Local polynomial part.</span>
+        <span class="c1">#</span>
+        <span class="c1"># It is applied exactly like separable terms:</span>
+        <span class="c1">#</span>
+        <span class="c1">#     a(x) q(D) u</span>
+        <span class="c1">#</span>
+        <span class="c1"># This avoids applying the whole variable-coefficient polynomial</span>
+        <span class="c1"># symbol through the slower fully x-dependent KN path.</span>
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">local_terms</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_separable_pair</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="c1"># 2. Separable non-local terms: a(x) q(D) u</span>
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;separable&quot;</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_separable_pair</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="c1"># 3. Joint residual</span>
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;joint_symbol&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">apply_joint</span><span class="p">:</span>
+                <span class="n">op_joint</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">deco</span><span class="p">[</span><span class="s2">&quot;joint_symbol&quot;</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">,</span>
+                    <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">op_joint</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                    <span class="n">u</span><span class="p">,</span>
+                    <span class="n">x_grid</span><span class="p">,</span>
+                    <span class="n">kx</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">common_apply_kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Peetre joint residual has been ignored. &quot;</span>
+                    <span class="s2">&quot;The result is an asymptotic/local+separable approximation.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">result</span></div>
+
+        
+<div class="viewcode-block" id="PseudoDifferentialOperator.apply_peetre_old">
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.apply_peetre_old">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_peetre_old</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">u</span><span class="p">,</span>
+        <span class="n">x_grid</span><span class="p">,</span>
+        <span class="n">kx</span><span class="p">,</span>
+        <span class="n">boundary_condition</span><span class="o">=</span><span class="s2">&quot;periodic&quot;</span><span class="p">,</span>
+        <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">dealiasing_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">freq_window</span><span class="o">=</span><span class="s2">&quot;gaussian&quot;</span><span class="p">,</span>
+        <span class="n">clamp</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span>
+        <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">weyl_order</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+        <span class="n">asymptotic_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">refine_joint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">taylor_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">taylor_x0</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">refinement_sequence</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;taylor&quot;</span><span class="p">,</span> <span class="s2">&quot;asymptotic&quot;</span><span class="p">),</span>
+        <span class="n">apply_joint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">decomposition</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply the operator using its Peetre decomposition.</span>
+
+<span class="sd">        Now supports Taylor refinement and asymptotic refinement.</span>
+
+<span class="sd">        If decomposition is provided, it is used directly and the</span>
+<span class="sd">        decomposition-related parameters are ignored.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">lambdify</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="p">(</span><span class="n">y_grid</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ky</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;y_grid and ky are required for 2D operators.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">decomposition</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">decomposition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peetre_decomposition</span><span class="p">(</span>
+                <span class="n">asymptotic_order</span><span class="o">=</span><span class="n">asymptotic_order</span><span class="p">,</span>
+                <span class="n">refine_joint</span><span class="o">=</span><span class="n">refine_joint</span><span class="p">,</span>
+                <span class="n">taylor_order</span><span class="o">=</span><span class="n">taylor_order</span><span class="p">,</span>
+                <span class="n">taylor_x0</span><span class="o">=</span><span class="n">taylor_x0</span><span class="p">,</span>
+                <span class="n">refinement_sequence</span><span class="o">=</span><span class="n">refinement_sequence</span><span class="p">,</span>
+                <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">deco</span> <span class="o">=</span> <span class="n">decomposition</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+
+        <span class="n">common_apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">boundary_condition</span><span class="o">=</span><span class="n">boundary_condition</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span>
+            <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
+            <span class="n">dealiasing_mask</span><span class="o">=</span><span class="n">dealiasing_mask</span><span class="p">,</span>
+            <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
+            <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
+            <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
+            <span class="n">weyl_order</span><span class="o">=</span><span class="n">weyl_order</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="c1"># 1. Local polynomial part</span>
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s2">&quot;local_symbol&quot;</span><span class="p">]):</span>
+            <span class="n">op_local</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">deco</span><span class="p">[</span><span class="s2">&quot;local_symbol&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">op_local</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                <span class="n">u</span><span class="p">,</span>
+                <span class="n">x_grid</span><span class="p">,</span>
+                <span class="n">kx</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">common_apply_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="c1"># 2. Separable terms: a(x) q(D) u</span>
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="n">x_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">&quot;separable&quot;</span><span class="p">]:</span>
+            <span class="n">op_q</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">q</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">v</span> <span class="o">=</span> <span class="n">op_q</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                <span class="n">u</span><span class="p">,</span>
+                <span class="n">x_grid</span><span class="p">,</span>
+                <span class="n">kx</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">common_apply_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">a_func</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">x_tuple</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">a_vals</span> <span class="o">=</span> <span class="n">a_func</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span><span class="p">)</span>
+                    <span class="n">a_vals</span> <span class="o">=</span> <span class="n">a_func</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a_vals</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Could not lambdify a separable spatial amplitude. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Falling back to full separable symbol application: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+                <span class="n">op_sep</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">a</span> <span class="o">*</span> <span class="n">q</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">,</span>
+                    <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">op_sep</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                    <span class="n">u</span><span class="p">,</span>
+                    <span class="n">x_grid</span><span class="p">,</span>
+                    <span class="n">kx</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">common_apply_kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="c1"># 3. Joint residual</span>
+        <span class="c1"># --------------------------------------------------------------</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s2">&quot;joint_symbol&quot;</span><span class="p">]):</span>
+            <span class="k">if</span> <span class="n">apply_joint</span><span class="p">:</span>
+                <span class="n">op_joint</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">deco</span><span class="p">[</span><span class="s2">&quot;joint_symbol&quot;</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;symbol&quot;</span><span class="p">,</span>
+                    <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">op_joint</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                    <span class="n">u</span><span class="p">,</span>
+                    <span class="n">x_grid</span><span class="p">,</span>
+                    <span class="n">kx</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">common_apply_kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Peetre joint residual has been ignored. &quot;</span>
+                    <span class="s2">&quot;The result is an asymptotic/local+separable approximation.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">result</span></div>
+
+        
+<div class="viewcode-block" id="PseudoDifferentialOperator.peetre_apply">
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.peetre_apply">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">peetre_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Alias for apply_peetre().</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_peetre</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+        
 <div class="viewcode-block" id="PseudoDifferentialOperator.commutator_symbolic">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.commutator_symbolic">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.commutator_symbolic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">commutator_symbolic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;kn&#39;</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the symbolic commutator [A, B] = A∘B − B∘A of two pseudo-differential operators</span>
@@ -1191,7 +2481,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.right_inverse_asymptotic">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.right_inverse_asymptotic">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.right_inverse_asymptotic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">right_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Construct a formal right inverse R of the pseudo-differential operator P such that </span>
@@ -1252,7 +2542,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.left_inverse_asymptotic">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.left_inverse_asymptotic">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.left_inverse_asymptotic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">left_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Construct a formal left inverse L such that the composition L ∘ P equals the identity </span>
@@ -1317,7 +2607,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.formal_adjoint">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.formal_adjoint">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.formal_adjoint">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">formal_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the formal adjoint symbol P* of the pseudo-differential operator.</span>
@@ -1353,7 +2643,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.fractional_power">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.fractional_power">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.fractional_power">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">fractional_power</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;symbolic&#39;</span><span class="p">,</span> <span class="n">x_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the symbol or discrete matrix representation of the fractional </span>
@@ -1529,7 +2819,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.exponential_symbol">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.exponential_symbol">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.exponential_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">exponential_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;kn&#39;</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the symbol of exp(tP) using asymptotic expansion methods.</span>
@@ -1634,7 +2924,7 @@
 
         
 <div class="viewcode-block" id="PseudoDifferentialOperator.trace_formula">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.trace_formula">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.trace_formula">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">trace_formula</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">volume_element</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">numerical</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> 
                       <span class="n">x_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1794,7 +3084,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.pseudospectrum_analysis">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.pseudospectrum_analysis">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.pseudospectrum_analysis">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">pseudospectrum_analysis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">lambda_real_range</span><span class="p">,</span> <span class="n">lambda_imag_range</span><span class="p">,</span>
                                <span class="n">epsilon_levels</span><span class="o">=</span><span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.0001</span><span class="p">],</span>
                                <span class="n">resolution</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;spectral&#39;</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -2363,7 +3653,7 @@
     
     
 <div class="viewcode-block" id="PseudoDifferentialOperator.symplectic_flow">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.symplectic_flow">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.symplectic_flow">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">symplectic_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the Hamiltonian vector field associated with the principal symbol.</span>
@@ -2404,7 +3694,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.is_elliptic_numerically">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.is_elliptic_numerically">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.is_elliptic_numerically">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_elliptic_numerically</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
                                  <span class="n">xi_frac</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">n_random</span><span class="o">=</span><span class="mi">100_000</span><span class="p">,</span> <span class="n">n_edge</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -2620,7 +3910,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.is_self_adjoint">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.is_self_adjoint">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.is_self_adjoint">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_self_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Check whether the pseudo-differential operator is formally self-adjoint (Hermitian).</span>
@@ -2791,7 +4081,7 @@
     <span class="c1"># ===========================================================================</span>
     
 <div class="viewcode-block" id="PseudoDifferentialOperator.weyl_to_kn_symbol">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.weyl_to_kn_symbol">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.weyl_to_kn_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">weyl_to_kn_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Convert the Weyl symbol to its Kohn-Nirenberg equivalent.</span>
@@ -2862,7 +4152,7 @@
     <span class="c1"># ===========================================================================</span>
     
 <div class="viewcode-block" id="PseudoDifferentialOperator.kn_to_weyl_symbol">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.kn_to_weyl_symbol">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.kn_to_weyl_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">kn_to_weyl_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Convert the Kohn-Nirenberg symbol to its Weyl equivalent.</span>
@@ -2917,7 +4207,7 @@
 <span class="c1">#########################</span>
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_fiber">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_fiber">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.visualize_fiber">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_fiber</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Plot the cotangent fiber structure at a fixed spatial point (x₀[, y₀]).</span>
@@ -2969,7 +4259,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_symbol_amplitude">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_symbol_amplitude">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.visualize_symbol_amplitude">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_symbol_amplitude</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Display the modulus |p(x, ξ)| or |p(x, y, ξ₀, η₀)| as a color map.</span>
@@ -3017,7 +4307,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_phase">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_phase">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.visualize_phase">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Plot the phase (argument) of the pseudodifferential operator&#39;s symbol p(x, ξ) or p(x, y, ξ, η).</span>
@@ -3072,7 +4362,7 @@
 
             
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_characteristic_set">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_characteristic_set">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.visualize_characteristic_set">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="p">[</span><span class="mf">1e-1</span><span class="p">]):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Visualize the characteristic set of the pseudo-differential symbol, defined as the approximate zero set p(x, ξ) ≈ 0.</span>
@@ -3137,7 +4427,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_characteristic_gradient">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_characteristic_gradient">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.visualize_characteristic_gradient">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Visualize the norm of the gradient of the symbol in phase space.</span>
@@ -3203,7 +4493,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.plot_hamiltonian_flow">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.plot_hamiltonian_flow">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.plot_hamiltonian_flow">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_hamiltonian_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">show_field</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Integrate and plot the Hamiltonian trajectories of the symbol in phase space.</span>
@@ -3337,7 +4627,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.plot_symplectic_vector_field">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.plot_symplectic_vector_field">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.plot_symplectic_vector_field">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_symplectic_vector_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Visualize the symplectic vector field (Hamiltonian vector field) associated with the operator&#39;s symbol.</span>
@@ -3391,7 +4681,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_micro_support">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_micro_support">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.visualize_micro_support">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_micro_support</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="mi">300</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Visualize the micro-support of the operator by plotting the inverse of the symbol magnitude 1 / |p(x, ξ)|.</span>
@@ -3440,7 +4730,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.group_velocity_field">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.group_velocity_field">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.group_velocity_field">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">group_velocity_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Plot the group velocity field ∇_ξ p(x, ξ) for 1D pseudo-differential operators.</span>
@@ -3491,7 +4781,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.animate_singularity">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.animate_singularity">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.animate_singularity">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">animate_singularity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
                             <span class="n">tmax</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">n_frames</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -3702,7 +4992,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.interactive_symbol_analysis">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.interactive_symbol_analysis">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.PseudoDifferentialOperator.interactive_symbol_analysis">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">interactive_symbol_analysis</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span>
                                     <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">ylim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
                                     <span class="n">xi_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">eta_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
@@ -3985,7 +5275,7 @@
 
 
 <div class="viewcode-block" id="invalidate_kn_cache">
-<a class="viewcode-back" href="../psiop.html#psiop.invalidate_kn_cache">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.invalidate_kn_cache">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">invalidate_kn_cache</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Clear the phase-matrix cache for non-periodic 1D operations.&quot;&quot;&quot;</span>
     <span class="n">_KN_CACHE</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
@@ -3997,7 +5287,7 @@
 <span class="c1"># ============================================================================</span>
 
 <div class="viewcode-block" id="kohn_nirenberg_fft">
-<a class="viewcode-back" href="../psiop.html#psiop.kohn_nirenberg_fft">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.kohn_nirenberg_fft">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">kohn_nirenberg_fft</span><span class="p">(</span>
     <span class="n">u_vals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">symbol_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -4365,7 +5655,7 @@
 
 
 <div class="viewcode-block" id="kohn_nirenberg_nonperiodic">
-<a class="viewcode-back" href="../psiop.html#psiop.kohn_nirenberg_nonperiodic">[docs]</a>
+<a class="viewcode-back" href="../psiop_qwen.html#psiop_qwen.kohn_nirenberg_nonperiodic">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
     <span class="n">u_vals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">x_grid</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
