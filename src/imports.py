@@ -19,6 +19,7 @@ from sympy import (
     Lambda, Piecewise, Basic, degree, Pow, preorder_traversal, Heaviside, 
     powdenest, expand, Matrix,
     sqrt, I,  pi, series, oo, 
+    Add, Mul, Poly, 
     re, im, arg, Abs, conjugate, 
     sin, cos, tan, cot, sec, csc, sinc,
     asin, acos, atan, acot, asec, acsc,
