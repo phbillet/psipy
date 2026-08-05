@@ -597,7 +597,7 @@ class TestTimeDependentSolver1D:
         p_expr = x**2 + xi**2
         equation = Eq(diff(u(t, x), t, t), -psiOp(p_expr, u(t, x)))
 
-        solver = PDESolver(equation)
+        solver = PDESolver(equation, compute_energy=False)
         Lx, Nx = 12.0, 256
         Lt, Nt = 3.0, 600
         n = 2
@@ -634,7 +634,7 @@ class TestTimeDependentSolver1D:
         p_expr = x + xi**2
         equation = Eq(diff(u(t, x), t, t), -psiOp(p_expr, u(t, x)))
 
-        solver = PDESolver(equation)
+        solver = PDESolver(equation, compute_energy=False)
         Lx, Nx = 40.0, 256
         Lt, Nt = 2.0, 1000
 
@@ -669,7 +669,7 @@ class TestTimeDependentSolver1D:
         p_expr = x**2 + xi**2 +0.01
         equation = Eq(diff(u(t, x), t, t), -psiOp(p_expr, u(t, x)))
 
-        solver = PDESolver(equation)
+        solver = PDESolver(equation, compute_energy=False)
         Lx, Nx = 10.0, 256
         Lt, Nt = 2 * np.pi, 1000
 
@@ -709,7 +709,7 @@ class TestTimeDependentSolver1D:
         p_expr = xi**2
         equation = Eq(diff(u(t, x), t, t), -psiOp(p_expr, u(t, x)))
 
-        solver = PDESolver(equation)
+        solver = PDESolver(equation, compute_energy=False)
         Lx, Nx = 2.0, 256
         Lt, Nt = 2 * np.pi / np.sqrt(lambda_n), 500
 

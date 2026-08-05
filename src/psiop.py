@@ -117,13 +117,23 @@ class PseudoDifferentialOperator:
     >>> op = PseudoDifferentialOperator(expr=expr, vars_x=[x], var_u=u(x), mode='auto')
     """
 
-    def __init__(self, expr, vars_x, var_u=None, mode='symbol', quantization='kohn-nirenberg'):
+    def __init__(self, expr, vars_x, var_u=None, mode='symbol', 
+                 quantization='kohn-nirenberg', apply_backend='peetre', compute_peetre=False, peetre_options=None,):
         self.dim = len(vars_x)
         self.mode = mode
         self.symbol_cached = None
         self.expr = expr
         self.vars_x = vars_x
         self.quantization = quantization
+        if apply_backend not in {"direct", "peetre"}:
+            raise ValueError("apply_backend must be 'direct' or 'peetre'")
+    
+        self.apply_backend = apply_backend
+        self._peetre_options = dict(peetre_options or {})
+        self._peetre_decomposition = None
+    
+        if compute_peetre is None:
+            compute_peetre = apply_backend == "peetre"
 
         if self.dim == 1:
             x, = vars_x
@@ -194,6 +204,14 @@ class PseudoDifferentialOperator:
             self._compute_symbol_derivatives() 
             print("\nsymbol = ")
             pprint(self.symbol, num_columns=NUM_COLS)
+
+        # ------------------------------------------------------------
+        # Optional eager Peetre decomposition
+        # ------------------------------------------------------------
+        if compute_peetre:
+            self._peetre_decomposition = self.peetre_decomposition(
+                **self._peetre_options
+            )
 
     def _compute_symbol_derivatives(self):
         """Compute derivatives for WKB application."""
@@ -274,14 +292,33 @@ class PseudoDifferentialOperator:
 
     def clear_cache(self):
         """
-        Clear cached symbol evaluations.
-        """        
+        Clear cached symbol evaluations and Peetre decompositions.
+        """
         self.symbol_cached = None
+    
+        if hasattr(self, "_peetre_cache"):
+            self._peetre_cache = None
+    
+        if hasattr(self, "_peetre_decomposition"):
+            self._peetre_decomposition = None
+
+    def _get_peetre_decomposition(self):
+        """
+        Return the Peetre decomposition stored in the instance.
+    
+        If the decomposition was not computed in __init__, it is computed
+        lazily on first use.
+        """
+        if getattr(self, "_peetre_decomposition", None) is None:
+            opts = getattr(self, "_peetre_options", None) or {}
+            self._peetre_decomposition = self.peetre_decomposition(**opts)
+    
+        return self._peetre_decomposition
 
     def apply(self, u, x_grid, kx, boundary_condition='periodic',
               y_grid=None, ky=None, dealiasing_mask=None,
               freq_window='gaussian', clamp=1e6, space_window=False,
-              weyl_order=4):
+              weyl_order=4, backend=None,):
         """
         Apply the pseudo-differential operator to the input field u.
      
@@ -349,12 +386,40 @@ class PseudoDifferentialOperator:
         ValueError
             If boundary_condition is not 'periodic' or 'dirichlet'.
         """
+
+        if backend is None:
+            backend = self.apply_backend
+    
+        if backend == "peetre":
+    
+            return self.apply_peetre(
+                u,
+                x_grid,
+                kx,
+                boundary_condition=boundary_condition,
+                y_grid=y_grid,
+                ky=ky,
+                dealiasing_mask=dealiasing_mask,
+                freq_window=freq_window,
+                clamp=clamp,
+                space_window=space_window,
+                weyl_order=weyl_order,
+            )
+            
         is_spatial  = self._is_spatial_dependent()
      
         # Case 1: constant symbol + periodic BC — fast FFT multiplier
         if not is_spatial and boundary_condition == 'periodic':
             return self._apply_constant_fft(
-                u, x_grid, kx, y_grid, ky, dealiasing_mask
+                u,
+                x_grid,
+                kx,
+                y_grid,
+                ky,
+                dealiasing_mask,
+                freq_window=freq_window,
+                clamp=clamp,
+                space_window=space_window,
             )
      
         # For all other cases, obtain the effective (possibly corrected) symbol
@@ -497,65 +562,147 @@ class PseudoDifferentialOperator:
                 "_get_effective_symbol_func: only 1D and 2D are supported."
             )
     
-    def _apply_constant_fft(self, u, x_grid, kx, y_grid, ky, dealiasing_mask):
+    def _apply_constant_fft(
+        self,
+        u,
+        x_grid,
+        kx,
+        y_grid=None,
+        ky=None,
+        dealiasing_mask=None,
+        freq_window="gaussian",
+        clamp=1e6,
+        space_window=False,
+    ):
         """
         Apply a constant-coefficient pseudo-differential operator in Fourier space.
-
-        This method assumes the symbol is diagonal in the Fourier basis and acts as a 
-        multiplication operator. It performs the operation:
-        
-            (ψu)(x) = 𝓕⁻¹[ -σ(k) · 𝓕[u](k) ]
-
-        where:
-        - σ(k) is the combined pseudo-differential operator symbol
-        - 𝓕 denotes the forward Fourier transform
-        - 𝓕⁻¹ denotes the inverse Fourier transform
-
-        The dealiasing mask is applied before returning to physical space.
-        
-        Parameters
-        ----------
-        u : ndarray
-            Input function
-        x_grid : ndarray
-            Spatial grid (x)
-        kx : ndarray
-            Frequency grid (x)
-        y_grid : ndarray, optional
-            Spatial grid (y, for 2D)
-        ky : ndarray, optional
-            Frequency grid (y, for 2D)
-        dealiasing_mask : ndarray, optional
-            Dealiasing mask
-            
-        Returns
-        -------
-        ndarray
-            Result
+    
+        For periodic computations, the frequency grid is recomputed from x_grid
+        and y_grid in order to match the FFT ordering.
+    
+        This version also applies the same frequency windowing and clamping as
+        kohn_nirenberg_fft, so that constant-coefficient suboperators used inside
+        apply_peetre are consistent with the periodic variable-coefficient path.
         """
+        import numpy as np
+    
         u_hat = self.fft(u)
-        
-        # Evaluate symbol at grid points
+    
         if self.dim == 1:
-            X_dummy = np.zeros_like(kx)
-            symbol_vals = self.p_func(X_dummy, kx)
+            Nx = len(x_grid)
+            dx = x_grid[1] - x_grid[0]
+    
+            kx_fft = 2.0 * np.pi * np.fft.fftfreq(Nx, d=dx)
+    
+            X_dummy = np.zeros_like(kx_fft)
+            symbol_vals = self.p_func(X_dummy, kx_fft)
+    
+            symbol_vals = np.broadcast_to(
+                symbol_vals,
+                kx_fft.shape
+            ).astype(np.complex128).copy()
+    
+            symbol_vals = _clip_complex_magnitude(symbol_vals, clamp)
+    
+            if freq_window == "gaussian":
+                k_max = np.max(np.abs(kx_fft))
+                if k_max > 0:
+                    sigma = 0.8 * k_max
+                    symbol_vals *= np.exp(-(kx_fft / sigma) ** 4)
+    
+            elif freq_window == "hann":
+                k_max = np.max(np.abs(kx_fft))
+                if k_max > 0:
+                    W = 0.5 * (
+                        1.0 + np.cos(np.pi * kx_fft / k_max)
+                    ) * (np.abs(kx_fft) < k_max)
+                    symbol_vals *= W
+    
         elif self.dim == 2:
-            KX, KY = np.meshgrid(kx, ky, indexing='ij')
+            if y_grid is None:
+                raise ValueError("y_grid is required for 2D operators.")
+    
+            Nx = len(x_grid)
+            Ny = len(y_grid)
+    
+            dx = x_grid[1] - x_grid[0]
+            dy = y_grid[1] - y_grid[0]
+    
+            kx_fft = 2.0 * np.pi * np.fft.fftfreq(Nx, d=dx)
+            ky_fft = 2.0 * np.pi * np.fft.fftfreq(Ny, d=dy)
+    
+            KX, KY = np.meshgrid(kx_fft, ky_fft, indexing="ij")
+    
             X_dummy = np.zeros_like(KX)
             Y_dummy = np.zeros_like(KY)
+    
             symbol_vals = self.p_func(X_dummy, Y_dummy, KX, KY)
+    
+            symbol_vals = np.broadcast_to(
+                symbol_vals,
+                KX.shape
+            ).astype(np.complex128).copy()
+    
+            symbol_vals = _clip_complex_magnitude(symbol_vals, clamp)
+    
+            if freq_window == "gaussian":
+                kx_max = np.max(np.abs(kx_fft))
+                ky_max = np.max(np.abs(ky_fft))
+    
+                if kx_max > 0 and ky_max > 0:
+                    sx = 0.8 * kx_max
+                    sy = 0.8 * ky_max
+                    symbol_vals *= (
+                        np.exp(-(KX / sx) ** 4)
+                        * np.exp(-(KY / sy) ** 4)
+                    )
+    
+            elif freq_window == "hann":
+                kx_max = np.max(np.abs(kx_fft))
+                ky_max = np.max(np.abs(ky_fft))
+    
+                if kx_max > 0 and ky_max > 0:
+                    Wx = 0.5 * (
+                        1.0 + np.cos(np.pi * KX / kx_max)
+                    ) * (np.abs(KX) < kx_max)
+    
+                    Wy = 0.5 * (
+                        1.0 + np.cos(np.pi * KY / ky_max)
+                    ) * (np.abs(KY) < ky_max)
+    
+                    symbol_vals *= Wx * Wy
+    
         else:
             raise ValueError("Only 1D and 2D supported")
-        
-        # Apply symbol
+    
         u_hat *= symbol_vals
-        
-        # Apply dealiasing
+    
         if dealiasing_mask is not None:
             u_hat *= dealiasing_mask
+    
+        result = self.ifft(u_hat)
+    
+        if space_window:
+            if self.dim == 1:
+                x0 = (x_grid[0] + x_grid[-1]) / 2.0
+                L = (x_grid[-1] - x_grid[0]) / 2.0
+                sw_x = np.exp(-((x_grid - x0) / L) ** 2)
+                result *= sw_x
+    
+            elif self.dim == 2:
+                x0 = (x_grid[0] + x_grid[-1]) / 2.0
+                y0 = (y_grid[0] + y_grid[-1]) / 2.0
+    
+                Lx = (x_grid[-1] - x_grid[0]) / 2.0
+                Ly = (y_grid[-1] - y_grid[0]) / 2.0
+    
+                sw_x = np.exp(-((x_grid - x0) / Lx) ** 2)
+                sw_y = np.exp(-((y_grid - y0) / Ly) ** 2)
+    
+                result *= sw_x[:, None] * sw_y[None, :]
+    
+        return result
         
-        return self.ifft(u_hat)
-
     def principal_symbol(self, order=1):
         """
         Compute the leading homogeneous component of the pseudo-differential symbol.
@@ -1037,6 +1184,1150 @@ class PseudoDifferentialOperator:
         else:
             raise NotImplementedError("Only 1D and 2D cases are implemented")
 
+    # ======================================================================
+    # Peetre-style symbolic decomposition
+    # ======================================================================
+        
+    def _peetre_frequency_symbols(self):
+        """
+        Return the frequency symbols actually used in the symbol.
+
+        Returns
+        -------
+        tuple
+            (xi,) in 1D or (xi, eta) in 2D.
+        """
+        from sympy import symbols
+
+        if self.dim == 1:
+            xi = next(
+                (s for s in self.symbol.free_symbols if s.name == "xi"),
+                symbols("xi", real=True),
+            )
+            return (xi,)
+
+        elif self.dim == 2:
+            xi = next(
+                (s for s in self.symbol.free_symbols if s.name == "xi"),
+                symbols("xi", real=True),
+            )
+            eta = next(
+                (s for s in self.symbol.free_symbols if s.name == "eta"),
+                symbols("eta", real=True),
+            )
+            return xi, eta
+
+        raise NotImplementedError("Peetre decomposition supports only 1D and 2D operators.")
+
+    @staticmethod
+    def _peetre_merge_local(dst, src):
+        """
+        Merge local coefficient dictionaries.
+
+        dst, src : dict
+            Dictionaries mapping multi-index tuples to symbolic coefficients.
+        """
+        from sympy import simplify, together
+
+        for monom, coeff in src.items():
+            dst[monom] = simplify(together(dst.get(monom, 0) + coeff))
+
+    @staticmethod
+    def _peetre_is_zero(expr):
+        """
+        Conservative symbolic zero test.
+        """
+        from sympy import simplify
+
+        if expr is None:
+            return True
+
+        if expr == 0:
+            return True
+
+        try:
+            if expr.is_zero is True:
+                return True
+            if expr.is_zero is False:
+                return False
+        except Exception:
+            pass
+
+        try:
+            return bool(simplify(expr) == 0)
+        except Exception:
+            try:
+                return bool(expr.equals(0))
+            except Exception:
+                return False
+
+    def _peetre_classify_terms(self, expr):
+        """
+        Classify a symbolic expression into local, separable and joint terms.
+
+        Parameters
+        ----------
+        expr : sympy.Expr
+            Symbol expression to classify.
+
+        Returns
+        -------
+        local_coeffs : dict
+            Dictionary mapping frequency multi-indices to x-dependent coefficients.
+            Example in 1D:
+                {(2,): 1 + x**2, (1,): x, (0,): V(x)}
+            represents
+                (1 + x**2) xi**2 + x xi + V(x).
+
+        separable : list of tuple
+            List of pairs (a_expr, q_expr), where a_expr depends only on space
+            variables and q_expr depends only on frequency variables.
+
+        joint : list of sympy.Expr
+            Terms still entangled between space and frequency variables.
+        """
+        from sympy import Add, Poly, expand, simplify, together
+
+        xi_vars = self._peetre_frequency_symbols()
+        x_vars = self.vars_x
+
+        expr = expand(expr)
+
+        local_terms = []
+        separable = []
+        joint = []
+
+        for t in Add.make_args(expr):
+            try:
+                a, q = t.as_independent(*xi_vars)
+            except Exception:
+                a, q = 1, t
+
+            # If the frequency-dependent part still contains space variables,
+            # the term is genuinely joint.
+            if any(q.has(xv) for xv in x_vars):
+                joint.append(t)
+
+            # Polynomial in frequency variables => local/differential part.
+            elif q.is_polynomial(*xi_vars):
+                local_terms.append(t)
+
+            # Non-polynomial but frequency-only => separable Fourier multiplier
+            # with spatial amplitude.
+            else:
+                separable.append((simplify(a), simplify(q)))
+
+        local_coeffs = {}
+
+        if local_terms:
+            p_local = Add(*local_terms)
+
+            try:
+                poly = Poly(p_local, *xi_vars)
+            except Exception:
+                try:
+                    poly = Poly(p_local, *xi_vars, extension=True)
+                except Exception:
+                    # If Poly cannot safely parse the polynomial part, keep it
+                    # as joint rather than producing wrong coefficients.
+                    joint.extend(local_terms)
+                    return local_coeffs, separable, joint
+
+            for monom, coeff in poly.terms():
+                local_coeffs[monom] = simplify(
+                    together(local_coeffs.get(monom, 0) + coeff)
+                )
+
+        return local_coeffs, separable, joint
+
+    def _peetre_local_symbol(self, local_coeffs):
+        """
+        Rebuild the local polynomial symbol from its coefficient dictionary.
+        """
+        from sympy import Integer, expand
+
+        xi_vars = self._peetre_frequency_symbols()
+        expr = Integer(0)
+
+        for monom, coeff in local_coeffs.items():
+            term = coeff
+            for xi_var, power in zip(xi_vars, monom):
+                if power:
+                    term = term * xi_var**power
+            expr = expr + term
+
+        return expand(expr)
+
+    def _peetre_separable_symbol(self, separable):
+        """
+        Rebuild the separable symbol from a list of (a, q) pairs.
+        """
+        from sympy import Add, Integer, expand
+
+        if not separable:
+            return Integer(0)
+
+        return expand(Add(*[a * q for a, q in separable]))
+
+    # ------------------------------------------------------------------
+    # Peetre refinement via exact Taylor expansion in space variables
+    # ------------------------------------------------------------------
+    def _peetre_refine_with_taylor(self, joint_terms, order, x0=None):
+        """
+        Refine joint terms by exact Taylor expansion in the spatial variable(s).
+
+        The Taylor polynomial is classified into local/separable parts.
+        The Taylor remainder is kept as an exact joint residual and is NOT
+        re-classified, otherwise the negative of the Taylor polynomial can
+        be extracted again and cancel the accepted terms.
+
+        Parameters
+        ----------
+        joint_terms : list of sympy.Expr
+            Joint terms to refine.
+
+        order : int
+            Maximum total Taylor degree kept.
+
+        x0 : list or tuple, optional
+            Expansion point.
+
+        Returns
+        -------
+        local_coeffs : dict
+            Additional local polynomial coefficients extracted from Taylor.
+
+        separable : list
+            Additional separable terms extracted from Taylor.
+
+        residual_joint : list
+            Remaining exact joint residuals.
+        """
+        from sympy import Add, expand
+
+        if not joint_terms:
+            return {}, [], []
+
+        order = int(order)
+
+        if order < 0:
+            return {}, [], [expand(Add(*joint_terms))]
+
+        local_coeffs = {}
+        separable = []
+        residuals = []
+
+        for t in joint_terms:
+            taylor = self._peetre_taylor_polynomial(t, order, x0)
+
+            if taylor is None:
+                residuals.append(expand(t))
+                continue
+
+            taylor = expand(taylor)
+            remainder = expand(t - taylor)
+
+            # Classify only the Taylor polynomial.
+            lc_t, sep_t, jt_t = self._peetre_classify_terms(taylor)
+
+            self._peetre_merge_local(local_coeffs, lc_t)
+            separable.extend(sep_t)
+
+            # If some Taylor terms are still joint, keep them in the residual.
+            if jt_t:
+                residuals.extend([expand(term) for term in jt_t])
+
+            # The Taylor remainder is exact and must remain joint.
+            if not self._peetre_is_zero(remainder):
+                residuals.append(remainder)
+
+        return local_coeffs, separable, residuals
+    
+    # ------------------------------------------------------------------
+    # Peetre refinement via existing asymptotic_expansion()
+    # ------------------------------------------------------------------
+    def _peetre_refine_with_asymptotic_expansion(self, joint_terms, order):
+        """
+        Refine joint terms using the existing asymptotic_expansion() method.
+
+        The refinement is symbolic. Accepted local/separable pieces are
+        subtracted from the original joint expression, leaving an exact
+        symbolic residual.
+
+        Important:
+        --------
+        The residual is NOT re-classified. Re-classifying the residual can
+        extract the negative of previously accepted Taylor/asymptotic terms
+        and cancel them.
+
+        Parameters
+        ----------
+        joint_terms : list of sympy.Expr
+            Joint terms to refine.
+
+        order : int
+            Order passed to asymptotic_expansion().
+
+        Returns
+        -------
+        local_coeffs : dict
+            Additional local coefficients extracted from asymptotic expansion.
+
+        separable : list
+            Additional separable terms extracted from asymptotic expansion.
+
+        residual_joint : list
+            Remaining exact joint residuals.
+        """
+        from sympy import Add, expand
+        import io
+        import contextlib
+
+        if not joint_terms:
+            return {}, [], []
+
+        local_coeffs = {}
+        separable = []
+        residuals = []
+
+        for t in joint_terms:
+            t = expand(t)
+
+            try:
+                tmp_op = PseudoDifferentialOperator(
+                    t,
+                    self.vars_x,
+                    mode="symbol",
+                    quantization=self.quantization,
+                )
+
+                # The existing asymptotic_expansion() prints warnings for
+                # oscillatory/non-expandable terms such as sin(x*xi).
+                # We suppress stdout here to avoid noisy harmless messages.
+                # If you want to see them, remove the redirect_stdout block.
+                with contextlib.redirect_stdout(io.StringIO()):
+                    expansion = tmp_op.asymptotic_expansion(order=order)
+
+            except Exception as exc:
+                warnings.warn(
+                    f"Peetre asymptotic refinement failed for a term: {exc}"
+                )
+                residuals.append(t)
+                continue
+
+            expansion = expand(expansion)
+
+            # If the asymptotic routine returned the same expression,
+            # do NOT classify it. Otherwise it may peel off counter-terms
+            # coming from a previous Taylor refinement and cancel them.
+            if self._peetre_is_zero(expand(expansion - t)):
+                residuals.append(t)
+                continue
+
+            lc_exp, sep_exp, _joint_exp = self._peetre_classify_terms(expansion)
+
+            accepted = (
+                self._peetre_local_symbol(lc_exp)
+                + self._peetre_separable_symbol(sep_exp)
+            )
+
+            if self._peetre_is_zero(accepted):
+                residuals.append(t)
+                continue
+
+            residual = expand(t - accepted)
+
+            self._peetre_merge_local(local_coeffs, lc_exp)
+            separable.extend(sep_exp)
+
+            if not self._peetre_is_zero(residual):
+                residuals.append(residual)
+
+        return local_coeffs, separable, residuals
+
+    # ------------------------------------------------------------------
+    # Taylor polynomial helper: total-degree multivariate Taylor
+    # ------------------------------------------------------------------
+    def _peetre_taylor_polynomial(self, expr, order, x0=None):
+        """
+        Compute the Taylor polynomial of expr in the spatial variables.
+
+        The expansion is performed around x0.
+
+        In 1D:
+            expands in x around x0.
+
+        In 2D:
+            expands in (x, y) around (x0, y0) and keeps only monomials
+            whose total spatial degree is <= order.
+
+        Parameters
+        ----------
+        expr : sympy.Expr
+            Expression to expand.
+
+        order : int
+            Maximum total Taylor degree kept.
+            order=0 keeps the constant term.
+            order=3 keeps terms of total degree <= 3.
+
+        x0 : list or tuple, optional
+            Expansion point.
+            1D: [x0]
+            2D: [x0, y0]
+            If None, expands around 0.
+
+        Returns
+        -------
+        sympy.Expr or None
+            Taylor polynomial, or None if the expansion fails.
+        """
+        from sympy import Dummy, Poly, expand, sympify, Integer
+
+        order = int(order)
+
+        if order < 0:
+            return None
+
+        x_vars = self.vars_x
+
+        if x0 is None:
+            x0_vars = [Integer(0) for _ in x_vars]
+        else:
+            if len(x0) != len(x_vars):
+                raise ValueError(
+                    "taylor_x0 must have the same length as vars_x. "
+                    f"Expected {len(x_vars)} values, got {len(x0)}."
+                )
+            x0_vars = [sympify(v) for v in x0]
+
+        # Use dummy variables h_i = x_i - x0_i.
+        h_vars = [Dummy(real=True) for _ in x_vars]
+
+        subs_to_h = {
+            xv: x0v + hv
+            for xv, x0v, hv in zip(x_vars, x0_vars, h_vars)
+        }
+
+        subs_from_h = {
+            hv: xv - x0v
+            for xv, x0v, hv in zip(x_vars, x0_vars, h_vars)
+        }
+
+        try:
+            e = expr.subs(subs_to_h)
+
+            # SymPy series convention:
+            # series(..., n=N) keeps terms with degree < N.
+            # Therefore, to keep total degree <= order, use n = order + 1.
+            n_series = order + 1
+
+            taylor = e
+
+            # Series in each dummy variable.
+            for hv in h_vars:
+                taylor = taylor.series(hv, 0, n_series).removeO()
+
+            taylor = expand(taylor)
+
+            # Keep only total degree <= order.
+            try:
+                poly = Poly(taylor, *h_vars)
+                filtered = Integer(0)
+
+                for monom, coeff in poly.terms():
+                    if sum(monom) <= order:
+                        term = coeff
+                        for hv, power in zip(h_vars, monom):
+                            if power:
+                                term = term * hv**power
+                        filtered = filtered + term
+
+                taylor = expand(filtered)
+
+            except Exception:
+                # If total-degree filtering fails, keep the nested series.
+                pass
+
+            return expand(taylor.subs(subs_from_h))
+
+        except Exception as exc:
+            warnings.warn(
+                f"Peetre Taylor polynomial failed for an expression: {exc}"
+            )
+            return None
+
+    def _peetre_merge_separable(self, separable):
+        """
+        Merge separable terms having the same frequency factor q.
+
+        This is purely cosmetic but makes the decomposition much easier to read.
+        """
+        from sympy import simplify
+
+        merged = {}
+        ordered_keys = []
+
+        for a, q in separable:
+            a = simplify(a)
+            q = simplify(q)
+
+            if self._peetre_is_zero(a) or self._peetre_is_zero(q):
+                continue
+
+            key = q
+
+            if key in merged:
+                merged[key] = simplify(merged[key] + a)
+            else:
+                merged[key] = a
+                ordered_keys.append(key)
+
+        return [
+            (merged[q], q)
+            for q in ordered_keys
+            if not self._peetre_is_zero(merged[q])
+        ]
+
+    def _peetre_local_to_separable(self, local_coeffs):
+        """
+        Convert local polynomial coefficients into separable terms.
+    
+        A local term
+    
+            coeff(x) * xi^alpha
+    
+        is converted into
+    
+            (coeff(x), xi^alpha)
+    
+        Terms with the same spatial coefficient are merged.
+        """
+        from sympy import Integer, expand, simplify
+    
+        xi_vars = self._peetre_frequency_symbols()
+        separable = []
+    
+        for monom, coeff in local_coeffs.items():
+            if self._peetre_is_zero(coeff):
+                continue
+    
+            q = Integer(1)
+            for var, power in zip(xi_vars, monom):
+                if power:
+                    q = q * var**power
+    
+            coeff = simplify(coeff)
+            q = expand(q)
+    
+            # Merge if the same spatial coefficient already exists.
+            merged = False
+            for i, (c0, q0) in enumerate(separable):
+                if self._peetre_is_zero(c0 - coeff):
+                    separable[i] = (c0, expand(q0 + q))
+                    merged = True
+                    break
+    
+            if not merged:
+                separable.append((coeff, q))
+    
+        return [
+            (c, expand(q))
+            for c, q in separable
+            if not self._peetre_is_zero(c) and not self._peetre_is_zero(q)
+        ]
+
+    def _peetre_local_as_separable(self, local_coeffs):
+        """
+        Represent local polynomial coefficients as separable-style pairs
+        (a(x), q(xi)).
+
+        This does not change the mathematical classification: the terms are
+        still local because q(xi) is a polynomial in the frequency variables.
+        It only gives the local part in the same operational form used for
+        separable terms, namely:
+
+            a(x) * q(D) u
+
+        which is the efficient application path.
+        """
+        if not local_coeffs:
+            return []
+
+        return self._peetre_merge_separable(
+            self._peetre_local_to_separable(local_coeffs)
+        )
+        
+    def peetre_decomposition(
+        self,
+        asymptotic_order=None,
+        refine_joint=True,
+        taylor_order=None,
+        taylor_x0=None,
+        refinement_sequence=("taylor", "asymptotic"),
+        use_cache=True,
+        separable_local=False,
+    ):
+        """
+        Symbolic Peetre-style decomposition of the operator symbol.
+
+        The symbol is split into:
+
+            local:
+                Polynomial part in the frequency variables.
+
+            separable:
+                Sum of terms a(x) q(xi), with q frequency-only.
+
+            joint_residual:
+                Remaining genuinely entangled terms.
+
+        Optional refinements
+        --------------------
+        Taylor refinement:
+            Expands joint terms in space around taylor_x0.
+
+            Enabled when:
+                refine_joint=True
+                taylor_order is not None
+                refinement_sequence contains "taylor"
+
+        Asymptotic refinement:
+            Uses self.asymptotic_expansion(order=asymptotic_order)
+            on the remaining joint terms.
+
+            Enabled when:
+                refine_joint=True
+                asymptotic_order is not None and > 0
+                refinement_sequence contains "asymptotic"
+
+        Parameters
+        ----------
+        asymptotic_order : int, optional
+            Order for asymptotic_expansion().
+
+        refine_joint : bool, default=True
+            Master switch for joint refinement.
+
+        taylor_order : int, optional
+            Maximum Taylor degree kept.
+            order=0 keeps constant term.
+            order=3 keeps terms up to degree 3.
+
+        taylor_x0 : list or tuple, optional
+            Taylor expansion point.
+            1D: [x0]
+            2D: [x0, y0]
+            If None, uses [0] or [0, 0].
+
+        refinement_sequence : tuple, default=("taylor", "asymptotic")
+            Order of refinements.
+            Examples:
+                ("taylor", "asymptotic")
+                ("asymptotic", "taylor")
+                ("taylor",)
+                ("asymptotic",)
+
+        use_cache : bool, default=True
+            Cache the decomposition.
+
+        Returns
+        -------
+        dict
+            Decomposition dictionary.
+        """
+        from sympy import Add, Integer, expand, sympify
+
+        if isinstance(refinement_sequence, str):
+            refinement_sequence = (refinement_sequence,)
+
+        refinement_sequence = tuple(refinement_sequence or ())
+
+        if taylor_x0 is not None:
+            if len(taylor_x0) != self.dim:
+                raise ValueError(
+                    "taylor_x0 must have the same length as vars_x. "
+                    f"Expected {self.dim} values, got {len(taylor_x0)}."
+                )
+            x0_key = tuple(sympify(v) for v in taylor_x0)
+        else:
+            x0_key = None
+
+        cache = getattr(self, "_peetre_cache", None)
+
+        if (
+            use_cache
+            and cache is not None
+            and cache.get("symbol") == self.symbol
+            and cache.get("asymptotic_order") == asymptotic_order
+            and cache.get("refine_joint") == refine_joint
+            and cache.get("taylor_order") == taylor_order
+            and cache.get("taylor_x0") == x0_key
+            and cache.get("refinement_sequence") == refinement_sequence
+            and cache.get("separable_local") == separable_local
+        ):
+            return cache["result"]
+
+        local_coeffs, separable, joint = self._peetre_classify_terms(self.symbol)
+
+        if refine_joint and joint:
+            for step in refinement_sequence:
+                if not joint:
+                    break
+
+                if step == "taylor":
+                    if taylor_order is not None and int(taylor_order) >= 0:
+                        lc_extra, sep_extra, joint_refined = (
+                            self._peetre_refine_with_taylor(
+                                joint,
+                                int(taylor_order),
+                                x0_key,
+                            )
+                        )
+
+                        self._peetre_merge_local(local_coeffs, lc_extra)
+                        separable.extend(sep_extra)
+                        joint = joint_refined
+
+                elif step == "asymptotic":
+                    if asymptotic_order is not None and int(asymptotic_order) > 0:
+                        lc_extra, sep_extra, joint_refined = (
+                            self._peetre_refine_with_asymptotic_expansion(
+                                joint,
+                                int(asymptotic_order),
+                            )
+                        )
+
+                        self._peetre_merge_local(local_coeffs, lc_extra)
+                        separable.extend(sep_extra)
+                        joint = joint_refined
+
+                else:
+                    warnings.warn(
+                        f"Unknown Peetre refinement step: '{step}'. "
+                        "Use 'taylor' or 'asymptotic'."
+                    )
+
+        # ------------------------------------------------------------------
+        # Add this before removing zero terms
+        # ------------------------------------------------------------------
+        separable = self._peetre_merge_separable(separable)
+
+        if joint:
+            joint_combined = expand(Add(*joint))
+            joint = [joint_combined] if not self._peetre_is_zero(joint_combined) else []
+
+        # ------------------------------------------------------------------
+        # Remove zero terms.
+        # ------------------------------------------------------------------
+        local_coeffs = {
+            k: v for k, v in local_coeffs.items()
+            if not self._peetre_is_zero(v)
+        }
+
+        separable = [
+            (a, q) for a, q in separable
+            if not self._peetre_is_zero(a) and not self._peetre_is_zero(q)
+        ]
+
+        joint = [
+            t for t in joint
+            if not self._peetre_is_zero(t)
+        ]
+
+        # ------------------------------------------------------------------
+        # Represent the local polynomial part in the same operational form
+        # as separable terms:
+        #
+        #     a(x) * q(xi)
+        #
+        # This is useful because application is then performed as
+        #
+        #     a(x) * q(D) u
+        #
+        # which is the same efficient path used for separable terms.
+        #
+        # However, unlike the previous behavior, we do NOT force these terms
+        # into the separable non-local category by default. They remain
+        # mathematically classified as local terms.
+        # ------------------------------------------------------------------
+        local_terms = self._peetre_local_as_separable(local_coeffs)
+    
+        if separable_local and local_terms:
+            #
+            # Legacy behavior:
+            # local polynomial terms are exposed as separable terms and the
+            # local dictionary/symbol are cleared.
+            #
+            separable = self._peetre_merge_separable(local_terms + separable)
+            local_coeffs = {}
+            local_terms = []
+            local_symbol = Integer(0)
+        else:
+            local_symbol = self._peetre_local_symbol(local_coeffs)
+    
+        separable_symbol = self._peetre_separable_symbol(separable)
+        joint_symbol = expand(Add(*joint)) if joint else Integer(0)
+    
+        result = {
+            "local": local_coeffs,
+            "local_terms": local_terms,
+            "separable": separable,
+            "joint_residual": joint,
+            "local_symbol": local_symbol,
+            "separable_symbol": separable_symbol,
+            "joint_symbol": joint_symbol,
+            "asymptotic_order": asymptotic_order,
+            "refine_joint": refine_joint,
+            "taylor_order": taylor_order,
+            "taylor_x0": x0_key,
+            "refinement_sequence": refinement_sequence,
+            "separable_local": separable_local,
+        }
+
+        self._peetre_cache = {
+            "symbol": self.symbol,
+            "asymptotic_order": asymptotic_order,
+            "refine_joint": refine_joint,
+            "taylor_order": taylor_order,
+            "taylor_x0": x0_key,
+            "refinement_sequence": refinement_sequence,
+            "separable_local": separable_local,
+            "result": result,
+        }
+
+        return result
+
+    def decompose_symbol_peetre(self, *args, **kwargs):
+        """
+        Alias for peetre_decomposition(), for compatibility with the
+        standalone symbolic_decompose.py naming style.
+        """
+        return self.peetre_decomposition(*args, **kwargs)
+
+    def print_peetre_decomposition(self, **kwargs):
+        """
+        Pretty-print the Peetre decomposition.
+
+        All keyword arguments are passed to peetre_decomposition().
+
+        Examples
+        --------
+        op.print_peetre_decomposition()
+
+        op.print_peetre_decomposition(
+            taylor_order=4,
+            taylor_x0=[0],
+            asymptotic_order=4,
+        )
+        """
+        deco = self.peetre_decomposition(**kwargs)
+        xi_vars = self._peetre_frequency_symbols()
+
+        # --------------------------------------------------------------
+        # Local terms.
+        #
+        # If local_terms is available, print it in the same style as
+        # separable terms:
+        #
+        #     (a(x)) * (q(xi))
+        #
+        # This is more natural for variable-coefficient polynomial symbols.
+        # --------------------------------------------------------------
+        local_terms = deco.get("local_terms", [])
+
+        if local_terms:
+            print(
+                f"--- {len(local_terms)} local term(s), "
+                f"represented as a(x)*q({', '.join(str(v) for v in xi_vars)}) ---"
+            )
+            for a, q in local_terms:
+                print(f"  ({a}) * ({q})")
+        else:
+            print(
+                f"--- {len(deco['local'])} local term(s), "
+                f"polynomial in {xi_vars} ---"
+            )
+            for monom, coeff in deco["local"].items():
+                factors = []
+                for var, power in zip(xi_vars, monom):
+                    if power == 1:
+                        factors.append(str(var))
+                    elif power:
+                        factors.append(f"{var}**{power}")
+
+                monom_str = "*".join(factors) if factors else "1"
+                print(f"  ({coeff}) * {monom_str}")
+
+        # --------------------------------------------------------------
+        # Separable non-local terms.
+        # --------------------------------------------------------------
+        print(
+            f"--- {len(deco['separable'])} separable non-local term(s) ---"
+        )
+        for a, q in deco["separable"]:
+            print(f"  ({a}) * ({q})")
+
+        # --------------------------------------------------------------
+        # Joint residual.
+        # --------------------------------------------------------------
+        print(
+            f"--- {len(deco['joint_residual'])} irreducible joint term(s) ---"
+        )
+        for t in deco["joint_residual"]:
+            print(f"  {t}")
+
+        print(
+            f"local_symbol = {deco['local_symbol']}\n"
+            f"separable_symbol = {deco['separable_symbol']}\n"
+            f"joint_symbol = {deco['joint_symbol']}"
+        )
+
+        
+    # ======================================================================
+    # Peetre-based application
+    # ======================================================================
+    def apply_peetre(
+        self,
+        u,
+        x_grid,
+        kx,
+        boundary_condition="periodic",
+        y_grid=None,
+        ky=None,
+        dealiasing_mask=None,
+        freq_window="gaussian",
+        clamp=1e6,
+        space_window=False,
+        weyl_order=4,
+        asymptotic_order=None,
+        refine_joint=True,
+        taylor_order=None,
+        taylor_x0=None,
+        refinement_sequence=("taylor", "asymptotic"),
+        apply_joint=True,
+        decomposition=None,
+        use_cache=True,
+        separable_local=False,
+    ):
+        """
+        Apply the operator using its Peetre decomposition.
+    
+        For Weyl-quantized operators, the Weyl symbol is first converted to its
+        Kohn-Nirenberg equivalent before the Peetre decomposition is performed.
+        """
+        import numpy as np
+        from sympy import lambdify
+    
+        if self.dim == 2 and (y_grid is None or ky is None):
+            raise ValueError("y_grid and ky are required for 2D operators.")
+    
+        # ------------------------------------------------------------------
+        # Weyl support.
+        #
+        # Peetre application is performed on an effective Kohn-Nirenberg
+        # symbol. If the operator is Weyl-quantized, we must first convert
+        # the Weyl symbol to its Kohn-Nirenberg equivalent.
+        #
+        # Example:
+        #
+        #     Weyl symbol:     x * xi
+        #     KN equivalent:   x * xi - I/2
+        #
+        # Without this correction, apply_peetre() would apply x*D only,
+        # missing the Weyl commutator correction -i/2.
+        # ------------------------------------------------------------------
+        if self.quantization == "weyl":
+            effective_symbol = self.weyl_to_kn_symbol(order=weyl_order)
+            peetre_quantization = "kohn-nirenberg"
+        else:
+            effective_symbol = self.symbol
+            peetre_quantization = self.quantization
+    
+        if decomposition is None:
+            if self.quantization == "weyl":
+                #
+                # Build a temporary Kohn-Nirenberg operator from the corrected
+                # symbol and decompose that symbol.
+                #
+                effective_op = PseudoDifferentialOperator(
+                    effective_symbol,
+                    self.vars_x,
+                    mode="symbol",
+                    quantization="kohn-nirenberg",
+                )
+    
+                decomposition = effective_op.peetre_decomposition(
+                    asymptotic_order=asymptotic_order,
+                    refine_joint=refine_joint,
+                    taylor_order=taylor_order,
+                    taylor_x0=taylor_x0,
+                    refinement_sequence=refinement_sequence,
+                    use_cache=use_cache,
+                    separable_local=separable_local,
+                )
+            else:
+                decomposition = self.peetre_decomposition(
+                    asymptotic_order=asymptotic_order,
+                    refine_joint=refine_joint,
+                    taylor_order=taylor_order,
+                    taylor_x0=taylor_x0,
+                    refinement_sequence=refinement_sequence,
+                    use_cache=use_cache,
+                    separable_local=separable_local,
+                )
+    
+        deco = decomposition
+    
+        result = np.zeros(np.shape(u), dtype=np.complex128)
+    
+        common_apply_kwargs = dict(
+            boundary_condition=boundary_condition,
+            y_grid=y_grid,
+            ky=ky,
+            dealiasing_mask=dealiasing_mask,
+            freq_window=freq_window,
+            clamp=clamp,
+            space_window=space_window,
+            weyl_order=weyl_order,
+            backend='direct'
+            
+        )
+
+    
+        # --------------------------------------------------------------
+        # Resolve local terms.
+        # --------------------------------------------------------------
+        local_terms = deco.get("local_terms", None)
+    
+        if local_terms is None or not local_terms:
+            if deco.get("local", None):
+                local_terms = self._peetre_local_as_separable(deco["local"])
+    
+            elif not self._peetre_is_zero(deco.get("local_symbol", 0)):
+                op_local = PseudoDifferentialOperator(
+                    deco["local_symbol"],
+                    self.vars_x,
+                    mode="symbol",
+                    quantization=peetre_quantization,
+                )
+    
+                result = result + op_local.apply(
+                    u,
+                    x_grid,
+                    kx,
+                    **common_apply_kwargs,
+                )
+    
+                local_terms = []
+    
+            else:
+                local_terms = []
+    
+        x_tuple = tuple(self.vars_x)
+    
+        def _apply_separable_pair(a, q):
+            """
+            Apply a term a(x) q(xi) as:
+    
+                a(x) * Op(q) u
+    
+            The suboperator Op(q) is applied using the effective quantization.
+            For Weyl operators, this is Kohn-Nirenberg because the Weyl symbol
+            has already been converted before decomposition.
+            """
+            op_q = PseudoDifferentialOperator(
+                q,
+                self.vars_x,
+                mode="symbol",
+                quantization=peetre_quantization,
+            )
+    
+            v = op_q.apply(
+                u,
+                x_grid,
+                kx,
+                **common_apply_kwargs,
+            )
+    
+            try:
+                a_func = lambdify(x_tuple, a, "numpy")
+    
+                if self.dim == 1:
+                    a_vals = a_func(x_grid)
+                else:
+                    X, Y = np.meshgrid(x_grid, y_grid, indexing="ij")
+                    a_vals = a_func(X, Y)
+    
+                return np.asarray(a_vals) * v
+    
+            except Exception as exc:
+                warnings.warn(
+                    "Could not lambdify a local/separable spatial amplitude. "
+                    f"Falling back to full symbol application: {exc}"
+                )
+    
+                op_full = PseudoDifferentialOperator(
+                    a * q,
+                    self.vars_x,
+                    mode="symbol",
+                    quantization=peetre_quantization,
+                )
+    
+                return op_full.apply(
+                    u,
+                    x_grid,
+                    kx,
+                    **common_apply_kwargs,
+                )
+    
+        # --------------------------------------------------------------
+        # 1. Local polynomial part.
+        # --------------------------------------------------------------
+        for a, q in local_terms:
+            result = result + _apply_separable_pair(a, q)
+    
+        # --------------------------------------------------------------
+        # 2. Separable non-local terms.
+        # --------------------------------------------------------------
+        for a, q in deco.get("separable", []):
+            result = result + _apply_separable_pair(a, q)
+    
+        # --------------------------------------------------------------
+        # 3. Joint residual.
+        # --------------------------------------------------------------
+        if not self._peetre_is_zero(deco.get("joint_symbol", 0)):
+            if apply_joint:
+                op_joint = PseudoDifferentialOperator(
+                    deco["joint_symbol"],
+                    self.vars_x,
+                    mode="symbol",
+                    quantization=peetre_quantization,
+                )
+    
+                result = result + op_joint.apply(
+                    u,
+                    x_grid,
+                    kx,
+                    **common_apply_kwargs,
+                )
+    
+            else:
+                warnings.warn(
+                    "Peetre joint residual has been ignored. "
+                    "The result is an asymptotic/local+separable approximation."
+                )
+    
+        return result
+
+        
+    def peetre_apply(self, *args, **kwargs):
+        """
+        Alias for apply_peetre().
+        """
+        return self.apply_peetre(*args, **kwargs)
+
+        
     def commutator_symbolic(self, other, order=1, mode='kn', sign_convention=None):
         """
         Compute the symbolic commutator [A, B] = A∘B − B∘A of two pseudo-differential operators
@@ -1799,29 +3090,28 @@ class PseudoDifferentialOperator:
                 L = (x_grid[-1] - x_grid[0]) / 2.0
             if N is None:
                 N = len(x_grid)
-            
             x_grid_spectral = np.linspace(-L, L, N, endpoint=False)
             dx = x_grid_spectral[1] - x_grid_spectral[0]
             k = np.fft.fftfreq(N, d=dx) * 2.0 * np.pi
             
             # Build matrix by applying operator to canonical basis
-            # This is the KEY OPTIMIZATION: use apply() instead of manual loops
             H = np.zeros((N, N), dtype=complex)
-            
             for j in range(N):
                 # Create basis vector e_j
                 e_j = np.zeros(N, dtype=complex)
                 e_j[j] = 1.0
                 
                 # Apply operator using the existing apply() method
-                # This automatically handles the symbol evaluation and FFT operations
+                # CRITICAL: Disable frequency windowing and clamping to get 
+                # the exact mathematical operator for spectral analysis.
                 H[:, j] = self.apply(
                     e_j, 
                     x_grid_spectral, 
                     k,
-                    boundary_condition='periodic'
+                    boundary_condition='periodic',
+                    freq_window=None,   # <--- Disable Gaussian low-pass filter
+                    clamp=np.inf        # <--- Disable magnitude clipping
                 )
-            
             print(f'Operator quantized via apply() method: {N}×{N} matrix')
             return H, x_grid_spectral, k
             

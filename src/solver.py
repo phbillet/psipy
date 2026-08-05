@@ -680,12 +680,17 @@ class PDESolver:
                 if isinstance(term, Derivative) and any(var == self.t for var, _  in term.variable_count):
                     coeff_time = coeff
                     print(f"✅ Time derivative coefficient detected: {coeff_time}")
-            self.psi_ops = []
-            for coeff, sym_expr in self.pseudo_terms:
-                # expr est le Sympy expr. différentiel, var_x la liste [x] ou [x,y]
-                psi = PseudoDifferentialOperator(sym_expr / coeff_time, self.spatial_vars, self.u, mode='symbol')
-                
-                self.psi_ops.append((coeff, psi))
+                    self.psi_ops = []
+                    for coeff, sym_expr in self.pseudo_terms:
+                        psi = PseudoDifferentialOperator(
+                            sym_expr / coeff_time, 
+                            self.spatial_vars, 
+                            self.u, 
+                            mode='symbol',
+                            apply_backend="peetre",      # <--- Dispatch apply() to apply_peetre()
+                            compute_peetre=True,         # <--- Precompute decomposition once
+                        )
+                        self.psi_ops.append((coeff, psi))
 
             # For second-order-in-time equations, precompute the operator
             # Op(P^{1/2}) where P is the total pseudo-differential symbol.
@@ -693,8 +698,14 @@ class PDESolver:
                 # 1. Build the total operator first
                 total_symbol = sum(coeff * psi.expr for coeff, psi in self.psi_ops)
                 total_op = PseudoDifferentialOperator(
-                    total_symbol, self.spatial_vars, self.u, mode='symbol'
+                    total_symbol, 
+                    self.spatial_vars, 
+                    self.u, 
+                    mode='symbol',
+                    apply_backend="peetre",  # <--- Also optimize energy monitoring
+                    compute_peetre=True,
                 )
+                
                 if self.compute_energy:
                     # 2. Compute the fractional power P^{1/2}
                     # We use order=1 to capture the first microlocal spatial corrections.
@@ -710,7 +721,12 @@ class PDESolver:
                     
                     # 3. Create the final energy operator
                     self._energy_psi_op = PseudoDifferentialOperator(
-                        energy_symbol, self.spatial_vars, self.u, mode='symbol'
+                        energy_symbol, 
+                        self.spatial_vars, 
+                        self.u, 
+                        mode='symbol',
+                        apply_backend="peetre",  # <--- Also optimize energy monitoring
+                        compute_peetre=True,
                     )
                 
                     # 4. Check for spatial dependence
@@ -1723,50 +1739,15 @@ class PDESolver:
     def _apply_psiOp(self, u, psi_ops=None, is_spatial=None):
         """
         Apply a pseudo-differential operator to the input field u.
-    
-        This method dispatches the application of the pseudo-differential operator based on:
         
-        - Whether the symbol is spatially dependent (x/y)
-        - The boundary condition in use (periodic or dirichlet)
-    
-        Supported operations:
+        This method delegates to the apply() method of each PseudoDifferentialOperator.
+        If the operators are configured with the Peetre backend, local and separable 
+        terms will automatically bypass the slow double-chunking integration and use 
+        fast global FFTs instead.
         
-        - Constant-coefficient symbols: applied via Fourier multiplication.
-        - Spatially varying symbols: applied via Kohn–Nirenberg quantization.
-        - Dirichlet boundary conditions: handled with non-periodic convolution-like quantization.
-    
-        Dispatch Logic:\n
-        if not is_spatial: u ↦ Op(p)(D) ⋅ u = 𝓕⁻¹[ p(ξ) ⋅ 𝓕(u) ]\n
-        elif periodic: u ↦ Op(p)(x,D) ⋅ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ based of FFT (quicker)\n
-        elif dirichlet: u ↦ Op(p)(x,D) ⋅ u ≈ u ≈ ∫ eᶦˣᶿ p(x, ξ) 𝓕(u)(ξ) dξ (slower)\n
-
-        For 2D spatially-varying symbols, the x-axis is split into blocks processed in parallel
-        using ThreadPoolExecutor.  The number of workers is controlled by the module-level
-        constant PSIOP_WORKERS (defaults to the number of logical CPUs).
-        
-        This method delegates to the apply() method of each 
-        PseudoDifferentialOperator instance.
-        
-        Parameters
-        ----------
-        u : ndarray
-            Function to which operators are applied
-        psi_ops : list of (coeff, PseudoDifferentialOperator), optional
-            Operators to apply, as (coefficient, operator) pairs. Defaults to
-            ``self.psi_ops`` (the operators parsed from the equation). Passing
-            an explicit list allows reusing this dispatch logic for auxiliary
-            operators derived from the equation's symbol, e.g. the sqrt(|symbol|)
-            operator used for energy monitoring.
-        is_spatial : bool, optional
-            Whether the symbol(s) being applied depend on the spatial variable(s).
-            Defaults to ``self.is_spatial``. Must be passed explicitly together
-            with a custom ``psi_ops`` whenever that operator's x/y-dependence
-            differs from the equation's main operator.
-            
-        Returns
-        -------
-        ndarray
-            Result of applying all operators with their coefficients
+        For any remaining joint residuals that require the slow path, the underlying
+        kohn_nirenberg_fft function already handles memory-bounded parallel row-blocking
+        internally, so no outer ThreadPoolExecutor is needed here.
         """
         if psi_ops is None:
             psi_ops = self.psi_ops
@@ -1776,64 +1757,19 @@ class PDESolver:
         if not psi_ops:
             raise ValueError("No pseudo-differential operators defined")
 
-        # -----------------------------------------------------------------------
-        # 2D spatial symbol: block-parallel Kohn-Nirenberg quantization.
-        # The x-axis is partitioned into contiguous row-blocks; each block is
-        # processed independently by a worker thread, then results are assembled.
-        # This is safe because each block only reads/writes its own rows of u.
-        # -----------------------------------------------------------------------
-        if self.dim == 2 and is_spatial:
-            import os
-            from concurrent.futures import ThreadPoolExecutor
-
-            Nx = self.Nx
-            n_workers = max(w for w in range(1, FFT_WORKERS + 1) if Nx % w == 0)
-            # Build row-slice boundaries (last block absorbs any remainder)
-            base = Nx // n_workers
-            boundaries = [(i * base, (i + 1) * base if i < n_workers - 1 else Nx)
-                          for i in range(n_workers)]
-
-            result = np.zeros_like(u, dtype=np.complex128)
-
-            def _apply_block(bounds):
-                """Apply all psi_ops to a horizontal slice u[i0:i1, :]."""
-                i0, i1 = bounds
-                u_block   = u[i0:i1, :]
-                x_block   = self.x_grid[i0:i1]
-                block_res = np.zeros_like(u_block, dtype=np.complex128)
-                for coeff, psi_op in psi_ops:
-                    block_res += np.complex128(coeff) * psi_op.apply(
-                        u=u_block,
-                        x_grid=x_block,
-                        kx=self.kx,
-                        y_grid=self.y_grid,
-                        ky=self.ky,
-                        boundary_condition=self.boundary_condition,
-                        dealiasing_mask=self.dealiasing_mask
-                    )
-                return i0, i1, block_res
-
-            with ThreadPoolExecutor(max_workers=n_workers) as executor:
-                for i0, i1, block_res in executor.map(_apply_block, boundaries):
-                    result[i0:i1, :] = block_res
-
-            return result
-
-        # -----------------------------------------------------------------------
-        # Default path: 1D, or 2D with constant-coefficient symbol (no blocking
-        # needed; FFT multiplication is already highly optimised).
-        # -----------------------------------------------------------------------
         result = np.zeros_like(u, dtype=np.complex128)
         
         for coeff, psi_op in psi_ops:
             coeff = np.complex128(coeff)
+            
             if self.dim == 1:
                 contribution = psi_op.apply(
                     u=u,
                     x_grid=self.x_grid,
                     kx=self.kx,
                     boundary_condition=self.boundary_condition,
-                    dealiasing_mask=self.dealiasing_mask
+                    dealiasing_mask=self.dealiasing_mask,
+                    backend='peetre'
                 )
             elif self.dim == 2:
                 contribution = psi_op.apply(
@@ -1843,7 +1779,8 @@ class PDESolver:
                     y_grid=self.y_grid,
                     ky=self.ky,
                     boundary_condition=self.boundary_condition,
-                    dealiasing_mask=self.dealiasing_mask
+                    dealiasing_mask=self.dealiasing_mask,
+                    backend='peetre'
                 )
             else:
                 raise ValueError("Only 1D and 2D supported")
@@ -2212,7 +2149,13 @@ class PDESolver:
             raise ValueError("Unsupported spatial dimension.")
     
         total_symbol = sum(coeff * psi.expr for coeff, psi in self.psi_ops)
-        psi_total = PseudoDifferentialOperator(total_symbol, spatial_vars, mode='symbol')
+        psi_total = PseudoDifferentialOperator(
+                    total_symbol, 
+                    spatial_vars, 
+                    mode='symbol',
+                    apply_backend="peetre",  # <--- Also optimize energy monitoring
+                    compute_peetre=True,
+                )
     
         # Check ellipticity
         if self.dim == 1:
@@ -2254,86 +2197,54 @@ class PDESolver:
         f_hat = self.fft(rhs)
         
         # ========================================================================
-        # Application of the inverse operator
+        # Application of the inverse operator via PseudoDifferentialOperator.apply
         # ========================================================================
-        if self.boundary_condition == 'periodic':
-            if self.dim == 1:
-                # Check if optimization is possible
-                if not R_symbol.has(x):
-                    print('⚡ Optimization: symbol independent of x – direct product in Fourier.')
-                    # Create wrapper that ignores x
-                    def _R_func_optimized(kx_val):
-                        return R_func(0.0, kx_val)  # x=0 since it doesn't matter
-                    
-                    R_vals = _R_func_optimized(self.KX)
-                    u_hat = R_vals * f_hat
-                    u = self.ifft(u_hat)
-                else:
-                    print('⚙️ 1D Kohn-Nirenberg Quantification')
-                    from psiop import kohn_nirenberg_fft
-                    u = kohn_nirenberg_fft(
-                        u_vals=rhs,
-                        symbol_func=R_func,  # Now has correct signature (x, xi)
-                        x_grid=self.x_grid,
-                        kx=self.kx,
-                        fft_func=self.fft,
-                        ifft_func=self.ifft,
-                        dim=1,
-                        is_spatial=True,
-                    )
-                    
-            elif self.dim == 2:
-                if not R_symbol.has(x) and not R_symbol.has(y):
-                    print('⚡ Optimization: Symbol independent of x and y – direct product in 2D Fourier.')
-                    # Create wrapper that ignores x, y
-                    def _R_func_optimized(kx_val, ky_val):
-                        return R_func(0.0, 0.0, kx_val, ky_val)
-                    
-                    R_vals = _R_func_optimized(self.KX, self.KY)
-                    u_hat = R_vals * f_hat
-                    u = self.ifft(u_hat)
-                else:
-                    print('⚙️ 2D Kohn-Nirenberg Quantification')
-                    from psiop import kohn_nirenberg_fft
-                    u = kohn_nirenberg_fft(
-                        u_vals=rhs,
-                        symbol_func=R_func,  # Now has correct signature (x, y, xi, eta)
-                        x_grid=self.x_grid,
-                        kx=self.kx,
-                        fft_func=self.fft,
-                        ifft_func=self.ifft,
-                        dim=2,
-                        y_grid=self.y_grid,
-                        ky=self.ky,
-                        is_spatial=True,
-                    )
-            self.u = u
-            return u
-            
-        elif (self.boundary_condition == 'dirichlet' or self.boundary_condition == 'neumann'):
-            from psiop import kohn_nirenberg_nonperiodic
-            
-            if self.dim == 1:
-                u = kohn_nirenberg_nonperiodic(
-                    u_vals=rhs,
-                    x_grid=self.x_grid,
-                    xi_grid=self.kx,
-                    symbol_func=R_func,  # Now has correct signature (x, xi)
-                    is_spatial=True,
-                )
-            elif self.dim == 2:
-                u = kohn_nirenberg_nonperiodic(
-                    u_vals=rhs,
-                    x_grid=(self.x_grid, self.y_grid),
-                    xi_grid=(self.kx, self.ky),
-                    symbol_func=R_func,  # Now has correct signature (x, y, xi, eta)
-                    is_spatial=True,
-                )
-            self.u = u
-            return u
+        
+        R_op = PseudoDifferentialOperator(
+            R_symbol,
+            list(spatial_vars),
+            mode="symbol",
+            quantization="kohn-nirenberg",
+            apply_backend = 'peetre',
+        )
+        
+        # If you have implemented apply_backend / use_peetre in PseudoDifferentialOperator,
+        # and your global default is "peetre", you may want to force the direct path here
+        # for the stationary inverse, unless you explicitly want Peetre acceleration.
+        if hasattr(R_op, "apply_backend"):
+            R_op.apply_backend = "direct"
+        
+        apply_kwargs = dict(
+            boundary_condition=self.boundary_condition,
+            dealiasing_mask=None,
+            freq_window=None,       # exact formal inverse, no frequency filtering
+            clamp=np.inf,           # no artificial clipping
+            space_window=False,
+        )
+        
+        if self.dim == 1:
+            u = R_op.apply(
+                rhs,
+                x_grid=self.x_grid,
+                kx=self.kx,
+                **apply_kwargs,
+            )
+        
+        elif self.dim == 2:
+            u = R_op.apply(
+                rhs,
+                x_grid=self.x_grid,
+                kx=self.kx,
+                y_grid=self.y_grid,
+                ky=self.ky,
+                **apply_kwargs,
+            )
         
         else:
-            raise ValueError(f"Invalid boundary condition '{self.boundary_condition}'. Supported types are 'periodic', 'dirichlet' and 'neumann'.")
+            raise ValueError("Unsupported spatial dimension.")
+        
+        self.u = u
+        return u
     
     def _eval_source(self, t_val):
         """
