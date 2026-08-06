@@ -789,8 +789,8 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span> 
                     <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> 
                     <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
-                    <span class="n">apply_backend</span><span class="o">=</span><span class="s2">&quot;peetre&quot;</span><span class="p">,</span>  <span class="c1"># &lt;--- Also optimize energy monitoring</span>
-                    <span class="n">compute_peetre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">apply_backend</span><span class="o">=</span><span class="s2">&quot;direct&quot;</span><span class="p">,</span>  <span class="c1"># &lt;--- Also optimize energy monitoring</span>
+                    <span class="n">compute_peetre</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                 <span class="p">)</span>
                 
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_energy</span><span class="p">:</span>
@@ -812,8 +812,8 @@
                         <span class="bp">self</span><span class="o">.</span><span class="n">spatial_vars</span><span class="p">,</span> 
                         <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> 
                         <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
-                        <span class="n">apply_backend</span><span class="o">=</span><span class="s2">&quot;peetre&quot;</span><span class="p">,</span>  <span class="c1"># &lt;--- Also optimize energy monitoring</span>
-                        <span class="n">compute_peetre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">apply_backend</span><span class="o">=</span><span class="s2">&quot;direct&quot;</span><span class="p">,</span>  <span class="c1"># &lt;--- Also optimize energy monitoring</span>
+                        <span class="n">compute_peetre</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                     <span class="p">)</span>
                 
                     <span class="c1"># 4. Check for spatial dependence</span>
@@ -1736,42 +1736,6 @@
             <span class="n">combined</span> <span class="o">+=</span> <span class="n">coeff_val</span> <span class="o">*</span> <span class="n">raw_eval</span>
     
         <span class="bp">self</span><span class="o">.</span><span class="n">combined_symbol</span> <span class="o">=</span> <span class="n">combined</span>
-        
-    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_symbol_tables_old</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Precompute and store evaluated pseudo-differential operator symbols for spectral methods.</span>
-
-<span class="sd">        This method evaluates all pseudo-differential operators (ψOp) present in the PDE</span>
-<span class="sd">        over the spatial and frequency grids, scales them by their respective coefficients,</span>
-<span class="sd">        and combines them into a single composite symbol used in time-stepping and inversion.</span>
-
-<span class="sd">        The evaluation is performed via the `evaluate` method of each PseudoDifferentialOperator,</span>
-<span class="sd">        which computes p(x, ξ) or p(x, y, ξ, η) numerically over the current grid configuration.</span>
-
-<span class="sd">        Side Effects:</span>
-<span class="sd">            self.precomputed_symbols : list of (coeff, symbol_array)</span>
-<span class="sd">                Each tuple contains a coefficient and its evaluated symbol on the grid.</span>
-<span class="sd">            self.combined_symbol : np.ndarray</span>
-<span class="sd">                Sum of all scaled symbol arrays: ∑(coeffₖ * ψₖ(x, ξ))</span>
-
-<span class="sd">        Raises:</span>
-<span class="sd">            ValueError: If the spatial dimension is not 1D or 2D.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">precomputed_symbols</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">combined_symbol</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">psi</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psi_ops</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">raw</span> <span class="o">=</span> <span class="n">psi</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="n">raw</span> <span class="o">=</span> <span class="n">psi</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unsupported spatial dimension.&#39;</span><span class="p">)</span>
-            <span class="n">raw_flat</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
-            <span class="n">converted</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">complex</span><span class="p">(</span><span class="n">N</span><span class="p">(</span><span class="n">val</span><span class="p">))</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">raw_flat</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
-            <span class="n">raw_eval</span> <span class="o">=</span> <span class="n">converted</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">precomputed_symbols</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">coeff</span><span class="p">,</span> <span class="n">raw_eval</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">combined_symbol</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">coeff</span> <span class="o">*</span> <span class="n">sym</span> <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">sym</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">precomputed_symbols</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">combined_symbol</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">combined_symbol</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_total_symbol_expr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
