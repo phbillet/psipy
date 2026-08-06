@@ -295,12 +295,15 @@ class PseudoDifferentialOperator:
         Clear cached symbol evaluations and Peetre decompositions.
         """
         self.symbol_cached = None
-    
+
         if hasattr(self, "_peetre_cache"):
             self._peetre_cache = None
-    
+
         if hasattr(self, "_peetre_decomposition"):
             self._peetre_decomposition = None
+
+        if hasattr(self, "_joint_lowrank_cache"):
+            self._joint_lowrank_cache = None
 
     def _get_peetre_decomposition(self):
         """
@@ -315,10 +318,27 @@ class PseudoDifferentialOperator:
     
         return self._peetre_decomposition
 
-    def apply(self, u, x_grid, kx, boundary_condition='periodic',
-              y_grid=None, ky=None, dealiasing_mask=None,
-              freq_window='gaussian', clamp=1e6, space_window=False,
-              weyl_order=4, backend=None,):
+    def apply(
+        self,
+        u,
+        x_grid,
+        kx,
+        boundary_condition='periodic',
+        y_grid=None,
+        ky=None,
+        dealiasing_mask=None,
+        freq_window='gaussian',
+        clamp=1e6,
+        space_window=False,
+        weyl_order=4,
+        backend=None,
+        apply_joint=True,
+        joint_backend="direct",
+        joint_degree=6,
+        joint_tol=1e-5,
+        joint_bounds=None,
+        joint_max_rel_error=None,
+    ):
         """
         Apply the pseudo-differential operator to the input field u.
      
@@ -391,7 +411,6 @@ class PseudoDifferentialOperator:
             backend = self.apply_backend
     
         if backend == "peetre":
-    
             return self.apply_peetre(
                 u,
                 x_grid,
@@ -404,6 +423,15 @@ class PseudoDifferentialOperator:
                 clamp=clamp,
                 space_window=space_window,
                 weyl_order=weyl_order,
+                apply_joint=apply_joint,
+                decomposition=None,
+                use_cache=True,
+                separable_local=False,
+                joint_backend=joint_backend,
+                joint_degree=joint_degree,
+                joint_tol=joint_tol,
+                joint_bounds=joint_bounds,
+                joint_max_rel_error=joint_max_rel_error,
             )
             
         is_spatial  = self._is_spatial_dependent()
@@ -1369,293 +1397,6 @@ class PseudoDifferentialOperator:
 
         return expand(Add(*[a * q for a, q in separable]))
 
-    # ------------------------------------------------------------------
-    # Peetre refinement via exact Taylor expansion in space variables
-    # ------------------------------------------------------------------
-    def _peetre_refine_with_taylor(self, joint_terms, order, x0=None):
-        """
-        Refine joint terms by exact Taylor expansion in the spatial variable(s).
-
-        The Taylor polynomial is classified into local/separable parts.
-        The Taylor remainder is kept as an exact joint residual and is NOT
-        re-classified, otherwise the negative of the Taylor polynomial can
-        be extracted again and cancel the accepted terms.
-
-        Parameters
-        ----------
-        joint_terms : list of sympy.Expr
-            Joint terms to refine.
-
-        order : int
-            Maximum total Taylor degree kept.
-
-        x0 : list or tuple, optional
-            Expansion point.
-
-        Returns
-        -------
-        local_coeffs : dict
-            Additional local polynomial coefficients extracted from Taylor.
-
-        separable : list
-            Additional separable terms extracted from Taylor.
-
-        residual_joint : list
-            Remaining exact joint residuals.
-        """
-        from sympy import Add, expand
-
-        if not joint_terms:
-            return {}, [], []
-
-        order = int(order)
-
-        if order < 0:
-            return {}, [], [expand(Add(*joint_terms))]
-
-        local_coeffs = {}
-        separable = []
-        residuals = []
-
-        for t in joint_terms:
-            taylor = self._peetre_taylor_polynomial(t, order, x0)
-
-            if taylor is None:
-                residuals.append(expand(t))
-                continue
-
-            taylor = expand(taylor)
-            remainder = expand(t - taylor)
-
-            # Classify only the Taylor polynomial.
-            lc_t, sep_t, jt_t = self._peetre_classify_terms(taylor)
-
-            self._peetre_merge_local(local_coeffs, lc_t)
-            separable.extend(sep_t)
-
-            # If some Taylor terms are still joint, keep them in the residual.
-            if jt_t:
-                residuals.extend([expand(term) for term in jt_t])
-
-            # The Taylor remainder is exact and must remain joint.
-            if not self._peetre_is_zero(remainder):
-                residuals.append(remainder)
-
-        return local_coeffs, separable, residuals
-    
-    # ------------------------------------------------------------------
-    # Peetre refinement via existing asymptotic_expansion()
-    # ------------------------------------------------------------------
-    def _peetre_refine_with_asymptotic_expansion(self, joint_terms, order):
-        """
-        Refine joint terms using the existing asymptotic_expansion() method.
-
-        The refinement is symbolic. Accepted local/separable pieces are
-        subtracted from the original joint expression, leaving an exact
-        symbolic residual.
-
-        Important:
-        --------
-        The residual is NOT re-classified. Re-classifying the residual can
-        extract the negative of previously accepted Taylor/asymptotic terms
-        and cancel them.
-
-        Parameters
-        ----------
-        joint_terms : list of sympy.Expr
-            Joint terms to refine.
-
-        order : int
-            Order passed to asymptotic_expansion().
-
-        Returns
-        -------
-        local_coeffs : dict
-            Additional local coefficients extracted from asymptotic expansion.
-
-        separable : list
-            Additional separable terms extracted from asymptotic expansion.
-
-        residual_joint : list
-            Remaining exact joint residuals.
-        """
-        from sympy import Add, expand
-        import io
-        import contextlib
-
-        if not joint_terms:
-            return {}, [], []
-
-        local_coeffs = {}
-        separable = []
-        residuals = []
-
-        for t in joint_terms:
-            t = expand(t)
-
-            try:
-                tmp_op = PseudoDifferentialOperator(
-                    t,
-                    self.vars_x,
-                    mode="symbol",
-                    quantization=self.quantization,
-                )
-
-                # The existing asymptotic_expansion() prints warnings for
-                # oscillatory/non-expandable terms such as sin(x*xi).
-                # We suppress stdout here to avoid noisy harmless messages.
-                # If you want to see them, remove the redirect_stdout block.
-                with contextlib.redirect_stdout(io.StringIO()):
-                    expansion = tmp_op.asymptotic_expansion(order=order)
-
-            except Exception as exc:
-                warnings.warn(
-                    f"Peetre asymptotic refinement failed for a term: {exc}"
-                )
-                residuals.append(t)
-                continue
-
-            expansion = expand(expansion)
-
-            # If the asymptotic routine returned the same expression,
-            # do NOT classify it. Otherwise it may peel off counter-terms
-            # coming from a previous Taylor refinement and cancel them.
-            if self._peetre_is_zero(expand(expansion - t)):
-                residuals.append(t)
-                continue
-
-            lc_exp, sep_exp, _joint_exp = self._peetre_classify_terms(expansion)
-
-            accepted = (
-                self._peetre_local_symbol(lc_exp)
-                + self._peetre_separable_symbol(sep_exp)
-            )
-
-            if self._peetre_is_zero(accepted):
-                residuals.append(t)
-                continue
-
-            residual = expand(t - accepted)
-
-            self._peetre_merge_local(local_coeffs, lc_exp)
-            separable.extend(sep_exp)
-
-            if not self._peetre_is_zero(residual):
-                residuals.append(residual)
-
-        return local_coeffs, separable, residuals
-
-    # ------------------------------------------------------------------
-    # Taylor polynomial helper: total-degree multivariate Taylor
-    # ------------------------------------------------------------------
-    def _peetre_taylor_polynomial(self, expr, order, x0=None):
-        """
-        Compute the Taylor polynomial of expr in the spatial variables.
-
-        The expansion is performed around x0.
-
-        In 1D:
-            expands in x around x0.
-
-        In 2D:
-            expands in (x, y) around (x0, y0) and keeps only monomials
-            whose total spatial degree is <= order.
-
-        Parameters
-        ----------
-        expr : sympy.Expr
-            Expression to expand.
-
-        order : int
-            Maximum total Taylor degree kept.
-            order=0 keeps the constant term.
-            order=3 keeps terms of total degree <= 3.
-
-        x0 : list or tuple, optional
-            Expansion point.
-            1D: [x0]
-            2D: [x0, y0]
-            If None, expands around 0.
-
-        Returns
-        -------
-        sympy.Expr or None
-            Taylor polynomial, or None if the expansion fails.
-        """
-        from sympy import Dummy, Poly, expand, sympify, Integer
-
-        order = int(order)
-
-        if order < 0:
-            return None
-
-        x_vars = self.vars_x
-
-        if x0 is None:
-            x0_vars = [Integer(0) for _ in x_vars]
-        else:
-            if len(x0) != len(x_vars):
-                raise ValueError(
-                    "taylor_x0 must have the same length as vars_x. "
-                    f"Expected {len(x_vars)} values, got {len(x0)}."
-                )
-            x0_vars = [sympify(v) for v in x0]
-
-        # Use dummy variables h_i = x_i - x0_i.
-        h_vars = [Dummy(real=True) for _ in x_vars]
-
-        subs_to_h = {
-            xv: x0v + hv
-            for xv, x0v, hv in zip(x_vars, x0_vars, h_vars)
-        }
-
-        subs_from_h = {
-            hv: xv - x0v
-            for xv, x0v, hv in zip(x_vars, x0_vars, h_vars)
-        }
-
-        try:
-            e = expr.subs(subs_to_h)
-
-            # SymPy series convention:
-            # series(..., n=N) keeps terms with degree < N.
-            # Therefore, to keep total degree <= order, use n = order + 1.
-            n_series = order + 1
-
-            taylor = e
-
-            # Series in each dummy variable.
-            for hv in h_vars:
-                taylor = taylor.series(hv, 0, n_series).removeO()
-
-            taylor = expand(taylor)
-
-            # Keep only total degree <= order.
-            try:
-                poly = Poly(taylor, *h_vars)
-                filtered = Integer(0)
-
-                for monom, coeff in poly.terms():
-                    if sum(monom) <= order:
-                        term = coeff
-                        for hv, power in zip(h_vars, monom):
-                            if power:
-                                term = term * hv**power
-                        filtered = filtered + term
-
-                taylor = expand(filtered)
-
-            except Exception:
-                # If total-degree filtering fails, keep the nested series.
-                pass
-
-            return expand(taylor.subs(subs_from_h))
-
-        except Exception as exc:
-            warnings.warn(
-                f"Peetre Taylor polynomial failed for an expression: {exc}"
-            )
-            return None
 
     def _peetre_merge_separable(self, separable):
         """
@@ -1757,14 +1498,170 @@ class PseudoDifferentialOperator:
         return self._peetre_merge_separable(
             self._peetre_local_to_separable(local_coeffs)
         )
+
+    # ------------------------------------------------------------------
+    # Low-rank joint residual helpers
+    # ------------------------------------------------------------------
+    def _infer_joint_bounds(self, x_grid, kx, y_grid=None, ky=None):
+        """
+        Infer physical bounds for low-rank joint decomposition from
+        the spatial and frequency grids.
+        """
+        import numpy as np
+
+        def _bounds(arr):
+            arr = np.asarray(arr)
+            if arr.size == 0:
+                raise ValueError("Empty grid encountered while inferring bounds.")
+
+            lo = float(np.min(arr))
+            hi = float(np.max(arr))
+
+            if hi <= lo:
+                lo -= 1.0
+                hi += 1.0
+
+            return lo, hi
+
+        freq_syms = self._peetre_frequency_symbols()
+
+        if self.dim == 1:
+            return {
+                self.vars_x[0]: _bounds(x_grid),
+                freq_syms[0]: _bounds(kx),
+            }
+
+        elif self.dim == 2:
+            if y_grid is None or ky is None:
+                raise ValueError("y_grid and ky are required for 2D bounds.")
+
+            return {
+                self.vars_x[0]: _bounds(x_grid),
+                self.vars_x[1]: _bounds(y_grid),
+                freq_syms[0]: _bounds(kx),
+                freq_syms[1]: _bounds(ky),
+            }
+
+        else:
+            raise NotImplementedError("Only 1D and 2D bounds are supported.")
+
+    def _remap_bounds(self, bounds, syms):
+        """
+        Ensure bounds keys match the exact SymPy symbols used in the
+        expression. If necessary, match by symbol name.
+        """
+        out = {}
+
+        for s in syms:
+            if s in bounds:
+                out[s] = bounds[s]
+                continue
+
+            matched_key = None
+            for k in bounds.keys():
+                if getattr(k, "name", str(k)) == getattr(s, "name", str(s)):
+                    matched_key = k
+                    break
+
+            if matched_key is None:
+                raise ValueError(f"No bound provided for symbol '{s}'.")
+
+            out[s] = bounds[matched_key]
+
+        return out
+
+    def _low_rank_joint_pairs(
+        self,
+        joint_symbol,
+        bounds,
+        degree=6,
+        tol=1e-5,
+        num_samples=10000,
+        seed=42,
+        use_cache=True,
+    ):
+        """
+        Factorize the joint residual into separable pairs.
+
+        Returns
+        -------
+        pairs : list
+            List of `(a_k(x), q_k(xi))`.
+        metrics : dict
+            Symbol-level approximation diagnostics.
+        """
+        import numpy as np
+        from sympy import symbols
+
+        if self._peetre_is_zero(joint_symbol):
+            return [], {
+                "rel_l2_error": 0.0,
+                "max_abs_error": 0.0,
+                "mean_abs_error": 0.0,
+                "svd_energy_retained_pct": 100.0,
+                "singular_values": np.array([]),
+            }
+
+        # ----------------------------------------------------------
+        # Use symbols actually present in the joint residual when
+        # possible. This avoids subtle SymPy symbol-mismatch issues.
+        # ----------------------------------------------------------
+        x_syms = []
+        for v in self.vars_x:
+            s = next(
+                (fs for fs in joint_symbol.free_symbols if fs.name == v.name),
+                v,
+            )
+            x_syms.append(s)
+
+        freq_names = ["xi"] if self.dim == 1 else ["xi", "eta"]
+        xi_syms = []
+        for name in freq_names:
+            s = next(
+                (fs for fs in joint_symbol.free_symbols if fs.name == name),
+                symbols(name, real=True),
+            )
+            xi_syms.append(s)
+
+        all_syms = x_syms + xi_syms
+        bounds = self._remap_bounds(bounds, all_syms)
+
+        key = (
+            joint_symbol,
+            degree,
+            tol,
+            tuple(
+                (s, float(bounds[s][0]), float(bounds[s][1]))
+                for s in all_syms
+            ),
+        )
+
+        cache = getattr(self, "_joint_lowrank_cache", None)
+
+        if use_cache and cache is not None and cache.get("key") == key:
+            return cache["pairs"], cache["metrics"]
+
+        pairs, metrics = factorize_symbolic(
+            joint_symbol,
+            x_syms,
+            xi_syms,
+            bounds,
+            degree=degree,
+            tol=tol,
+            num_samples=num_samples,
+            seed=seed,
+        )
+
+        self._joint_lowrank_cache = {
+            "key": key,
+            "pairs": pairs,
+            "metrics": metrics,
+        }
+
+        return pairs, metrics
         
     def peetre_decomposition(
         self,
-        asymptotic_order=None,
-        refine_joint=True,
-        taylor_order=None,
-        taylor_x0=None,
-        refinement_sequence=("taylor", "asymptotic"),
         use_cache=True,
         separable_local=False,
     ):
@@ -1782,51 +1679,9 @@ class PseudoDifferentialOperator:
             joint_residual:
                 Remaining genuinely entangled terms.
 
-        Optional refinements
-        --------------------
-        Taylor refinement:
-            Expands joint terms in space around taylor_x0.
-
-            Enabled when:
-                refine_joint=True
-                taylor_order is not None
-                refinement_sequence contains "taylor"
-
-        Asymptotic refinement:
-            Uses self.asymptotic_expansion(order=asymptotic_order)
-            on the remaining joint terms.
-
-            Enabled when:
-                refine_joint=True
-                asymptotic_order is not None and > 0
-                refinement_sequence contains "asymptotic"
 
         Parameters
         ----------
-        asymptotic_order : int, optional
-            Order for asymptotic_expansion().
-
-        refine_joint : bool, default=True
-            Master switch for joint refinement.
-
-        taylor_order : int, optional
-            Maximum Taylor degree kept.
-            order=0 keeps constant term.
-            order=3 keeps terms up to degree 3.
-
-        taylor_x0 : list or tuple, optional
-            Taylor expansion point.
-            1D: [x0]
-            2D: [x0, y0]
-            If None, uses [0] or [0, 0].
-
-        refinement_sequence : tuple, default=("taylor", "asymptotic")
-            Order of refinements.
-            Examples:
-                ("taylor", "asymptotic")
-                ("asymptotic", "taylor")
-                ("taylor",)
-                ("asymptotic",)
 
         use_cache : bool, default=True
             Cache the decomposition.
@@ -1838,75 +1693,17 @@ class PseudoDifferentialOperator:
         """
         from sympy import Add, Integer, expand, sympify
 
-        if isinstance(refinement_sequence, str):
-            refinement_sequence = (refinement_sequence,)
-
-        refinement_sequence = tuple(refinement_sequence or ())
-
-        if taylor_x0 is not None:
-            if len(taylor_x0) != self.dim:
-                raise ValueError(
-                    "taylor_x0 must have the same length as vars_x. "
-                    f"Expected {self.dim} values, got {len(taylor_x0)}."
-                )
-            x0_key = tuple(sympify(v) for v in taylor_x0)
-        else:
-            x0_key = None
-
         cache = getattr(self, "_peetre_cache", None)
 
         if (
             use_cache
             and cache is not None
             and cache.get("symbol") == self.symbol
-            and cache.get("asymptotic_order") == asymptotic_order
-            and cache.get("refine_joint") == refine_joint
-            and cache.get("taylor_order") == taylor_order
-            and cache.get("taylor_x0") == x0_key
-            and cache.get("refinement_sequence") == refinement_sequence
             and cache.get("separable_local") == separable_local
         ):
             return cache["result"]
 
         local_coeffs, separable, joint = self._peetre_classify_terms(self.symbol)
-
-        if refine_joint and joint:
-            for step in refinement_sequence:
-                if not joint:
-                    break
-
-                if step == "taylor":
-                    if taylor_order is not None and int(taylor_order) >= 0:
-                        lc_extra, sep_extra, joint_refined = (
-                            self._peetre_refine_with_taylor(
-                                joint,
-                                int(taylor_order),
-                                x0_key,
-                            )
-                        )
-
-                        self._peetre_merge_local(local_coeffs, lc_extra)
-                        separable.extend(sep_extra)
-                        joint = joint_refined
-
-                elif step == "asymptotic":
-                    if asymptotic_order is not None and int(asymptotic_order) > 0:
-                        lc_extra, sep_extra, joint_refined = (
-                            self._peetre_refine_with_asymptotic_expansion(
-                                joint,
-                                int(asymptotic_order),
-                            )
-                        )
-
-                        self._peetre_merge_local(local_coeffs, lc_extra)
-                        separable.extend(sep_extra)
-                        joint = joint_refined
-
-                else:
-                    warnings.warn(
-                        f"Unknown Peetre refinement step: '{step}'. "
-                        "Use 'taylor' or 'asymptotic'."
-                    )
 
         # ------------------------------------------------------------------
         # Add this before removing zero terms
@@ -1977,21 +1774,11 @@ class PseudoDifferentialOperator:
             "local_symbol": local_symbol,
             "separable_symbol": separable_symbol,
             "joint_symbol": joint_symbol,
-            "asymptotic_order": asymptotic_order,
-            "refine_joint": refine_joint,
-            "taylor_order": taylor_order,
-            "taylor_x0": x0_key,
-            "refinement_sequence": refinement_sequence,
             "separable_local": separable_local,
         }
 
         self._peetre_cache = {
             "symbol": self.symbol,
-            "asymptotic_order": asymptotic_order,
-            "refine_joint": refine_joint,
-            "taylor_order": taylor_order,
-            "taylor_x0": x0_key,
-            "refinement_sequence": refinement_sequence,
             "separable_local": separable_local,
             "result": result,
         }
@@ -2015,11 +1802,6 @@ class PseudoDifferentialOperator:
         --------
         op.print_peetre_decomposition()
 
-        op.print_peetre_decomposition(
-            taylor_order=4,
-            taylor_x0=[0],
-            asymptotic_order=4,
-        )
         """
         deco = self.peetre_decomposition(**kwargs)
         xi_vars = self._peetre_frequency_symbols()
@@ -2100,15 +1882,17 @@ class PseudoDifferentialOperator:
         clamp=1e6,
         space_window=False,
         weyl_order=4,
-        asymptotic_order=None,
-        refine_joint=True,
-        taylor_order=None,
-        taylor_x0=None,
-        refinement_sequence=("taylor", "asymptotic"),
         apply_joint=True,
         decomposition=None,
         use_cache=True,
         separable_local=False,
+        joint_backend="direct",
+        joint_degree=6,
+        joint_tol=1e-5,
+        joint_bounds=None,
+        joint_max_rel_error=None,
+        joint_num_samples=10000,
+        joint_seed=42,
     ):
         """
         Apply the operator using its Peetre decomposition.
@@ -2158,21 +1942,11 @@ class PseudoDifferentialOperator:
                 )
     
                 decomposition = effective_op.peetre_decomposition(
-                    asymptotic_order=asymptotic_order,
-                    refine_joint=refine_joint,
-                    taylor_order=taylor_order,
-                    taylor_x0=taylor_x0,
-                    refinement_sequence=refinement_sequence,
                     use_cache=use_cache,
                     separable_local=separable_local,
                 )
             else:
                 decomposition = self.peetre_decomposition(
-                    asymptotic_order=asymptotic_order,
-                    refine_joint=refine_joint,
-                    taylor_order=taylor_order,
-                    taylor_x0=taylor_x0,
-                    refinement_sequence=refinement_sequence,
                     use_cache=use_cache,
                     separable_local=separable_local,
                 )
@@ -2296,26 +2070,79 @@ class PseudoDifferentialOperator:
         # --------------------------------------------------------------
         # 3. Joint residual.
         # --------------------------------------------------------------
-        if not self._peetre_is_zero(deco.get("joint_symbol", 0)):
-            if apply_joint:
+        joint_symbol = deco.get("joint_symbol", 0)
+    
+        if not self._peetre_is_zero(joint_symbol):
+            def _apply_joint_direct():
                 op_joint = PseudoDifferentialOperator(
-                    deco["joint_symbol"],
+                    joint_symbol,
                     self.vars_x,
                     mode="symbol",
                     quantization=peetre_quantization,
                 )
-    
-                result = result + op_joint.apply(
+                return op_joint.apply(
                     u,
                     x_grid,
                     kx,
                     **common_apply_kwargs,
                 )
     
-            else:
+            if not apply_joint:
                 warnings.warn(
                     "Peetre joint residual has been ignored. "
                     "The result is an asymptotic/local+separable approximation."
+                )
+    
+            elif joint_backend == "direct":
+                result = result + _apply_joint_direct()
+    
+            elif joint_backend == "lowrank":
+                if joint_bounds is None:
+                    joint_bounds = self._infer_joint_bounds(
+                        x_grid,
+                        kx,
+                        y_grid=y_grid,
+                        ky=ky,
+                    )
+    
+                try:
+                    pairs, metrics = self._low_rank_joint_pairs(
+                        joint_symbol,
+                        joint_bounds,
+                        degree=joint_degree,
+                        tol=joint_tol,
+                        num_samples=joint_num_samples,
+                        seed=joint_seed,
+                        use_cache=use_cache,
+                    )
+    
+                    self.last_joint_lowrank_metrics = metrics
+    
+                    if (
+                        joint_max_rel_error is not None
+                        and metrics.get("rel_l2_error", float("inf")) > joint_max_rel_error
+                    ):
+                        warnings.warn(
+                            "Low-rank joint residual symbol error "
+                            f"{metrics['rel_l2_error']:.6e} exceeds "
+                            f"joint_max_rel_error={joint_max_rel_error}. "
+                            "Falling back to direct joint application."
+                        )
+                        result = result + _apply_joint_direct()
+                    else:
+                        for a_k, q_k in pairs:
+                            result = result + _apply_separable_pair(a_k, q_k)
+    
+                except Exception as exc:
+                    warnings.warn(
+                        "Low-rank joint decomposition failed: "
+                        f"{exc}. Falling back to direct joint application."
+                    )
+                    result = result + _apply_joint_direct()
+    
+            else:
+                raise ValueError(
+                    "joint_backend must be 'direct' or 'lowrank'."
                 )
     
         return result
@@ -5778,3 +5605,374 @@ def kohn_nirenberg_nonperiodic(
         return result
     else:
         raise NotImplementedError("Only 1D (ndim=1) and 2D (ndim=2) inputs are supported")
+
+import itertools
+import numpy as np
+import sympy as sp
+
+
+def _sympy_number(z, digits=5, drop_tol=0.0):
+    """
+    Convert a Python/NumPy complex number into a SymPy number.
+    SymPy Float does not accept complex numbers directly.
+    """
+    z = complex(z)
+    re = float(np.real(z))
+    im = float(np.imag(z))
+
+    if abs(re) <= drop_tol:
+        re = 0.0
+    if abs(im) <= drop_tol:
+        im = 0.0
+
+    if im == 0.0:
+        return sp.Float(re, digits)
+
+    return sp.Float(re, digits) + sp.I * sp.Float(im, digits)
+
+
+def _chebyshev_polynomial(n, z):
+    """
+    Return T_n(z) as an explicit expanded SymPy polynomial.
+
+    This avoids possible lambdify issues with special Chebyshev functions.
+    """
+    if n == 0:
+        return sp.S.One
+    if n == 1:
+        return z
+
+    t_prev = sp.S.One
+    t_curr = z
+
+    for _ in range(2, n + 1):
+        t_prev, t_curr = t_curr, sp.expand(2 * z * t_curr - t_prev)
+
+    return t_curr
+
+
+def evaluate_decomposition_quality(
+    orig_expr,
+    symbolic_pairs,
+    x_syms,
+    xi_syms,
+    bounds,
+    num_samples=10000,
+    seed=42,
+):
+    """
+    Monte Carlo symbol-level error of
+
+        orig_expr(x, xi) ≈ sum_k a_k(x) q_k(xi)
+
+    over random off-grid points.
+    """
+    rng = np.random.default_rng(seed)
+
+    x_syms = list(x_syms)
+    xi_syms = list(xi_syms)
+    all_syms = x_syms + xi_syms
+
+    sample_dict = {}
+    for s in all_syms:
+        s_min, s_max = bounds[s]
+        sample_dict[s] = rng.uniform(s_min, s_max, size=num_samples)
+
+    # Original expression
+    f_orig = sp.lambdify(all_syms, orig_expr, modules="numpy")
+    args = [sample_dict[s] for s in all_syms]
+    y_orig = np.asarray(f_orig(*args), dtype=np.complex128).reshape(-1)
+
+    if y_orig.size == 1:
+        y_orig = np.full(num_samples, y_orig.item(), dtype=np.complex128)
+    elif y_orig.size != num_samples:
+        y_orig = np.broadcast_to(y_orig, (num_samples,)).astype(np.complex128)
+
+    # Approximation
+    y_approx = np.zeros(num_samples, dtype=np.complex128)
+
+    x_pts = [sample_dict[s] for s in x_syms]
+    xi_pts = [sample_dict[s] for s in xi_syms]
+
+    for a_k, q_k in symbolic_pairs:
+        f_a = sp.lambdify(x_syms, a_k, modules="numpy")
+        f_q = sp.lambdify(xi_syms, q_k, modules="numpy")
+
+        try:
+            val_a = np.asarray(f_a(*x_pts), dtype=np.complex128).reshape(-1)
+            if val_a.size == 1:
+                val_a = np.full(num_samples, val_a.item(), dtype=np.complex128)
+            elif val_a.size != num_samples:
+                val_a = np.broadcast_to(val_a, (num_samples,)).astype(np.complex128)
+        except Exception:
+            val_a = np.full(num_samples, complex(a_k), dtype=np.complex128)
+
+        try:
+            val_q = np.asarray(f_q(*xi_pts), dtype=np.complex128).reshape(-1)
+            if val_q.size == 1:
+                val_q = np.full(num_samples, val_q.item(), dtype=np.complex128)
+            elif val_q.size != num_samples:
+                val_q = np.broadcast_to(val_q, (num_samples,)).astype(np.complex128)
+        except Exception:
+            val_q = np.full(num_samples, complex(q_k), dtype=np.complex128)
+
+        y_approx += val_a * val_q
+
+    diff = y_orig - y_approx
+
+    norm_orig = np.linalg.norm(y_orig)
+    norm_diff = np.linalg.norm(diff)
+
+    rel_l2_err = float(norm_diff / norm_orig) if norm_orig > 0 else float(norm_diff)
+
+    abs_err = np.abs(diff)
+
+    return {
+        "rel_l2_error": rel_l2_err,
+        "max_abs_error": float(np.max(abs_err)),
+        "mean_abs_error": float(np.mean(abs_err)),
+    }
+
+
+def factorize_symbolic(
+    expr,
+    x_syms,
+    xi_syms,
+    bounds,
+    degree=6,
+    tol=1e-5,
+    num_samples=10000,
+    seed=42,
+    digits=5,
+):
+    """
+    Low-rank Chebyshev/SVD factorization of a joint symbol:
+
+        p(x, xi) ≈ sum_{k=1}^r a_k(x) q_k(xi)
+
+    The approximation is valid on the bounded rectangle given by `bounds`.
+
+    Parameters
+    ----------
+    expr : sympy.Expr
+        Symbol to factorize, usually the Peetre joint residual.
+    x_syms : list of sympy symbols
+        Spatial variables.
+    xi_syms : list of sympy symbols
+        Frequency variables.
+    bounds : dict
+        Dictionary mapping each symbol to (min, max).
+    degree : int
+        Chebyshev degree in each variable.
+    tol : float
+        Relative singular-value cutoff and coefficient pruning threshold.
+    num_samples : int
+        Number of Monte Carlo samples for quality diagnostics.
+    seed : int
+        RNG seed.
+    digits : int
+        Number of digits used when converting floating coefficients to SymPy.
+
+    Returns
+    -------
+    symbolic_pairs : list of tuple
+        List of `(a_k(x), q_k(xi))` SymPy expressions.
+    metrics : dict
+        Symbol-level approximation diagnostics.
+    """
+    if degree < 1:
+        raise ValueError("degree must be >= 1")
+
+    x_syms = list(x_syms)
+    xi_syms = list(xi_syms)
+    all_syms = x_syms + xi_syms
+
+    # ---------------------------------------------------------------
+    # 1. Chebyshev-Gauss-Lobatto nodes on [-1, 1]
+    # ---------------------------------------------------------------
+    nodes_1d = [
+        np.cos(np.pi * np.arange(degree + 1) / degree)
+        for _ in all_syms
+    ]
+
+    # ---------------------------------------------------------------
+    # 2. Normalize physical variables to [-1, 1]
+    # ---------------------------------------------------------------
+    norm_vars = {}
+    phys_from_norm = []
+
+    for s in all_syms:
+        s_min, s_max = bounds[s]
+
+        if s_max <= s_min:
+            s_min = float(s_min) - 1.0
+            s_max = float(s_min) + 2.0
+
+        norm_vars[s] = (2 * s - (s_min + s_max)) / (s_max - s_min)
+
+        phys_from_norm.append(
+            lambda y, b_min=s_min, b_max=s_max:
+                0.5 * (b_min + b_max) + 0.5 * (b_max - b_min) * y
+        )
+
+    # ---------------------------------------------------------------
+    # 3. Evaluate expression on tensor-product Chebyshev grid
+    # ---------------------------------------------------------------
+    grid_coords = [
+        phys_from_norm[idx](nodes_1d[idx])
+        for idx in range(len(all_syms))
+    ]
+
+    mesh = np.meshgrid(*grid_coords, indexing="ij")
+
+    func_num = sp.lambdify(all_syms, expr, modules="numpy")
+    P_eval = np.asarray(func_num(*mesh), dtype=np.complex128)
+
+    target_shape = mesh[0].shape
+    if P_eval.shape != target_shape:
+        P_eval = np.broadcast_to(P_eval, target_shape).astype(np.complex128)
+
+    P_eval = P_eval.copy()
+
+    empty_metrics = {
+        "rel_l2_error": 0.0,
+        "max_abs_error": 0.0,
+        "mean_abs_error": 0.0,
+        "svd_energy_retained_pct": 100.0,
+        "singular_values": np.array([]),
+    }
+
+    if np.allclose(P_eval, 0.0, atol=1e-14):
+        return [], empty_metrics
+
+    # ---------------------------------------------------------------
+    # 4. Chebyshev coefficients by Vandermonde inversion
+    # ---------------------------------------------------------------
+    vands = [
+        np.polynomial.chebyshev.chebvander(nodes_1d[i], degree)
+        for i in range(len(all_syms))
+    ]
+
+    C_tensor = P_eval
+
+    for i, V in enumerate(vands):
+        inv_V = np.linalg.inv(V)
+
+        C_tensor = np.moveaxis(C_tensor, i, 0)
+        orig_shape = C_tensor.shape
+        C_tensor = inv_V @ C_tensor.reshape(orig_shape[0], -1)
+        C_tensor = C_tensor.reshape(orig_shape)
+        C_tensor = np.moveaxis(C_tensor, 0, i)
+
+    # ---------------------------------------------------------------
+    # 5. Reshape coefficients into spatial × frequency matrix
+    # ---------------------------------------------------------------
+    d_x = len(x_syms)
+    d_xi = len(xi_syms)
+
+    N_x_total = (degree + 1) ** d_x
+    N_xi_total = (degree + 1) ** d_xi
+
+    C_matrix = C_tensor.reshape((N_x_total, N_xi_total))
+
+    # ---------------------------------------------------------------
+    # 6. SVD low-rank truncation
+    # ---------------------------------------------------------------
+    U, S, Vt = np.linalg.svd(C_matrix, full_matrices=False)
+
+    if S.size == 0 or S[0] == 0:
+        return [], empty_metrics
+
+    keep = S > (S[0] * tol)
+
+    if not np.any(keep):
+        keep = np.zeros_like(S, dtype=bool)
+        keep[0] = True
+
+    energy_den = float(np.sum(S ** 2))
+    svd_energy_retained = (
+        100.0 * float(np.sum(S[keep] ** 2)) / energy_den
+        if energy_den > 0 else 100.0
+    )
+
+    # ---------------------------------------------------------------
+    # 7. Reconstruct symbolic separable terms
+    # ---------------------------------------------------------------
+    spatial_multi_indices = list(
+        itertools.product(range(degree + 1), repeat=d_x)
+    )
+    spectral_multi_indices = list(
+        itertools.product(range(degree + 1), repeat=d_xi)
+    )
+
+    def _cheb(deg, s):
+        return _chebyshev_polynomial(deg, norm_vars[s])
+
+    symbolic_pairs = []
+
+    S_keep = S[keep]
+    U_keep = U[:, keep]
+    Vt_keep = Vt[keep, :]
+
+    for k in range(len(S_keep)):
+        sigma_k = S_keep[k]
+        u_k = U_keep[:, k]
+        v_k = Vt_keep[k, :]
+
+        # a_k(x)
+        a_k_expr = sp.S.Zero
+        for idx, multi_idx in enumerate(spatial_multi_indices):
+            coeff = np.sqrt(sigma_k) * u_k[idx]
+
+            if np.abs(coeff) > tol:
+                if len(multi_idx) == 0:
+                    basis_term = sp.S.One
+                else:
+                    basis_term = sp.Mul(
+                        *[
+                            _cheb(deg, x_syms[m])
+                            for m, deg in enumerate(multi_idx)
+                        ]
+                    )
+
+                a_k_expr += _sympy_number(coeff, digits=digits) * basis_term
+
+        # q_k(xi)
+        q_k_expr = sp.S.Zero
+        for idx, multi_idx in enumerate(spectral_multi_indices):
+            coeff = np.sqrt(sigma_k) * v_k[idx]
+
+            if np.abs(coeff) > tol:
+                if len(multi_idx) == 0:
+                    basis_term = sp.S.One
+                else:
+                    basis_term = sp.Mul(
+                        *[
+                            _cheb(deg, xi_syms[n])
+                            for n, deg in enumerate(multi_idx)
+                        ]
+                    )
+
+                q_k_expr += _sympy_number(coeff, digits=digits) * basis_term
+
+        symbolic_pairs.append(
+            (sp.expand(a_k_expr), sp.expand(q_k_expr))
+        )
+
+    # ---------------------------------------------------------------
+    # 8. Monte Carlo quality metrics
+    # ---------------------------------------------------------------
+    metrics = evaluate_decomposition_quality(
+        expr,
+        symbolic_pairs,
+        x_syms,
+        xi_syms,
+        bounds,
+        num_samples=num_samples,
+        seed=seed,
+    )
+
+    metrics["svd_energy_retained_pct"] = svd_energy_retained
+    metrics["singular_values"] = S_keep
+
+    return symbolic_pairs, metrics

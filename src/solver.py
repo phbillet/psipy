@@ -702,8 +702,8 @@ class PDESolver:
                     self.spatial_vars, 
                     self.u, 
                     mode='symbol',
-                    apply_backend="peetre",  # <--- Also optimize energy monitoring
-                    compute_peetre=True,
+                    apply_backend="direct",  # <--- Also optimize energy monitoring
+                    compute_peetre=False,
                 )
                 
                 if self.compute_energy:
@@ -725,8 +725,8 @@ class PDESolver:
                         self.spatial_vars, 
                         self.u, 
                         mode='symbol',
-                        apply_backend="peetre",  # <--- Also optimize energy monitoring
-                        compute_peetre=True,
+                        apply_backend="direct",  # <--- Also optimize energy monitoring
+                        compute_peetre=False,
                     )
                 
                     # 4. Check for spatial dependence
@@ -1646,42 +1646,6 @@ class PDESolver:
             combined += coeff_val * raw_eval
     
         self.combined_symbol = combined
-        
-    def _prepare_symbol_tables_old(self):
-        """
-        Precompute and store evaluated pseudo-differential operator symbols for spectral methods.
-
-        This method evaluates all pseudo-differential operators (ψOp) present in the PDE
-        over the spatial and frequency grids, scales them by their respective coefficients,
-        and combines them into a single composite symbol used in time-stepping and inversion.
-
-        The evaluation is performed via the `evaluate` method of each PseudoDifferentialOperator,
-        which computes p(x, ξ) or p(x, y, ξ, η) numerically over the current grid configuration.
-
-        Side Effects:
-            self.precomputed_symbols : list of (coeff, symbol_array)
-                Each tuple contains a coefficient and its evaluated symbol on the grid.
-            self.combined_symbol : np.ndarray
-                Sum of all scaled symbol arrays: ∑(coeffₖ * ψₖ(x, ξ))
-
-        Raises:
-            ValueError: If the spatial dimension is not 1D or 2D.
-        """
-        self.precomputed_symbols = []
-        self.combined_symbol = 0
-        for coeff, psi in self.psi_ops:
-            if self.dim == 1:
-                raw = psi.evaluate(self.X, None, self.KX, None)
-            elif self.dim == 2:
-                raw = psi.evaluate(self.X, self.Y, self.KX, self.KY)
-            else:
-                raise ValueError('Unsupported spatial dimension.')
-            raw_flat = raw.flatten()
-            converted = np.array([complex(N(val)) for val in raw_flat], dtype=np.complex128)
-            raw_eval = converted.reshape(raw.shape)
-            self.precomputed_symbols.append((coeff, raw_eval))
-        self.combined_symbol = sum((coeff * sym for coeff, sym in self.precomputed_symbols))
-        self.combined_symbol = np.array(self.combined_symbol, dtype=np.complex128)
 
     def _total_symbol_expr(self):
         """
