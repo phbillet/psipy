@@ -4732,6 +4732,9 @@ class PseudoDifferentialOperator:
             x_slider = FloatSlider(min=xlim[0], max=xlim[1], step=0.1, value=0.0, description='x₀')
     
             def plot_1d(mode, xi0, x0):
+
+                plt.close('all')
+                plt.figure()
                 X = x_vals[:, None]
     
                 if mode == 'Group Velocity Field':
@@ -4775,6 +4778,15 @@ class PseudoDifferentialOperator:
     
                 elif mode == 'Hamiltonian Flow':
                     pseudo_op.plot_hamiltonian_flow(x0=x0, xi0=xi0)
+                    
+                if mode not in (
+                    "Cotangent Fiber",
+                    "Characteristic Set",
+                    "Characteristic Gradient",
+                    "Hamiltonian Flow",
+                ):
+                    plt.show()
+
     
             # --- Dynamic container for sliders ---
             controls_box = VBox([mode_selector_1D, xi_slider, x_slider])
@@ -4809,6 +4821,9 @@ class PseudoDifferentialOperator:
             y_slider=FloatSlider(min=ylim[0], max=ylim[1], step=0.1, value=0.0, description='y₀')
     
             def plot_2d(mode, xi0, eta0, x0, y0):
+
+                plt.close('all')
+                plt.figure()
                 X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
     
                 if mode == 'Micro-Support (1/|p|)':
@@ -4856,6 +4871,14 @@ class PseudoDifferentialOperator:
     
                 elif mode == 'Hamiltonian Flow':
                     pseudo_op.plot_hamiltonian_flow(x0=x0, y0=y0, xi0=xi0, eta0=eta0)
+
+                if mode not in (
+                    "Cotangent Fiber",
+                    "Characteristic Set",
+                    "Characteristic Gradient",
+                    "Hamiltonian Flow",
+                ):
+                    plt.show()
                     
             # --- Dynamic container for sliders ---
             controls_box = VBox([mode_selector_2D, xi_slider, eta_slider, x_slider, y_slider])
