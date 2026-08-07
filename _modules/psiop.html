@@ -102,43 +102,42 @@
 
 <span class="sd">Overview</span>
 <span class="sd">--------</span>
-<span class="sd">The `psiop` module provides a unified framework for manipulating pseudo‑differential operators (ΨDOs) in one and two spatial dimensions.  It combines **symbolic** construction of operator symbols (using SymPy) with **numerical** evaluation and visualisation (using NumPy/SciPy/Matplotlib).  The package is designed for researchers and students working in microlocal analysis, spectral theory, and the numerical analysis of PDEs.</span>
+<span class="sd">The `psiop` module provides a unified framework for constructing, manipulating, and numerically applying pseudo‑differential operators (ΨDOs) in one and two spatial dimensions. It combines **symbolic** construction and calculus of operator symbols (using SymPy) with **numerical** evaluation, quantization, and visualisation (using NumPy/SciPy/Matplotlib). The package is designed for researchers and students working in microlocal analysis, spectral theory, and the numerical analysis of PDEs.</span>
 
 <span class="sd">Key features include:</span>
 
-<span class="sd">* Symbol creation either from an explicit expression (symbol mode) or by automatic extraction from a differential operator (auto mode).</span>
-<span class="sd">* Computation of asymptotic expansions of symbols at high frequencies.</span>
-<span class="sd">* Determination of the operator order (homogeneity degree) via symbolic/numerical heuristics.</span>
-<span class="sd">* Asymptotic composition of operators in Kohn‑Nirenberg or Weyl quantisation.</span>
-<span class="sd">* Construction of formal left/right inverses and the formal adjoint.</span>
-<span class="sd">* Symbol of the exponential `exp(tP)` via series expansion.</span>
-<span class="sd">* Semiclassical trace formula (symbolic or numerical).</span>
-<span class="sd">* Hamiltonian flow associated with the principal symbol (symplectic phase‑space dynamics).</span>
-<span class="sd">* Pseudospectrum computation and visualisation with adaptive grid refinement and parallelisation.</span>
-<span class="sd">* Rich visualisation suite: symbol amplitude/phase, cotangent‑fiber structure, characteristic set, group velocity field, micro‑support, Hamiltonian trajectories.</span>
-<span class="sd">* Interactive dashboard (ipywidgets) for real‑time exploration of the symbol.</span>
+<span class="sd">* Symbol creation either from an explicit expression (symbol mode) or by automatic extraction from a differential operator (auto mode), in both Kohn‑Nirenberg and Weyl quantisation, with symbolic conversion between the two conventions.</span>
+<span class="sd">* Computation of asymptotic expansions of symbols at high frequencies, and determination of the operator order (homogeneity degree) via symbolic/numerical heuristics.</span>
+<span class="sd">* Asymptotic symbolic calculus: composition, commutators, formal left/right inverses, the formal adjoint, fractional powers, and the symbol of the exponential `exp(tP)` via series expansion.</span>
+<span class="sd">* **Peetre decomposition**: automatic classification of a symbol into local (polynomial‑in‑ξ), separable, and joint (entangled) parts, with Chebyshev/SVD low‑rank factorization (`factorize_symbolic`) of residual joint terms into short sums of separable pairs `a_k(x) q_k(ξ)`, together with Monte Carlo quality diagnostics.</span>
+<span class="sd">* Two complementary numerical application backends: a direct pointwise‑symbol evaluation on the space‑frequency grid, and a Peetre‑decomposition‑based backend that applies local, separable, and low‑rank joint terms through periodic (FFT) or non‑periodic Kohn‑Nirenberg quantization, with windowing, dealiasing, magnitude clamping, and result caching.</span>
+<span class="sd">* Ellipticity and self‑adjointness checks, evaluated both symbolically and numerically on user‑supplied grids.</span>
+<span class="sd">* Semiclassical trace formula (symbolic or numerical) and pseudospectrum computation with adaptive grid refinement, sparse/dense eigenvalue solvers, and parallelisation.</span>
+<span class="sd">* Hamiltonian flow associated with the principal symbol (symplectic phase‑space dynamics), including the symplectic vector field and singularity‑propagation animation along bicharacteristics.</span>
+<span class="sd">* Rich visualisation suite: symbol amplitude/phase, cotangent‑fiber structure, characteristic set and its gradient, group velocity field, micro‑support, Hamiltonian trajectories, and pseudospectrum contour plots.</span>
+<span class="sd">* Interactive dashboard (ipywidgets) for real‑time exploration of the symbol and its associated phase‑space structures.</span>
 
 <span class="sd">Mathematical background</span>
 <span class="sd">-----------------------</span>
-<span class="sd">A pseudo‑differential operator `P` acting on functions of `x ∈ ℝⁿ` is formally defined by its **symbol** `p(x,ξ)`, a function on phase space `T*ℝⁿ`.  The action on a function `u` is given by the Kohn‑Nirenberg quantisation</span>
+<span class="sd">A pseudo‑differential operator `P` acting on functions of `x ∈ ℝⁿ` is formally defined by its **symbol** `p(x,ξ)`, a function on phase space `T*ℝⁿ`. The action on a function `u` is given by the Kohn‑Nirenberg quantisation</span>
 
 <span class="sd">    (P u)(x) = (2π)^{-n} ∫_{ℝⁿ} e^{i x·ξ} p(x,ξ) û(ξ) dξ ,</span>
 
-<span class="sd">where `û` is the Fourier transform of `u`.  If the symbol does not depend on `x`, the operator reduces to a Fourier multiplier.  For a general spatially varying symbol, the above representation provides a rigorous extension of differential operators.</span>
+<span class="sd">where `û` is the Fourier transform of `u`; the Weyl quantisation instead evaluates the symbol at the midpoint of interacting spatial points, and the two conventions are related by an explicit, order‑truncated correction that the module computes symbolically. If the symbol does not depend on `x`, the operator reduces to a Fourier multiplier. For a general spatially varying symbol, the above representation provides a rigorous extension of differential operators.</span>
 
-<span class="sd">The **asymptotic behaviour** of the symbol as `|ξ| → ∞` determines many properties of the operator.  The **principal symbol** `pₘ` is the homogeneous component of highest order `m`.  When the symbol is non‑homogeneous, the module attempts to estimate the effective order by expanding in inverse powers of `|ξ|` (or in a radial variable for 2D).</span>
+<span class="sd">The **asymptotic behaviour** of the symbol as `|ξ| → ∞` determines many properties of the operator. The **principal symbol** `pₘ` is the homogeneous component of highest order `m`. When the symbol is non‑homogeneous, the module attempts to estimate the effective order by expanding in inverse powers of `|ξ|` (or in a radial variable for 2D).</span>
 
-<span class="sd">**Symbolic calculus** allows one to compose operators asymptotically.  For two symbols `p` and `q`, the symbol of the composition `P ∘ Q` is given by an asymptotic series</span>
+<span class="sd">**Symbolic calculus** allows one to compose operators asymptotically. For two symbols `p` and `q`, the symbol of the composition `P ∘ Q` is given by an asymptotic series</span>
 
 <span class="sd">    (p ∘ q)(x,ξ) ~ Σ_{α} (i)^{-|α|}/α! ∂_ξ^α p(x,ξ) ∂_x^α q(x,ξ)</span>
 
-<span class="sd">in the Kohn‑Nirenberg convention (a similar expansion exists for the Weyl star product).  Truncating this series yields approximate compositions valid for high frequencies or slowly varying symbols.</span>
+<span class="sd">in the Kohn‑Nirenberg convention (a similar expansion exists for the Weyl star product). Truncating this series yields approximate compositions valid for high frequencies or slowly varying symbols, and the same machinery underlies the module&#39;s commutator, formal inverse, adjoint, fractional‑power, and matrix‑exponential‑symbol constructions, assuming the principal symbol never vanishes.</span>
 
-<span class="sd">**Formal inverses**,  **adjoints** and **powers** are constructed via similar asymptotic series, assuming the principal symbol never vanishes.</span>
+<span class="sd">For numerical application, a joint symbol `p(x,ξ)` is further split — via the **Peetre decomposition** — into a local polynomial part (differential operators, applied directly), separable Fourier‑multiplier terms `a(x) q(ξ)` (applied as pointwise multiplication sandwiched around an FFT), and a residual joint part that is not exactly separable. This joint residual is approximated on a bounded phase‑space window by a short Chebyshev/SVD low‑rank expansion `sum_k a_k(x) q_k(ξ)`, reducing the numerical application of a general ΨDO to a small number of FFT‑based separable applications, at high frequencies or over spatial domains where the decomposition is accurate.</span>
 
 <span class="sd">The **Hamiltonian flow** generated by the principal symbol describes the propagation of singularities along bicharacteristics – a cornerstone of microlocal analysis.</span>
 
-<span class="sd">The **pseudospectrum** `σ_ε(P)` is the set of `λ ∈ ℂ` for which `‖(P-λI)^{-1}‖ ≥ ε^{-1}`.  It captures the near‑spectral behaviour of non‑normal operators and is visualised via contour plots of the resolvent norm.</span>
+<span class="sd">The **pseudospectrum** `σ_ε(P)` is the set of `λ ∈ ℂ` for which `‖(P-λI)^{-1}‖ ≥ ε^{-1}`. It captures the near‑spectral behaviour of non‑normal operators and is visualised via contour plots of the resolvent norm, computed on a matrix discretisation of `P` with optional adaptive grid refinement.</span>
 
 <span class="sd">References</span>
 <span class="sd">----------</span>
@@ -147,6 +146,7 @@
 <span class="sd">.. [3] Zworski, M.  *Semiclassical Analysis*, American Mathematical Society, 2012.  Chapter 4: Pseudo‑differential Operators.</span>
 <span class="sd">.. [4] Martinez, A.  *An Introduction to Semiclassical and Microlocal Analysis*, Springer, 2002.</span>
 <span class="sd">.. [5] Trefethen, L. N. &amp; Embree, M.  *Spectra and Pseudospectra*, Princeton University Press, 2005.  (For pseudospectrum methods.)</span>
+<span class="sd">.. [6] Peetre, J.  &quot;Applications de la théorie des espaces d&#39;interpolation dans l&#39;analyse harmonique.&quot;  *Ricerche di Matematica*, 1968.  (For separable/local decomposition ideas underlying the Peetre backend.)</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
@@ -206,6 +206,54 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">var_u</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span> 
                  <span class="n">quantization</span><span class="o">=</span><span class="s1">&#39;kohn-nirenberg&#39;</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">&#39;peetre&#39;</span><span class="p">,</span> <span class="n">compute_peetre</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">peetre_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Build a PseudoDifferentialOperator from a symbolic expression.</span>
+
+<span class="sd">        Depending on `mode`, `expr` is interpreted either as the symbol</span>
+<span class="sd">        itself (&#39;symbol&#39; mode) or as a differential expression from which</span>
+<span class="sd">        the symbol is extracted automatically by applying it to a plane</span>
+<span class="sd">        wave `exp(i x·xi)` and dividing it out (&#39;auto&#39; mode). The</span>
+<span class="sd">        resulting symbol is lambdified into a NumPy-callable `p_func` for</span>
+<span class="sd">        numerical evaluation, and FFT/IFFT routines matching the spatial</span>
+<span class="sd">        dimension are attached to the instance.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        expr : sympy.Expr</span>
+<span class="sd">            Symbol expression (&#39;symbol&#39; mode) or differential expression</span>
+<span class="sd">            acting on `var_u` (&#39;auto&#39; mode).</span>
+<span class="sd">        vars_x : list of sympy symbols</span>
+<span class="sd">            Spatial variables; length 1 for 1D operators, length 2 for 2D.</span>
+<span class="sd">        var_u : sympy Function, optional</span>
+<span class="sd">            Function u(x[, y]) whose action defines the differential</span>
+<span class="sd">            expression in &#39;auto&#39; mode. Required when `mode=&#39;auto&#39;`.</span>
+<span class="sd">        mode : {&#39;symbol&#39;, &#39;auto&#39;}, default &#39;symbol&#39;</span>
+<span class="sd">            Whether `expr` is already the symbol or must be derived from a</span>
+<span class="sd">            differential expression.</span>
+<span class="sd">        quantization : {&#39;kohn-nirenberg&#39;, &#39;weyl&#39;}, default &#39;kohn-nirenberg&#39;</span>
+<span class="sd">            Quantization convention used when evaluating/applying the</span>
+<span class="sd">            operator and when composing symbols asymptotically.</span>
+<span class="sd">        apply_backend : {&#39;peetre&#39;, &#39;direct&#39;}, default &#39;peetre&#39;</span>
+<span class="sd">            Numerical strategy used by `apply()`: &#39;peetre&#39; applies the</span>
+<span class="sd">            operator through its Peetre local/separable/low-rank</span>
+<span class="sd">            decomposition, &#39;direct&#39; evaluates the full symbol pointwise on</span>
+<span class="sd">            the space-frequency grid.</span>
+<span class="sd">        compute_peetre : bool, default False</span>
+<span class="sd">            If True, eagerly compute and cache the Peetre decomposition of</span>
+<span class="sd">            the symbol at construction time (see `peetre_decomposition`).</span>
+<span class="sd">        peetre_options : dict, optional</span>
+<span class="sd">            Keyword arguments forwarded to `peetre_decomposition()` when</span>
+<span class="sd">            `compute_peetre` is True.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If `apply_backend` is not one of {&#39;direct&#39;, &#39;peetre&#39;}, if</span>
+<span class="sd">            `mode` is not one of {&#39;symbol&#39;, &#39;auto&#39;}, or if `var_u` is</span>
+<span class="sd">            missing while `mode=&#39;auto&#39;`.</span>
+<span class="sd">        NotImplementedError</span>
+<span class="sd">            If `vars_x` has a length other than 1 or 2.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vars_x</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">symbol_cached</span> <span class="o">=</span> <span class="kc">None</span>
@@ -225,7 +273,6 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">x</span><span class="p">,</span> <span class="o">=</span> <span class="n">vars_x</span>
             <span class="n">xi_internal</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="c1">#            if not isinstance(expr, (int, float, complex)):</span>
             <span class="n">expr</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
             <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">xi_internal</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fft</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">fft</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">FFT_WORKERS</span><span class="p">)</span>
@@ -256,7 +303,6 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">vars_x</span>
             <span class="n">xi_internal</span><span class="p">,</span> <span class="n">eta_internal</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="c1">#            if not isinstance(expr, (int, float, complex)):</span>
             <span class="n">expr</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
             <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">xi_internal</span><span class="p">)</span>
             <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">eta_internal</span><span class="p">)</span>
@@ -301,7 +347,25 @@
             <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compute_symbol_derivatives</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute derivatives for WKB application.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Precompute and lambdify first- and second-order derivatives of the</span>
+<span class="sd">        symbol with respect to space and frequency variables.</span>
+
+<span class="sd">        The derivatives (`dp_dx`, `dp_dxi`, `d2p_dxi2`, `d2p_dx2`,</span>
+<span class="sd">        `d2p_dxidx`, plus the analogous `y`/`eta` terms in 2D) are stored</span>
+<span class="sd">        symbolically in `self.derivatives`, and each one is also</span>
+<span class="sd">        lambdified into a NumPy callable `self._&lt;name&gt;_func` for fast</span>
+<span class="sd">        numerical evaluation (e.g. in WKB/geometric-optics constructions</span>
+<span class="sd">        and Hamiltonian-flow computations). Called internally, in &#39;auto&#39;</span>
+<span class="sd">        mode, right after the symbol has been extracted.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        If a derivative expression contains undefined functions (e.g. an</span>
+<span class="sd">        unspecified coefficient `c(x)`), lambdification is skipped for</span>
+<span class="sd">        that term and the corresponding `_&lt;name&gt;_func` attribute is set to</span>
+<span class="sd">        None instead of raising.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -1361,10 +1425,24 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_merge_local</span><span class="p">(</span><span class="n">dst</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Merge local coefficient dictionaries.</span>
+<span class="sd">        Merge one local-coefficient dictionary into another, in place,</span>
+<span class="sd">        summing coefficients that share the same frequency multi-index.</span>
 
-<span class="sd">        dst, src : dict</span>
-<span class="sd">            Dictionaries mapping multi-index tuples to symbolic coefficients.</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        dst : dict</span>
+<span class="sd">            Destination dictionary mapping frequency multi-index tuples to</span>
+<span class="sd">            symbolic (x-dependent) coefficients; updated in place with the</span>
+<span class="sd">            merged result.</span>
+<span class="sd">        src : dict</span>
+<span class="sd">            Source dictionary with the same structure as `dst`, merged</span>
+<span class="sd">            into it. Coefficients for keys shared with `dst` are added</span>
+<span class="sd">            together and simplified; keys unique to `src` are copied over.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None</span>
+<span class="sd">            `dst` is mutated in place; nothing is returned.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">together</span>
 
@@ -1374,7 +1452,26 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_is_zero</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Conservative symbolic zero test.</span>
+<span class="sd">        Conservative symbolic zero test used throughout the Peetre</span>
+<span class="sd">        pipeline to decide whether a coefficient or term can be safely</span>
+<span class="sd">        dropped.</span>
+
+<span class="sd">        Several increasingly expensive strategies are tried in turn</span>
+<span class="sd">        (identity check, the `is_zero` attribute, `simplify`, `equals`);</span>
+<span class="sd">        if none of them can prove the expression is zero, it is treated</span>
+<span class="sd">        as non-zero rather than risk silently discarding a genuine term.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        expr : sympy.Expr or None</span>
+<span class="sd">            Expression to test. `None` is treated as zero.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            True only if the expression could be established to be</span>
+<span class="sd">            identically zero; False otherwise, including when the test is</span>
+<span class="sd">            inconclusive.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">simplify</span>
 
@@ -1481,7 +1578,22 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_coeffs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Rebuild the local polynomial symbol from its coefficient dictionary.</span>
+<span class="sd">        Rebuild the local polynomial symbol from its coefficient</span>
+<span class="sd">        dictionary — the inverse of the local part of</span>
+<span class="sd">        `_peetre_classify_terms`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        local_coeffs : dict</span>
+<span class="sd">            Mapping from frequency multi-index tuples (one exponent per</span>
+<span class="sd">            frequency variable) to their x-dependent symbolic</span>
+<span class="sd">            coefficients, as produced by `_peetre_classify_terms`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The expanded symbol `sum_alpha coeff_alpha(x) * xi**alpha`</span>
+<span class="sd">            reconstructed from `local_coeffs`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span>
 
@@ -1499,7 +1611,21 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_separable_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">separable</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Rebuild the separable symbol from a list of (a, q) pairs.</span>
+<span class="sd">        Rebuild the separable symbol from a list of (a, q) pairs — the</span>
+<span class="sd">        inverse of the separable part of `_peetre_classify_terms`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        separable : list of tuple</span>
+<span class="sd">            Pairs `(a_expr, q_expr)` where `a_expr` depends only on the</span>
+<span class="sd">            spatial variables and `q_expr` depends only on the frequency</span>
+<span class="sd">            variables.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The expanded sum `sum_k a_k(x) * q_k(xi)`, or</span>
+<span class="sd">            `sympy.Integer(0)` if `separable` is empty.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span>
 
@@ -1911,18 +2037,49 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.print_peetre_decomposition">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.print_peetre_decomposition">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">print_peetre_decomposition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">print_peetre_decomposition</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">joint_backend</span><span class="o">=</span><span class="s2">&quot;direct&quot;</span><span class="p">,</span>
+        <span class="n">joint_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">joint_degree</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+        <span class="n">joint_tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
+        <span class="n">joint_num_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
+        <span class="n">joint_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Pretty-print the Peetre decomposition.</span>
 
-<span class="sd">        All keyword arguments are passed to peetre_decomposition().</span>
+<span class="sd">        Remaining keyword arguments are passed to peetre_decomposition().</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        joint_backend : {&#39;direct&#39;, &#39;lowrank&#39;}, default=&#39;direct&#39;</span>
+<span class="sd">            &#39;direct&#39; prints the raw (un-factorized) joint residual terms,</span>
+<span class="sd">            same as before. &#39;lowrank&#39; factorizes the joint residual via</span>
+<span class="sd">            factorize_symbolic() (through `_low_rank_joint_pairs`, the</span>
+<span class="sd">            same helper used by `apply_peetre`) and prints the resulting</span>
+<span class="sd">            short sum of separable pairs a_k(x) * q_k(xi) instead, along</span>
+<span class="sd">            with the Monte Carlo approximation quality.</span>
+<span class="sd">        joint_bounds : dict, optional</span>
+<span class="sd">            Mapping from each space/frequency symbol to a (min, max)</span>
+<span class="sd">            sampling range, required when joint_backend=&#39;lowrank&#39; since</span>
+<span class="sd">            no numerical grid is available here to infer bounds from.</span>
+<span class="sd">        joint_degree, joint_tol, joint_num_samples, joint_seed :</span>
+<span class="sd">            Forwarded to `_low_rank_joint_pairs` / `factorize_symbolic`.</span>
+<span class="sd">            Ignored when joint_backend=&#39;direct&#39;.</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
 <span class="sd">        op.print_peetre_decomposition()</span>
+<span class="sd">        op.print_peetre_decomposition(</span>
+<span class="sd">            joint_backend=&quot;lowrank&quot;,</span>
+<span class="sd">            joint_bounds={x: (-5, 5), xi: (-50, 50)},</span>
+<span class="sd">        )</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">deco</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peetre_decomposition</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">deco</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peetre_decomposition</span><span class="p">(</span><span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="n">xi_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_frequency_symbols</span><span class="p">()</span>
 
         <span class="c1"># --------------------------------------------------------------</span>
@@ -1971,12 +2128,45 @@
 
         <span class="c1"># --------------------------------------------------------------</span>
         <span class="c1"># Joint residual.</span>
+        <span class="c1">#</span>
+        <span class="c1"># If joint_backend=&#39;lowrank&#39;, factorize it via factorize_symbolic</span>
+        <span class="c1"># (through the same `_low_rank_joint_pairs` helper apply_peetre()</span>
+        <span class="c1"># uses) and print the resulting a_k(x)*q_k(xi) pairs instead of</span>
+        <span class="c1"># the raw irreducible terms.</span>
         <span class="c1"># --------------------------------------------------------------</span>
-        <span class="nb">print</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;--- </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s1">&#39;joint_residual&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2"> irreducible joint term(s) ---&quot;</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">&quot;joint_residual&quot;</span><span class="p">]:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">joint_symbol</span> <span class="o">=</span> <span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;joint_symbol&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">joint_backend</span> <span class="o">==</span> <span class="s2">&quot;lowrank&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">joint_bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;joint_bounds must be provided when &quot;</span>
+                    <span class="s2">&quot;joint_backend=&#39;lowrank&#39; (no numerical grid is &quot;</span>
+                    <span class="s2">&quot;available here to infer bounds from).&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">pairs</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_low_rank_joint_pairs</span><span class="p">(</span>
+                <span class="n">joint_symbol</span><span class="p">,</span>
+                <span class="n">joint_bounds</span><span class="p">,</span>
+                <span class="n">degree</span><span class="o">=</span><span class="n">joint_degree</span><span class="p">,</span>
+                <span class="n">tol</span><span class="o">=</span><span class="n">joint_tol</span><span class="p">,</span>
+                <span class="n">num_samples</span><span class="o">=</span><span class="n">joint_num_samples</span><span class="p">,</span>
+                <span class="n">seed</span><span class="o">=</span><span class="n">joint_seed</span><span class="p">,</span>
+                <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;--- joint residual factorized into </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span><span class="si">}</span><span class="s2"> low-rank &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;term(s) via factorize_symbolic &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(rel_l2_error=</span><span class="si">{</span><span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;rel_l2_error&#39;</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">) ---&quot;</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  (</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2">) * (</span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;--- </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s1">&#39;joint_residual&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2"> irreducible joint term(s) ---&quot;</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">&quot;joint_residual&quot;</span><span class="p">]:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="nb">print</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;local_symbol = </span><span class="si">{</span><span class="n">deco</span><span class="p">[</span><span class="s1">&#39;local_symbol&#39;</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -5129,7 +5319,27 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_cache_key_1d</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">xi</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stable cache key that invalidates automatically when the grid changes.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build a stable cache key from a 1D space/frequency grid pair.</span>
+
+<span class="sd">    The key is derived from each grid&#39;s shape and endpoint values, so it</span>
+<span class="sd">    automatically changes (invalidating any cached result) whenever the</span>
+<span class="sd">    grid resolution or extent changes, without needing to hash the full</span>
+<span class="sd">    array contents.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    x : ndarray</span>
+<span class="sd">        Spatial grid.</span>
+<span class="sd">    xi : ndarray</span>
+<span class="sd">        Frequency grid.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple</span>
+<span class="sd">        `(x.shape, x[0], x[-1], xi.shape, xi[0], xi[-1])`, hashable and</span>
+<span class="sd">        suitable as a dictionary cache key.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">(</span>
         <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span>
         <span class="n">xi</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">xi</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">xi</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span>
@@ -5503,10 +5713,32 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_cache_key_2d</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">xi1</span><span class="p">,</span> <span class="n">xi2</span><span class="p">,</span> <span class="n">freq_window</span><span class="p">,</span> <span class="n">space_window</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Clé de cache pour la branche 2D. Contrairement à la clé 1D, elle doit encoder</span>
-<span class="sd">    `freq_window` et `space_window` car ces options changent le CONTENU des</span>
-<span class="sd">    matrices/fenêtres mises en cache (et pas seulement la grille sous-jacente).</span>
-<span class="sd">    Réutilise _cache_key_1d par axe pour rester cohérent avec le hachage 1D existant.</span>
+<span class="sd">    Build a stable cache key for the 2D non-periodic Kohn-Nirenberg branch.</span>
+
+<span class="sd">    Unlike the 1D key, this one must also encode `freq_window` and</span>
+<span class="sd">    `space_window`, since those options change the actual content of the</span>
+<span class="sd">    cached phase matrices/windows, not just the underlying grid. Each axis</span>
+<span class="sd">    is hashed via `_cache_key_1d` so the 2D key stays consistent with the</span>
+<span class="sd">    existing 1D cache-invalidation logic.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    x1, x2 : ndarray</span>
+<span class="sd">        Spatial grids along each axis.</span>
+<span class="sd">    xi1, xi2 : ndarray</span>
+<span class="sd">        Frequency grids along each axis.</span>
+<span class="sd">    freq_window : str or None</span>
+<span class="sd">        Name of the frequency-domain window applied when building the</span>
+<span class="sd">        cached phase matrix.</span>
+<span class="sd">    space_window : bool</span>
+<span class="sd">        Whether a spatial window is applied; included as a bare boolean</span>
+<span class="sd">        since it only changes whether windowing is on or off.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple</span>
+<span class="sd">        Hashable key combining both axes&#39; grid signatures with the window</span>
+<span class="sd">        settings, suitable for use as a dictionary cache key.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">(</span>
         <span class="n">_cache_key_1d</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">xi1</span><span class="p">),</span>
@@ -5844,8 +6076,26 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_sympy_number</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">digits</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">drop_tol</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Convert a Python/NumPy complex number into a SymPy number.</span>
-<span class="sd">    SymPy Float does not accept complex numbers directly.</span>
+<span class="sd">    Convert a Python/NumPy complex number into a SymPy number, since</span>
+<span class="sd">    `sympy.Float` does not accept complex values directly.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    z : complex or float</span>
+<span class="sd">        Value to convert.</span>
+<span class="sd">    digits : int, default 5</span>
+<span class="sd">        Number of significant digits kept for the real and imaginary</span>
+<span class="sd">        parts.</span>
+<span class="sd">    drop_tol : float, default 0.0</span>
+<span class="sd">        Real or imaginary components with absolute value at or below this</span>
+<span class="sd">        threshold are snapped to exactly zero before conversion, to avoid</span>
+<span class="sd">        carrying negligible numerical noise into the symbolic expression.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sympy.Float or sympy.Expr</span>
+<span class="sd">        `sympy.Float(re, digits)` if the imaginary part is zero, otherwise</span>
+<span class="sd">        `sympy.Float(re, digits) + sympy.I * sympy.Float(im, digits)`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">z</span> <span class="o">=</span> <span class="nb">complex</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
     <span class="n">re</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">z</span><span class="p">))</span>
@@ -5894,11 +6144,39 @@
     <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Monte Carlo symbol-level error of</span>
+<span class="sd">    Estimate the symbol-level approximation error of a separable/low-rank</span>
+<span class="sd">    decomposition against the original expression, via Monte Carlo</span>
+<span class="sd">    sampling at random off-grid points (so the error reflects genuine</span>
+<span class="sd">    approximation quality rather than exact agreement at the fitting</span>
+<span class="sd">    nodes):</span>
 
 <span class="sd">        orig_expr(x, xi) ≈ sum_k a_k(x) q_k(xi)</span>
 
-<span class="sd">    over random off-grid points.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    orig_expr : sympy.Expr</span>
+<span class="sd">        Original joint symbol being approximated.</span>
+<span class="sd">    symbolic_pairs : list of tuple</span>
+<span class="sd">        Candidate decomposition, as pairs `(a_k(x), q_k(xi))` of sympy</span>
+<span class="sd">        expressions.</span>
+<span class="sd">    x_syms : list of sympy symbols</span>
+<span class="sd">        Spatial variables of `orig_expr`.</span>
+<span class="sd">    xi_syms : list of sympy symbols</span>
+<span class="sd">        Frequency variables of `orig_expr`.</span>
+<span class="sd">    bounds : dict</span>
+<span class="sd">        Mapping from each symbol in `x_syms + xi_syms` to a `(min, max)`</span>
+<span class="sd">        sampling range.</span>
+<span class="sd">    num_samples : int, default 10000</span>
+<span class="sd">        Number of random points drawn uniformly within `bounds`.</span>
+<span class="sd">    seed : int, default 42</span>
+<span class="sd">        Seed for the random number generator, for reproducibility.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary with keys `&#39;rel_l2_error&#39;` (relative L2 error over the</span>
+<span class="sd">        sampled points), `&#39;max_abs_error&#39;` and `&#39;mean_abs_error&#39;`</span>
+<span class="sd">        (pointwise absolute-error statistics).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
 
