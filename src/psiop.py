@@ -17,43 +17,42 @@ psiop.py — Symbolic‑numerical toolkit for pseudo‑differential operators in
 
 Overview
 --------
-The `psiop` module provides a unified framework for manipulating pseudo‑differential operators (ΨDOs) in one and two spatial dimensions.  It combines **symbolic** construction of operator symbols (using SymPy) with **numerical** evaluation and visualisation (using NumPy/SciPy/Matplotlib).  The package is designed for researchers and students working in microlocal analysis, spectral theory, and the numerical analysis of PDEs.
+The `psiop` module provides a unified framework for constructing, manipulating, and numerically applying pseudo‑differential operators (ΨDOs) in one and two spatial dimensions. It combines **symbolic** construction and calculus of operator symbols (using SymPy) with **numerical** evaluation, quantization, and visualisation (using NumPy/SciPy/Matplotlib). The package is designed for researchers and students working in microlocal analysis, spectral theory, and the numerical analysis of PDEs.
 
 Key features include:
 
-* Symbol creation either from an explicit expression (symbol mode) or by automatic extraction from a differential operator (auto mode).
-* Computation of asymptotic expansions of symbols at high frequencies.
-* Determination of the operator order (homogeneity degree) via symbolic/numerical heuristics.
-* Asymptotic composition of operators in Kohn‑Nirenberg or Weyl quantisation.
-* Construction of formal left/right inverses and the formal adjoint.
-* Symbol of the exponential `exp(tP)` via series expansion.
-* Semiclassical trace formula (symbolic or numerical).
-* Hamiltonian flow associated with the principal symbol (symplectic phase‑space dynamics).
-* Pseudospectrum computation and visualisation with adaptive grid refinement and parallelisation.
-* Rich visualisation suite: symbol amplitude/phase, cotangent‑fiber structure, characteristic set, group velocity field, micro‑support, Hamiltonian trajectories.
-* Interactive dashboard (ipywidgets) for real‑time exploration of the symbol.
+* Symbol creation either from an explicit expression (symbol mode) or by automatic extraction from a differential operator (auto mode), in both Kohn‑Nirenberg and Weyl quantisation, with symbolic conversion between the two conventions.
+* Computation of asymptotic expansions of symbols at high frequencies, and determination of the operator order (homogeneity degree) via symbolic/numerical heuristics.
+* Asymptotic symbolic calculus: composition, commutators, formal left/right inverses, the formal adjoint, fractional powers, and the symbol of the exponential `exp(tP)` via series expansion.
+* **Peetre decomposition**: automatic classification of a symbol into local (polynomial‑in‑ξ), separable, and joint (entangled) parts, with Chebyshev/SVD low‑rank factorization (`factorize_symbolic`) of residual joint terms into short sums of separable pairs `a_k(x) q_k(ξ)`, together with Monte Carlo quality diagnostics.
+* Two complementary numerical application backends: a direct pointwise‑symbol evaluation on the space‑frequency grid, and a Peetre‑decomposition‑based backend that applies local, separable, and low‑rank joint terms through periodic (FFT) or non‑periodic Kohn‑Nirenberg quantization, with windowing, dealiasing, magnitude clamping, and result caching.
+* Ellipticity and self‑adjointness checks, evaluated both symbolically and numerically on user‑supplied grids.
+* Semiclassical trace formula (symbolic or numerical) and pseudospectrum computation with adaptive grid refinement, sparse/dense eigenvalue solvers, and parallelisation.
+* Hamiltonian flow associated with the principal symbol (symplectic phase‑space dynamics), including the symplectic vector field and singularity‑propagation animation along bicharacteristics.
+* Rich visualisation suite: symbol amplitude/phase, cotangent‑fiber structure, characteristic set and its gradient, group velocity field, micro‑support, Hamiltonian trajectories, and pseudospectrum contour plots.
+* Interactive dashboard (ipywidgets) for real‑time exploration of the symbol and its associated phase‑space structures.
 
 Mathematical background
 -----------------------
-A pseudo‑differential operator `P` acting on functions of `x ∈ ℝⁿ` is formally defined by its **symbol** `p(x,ξ)`, a function on phase space `T*ℝⁿ`.  The action on a function `u` is given by the Kohn‑Nirenberg quantisation
+A pseudo‑differential operator `P` acting on functions of `x ∈ ℝⁿ` is formally defined by its **symbol** `p(x,ξ)`, a function on phase space `T*ℝⁿ`. The action on a function `u` is given by the Kohn‑Nirenberg quantisation
 
     (P u)(x) = (2π)^{-n} ∫_{ℝⁿ} e^{i x·ξ} p(x,ξ) û(ξ) dξ ,
 
-where `û` is the Fourier transform of `u`.  If the symbol does not depend on `x`, the operator reduces to a Fourier multiplier.  For a general spatially varying symbol, the above representation provides a rigorous extension of differential operators.
+where `û` is the Fourier transform of `u`; the Weyl quantisation instead evaluates the symbol at the midpoint of interacting spatial points, and the two conventions are related by an explicit, order‑truncated correction that the module computes symbolically. If the symbol does not depend on `x`, the operator reduces to a Fourier multiplier. For a general spatially varying symbol, the above representation provides a rigorous extension of differential operators.
 
-The **asymptotic behaviour** of the symbol as `|ξ| → ∞` determines many properties of the operator.  The **principal symbol** `pₘ` is the homogeneous component of highest order `m`.  When the symbol is non‑homogeneous, the module attempts to estimate the effective order by expanding in inverse powers of `|ξ|` (or in a radial variable for 2D).
+The **asymptotic behaviour** of the symbol as `|ξ| → ∞` determines many properties of the operator. The **principal symbol** `pₘ` is the homogeneous component of highest order `m`. When the symbol is non‑homogeneous, the module attempts to estimate the effective order by expanding in inverse powers of `|ξ|` (or in a radial variable for 2D).
 
-**Symbolic calculus** allows one to compose operators asymptotically.  For two symbols `p` and `q`, the symbol of the composition `P ∘ Q` is given by an asymptotic series
+**Symbolic calculus** allows one to compose operators asymptotically. For two symbols `p` and `q`, the symbol of the composition `P ∘ Q` is given by an asymptotic series
 
     (p ∘ q)(x,ξ) ~ Σ_{α} (i)^{-|α|}/α! ∂_ξ^α p(x,ξ) ∂_x^α q(x,ξ)
 
-in the Kohn‑Nirenberg convention (a similar expansion exists for the Weyl star product).  Truncating this series yields approximate compositions valid for high frequencies or slowly varying symbols.
+in the Kohn‑Nirenberg convention (a similar expansion exists for the Weyl star product). Truncating this series yields approximate compositions valid for high frequencies or slowly varying symbols, and the same machinery underlies the module's commutator, formal inverse, adjoint, fractional‑power, and matrix‑exponential‑symbol constructions, assuming the principal symbol never vanishes.
 
-**Formal inverses**,  **adjoints** and **powers** are constructed via similar asymptotic series, assuming the principal symbol never vanishes.
+For numerical application, a joint symbol `p(x,ξ)` is further split — via the **Peetre decomposition** — into a local polynomial part (differential operators, applied directly), separable Fourier‑multiplier terms `a(x) q(ξ)` (applied as pointwise multiplication sandwiched around an FFT), and a residual joint part that is not exactly separable. This joint residual is approximated on a bounded phase‑space window by a short Chebyshev/SVD low‑rank expansion `sum_k a_k(x) q_k(ξ)`, reducing the numerical application of a general ΨDO to a small number of FFT‑based separable applications, at high frequencies or over spatial domains where the decomposition is accurate.
 
 The **Hamiltonian flow** generated by the principal symbol describes the propagation of singularities along bicharacteristics – a cornerstone of microlocal analysis.
 
-The **pseudospectrum** `σ_ε(P)` is the set of `λ ∈ ℂ` for which `‖(P-λI)^{-1}‖ ≥ ε^{-1}`.  It captures the near‑spectral behaviour of non‑normal operators and is visualised via contour plots of the resolvent norm.
+The **pseudospectrum** `σ_ε(P)` is the set of `λ ∈ ℂ` for which `‖(P-λI)^{-1}‖ ≥ ε^{-1}`. It captures the near‑spectral behaviour of non‑normal operators and is visualised via contour plots of the resolvent norm, computed on a matrix discretisation of `P` with optional adaptive grid refinement.
 
 References
 ----------
@@ -62,6 +61,7 @@ References
 .. [3] Zworski, M.  *Semiclassical Analysis*, American Mathematical Society, 2012.  Chapter 4: Pseudo‑differential Operators.
 .. [4] Martinez, A.  *An Introduction to Semiclassical and Microlocal Analysis*, Springer, 2002.
 .. [5] Trefethen, L. N. & Embree, M.  *Spectra and Pseudospectra*, Princeton University Press, 2005.  (For pseudospectrum methods.)
+.. [6] Peetre, J.  "Applications de la théorie des espaces d'interpolation dans l'analyse harmonique."  *Ricerche di Matematica*, 1968.  (For separable/local decomposition ideas underlying the Peetre backend.)
 """
 
 from imports import *
@@ -119,6 +119,54 @@ class PseudoDifferentialOperator:
 
     def __init__(self, expr, vars_x, var_u=None, mode='symbol', 
                  quantization='kohn-nirenberg', apply_backend='peetre', compute_peetre=False, peetre_options=None,):
+        """
+        Build a PseudoDifferentialOperator from a symbolic expression.
+
+        Depending on `mode`, `expr` is interpreted either as the symbol
+        itself ('symbol' mode) or as a differential expression from which
+        the symbol is extracted automatically by applying it to a plane
+        wave `exp(i x·xi)` and dividing it out ('auto' mode). The
+        resulting symbol is lambdified into a NumPy-callable `p_func` for
+        numerical evaluation, and FFT/IFFT routines matching the spatial
+        dimension are attached to the instance.
+
+        Parameters
+        ----------
+        expr : sympy.Expr
+            Symbol expression ('symbol' mode) or differential expression
+            acting on `var_u` ('auto' mode).
+        vars_x : list of sympy symbols
+            Spatial variables; length 1 for 1D operators, length 2 for 2D.
+        var_u : sympy Function, optional
+            Function u(x[, y]) whose action defines the differential
+            expression in 'auto' mode. Required when `mode='auto'`.
+        mode : {'symbol', 'auto'}, default 'symbol'
+            Whether `expr` is already the symbol or must be derived from a
+            differential expression.
+        quantization : {'kohn-nirenberg', 'weyl'}, default 'kohn-nirenberg'
+            Quantization convention used when evaluating/applying the
+            operator and when composing symbols asymptotically.
+        apply_backend : {'peetre', 'direct'}, default 'peetre'
+            Numerical strategy used by `apply()`: 'peetre' applies the
+            operator through its Peetre local/separable/low-rank
+            decomposition, 'direct' evaluates the full symbol pointwise on
+            the space-frequency grid.
+        compute_peetre : bool, default False
+            If True, eagerly compute and cache the Peetre decomposition of
+            the symbol at construction time (see `peetre_decomposition`).
+        peetre_options : dict, optional
+            Keyword arguments forwarded to `peetre_decomposition()` when
+            `compute_peetre` is True.
+
+        Raises
+        ------
+        ValueError
+            If `apply_backend` is not one of {'direct', 'peetre'}, if
+            `mode` is not one of {'symbol', 'auto'}, or if `var_u` is
+            missing while `mode='auto'`.
+        NotImplementedError
+            If `vars_x` has a length other than 1 or 2.
+        """
         self.dim = len(vars_x)
         self.mode = mode
         self.symbol_cached = None
@@ -138,7 +186,6 @@ class PseudoDifferentialOperator:
         if self.dim == 1:
             x, = vars_x
             xi_internal = symbols('xi', real=True)
-#            if not isinstance(expr, (int, float, complex)):
             expr = sympify(expr)
             expr = expr.subs(symbols('xi', real=True), xi_internal)
             self.fft = partial(fft, workers=FFT_WORKERS)
@@ -169,7 +216,6 @@ class PseudoDifferentialOperator:
         elif self.dim == 2:
             x, y = vars_x
             xi_internal, eta_internal = symbols('xi eta', real=True)
-#            if not isinstance(expr, (int, float, complex)):
             expr = sympify(expr)
             expr = expr.subs(symbols('xi', real=True), xi_internal)
             expr = expr.subs(symbols('eta', real=True), eta_internal)
@@ -214,7 +260,25 @@ class PseudoDifferentialOperator:
             )
 
     def _compute_symbol_derivatives(self):
-        """Compute derivatives for WKB application."""
+        """
+        Precompute and lambdify first- and second-order derivatives of the
+        symbol with respect to space and frequency variables.
+
+        The derivatives (`dp_dx`, `dp_dxi`, `d2p_dxi2`, `d2p_dx2`,
+        `d2p_dxidx`, plus the analogous `y`/`eta` terms in 2D) are stored
+        symbolically in `self.derivatives`, and each one is also
+        lambdified into a NumPy callable `self._<name>_func` for fast
+        numerical evaluation (e.g. in WKB/geometric-optics constructions
+        and Hamiltonian-flow computations). Called internally, in 'auto'
+        mode, right after the symbol has been extracted.
+
+        Notes
+        -----
+        If a derivative expression contains undefined functions (e.g. an
+        unspecified coefficient `c(x)`), lambdification is skipped for
+        that term and the corresponding `_<name>_func` attribute is set to
+        None instead of raising.
+        """
         self.derivatives = {}
         if self.dim == 1:
             x = self.vars_x[0]
@@ -1250,10 +1314,24 @@ class PseudoDifferentialOperator:
     @staticmethod
     def _peetre_merge_local(dst, src):
         """
-        Merge local coefficient dictionaries.
+        Merge one local-coefficient dictionary into another, in place,
+        summing coefficients that share the same frequency multi-index.
 
-        dst, src : dict
-            Dictionaries mapping multi-index tuples to symbolic coefficients.
+        Parameters
+        ----------
+        dst : dict
+            Destination dictionary mapping frequency multi-index tuples to
+            symbolic (x-dependent) coefficients; updated in place with the
+            merged result.
+        src : dict
+            Source dictionary with the same structure as `dst`, merged
+            into it. Coefficients for keys shared with `dst` are added
+            together and simplified; keys unique to `src` are copied over.
+
+        Returns
+        -------
+        None
+            `dst` is mutated in place; nothing is returned.
         """
         from sympy import simplify, together
 
@@ -1263,7 +1341,26 @@ class PseudoDifferentialOperator:
     @staticmethod
     def _peetre_is_zero(expr):
         """
-        Conservative symbolic zero test.
+        Conservative symbolic zero test used throughout the Peetre
+        pipeline to decide whether a coefficient or term can be safely
+        dropped.
+
+        Several increasingly expensive strategies are tried in turn
+        (identity check, the `is_zero` attribute, `simplify`, `equals`);
+        if none of them can prove the expression is zero, it is treated
+        as non-zero rather than risk silently discarding a genuine term.
+
+        Parameters
+        ----------
+        expr : sympy.Expr or None
+            Expression to test. `None` is treated as zero.
+
+        Returns
+        -------
+        bool
+            True only if the expression could be established to be
+            identically zero; False otherwise, including when the test is
+            inconclusive.
         """
         from sympy import simplify
 
@@ -1370,7 +1467,22 @@ class PseudoDifferentialOperator:
 
     def _peetre_local_symbol(self, local_coeffs):
         """
-        Rebuild the local polynomial symbol from its coefficient dictionary.
+        Rebuild the local polynomial symbol from its coefficient
+        dictionary — the inverse of the local part of
+        `_peetre_classify_terms`.
+
+        Parameters
+        ----------
+        local_coeffs : dict
+            Mapping from frequency multi-index tuples (one exponent per
+            frequency variable) to their x-dependent symbolic
+            coefficients, as produced by `_peetre_classify_terms`.
+
+        Returns
+        -------
+        sympy.Expr
+            The expanded symbol `sum_alpha coeff_alpha(x) * xi**alpha`
+            reconstructed from `local_coeffs`.
         """
         from sympy import Integer, expand
 
@@ -1388,7 +1500,21 @@ class PseudoDifferentialOperator:
 
     def _peetre_separable_symbol(self, separable):
         """
-        Rebuild the separable symbol from a list of (a, q) pairs.
+        Rebuild the separable symbol from a list of (a, q) pairs — the
+        inverse of the separable part of `_peetre_classify_terms`.
+
+        Parameters
+        ----------
+        separable : list of tuple
+            Pairs `(a_expr, q_expr)` where `a_expr` depends only on the
+            spatial variables and `q_expr` depends only on the frequency
+            variables.
+
+        Returns
+        -------
+        sympy.Expr
+            The expanded sum `sum_k a_k(x) * q_k(xi)`, or
+            `sympy.Integer(0)` if `separable` is empty.
         """
         from sympy import Add, Integer, expand
 
@@ -1792,18 +1918,49 @@ class PseudoDifferentialOperator:
         """
         return self.peetre_decomposition(*args, **kwargs)
 
-    def print_peetre_decomposition(self, **kwargs):
+    def print_peetre_decomposition(
+        self,
+        joint_backend="direct",
+        joint_bounds=None,
+        joint_degree=6,
+        joint_tol=1e-5,
+        joint_num_samples=10000,
+        joint_seed=42,
+        use_cache=True,
+        **kwargs,
+    ):
         """
         Pretty-print the Peetre decomposition.
 
-        All keyword arguments are passed to peetre_decomposition().
+        Remaining keyword arguments are passed to peetre_decomposition().
+
+        Parameters
+        ----------
+        joint_backend : {'direct', 'lowrank'}, default='direct'
+            'direct' prints the raw (un-factorized) joint residual terms,
+            same as before. 'lowrank' factorizes the joint residual via
+            factorize_symbolic() (through `_low_rank_joint_pairs`, the
+            same helper used by `apply_peetre`) and prints the resulting
+            short sum of separable pairs a_k(x) * q_k(xi) instead, along
+            with the Monte Carlo approximation quality.
+        joint_bounds : dict, optional
+            Mapping from each space/frequency symbol to a (min, max)
+            sampling range, required when joint_backend='lowrank' since
+            no numerical grid is available here to infer bounds from.
+        joint_degree, joint_tol, joint_num_samples, joint_seed :
+            Forwarded to `_low_rank_joint_pairs` / `factorize_symbolic`.
+            Ignored when joint_backend='direct'.
 
         Examples
         --------
         op.print_peetre_decomposition()
+        op.print_peetre_decomposition(
+            joint_backend="lowrank",
+            joint_bounds={x: (-5, 5), xi: (-50, 50)},
+        )
 
         """
-        deco = self.peetre_decomposition(**kwargs)
+        deco = self.peetre_decomposition(use_cache=use_cache, **kwargs)
         xi_vars = self._peetre_frequency_symbols()
 
         # --------------------------------------------------------------
@@ -1852,12 +2009,45 @@ class PseudoDifferentialOperator:
 
         # --------------------------------------------------------------
         # Joint residual.
+        #
+        # If joint_backend='lowrank', factorize it via factorize_symbolic
+        # (through the same `_low_rank_joint_pairs` helper apply_peetre()
+        # uses) and print the resulting a_k(x)*q_k(xi) pairs instead of
+        # the raw irreducible terms.
         # --------------------------------------------------------------
-        print(
-            f"--- {len(deco['joint_residual'])} irreducible joint term(s) ---"
-        )
-        for t in deco["joint_residual"]:
-            print(f"  {t}")
+        joint_symbol = deco.get("joint_symbol", 0)
+
+        if joint_backend == "lowrank" and not self._peetre_is_zero(joint_symbol):
+            if joint_bounds is None:
+                raise ValueError(
+                    "joint_bounds must be provided when "
+                    "joint_backend='lowrank' (no numerical grid is "
+                    "available here to infer bounds from)."
+                )
+
+            pairs, metrics = self._low_rank_joint_pairs(
+                joint_symbol,
+                joint_bounds,
+                degree=joint_degree,
+                tol=joint_tol,
+                num_samples=joint_num_samples,
+                seed=joint_seed,
+                use_cache=use_cache,
+            )
+
+            print(
+                f"--- joint residual factorized into {len(pairs)} low-rank "
+                f"term(s) via factorize_symbolic "
+                f"(rel_l2_error={metrics.get('rel_l2_error', float('nan')):.3e}) ---"
+            )
+            for a, q in pairs:
+                print(f"  ({a}) * ({q})")
+        else:
+            print(
+                f"--- {len(deco['joint_residual'])} irreducible joint term(s) ---"
+            )
+            for t in deco["joint_residual"]:
+                print(f"  {t}")
 
         print(
             f"local_symbol = {deco['local_symbol']}\n"
@@ -4930,7 +5120,27 @@ def _clip_complex_magnitude(P: np.ndarray, clamp: float) -> np.ndarray:
 
 
 def _cache_key_1d(x: np.ndarray, xi: np.ndarray) -> Tuple:
-    """Stable cache key that invalidates automatically when the grid changes."""
+    """
+    Build a stable cache key from a 1D space/frequency grid pair.
+
+    The key is derived from each grid's shape and endpoint values, so it
+    automatically changes (invalidating any cached result) whenever the
+    grid resolution or extent changes, without needing to hash the full
+    array contents.
+
+    Parameters
+    ----------
+    x : ndarray
+        Spatial grid.
+    xi : ndarray
+        Frequency grid.
+
+    Returns
+    -------
+    tuple
+        `(x.shape, x[0], x[-1], xi.shape, xi[0], xi[-1])`, hashable and
+        suitable as a dictionary cache key.
+    """
     return (
         x.shape, float(x[0]), float(x[-1]),
         xi.shape, float(xi[0]), float(xi[-1]),
@@ -5298,10 +5508,32 @@ def kohn_nirenberg_fft(
 
 def _cache_key_2d(x1, x2, xi1, xi2, freq_window, space_window):
     """
-    Clé de cache pour la branche 2D. Contrairement à la clé 1D, elle doit encoder
-    `freq_window` et `space_window` car ces options changent le CONTENU des
-    matrices/fenêtres mises en cache (et pas seulement la grille sous-jacente).
-    Réutilise _cache_key_1d par axe pour rester cohérent avec le hachage 1D existant.
+    Build a stable cache key for the 2D non-periodic Kohn-Nirenberg branch.
+
+    Unlike the 1D key, this one must also encode `freq_window` and
+    `space_window`, since those options change the actual content of the
+    cached phase matrices/windows, not just the underlying grid. Each axis
+    is hashed via `_cache_key_1d` so the 2D key stays consistent with the
+    existing 1D cache-invalidation logic.
+
+    Parameters
+    ----------
+    x1, x2 : ndarray
+        Spatial grids along each axis.
+    xi1, xi2 : ndarray
+        Frequency grids along each axis.
+    freq_window : str or None
+        Name of the frequency-domain window applied when building the
+        cached phase matrix.
+    space_window : bool
+        Whether a spatial window is applied; included as a bare boolean
+        since it only changes whether windowing is on or off.
+
+    Returns
+    -------
+    tuple
+        Hashable key combining both axes' grid signatures with the window
+        settings, suitable for use as a dictionary cache key.
     """
     return (
         _cache_key_1d(x1, xi1),
@@ -5636,8 +5868,26 @@ import sympy as sp
 
 def _sympy_number(z, digits=5, drop_tol=0.0):
     """
-    Convert a Python/NumPy complex number into a SymPy number.
-    SymPy Float does not accept complex numbers directly.
+    Convert a Python/NumPy complex number into a SymPy number, since
+    `sympy.Float` does not accept complex values directly.
+
+    Parameters
+    ----------
+    z : complex or float
+        Value to convert.
+    digits : int, default 5
+        Number of significant digits kept for the real and imaginary
+        parts.
+    drop_tol : float, default 0.0
+        Real or imaginary components with absolute value at or below this
+        threshold are snapped to exactly zero before conversion, to avoid
+        carrying negligible numerical noise into the symbolic expression.
+
+    Returns
+    -------
+    sympy.Float or sympy.Expr
+        `sympy.Float(re, digits)` if the imaginary part is zero, otherwise
+        `sympy.Float(re, digits) + sympy.I * sympy.Float(im, digits)`.
     """
     z = complex(z)
     re = float(np.real(z))
@@ -5684,11 +5934,39 @@ def evaluate_decomposition_quality(
     seed=42,
 ):
     """
-    Monte Carlo symbol-level error of
+    Estimate the symbol-level approximation error of a separable/low-rank
+    decomposition against the original expression, via Monte Carlo
+    sampling at random off-grid points (so the error reflects genuine
+    approximation quality rather than exact agreement at the fitting
+    nodes):
 
         orig_expr(x, xi) ≈ sum_k a_k(x) q_k(xi)
 
-    over random off-grid points.
+    Parameters
+    ----------
+    orig_expr : sympy.Expr
+        Original joint symbol being approximated.
+    symbolic_pairs : list of tuple
+        Candidate decomposition, as pairs `(a_k(x), q_k(xi))` of sympy
+        expressions.
+    x_syms : list of sympy symbols
+        Spatial variables of `orig_expr`.
+    xi_syms : list of sympy symbols
+        Frequency variables of `orig_expr`.
+    bounds : dict
+        Mapping from each symbol in `x_syms + xi_syms` to a `(min, max)`
+        sampling range.
+    num_samples : int, default 10000
+        Number of random points drawn uniformly within `bounds`.
+    seed : int, default 42
+        Seed for the random number generator, for reproducibility.
+
+    Returns
+    -------
+    dict
+        Dictionary with keys `'rel_l2_error'` (relative L2 error over the
+        sampled points), `'max_abs_error'` and `'mean_abs_error'`
+        (pointwise absolute-error statistics).
     """
     rng = np.random.default_rng(seed)
 
