@@ -4,7 +4,7 @@ from numpy.linalg import svd
 import matplotlib.pyplot as plt
 from scipy.fft import fft2, ifft2, fft, ifft, fftfreq, fftshift, ifftshift
 from scipy.signal.windows import hann
-from scipy.integrate import solve_ivp, dblquad
+from scipy.integrate import solve_ivp, dblquad, nquad
 from scipy.ndimage import maximum_filter
 from scipy.sparse import diags
 from scipy.sparse.linalg import svds 
@@ -15,7 +15,7 @@ from sympy import (
     symbols, Function, 
     solve, pprint, Mul,
     lambdify, expand, Eq, simplify, trigsimp, N, powsimp,
-    radsimp, ratsimp, cancel, 
+    radsimp, ratsimp, cancel, nsimplify, 
     Lambda, Piecewise, Basic, degree, Pow, preorder_traversal, Heaviside, 
     powdenest, expand, Matrix,
     sqrt, I,  pi, series, oo, 
@@ -30,8 +30,9 @@ from sympy import (
     diff, Derivative, integrate, 
     fourier_transform, inverse_fourier_transform,zeros,
     Integer, Rational, 
-    latex
+    latex, together, eye, 
 )
+from sympy.core.numbers import Zero, One
 from sympy.core.function import AppliedUndef
 from scipy.special import legendre, eval_hermite, airy, eval_genlaguerre, jv, kv, sph_harm_y, gamma
 from scipy.spatial.distance import cdist
@@ -50,7 +51,7 @@ import soundfile as sf
 from misc import * 
 from IPython.display import display, clear_output, HTML, Video
 from ipywidgets import interact, FloatSlider, Dropdown, VBox, HBox, interactive_output
-from itertools import product
+import itertools
 from mpl_toolkits.mplot3d import Axes3D
 import os
 from concurrent.futures import ThreadPoolExecutor
