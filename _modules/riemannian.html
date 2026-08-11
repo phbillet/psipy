@@ -3230,12 +3230,11 @@
         <span class="k">return</span> <span class="n">_codifferential</span><span class="p">(</span><span class="n">fx</span><span class="p">,</span> <span class="n">fy</span><span class="p">,</span> <span class="n">gi00</span><span class="p">,</span> <span class="n">gi01</span><span class="p">,</span> <span class="n">gi11</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_star1</span><span class="p">(</span><span class="n">fx</span><span class="p">,</span> <span class="n">fy</span><span class="p">):</span>
-        <span class="c1"># Numerical counterpart of hodge_star(metric, 1) — must stay in sync.</span>
-        <span class="c1"># In 0-indexed components: g00=g₁₁, g01=g₁₂, g11=g₂₂.</span>
-        <span class="c1"># (⋆α)_x = √|g| ( -g₁₂ αₓ - g₂₂ αᵧ )</span>
-        <span class="c1"># (⋆α)_y = √|g| (  g₁₁ αₓ + g₁₂ αᵧ )</span>
-        <span class="k">return</span> <span class="p">(</span> <span class="n">sd</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="n">grid</span><span class="o">.</span><span class="n">g01</span> <span class="o">*</span> <span class="n">fx</span> <span class="o">-</span> <span class="n">grid</span><span class="o">.</span><span class="n">g11</span> <span class="o">*</span> <span class="n">fy</span><span class="p">),</span>
-                 <span class="n">sd</span> <span class="o">*</span> <span class="p">(</span> <span class="n">grid</span><span class="o">.</span><span class="n">g00</span> <span class="o">*</span> <span class="n">fx</span> <span class="o">+</span> <span class="n">grid</span><span class="o">.</span><span class="n">g01</span> <span class="o">*</span> <span class="n">fy</span><span class="p">)</span> <span class="p">)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hodge star on 1-forms: uses INVERSE metric g^{ij}.&quot;&quot;&quot;</span>
+        <span class="c1"># (⋆α)_x = -√|g| (g^{12} f_x + g^{22} f_y)</span>
+        <span class="c1"># (⋆α)_y =  √|g| (g^{11} f_x + g^{12} f_y)</span>
+        <span class="k">return</span> <span class="p">(</span> <span class="n">sd</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="n">gi01</span> <span class="o">*</span> <span class="n">fx</span> <span class="o">-</span> <span class="n">gi11</span> <span class="o">*</span> <span class="n">fy</span><span class="p">),</span>
+                 <span class="n">sd</span> <span class="o">*</span> <span class="p">(</span> <span class="n">gi00</span> <span class="o">*</span> <span class="n">fx</span> <span class="o">+</span> <span class="n">gi01</span> <span class="o">*</span> <span class="n">fy</span><span class="p">)</span> <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_star2</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Numerical ⋆ on a 2-form coefficient: ⋆(f dx∧dy) = f / √|g|.&quot;&quot;&quot;</span>
@@ -3307,6 +3306,36 @@
     <span class="p">}</span></div>
 
 
+<div class="viewcode-block" id="project_harmonic_1form">
+<a class="viewcode-back" href="../riemannian.html#riemannian.project_harmonic_1form">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">project_harmonic_1form</span><span class="p">(</span><span class="n">alpha_x</span><span class="p">,</span> <span class="n">alpha_y</span><span class="p">,</span> <span class="n">gamma1</span><span class="p">,</span> <span class="n">gamma2</span><span class="p">,</span> <span class="n">weighted_inner_fn</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Project 1-form alpha onto the 2D harmonic subspace spanned by (gamma1, gamma2).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">g1_x</span><span class="p">,</span> <span class="n">g1_y</span> <span class="o">=</span> <span class="n">gamma1</span>
+    <span class="n">g2_x</span><span class="p">,</span> <span class="n">g2_y</span> <span class="o">=</span> <span class="n">gamma2</span>
+
+    <span class="c1"># Compute Gram matrix G_ij = &lt;gamma_i, gamma_j&gt;_g</span>
+    <span class="n">G11</span> <span class="o">=</span> <span class="n">weighted_inner_fn</span><span class="p">(</span><span class="n">g1_x</span><span class="p">,</span> <span class="n">g1_y</span><span class="p">,</span> <span class="n">g1_x</span><span class="p">,</span> <span class="n">g1_y</span><span class="p">)</span>
+    <span class="n">G12</span> <span class="o">=</span> <span class="n">weighted_inner_fn</span><span class="p">(</span><span class="n">g1_x</span><span class="p">,</span> <span class="n">g1_y</span><span class="p">,</span> <span class="n">g2_x</span><span class="p">,</span> <span class="n">g2_y</span><span class="p">)</span>
+    <span class="n">G22</span> <span class="o">=</span> <span class="n">weighted_inner_fn</span><span class="p">(</span><span class="n">g2_x</span><span class="p">,</span> <span class="n">g2_y</span><span class="p">,</span> <span class="n">g2_x</span><span class="p">,</span> <span class="n">g2_y</span><span class="p">)</span>
+
+    <span class="c1"># Compute RHS b_i = &lt;alpha, gamma_i&gt;_g</span>
+    <span class="n">b1</span> <span class="o">=</span> <span class="n">weighted_inner_fn</span><span class="p">(</span><span class="n">alpha_x</span><span class="p">,</span> <span class="n">alpha_y</span><span class="p">,</span> <span class="n">g1_x</span><span class="p">,</span> <span class="n">g1_y</span><span class="p">)</span>
+    <span class="n">b2</span> <span class="o">=</span> <span class="n">weighted_inner_fn</span><span class="p">(</span><span class="n">alpha_x</span><span class="p">,</span> <span class="n">alpha_y</span><span class="p">,</span> <span class="n">g2_x</span><span class="p">,</span> <span class="n">g2_y</span><span class="p">)</span>
+
+    <span class="c1"># Solve 2x2 system for coefficients c_1, c_2</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">G11</span><span class="p">,</span> <span class="n">G12</span><span class="p">],</span> <span class="p">[</span><span class="n">G12</span><span class="p">,</span> <span class="n">G22</span><span class="p">]])</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">b1</span><span class="p">,</span> <span class="n">b2</span><span class="p">])</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+
+    <span class="c1"># Construct harmonic component h = c1*gamma1 + c2*gamma2</span>
+    <span class="n">ha_x</span> <span class="o">=</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">g1_x</span> <span class="o">+</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">g2_x</span>
+    <span class="n">ha_y</span> <span class="o">=</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">g1_y</span> <span class="o">+</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">g2_y</span>
+
+    <span class="k">return</span> <span class="n">ha_x</span><span class="p">,</span> <span class="n">ha_y</span></div>
+
+
 <div class="viewcode-block" id="hodge_decomposition_1form">
 <a class="viewcode-back" href="../riemannian.html#riemannian.hodge_decomposition_1form">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">hodge_decomposition_1form</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">omega_components</span><span class="p">,</span> <span class="n">_eval</span><span class="p">,</span> <span class="n">_codf</span><span class="p">,</span> <span class="n">_star1</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">):</span>
@@ -3362,20 +3391,29 @@
     <span class="n">alpha_x</span> <span class="o">=</span> <span class="n">_eval</span><span class="p">(</span><span class="n">omega_components</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">alpha_y</span> <span class="o">=</span> <span class="n">_eval</span><span class="p">(</span><span class="n">omega_components</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 
+    <span class="c1"># 1. Solve Exact Potential (Dirichlet BC)</span>
     <span class="n">phi</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">solve_poisson_dirichlet</span><span class="p">(</span><span class="o">-</span><span class="n">_codf</span><span class="p">(</span><span class="n">alpha_x</span><span class="p">,</span> <span class="n">alpha_y</span><span class="p">))</span>
-    <span class="n">psi</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">solve_poisson_neumann</span><span class="p">(</span><span class="n">_codf</span><span class="p">(</span><span class="o">*</span><span class="n">_star1</span><span class="p">(</span><span class="n">alpha_x</span><span class="p">,</span> <span class="n">alpha_y</span><span class="p">)))</span>
-
     <span class="n">ex_x</span><span class="p">,</span> <span class="n">ex_y</span> <span class="o">=</span> <span class="n">_gradient</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span>
+
+    <span class="c1"># 2. Solve Co-Exact Potential on the remainder (Neumann BC)</span>
+    <span class="c1"># Using remainder (alpha - dphi) ensures strict orthogonal projection</span>
+    <span class="n">rem_x</span><span class="p">,</span> <span class="n">rem_y</span> <span class="o">=</span> <span class="n">alpha_x</span> <span class="o">-</span> <span class="n">ex_x</span><span class="p">,</span> <span class="n">alpha_y</span> <span class="o">-</span> <span class="n">ex_y</span>
+    <span class="n">psi</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">solve_poisson_neumann</span><span class="p">(</span><span class="n">_codf</span><span class="p">(</span><span class="o">*</span><span class="n">_star1</span><span class="p">(</span><span class="n">rem_x</span><span class="p">,</span> <span class="n">rem_y</span><span class="p">)))</span>
     <span class="n">co_x</span><span class="p">,</span> <span class="n">co_y</span> <span class="o">=</span> <span class="n">_star1</span><span class="p">(</span><span class="o">*</span><span class="n">_gradient</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">))</span>
 
+    <span class="c1"># 3. Harmonic part is the remainder. Due to Dirichlet BC on phi,</span>
+    <span class="c1"># the exact part cannot match alpha on the boundary, so the</span>
+    <span class="c1"># &quot;harmonic&quot; component absorbs the boundary layer error.</span>
+    <span class="n">ha_x</span> <span class="o">=</span> <span class="n">alpha_x</span> <span class="o">-</span> <span class="n">ex_x</span> <span class="o">-</span> <span class="n">co_x</span>
+    <span class="n">ha_y</span> <span class="o">=</span> <span class="n">alpha_y</span> <span class="o">-</span> <span class="n">ex_y</span> <span class="o">-</span> <span class="n">co_y</span>
+
     <span class="k">return</span> <span class="p">{</span>
-        <span class="s1">&#39;potential_phi&#39;</span><span class="p">:</span>  <span class="n">phi</span><span class="p">,</span>
-        <span class="s1">&#39;potential_psi&#39;</span><span class="p">:</span>  <span class="n">psi</span><span class="p">,</span>
-        <span class="s1">&#39;alpha_exact&#39;</span><span class="p">:</span>    <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">ex_x</span><span class="p">,</span> <span class="n">ex_y</span><span class="p">]),</span>
-        <span class="s1">&#39;alpha_coexact&#39;</span><span class="p">:</span>  <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">co_x</span><span class="p">,</span> <span class="n">co_y</span><span class="p">]),</span>
-        <span class="s1">&#39;alpha_harmonic&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">alpha_x</span> <span class="o">-</span> <span class="n">ex_x</span> <span class="o">-</span> <span class="n">co_x</span><span class="p">,</span>
-                                    <span class="n">alpha_y</span> <span class="o">-</span> <span class="n">ex_y</span> <span class="o">-</span> <span class="n">co_y</span><span class="p">]),</span>
-        <span class="s1">&#39;grid&#39;</span><span class="p">:</span>           <span class="n">grid</span><span class="p">,</span>
+        <span class="s1">&#39;potential_phi&#39;</span><span class="p">:</span>   <span class="n">phi</span><span class="p">,</span>
+        <span class="s1">&#39;potential_psi&#39;</span><span class="p">:</span>   <span class="n">psi</span><span class="p">,</span>
+        <span class="s1">&#39;alpha_exact&#39;</span><span class="p">:</span>     <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">ex_x</span><span class="p">,</span> <span class="n">ex_y</span><span class="p">]),</span>
+        <span class="s1">&#39;alpha_coexact&#39;</span><span class="p">:</span>   <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">co_x</span><span class="p">,</span> <span class="n">co_y</span><span class="p">]),</span>
+        <span class="s1">&#39;alpha_harmonic&#39;</span><span class="p">:</span>  <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">ha_x</span><span class="p">,</span> <span class="n">ha_y</span><span class="p">]),</span>
+        <span class="s1">&#39;grid&#39;</span><span class="p">:</span>            <span class="n">grid</span><span class="p">,</span>
     <span class="p">}</span></div>
 
 
@@ -3522,13 +3560,25 @@
         <span class="n">dtheta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">fy</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">dx</span>   <span class="c1"># ∂/∂x of α_y</span>
         <span class="n">dphi</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">fx</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">dy</span>   <span class="c1"># ∂/∂y of α_x</span>
         <span class="k">return</span> <span class="n">dtheta</span> <span class="o">-</span> <span class="n">dphi</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">codifferential_1form</span><span class="p">(</span><span class="n">fx</span><span class="p">,</span> <span class="n">fy</span><span class="p">):</span>
-        <span class="c1"># δα = - (1/√g) ∂_i( √g g^{ij} α_j )</span>
-        <span class="n">flux_x</span> <span class="o">=</span> <span class="n">sd</span> <span class="o">*</span> <span class="p">(</span><span class="n">gi00</span> <span class="o">*</span> <span class="n">fx</span> <span class="o">+</span> <span class="n">gi01</span> <span class="o">*</span> <span class="n">fy</span><span class="p">)</span>
-        <span class="n">flux_y</span> <span class="o">=</span> <span class="n">sd</span> <span class="o">*</span> <span class="p">(</span><span class="n">gi01</span> <span class="o">*</span> <span class="n">fx</span> <span class="o">+</span> <span class="n">gi11</span> <span class="o">*</span> <span class="n">fy</span><span class="p">)</span>
-        <span class="n">div</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">flux_x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">flux_y</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">dy</span>
-        <span class="k">return</span> <span class="o">-</span><span class="n">div</span> <span class="o">/</span> <span class="n">sd</span>
+        
+    <span class="k">def</span><span class="w"> </span><span class="nf">codifferential_1form</span><span class="p">(</span><span class="n">alpha_x</span><span class="p">,</span> <span class="n">alpha_y</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes d* alpha = - div_g(alpha) on a 2D Riemannian manifold.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Lower indices to upper indices using g_inv</span>
+        <span class="n">alpha_up_x</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">g_inv00</span> <span class="o">*</span> <span class="n">alpha_x</span> <span class="o">+</span> <span class="n">grid</span><span class="o">.</span><span class="n">g_inv01</span> <span class="o">*</span> <span class="n">alpha_y</span>
+        <span class="n">alpha_up_y</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">g_inv01</span> <span class="o">*</span> <span class="n">alpha_x</span> <span class="o">+</span> <span class="n">grid</span><span class="o">.</span><span class="n">g_inv11</span> <span class="o">*</span> <span class="n">alpha_y</span>
+    
+        <span class="c1"># Scale by metric density</span>
+        <span class="n">flux_x</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span> <span class="o">*</span> <span class="n">alpha_up_x</span>
+        <span class="n">flux_y</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span> <span class="o">*</span> <span class="n">alpha_up_y</span>
+    
+        <span class="c1"># Compute divergence via central differences</span>
+        <span class="n">div_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">flux_x</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">dx</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">div_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">flux_y</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">dy</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    
+        <span class="c1"># d* alpha = - (1 / sqrt|g|) * div(sqrt|g| * alpha^up)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="n">div_x</span> <span class="o">+</span> <span class="n">div_y</span><span class="p">)</span> <span class="o">/</span> <span class="n">grid</span><span class="o">.</span><span class="n">sqrt_det</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Helper functions for metric‑weighted L² on 2‑forms and 0‑forms</span>
@@ -3691,13 +3741,22 @@
 
         <span class="c1"># Energy fractions</span>
         <span class="n">total_energy</span> <span class="o">=</span> <span class="n">norm_total</span><span class="o">**</span><span class="mi">2</span>
-        <span class="n">frac_ex</span> <span class="o">=</span> <span class="p">(</span><span class="n">norm_ex</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">total_energy</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">total_energy</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
-        <span class="n">frac_co</span> <span class="o">=</span> <span class="p">(</span><span class="n">norm_co</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">total_energy</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">total_energy</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
-        <span class="n">frac_ha</span> <span class="o">=</span> <span class="p">(</span><span class="n">norm_ha</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">total_energy</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">total_energy</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="c1"># Compute individual component energies</span>
+        <span class="n">E_ex</span> <span class="o">=</span> <span class="n">norm_ex</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">E_co</span> <span class="o">=</span> <span class="n">norm_co</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">E_ha</span> <span class="o">=</span> <span class="n">norm_ha</span><span class="o">**</span><span class="mi">2</span>
+        
+        <span class="c1"># On orthogonal decompositions, E_sum == total_energy</span>
+        <span class="n">E_sum</span> <span class="o">=</span> <span class="n">E_ex</span> <span class="o">+</span> <span class="n">E_co</span> <span class="o">+</span> <span class="n">E_ha</span>
+        
+        <span class="c1"># Correct energy fractions (guaranteed to be between 0% and 100%)</span>
+        <span class="n">frac_ex</span> <span class="o">=</span> <span class="p">(</span><span class="n">E_ex</span> <span class="o">/</span> <span class="n">E_sum</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">E_sum</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">frac_co</span> <span class="o">=</span> <span class="p">(</span><span class="n">E_co</span> <span class="o">/</span> <span class="n">E_sum</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">E_sum</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">frac_ha</span> <span class="o">=</span> <span class="p">(</span><span class="n">E_ha</span> <span class="o">/</span> <span class="n">E_sum</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">E_sum</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
 
         <span class="c1"># Harmonic part properties</span>
         <span class="n">curl_ha</span> <span class="o">=</span> <span class="n">curl_1form</span><span class="p">(</span><span class="n">ha_x</span><span class="p">,</span> <span class="n">ha_y</span><span class="p">)</span>
-        <span class="n">codiff_ha</span> <span class="o">=</span> <span class="n">codifferential_1form</span><span class="p">(</span><span class="n">ha_x</span><span class="p">,</span> <span class="n">ha_y</span><span class="p">)</span>
+        <span class="n">codiff_ha</span> <span class="o">=</span> <span class="n">codifferential_1form</span><span class="p">(</span><span class="n">ha_x</span><span class="p">,</span> <span class="n">ha_y</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
         <span class="n">max_curl_ha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">curl_ha</span><span class="p">))</span>
         <span class="n">max_codiff_ha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">codiff_ha</span><span class="p">))</span>
 

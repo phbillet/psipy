@@ -73,6 +73,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.size"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.size</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.entries"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.entries</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.apply"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.apply()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.apply_matrix_field"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.apply_matrix_field()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.apply_matrix_field_right"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.apply_matrix_field_right()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.commutator_symbolic"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.commutator_symbolic()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.compose_asymptotic"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.compose_asymptotic()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.eigen_symbol"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.eigen_symbol()</span></code></a></li>
@@ -141,7 +143,10 @@
 <li class="toctree-l2"><a class="reference internal" href="#psiop.plot_scalar_1d"><code class="docutils literal notranslate"><span class="pre">plot_scalar_1d()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#psiop.plot_scalar_2d"><code class="docutils literal notranslate"><span class="pre">plot_scalar_2d()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#psiop.solve_first_order"><code class="docutils literal notranslate"><span class="pre">solve_first_order()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#psiop.solve_matrix_field"><code class="docutils literal notranslate"><span class="pre">solve_matrix_field()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#psiop.solve_ricci_flow_conformal_2d"><code class="docutils literal notranslate"><span class="pre">solve_ricci_flow_conformal_2d()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#psiop.solve_second_order"><code class="docutils literal notranslate"><span class="pre">solve_second_order()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#psiop.solve_sylvester_field"><code class="docutils literal notranslate"><span class="pre">solve_sylvester_field()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#psiop.subdomain_masks"><code class="docutils literal notranslate"><span class="pre">subdomain_masks()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#psiop.subdomain_trace_residual"><code class="docutils literal notranslate"><span class="pre">subdomain_trace_residual()</span></code></a></li>
 </ul>
@@ -655,6 +660,96 @@ supported by the same class; nothing here forces one or the other.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>list of N ndarrays</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="psiop.MatrixPseudoDifferentialOperator.apply_matrix_field">
+<span class="sig-name descname"><span class="pre">apply_matrix_field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">apply_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#MatrixPseudoDifferentialOperator.apply_matrix_field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.MatrixPseudoDifferentialOperator.apply_matrix_field" title="Link to this definition"></a></dt>
+<dd><p>Apply P(x, xi) to a matrix-valued field U(x) by left matrix
+multiplication on U’s own N x N structure:</p>
+<blockquote>
+<div><p>(P U)_ik(x) = sum_j Op[P_ij] (U_jk) (x)</p>
+</div></blockquote>
+<p>Unlike <cite>apply()</cite>, which propagates a single vector field
+u = (u_1, …, u_N), here U itself carries an extra N x N index
+pair (e.g. a density matrix or matrix Green’s function) that P
+acts on only from the left. Each column <cite>U[:, k]</cite> of U is an
+ordinary vector field, so this reduces to N independent calls to
+<cite>apply()</cite>, one per column, with the results reassembled into the
+matrix-shaped output; P is applied to U, never U to P.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>U</strong> (<em>sequence</em><em> of </em><em>N sequences</em><em> of </em><em>N ndarrays</em><em>, or </em><em>ndarray</em><em> of </em><em>shape</em><em> (</em><em>N</em><em>, </em><em>N</em><em>, </em><em>...</em><em>)</em>) – Matrix-valued field; <cite>U[j][k]</cite> (equivalently <cite>U[j, k]</cite> for an
+ndarray) is the scalar (j, k) component field sampled on the
+grid, so that U plays the role of an N x N matrix at every
+grid point.</p></li>
+<li><p><strong>x_grid</strong> – As for <cite>apply</cite>.</p></li>
+<li><p><strong>kx</strong> – As for <cite>apply</cite>.</p></li>
+<li><p><strong>y_grid</strong> – As for <cite>apply</cite>.</p></li>
+<li><p><strong>ky</strong> – As for <cite>apply</cite>.</p></li>
+<li><p><strong>**apply_kwargs</strong> – Forwarded to every entry’s scalar <cite>apply()</cite> (e.g.
+<cite>boundary_condition</cite>, <cite>freq_window</cite>, …).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>out[i][k]</cite> holds <cite>(P U)_ik</cite>, indexed the same way as <cite>U</cite>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of N lists of N ndarrays</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If <cite>U</cite> is not an N x N array of fields, with N equal to
+    <cite>self.size</cite>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="psiop.MatrixPseudoDifferentialOperator.apply_matrix_field_right">
+<span class="sig-name descname"><span class="pre">apply_matrix_field_right</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">apply_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#MatrixPseudoDifferentialOperator.apply_matrix_field_right"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.MatrixPseudoDifferentialOperator.apply_matrix_field_right" title="Link to this definition"></a></dt>
+<dd><p>Apply this operator’s symbol Q(x, xi) to a matrix-valued field
+U(x) by right matrix multiplication on U’s own N x N structure:</p>
+<blockquote>
+<div><p>(U Q)_ik(x) = sum_j Op[Q_jk] (U_ij) (x)</p>
+</div></blockquote>
+<p>This is the mirror image of <cite>apply_matrix_field</cite> (which
+left-multiplies by P): here each <em>row</em> <cite>U[i, :]</cite> of U is an
+ordinary vector field acted on from the right by Q, which is
+equivalent to the left action of the transposed symbol matrix Q^T
+on that row – hence the index order <cite>Op[Q_jk]</cite>, not <cite>Op[Q_kj]</cite>,
+so the two methods are genuinely different unless Q is symmetric.</p>
+<p>Together with <cite>apply_matrix_field</cite>, this is the numerical
+primitive needed to time-step Sylvester-type equations
+<cite>d_t U = P U - U Q</cite>, since left- and right-multiplication always
+commute as <em>operations</em> (<cite>(P U) Q == P (U Q)</cite>), even though the
+underlying scalar operators <cite>Op[P_ij]</cite> and <cite>Op[Q_jk]</cite> need not
+commute with each other when the symbols depend on x. See
+<cite>solve_sylvester_field</cite> for the corresponding time-stepper.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>U</strong> (<em>sequence</em><em> of </em><em>N sequences</em><em> of </em><em>N ndarrays</em><em>, or </em><em>ndarray</em><em> of </em><em>shape</em><em> (</em><em>N</em><em>, </em><em>N</em><em>, </em><em>...</em><em>)</em>) – Matrix-valued field; <cite>U[i][j]</cite> (equivalently <cite>U[i, j]</cite> for an
+ndarray) is the scalar (i, j) component field sampled on the
+grid.</p></li>
+<li><p><strong>x_grid</strong> – As for <cite>apply</cite>.</p></li>
+<li><p><strong>kx</strong> – As for <cite>apply</cite>.</p></li>
+<li><p><strong>y_grid</strong> – As for <cite>apply</cite>.</p></li>
+<li><p><strong>ky</strong> – As for <cite>apply</cite>.</p></li>
+<li><p><strong>**apply_kwargs</strong> – Forwarded to every entry’s scalar <cite>apply()</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>out[i][k]</cite> holds <cite>(U Q)_ik</cite>, indexed the same way as <cite>U</cite>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of N lists of N ndarrays</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If <cite>U</cite> is not an N x N array of fields, with N equal to
+    <cite>self.size</cite>.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -3178,6 +3273,125 @@ matrix-valued systems.</p></li>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="psiop.solve_matrix_field">
+<span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">solve_matrix_field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kohn-nirenberg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'peetre'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#solve_matrix_field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.solve_matrix_field" title="Link to this definition"></a></dt>
+<dd><p>Time-step the matrix-field evolution equation <cite>∂ₜU = P U</cite>, where <cite>P</cite>
+is the pseudo-differential operator with N×N matrix symbol <cite>s_expr</cite>
+and <cite>U(x)</cite> is itself an N×N matrix at every spatial point (e.g. a
+density matrix or matrix Green’s function), with <cite>P</cite> acting on <cite>U</cite>
+only from the left: <cite>(P U)_ik = Σⱼ Op[P_ij](U_jk)</cite>. This repeatedly
+applies the exponential propagator <cite>Op(exp(dt·s))</cite> built by
+<cite>build_propagator</cite>, via
+<cite>MatrixPseudoDifferentialOperator.apply_matrix_field</cite>, exactly as
+<cite>solve</cite> does for vector fields via <cite>apply</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>s_expr</strong> (<em>sympy.MatrixBase</em><em> or </em><em>nested list</em><em> of </em><em>sympy.Expr</em>) – N×N matrix symbol <cite>S(x, ξ)</cite> of the generator <cite>P</cite>; must be
+matrix-valued (matrix left-multiplication only makes sense at
+<cite>N &gt; 1</cite> – use <cite>solve</cite> for a scalar generator).</p></li>
+<li><p><strong>vars_x</strong> (<em>list</em><em> of </em><em>sympy symbols</em>) – Spatial variables (length 1 or 2).</p></li>
+<li><p><strong>F</strong> (<em>callable</em>) – Initial matrix field <cite>U(·, 0)</cite>, called as <cite>F(X)</cite> in 1D or
+<cite>F(X, Y)</cite> in 2D on the meshgrid-ed spatial coordinates, and
+expected to return an N×N array/nested list of grid-shaped
+components (<cite>F(…)[j][k]</cite>, or an ndarray of shape
+<cite>(N, N, *grid_shape)</cite>).</p></li>
+<li><p><strong>dt</strong> (<em>float</em>) – Time step.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em>) – Number of propagator applications (time steps) to take.</p></li>
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>optional</em>) – Truncation order of the exponential symbol expansion. Default 3.</p></li>
+<li><p><strong>L</strong> (<em>float</em><em>, </em><em>optional</em>) – Half-width of the spatial domain. Default 10.0.</p></li>
+<li><p><strong>N</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of grid points per axis. Default 256.</p></li>
+<li><p><strong>apply_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Extra keyword arguments forwarded to <cite>apply_matrix_field</cite>.</p></li>
+<li><p><strong>save_every</strong> (<em>int</em><em>, </em><em>optional</em>) – Save the solution every <cite>save_every</cite> steps (plus the final step
+and <cite>t=0</cite>). Default 1 (save every step).</p></li>
+<li><p><strong>quantization</strong> (<em>str</em><em>, </em><em>optional</em>) – Quantization convention. Default ‘kohn-nirenberg’.</p></li>
+<li><p><strong>apply_backend</strong> (<em>str</em><em>, </em><em>optional</em>) – Numerical application backend. Default ‘peetre’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>t_list</strong> (<em>ndarray</em>) – Saved time points, starting at 0.</p></li>
+<li><p><strong>U_list</strong> (<em>ndarray, shape (n_saved, N, N, *grid_shape)</em>) – Saved matrix-field snapshots <cite>U(t)</cite>.</p></li>
+<li><p><strong>grids</strong> (<em>tuple of ndarray</em>) – <cite>(x, kx)</cite> in 1D or <cite>(x, y, kx, ky)</cite> in 2D, as returned by
+<cite>make_grid_1d</cite>/<cite>make_grid_2d</cite>.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>NotImplementedError</strong> – If <cite>vars_x</cite> has a length other than 1 or 2.</p></li>
+<li><p><strong>ValueError</strong> – If <cite>s_expr</cite> is not matrix-valued, or <cite>F</cite> does not return an
+    N×N field.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="psiop.solve_ricci_flow_conformal_2d">
+<span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">solve_ricci_flow_conformal_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phi0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">64</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kohn-nirenberg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'peetre'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#solve_ricci_flow_conformal_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.solve_ricci_flow_conformal_2d" title="Link to this definition"></a></dt>
+<dd><p>Integrate 2D Ricci flow in conformal gauge on a flat, doubly periodic
+background.</p>
+<p>Writing the metric as <cite>g = e^{2φ}(dx² + dy²)</cite>, the Gauss curvature is
+<cite>K = −e^{−2φ}Δφ</cite> and, since <cite>R_ij = K·g_ij</cite> in two dimensions, the
+tensorial flow <cite>∂ₜg_ij = −2R_ij</cite> collapses to the scalar quasi-linear
+heat equation</p>
+<blockquote>
+<div><p>∂ₜφ = e^{−2φ} Δφ ,</p>
+</div></blockquote>
+<p>with <cite>Δ = ∂ₓ² + ∂ᵧ²</cite> the flat Laplacian. This is NOT handled by
+<cite>psiop</cite>’s ordinary linear/matrix machinery: the coefficient
+<cite>e^{−2φ}</cite> depends on the evolving solution itself, so no fixed
+<cite>sympy</cite> symbol <cite>p(x, ξ)</cite> describes the operator ahead of time.</p>
+<p>Instead, each step uses an IMEX/Lie splitting that still reuses
+<cite>psiop</cite>’s exact exponential propagator for the stiff part:</p>
+<ol class="arabic simple">
+<li><p><strong>Explicit correction</strong> — using the <em>current</em> coefficient field
+<cite>c(x) = e^{−2φ(x)}</cite>, compute <cite>Δφ</cite> once via a plain (x-independent)
+Laplacian <cite>PseudoDifferentialOperator</cite>, and take one explicit
+Euler sub-step with the deviation of <cite>c</cite> from its spatial average
+<cite>c₀</cite>: <cite>residual = (c − c₀) Δφ</cite>.</p></li>
+<li><p><strong>Stiff step</strong> — propagate the spatially averaged, x-independent
+(Fourier-multiplier) generator <cite>c₀·Δ</cite> exactly via
+<cite>build_propagator</cite>’s exponential-symbol machinery, applied to the
+explicitly-corrected field.</p></li>
+</ol>
+<p>This freezes the quasi-linear coefficient once per step (a Rothe-type
+linearization), so accuracy in <cite>dt</cite> is limited by that freezing, not
+by the exponential propagator itself, which remains exact for the
+frozen (constant-coefficient) part at every step.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>phi0</strong> (<em>callable</em>) – Initial conformal factor, called as <cite>phi0(X, Y)</cite> on the
+meshgrid-ed spatial coordinates; must return a real-valued array.</p></li>
+<li><p><strong>dt</strong> (<em>float</em>) – Time step.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em>) – Number of steps to take.</p></li>
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>optional</em>) – Truncation order used by <cite>build_propagator</cite> for the stiff-step
+exponential symbol. Default 3.</p></li>
+<li><p><strong>L</strong> (<em>float</em><em>, </em><em>optional</em>) – Half-width of the (periodic) spatial domain along each axis.
+Default 8.0.</p></li>
+<li><p><strong>N</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of grid points per axis. Default 64.</p></li>
+<li><p><strong>save_every</strong> (<em>int</em><em>, </em><em>optional</em>) – Save every <cite>save_every</cite> steps (plus the final step and <cite>t=0</cite>).
+Default 1.</p></li>
+<li><p><strong>quantization</strong> (<em>str</em><em>, </em><em>optional</em>) – Quantization convention used for the Laplacian and the stiff-step
+propagator. Default ‘kohn-nirenberg’.</p></li>
+<li><p><strong>apply_backend</strong> (<em>str</em><em>, </em><em>optional</em>) – Numerical application backend. Default ‘peetre’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>t_list</strong> (<em>ndarray</em>) – Saved time points, starting at 0.</p></li>
+<li><p><strong>phi_list</strong> (<em>ndarray, shape (n_saved, N, N)</em>) – Saved conformal-factor snapshots <cite>φ(x, y, t)</cite>; the metric at each
+saved time is <cite>g(t) = e^{2·phi_list[k]} (dx² + dy²)</cite>.</p></li>
+<li><p><strong>grids</strong> (<em>tuple of ndarray</em>) – <cite>(x, y)</cite> spatial grids, as returned by <cite>make_grid_2d</cite>.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="psiop.solve_second_order">
 <span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">solve_second_order</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kohn-nirenberg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'peetre'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#solve_second_order"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.solve_second_order" title="Link to this definition"></a></dt>
 <dd><p>Solve the second-order-in-time evolution equation</p>
@@ -3224,6 +3438,87 @@ structure as <cite>f</cite>.</p></li>
 </dd>
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>ValueError</strong> – If <cite>f</cite> or <cite>g</cite> produce the wrong number of components.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="psiop.solve_sylvester_field">
+<span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">solve_sylvester_field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">P_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Q_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">F</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">splitting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'strang'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kohn-nirenberg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'peetre'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#solve_sylvester_field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.solve_sylvester_field" title="Link to this definition"></a></dt>
+<dd><p>Time-step the Sylvester-type matrix-field evolution equation
+<cite>∂ₜU = P U − U Q</cite>, where <cite>P</cite> and <cite>Q</cite> are pseudo-differential
+operators with N×N matrix symbols and <cite>U(x)</cite> is an N×N matrix at
+every spatial point.</p>
+<p>Left-multiplication by <cite>P</cite> and right-multiplication by <cite>Q</cite> always
+commute as <em>operations</em> (<cite>(P U) Q == P (U Q)</cite>), so when <cite>P</cite> and <cite>Q</cite>
+are x-independent (Fourier multipliers), the exact solution over a
+step <cite>dt</cite> is the closed-form</p>
+<blockquote>
+<div><p>U(t) = exp(t P) U(0) exp(-t Q) ,</p>
+</div></blockquote>
+<p>obtained by applying the left-propagator <cite>Op(exp(dt·P))</cite>
+(<cite>apply_matrix_field</cite>) and the right-propagator <cite>Op(exp(-dt·Q))</cite>
+(<cite>apply_matrix_field_right</cite>), in either order. When <cite>P</cite> and/or <cite>Q</cite>
+depend on x, <cite>Op[P_ij]</cite> and <cite>Op[Q_jk]</cite> need not commute with each
+other, so the two sub-steps no longer combine exactly; this function
+then falls back to a standard Lie-Trotter (first-order, <cite>O(dt)</cite>
+splitting error) or Strang (second-order, <cite>O(dt^2)</cite>) operator
+splitting between the left and right exponential propagators.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>P_expr</strong> (<em>sympy.MatrixBase</em><em> or </em><em>nested list</em><em> of </em><em>sympy.Expr</em>) – N×N matrix symbol <cite>P(x, ξ)</cite> acting on U from the left.</p></li>
+<li><p><strong>Q_expr</strong> (<em>sympy.MatrixBase</em><em> or </em><em>nested list</em><em> of </em><em>sympy.Expr</em>) – N×N matrix symbol <cite>Q(x, ξ)</cite> acting on U from the right (with a
+minus sign, as in <cite>∂ₜU = P U − U Q</cite>); must be the same size as
+<cite>P_expr</cite>.</p></li>
+<li><p><strong>vars_x</strong> (<em>list</em><em> of </em><em>sympy symbols</em>) – Spatial variables (length 1 or 2).</p></li>
+<li><p><strong>F</strong> (<em>callable</em>) – Initial matrix field <cite>U(·, 0)</cite>, called as <cite>F(X)</cite> in 1D or
+<cite>F(X, Y)</cite> in 2D, returning an N×N array/nested list of
+grid-shaped components (as for <cite>solve_matrix_field</cite>).</p></li>
+<li><p><strong>dt</strong> (<em>float</em>) – Time step.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em>) – Number of splitting steps (each advancing <cite>U</cite> by <cite>dt</cite>).</p></li>
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>optional</em>) – Truncation order of each exponential-symbol expansion. Default 3.</p></li>
+<li><p><strong>splitting</strong> (<em>str</em><em>, </em><em>{'lie'</em><em>, </em><em>'strang'}</em><em>, </em><em>optional</em>) – <p>Operator-splitting scheme between the <cite>P</cite> (left) and <cite>Q</cite> (right)
+sub-steps:</p>
+<ul>
+<li><dl>
+<dt>’lie’<span class="classifier">one full left step <cite>exp(dt·P)</cite>, then one full right</span></dt><dd><p>step <cite>exp(-dt·Q)</cite> – first order accurate, <cite>O(dt)</cite>.</p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt>’strang’<span class="classifier">half left step <cite>exp(dt/2·P)</cite>, full right step</span></dt><dd><p><cite>exp(-dt·Q)</cite>, half left step <cite>exp(dt/2·P)</cite> –
+second order accurate, <cite>O(dt^2)</cite>. Default.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+<li><p><strong>L</strong> (<em>float</em><em>, </em><em>optional</em>) – Half-width of the spatial domain. Default 10.0.</p></li>
+<li><p><strong>N</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of grid points per axis. Default 256.</p></li>
+<li><p><strong>apply_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Extra keyword arguments forwarded to <cite>apply_matrix_field</cite> and
+<cite>apply_matrix_field_right</cite>.</p></li>
+<li><p><strong>save_every</strong> (<em>int</em><em>, </em><em>optional</em>) – Save the solution every <cite>save_every</cite> steps (plus the final step
+and <cite>t=0</cite>). Default 1.</p></li>
+<li><p><strong>quantization</strong> (<em>str</em><em>, </em><em>optional</em>) – Quantization convention. Default ‘kohn-nirenberg’.</p></li>
+<li><p><strong>apply_backend</strong> (<em>str</em><em>, </em><em>optional</em>) – Numerical application backend. Default ‘peetre’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>t_list</strong> (<em>ndarray</em>) – Saved time points, starting at 0.</p></li>
+<li><p><strong>U_list</strong> (<em>ndarray, shape (n_saved, N, N, *grid_shape)</em>) – Saved matrix-field snapshots <cite>U(t)</cite>.</p></li>
+<li><p><strong>grids</strong> (<em>tuple of ndarray</em>) – <cite>(x, kx)</cite> in 1D or <cite>(x, y, kx, ky)</cite> in 2D.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>NotImplementedError</strong> – If <cite>vars_x</cite> has a length other than 1 or 2.</p></li>
+<li><p><strong>ValueError</strong> – If <cite>P_expr</cite>/<cite>Q_expr</cite> are not matrix-valued of matching size, if
+    <cite>F</cite> does not return an N×N field, or if <cite>splitting</cite> is not
+    ‘lie’ or ‘strang’.</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>
