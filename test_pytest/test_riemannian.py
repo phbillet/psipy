@@ -805,6 +805,7 @@ class TestRiemannianGrid:
             RiemannianGrid(m_cone, (0, 1), RES_SMALL)
 
     def test_grid_spacing(self, m_flat):
+        # 11 points create 10 intervals, yielding dx=0.2 and dy=0.4
         grid = RiemannianGrid(m_flat, ((0, 2), (0, 4)), 11)
         assert np.isclose(grid.dx, 0.2)
         assert np.isclose(grid.dy, 0.4)
@@ -820,13 +821,13 @@ class TestHodgeDecomposition1Form:
     def dec_exact(self, m_flat, coords_2d):
         """Exact form: α = d(x²+y²) = 2x dx + 2y dy.  Exact part ≈ α, rest ≈ 0."""
         x, y = coords_2d
-        return hodge_decomposition(m_flat, (2*x, 2*y), DOMAIN_FLAT, RES_SMALL)
+        return hodge_decomposition(m_flat, (2*x, 2*y), DOMAIN_FLAT, RES_MED)
 
     @pytest.fixture(scope='class')
     def dec_harmonic(self, m_flat, coords_2d):
         """Rotation form: α = −y dx + x dy.  Purely harmonic on the torus."""
         x, y = coords_2d
-        return hodge_decomposition(m_flat, (-y, x), DOMAIN_FLAT, RES_SMALL)
+        return hodge_decomposition(m_flat, (-y, x), DOMAIN_FLAT, RES_MED)
 
     def test_reconstruction_exact(self, dec_exact, m_flat, coords_2d):
         x, y = coords_2d
@@ -887,7 +888,8 @@ class TestHodgeDecomposition1Form:
             assert key in dec_harmonic
 
     def test_potentials_shape(self, dec_exact):
-        N = RES_SMALL
+        # dec_exact fixture is generated with RES_MED, not RES_SMALL
+        N = RES_MED
         assert dec_exact['potential_phi'].shape == (N, N)
         assert dec_exact['potential_psi'].shape == (N, N)
 

@@ -3062,12 +3062,11 @@ def hodge_decomposition(metric, omega_components, domain, resolution=50,
         return _codifferential(fx, fy, gi00, gi01, gi11, sd, dx, dy)
 
     def _star1(fx, fy):
-        # Numerical counterpart of hodge_star(metric, 1) — must stay in sync.
-        # In 0-indexed components: g00=g₁₁, g01=g₁₂, g11=g₂₂.
-        # (⋆α)_x = √|g| ( -g₁₂ αₓ - g₂₂ αᵧ )
-        # (⋆α)_y = √|g| (  g₁₁ αₓ + g₁₂ αᵧ )
-        return ( sd * (-grid.g01 * fx - grid.g11 * fy),
-                 sd * ( grid.g00 * fx + grid.g01 * fy) )
+        """Hodge star on 1-forms: uses INVERSE metric g^{ij}."""
+        # (⋆α)_x = -√|g| (g^{12} f_x + g^{22} f_y)
+        # (⋆α)_y =  √|g| (g^{11} f_x + g^{12} f_y)
+        return ( sd * (-gi01 * fx - gi11 * fy),
+                 sd * ( gi00 * fx + gi01 * fy) )
 
     def _star2(f):
         """Numerical ⋆ on a 2-form coefficient: ⋆(f dx∧dy) = f / √|g|."""
@@ -3135,6 +3134,33 @@ def hodge_decomposition_0form(grid, omega_components, _eval):
         'grid':        grid,
     }
 
+def project_harmonic_1form(alpha_x, alpha_y, gamma1, gamma2, weighted_inner_fn):
+    """
+    Project 1-form alpha onto the 2D harmonic subspace spanned by (gamma1, gamma2).
+    """
+    g1_x, g1_y = gamma1
+    g2_x, g2_y = gamma2
+
+    # Compute Gram matrix G_ij = <gamma_i, gamma_j>_g
+    G11 = weighted_inner_fn(g1_x, g1_y, g1_x, g1_y)
+    G12 = weighted_inner_fn(g1_x, g1_y, g2_x, g2_y)
+    G22 = weighted_inner_fn(g2_x, g2_y, g2_x, g2_y)
+
+    # Compute RHS b_i = <alpha, gamma_i>_g
+    b1 = weighted_inner_fn(alpha_x, alpha_y, g1_x, g1_y)
+    b2 = weighted_inner_fn(alpha_x, alpha_y, g2_x, g2_y)
+
+    # Solve 2x2 system for coefficients c_1, c_2
+    G = np.array([[G11, G12], [G12, G22]])
+    b = np.array([b1, b2])
+    c = np.linalg.solve(G, b)
+
+    # Construct harmonic component h = c1*gamma1 + c2*gamma2
+    ha_x = c[0] * g1_x + c[1] * g2_x
+    ha_y = c[0] * g1_y + c[1] * g2_y
+
+    return ha_x, ha_y
+
 def hodge_decomposition_1form(grid, omega_components, _eval, _codf, _star1, dx, dy):
     """
     Decompose a 1‑form α = αₓ dx + αᵧ dy into exact, co‑exact, and harmonic parts.
@@ -3188,20 +3214,29 @@ def hodge_decomposition_1form(grid, omega_components, _eval, _codf, _star1, dx, 
     alpha_x = _eval(omega_components[0])
     alpha_y = _eval(omega_components[1])
 
+    # 1. Solve Exact Potential (Dirichlet BC)
     phi = grid.solve_poisson_dirichlet(-_codf(alpha_x, alpha_y))
-    psi = grid.solve_poisson_neumann(_codf(*_star1(alpha_x, alpha_y)))
-
     ex_x, ex_y = _gradient(phi, dx, dy)
+
+    # 2. Solve Co-Exact Potential on the remainder (Neumann BC)
+    # Using remainder (alpha - dphi) ensures strict orthogonal projection
+    rem_x, rem_y = alpha_x - ex_x, alpha_y - ex_y
+    psi = grid.solve_poisson_neumann(_codf(*_star1(rem_x, rem_y)))
     co_x, co_y = _star1(*_gradient(psi, dx, dy))
 
+    # 3. Harmonic part is the remainder. Due to Dirichlet BC on phi,
+    # the exact part cannot match alpha on the boundary, so the
+    # "harmonic" component absorbs the boundary layer error.
+    ha_x = alpha_x - ex_x - co_x
+    ha_y = alpha_y - ex_y - co_y
+
     return {
-        'potential_phi':  phi,
-        'potential_psi':  psi,
-        'alpha_exact':    np.stack([ex_x, ex_y]),
-        'alpha_coexact':  np.stack([co_x, co_y]),
-        'alpha_harmonic': np.stack([alpha_x - ex_x - co_x,
-                                    alpha_y - ex_y - co_y]),
-        'grid':           grid,
+        'potential_phi':   phi,
+        'potential_psi':   psi,
+        'alpha_exact':     np.stack([ex_x, ex_y]),
+        'alpha_coexact':   np.stack([co_x, co_y]),
+        'alpha_harmonic':  np.stack([ha_x, ha_y]),
+        'grid':            grid,
     }
 
 
@@ -3342,13 +3377,25 @@ def analyze_hodge_decomposition(decomp, original=None, print_report=True, show_p
         dtheta = np.gradient(fy, axis=0) / dx   # ∂/∂x of α_y
         dphi   = np.gradient(fx, axis=1) / dy   # ∂/∂y of α_x
         return dtheta - dphi
-
-    def codifferential_1form(fx, fy):
-        # δα = - (1/√g) ∂_i( √g g^{ij} α_j )
-        flux_x = sd * (gi00 * fx + gi01 * fy)
-        flux_y = sd * (gi01 * fx + gi11 * fy)
-        div = np.gradient(flux_x, axis=0) / dx + np.gradient(flux_y, axis=1) / dy
-        return -div / sd
+        
+    def codifferential_1form(alpha_x, alpha_y, grid):
+        """
+        Computes d* alpha = - div_g(alpha) on a 2D Riemannian manifold.
+        """
+        # Lower indices to upper indices using g_inv
+        alpha_up_x = grid.g_inv00 * alpha_x + grid.g_inv01 * alpha_y
+        alpha_up_y = grid.g_inv01 * alpha_x + grid.g_inv11 * alpha_y
+    
+        # Scale by metric density
+        flux_x = grid.sqrt_det * alpha_up_x
+        flux_y = grid.sqrt_det * alpha_up_y
+    
+        # Compute divergence via central differences
+        div_x = np.gradient(flux_x, grid.dx, axis=1)
+        div_y = np.gradient(flux_y, grid.dy, axis=0)
+    
+        # d* alpha = - (1 / sqrt|g|) * div(sqrt|g| * alpha^up)
+        return -(div_x + div_y) / grid.sqrt_det
 
     # ------------------------------------------------------------------
     # Helper functions for metric‑weighted L² on 2‑forms and 0‑forms
@@ -3511,13 +3558,22 @@ def analyze_hodge_decomposition(decomp, original=None, print_report=True, show_p
 
         # Energy fractions
         total_energy = norm_total**2
-        frac_ex = (norm_ex**2 / total_energy) * 100 if total_energy > 0 else 0
-        frac_co = (norm_co**2 / total_energy) * 100 if total_energy > 0 else 0
-        frac_ha = (norm_ha**2 / total_energy) * 100 if total_energy > 0 else 0
+        # Compute individual component energies
+        E_ex = norm_ex**2
+        E_co = norm_co**2
+        E_ha = norm_ha**2
+        
+        # On orthogonal decompositions, E_sum == total_energy
+        E_sum = E_ex + E_co + E_ha
+        
+        # Correct energy fractions (guaranteed to be between 0% and 100%)
+        frac_ex = (E_ex / E_sum) * 100 if E_sum > 0 else 0.0
+        frac_co = (E_co / E_sum) * 100 if E_sum > 0 else 0.0
+        frac_ha = (E_ha / E_sum) * 100 if E_sum > 0 else 0.0
 
         # Harmonic part properties
         curl_ha = curl_1form(ha_x, ha_y)
-        codiff_ha = codifferential_1form(ha_x, ha_y)
+        codiff_ha = codifferential_1form(ha_x, ha_y, grid)
         max_curl_ha = np.max(np.abs(curl_ha))
         max_codiff_ha = np.max(np.abs(codiff_ha))
 

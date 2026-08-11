@@ -5804,6 +5804,151 @@ class MatrixPseudoDifferentialOperator:
                 P[..., i, j] = self.entries[i][j].p_func(*args)
         return P
 
+    def apply_matrix_field(self, U, x_grid, kx, y_grid=None, ky=None, **apply_kwargs):
+        """
+        Apply P(x, xi) to a matrix-valued field U(x) by left matrix
+        multiplication on U's own N x N structure:
+
+            (P U)_ik(x) = sum_j Op[P_ij] (U_jk) (x)
+
+        Unlike `apply()`, which propagates a single vector field
+        u = (u_1, ..., u_N), here U itself carries an extra N x N index
+        pair (e.g. a density matrix or matrix Green's function) that P
+        acts on only from the left. Each column `U[:, k]` of U is an
+        ordinary vector field, so this reduces to N independent calls to
+        `apply()`, one per column, with the results reassembled into the
+        matrix-shaped output; P is applied to U, never U to P.
+
+        Parameters
+        ----------
+        U : sequence of N sequences of N ndarrays, or ndarray of shape (N, N, ...)
+            Matrix-valued field; `U[j][k]` (equivalently `U[j, k]` for an
+            ndarray) is the scalar (j, k) component field sampled on the
+            grid, so that U plays the role of an N x N matrix at every
+            grid point.
+        x_grid, kx, y_grid, ky
+            As for `apply`.
+        **apply_kwargs
+            Forwarded to every entry's scalar `apply()` (e.g.
+            `boundary_condition`, `freq_window`, ...).
+
+        Returns
+        -------
+        list of N lists of N ndarrays
+            `out[i][k]` holds `(P U)_ik`, indexed the same way as `U`.
+
+        Raises
+        ------
+        ValueError
+            If `U` is not an N x N array of fields, with N equal to
+            `self.size`.
+        """
+        if len(U) != self.size or any(len(row) != self.size for row in U):
+            got_cols = len(U[0]) if len(U) else 0
+            raise ValueError(
+                f"Expected a {self.size}x{self.size} matrix field, got "
+                f"{len(U)}x{got_cols}."
+            )
+
+        out = [[None] * self.size for _ in range(self.size)]
+        for k in range(self.size):
+            column = [U[j][k] for j in range(self.size)]
+            result_column = self.apply(
+                column, x_grid, kx, y_grid=y_grid, ky=ky, **apply_kwargs
+            )
+            for i in range(self.size):
+                out[i][k] = result_column[i]
+        return out
+
+    def apply_matrix_field_right(self, U, x_grid, kx, y_grid=None, ky=None, **apply_kwargs):
+        """
+        Apply this operator's symbol Q(x, xi) to a matrix-valued field
+        U(x) by right matrix multiplication on U's own N x N structure:
+
+            (U Q)_ik(x) = sum_j Op[Q_jk] (U_ij) (x)
+
+        This is the mirror image of `apply_matrix_field` (which
+        left-multiplies by P): here each *row* `U[i, :]` of U is an
+        ordinary vector field acted on from the right by Q, which is
+        equivalent to the left action of the transposed symbol matrix Q^T
+        on that row -- hence the index order `Op[Q_jk]`, not `Op[Q_kj]`,
+        so the two methods are genuinely different unless Q is symmetric.
+
+        Together with `apply_matrix_field`, this is the numerical
+        primitive needed to time-step Sylvester-type equations
+        `d_t U = P U - U Q`, since left- and right-multiplication always
+        commute as *operations* (`(P U) Q == P (U Q)`), even though the
+        underlying scalar operators `Op[P_ij]` and `Op[Q_jk]` need not
+        commute with each other when the symbols depend on x. See
+        `solve_sylvester_field` for the corresponding time-stepper.
+
+        Parameters
+        ----------
+        U : sequence of N sequences of N ndarrays, or ndarray of shape (N, N, ...)
+            Matrix-valued field; `U[i][j]` (equivalently `U[i, j]` for an
+            ndarray) is the scalar (i, j) component field sampled on the
+            grid.
+        x_grid, kx, y_grid, ky
+            As for `apply`.
+        **apply_kwargs
+            Forwarded to every entry's scalar `apply()`.
+
+        Returns
+        -------
+        list of N lists of N ndarrays
+            `out[i][k]` holds `(U Q)_ik`, indexed the same way as `U`.
+
+        Raises
+        ------
+        ValueError
+            If `U` is not an N x N array of fields, with N equal to
+            `self.size`.
+        """
+        if len(U) != self.size or any(len(row) != self.size for row in U):
+            got_cols = len(U[0]) if len(U) else 0
+            raise ValueError(
+                f"Expected a {self.size}x{self.size} matrix field, got "
+                f"{len(U)}x{got_cols}."
+            )
+
+        out = [[None] * self.size for _ in range(self.size)]
+        for i in range(self.size):
+            for k in range(self.size):
+                v_ik = None
+                for j in range(self.size):
+                    contrib = self.entries[j][k].apply(
+                        U[i][j], x_grid, kx, y_grid=y_grid, ky=ky, **apply_kwargs
+                    )
+                    v_ik = contrib if v_ik is None else v_ik + contrib
+                out[i][k] = v_ik
+        return out
+
+
+        """
+        Numerically evaluate P(x[, y], xi[, eta]) at a point or
+        broadcastable arrays, returning an ndarray of shape `(..., N, N)`.
+
+        Parameters
+        ----------
+        *args
+            The point(s) to evaluate at, in the order each entry's
+            `p_func` expects: `(x, xi)` for 1D, `(x, y, xi, eta)` for 2D.
+            Arguments may be broadcastable ndarrays (e.g. full grids), in
+            which case the leading dimensions of the output match their
+            broadcast shape.
+
+        Returns
+        -------
+        ndarray, shape (..., N, N)
+        """
+        n = self.size
+        sample = np.broadcast(*[np.asarray(a) for a in args])
+        P = np.zeros(sample.shape + (n, n), dtype=complex)
+        for i in range(n):
+            for j in range(n):
+                P[..., i, j] = self.entries[i][j].p_func(*args)
+        return P
+
     def eigen_symbol(self, *args):
         """
         Pointwise eigenvalues/eigenvectors of the symbol matrix
@@ -5930,12 +6075,21 @@ class MatrixPseudoDifferentialOperator:
                         j = n - i
                         coeff = (1 / (sp.factorial(i) * sp.factorial(j))) * (1j) ** (sign * n)
                         result += coeff * (P.diff(xi, i, eta, j) * Q.diff(x, i, y, j))
+            elif mode == 'weyl':
+                # ── NEW: 2D Weyl (Moyal) composition for matrix symbols ──
+                for n in range(order + 1):
+                    for i in range(n + 1):
+                        j = n - i
+                        coeff = (
+                            (1 / (sp.factorial(i) * sp.factorial(j)))
+                            * ((1j / 2) ** n)
+                            * ((-1) ** (n - i))
+                        )
+                        dP = P.diff(xi, i).diff(eta, j)   # ∂_ξ^i ∂_η^j P
+                        dQ = Q.diff(x, i).diff(y, j)      # ∂_x^i ∂_y^j Q
+                        result += coeff * (dP * dQ)       # matrix mult, order-preserving
             else:
-                raise NotImplementedError(
-                    "2D Weyl composition for matrix symbols is not implemented yet "
-                    "(the double cross-term sum from the scalar case needs care to "
-                    "keep matrix multiplication order-preserving) -- use mode='kn'."
-                )
+                raise ValueError("mode must be 'kn' or 'weyl'")
             return sp.simplify(result)
 
         else:
@@ -8509,3 +8663,406 @@ def animate_singularity_3d(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
         anim.save(save_path)
     plt.close(fig)
     return anim
+
+def solve_matrix_field(s_expr, vars_x, F, dt, n_steps, order=3,
+                        L=10.0, N=256, apply_kwargs=None, save_every=1,
+                        quantization='kohn-nirenberg', apply_backend='peetre'):
+    """
+    Time-step the matrix-field evolution equation `∂ₜU = P U`, where `P`
+    is the pseudo-differential operator with N×N matrix symbol `s_expr`
+    and `U(x)` is itself an N×N matrix at every spatial point (e.g. a
+    density matrix or matrix Green's function), with `P` acting on `U`
+    only from the left: `(P U)_ik = Σⱼ Op[P_ij](U_jk)`. This repeatedly
+    applies the exponential propagator `Op(exp(dt·s))` built by
+    `build_propagator`, via
+    `MatrixPseudoDifferentialOperator.apply_matrix_field`, exactly as
+    `solve` does for vector fields via `apply`.
+
+    Parameters
+    ----------
+    s_expr : sympy.MatrixBase or nested list of sympy.Expr
+        N×N matrix symbol `S(x, ξ)` of the generator `P`; must be
+        matrix-valued (matrix left-multiplication only makes sense at
+        `N > 1` -- use `solve` for a scalar generator).
+    vars_x : list of sympy symbols
+        Spatial variables (length 1 or 2).
+    F : callable
+        Initial matrix field `U(·, 0)`, called as `F(X)` in 1D or
+        `F(X, Y)` in 2D on the meshgrid-ed spatial coordinates, and
+        expected to return an N×N array/nested list of grid-shaped
+        components (`F(...)[j][k]`, or an ndarray of shape
+        `(N, N, *grid_shape)`).
+    dt : float
+        Time step.
+    n_steps : int
+        Number of propagator applications (time steps) to take.
+    order : int, optional
+        Truncation order of the exponential symbol expansion. Default 3.
+    L : float, optional
+        Half-width of the spatial domain. Default 10.0.
+    N : int, optional
+        Number of grid points per axis. Default 256.
+    apply_kwargs : dict, optional
+        Extra keyword arguments forwarded to `apply_matrix_field`.
+    save_every : int, optional
+        Save the solution every `save_every` steps (plus the final step
+        and `t=0`). Default 1 (save every step).
+    quantization : str, optional
+        Quantization convention. Default 'kohn-nirenberg'.
+    apply_backend : str, optional
+        Numerical application backend. Default 'peetre'.
+
+    Returns
+    -------
+    t_list : ndarray
+        Saved time points, starting at 0.
+    U_list : ndarray, shape (n_saved, N, N, *grid_shape)
+        Saved matrix-field snapshots `U(t)`.
+    grids : tuple of ndarray
+        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D, as returned by
+        `make_grid_1d`/`make_grid_2d`.
+
+    Raises
+    ------
+    NotImplementedError
+        If `vars_x` has a length other than 1 or 2.
+    ValueError
+        If `s_expr` is not matrix-valued, or `F` does not return an
+        N×N field.
+    """
+    apply_kwargs = dict(apply_kwargs or {})
+    dim = len(vars_x)
+
+    if dim == 1:
+        x, kx = make_grid_1d(L, N)
+        y_grid, ky = None, None
+        grids = (x, kx)
+        X = x
+    elif dim == 2:
+        x, y, kx, ky = make_grid_2d(L, N)
+        X, Y = np.meshgrid(x, y, indexing='ij')
+        y_grid = y
+        grids = (x, y, kx, ky)
+    else:
+        raise NotImplementedError("Only 1D and 2D are supported")
+
+    prop, is_matrix, size = build_propagator(
+        s_expr, vars_x, dt, order=order,
+        quantization=quantization, apply_backend=apply_backend,
+    )
+    if not is_matrix:
+        raise ValueError(
+            "solve_matrix_field requires a matrix symbol; got a scalar "
+            "symbol. Use solve() for scalar/vector fields instead."
+        )
+
+    U0 = F(X) if dim == 1 else F(X, Y)
+    U0 = np.asarray(U0, dtype=complex)
+    if U0.shape[0] != size or U0.shape[1] != size:
+        raise ValueError(
+            f"F must return a {size}x{size} matrix field, got shape "
+            f"{U0.shape[:2]}."
+        )
+
+    t_list = [0.0]
+    U_list = [U0.copy()]
+
+    U = U0
+    t = 0.0
+    for n in range(1, n_steps + 1):
+        result = prop.apply_matrix_field(
+            U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs
+        )
+        U = np.asarray(result, dtype=complex)
+        t += dt
+        if n % save_every == 0 or n == n_steps:
+            t_list.append(t)
+            U_list.append(U.copy())
+
+    return np.array(t_list), np.array(U_list), grids
+
+def solve_sylvester_field(P_expr, Q_expr, vars_x, F, dt, n_steps, order=3,
+                           splitting='strang', L=10.0, N=256,
+                           apply_kwargs=None, save_every=1,
+                           quantization='kohn-nirenberg', apply_backend='peetre'):
+    """
+    Time-step the Sylvester-type matrix-field evolution equation
+    `∂ₜU = P U − U Q`, where `P` and `Q` are pseudo-differential
+    operators with N×N matrix symbols and `U(x)` is an N×N matrix at
+    every spatial point.
+
+    Left-multiplication by `P` and right-multiplication by `Q` always
+    commute as *operations* (`(P U) Q == P (U Q)`), so when `P` and `Q`
+    are x-independent (Fourier multipliers), the exact solution over a
+    step `dt` is the closed-form
+
+        U(t) = exp(t P) U(0) exp(-t Q) ,
+
+    obtained by applying the left-propagator `Op(exp(dt·P))`
+    (`apply_matrix_field`) and the right-propagator `Op(exp(-dt·Q))`
+    (`apply_matrix_field_right`), in either order. When `P` and/or `Q`
+    depend on x, `Op[P_ij]` and `Op[Q_jk]` need not commute with each
+    other, so the two sub-steps no longer combine exactly; this function
+    then falls back to a standard Lie-Trotter (first-order, `O(dt)`
+    splitting error) or Strang (second-order, `O(dt^2)`) operator
+    splitting between the left and right exponential propagators.
+
+    Parameters
+    ----------
+    P_expr : sympy.MatrixBase or nested list of sympy.Expr
+        N×N matrix symbol `P(x, ξ)` acting on U from the left.
+    Q_expr : sympy.MatrixBase or nested list of sympy.Expr
+        N×N matrix symbol `Q(x, ξ)` acting on U from the right (with a
+        minus sign, as in `∂ₜU = P U − U Q`); must be the same size as
+        `P_expr`.
+    vars_x : list of sympy symbols
+        Spatial variables (length 1 or 2).
+    F : callable
+        Initial matrix field `U(·, 0)`, called as `F(X)` in 1D or
+        `F(X, Y)` in 2D, returning an N×N array/nested list of
+        grid-shaped components (as for `solve_matrix_field`).
+    dt : float
+        Time step.
+    n_steps : int
+        Number of splitting steps (each advancing `U` by `dt`).
+    order : int, optional
+        Truncation order of each exponential-symbol expansion. Default 3.
+    splitting : str, {'lie', 'strang'}, optional
+        Operator-splitting scheme between the `P` (left) and `Q` (right)
+        sub-steps:
+
+        - 'lie'    : one full left step `exp(dt·P)`, then one full right
+                     step `exp(-dt·Q)` -- first order accurate, `O(dt)`.
+        - 'strang' : half left step `exp(dt/2·P)`, full right step
+                     `exp(-dt·Q)`, half left step `exp(dt/2·P)` --
+                     second order accurate, `O(dt^2)`. Default.
+    L : float, optional
+        Half-width of the spatial domain. Default 10.0.
+    N : int, optional
+        Number of grid points per axis. Default 256.
+    apply_kwargs : dict, optional
+        Extra keyword arguments forwarded to `apply_matrix_field` and
+        `apply_matrix_field_right`.
+    save_every : int, optional
+        Save the solution every `save_every` steps (plus the final step
+        and `t=0`). Default 1.
+    quantization : str, optional
+        Quantization convention. Default 'kohn-nirenberg'.
+    apply_backend : str, optional
+        Numerical application backend. Default 'peetre'.
+
+    Returns
+    -------
+    t_list : ndarray
+        Saved time points, starting at 0.
+    U_list : ndarray, shape (n_saved, N, N, *grid_shape)
+        Saved matrix-field snapshots `U(t)`.
+    grids : tuple of ndarray
+        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D.
+
+    Raises
+    ------
+    NotImplementedError
+        If `vars_x` has a length other than 1 or 2.
+    ValueError
+        If `P_expr`/`Q_expr` are not matrix-valued of matching size, if
+        `F` does not return an N×N field, or if `splitting` is not
+        'lie' or 'strang'.
+    """
+    if splitting not in ('lie', 'strang'):
+        raise ValueError("splitting must be 'lie' or 'strang'.")
+
+    apply_kwargs = dict(apply_kwargs or {})
+    dim = len(vars_x)
+
+    if dim == 1:
+        x, kx = make_grid_1d(L, N)
+        y_grid, ky = None, None
+        grids = (x, kx)
+        X = x
+    elif dim == 2:
+        x, y, kx, ky = make_grid_2d(L, N)
+        X, Y = np.meshgrid(x, y, indexing='ij')
+        y_grid = y
+        grids = (x, y, kx, ky)
+    else:
+        raise NotImplementedError("Only 1D and 2D are supported")
+
+    prop_Q_full, is_matrix_Q, size_Q = build_propagator(
+        Q_expr, vars_x, -dt, order=order,
+        quantization=quantization, apply_backend=apply_backend,
+    )
+    if splitting == 'lie':
+        prop_P_full, is_matrix_P, size_P = build_propagator(
+            P_expr, vars_x, dt, order=order,
+            quantization=quantization, apply_backend=apply_backend,
+        )
+        prop_P_half = None
+    else:  # 'strang'
+        prop_P_half, is_matrix_P, size_P = build_propagator(
+            P_expr, vars_x, dt / 2.0, order=order,
+            quantization=quantization, apply_backend=apply_backend,
+        )
+        prop_P_full = None
+
+    if not (is_matrix_P and is_matrix_Q):
+        raise ValueError(
+            "solve_sylvester_field requires matrix symbols for both P "
+            "and Q; got a scalar symbol for at least one of them."
+        )
+    if size_P != size_Q:
+        raise ValueError(
+            f"P_expr ({size_P}x{size_P}) and Q_expr ({size_Q}x{size_Q}) "
+            "must have the same size."
+        )
+    size = size_P
+
+    U0 = F(X) if dim == 1 else F(X, Y)
+    U0 = np.asarray(U0, dtype=complex)
+    if U0.shape[0] != size or U0.shape[1] != size:
+        raise ValueError(
+            f"F must return a {size}x{size} matrix field, got shape "
+            f"{U0.shape[:2]}."
+        )
+
+    t_list = [0.0]
+    U_list = [U0.copy()]
+
+    U = U0
+    t = 0.0
+    for n in range(1, n_steps + 1):
+        if splitting == 'lie':
+            U_nested = prop_P_full.apply_matrix_field(
+                U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs
+            )
+            U_nested = prop_Q_full.apply_matrix_field_right(
+                U_nested, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs
+            )
+        else:  # 'strang'
+            U_nested = prop_P_half.apply_matrix_field(
+                U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs
+            )
+            U_nested = prop_Q_full.apply_matrix_field_right(
+                U_nested, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs
+            )
+            U_nested = prop_P_half.apply_matrix_field(
+                U_nested, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs
+            )
+
+        U = np.asarray(U_nested, dtype=complex)
+        t += dt
+        if n % save_every == 0 or n == n_steps:
+            t_list.append(t)
+            U_list.append(U.copy())
+
+    return np.array(t_list), np.array(U_list), grids
+
+def solve_ricci_flow_conformal_2d(phi0, dt, n_steps, order=3, L=8.0, N=64,
+                                   save_every=1, quantization='kohn-nirenberg',
+                                   apply_backend='peetre'):
+    """
+    Integrate 2D Ricci flow in conformal gauge on a flat, doubly periodic
+    background.
+
+    Writing the metric as `g = e^{2φ}(dx² + dy²)`, the Gauss curvature is
+    `K = −e^{−2φ}Δφ` and, since `R_ij = K·g_ij` in two dimensions, the
+    tensorial flow `∂ₜg_ij = −2R_ij` collapses to the scalar quasi-linear
+    heat equation
+
+        ∂ₜφ = e^{−2φ} Δφ ,
+
+    with `Δ = ∂ₓ² + ∂ᵧ²` the flat Laplacian. This is NOT handled by
+    `psiop`'s ordinary linear/matrix machinery: the coefficient
+    `e^{−2φ}` depends on the evolving solution itself, so no fixed
+    `sympy` symbol `p(x, ξ)` describes the operator ahead of time.
+
+    Instead, each step uses an IMEX/Lie splitting that still reuses
+    `psiop`'s exact exponential propagator for the stiff part:
+
+    1. **Explicit correction** — using the *current* coefficient field
+       `c(x) = e^{−2φ(x)}`, compute `Δφ` once via a plain (x-independent)
+       Laplacian `PseudoDifferentialOperator`, and take one explicit
+       Euler sub-step with the deviation of `c` from its spatial average
+       `c₀`: `residual = (c − c₀) Δφ`.
+    2. **Stiff step** — propagate the spatially averaged, x-independent
+       (Fourier-multiplier) generator `c₀·Δ` exactly via
+       `build_propagator`'s exponential-symbol machinery, applied to the
+       explicitly-corrected field.
+
+    This freezes the quasi-linear coefficient once per step (a Rothe-type
+    linearization), so accuracy in `dt` is limited by that freezing, not
+    by the exponential propagator itself, which remains exact for the
+    frozen (constant-coefficient) part at every step.
+
+    Parameters
+    ----------
+    phi0 : callable
+        Initial conformal factor, called as `phi0(X, Y)` on the
+        meshgrid-ed spatial coordinates; must return a real-valued array.
+    dt : float
+        Time step.
+    n_steps : int
+        Number of steps to take.
+    order : int, optional
+        Truncation order used by `build_propagator` for the stiff-step
+        exponential symbol. Default 3.
+    L : float, optional
+        Half-width of the (periodic) spatial domain along each axis.
+        Default 8.0.
+    N : int, optional
+        Number of grid points per axis. Default 64.
+    save_every : int, optional
+        Save every `save_every` steps (plus the final step and `t=0`).
+        Default 1.
+    quantization : str, optional
+        Quantization convention used for the Laplacian and the stiff-step
+        propagator. Default 'kohn-nirenberg'.
+    apply_backend : str, optional
+        Numerical application backend. Default 'peetre'.
+
+    Returns
+    -------
+    t_list : ndarray
+        Saved time points, starting at 0.
+    phi_list : ndarray, shape (n_saved, N, N)
+        Saved conformal-factor snapshots `φ(x, y, t)`; the metric at each
+        saved time is `g(t) = e^{2·phi_list[k]} (dx² + dy²)`.
+    grids : tuple of ndarray
+        `(x, y)` spatial grids, as returned by `make_grid_2d`.
+    """
+    x_s, y_s, xi_s, eta_s = sp.symbols('x y xi eta', real=True)
+    lap_symbol = -(xi_s**2 + eta_s**2)
+
+    x_grid, y_grid, kx, ky = make_grid_2d(L, N)
+    X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
+
+    lap_op = PseudoDifferentialOperator(
+        lap_symbol, [x_s, y_s], mode='symbol',
+        quantization=quantization, apply_backend=apply_backend,
+    )
+
+    phi = np.asarray(phi0(X, Y), dtype=complex)
+    t_list = [0.0]
+    phi_list = [phi.real.copy()]
+    t = 0.0
+
+    for n in range(1, n_steps + 1):
+        c = np.exp(-2 * phi.real)
+        c0 = float(np.mean(c))
+
+        lap_phi = lap_op.apply(phi, x_grid, kx, y_grid=y_grid, ky=ky)
+        residual = (c - c0) * lap_phi
+        phi_explicit = phi + dt * residual
+
+        prop, _, _ = build_propagator(
+            c0 * lap_symbol, [x_s, y_s], dt, order=order,
+            quantization=quantization, apply_backend=apply_backend,
+        )
+        phi = prop.apply(phi_explicit, x_grid, kx, y_grid=y_grid, ky=ky)
+
+        t += dt
+        if n % save_every == 0 or n == n_steps:
+            t_list.append(t)
+            phi_list.append(phi.real.copy())
+
+    return np.array(t_list), np.array(phi_list), (x_grid, y_grid)
