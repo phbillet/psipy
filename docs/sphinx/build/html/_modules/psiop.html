@@ -1287,6 +1287,98 @@
 <div class="viewcode-block" id="PseudoDifferentialOperator.symbol_order">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.symbol_order">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">symbol_order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Estimate the asymptotic homogeneity order of the symbol as |ξ|→∞.&quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">symbols</span><span class="p">,</span> <span class="n">series</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">sin</span><span class="p">,</span> <span class="n">oo</span><span class="p">,</span>
+                            <span class="n">powdenest</span><span class="p">,</span> <span class="n">radsimp</span><span class="p">,</span> <span class="n">Add</span><span class="p">)</span>
+    
+        <span class="k">def</span><span class="w"> </span><span class="nf">validate_order</span><span class="p">(</span><span class="n">power</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">tol</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">power</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">simplify</span><span class="p">(</span><span class="n">coeff</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">coeff</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="mi">0</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;⚠️ Coefficient is symbolically zero; ignoring&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">power</span><span class="p">)</span> <span class="k">if</span> <span class="nb">float</span><span class="p">(</span><span class="n">power</span><span class="p">)</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">power</span><span class="p">)</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">power</span><span class="p">)</span>
+    
+        <span class="c1"># ---- FIX 3: order-0 shortcut (no frequency dependence at all) ----</span>
+        <span class="n">freq_syms</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">freq_syms</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+    
+        <span class="n">is_homog</span><span class="p">,</span> <span class="n">degree</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_homogeneous</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">is_homog</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">degree</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;⚠️ The symbol is not homogeneous. The asymptotic order is not well defined.&quot;</span><span class="p">)</span>
+    
+        <span class="k">def</span><span class="w"> </span><span class="nf">leading_power</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;(power, coeff) of the HIGHEST-power part of s in var.</span>
+<span class="sd">            Collects ALL terms sharing the top power (not just one).&quot;&quot;&quot;</span>
+            <span class="n">terms</span>  <span class="o">=</span> <span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+            <span class="n">powers</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">as_powers_dict</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">terms</span><span class="p">]</span>
+            <span class="n">top</span>    <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">powers</span><span class="p">)</span>
+            <span class="n">lead</span>   <span class="o">=</span> <span class="n">Add</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">terms</span><span class="p">,</span> <span class="n">powers</span><span class="p">)</span> <span class="k">if</span> <span class="n">p</span> <span class="o">==</span> <span class="n">top</span><span class="p">])</span>
+            <span class="n">lead</span>   <span class="o">=</span> <span class="n">radsimp</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">powdenest</span><span class="p">(</span><span class="n">lead</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span>
+            <span class="n">coeff</span>  <span class="o">=</span> <span class="n">lead</span> <span class="o">/</span> <span class="n">var</span><span class="o">**</span><span class="n">top</span> <span class="k">if</span> <span class="n">top</span> <span class="k">else</span> <span class="n">lead</span>
+            <span class="k">return</span> <span class="n">top</span><span class="p">,</span> <span class="n">coeff</span>
+    
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">xi</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;xi&#39;</span><span class="p">),</span>
+                      <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="k">try</span><span class="p">:</span>                                    <span class="c1"># method 1: xi → ∞</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">series</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">oo</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">max_order</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
+                <span class="n">power</span><span class="p">,</span> <span class="n">coeff</span> <span class="o">=</span> <span class="n">leading_power</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>          <span class="c1"># FIX 2: was rho</span>
+                <span class="n">order</span> <span class="o">=</span> <span class="n">validate_order</span><span class="p">(</span><span class="n">power</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">order</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">try</span><span class="p">:</span>                                    <span class="c1"># method 2: xi = 1/z</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">series</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">z</span><span class="p">),</span> <span class="n">z</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">max_order</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
+                <span class="n">power</span><span class="p">,</span> <span class="n">coeff</span> <span class="o">=</span> <span class="n">leading_power</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>           <span class="c1"># FIX 2: was rho</span>
+                <span class="n">order</span> <span class="o">=</span> <span class="n">validate_order</span><span class="p">(</span><span class="n">power</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="o">-</span><span class="n">order</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️ fallback z failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+    
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span>
+            <span class="n">xi</span>  <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;xi&#39;</span><span class="p">),</span>
+                       <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="n">eta</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;eta&#39;</span><span class="p">),</span>
+                       <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="n">rho</span><span class="p">,</span> <span class="n">theta</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;rho theta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>                                    <span class="c1"># method 1: polar, rho → ∞</span>
+                <span class="n">p_rho</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">subs</span><span class="p">({</span><span class="n">xi</span><span class="p">:</span> <span class="n">rho</span><span class="o">*</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="n">eta</span><span class="p">:</span> <span class="n">rho</span><span class="o">*</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)})</span>
+                <span class="c1"># FIX 1: dropped preprocess_power/preprocess_sqrt — they inject</span>
+                <span class="c1">#        a spurious factor 2**n into rho**n terms.</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">series</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">p_rho</span><span class="p">),</span> <span class="n">rho</span><span class="p">,</span> <span class="n">oo</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">max_order</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
+                <span class="n">power</span><span class="p">,</span> <span class="n">coeff</span> <span class="o">=</span> <span class="n">leading_power</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">rho</span><span class="p">)</span>
+                <span class="n">order</span> <span class="o">=</span> <span class="n">validate_order</span><span class="p">(</span><span class="n">power</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">order</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️ polar expansion failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>                                    <span class="c1"># method 2: z = 1/rho</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">p_z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">subs</span><span class="p">({</span><span class="n">xi</span><span class="p">:</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="o">/</span><span class="n">z</span><span class="p">,</span> <span class="n">eta</span><span class="p">:</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="o">/</span><span class="n">z</span><span class="p">})</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">series</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">p_z</span><span class="p">),</span> <span class="n">z</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">max_order</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
+                <span class="n">power</span><span class="p">,</span> <span class="n">coeff</span> <span class="o">=</span> <span class="n">leading_power</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>           <span class="c1"># FIX 2: was rho</span>
+                <span class="n">order</span> <span class="o">=</span> <span class="n">validate_order</span><span class="p">(</span><span class="n">power</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">tol</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">order</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="o">-</span><span class="n">order</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️ fallback z (2D) failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+    
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D supported.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PseudoDifferentialOperator.symbol_order_old">
+<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.symbol_order_old">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">symbol_order_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Estimate the homogeneity order of the pseudo-differential symbol in high-frequency asymptotics.</span>
 <span class="sd">    </span>
@@ -1384,7 +1476,9 @@
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;1D symbol_order - method 1&quot;</span><span class="p">)</span>
                 <span class="n">expr</span> <span class="o">=</span> <span class="n">preprocess_sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
                 <span class="n">s</span> <span class="o">=</span> <span class="n">series</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">oo</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">max_order</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
-                <span class="n">lead</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">powdenest</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">as_leading_term</span><span class="p">(</span><span class="n">xi</span><span class="p">),</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+                <span class="n">terms</span> <span class="o">=</span> <span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+                <span class="n">lead</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">terms</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">as_powers_dict</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+                <span class="n">lead</span> <span class="o">=</span> <span class="n">radsimp</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">powdenest</span><span class="p">(</span><span class="n">lead</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span>
                 <span class="n">power</span> <span class="o">=</span> <span class="n">lead</span><span class="o">.</span><span class="n">as_powers_dict</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
                 <span class="n">coeff</span> <span class="o">=</span> <span class="n">lead</span> <span class="o">/</span> <span class="n">xi</span><span class="o">**</span><span class="n">power</span> <span class="k">if</span> <span class="n">power</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;lead =&quot;</span><span class="p">,</span> <span class="n">lead</span><span class="p">)</span>
@@ -1401,7 +1495,9 @@
                 <span class="n">z</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="n">expr_z</span> <span class="o">=</span> <span class="n">preprocess_sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">z</span><span class="p">),</span> <span class="mi">1</span><span class="o">/</span><span class="n">z</span><span class="p">)</span>
                 <span class="n">s</span> <span class="o">=</span> <span class="n">series</span><span class="p">(</span><span class="n">expr_z</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">max_order</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
-                <span class="n">lead</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">powdenest</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">as_leading_term</span><span class="p">(</span><span class="n">z</span><span class="p">),</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+                <span class="n">terms</span> <span class="o">=</span> <span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+                <span class="n">lead</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">terms</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">as_powers_dict</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+                <span class="n">lead</span> <span class="o">=</span> <span class="n">radsimp</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">powdenest</span><span class="p">(</span><span class="n">lead</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span>
                 <span class="n">power</span> <span class="o">=</span> <span class="n">lead</span><span class="o">.</span><span class="n">as_powers_dict</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
                 <span class="n">coeff</span> <span class="o">=</span> <span class="n">lead</span> <span class="o">/</span> <span class="n">z</span><span class="o">**</span><span class="n">power</span> <span class="k">if</span> <span class="n">power</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;lead =&quot;</span><span class="p">,</span> <span class="n">lead</span><span class="p">)</span>
@@ -1425,7 +1521,9 @@
                 <span class="n">p_rho</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">subs</span><span class="p">({</span><span class="n">xi</span><span class="p">:</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="n">eta</span><span class="p">:</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)})</span>
                 <span class="n">p_rho</span> <span class="o">=</span> <span class="n">preprocess_power</span><span class="p">(</span><span class="n">preprocess_sqrt</span><span class="p">(</span><span class="n">p_rho</span><span class="p">,</span> <span class="n">rho</span><span class="p">),</span> <span class="n">rho</span><span class="p">)</span>
                 <span class="n">s</span> <span class="o">=</span> <span class="n">series</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">p_rho</span><span class="p">),</span> <span class="n">rho</span><span class="p">,</span> <span class="n">oo</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">max_order</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
-                <span class="n">lead</span> <span class="o">=</span> <span class="n">radsimp</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">powdenest</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">as_leading_term</span><span class="p">(</span><span class="n">rho</span><span class="p">),</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span>
+                <span class="n">terms</span> <span class="o">=</span> <span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+                <span class="n">lead</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">terms</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">as_powers_dict</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+                <span class="n">lead</span> <span class="o">=</span> <span class="n">radsimp</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">powdenest</span><span class="p">(</span><span class="n">lead</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span>
                 <span class="n">power</span> <span class="o">=</span> <span class="n">lead</span><span class="o">.</span><span class="n">as_powers_dict</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
                 <span class="n">coeff</span> <span class="o">=</span> <span class="n">lead</span> <span class="o">/</span> <span class="n">rho</span><span class="o">**</span><span class="n">power</span> <span class="k">if</span> <span class="n">power</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;lead =&quot;</span><span class="p">,</span> <span class="n">lead</span><span class="p">)</span>
@@ -1443,7 +1541,9 @@
                 <span class="n">xi_eta</span> <span class="o">=</span> <span class="p">{</span><span class="n">xi</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">z</span><span class="p">)</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="n">eta</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">z</span><span class="p">)</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)}</span>
                 <span class="n">p_rho</span> <span class="o">=</span> <span class="n">preprocess_sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">xi_eta</span><span class="p">),</span> <span class="mi">1</span><span class="o">/</span><span class="n">z</span><span class="p">)</span>
                 <span class="n">s</span> <span class="o">=</span> <span class="n">series</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">p_rho</span><span class="p">),</span> <span class="n">z</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">max_order</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
-                <span class="n">lead</span> <span class="o">=</span> <span class="n">radsimp</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">powdenest</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">as_leading_term</span><span class="p">(</span><span class="n">z</span><span class="p">),</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span>
+                <span class="n">terms</span> <span class="o">=</span> <span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+                <span class="n">lead</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">terms</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">as_powers_dict</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+                <span class="n">lead</span> <span class="o">=</span> <span class="n">radsimp</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">powdenest</span><span class="p">(</span><span class="n">lead</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)))</span>
                 <span class="n">power</span> <span class="o">=</span> <span class="n">lead</span><span class="o">.</span><span class="n">as_powers_dict</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
                 <span class="n">coeff</span> <span class="o">=</span> <span class="n">lead</span> <span class="o">/</span> <span class="n">z</span><span class="o">**</span><span class="n">power</span> <span class="k">if</span> <span class="n">power</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;lead =&quot;</span><span class="p">,</span> <span class="n">lead</span><span class="p">)</span>
@@ -6013,6 +6113,157 @@
         <span class="k">return</span> <span class="n">P</span></div>
 
 
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply_matrix_field">
+<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.apply_matrix_field">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply P(x, xi) to a matrix-valued field U(x) by left matrix</span>
+<span class="sd">        multiplication on U&#39;s own N x N structure:</span>
+
+<span class="sd">            (P U)_ik(x) = sum_j Op[P_ij] (U_jk) (x)</span>
+
+<span class="sd">        Unlike `apply()`, which propagates a single vector field</span>
+<span class="sd">        u = (u_1, ..., u_N), here U itself carries an extra N x N index</span>
+<span class="sd">        pair (e.g. a density matrix or matrix Green&#39;s function) that P</span>
+<span class="sd">        acts on only from the left. Each column `U[:, k]` of U is an</span>
+<span class="sd">        ordinary vector field, so this reduces to N independent calls to</span>
+<span class="sd">        `apply()`, one per column, with the results reassembled into the</span>
+<span class="sd">        matrix-shaped output; P is applied to U, never U to P.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U : sequence of N sequences of N ndarrays, or ndarray of shape (N, N, ...)</span>
+<span class="sd">            Matrix-valued field; `U[j][k]` (equivalently `U[j, k]` for an</span>
+<span class="sd">            ndarray) is the scalar (j, k) component field sampled on the</span>
+<span class="sd">            grid, so that U plays the role of an N x N matrix at every</span>
+<span class="sd">            grid point.</span>
+<span class="sd">        x_grid, kx, y_grid, ky</span>
+<span class="sd">            As for `apply`.</span>
+<span class="sd">        **apply_kwargs</span>
+<span class="sd">            Forwarded to every entry&#39;s scalar `apply()` (e.g.</span>
+<span class="sd">            `boundary_condition`, `freq_window`, ...).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of N lists of N ndarrays</span>
+<span class="sd">            `out[i][k]` holds `(P U)_ik`, indexed the same way as `U`.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If `U` is not an N x N array of fields, with N equal to</span>
+<span class="sd">            `self.size`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">U</span><span class="p">):</span>
+            <span class="n">got_cols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Expected a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> matrix field, got &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">got_cols</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="n">column</span> <span class="o">=</span> <span class="p">[</span><span class="n">U</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)]</span>
+            <span class="n">result_column</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                <span class="n">column</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">result_column</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply_matrix_field_right">
+<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.apply_matrix_field_right">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field_right</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply this operator&#39;s symbol Q(x, xi) to a matrix-valued field</span>
+<span class="sd">        U(x) by right matrix multiplication on U&#39;s own N x N structure:</span>
+
+<span class="sd">            (U Q)_ik(x) = sum_j Op[Q_jk] (U_ij) (x)</span>
+
+<span class="sd">        This is the mirror image of `apply_matrix_field` (which</span>
+<span class="sd">        left-multiplies by P): here each *row* `U[i, :]` of U is an</span>
+<span class="sd">        ordinary vector field acted on from the right by Q, which is</span>
+<span class="sd">        equivalent to the left action of the transposed symbol matrix Q^T</span>
+<span class="sd">        on that row -- hence the index order `Op[Q_jk]`, not `Op[Q_kj]`,</span>
+<span class="sd">        so the two methods are genuinely different unless Q is symmetric.</span>
+
+<span class="sd">        Together with `apply_matrix_field`, this is the numerical</span>
+<span class="sd">        primitive needed to time-step Sylvester-type equations</span>
+<span class="sd">        `d_t U = P U - U Q`, since left- and right-multiplication always</span>
+<span class="sd">        commute as *operations* (`(P U) Q == P (U Q)`), even though the</span>
+<span class="sd">        underlying scalar operators `Op[P_ij]` and `Op[Q_jk]` need not</span>
+<span class="sd">        commute with each other when the symbols depend on x. See</span>
+<span class="sd">        `solve_sylvester_field` for the corresponding time-stepper.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U : sequence of N sequences of N ndarrays, or ndarray of shape (N, N, ...)</span>
+<span class="sd">            Matrix-valued field; `U[i][j]` (equivalently `U[i, j]` for an</span>
+<span class="sd">            ndarray) is the scalar (i, j) component field sampled on the</span>
+<span class="sd">            grid.</span>
+<span class="sd">        x_grid, kx, y_grid, ky</span>
+<span class="sd">            As for `apply`.</span>
+<span class="sd">        **apply_kwargs</span>
+<span class="sd">            Forwarded to every entry&#39;s scalar `apply()`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of N lists of N ndarrays</span>
+<span class="sd">            `out[i][k]` holds `(U Q)_ik`, indexed the same way as `U`.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If `U` is not an N x N array of fields, with N equal to</span>
+<span class="sd">            `self.size`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">U</span><span class="p">):</span>
+            <span class="n">got_cols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Expected a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> matrix field, got &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">got_cols</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+                <span class="n">v_ik</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+                    <span class="n">contrib</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                        <span class="n">U</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+                    <span class="p">)</span>
+                    <span class="n">v_ik</span> <span class="o">=</span> <span class="n">contrib</span> <span class="k">if</span> <span class="n">v_ik</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">v_ik</span> <span class="o">+</span> <span class="n">contrib</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v_ik</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Numerically evaluate P(x[, y], xi[, eta]) at a point or</span>
+<span class="sd">        broadcastable arrays, returning an ndarray of shape `(..., N, N)`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *args</span>
+<span class="sd">            The point(s) to evaluate at, in the order each entry&#39;s</span>
+<span class="sd">            `p_func` expects: `(x, xi)` for 1D, `(x, y, xi, eta)` for 2D.</span>
+<span class="sd">            Arguments may be broadcastable ndarrays (e.g. full grids), in</span>
+<span class="sd">            which case the leading dimensions of the output match their</span>
+<span class="sd">            broadcast shape.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray, shape (..., N, N)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">sample</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">])</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sample</span><span class="o">.</span><span class="n">shape</span> <span class="o">+</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                <span class="n">P</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">P</span></div>
+
+
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.eigen_symbol">
 <a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.eigen_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">eigen_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
@@ -6144,12 +6395,21 @@
                         <span class="n">j</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="n">i</span>
                         <span class="n">coeff</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">factorial</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">*</span> <span class="n">sp</span><span class="o">.</span><span class="n">factorial</span><span class="p">(</span><span class="n">j</span><span class="p">)))</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="n">sign</span> <span class="o">*</span> <span class="n">n</span><span class="p">)</span>
                         <span class="n">result</span> <span class="o">+=</span> <span class="n">coeff</span> <span class="o">*</span> <span class="p">(</span><span class="n">P</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">*</span> <span class="n">Q</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">j</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;weyl&#39;</span><span class="p">:</span>
+                <span class="c1"># ── NEW: 2D Weyl (Moyal) composition for matrix symbols ──</span>
+                <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                        <span class="n">j</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="n">i</span>
+                        <span class="n">coeff</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">factorial</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">*</span> <span class="n">sp</span><span class="o">.</span><span class="n">factorial</span><span class="p">(</span><span class="n">j</span><span class="p">)))</span>
+                            <span class="o">*</span> <span class="p">((</span><span class="mi">1</span><span class="n">j</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="n">n</span><span class="p">)</span>
+                            <span class="o">*</span> <span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">i</span><span class="p">))</span>
+                        <span class="p">)</span>
+                        <span class="n">dP</span> <span class="o">=</span> <span class="n">P</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>   <span class="c1"># ∂_ξ^i ∂_η^j P</span>
+                        <span class="n">dQ</span> <span class="o">=</span> <span class="n">Q</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>      <span class="c1"># ∂_x^i ∂_y^j Q</span>
+                        <span class="n">result</span> <span class="o">+=</span> <span class="n">coeff</span> <span class="o">*</span> <span class="p">(</span><span class="n">dP</span> <span class="o">*</span> <span class="n">dQ</span><span class="p">)</span>       <span class="c1"># matrix mult, order-preserving</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-                    <span class="s2">&quot;2D Weyl composition for matrix symbols is not implemented yet &quot;</span>
-                    <span class="s2">&quot;(the double cross-term sum from the scalar case needs care to &quot;</span>
-                    <span class="s2">&quot;keep matrix multiplication order-preserving) -- use mode=&#39;kn&#39;.&quot;</span>
-                <span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;mode must be &#39;kn&#39; or &#39;weyl&#39;&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 
         <span class="k">else</span><span class="p">:</span>
@@ -8793,6 +9053,418 @@
         <span class="n">anim</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">anim</span></div>
+
+
+<div class="viewcode-block" id="solve_matrix_field">
+<a class="viewcode-back" href="../psiop.html#psiop.solve_matrix_field">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_matrix_field</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                        <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                        <span class="n">quantization</span><span class="o">=</span><span class="s1">&#39;kohn-nirenberg&#39;</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">&#39;peetre&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Time-step the matrix-field evolution equation `∂ₜU = P U`, where `P`</span>
+<span class="sd">    is the pseudo-differential operator with N×N matrix symbol `s_expr`</span>
+<span class="sd">    and `U(x)` is itself an N×N matrix at every spatial point (e.g. a</span>
+<span class="sd">    density matrix or matrix Green&#39;s function), with `P` acting on `U`</span>
+<span class="sd">    only from the left: `(P U)_ik = Σⱼ Op[P_ij](U_jk)`. This repeatedly</span>
+<span class="sd">    applies the exponential propagator `Op(exp(dt·s))` built by</span>
+<span class="sd">    `build_propagator`, via</span>
+<span class="sd">    `MatrixPseudoDifferentialOperator.apply_matrix_field`, exactly as</span>
+<span class="sd">    `solve` does for vector fields via `apply`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    s_expr : sympy.MatrixBase or nested list of sympy.Expr</span>
+<span class="sd">        N×N matrix symbol `S(x, ξ)` of the generator `P`; must be</span>
+<span class="sd">        matrix-valued (matrix left-multiplication only makes sense at</span>
+<span class="sd">        `N &gt; 1` -- use `solve` for a scalar generator).</span>
+<span class="sd">    vars_x : list of sympy symbols</span>
+<span class="sd">        Spatial variables (length 1 or 2).</span>
+<span class="sd">    F : callable</span>
+<span class="sd">        Initial matrix field `U(·, 0)`, called as `F(X)` in 1D or</span>
+<span class="sd">        `F(X, Y)` in 2D on the meshgrid-ed spatial coordinates, and</span>
+<span class="sd">        expected to return an N×N array/nested list of grid-shaped</span>
+<span class="sd">        components (`F(...)[j][k]`, or an ndarray of shape</span>
+<span class="sd">        `(N, N, *grid_shape)`).</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time step.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of propagator applications (time steps) to take.</span>
+<span class="sd">    order : int, optional</span>
+<span class="sd">        Truncation order of the exponential symbol expansion. Default 3.</span>
+<span class="sd">    L : float, optional</span>
+<span class="sd">        Half-width of the spatial domain. Default 10.0.</span>
+<span class="sd">    N : int, optional</span>
+<span class="sd">        Number of grid points per axis. Default 256.</span>
+<span class="sd">    apply_kwargs : dict, optional</span>
+<span class="sd">        Extra keyword arguments forwarded to `apply_matrix_field`.</span>
+<span class="sd">    save_every : int, optional</span>
+<span class="sd">        Save the solution every `save_every` steps (plus the final step</span>
+<span class="sd">        and `t=0`). Default 1 (save every step).</span>
+<span class="sd">    quantization : str, optional</span>
+<span class="sd">        Quantization convention. Default &#39;kohn-nirenberg&#39;.</span>
+<span class="sd">    apply_backend : str, optional</span>
+<span class="sd">        Numerical application backend. Default &#39;peetre&#39;.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    t_list : ndarray</span>
+<span class="sd">        Saved time points, starting at 0.</span>
+<span class="sd">    U_list : ndarray, shape (n_saved, N, N, *grid_shape)</span>
+<span class="sd">        Saved matrix-field snapshots `U(t)`.</span>
+<span class="sd">    grids : tuple of ndarray</span>
+<span class="sd">        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D, as returned by</span>
+<span class="sd">        `make_grid_1d`/`make_grid_2d`.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If `vars_x` has a length other than 1 or 2.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `s_expr` is not matrix-valued, or `F` does not return an</span>
+<span class="sd">        N×N field.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">apply_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vars_x</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">kx</span> <span class="o">=</span> <span class="n">make_grid_1d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">grids</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">)</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">x</span>
+    <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span> <span class="o">=</span> <span class="n">make_grid_2d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+        <span class="n">y_grid</span> <span class="o">=</span> <span class="n">y</span>
+        <span class="n">grids</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D are supported&quot;</span><span class="p">)</span>
+
+    <span class="n">prop</span><span class="p">,</span> <span class="n">is_matrix</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span>
+        <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+        <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_matrix</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;solve_matrix_field requires a matrix symbol; got a scalar &quot;</span>
+            <span class="s2">&quot;symbol. Use solve() for scalar/vector fields instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">U0</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">F</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="n">U0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">size</span> <span class="ow">or</span> <span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;F must return a </span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2"> matrix field, got shape &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">t_list</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
+    <span class="n">U_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">U0</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
+
+    <span class="n">U</span> <span class="o">=</span> <span class="n">U0</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">prop</span><span class="o">.</span><span class="n">apply_matrix_field</span><span class="p">(</span>
+            <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+        <span class="p">)</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">+=</span> <span class="n">dt</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">%</span> <span class="n">save_every</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">==</span> <span class="n">n_steps</span><span class="p">:</span>
+            <span class="n">t_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">U_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">t_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">U_list</span><span class="p">),</span> <span class="n">grids</span></div>
+
+
+<div class="viewcode-block" id="solve_sylvester_field">
+<a class="viewcode-back" href="../psiop.html#psiop.solve_sylvester_field">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_sylvester_field</span><span class="p">(</span><span class="n">P_expr</span><span class="p">,</span> <span class="n">Q_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                           <span class="n">splitting</span><span class="o">=</span><span class="s1">&#39;strang&#39;</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span>
+                           <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                           <span class="n">quantization</span><span class="o">=</span><span class="s1">&#39;kohn-nirenberg&#39;</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">&#39;peetre&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Time-step the Sylvester-type matrix-field evolution equation</span>
+<span class="sd">    `∂ₜU = P U − U Q`, where `P` and `Q` are pseudo-differential</span>
+<span class="sd">    operators with N×N matrix symbols and `U(x)` is an N×N matrix at</span>
+<span class="sd">    every spatial point.</span>
+
+<span class="sd">    Left-multiplication by `P` and right-multiplication by `Q` always</span>
+<span class="sd">    commute as *operations* (`(P U) Q == P (U Q)`), so when `P` and `Q`</span>
+<span class="sd">    are x-independent (Fourier multipliers), the exact solution over a</span>
+<span class="sd">    step `dt` is the closed-form</span>
+
+<span class="sd">        U(t) = exp(t P) U(0) exp(-t Q) ,</span>
+
+<span class="sd">    obtained by applying the left-propagator `Op(exp(dt·P))`</span>
+<span class="sd">    (`apply_matrix_field`) and the right-propagator `Op(exp(-dt·Q))`</span>
+<span class="sd">    (`apply_matrix_field_right`), in either order. When `P` and/or `Q`</span>
+<span class="sd">    depend on x, `Op[P_ij]` and `Op[Q_jk]` need not commute with each</span>
+<span class="sd">    other, so the two sub-steps no longer combine exactly; this function</span>
+<span class="sd">    then falls back to a standard Lie-Trotter (first-order, `O(dt)`</span>
+<span class="sd">    splitting error) or Strang (second-order, `O(dt^2)`) operator</span>
+<span class="sd">    splitting between the left and right exponential propagators.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    P_expr : sympy.MatrixBase or nested list of sympy.Expr</span>
+<span class="sd">        N×N matrix symbol `P(x, ξ)` acting on U from the left.</span>
+<span class="sd">    Q_expr : sympy.MatrixBase or nested list of sympy.Expr</span>
+<span class="sd">        N×N matrix symbol `Q(x, ξ)` acting on U from the right (with a</span>
+<span class="sd">        minus sign, as in `∂ₜU = P U − U Q`); must be the same size as</span>
+<span class="sd">        `P_expr`.</span>
+<span class="sd">    vars_x : list of sympy symbols</span>
+<span class="sd">        Spatial variables (length 1 or 2).</span>
+<span class="sd">    F : callable</span>
+<span class="sd">        Initial matrix field `U(·, 0)`, called as `F(X)` in 1D or</span>
+<span class="sd">        `F(X, Y)` in 2D, returning an N×N array/nested list of</span>
+<span class="sd">        grid-shaped components (as for `solve_matrix_field`).</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time step.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of splitting steps (each advancing `U` by `dt`).</span>
+<span class="sd">    order : int, optional</span>
+<span class="sd">        Truncation order of each exponential-symbol expansion. Default 3.</span>
+<span class="sd">    splitting : str, {&#39;lie&#39;, &#39;strang&#39;}, optional</span>
+<span class="sd">        Operator-splitting scheme between the `P` (left) and `Q` (right)</span>
+<span class="sd">        sub-steps:</span>
+
+<span class="sd">        - &#39;lie&#39;    : one full left step `exp(dt·P)`, then one full right</span>
+<span class="sd">                     step `exp(-dt·Q)` -- first order accurate, `O(dt)`.</span>
+<span class="sd">        - &#39;strang&#39; : half left step `exp(dt/2·P)`, full right step</span>
+<span class="sd">                     `exp(-dt·Q)`, half left step `exp(dt/2·P)` --</span>
+<span class="sd">                     second order accurate, `O(dt^2)`. Default.</span>
+<span class="sd">    L : float, optional</span>
+<span class="sd">        Half-width of the spatial domain. Default 10.0.</span>
+<span class="sd">    N : int, optional</span>
+<span class="sd">        Number of grid points per axis. Default 256.</span>
+<span class="sd">    apply_kwargs : dict, optional</span>
+<span class="sd">        Extra keyword arguments forwarded to `apply_matrix_field` and</span>
+<span class="sd">        `apply_matrix_field_right`.</span>
+<span class="sd">    save_every : int, optional</span>
+<span class="sd">        Save the solution every `save_every` steps (plus the final step</span>
+<span class="sd">        and `t=0`). Default 1.</span>
+<span class="sd">    quantization : str, optional</span>
+<span class="sd">        Quantization convention. Default &#39;kohn-nirenberg&#39;.</span>
+<span class="sd">    apply_backend : str, optional</span>
+<span class="sd">        Numerical application backend. Default &#39;peetre&#39;.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    t_list : ndarray</span>
+<span class="sd">        Saved time points, starting at 0.</span>
+<span class="sd">    U_list : ndarray, shape (n_saved, N, N, *grid_shape)</span>
+<span class="sd">        Saved matrix-field snapshots `U(t)`.</span>
+<span class="sd">    grids : tuple of ndarray</span>
+<span class="sd">        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If `vars_x` has a length other than 1 or 2.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `P_expr`/`Q_expr` are not matrix-valued of matching size, if</span>
+<span class="sd">        `F` does not return an N×N field, or if `splitting` is not</span>
+<span class="sd">        &#39;lie&#39; or &#39;strang&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">splitting</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;lie&#39;</span><span class="p">,</span> <span class="s1">&#39;strang&#39;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;splitting must be &#39;lie&#39; or &#39;strang&#39;.&quot;</span><span class="p">)</span>
+
+    <span class="n">apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">apply_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vars_x</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">kx</span> <span class="o">=</span> <span class="n">make_grid_1d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">grids</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">)</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">x</span>
+    <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span> <span class="o">=</span> <span class="n">make_grid_2d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+        <span class="n">y_grid</span> <span class="o">=</span> <span class="n">y</span>
+        <span class="n">grids</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D are supported&quot;</span><span class="p">)</span>
+
+    <span class="n">prop_Q_full</span><span class="p">,</span> <span class="n">is_matrix_Q</span><span class="p">,</span> <span class="n">size_Q</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span>
+        <span class="n">Q_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="o">-</span><span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+        <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">splitting</span> <span class="o">==</span> <span class="s1">&#39;lie&#39;</span><span class="p">:</span>
+        <span class="n">prop_P_full</span><span class="p">,</span> <span class="n">is_matrix_P</span><span class="p">,</span> <span class="n">size_P</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span>
+            <span class="n">P_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">prop_P_half</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># &#39;strang&#39;</span>
+        <span class="n">prop_P_half</span><span class="p">,</span> <span class="n">is_matrix_P</span><span class="p">,</span> <span class="n">size_P</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span>
+            <span class="n">P_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">dt</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">prop_P_full</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">is_matrix_P</span> <span class="ow">and</span> <span class="n">is_matrix_Q</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;solve_sylvester_field requires matrix symbols for both P &quot;</span>
+            <span class="s2">&quot;and Q; got a scalar symbol for at least one of them.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">size_P</span> <span class="o">!=</span> <span class="n">size_Q</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;P_expr (</span><span class="si">{</span><span class="n">size_P</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">size_P</span><span class="si">}</span><span class="s2">) and Q_expr (</span><span class="si">{</span><span class="n">size_Q</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">size_Q</span><span class="si">}</span><span class="s2">) &quot;</span>
+            <span class="s2">&quot;must have the same size.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="n">size_P</span>
+
+    <span class="n">U0</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">F</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="n">U0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">size</span> <span class="ow">or</span> <span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;F must return a </span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2"> matrix field, got shape &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">t_list</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
+    <span class="n">U_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">U0</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
+
+    <span class="n">U</span> <span class="o">=</span> <span class="n">U0</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">splitting</span> <span class="o">==</span> <span class="s1">&#39;lie&#39;</span><span class="p">:</span>
+            <span class="n">U_nested</span> <span class="o">=</span> <span class="n">prop_P_full</span><span class="o">.</span><span class="n">apply_matrix_field</span><span class="p">(</span>
+                <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+            <span class="p">)</span>
+            <span class="n">U_nested</span> <span class="o">=</span> <span class="n">prop_Q_full</span><span class="o">.</span><span class="n">apply_matrix_field_right</span><span class="p">(</span>
+                <span class="n">U_nested</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># &#39;strang&#39;</span>
+            <span class="n">U_nested</span> <span class="o">=</span> <span class="n">prop_P_half</span><span class="o">.</span><span class="n">apply_matrix_field</span><span class="p">(</span>
+                <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+            <span class="p">)</span>
+            <span class="n">U_nested</span> <span class="o">=</span> <span class="n">prop_Q_full</span><span class="o">.</span><span class="n">apply_matrix_field_right</span><span class="p">(</span>
+                <span class="n">U_nested</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+            <span class="p">)</span>
+            <span class="n">U_nested</span> <span class="o">=</span> <span class="n">prop_P_half</span><span class="o">.</span><span class="n">apply_matrix_field</span><span class="p">(</span>
+                <span class="n">U_nested</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+            <span class="p">)</span>
+
+        <span class="n">U</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U_nested</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">+=</span> <span class="n">dt</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">%</span> <span class="n">save_every</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">==</span> <span class="n">n_steps</span><span class="p">:</span>
+            <span class="n">t_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">U_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">U</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">t_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">U_list</span><span class="p">),</span> <span class="n">grids</span></div>
+
+
+<div class="viewcode-block" id="solve_ricci_flow_conformal_2d">
+<a class="viewcode-back" href="../psiop.html#psiop.solve_ricci_flow_conformal_2d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_ricci_flow_conformal_2d</span><span class="p">(</span><span class="n">phi0</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+                                   <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">&#39;kohn-nirenberg&#39;</span><span class="p">,</span>
+                                   <span class="n">apply_backend</span><span class="o">=</span><span class="s1">&#39;peetre&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Integrate 2D Ricci flow in conformal gauge on a flat, doubly periodic</span>
+<span class="sd">    background.</span>
+
+<span class="sd">    Writing the metric as `g = e^{2φ}(dx² + dy²)`, the Gauss curvature is</span>
+<span class="sd">    `K = −e^{−2φ}Δφ` and, since `R_ij = K·g_ij` in two dimensions, the</span>
+<span class="sd">    tensorial flow `∂ₜg_ij = −2R_ij` collapses to the scalar quasi-linear</span>
+<span class="sd">    heat equation</span>
+
+<span class="sd">        ∂ₜφ = e^{−2φ} Δφ ,</span>
+
+<span class="sd">    with `Δ = ∂ₓ² + ∂ᵧ²` the flat Laplacian. This is NOT handled by</span>
+<span class="sd">    `psiop`&#39;s ordinary linear/matrix machinery: the coefficient</span>
+<span class="sd">    `e^{−2φ}` depends on the evolving solution itself, so no fixed</span>
+<span class="sd">    `sympy` symbol `p(x, ξ)` describes the operator ahead of time.</span>
+
+<span class="sd">    Instead, each step uses an IMEX/Lie splitting that still reuses</span>
+<span class="sd">    `psiop`&#39;s exact exponential propagator for the stiff part:</span>
+
+<span class="sd">    1. **Explicit correction** — using the *current* coefficient field</span>
+<span class="sd">       `c(x) = e^{−2φ(x)}`, compute `Δφ` once via a plain (x-independent)</span>
+<span class="sd">       Laplacian `PseudoDifferentialOperator`, and take one explicit</span>
+<span class="sd">       Euler sub-step with the deviation of `c` from its spatial average</span>
+<span class="sd">       `c₀`: `residual = (c − c₀) Δφ`.</span>
+<span class="sd">    2. **Stiff step** — propagate the spatially averaged, x-independent</span>
+<span class="sd">       (Fourier-multiplier) generator `c₀·Δ` exactly via</span>
+<span class="sd">       `build_propagator`&#39;s exponential-symbol machinery, applied to the</span>
+<span class="sd">       explicitly-corrected field.</span>
+
+<span class="sd">    This freezes the quasi-linear coefficient once per step (a Rothe-type</span>
+<span class="sd">    linearization), so accuracy in `dt` is limited by that freezing, not</span>
+<span class="sd">    by the exponential propagator itself, which remains exact for the</span>
+<span class="sd">    frozen (constant-coefficient) part at every step.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    phi0 : callable</span>
+<span class="sd">        Initial conformal factor, called as `phi0(X, Y)` on the</span>
+<span class="sd">        meshgrid-ed spatial coordinates; must return a real-valued array.</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time step.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of steps to take.</span>
+<span class="sd">    order : int, optional</span>
+<span class="sd">        Truncation order used by `build_propagator` for the stiff-step</span>
+<span class="sd">        exponential symbol. Default 3.</span>
+<span class="sd">    L : float, optional</span>
+<span class="sd">        Half-width of the (periodic) spatial domain along each axis.</span>
+<span class="sd">        Default 8.0.</span>
+<span class="sd">    N : int, optional</span>
+<span class="sd">        Number of grid points per axis. Default 64.</span>
+<span class="sd">    save_every : int, optional</span>
+<span class="sd">        Save every `save_every` steps (plus the final step and `t=0`).</span>
+<span class="sd">        Default 1.</span>
+<span class="sd">    quantization : str, optional</span>
+<span class="sd">        Quantization convention used for the Laplacian and the stiff-step</span>
+<span class="sd">        propagator. Default &#39;kohn-nirenberg&#39;.</span>
+<span class="sd">    apply_backend : str, optional</span>
+<span class="sd">        Numerical application backend. Default &#39;peetre&#39;.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    t_list : ndarray</span>
+<span class="sd">        Saved time points, starting at 0.</span>
+<span class="sd">    phi_list : ndarray, shape (n_saved, N, N)</span>
+<span class="sd">        Saved conformal-factor snapshots `φ(x, y, t)`; the metric at each</span>
+<span class="sd">        saved time is `g(t) = e^{2·phi_list[k]} (dx² + dy²)`.</span>
+<span class="sd">    grids : tuple of ndarray</span>
+<span class="sd">        `(x, y)` spatial grids, as returned by `make_grid_2d`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x_s</span><span class="p">,</span> <span class="n">y_s</span><span class="p">,</span> <span class="n">xi_s</span><span class="p">,</span> <span class="n">eta_s</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y xi eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">lap_symbol</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">xi_s</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">eta_s</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span> <span class="o">=</span> <span class="n">make_grid_2d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+
+    <span class="n">lap_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+        <span class="n">lap_symbol</span><span class="p">,</span> <span class="p">[</span><span class="n">x_s</span><span class="p">,</span> <span class="n">y_s</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
+        <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">phi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">phi0</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="n">t_list</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
+    <span class="n">phi_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">phi</span><span class="o">.</span><span class="n">real</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">phi</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+        <span class="n">c0</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+
+        <span class="n">lap_phi</span> <span class="o">=</span> <span class="n">lap_op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">)</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="o">-</span> <span class="n">c0</span><span class="p">)</span> <span class="o">*</span> <span class="n">lap_phi</span>
+        <span class="n">phi_explicit</span> <span class="o">=</span> <span class="n">phi</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">residual</span>
+
+        <span class="n">prop</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span>
+            <span class="n">c0</span> <span class="o">*</span> <span class="n">lap_symbol</span><span class="p">,</span> <span class="p">[</span><span class="n">x_s</span><span class="p">,</span> <span class="n">y_s</span><span class="p">],</span> <span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">phi</span> <span class="o">=</span> <span class="n">prop</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">phi_explicit</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">)</span>
+
+        <span class="n">t</span> <span class="o">+=</span> <span class="n">dt</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">%</span> <span class="n">save_every</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">==</span> <span class="n">n_steps</span><span class="p">:</span>
+            <span class="n">t_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">phi_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">phi</span><span class="o">.</span><span class="n">real</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">t_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">phi_list</span><span class="p">),</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">)</span></div>
 
 </pre></div>
 

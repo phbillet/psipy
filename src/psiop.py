@@ -1184,6 +1184,95 @@ class PseudoDifferentialOperator:
             return False, None
 
     def symbol_order(self, max_order=10, tol=1e-3):
+        """Estimate the asymptotic homogeneity order of the symbol as |ξ|→∞."""
+        from sympy import (symbols, series, simplify, cos, sin, oo,
+                            powdenest, radsimp, Add)
+    
+        def validate_order(power, coeff, tol):
+            if power is None:
+                return None
+            if simplify(coeff) == 0 or coeff.equals(0):
+                print("⚠️ Coefficient is symbolically zero; ignoring")
+                return None
+            return int(power) if float(power) == int(power) else float(power)
+    
+        # ---- FIX 3: order-0 shortcut (no frequency dependence at all) ----
+        freq_syms = [s for s in self.symbol.free_symbols if s.name in ('xi', 'eta')]
+        if not freq_syms:
+            return 0
+    
+        is_homog, degree = self.is_homogeneous()
+        if is_homog:
+            return float(degree)
+        print("⚠️ The symbol is not homogeneous. The asymptotic order is not well defined.")
+    
+        def leading_power(s, var):
+            """(power, coeff) of the HIGHEST-power part of s in var.
+            Collects ALL terms sharing the top power (not just one)."""
+            terms  = Add.make_args(s)
+            powers = [t.as_powers_dict().get(var, 0) for t in terms]
+            top    = max(powers)
+            lead   = Add(*[t for t, p in zip(terms, powers) if p == top])
+            lead   = radsimp(simplify(powdenest(lead, force=True)))
+            coeff  = lead / var**top if top else lead
+            return top, coeff
+    
+        if self.dim == 1:
+            x  = self.vars_x[0]
+            xi = next((s for s in self.symbol.free_symbols if s.name == 'xi'),
+                      symbols('xi', real=True))
+            try:                                    # method 1: xi → ∞
+                s = series(self.symbol, xi, oo, n=max_order).removeO()
+                power, coeff = leading_power(s, xi)          # FIX 2: was rho
+                order = validate_order(power, coeff, tol)
+                if order is not None:
+                    return order
+            except Exception:
+                pass
+            try:                                    # method 2: xi = 1/z
+                z = symbols('z', real=True, positive=True)
+                s = series(self.symbol.subs(xi, 1/z), z, 0, n=max_order).removeO()
+                power, coeff = leading_power(s, z)           # FIX 2: was rho
+                order = validate_order(power, coeff, tol)
+                if order is not None:
+                    return -order
+            except Exception as e:
+                print(f"⚠️ fallback z failed: {e}")
+            return None
+    
+        elif self.dim == 2:
+            x, y = self.vars_x
+            xi  = next((s for s in self.symbol.free_symbols if s.name == 'xi'),
+                       symbols('xi', real=True))
+            eta = next((s for s in self.symbol.free_symbols if s.name == 'eta'),
+                       symbols('eta', real=True))
+            rho, theta = symbols('rho theta', real=True, positive=True)
+            try:                                    # method 1: polar, rho → ∞
+                p_rho = self.symbol.subs({xi: rho*cos(theta), eta: rho*sin(theta)})
+                # FIX 1: dropped preprocess_power/preprocess_sqrt — they inject
+                #        a spurious factor 2**n into rho**n terms.
+                s = series(simplify(p_rho), rho, oo, n=max_order).removeO()
+                power, coeff = leading_power(s, rho)
+                order = validate_order(power, coeff, tol)
+                if order is not None:
+                    return order
+            except Exception as e:
+                print(f"⚠️ polar expansion failed: {e}")
+            try:                                    # method 2: z = 1/rho
+                z = symbols('z', real=True, positive=True)
+                p_z = self.symbol.subs({xi: cos(theta)/z, eta: sin(theta)/z})
+                s = series(simplify(p_z), z, 0, n=max_order).removeO()
+                power, coeff = leading_power(s, z)           # FIX 2: was rho
+                order = validate_order(power, coeff, tol)
+                if order is not None:
+                    return -order
+            except Exception as e:
+                print(f"⚠️ fallback z (2D) failed: {e}")
+            return None
+    
+        raise NotImplementedError("Only 1D and 2D supported.")
+
+    def symbol_order_old(self, max_order=10, tol=1e-3):
         """
         Estimate the homogeneity order of the pseudo-differential symbol in high-frequency asymptotics.
     
@@ -1281,7 +1370,9 @@ class PseudoDifferentialOperator:
                 print("1D symbol_order - method 1")
                 expr = preprocess_sqrt(self.symbol, xi)
                 s = series(expr, xi, oo, n=max_order).removeO()
-                lead = simplify(powdenest(s.as_leading_term(xi), force=True))
+                terms = Add.make_args(s)
+                lead = max(terms, key=lambda t: t.as_powers_dict().get(rho, 0))
+                lead = radsimp(simplify(powdenest(lead, force=True)))
                 power = lead.as_powers_dict().get(xi, None)
                 coeff = lead / xi**power if power is not None else 0
                 print("lead =", lead)
@@ -1298,7 +1389,9 @@ class PseudoDifferentialOperator:
                 z = symbols('z', real=True, positive=True)
                 expr_z = preprocess_sqrt(self.symbol.subs(xi, 1/z), 1/z)
                 s = series(expr_z, z, 0, n=max_order).removeO()
-                lead = simplify(powdenest(s.as_leading_term(z), force=True))
+                terms = Add.make_args(s)
+                lead = max(terms, key=lambda t: t.as_powers_dict().get(rho, 0))
+                lead = radsimp(simplify(powdenest(lead, force=True)))
                 power = lead.as_powers_dict().get(z, None)
                 coeff = lead / z**power if power is not None else 0
                 print("lead =", lead)
@@ -1322,7 +1415,9 @@ class PseudoDifferentialOperator:
                 p_rho = self.symbol.subs({xi: rho * cos(theta), eta: rho * sin(theta)})
                 p_rho = preprocess_power(preprocess_sqrt(p_rho, rho), rho)
                 s = series(simplify(p_rho), rho, oo, n=max_order).removeO()
-                lead = radsimp(simplify(powdenest(s.as_leading_term(rho), force=True)))
+                terms = Add.make_args(s)
+                lead = max(terms, key=lambda t: t.as_powers_dict().get(rho, 0))
+                lead = radsimp(simplify(powdenest(lead, force=True)))
                 power = lead.as_powers_dict().get(rho, None)
                 coeff = lead / rho**power if power is not None else 0
                 print("lead =", lead)
@@ -1340,7 +1435,9 @@ class PseudoDifferentialOperator:
                 xi_eta = {xi: (1/z) * cos(theta), eta: (1/z) * sin(theta)}
                 p_rho = preprocess_sqrt(self.symbol.subs(xi_eta), 1/z)
                 s = series(simplify(p_rho), z, 0, n=max_order).removeO()
-                lead = radsimp(simplify(powdenest(s.as_leading_term(z), force=True)))
+                terms = Add.make_args(s)
+                lead = max(terms, key=lambda t: t.as_powers_dict().get(rho, 0))
+                lead = radsimp(simplify(powdenest(lead, force=True)))
                 power = lead.as_powers_dict().get(z, None)
                 coeff = lead / z**power if power is not None else 0
                 print("lead =", lead)

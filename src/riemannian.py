@@ -2097,32 +2097,15 @@ def jacobi_equation_solver(metric, geodesic, initial_variation, tspan, n_steps=1
     # regardless of how many geodesic steps were requested.  120x120 gives < 0.1 MB
     # and is accurate to O(1e-4) for smooth metrics; using len(t_geod) here would
     # produce grids of up to 10000x10000 = 10^8 points and exhaust memory.
-    _JACOBI_K_GRID_N = 120
-
-    _x0, _x1 = x_arr.min(), x_arr.max()
-    _y0, _y1 = y_arr.min(), y_arr.max()
-    _pad = max((_x1 - _x0) * 0.1, (_y1 - _y0) * 0.1, 1e-3)
-    _u   = np.linspace(_x0 - _pad, _x1 + _pad, _JACOBI_K_GRID_N)
-    _v   = np.linspace(_y0 - _pad, _y1 + _pad, _JACOBI_K_GRID_N)
-    _du  = _u[1] - _u[0]
-    _dv  = _v[1] - _v[0]
-    _U, _V = np.meshgrid(_u, _v, indexing='ij')
-    _g11_grid, _g12_grid, _g22_grid = _eval_metric_grid(metric, _U, _V)
-    _K_grid = _brioschi_curvature_grid(_g11_grid, _g12_grid, _g22_grid, _du, _dv)
-
-    from scipy.interpolate import RegularGridInterpolator
-    _K_interp_2d = RegularGridInterpolator(
-        (_u, _v), _K_grid, method='linear', bounds_error=False, fill_value=0.0
-    )
-
-    # Pre-allocate a single (1,2) query array reused on every ODE step to
-    # avoid per-step list allocation inside the hot path.
-    _query_pt = np.empty((1, 2), dtype=float)
-
+    K_expr = metric.gauss_curvature()
+    K_func = lambdify(metric.coords, K_expr, 'numpy')
+    
     def _K_at(x, y):
-        _query_pt[0, 0] = x
-        _query_pt[0, 1] = y
-        return float(_K_interp_2d(_query_pt)[0])
+        try:
+            return float(K_func(x, y))
+        except TypeError:
+            # Fallback for array-like returns from lambdify
+            return float(np.asarray(K_func(x, y)).ravel()[0])
 
     x_interp  = interp1d(t_geod, x_arr,          kind='cubic')
     y_interp  = interp1d(t_geod, y_arr,           kind='cubic')
@@ -2245,8 +2228,9 @@ def hodge_star(metric, form_degree):
     if metric.dim != 2:
         raise NotImplementedError("hodge_star is for 2D metrics only.")
     sqrt_g = metric.sqrt_det_g
-    g = metric.g_matrix               # covariant metric components
-    g11, g12, g22 = g[0,0], g[0,1], g[1,1]
+    # g = metric.g_matrix               # covariant metric components
+    g_inv = metric.g_inv_matrix
+    g11, g12, g22 = g_inv[0,0], g_inv[0,1], g_inv[1,1]
 
     if form_degree == 0:
         return lambda f: f * sqrt_g
