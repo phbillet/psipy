@@ -891,6 +891,78 @@
         <span class="k">return</span> <span class="n">R</span></div>
 
 
+<div class="viewcode-block" id="Metric.riemann_tensor_lower">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.riemann_tensor_lower">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">riemann_tensor_lower</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the fully covariant Riemann tensor R_{ijkl} (2D manifolds only).</span>
+<span class="sd"> </span>
+<span class="sd">        Lowers the first (contravariant) index of the mixed Riemann tensor</span>
+<span class="sd">        Rⁱⱼₖₗ returned by :meth:`riemann_tensor` using the metric:</span>
+<span class="sd"> </span>
+<span class="sd">            R_{ijkl} = g_{im} Rᵐⱼₖₗ.</span>
+<span class="sd"> </span>
+<span class="sd">        The contraction over ``m`` is performed with ``numpy.einsum`` on an</span>
+<span class="sd">        object array of SymPy expressions, rather than a manual nested loop.</span>
+<span class="sd"> </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            Nested dict ``R_down[i][j][k][l]`` → SymPy expression for R_{ijkl},</span>
+<span class="sd">            with all indices in {0, 1}. Same nesting convention as</span>
+<span class="sd">            :meth:`riemann_tensor`.</span>
+<span class="sd"> </span>
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        NotImplementedError</span>
+<span class="sd">            If called on a 1D metric.</span>
+<span class="sd"> </span>
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; from sympy import symbols, Matrix, sin, simplify</span>
+<span class="sd">        &gt;&gt;&gt; theta, phi = symbols(&#39;theta phi&#39;, real=True)</span>
+<span class="sd">        &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, sin(theta)**2]]), (theta, phi))</span>
+<span class="sd">        &gt;&gt;&gt; R_down = m.riemann_tensor_lower()</span>
+<span class="sd">        &gt;&gt;&gt; R_down[0][1][0][1].equals(sin(theta)**2)   # non-zero component on unit sphere</span>
+<span class="sd">        True</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Riemann tensor is zero for 1D manifolds.&quot;</span><span class="p">)</span>
+ 
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+ 
+        <span class="n">R_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">riemann_tensor</span><span class="p">()</span>
+ 
+        <span class="c1"># Pack the mixed Riemann tensor R^m_{jkl} and the metric g_{im}</span>
+        <span class="c1"># into object-dtype numpy arrays so that np.einsum can contract</span>
+        <span class="c1"># over the shared index using SymPy&#39;s own +/* operators.</span>
+        <span class="n">R_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                        <span class="n">R_arr</span><span class="p">[</span><span class="n">m</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">R_dict</span><span class="p">[</span><span class="n">m</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">][</span><span class="n">l</span><span class="p">]</span>
+ 
+        <span class="n">g_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                <span class="n">g_arr</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">m</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">m</span><span class="p">]</span>
+ 
+        <span class="n">R_down_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;im,mjkl-&gt;ijkl&#39;</span><span class="p">,</span> <span class="n">g_arr</span><span class="p">,</span> <span class="n">R_arr</span><span class="p">)</span>
+ 
+        <span class="n">R_down</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="n">R_down</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                <span class="n">R_down</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                    <span class="n">R_down</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                        <span class="n">R_down</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">][</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">R_down_arr</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">l</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">R_down</span></div>
+
+
+
 <div class="viewcode-block" id="Metric.ricci_tensor">
 <a class="viewcode-back" href="../riemannian.html#riemannian.Metric.ricci_tensor">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ricci_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -2954,6 +3026,39 @@
 </div>
 
 
+
+<div class="viewcode-block" id="surface2metric">
+<a class="viewcode-back" href="../riemannian.html#riemannian.surface2metric">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">surface2metric</span><span class="p">(</span><span class="n">S_components</span><span class="p">,</span> <span class="n">coords</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the induced (first fundamental form) metric of a parametric</span>
+<span class="sd">    surface S(u, v) = (s1, s2, s3) embedded in R^3.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    S_components : sequence of 3 sympy.Expr</span>
+<span class="sd">        (s1, s2, s3), each a function of coords.</span>
+<span class="sd">    coords : sequence of 2 sympy.Symbol</span>
+<span class="sd">        (u, v), the surface parameters.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sympy.Matrix</span>
+<span class="sd">        2x2 metric matrix g_ij = S_i . S_j, simplified.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">coords</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">S_components</span><span class="p">)</span>
+
+    <span class="n">S_u</span> <span class="o">=</span> <span class="n">S</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+    <span class="n">S_v</span> <span class="o">=</span> <span class="n">S</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+    <span class="n">g</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">([</span>
+        <span class="p">[</span><span class="n">S_u</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">S_u</span><span class="p">),</span> <span class="n">S_u</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">S_v</span><span class="p">)],</span>
+        <span class="p">[</span><span class="n">S_u</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">S_v</span><span class="p">),</span> <span class="n">S_v</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">S_v</span><span class="p">)]</span>
+    <span class="p">])</span>
+    <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">g</span><span class="p">)</span></div>
+
+    
 <span class="c1"># =============================================================================</span>
 <span class="c1"># Numerical operators that re-use the grid (no stencil duplication)</span>
 <span class="c1"># =============================================================================</span>

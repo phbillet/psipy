@@ -793,6 +793,75 @@ class Metric:
                         R[i][j][k][ell] = simplify(expr)
         return R
 
+    def riemann_tensor_lower(self):
+        """
+        Compute the fully covariant Riemann tensor R_{ijkl} (2D manifolds only).
+ 
+        Lowers the first (contravariant) index of the mixed Riemann tensor
+        Rⁱⱼₖₗ returned by :meth:`riemann_tensor` using the metric:
+ 
+            R_{ijkl} = g_{im} Rᵐⱼₖₗ.
+ 
+        The contraction over ``m`` is performed with ``numpy.einsum`` on an
+        object array of SymPy expressions, rather than a manual nested loop.
+ 
+        Returns
+        -------
+        dict
+            Nested dict ``R_down[i][j][k][l]`` → SymPy expression for R_{ijkl},
+            with all indices in {0, 1}. Same nesting convention as
+            :meth:`riemann_tensor`.
+ 
+        Raises
+        ------
+        NotImplementedError
+            If called on a 1D metric.
+ 
+        Examples
+        --------
+        >>> from sympy import symbols, Matrix, sin, simplify
+        >>> theta, phi = symbols('theta phi', real=True)
+        >>> m = Metric(Matrix([[1, 0], [0, sin(theta)**2]]), (theta, phi))
+        >>> R_down = m.riemann_tensor_lower()
+        >>> R_down[0][1][0][1].equals(sin(theta)**2)   # non-zero component on unit sphere
+        True
+        """
+        if self.dim == 1:
+            raise NotImplementedError("Riemann tensor is zero for 1D manifolds.")
+ 
+        import numpy as np
+ 
+        R_dict = self.riemann_tensor()
+ 
+        # Pack the mixed Riemann tensor R^m_{jkl} and the metric g_{im}
+        # into object-dtype numpy arrays so that np.einsum can contract
+        # over the shared index using SymPy's own +/* operators.
+        R_arr = np.empty((2, 2, 2, 2), dtype=object)
+        for m in range(2):
+            for j in range(2):
+                for k in range(2):
+                    for l in range(2):
+                        R_arr[m, j, k, l] = R_dict[m][j][k][l]
+ 
+        g_arr = np.empty((2, 2), dtype=object)
+        for i in range(2):
+            for m in range(2):
+                g_arr[i, m] = self.g_matrix[i, m]
+ 
+        R_down_arr = np.einsum('im,mjkl->ijkl', g_arr, R_arr)
+ 
+        R_down = {}
+        for i in range(2):
+            R_down[i] = {}
+            for j in range(2):
+                R_down[i][j] = {}
+                for k in range(2):
+                    R_down[i][j][k] = {}
+                    for l in range(2):
+                        R_down[i][j][k][l] = simplify(R_down_arr[i, j, k, l])
+        return R_down
+
+
     def ricci_tensor(self):
         """
         Compute the Ricci tensor Rᵢⱼ (2D manifolds only).
@@ -2789,6 +2858,36 @@ class RiemannianGrid:
         else:
             return sol.T.reshape(out_shape)
 
+
+def surface2metric(S_components, coords):
+    """
+    Compute the induced (first fundamental form) metric of a parametric
+    surface S(u, v) = (s1, s2, s3) embedded in R^3.
+
+    Parameters
+    ----------
+    S_components : sequence of 3 sympy.Expr
+        (s1, s2, s3), each a function of coords.
+    coords : sequence of 2 sympy.Symbol
+        (u, v), the surface parameters.
+
+    Returns
+    -------
+    sympy.Matrix
+        2x2 metric matrix g_ij = S_i . S_j, simplified.
+    """
+    u, v = coords
+    S = Matrix(S_components)
+
+    S_u = S.diff(u)
+    S_v = S.diff(v)
+
+    g = Matrix([
+        [S_u.dot(S_u), S_u.dot(S_v)],
+        [S_u.dot(S_v), S_v.dot(S_v)]
+    ])
+    return simplify(g)
+    
 # =============================================================================
 # Numerical operators that re-use the grid (no stencil duplication)
 # =============================================================================
