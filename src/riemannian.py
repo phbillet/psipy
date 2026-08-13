@@ -4121,6 +4121,7 @@ def visualize_hodge_decomposition(decomp, domain=None, resolution=50,
 
     plt.tight_layout()
     plt.show()
+    plt.close(fig)
     
 def _visualize_hodge_decomposition_3d(decomp, grid, form_degree,
                                        cmap, quiver_stride):
@@ -4290,6 +4291,7 @@ def _visualize_hodge_decomposition_3d(decomp, grid, form_degree,
         fig.suptitle('Hodge Decomposition of a 0‑Form   f = Δu + h₀',
                      fontsize=14, y=1.01)
         plt.tight_layout()
+        plt.close(fig)
         plt.show()
 
     elif form_degree == 1:
@@ -4353,6 +4355,7 @@ def _visualize_hodge_decomposition_3d(decomp, grid, form_degree,
                      fontsize=14, y=1.01)
         plt.tight_layout()
         plt.show()
+        plt.close(fig)
 
     else:  # form_degree == 2
         exact = decomp['omega_exact']
@@ -4398,6 +4401,7 @@ def _visualize_hodge_decomposition_3d(decomp, grid, form_degree,
         fig.suptitle('Hodge Decomposition of a 2‑Form   ω = d(⋆dφ) + h',
                      fontsize=14, y=1.01)
         plt.tight_layout()
+        plt.close(fig)
         plt.show()
 
 def parallel_transport(metric, curve, initial_vector, tspan=None, method='RK45'):
@@ -4766,6 +4770,7 @@ def _visualize_geodesics_1d(metric, initial_conditions, tspan,
     if scatter is not None:
         plt.colorbar(scatter, ax=ax2).set_label(colorby.capitalize())
     plt.tight_layout()
+    plt.close(fig)
     plt.show()
 
 
@@ -4845,6 +4850,7 @@ def _visualize_geodesics_2d(metric, initial_conditions, tspan,
     ax.axis('equal')
     plt.tight_layout()
     plt.show()
+    plt.close(fig)
 
 
 def visualize_curvature(metric, x_range=None, y_range=None,
@@ -5016,6 +5022,7 @@ def _visualize_curvature_1d(metric, x_range, resolution, quantity, **kwargs):
 
     plt.tight_layout()
     plt.show()
+    plt.close(fig)
 
 
 def _visualize_curvature_2d(metric, x_range, y_range, resolution, quantity, cmap):
@@ -5206,16 +5213,20 @@ def _brioschi_curvature_grid(g11, g12, g22, du, dv):
     https://en.wikipedia.org/wiki/Gaussian_curvature#Brioschi_formula
     """
     def _grad(F, du, dv):
-        """Return (dF/du, dF/dv) via second-order central differences."""
+        """Dérivées d'ordre 2 aux bords comme au centre."""
         Fu = np.zeros_like(F)
+        # Intérieur (central O(du²))
         Fu[1:-1, :] = (F[2:, :] - F[:-2, :]) / (2 * du)
-        Fu[0,    :] = (F[1,  :] - F[0,  :]) / du
-        Fu[-1,   :] = (F[-1, :] - F[-2, :]) / du
-
+        # Bords (unilatéral ordre 2 O(du²))
+        Fu[0,  :] = (-3 * F[0, :] + 4 * F[1, :] - F[2, :]) / (2 * du)
+        Fu[-1, :] = ( 3 * F[-1, :] - 4 * F[-2, :] + F[-3, :]) / (2 * du)
+    
         Fv = np.zeros_like(F)
+        # Intérieur
         Fv[:, 1:-1] = (F[:, 2:] - F[:, :-2]) / (2 * dv)
-        Fv[:, 0   ] = (F[:, 1]  - F[:, 0])   / dv
-        Fv[:, -1  ] = (F[:, -1] - F[:, -2])  / dv
+        # Bords
+        Fv[:, 0]  = (-3 * F[:, 0] + 4 * F[:, 1] - F[:, 2]) / (2 * dv)
+        Fv[:, -1] = ( 3 * F[:, -1] - 4 * F[:, -2] + F[:, -3]) / (2 * dv)
         return Fu, Fv
 
     def _lap(F, du, dv):
@@ -5253,19 +5264,22 @@ def _brioschi_curvature_grid(g11, g12, g22, du, dv):
     M00 = -0.5 * Evv + Fuv2 - 0.5 * Guu
     M01 =  0.5 * Eu
     M02 =  Fu2 - 0.5 * Ev
-    M10 =  0.5 * Ev
-    M20 =  Fu2 - 0.5 * Gu
-
+    M10 = Fv2 - 0.5 * Gu       
+    M20 = 0.5 * Gv 
+    
     B = (  M00 * (E * G - F * F)
-         - M01 * (M10 * G - Fv2 * F)
-         + M02 * (M10 * F - E * Fv2))
+         - M01 * (M10 * G - M20 * F)
+         + M02 * (M10 * F - E * M20))
 
     A = (  0.0
          - 0.5 * Ev  * (0.5 * Ev * G  - 0.5 * Gu * F)
          + 0.5 * Gu  * (0.5 * Ev * F  - E * 0.5 * Gu))
 
-    K = (B - A) / np.where(np.abs(W4) > 1e-14, W4, np.nan)
-    return np.nan_to_num(K, nan=0.0, posinf=1e6, neginf=-1e6)
+    W4_safe = np.where(np.abs(W4) > 1e-14, W4, np.nan)
+    K = (B - A) / W4_safe
+    K = np.nan_to_num(K, nan=0.0, posinf=1e6, neginf=-1e6)
+    K = np.clip(K, -1e6, 1e6) 
+    return(K)
 
 
 def induced_metric(R, du, dv):
@@ -5448,6 +5462,9 @@ def build_embedding(metric, u_range, v_range, nu, nv):
     # mismatch, and is O(du², dv²) accurate — sufficient for all practical grids.
     g11, g12, g22 = _eval_metric_grid(metric, U, V)
     K = _brioschi_curvature_grid(g11, g12, g22, du, dv)
+
+    K[0, :]  = K[1, :]
+    K[-1, :] = K[-2, :]
 
     # Allocate output arrays
     R    = np.zeros((nu, nv, 3))
@@ -5761,7 +5778,7 @@ def plot_embedding(R, title="", colormap='plasma', dark=True, backend='widget'):
         The 3D axes.
     """
     import matplotlib.pyplot as plt
-
+    plt.close('all')
     # Save the current backend
     current_backend = plt.get_backend()
 
@@ -5786,11 +5803,9 @@ def plot_embedding(R, title="", colormap='plasma', dark=True, backend='widget'):
     ax.set_title(title, color=tc, fontsize=12, pad=15)
     ax.set_axis_off()
     plt.tight_layout()
-    plt.show()
-
     # Restore the original backend
     plt.switch_backend(current_backend)
-
+    
     return fig, ax
 
 
@@ -5874,4 +5889,5 @@ def plot_corrugation_pipeline(result, title="", colormap='plasma', dark=True):
     plt.suptitle(title, color=tc, fontsize=13)
     plt.tight_layout()
     plt.show()
+    plt.close(fig)
     return fig
