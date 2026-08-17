@@ -49,6 +49,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../metric_catalogue.html">metric_catalogue</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../nufft.html">nufft</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../propagator.html">propagator</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
@@ -85,18 +86,18 @@
   <h1>Source code for fio_bridge</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
-<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 <span class="c1"># you may not use this file except in compliance with the License.</span>
 <span class="c1"># You may obtain a copy of the License at</span>
 <span class="c1">#</span>
 <span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
 <span class="c1">#</span>
 <span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 <span class="sd">fio_bridge.py — Fourier Integral Operators: bridge between psiop.py and asymptotic.py</span>
 <span class="sd">=========================================================================================</span>
 
@@ -146,7 +147,7 @@
 
 <span class="sd">Stationary conditions:</span>
 <span class="sd">    ∂φ/∂ξ = 0  →  y_c = x          (transport)</span>
-<span class="sd">    ∂φ/∂y = 0  →  ξ_c = S&#39;_u(y_c)  (bicharacteristic)</span>
+<span class="sd">    ∂φ/∂y = 0  →  ξ_c = S'_u(y_c)  (bicharacteristic)</span>
 
 <span class="sd">Normalisation</span>
 <span class="sd">-------------</span>
@@ -162,10 +163,10 @@
 
 <span class="sd">References</span>
 <span class="sd">----------</span>
-<span class="sd">.. [1] Hörmander, L.  &quot;Fourier Integral Operators I&quot;, Acta Math. 127 (1971).</span>
-<span class="sd">.. [2] Duistermaat, J.J.  &quot;Fourier Integral Operators&quot;, Birkhäuser, 1996.</span>
-<span class="sd">.. [3] Zworski, M.  &quot;Semiclassical Analysis&quot;, AMS Graduate Studies, 2012.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">.. [1] Hörmander, L.  "Fourier Integral Operators I", Acta Math. 127 (1971).</span>
+<span class="sd">.. [2] Duistermaat, J.J.  "Fourier Integral Operators", Birkhäuser, 1996.</span>
+<span class="sd">.. [3] Zworski, M.  "Semiclassical Analysis", AMS Graduate Studies, 2012.</span>
+<span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -194,7 +195,7 @@
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.FIOKernel">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">FIOKernel</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Kernel of a Fourier Integral Operator: phase φ and amplitude a as SymPy</span>
 <span class="sd">    expressions, together with the integration variables and the observation</span>
 <span class="sd">    point.</span>
@@ -216,7 +217,7 @@
 <span class="sd">        respects the physical domain.</span>
 <span class="sd">    method_hint : IntegralMethod</span>
 <span class="sd">        Suggested method (resolved by Analyzer when AUTO).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">phase_sym</span>   <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span>
     <span class="n">amp_sym</span>     <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span>
     <span class="n">vars_int</span>    <span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">]</span>
@@ -230,7 +231,7 @@
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.EvalResult">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EvalResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Result of evaluating (Fu)(x) at a single observation point x.</span>
 
 <span class="sd">    Attributes</span>
@@ -245,7 +246,7 @@
 <span class="sd">        Individual contributions from each critical point.</span>
 <span class="sd">    warnings_list : list[str]</span>
 <span class="sd">        Warnings raised during evaluation (caustics, Picard–Lefschetz, …).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">x_val</span>               <span class="p">:</span> <span class="n">Any</span>
     <span class="n">value</span>               <span class="p">:</span> <span class="nb">complex</span>
     <span class="n">n_critical_points</span>   <span class="p">:</span> <span class="nb">int</span>
@@ -261,7 +262,7 @@
 <div class="viewcode-block" id="FourierIntegralOperator">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.FourierIntegralOperator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">FourierIntegralOperator</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Generic Fourier Integral Operator with a free phase function.</span>
 
 <span class="sd">    Evaluates integrals of the form</span>
@@ -274,7 +275,7 @@
 <span class="sd">    </span>
 <span class="sd">    * Storing the symbolic phase and amplitude.</span>
 <span class="sd">    * Computing the canonical relation (∇_θ φ, ∇_x φ, ∇_y φ).</span>
-<span class="sd">    * Checking Hörmander&#39;s non-degeneracy condition (mixed Hessian ∂²φ/∂x∂θ).</span>
+<span class="sd">    * Checking Hörmander's non-degeneracy condition (mixed Hessian ∂²φ/∂x∂θ).</span>
 <span class="sd">    * Evaluating the integral asymptotically by delegating entirely to</span>
 <span class="sd">      asymptotic.Analyzer and asymptotic.AsymptoticEvaluator (DRY).</span>
 
@@ -299,7 +300,7 @@
 <span class="sd">        Tolerance for |∇φ|² when accepting a critical point.</span>
 <span class="sd">    verbose : bool</span>
 <span class="sd">        Print diagnostic information.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -329,7 +330,7 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_x</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_y</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;dim(x) ≠ dim(y): non-standard FIO (source/target dimensions differ).&quot;</span><span class="p">,</span>
+                <span class="s2">"dim(x) ≠ dim(y): non-standard FIO (source/target dimensions differ)."</span><span class="p">,</span>
                 <span class="ne">UserWarning</span><span class="p">,</span>
             <span class="p">)</span>
 
@@ -342,7 +343,7 @@
     <span class="c1"># ── Canonical relation ────────────────────────────────────────────────────</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compute_canonical_relation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the symbolic derivatives that define the canonical relation</span>
 
 <span class="sd">            C = { (x, ∇_x φ, y, −∇_y φ) | ∇_θ φ = 0 }</span>
@@ -351,7 +352,7 @@
 <span class="sd">            d_theta_phi : list[sp.Expr]  -- ∂φ/∂θ_i</span>
 <span class="sd">            d_x_phi     : list[sp.Expr]  -- ∂φ/∂x_i</span>
 <span class="sd">            d_y_phi     : list[sp.Expr]  -- ∂φ/∂y_i</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">d_theta_phi</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="n">th</span><span class="p">)</span> <span class="k">for</span> <span class="n">th</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_theta</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">d_x_phi</span>     <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="n">xv</span><span class="p">)</span> <span class="k">for</span> <span class="n">xv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">d_y_phi</span>     <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="n">yv</span><span class="p">)</span> <span class="k">for</span> <span class="n">yv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_y</span><span class="p">]</span>
@@ -359,8 +360,8 @@
 <div class="viewcode-block" id="FourierIntegralOperator.is_non_degenerate">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.FourierIntegralOperator.is_non_degenerate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_non_degenerate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Check Hörmander&#39;s non-degeneracy condition.</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Check Hörmander's non-degeneracy condition.</span>
 
 <span class="sd">        A phase φ is non-degenerate when the mixed Hessian</span>
 
@@ -372,7 +373,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        bool</span>
 <span class="sd">            True if the phase is non-degenerate.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">H_mixed</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([</span>
             <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">dth</span><span class="p">,</span> <span class="n">xv</span><span class="p">)</span> <span class="k">for</span> <span class="n">xv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">dth</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">d_theta_phi</span>
@@ -387,13 +388,13 @@
     <span class="c1"># ── Core evaluation (DRY: all asymptotic work lives in asymptotic.py) ─────</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_analyzer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kernel</span><span class="p">:</span> <span class="n">FIOKernel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Analyzer</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Build an asymptotic.Analyzer for the given FIOKernel.</span>
 
 <span class="sd">        The Analyzer owns ALL derivative computation, method detection,</span>
 <span class="sd">        critical-point search, and Hessian analysis.  Nothing is duplicated</span>
 <span class="sd">        here.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">Analyzer</span><span class="p">(</span>
             <span class="n">phase_expr</span>     <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">phase_sym</span><span class="p">,</span>
             <span class="n">amplitude_expr</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">amp_sym</span><span class="p">,</span>
@@ -408,7 +409,7 @@
         <span class="n">analyzer</span> <span class="p">:</span> <span class="n">Analyzer</span><span class="p">,</span>
         <span class="n">guesses</span>  <span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Locate critical (or saddle) points via the Analyzer.</span>
 
 <span class="sd">        For SADDLE_POINT phases the SaddlePointEvaluator searches in ℂⁿ;</span>
@@ -416,16 +417,16 @@
 <span class="sd">        searches on ℝⁿ.</span>
 
 <span class="sd">        Returns a list of coordinate arrays (real or complex).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="n">IntegralMethod</span><span class="o">.</span><span class="n">SADDLE_POINT</span><span class="p">:</span>
             <span class="n">sp_eval</span> <span class="o">=</span> <span class="n">SaddlePointEvaluator</span><span class="p">(</span><span class="n">tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tol_grad</span><span class="p">)</span>
             <span class="n">pts</span> <span class="o">=</span> <span class="n">sp_eval</span><span class="o">.</span><span class="n">find_saddle_points</span><span class="p">(</span><span class="n">analyzer</span><span class="p">,</span> <span class="n">guesses</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [FIO] SADDLE_POINT: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span><span class="si">}</span><span class="s2"> saddle point(s) found in ℂⁿ&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  [FIO] SADDLE_POINT: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span><span class="si">}</span><span class="s2"> saddle point(s) found in ℂⁿ"</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">pts</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">find_critical_points</span><span class="p">(</span><span class="n">guesses</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [FIO] </span><span class="si">{</span><span class="n">analyzer</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span><span class="si">}</span><span class="s2"> critical point(s) found&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  [FIO] </span><span class="si">{</span><span class="n">analyzer</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span><span class="si">}</span><span class="s2"> critical point(s) found"</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">pts</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_collect_contributions</span><span class="p">(</span>
@@ -433,7 +434,7 @@
         <span class="n">analyzer</span> <span class="p">:</span> <span class="n">Analyzer</span><span class="p">,</span>
         <span class="n">pts</span>      <span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">complex</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">AsymptoticContribution</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Analyze each critical point and sum asymptotic contributions.</span>
 
 <span class="sd">        Delegates entirely to:</span>
@@ -443,7 +444,7 @@
 <span class="sd">        The FIO normalisation prefactor  1 / (2π)^{n_θ}  is applied here.</span>
 <span class="sd">        asymptotic.py already provides the Gaussian prefactor (2π/λ)^{N/2};</span>
 <span class="sd">        we must NOT multiply by λ again.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">evaluator</span>  <span class="o">=</span> <span class="n">AsymptoticEvaluator</span><span class="p">(</span><span class="n">tolerance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tol_grad</span><span class="p">)</span>
         <span class="c1"># Correct FIO normalisation.</span>
         <span class="c1"># asymptotic.py produces a factor (2π/λ)^{n/2} where n = total</span>
@@ -464,12 +465,12 @@
                 <span class="n">contribs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
                     <span class="nb">print</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;    pt=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">pt</span><span class="p">),</span><span class="w"> </span><span class="mi">3</span><span class="p">)</span><span class="si">}</span><span class="s2">, &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;type=</span><span class="si">{</span><span class="n">cp</span><span class="o">.</span><span class="n">singularity_type</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">, &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;contrib=</span><span class="si">{</span><span class="n">fio_norm</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">res</span><span class="o">.</span><span class="n">total_value</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="sa">f</span><span class="s2">"    pt=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">pt</span><span class="p">),</span><span class="w"> </span><span class="mi">3</span><span class="p">)</span><span class="si">}</span><span class="s2">, "</span>
+                        <span class="sa">f</span><span class="s2">"type=</span><span class="si">{</span><span class="n">cp</span><span class="o">.</span><span class="n">singularity_type</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">, "</span>
+                        <span class="sa">f</span><span class="s2">"contrib=</span><span class="si">{</span><span class="n">fio_norm</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">res</span><span class="o">.</span><span class="n">total_value</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">"</span>
                     <span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-                <span class="n">warns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Point </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">pt</span><span class="p">),</span><span class="w"> </span><span class="mi">3</span><span class="p">)</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">warns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Point </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">pt</span><span class="p">),</span><span class="w"> </span><span class="mi">3</span><span class="p">)</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">contribs</span><span class="p">,</span> <span class="n">warns</span>
 
@@ -484,7 +485,7 @@
         <span class="n">x_eval_dict</span>  <span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
         <span class="n">initial_guesses</span> <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvalResult</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply the FIO to a WKB state u(y) = u_amp(y) · exp(iλ u_phase(y))</span>
 <span class="sd">        at the observation point encoded by x_eval_dict.</span>
 
@@ -509,7 +510,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        EvalResult</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># Substitute the observation point into the FIO kernel</span>
         <span class="n">phi_sub</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">x_eval_dict</span><span class="p">)</span>
         <span class="n">amp_sub</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">amp_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">x_eval_dict</span><span class="p">)</span>
@@ -535,8 +536,8 @@
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pts</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;No critical points found. The integral is asymptotically &quot;</span>
-                <span class="s2">&quot;negligible  O(λ^{-∞}).&quot;</span><span class="p">,</span>
+                <span class="s2">"No critical points found. The integral is asymptotically "</span>
+                <span class="s2">"negligible  O(λ^{-∞})."</span><span class="p">,</span>
                 <span class="ne">RuntimeWarning</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">EvalResult</span><span class="p">(</span>
@@ -562,7 +563,7 @@
 <div class="viewcode-block" id="PsiOpFIOBridge">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.PsiOpFIOBridge">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PsiOpFIOBridge</span><span class="p">(</span><span class="n">FourierIntegralOperator</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Evaluates the action of a PseudoDifferentialOperator on a WKB state</span>
 <span class="sd">    via the stationary-phase / saddle-point method.</span>
 
@@ -612,7 +613,7 @@
 <span class="sd">    y_range : tuple[float, float]</span>
 <span class="sd">    tol_grad : float</span>
 <span class="sd">    verbose : bool</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -625,7 +626,7 @@
         <span class="n">verbose</span>     <span class="p">:</span> <span class="nb">bool</span>  <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;PsiOpFIOBridge supports only 1D and 2D psiOps.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"PsiOpFIOBridge supports only 1D and 2D psiOps."</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">op</span>        <span class="o">=</span> <span class="n">op</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_guesses</span> <span class="o">=</span> <span class="n">n_guesses</span>
@@ -634,14 +635,14 @@
 
         <span class="c1"># Integration variable symbols</span>
         <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">y_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">y_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'y'</span><span class="p">,</span>  <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">vars_y</span>     <span class="o">=</span> <span class="p">[</span><span class="n">y_sym</span><span class="p">]</span>
             <span class="n">vars_theta</span> <span class="o">=</span> <span class="p">[</span><span class="n">xi_sym</span><span class="p">]</span>
             <span class="n">domain</span>     <span class="o">=</span> <span class="p">[</span><span class="n">y_range</span><span class="p">,</span> <span class="n">xi_range</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">y1_sym</span><span class="p">,</span> <span class="n">y2_sym</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;y1 y2&#39;</span><span class="p">,</span>   <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">xi1_sym</span><span class="p">,</span> <span class="n">xi2_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi1 xi2&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">y1_sym</span><span class="p">,</span> <span class="n">y2_sym</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'y1 y2'</span><span class="p">,</span>   <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">xi1_sym</span><span class="p">,</span> <span class="n">xi2_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'xi1 xi2'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">vars_y</span>     <span class="o">=</span> <span class="p">[</span><span class="n">y1_sym</span><span class="p">,</span> <span class="n">y2_sym</span><span class="p">]</span>
             <span class="n">vars_theta</span> <span class="o">=</span> <span class="p">[</span><span class="n">xi1_sym</span><span class="p">,</span> <span class="n">xi2_sym</span><span class="p">]</span>
             <span class="n">domain</span>     <span class="o">=</span> <span class="p">[</span><span class="n">y_range</span><span class="p">,</span> <span class="n">y_range</span><span class="p">,</span> <span class="n">xi_range</span><span class="p">,</span> <span class="n">xi_range</span><span class="p">]</span>
@@ -666,7 +667,7 @@
     <span class="c1"># ─────────────────────────────────────────────────────────────────────</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_precompute_static</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Build the guess-offset template and do the integration-method probe.</span>
 
 <span class="sd">        Both are independent of the WKB data (u_phase_sym, u_amp_sym) and</span>
@@ -686,7 +687,7 @@
 <span class="sd">            Hash keys used to detect WKB expression changes.</span>
 <span class="sd">        _xi_guess_fn : callable | None</span>
 <span class="sd">            Precomputed ξ_c(x_val) = S_u′(x_val); set by _precompute_wkb.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_guesses</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -735,7 +736,7 @@
         <span class="n">u_phase_sym</span> <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
         <span class="n">u_amp_sym</span>   <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute and cache all symbolic derivatives, then lambdify everything</span>
 <span class="sd">        with the observation coordinate ``_xp`` as an extra numeric argument.</span>
 
@@ -755,7 +756,7 @@
 <span class="sd">        _d3_indices, _d4_indices : list[tuple]</span>
 <span class="sd">        _xi_guess_fn : callable(x_val_f) -&gt; float  or  None</span>
 <span class="sd">        _method : IntegralMethod  (re-resolved with full symbol)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
 
         <span class="n">phase_key</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="n">u_phase_sym</span><span class="p">)</span>
@@ -764,7 +765,7 @@
             <span class="k">return</span>   <span class="c1"># nothing changed — skip</span>
 
         <span class="c1"># Symbolic observation-coordinate placeholder</span>
-        <span class="n">x_p</span>      <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;_xp&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">x_p</span>      <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'_xp'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">vars_int</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_int</span>
         <span class="n">dim</span>      <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vars_int</span><span class="p">)</span>
 
@@ -784,7 +785,7 @@
         <span class="k">else</span><span class="p">:</span>   <span class="c1"># 2D</span>
             <span class="n">y1</span><span class="p">,</span> <span class="n">y2</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_y</span>
             <span class="n">xi1</span><span class="p">,</span> <span class="n">xi2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_theta</span>
-            <span class="n">x_p2</span>     <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;_yp&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># second observation coord</span>
+            <span class="n">x_p2</span>     <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'_yp'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># second observation coord</span>
             <span class="n">op_x1</span><span class="p">,</span> <span class="n">op_x2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">vars_x</span>
 
             <span class="n">phi</span> <span class="o">=</span> <span class="p">((</span><span class="n">x_p</span>  <span class="o">-</span> <span class="n">y1</span><span class="p">)</span> <span class="o">*</span> <span class="n">xi1</span>
@@ -812,14 +813,14 @@
             <span class="n">d4_sym</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="o">*</span><span class="p">[</span><span class="n">vars_int</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">idx</span><span class="p">]))</span>
 
         <span class="c1"># ── Single lambdify pass — no more SymPy after this ──────────────</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_func_phase</span>    <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span>      <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_func_amp</span>      <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span>      <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_func_grad</span>     <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">grad_phi</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_func_hess</span>     <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">hess_phi</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_func_grad_amp</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">grad_amp</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_func_hess_amp</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">hess_amp</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_func_d3</span>       <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">d3_sym</span><span class="p">,</span>   <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_func_d4</span>       <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">d4_sym</span><span class="p">,</span>   <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_func_phase</span>    <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span>      <span class="s1">'numpy'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_func_amp</span>      <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span>      <span class="s1">'numpy'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_func_grad</span>     <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">grad_phi</span><span class="p">,</span> <span class="s1">'numpy'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_func_hess</span>     <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">hess_phi</span><span class="p">,</span> <span class="s1">'numpy'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_func_grad_amp</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">grad_amp</span><span class="p">,</span> <span class="s1">'numpy'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_func_hess_amp</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">hess_amp</span><span class="p">,</span> <span class="s1">'numpy'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_func_d3</span>       <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">d3_sym</span><span class="p">,</span>   <span class="s1">'numpy'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_func_d4</span>       <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">d4_sym</span><span class="p">,</span>   <span class="s1">'numpy'</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_d3_indices</span>    <span class="o">=</span> <span class="n">d3_idx</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_d4_indices</span>    <span class="o">=</span> <span class="n">d4_idx</span>
 
@@ -829,7 +830,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">dSdy</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">u_phase_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_xi_guess_fn</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">y_sym</span><span class="p">,</span> <span class="n">dSdy</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_xi_guess_fn</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">y_sym</span><span class="p">,</span> <span class="n">dSdy</span><span class="p">,</span> <span class="s1">'numpy'</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                 <span class="k">pass</span>
 
@@ -844,15 +845,15 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_wkb_amp_key</span>   <span class="o">=</span> <span class="n">amp_key</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [PsiOpFIOBridge] precomputed WKB &quot;</span>
-                  <span class="sa">f</span><span class="s2">&quot;— method=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_method</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  [PsiOpFIOBridge] precomputed WKB "</span>
+                  <span class="sa">f</span><span class="s2">"— method=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_method</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
     <span class="c1"># ─────────────────────────────────────────────────────────────────────</span>
     <span class="c1">#  Per-point helpers  (pure numerics, zero SymPy)</span>
     <span class="c1"># ─────────────────────────────────────────────────────────────────────</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_make_guesses_fast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_val_f</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Build the initial-guess list for x_val_f without touching SymPy.</span>
 
 <span class="sd">        In 1D the stored offsets have:</span>
@@ -860,7 +861,7 @@
 <span class="sd">          - column 1 = absolute ξ value             → used as-is</span>
 
 <span class="sd">        The best guess (analytical ξ_c = S_u′(x_val)) is prepended.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">offsets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_guess_offsets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -880,8 +881,8 @@
 
         <span class="k">return</span> <span class="n">guesses</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_bound_analyzer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_val_f</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;_BoundAnalyzer&#39;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bound_analyzer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_val_f</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'_BoundAnalyzer'</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Return a ``_BoundAnalyzer`` with the observation coordinate(s)</span>
 <span class="sd">        already injected into all numeric callables — no SymPy involved.</span>
 
@@ -891,7 +892,7 @@
 <span class="sd">            In 1D a plain float is accepted; in 2D both coordinates must</span>
 <span class="sd">            be supplied so that both ``_xp`` and ``_yp`` placeholders are</span>
 <span class="sd">            bound correctly.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">_BoundAnalyzer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_val_f</span><span class="p">)</span>
 
     <span class="c1"># ─────────────────────────────────────────────────────────────────────</span>
@@ -906,10 +907,10 @@
         <span class="n">u_phase_sym</span> <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
         <span class="n">u_amp_sym</span>   <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FIOKernel</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Retained for API compatibility and base-class tests.</span>
 <span class="sd">        Not called by the optimised evaluate_at / evaluate_grid paths.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">y_sym</span><span class="p">,</span> <span class="n">xi_sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_int</span>
             <span class="n">phase</span>  <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">x_val</span><span class="p">)</span> <span class="o">-</span> <span class="n">y_sym</span><span class="p">)</span> <span class="o">*</span> <span class="n">xi_sym</span> <span class="o">+</span> <span class="n">u_phase_sym</span>
@@ -945,12 +946,12 @@
         <span class="n">u_phase_sym</span> <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
         <span class="n">u_amp_sym</span>   <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EvalResult</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Evaluate (Pu)(x_val) at a single observation point.</span>
 
 <span class="sd">        The first call with a given WKB pair triggers _precompute_wkb</span>
 <span class="sd">        (O(1) SymPy work).  All subsequent calls are pure numerics.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_precompute_wkb</span><span class="p">(</span><span class="n">u_phase_sym</span><span class="p">,</span> <span class="n">u_amp_sym</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -963,8 +964,8 @@
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">pts</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;No critical points found at x=</span><span class="si">{</span><span class="n">x_val</span><span class="si">}</span><span class="s2">. &quot;</span>
-                <span class="s2">&quot;Returning zero contribution.&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"No critical points found at x=</span><span class="si">{</span><span class="n">x_val</span><span class="si">}</span><span class="s2">. "</span>
+                <span class="s2">"Returning zero contribution."</span><span class="p">,</span>
                 <span class="ne">RuntimeWarning</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">EvalResult</span><span class="p">(</span><span class="n">x_val</span><span class="o">=</span><span class="n">x_val</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">0</span><span class="n">j</span><span class="p">,</span> <span class="n">n_critical_points</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
@@ -988,7 +989,7 @@
         <span class="n">u_amp_sym</span>   <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
         <span class="n">n_workers</span>   <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Evaluate (Pu)(x) at every point in x_grid.</span>
 
 <span class="sd">        SymPy work is done once before the loop; the loop body is</span>
@@ -1015,7 +1016,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        np.ndarray of complex128, shape (len(x_grid),)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span><span class="p">,</span> <span class="n">as_completed</span>
 
         <span class="c1"># One-time symbolic build  (no-op on subsequent calls with same WKB)</span>
@@ -1044,13 +1045,13 @@
                 <span class="n">_</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">xv_f</span><span class="p">,</span> <span class="n">found</span> <span class="o">=</span> <span class="n">_eval_one</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">xv</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
                     <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;No critical points at x=</span><span class="si">{</span><span class="n">xv_f</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">; contributing 0.&quot;</span><span class="p">,</span>
+                        <span class="sa">f</span><span class="s2">"No critical points at x=</span><span class="si">{</span><span class="n">xv_f</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">; contributing 0."</span><span class="p">,</span>
                         <span class="ne">RuntimeWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  x=</span><span class="si">{</span><span class="n">xv_f</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">  →  (Pu)(x) = </span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  x=</span><span class="si">{</span><span class="n">xv_f</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">  →  (Pu)(x) = </span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">values</span>
 
         <span class="c1"># Parallel path — threads share the precomputed lambdas on self</span>
@@ -1064,13 +1065,13 @@
                 <span class="n">i</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">xv_f</span><span class="p">,</span> <span class="n">found</span> <span class="o">=</span> <span class="n">fut</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
                     <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;No critical points at x=</span><span class="si">{</span><span class="n">xv_f</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">; contributing 0.&quot;</span><span class="p">,</span>
+                        <span class="sa">f</span><span class="s2">"No critical points at x=</span><span class="si">{</span><span class="n">xv_f</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">; contributing 0."</span><span class="p">,</span>
                         <span class="ne">RuntimeWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  x=</span><span class="si">{</span><span class="n">xv_f</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">  →  (Pu)(x) = </span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  x=</span><span class="si">{</span><span class="n">xv_f</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">  →  (Pu)(x) = </span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">values</span></div>
 </div>
@@ -1082,7 +1083,7 @@
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_BoundAnalyzer</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Lightweight proxy that replicates the ``asymptotic.Analyzer`` interface</span>
 <span class="sd">    expected by ``FourierIntegralOperator._find_critical_points`` and</span>
 <span class="sd">    ``._collect_contributions``, but uses only the precomputed lambdas from</span>
@@ -1119,11 +1120,11 @@
 <span class="sd">        .func_d4(*int_args)</span>
 
 <span class="sd">    In all cases ``int_args`` are the integration-variable values; x_val is</span>
-<span class="sd">    injected automatically as the last positional argument via the bridge&#39;s</span>
+<span class="sd">    injected automatically as the last positional argument via the bridge's</span>
 <span class="sd">    precomputed lambdas.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bridge</span><span class="p">:</span> <span class="s1">&#39;PsiOpFIOBridge&#39;</span><span class="p">,</span> <span class="n">x_val_f</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bridge</span><span class="p">:</span> <span class="s1">'PsiOpFIOBridge'</span><span class="p">,</span> <span class="n">x_val_f</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_b</span>  <span class="o">=</span> <span class="n">bridge</span>
         <span class="c1"># Normalise to a tuple so func_* can always do  *self._xv_tuple</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x_val_f</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">)):</span>
@@ -1171,12 +1172,12 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">initial_guesses</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Minimise |∇φ(y, ξ)|² using the pre-bound gradient callable.</span>
 
 <span class="sd">        Delegates to ``caustics.find_critical_points_numerical``, the shared</span>
 <span class="sd">        numerical kernel. Pure scipy — no SymPy.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">caustics</span><span class="w"> </span><span class="kn">import</span> <span class="n">find_critical_points_numerical</span>
 
         <span class="k">if</span> <span class="n">initial_guesses</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1192,13 +1193,13 @@
     <span class="c1"># ── CriticalPoint construction  (numpy only) ─────────────────────────</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">analyze_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Construct a ``CriticalPoint`` from precomputed numeric functions.</span>
 
 <span class="sd">        Mirrors ``Analyzer.analyze_point`` exactly, but calls</span>
-<span class="sd">        ``self.func_*`` (pre-bound lambdas) instead of the Analyzer&#39;s</span>
+<span class="sd">        ``self.func_*`` (pre-bound lambdas) instead of the Analyzer's</span>
 <span class="sd">        internal callables.  No SymPy.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">asymptotic</span><span class="w"> </span><span class="kn">import</span> <span class="n">CriticalPoint</span><span class="p">,</span> <span class="n">SingularityType</span>
 
         <span class="n">args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">xc</span><span class="p">)</span>
@@ -1257,16 +1258,16 @@
             <span class="n">coeffs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_project_degenerate</span><span class="p">(</span><span class="n">cp</span><span class="p">)</span>
             <span class="n">cp</span><span class="o">.</span><span class="n">canonical_coefficients</span> <span class="o">=</span> <span class="n">coeffs</span>
             <span class="n">cp</span><span class="o">.</span><span class="n">singularity_type</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">SingularityType</span><span class="o">.</span><span class="n">AIRY_1D</span>   <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="s1">&#39;cubic&#39;</span><span class="p">])</span>   <span class="o">&gt;</span> <span class="n">cub_thr</span> <span class="k">else</span>
-                <span class="n">SingularityType</span><span class="o">.</span><span class="n">PEARCEY</span>   <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="s1">&#39;quartic&#39;</span><span class="p">])</span>  <span class="o">&gt;</span> <span class="n">tol</span>     <span class="k">else</span>
+                <span class="n">SingularityType</span><span class="o">.</span><span class="n">AIRY_1D</span>   <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="s1">'cubic'</span><span class="p">])</span>   <span class="o">&gt;</span> <span class="n">cub_thr</span> <span class="k">else</span>
+                <span class="n">SingularityType</span><span class="o">.</span><span class="n">PEARCEY</span>   <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="s1">'quartic'</span><span class="p">])</span>  <span class="o">&gt;</span> <span class="n">tol</span>     <span class="k">else</span>
                 <span class="n">SingularityType</span><span class="o">.</span><span class="n">HIGHER_ORDER</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">coeffs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_project_degenerate</span><span class="p">(</span><span class="n">cp</span><span class="p">)</span>
             <span class="n">cp</span><span class="o">.</span><span class="n">canonical_coefficients</span> <span class="o">=</span> <span class="n">coeffs</span>
             <span class="n">cp</span><span class="o">.</span><span class="n">singularity_type</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">SingularityType</span><span class="o">.</span><span class="n">AIRY_2D</span>   <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="s1">&#39;cubic&#39;</span><span class="p">])</span>   <span class="o">&gt;</span> <span class="n">cub_thr</span> <span class="k">else</span>
-                <span class="n">SingularityType</span><span class="o">.</span><span class="n">PEARCEY</span>   <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="s1">&#39;quartic&#39;</span><span class="p">])</span>  <span class="o">&gt;</span> <span class="n">tol</span>     <span class="k">else</span>
+                <span class="n">SingularityType</span><span class="o">.</span><span class="n">AIRY_2D</span>   <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="s1">'cubic'</span><span class="p">])</span>   <span class="o">&gt;</span> <span class="n">cub_thr</span> <span class="k">else</span>
+                <span class="n">SingularityType</span><span class="o">.</span><span class="n">PEARCEY</span>   <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="s1">'quartic'</span><span class="p">])</span>  <span class="o">&gt;</span> <span class="n">tol</span>     <span class="k">else</span>
                 <span class="n">SingularityType</span><span class="o">.</span><span class="n">HIGHER_ORDER</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1275,16 +1276,16 @@
         <span class="k">return</span> <span class="n">cp</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_project_degenerate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Project D3 / D4 onto the null eigenvector to get canonical</span>
 <span class="sd">        coefficients.  Mirrors ``Analyzer._project_degenerate_coeffs``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">null_idx</span>  <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">cp</span><span class="o">.</span><span class="n">eigenvalues</span><span class="p">)))</span>
         <span class="n">v_null</span>    <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">eigenvectors</span><span class="p">[:,</span> <span class="n">null_idx</span><span class="p">]</span>
 
-        <span class="n">alpha</span>       <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,i,j,k-&gt;&#39;</span><span class="p">,</span>
+        <span class="n">alpha</span>       <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">'ijk,i,j,k-&gt;'</span><span class="p">,</span>
                                 <span class="n">cp</span><span class="o">.</span><span class="n">phase_d3</span><span class="p">,</span> <span class="n">v_null</span><span class="p">,</span> <span class="n">v_null</span><span class="p">,</span> <span class="n">v_null</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
-        <span class="n">gamma_coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijkl,i,j,k,l-&gt;&#39;</span><span class="p">,</span>
+        <span class="n">gamma_coeff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">'ijkl,i,j,k,l-&gt;'</span><span class="p">,</span>
                                 <span class="n">cp</span><span class="o">.</span><span class="n">phase_d4</span><span class="p">,</span>
                                 <span class="n">v_null</span><span class="p">,</span> <span class="n">v_null</span><span class="p">,</span> <span class="n">v_null</span><span class="p">,</span> <span class="n">v_null</span><span class="p">)</span> <span class="o">/</span> <span class="mf">6.0</span>
         <span class="n">quad_trans</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1294,9 +1295,9 @@
                 <span class="n">quad_trans</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">eigenvalues</span><span class="p">[</span><span class="n">non_null</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
 
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s1">&#39;cubic&#39;</span><span class="p">:</span>                <span class="n">alpha</span><span class="p">,</span>
-            <span class="s1">&#39;quartic&#39;</span><span class="p">:</span>              <span class="n">gamma_coeff</span><span class="p">,</span>
-            <span class="s1">&#39;quadratic_transverse&#39;</span><span class="p">:</span> <span class="n">quad_trans</span><span class="p">,</span>
+            <span class="s1">'cubic'</span><span class="p">:</span>                <span class="n">alpha</span><span class="p">,</span>
+            <span class="s1">'quartic'</span><span class="p">:</span>              <span class="n">gamma_coeff</span><span class="p">,</span>
+            <span class="s1">'quadratic_transverse'</span><span class="p">:</span> <span class="n">quad_trans</span><span class="p">,</span>
         <span class="p">}</span>
 
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
@@ -1306,7 +1307,7 @@
 <div class="viewcode-block" id="PropagatorBridge">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.PropagatorBridge">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PropagatorBridge</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the semi-classical propagator  u(x, t) = [e^{itP} u_0](x).</span>
 
 <span class="sd">    Uses PseudoDifferentialOperator.exponential_symbol(t) to build the</span>
@@ -1322,7 +1323,7 @@
 <span class="sd">        Asymptotic order for exp(tP).</span>
 <span class="sd">    **bridge_kwargs</span>
 <span class="sd">        Forwarded to PsiOpFIOBridge.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1344,9 +1345,9 @@
         <span class="n">x_grid</span>       <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">u0_phase_sym</span> <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
         <span class="n">u0_amp_sym</span>   <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
-        <span class="n">mode</span>         <span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;kn&#39;</span><span class="p">,</span>
+        <span class="n">mode</span>         <span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'kn'</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute u(x, t) = [e^{itP} u_0](x) over x_grid.</span>
 
 <span class="sd">        Parameters</span>
@@ -1355,12 +1356,12 @@
 <span class="sd">        x_grid : np.ndarray Spatial evaluation grid.</span>
 <span class="sd">        u0_phase_sym : sp.Expr   Phase of u_0: S_0(y).</span>
 <span class="sd">        u0_amp_sym   : sp.Expr   Amplitude of u_0: a_0(y).</span>
-<span class="sd">        mode : str          Quantization scheme (&#39;kn&#39; or &#39;weyl&#39;).</span>
+<span class="sd">        mode : str          Quantization scheme ('kn' or 'weyl').</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        np.ndarray of complex</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">exp_sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">exponential_symbol</span><span class="p">(</span>
             <span class="n">t</span>     <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">I</span> <span class="o">*</span> <span class="n">t</span><span class="p">,</span>
             <span class="n">order</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exp_order</span><span class="p">,</span>
@@ -1369,7 +1370,7 @@
         <span class="n">exp_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
             <span class="n">expr</span>   <span class="o">=</span> <span class="n">exp_sym</span><span class="p">,</span>
             <span class="n">vars_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
-            <span class="n">mode</span>   <span class="o">=</span> <span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
+            <span class="n">mode</span>   <span class="o">=</span> <span class="s1">'symbol'</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">bridge</span> <span class="o">=</span> <span class="n">PsiOpFIOBridge</span><span class="p">(</span><span class="n">exp_op</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lam</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">bridge_kwargs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">bridge</span><span class="o">.</span><span class="n">evaluate_grid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">u0_phase_sym</span><span class="p">,</span> <span class="n">u0_amp_sym</span><span class="p">)</span></div>
@@ -1383,7 +1384,7 @@
 <div class="viewcode-block" id="CompositionBridge">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.CompositionBridge">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CompositionBridge</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the composition P∘Q and evaluate its action on a WKB state.</span>
 
 <span class="sd">    The composed symbol is obtained via PseudoDifferentialOperator.compose_asymptotic(),</span>
@@ -1396,10 +1397,10 @@
 <span class="sd">    comp_order : int</span>
 <span class="sd">        Asymptotic composition order.</span>
 <span class="sd">    mode : str</span>
-<span class="sd">        Quantization scheme (&#39;kn&#39; or &#39;weyl&#39;).</span>
+<span class="sd">        Quantization scheme ('kn' or 'weyl').</span>
 <span class="sd">    **bridge_kwargs</span>
 <span class="sd">        Forwarded to PsiOpFIOBridge.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1407,15 +1408,15 @@
         <span class="n">Q</span>           <span class="p">:</span> <span class="n">PseudoDifferentialOperator</span><span class="p">,</span>
         <span class="n">lam</span>         <span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">50.0</span><span class="p">,</span>
         <span class="n">comp_order</span>  <span class="p">:</span> <span class="nb">int</span>   <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
-        <span class="n">mode</span>        <span class="p">:</span> <span class="nb">str</span>   <span class="o">=</span> <span class="s1">&#39;kn&#39;</span><span class="p">,</span>
+        <span class="n">mode</span>        <span class="p">:</span> <span class="nb">str</span>   <span class="o">=</span> <span class="s1">'kn'</span><span class="p">,</span>
         <span class="o">**</span><span class="n">bridge_kwargs</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="k">assert</span> <span class="n">P</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">Q</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="s2">&quot;P and Q must have the same spatial dimension.&quot;</span>
+        <span class="k">assert</span> <span class="n">P</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">Q</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="s2">"P and Q must have the same spatial dimension."</span>
         <span class="n">pq_sym</span> <span class="o">=</span> <span class="n">P</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">comp_order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">PQ</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
             <span class="n">expr</span>   <span class="o">=</span> <span class="n">pq_sym</span><span class="p">,</span>
             <span class="n">vars_x</span> <span class="o">=</span> <span class="n">P</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
-            <span class="n">mode</span>   <span class="o">=</span> <span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
+            <span class="n">mode</span>   <span class="o">=</span> <span class="s1">'symbol'</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bridge</span> <span class="o">=</span> <span class="n">PsiOpFIOBridge</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">PQ</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span> <span class="o">**</span><span class="n">bridge_kwargs</span><span class="p">)</span>
 
@@ -1427,7 +1428,7 @@
         <span class="n">u_phase_sym</span> <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
         <span class="n">u_amp_sym</span>   <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate ((P∘Q)u)(x) over the grid.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Evaluate ((P∘Q)u)(x) over the grid."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bridge</span><span class="o">.</span><span class="n">evaluate_grid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">u_phase_sym</span><span class="p">,</span> <span class="n">u_amp_sym</span><span class="p">)</span></div>
 </div>
 
@@ -1441,7 +1442,7 @@
 <span class="c1">#  solver.py (spectral, global):</span>
 <span class="c1">#</span>
 <span class="c1">#   WKBState          -- carries the WKB ansatz u ~ a(x)·exp(iλS(x)) and</span>
-<span class="c1">#                        exposes a callable suitable for PDESolver&#39;s</span>
+<span class="c1">#                        exposes a callable suitable for PDESolver's</span>
 <span class="c1">#                        initial_condition parameter.</span>
 <span class="c1">#</span>
 <span class="c1">#   SpectralSplitter  -- decomposes any numpy array into a low-frequency part</span>
@@ -1476,7 +1477,7 @@
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.ValidationReport">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ValidationReport</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Result of a CrossValidator run.</span>
 
 <span class="sd">    Attributes</span>
@@ -1503,7 +1504,7 @@
 <span class="sd">        Wavenumber grid corresponding to error_spectrum.</span>
 <span class="sd">    lam : float</span>
 <span class="sd">        Large parameter λ used in the bridge evaluation.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">x_grid</span>        <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="n">u_solver</span>      <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="n">u_bridge</span>      <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
@@ -1522,9 +1523,9 @@
 <div class="viewcode-block" id="WKBState">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.WKBState">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">WKBState</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Carry a WKB ansatz  u(x) ~ a(x) · exp(iλ S(x))  and expose it as a</span>
-<span class="sd">    numpy array or as a callable compatible with PDESolver&#39;s</span>
+<span class="sd">    numpy array or as a callable compatible with PDESolver's</span>
 <span class="sd">    ``initial_condition`` parameter.</span>
 
 <span class="sd">    Parameters</span>
@@ -1540,10 +1541,10 @@
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; x = sp.Symbol(&#39;x&#39;, real=True)</span>
+<span class="sd">    &gt;&gt;&gt; x = sp.Symbol('x', real=True)</span>
 <span class="sd">    &gt;&gt;&gt; state = WKBState(sp.exp(-x**2/2), x, x, lam=40.0)</span>
 <span class="sd">    &gt;&gt;&gt; solver.setup(..., initial_condition=state.as_callable())</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1558,21 +1559,21 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">lam</span>       <span class="o">=</span> <span class="n">lam</span>
 
         <span class="c1"># Pre-lambdify for fast repeated evaluation</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_amp_fn</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">var_x</span><span class="p">,</span> <span class="n">amp_sym</span><span class="p">,</span>   <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_phase_fn</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">var_x</span><span class="p">,</span> <span class="n">phase_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_amp_fn</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">var_x</span><span class="p">,</span> <span class="n">amp_sym</span><span class="p">,</span>   <span class="s1">'numpy'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_phase_fn</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">var_x</span><span class="p">,</span> <span class="n">phase_sym</span><span class="p">,</span> <span class="s1">'numpy'</span><span class="p">)</span>
 
     <span class="c1"># ── Public interface ───────────────────────────────────────────────────</span>
 
 <div class="viewcode-block" id="WKBState.to_array">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.WKBState.to_array">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">to_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Evaluate  u(x) = a(x) · exp(iλ S(x))  on ``x_grid``.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        np.ndarray of complex128, shape (len(x_grid),)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_amp_fn</span><span class="p">(</span><span class="n">x_grid</span><span class="p">),</span>   <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
         <span class="n">S</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_phase_fn</span><span class="p">(</span><span class="n">x_grid</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">lam</span> <span class="o">*</span> <span class="n">S</span><span class="p">)</span></div>
@@ -1581,13 +1582,13 @@
 <div class="viewcode-block" id="WKBState.as_callable">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.WKBState.as_callable">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">as_callable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Return a callable  f(x) -&gt; np.ndarray  suitable for</span>
 <span class="sd">        ``PDESolver.setup(initial_condition=f)``.</span>
 
 <span class="sd">        The callable ignores any second argument (time), so it works for</span>
 <span class="sd">        both stationary and time-dependent solvers.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_ic</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">_ic</span></div>
@@ -1596,24 +1597,24 @@
 <div class="viewcode-block" id="WKBState.wkb_phase_gradient">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.WKBState.wkb_phase_gradient">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">wkb_phase_gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return the local wavenumber  k(x) = λ · S&#39;(x)  on ``x_grid``.</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Return the local wavenumber  k(x) = λ · S'(x)  on ``x_grid``.</span>
 
 <span class="sd">        This is the dominant frequency of the WKB state at each point,</span>
 <span class="sd">        useful for choosing the SpectralSplitter cut-off.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">dS</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_sym</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">var_x</span><span class="p">)</span>
-        <span class="n">dS_fn</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">var_x</span><span class="p">,</span> <span class="n">dS</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="n">dS_fn</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">var_x</span><span class="p">,</span> <span class="n">dS</span><span class="p">,</span> <span class="s1">'numpy'</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lam</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">dS_fn</span><span class="p">(</span><span class="n">x_grid</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="WKBState.dominant_wavenumber">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.WKBState.dominant_wavenumber">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">dominant_wavenumber</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Return the median of |k(x)| over the grid — a single representative</span>
 <span class="sd">        wavenumber for use as ``k_cut`` in SpectralSplitter.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wkb_phase_gradient</span><span class="p">(</span><span class="n">x_grid</span><span class="p">))))</span></div>
 </div>
 
@@ -1622,7 +1623,7 @@
 <div class="viewcode-block" id="SpectralSplitter">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.SpectralSplitter">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SpectralSplitter</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Decompose a field into low-frequency and high-frequency parts using a</span>
 <span class="sd">    sharp spectral cutoff in Fourier space.</span>
 
@@ -1648,7 +1649,7 @@
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
 <span class="sd">    The split is lossless:  merge(split(u)) == u  to machine precision.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">k_cut</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span> <span class="o">=</span> <span class="n">x_grid</span>
@@ -1668,7 +1669,7 @@
 <div class="viewcode-block" id="SpectralSplitter.split">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.SpectralSplitter.split">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Decompose u into (u_low, u_high).</span>
 
 <span class="sd">        Parameters</span>
@@ -1678,7 +1679,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        u_low, u_high : both complex128, same shape as u.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">u_hat</span>      <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
         <span class="n">u_low_hat</span>  <span class="o">=</span> <span class="n">u_hat</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mask_low</span>
         <span class="n">u_high_hat</span> <span class="o">=</span> <span class="n">u_hat</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mask_high</span>
@@ -1688,24 +1689,24 @@
 <div class="viewcode-block" id="SpectralSplitter.merge">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.SpectralSplitter.merge">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">merge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u_low</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">u_high</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Reconstruct u = u_low + u_high.</span>
 
 <span class="sd">        This is simply element-wise addition; the method exists as an</span>
 <span class="sd">        explicit counterpart to split() to make the API symmetric.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">u_low</span> <span class="o">+</span> <span class="n">u_high</span></div>
 
 
 <div class="viewcode-block" id="SpectralSplitter.energy_ratio">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.SpectralSplitter.energy_ratio">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">energy_ratio</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Return (E_low / E_total, E_high / E_total) — spectral energy fractions.</span>
 
 <span class="sd">        Useful for choosing k_cut: a good cut puts most energy in u_low</span>
 <span class="sd">        (solvable spectrally) while the WKB oscillations live in u_high.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">u_hat</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
         <span class="n">E_tot</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u_hat</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
         <span class="n">E_low</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u_hat</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mask_low</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
@@ -1718,13 +1719,13 @@
 <div class="viewcode-block" id="SpectralSplitter.suggest_k_cut">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.SpectralSplitter.suggest_k_cut">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">suggest_k_cut</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">target_high_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.9</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Suggest a k_cut such that a fraction ``target_high_fraction`` of</span>
 <span class="sd">        the spectral energy lies in u_high.</span>
 
 <span class="sd">        Useful when the WKB state carries most of its energy at high k</span>
 <span class="sd">        and the split should isolate that regime cleanly.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">u_hat</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
         <span class="n">power</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u_hat</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
         <span class="n">E_tot</span>  <span class="o">=</span> <span class="n">power</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
@@ -1745,7 +1746,7 @@
 <div class="viewcode-block" id="SemiclassicalCorrector">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.SemiclassicalCorrector">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SemiclassicalCorrector</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Refine a PDESolver solution by replacing its high-frequency component</span>
 <span class="sd">    with the asymptotically more accurate WKB estimate from PsiOpFIOBridge.</span>
 
@@ -1769,7 +1770,7 @@
 <span class="sd">        Pre-configured SpectralSplitter with the desired k_cut.</span>
 <span class="sd">    bridge_kwargs : dict</span>
 <span class="sd">        Keyword arguments forwarded to PsiOpFIOBridge (lam, n_guesses, …).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1788,7 +1789,7 @@
         <span class="n">u_solver</span>    <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">wkb_state</span>   <span class="p">:</span> <span class="n">WKBState</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply one correction step.</span>
 
 <span class="sd">        Parameters</span>
@@ -1803,7 +1804,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        np.ndarray (complex128)</span>
 <span class="sd">            Corrected solution  u_low(solver) + u_high(bridge).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">u_low</span><span class="p">,</span> <span class="n">_</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">u_solver</span><span class="p">)</span>
 
         <span class="c1"># Re-evaluate the high-frequency part via the asymptotic bridge</span>
@@ -1825,11 +1826,11 @@
         <span class="n">u_solver</span>  <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">wkb_state</span> <span class="p">:</span> <span class="n">WKBState</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Return ‖u_corrected − u_solver‖ / ‖u_solver‖ — how much the</span>
 <span class="sd">        correction changes the solution.  Values &gt; 0.1 indicate that the</span>
-<span class="sd">        solver&#39;s high-frequency component has significant WKB error.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        solver's high-frequency component has significant WKB error.</span>
+<span class="sd">        """</span>
         <span class="n">u_corr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">correct</span><span class="p">(</span><span class="n">u_solver</span><span class="p">,</span> <span class="n">wkb_state</span><span class="p">)</span>
         <span class="n">norm</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">u_solver</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">norm</span> <span class="o">&lt;</span> <span class="mf">1e-30</span><span class="p">:</span>
@@ -1842,7 +1843,7 @@
 <div class="viewcode-block" id="CrossValidator">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.CrossValidator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CrossValidator</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compare a PDESolver solution against a PsiOpFIOBridge solution on the</span>
 <span class="sd">    same problem and produce a ValidationReport.</span>
 
@@ -1875,7 +1876,7 @@
 <span class="sd">    PDESolver is imported lazily inside run() to keep solver.py optional.</span>
 <span class="sd">    If solver.py is not on sys.path, CrossValidator.run() raises ImportError</span>
 <span class="sd">    with a clear message.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1889,8 +1890,8 @@
     <span class="p">):</span>
         <span class="k">if</span> <span class="n">lam</span> <span class="o">!=</span> <span class="n">wkb_state</span><span class="o">.</span><span class="n">lam</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;lam=</span><span class="si">{</span><span class="n">lam</span><span class="si">}</span><span class="s2"> does not match wkb_state.lam=</span><span class="si">{</span><span class="n">wkb_state</span><span class="o">.</span><span class="n">lam</span><span class="si">}</span><span class="s2">. &quot;</span>
-                <span class="s2">&quot;Using CrossValidator.lam for the bridge.&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"lam=</span><span class="si">{</span><span class="n">lam</span><span class="si">}</span><span class="s2"> does not match wkb_state.lam=</span><span class="si">{</span><span class="n">wkb_state</span><span class="o">.</span><span class="n">lam</span><span class="si">}</span><span class="s2">. "</span>
+                <span class="s2">"Using CrossValidator.lam for the bridge."</span><span class="p">,</span>
                 <span class="ne">UserWarning</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">op</span>            <span class="o">=</span> <span class="n">op</span>
@@ -1906,19 +1907,19 @@
 <div class="viewcode-block" id="CrossValidator.run">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.CrossValidator.run">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidationReport</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Execute both solvers and return a ValidationReport.</span>
 
 <span class="sd">        The PDESolver is used in *stationary* mode: it applies the operator</span>
 <span class="sd">        P to the WKB state u₀ directly via solve_stationary_psiOp(), which</span>
 <span class="sd">        calls psiop.right_inverse_asymptotic() internally.  For time-</span>
-<span class="sd">        dependent problems, set ``solver_kwargs[&#39;time_dependent&#39;] = True``</span>
+<span class="sd">        dependent problems, set ``solver_kwargs['time_dependent'] = True``</span>
 <span class="sd">        and supply Lt, Nt (not yet implemented here — raises NotImplementedError).</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        ValidationReport</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">u_bridge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_bridge</span><span class="p">()</span>
         <span class="n">u_solver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_solver</span><span class="p">()</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_report</span><span class="p">(</span><span class="n">u_solver</span><span class="p">,</span> <span class="n">u_bridge</span><span class="p">)</span></div>
@@ -1927,21 +1928,21 @@
 <div class="viewcode-block" id="CrossValidator.run_bridge_only">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.CrossValidator.run_bridge_only">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">run_bridge_only</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run PsiOpFIOBridge only and return the solution array.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Run PsiOpFIOBridge only and return the solution array."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_bridge</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="CrossValidator.run_solver_only">
 <a class="viewcode-back" href="../fio_bridge.html#fio_bridge.CrossValidator.run_solver_only">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">run_solver_only</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run PDESolver only and return the solution array.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Run PDESolver only and return the solution array."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_solver</span><span class="p">()</span></div>
 
 
     <span class="c1"># ── Private helpers ────────────────────────────────────────────────────</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_bridge</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate (Pu₀)(x) via the asymptotic bridge.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Evaluate (Pu₀)(x) via the asymptotic bridge."""</span>
         <span class="n">kw</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">lam</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lam</span><span class="p">,</span> <span class="n">n_guesses</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
                   <span class="n">xi_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">),</span> <span class="n">y_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">6.0</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">))</span>
         <span class="n">kw</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bridge_kwargs</span><span class="p">)</span>
@@ -1954,40 +1955,40 @@
 
         
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_solver</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply the operator P to u₀ via PDESolver.</span>
 
 <span class="sd">        Strategy: set up a first-order-in-time PDE  ∂ₜu = P[u], run for a</span>
 <span class="sd">        single infinitesimal time step dt, and return (u₁ − u₀)/dt ≈ P[u₀].</span>
 
 <span class="sd">        Requirements on the caller:</span>
-<span class="sd">          • The dominant wavenumber of the WKB state (lam·|S&#39;|) must be well</span>
-<span class="sd">            below the solver&#39;s Nyquist limit (π·Nx/Lx).  If lam is large,</span>
+<span class="sd">          • The dominant wavenumber of the WKB state (lam·|S'|) must be well</span>
+<span class="sd">            below the solver's Nyquist limit (π·Nx/Lx).  If lam is large,</span>
 <span class="sd">            reduce it or increase Nx via solver_kwargs.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">PDESolver</span><span class="p">,</span> <span class="n">psiOp</span>
         <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-                <span class="s2">&quot;CrossValidator.run() requires solver.py to be importable. &quot;</span>
-                <span class="s2">&quot;Add its directory to sys.path before calling run().&quot;</span>
+                <span class="s2">"CrossValidator.run() requires solver.py to be importable. "</span>
+                <span class="s2">"Add its directory to sys.path before calling run()."</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 
 <span class="w">        </span><span class="kn">import</span> <span class="n">sympy</span> <span class="k">as</span> <span class="n">_sp</span>
 
         <span class="n">x_sym</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">vars_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">t_sym</span><span class="p">,</span> <span class="n">u_func</span> <span class="o">=</span> <span class="n">_sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;t&#39;</span><span class="p">),</span> <span class="n">_sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">)</span>
+        <span class="n">t_sym</span><span class="p">,</span> <span class="n">u_func</span> <span class="o">=</span> <span class="n">_sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'t'</span><span class="p">),</span> <span class="n">_sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s1">'u'</span><span class="p">)</span>
 
         <span class="c1"># Build  ∂ₜu = psiOp(p(ξ/lam), u)  so that when the solver evaluates</span>
         <span class="c1"># the symbol at physical wavenumber k = lam·k₀ it gets p(k₀), matching</span>
-        <span class="c1"># the bridge&#39;s stationary-phase convention where ξ_c = S&#39;(x) = k₀.</span>
+        <span class="c1"># the bridge's stationary-phase convention where ξ_c = S'(x) = k₀.</span>
         <span class="c1"># Identify the frequency symbol in the operator</span>
         <span class="n">free_syms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span>
         <span class="n">spatial_syms</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">vars_x</span><span class="p">)</span>
         <span class="c1"># The frequency symbol is the one that is not a spatial variable</span>
         <span class="n">freq_sym_candidates</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">free_syms</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">spatial_syms</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">freq_sym_candidates</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot automatically identify the frequency symbol.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Cannot automatically identify the frequency symbol."</span><span class="p">)</span>
         <span class="n">freq_sym</span> <span class="o">=</span> <span class="n">freq_sym_candidates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         
         <span class="c1"># Rescale the symbol: p(ξ/λ)</span>
@@ -2029,7 +2030,7 @@
         <span class="n">u_solver</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">u_bridge</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValidationReport</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute error metrics and build the ValidationReport.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Compute error metrics and build the ValidationReport."""</span>
         <span class="n">diff</span>       <span class="o">=</span> <span class="n">u_solver</span> <span class="o">-</span> <span class="n">u_bridge</span>
         <span class="n">abs_err</span>    <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span>
         <span class="n">scale</span>      <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u_bridge</span><span class="p">))</span> <span class="o">+</span> <span class="mf">1e-30</span>
@@ -2067,7 +2068,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">lambdas</span> <span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ValidationReport</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Run the cross-validation for a range of λ values and return the</span>
 <span class="sd">        list of ValidationReports.</span>
 
@@ -2082,7 +2083,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        list[ValidationReport], one per λ value.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">reports</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">lv</span> <span class="ow">in</span> <span class="n">lambdas</span><span class="p">:</span>
             <span class="n">cv</span> <span class="o">=</span> <span class="n">CrossValidator</span><span class="p">(</span>
@@ -2108,34 +2109,34 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_report</span><span class="p">(</span>
         <span class="n">report</span>  <span class="p">:</span> <span class="n">ValidationReport</span><span class="p">,</span>
-        <span class="n">title</span>   <span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Cross-validation: solver vs asymptotic bridge&quot;</span><span class="p">,</span>
+        <span class="n">title</span>   <span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Cross-validation: solver vs asymptotic bridge"</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Plot a ValidationReport: solution comparison, error profile,</span>
 <span class="sd">        and error spectrum side by side.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
         <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 
         <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">u_bridge</span><span class="p">),</span> <span class="s1">&#39;k-&#39;</span><span class="p">,</span>
-                <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Bridge (Re)&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">u_solver</span><span class="p">),</span> <span class="s1">&#39;r--&#39;</span><span class="p">,</span>
-                <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Solver (Re)&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Solution comparison&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;$x$&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">u_bridge</span><span class="p">),</span> <span class="s1">'k-'</span><span class="p">,</span>
+                <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">'Bridge (Re)'</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">u_solver</span><span class="p">),</span> <span class="s1">'r--'</span><span class="p">,</span>
+                <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">'Solver (Re)'</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Solution comparison'</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">'$x$'</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
 
         <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">report</span><span class="o">.</span><span class="n">rel_error</span> <span class="o">+</span> <span class="mf">1e-16</span><span class="p">,</span> <span class="s1">&#39;b-&#39;</span><span class="p">,</span>
-                    <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Rel. error&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">wkb_threshold</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s1">&#39;:&#39;</span><span class="p">,</span>
-                   <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;$3/\lambda$  threshold&#39;</span><span class="p">)</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s1">&#39;VALID&#39;</span> <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">wkb_valid</span> <span class="k">else</span> <span class="s1">&#39;INVALID&#39;</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Relative error  [WKB </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;$x$&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">report</span><span class="o">.</span><span class="n">rel_error</span> <span class="o">+</span> <span class="mf">1e-16</span><span class="p">,</span> <span class="s1">'b-'</span><span class="p">,</span>
+                    <span class="n">label</span><span class="o">=</span><span class="s1">'Rel. error'</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">wkb_threshold</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'k'</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s1">':'</span><span class="p">,</span>
+                   <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">'$3/\lambda$  threshold'</span><span class="p">)</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s1">'VALID'</span> <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">wkb_valid</span> <span class="k">else</span> <span class="s1">'INVALID'</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">'Relative error  [WKB </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s1">]'</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">'$x$'</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
 
@@ -2144,16 +2145,16 @@
         <span class="n">k_pos</span>  <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">k_grid</span>
         <span class="n">k_sort</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">k_pos</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">semilogy</span><span class="p">(</span><span class="n">k_pos</span><span class="p">[</span><span class="n">k_sort</span><span class="p">],</span>
-                    <span class="n">report</span><span class="o">.</span><span class="n">error_spectrum</span><span class="p">[</span><span class="n">k_sort</span><span class="p">]</span> <span class="o">+</span> <span class="mf">1e-16</span><span class="p">,</span> <span class="s1">&#39;m-&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Error spectrum  |FFT(solver − bridge)| / N&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;$k$ (rad/unit)&#39;</span><span class="p">)</span>
+                    <span class="n">report</span><span class="o">.</span><span class="n">error_spectrum</span><span class="p">[</span><span class="n">k_sort</span><span class="p">]</span> <span class="o">+</span> <span class="mf">1e-16</span><span class="p">,</span> <span class="s1">'m-'</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'Error spectrum  |FFT(solver − bridge)| / N'</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">'$k$ (rad/unit)'</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
 
         <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
-            <span class="sa">r</span><span class="s2">&quot;$\lambda$&quot;</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;=</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">lam</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">,  &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;max rel err=</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">max_rel_error</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">,  &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;WKB </span><span class="si">{</span><span class="s1">&#39;✓&#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">report</span><span class="o">.</span><span class="n">wkb_valid</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;✗&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="sa">r</span><span class="s2">"$\lambda$"</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">"=</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">lam</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">,  "</span>
+            <span class="sa">f</span><span class="s2">"max rel err=</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">max_rel_error</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">,  "</span>
+            <span class="sa">f</span><span class="s2">"WKB </span><span class="si">{</span><span class="s1">'✓'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">report</span><span class="o">.</span><span class="n">wkb_valid</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'✗'</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
             <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
@@ -2167,31 +2168,31 @@
         <span class="n">reports</span> <span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ValidationReport</span><span class="p">],</span>
         <span class="n">lambdas</span> <span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Plot max relative error vs λ on a log-log scale, with a vertical</span>
 <span class="sd">        line at the λ-threshold where WKB validity flips.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
         <span class="n">errors</span>   <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">max_rel_error</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">reports</span><span class="p">]</span>
         <span class="n">valid</span>    <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">wkb_valid</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">reports</span><span class="p">]</span>
 
         <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
-        <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;tab:green&#39;</span> <span class="k">if</span> <span class="n">v</span> <span class="k">else</span> <span class="s1">&#39;tab:red&#39;</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">valid</span><span class="p">]</span>
+        <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'tab:green'</span> <span class="k">if</span> <span class="n">v</span> <span class="k">else</span> <span class="s1">'tab:red'</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">valid</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lambdas</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
             <span class="n">ax</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">lambdas</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">],</span> <span class="n">errors</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">],</span>
-                      <span class="n">color</span><span class="o">=</span><span class="s1">&#39;steelblue&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">)</span>
+                      <span class="n">color</span><span class="o">=</span><span class="s1">'steelblue'</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">lambdas</span><span class="p">,</span> <span class="n">errors</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="n">colors</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
-                   <span class="n">label</span><span class="o">=</span><span class="s1">&#39;green=WKB valid, red=invalid&#39;</span><span class="p">)</span>
+                   <span class="n">label</span><span class="o">=</span><span class="s1">'green=WKB valid, red=invalid'</span><span class="p">)</span>
 
         <span class="c1"># Theoretical slope</span>
         <span class="n">lref</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">lambdas</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">lambdas</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])])</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">lref</span><span class="p">,</span> <span class="n">errors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">lref</span> <span class="o">/</span> <span class="n">lambdas</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
-                  <span class="s1">&#39;k:&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;slope $-1$&#39;</span><span class="p">)</span>
+                  <span class="s1">'k:'</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">'slope $-1$'</span><span class="p">)</span>
 
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;$\lambda$&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Max relative error (solver vs bridge)&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;Cross-validation $\lambda$-sweep&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">'$\lambda$'</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">'Max relative error (solver vs bridge)'</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s1">'Cross-validation $\lambda$-sweep'</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
         <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>

@@ -49,6 +49,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../metric_catalogue.html">metric_catalogue</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../nufft.html">nufft</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../propagator.html">propagator</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
@@ -85,18 +86,18 @@
   <h1>Source code for physics</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
-<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 <span class="c1"># you may not use this file except in compliance with the License.</span>
 <span class="c1"># You may obtain a copy of the License at</span>
 <span class="c1">#</span>
 <span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
 <span class="c1">#</span>
 <span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 <span class="sd">physics.py — Lagrangian and Hamiltonian toolkit: Legendre transforms &amp; symbolic PDEs</span>
 <span class="sd">============================================================================================</span>
 
@@ -146,7 +147,7 @@
 <span class="sd">.. [2] Rockafellar, R. T.  *Convex Analysis*, Princeton University Press, 1970.  Chapter 12: Conjugate Functions.</span>
 <span class="sd">.. [3] Evans, L. C.  *Partial Differential Equations*, American Mathematical Society, 2010 (2nd ed.).  §4.3: Hamilton–Jacobi Equations.</span>
 <span class="sd">.. [4] Folland, G. B.  *Quantum Field Theory: A Tourist Guide for Mathematicians*, American Mathematical Society, 2008.  §1: Legendre Transform and Quantisation.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_math</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
@@ -174,18 +175,18 @@
 <div class="viewcode-block" id="LagrangianHamiltonianConverter">
 <a class="viewcode-back" href="../physics.html#physics.LagrangianHamiltonianConverter">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">LagrangianHamiltonianConverter</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Bidirectional converter between Lagrangian and Hamiltonian (Legendre transform),</span>
 <span class="sd">    with optional Legendre–Fenchel (convex conjugate) support and robust numeric fallback.</span>
 
 <span class="sd">    Main API:</span>
 <span class="sd">      L_to_H(L_expr, coords, u, p_vars, return_symbol_only=False, force=False,</span>
-<span class="sd">             method=&quot;legendre&quot;, fenchel_opts=None)</span>
+<span class="sd">             method="legendre", fenchel_opts=None)</span>
 
-<span class="sd">        - method: &quot;legendre&quot; (default), &quot;fenchel_symbolic&quot;, &quot;fenchel_numeric&quot;</span>
-<span class="sd">        - If method == &quot;fenchel_numeric&quot; returns (H_repr, xi_vars, numeric_callable)</span>
+<span class="sd">        - method: "legendre" (default), "fenchel_symbolic", "fenchel_numeric"</span>
+<span class="sd">        - If method == "fenchel_numeric" returns (H_repr, xi_vars, numeric_callable)</span>
 <span class="sd">          otherwise returns (H_expr, xi_vars)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">_numeric_cache</span> <span class="o">=</span> <span class="p">{}</span>
 
@@ -194,10 +195,10 @@
     <span class="c1"># --------------------</span>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_is_quadratic_in_p</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Robust test: returns True only if L_expr is polynomial of degree ≤ 2 in each p_var.</span>
 <span class="sd">        Falls back to False for non-polynomial expressions (Abs, sqrt, etc.).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">p_vars</span><span class="p">:</span>
             <span class="c1"># Quick test: is L polynomial in p?</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">L_expr</span><span class="o">.</span><span class="n">is_polynomial</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
@@ -212,16 +213,16 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_quadratic_legendre</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Analytic Legendre transform for quadratic L: L = 1/2 p^T A p + b^T p + c</span>
 <span class="sd">        Returns (H_expr, sol_map) and raises ValueError if Hessian singular.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">A</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">([[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_i</span><span class="p">),</span> <span class="n">p_j</span><span class="p">)</span> <span class="k">for</span> <span class="n">p_j</span> <span class="ow">in</span> <span class="n">p_vars</span><span class="p">]</span> <span class="k">for</span> <span class="n">p_i</span> <span class="ow">in</span> <span class="n">p_vars</span><span class="p">])</span>
         <span class="n">grad</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">([</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">p_vars</span><span class="p">])</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">A_inv</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">inv</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Quadratic analytic path: Hessian A is singular (non-invertible).&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Quadratic analytic path: Hessian A is singular (non-invertible)."</span><span class="p">)</span>
         <span class="n">subs_zero</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">p_vars</span><span class="p">}</span>
         <span class="n">b_vec</span> <span class="o">=</span> <span class="n">grad</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">subs_zero</span><span class="p">)</span>
         <span class="n">xi_vec</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">)</span>
@@ -234,13 +235,13 @@
     <span class="c1"># Numeric Legendre-Fenchel helpers</span>
     <span class="c1"># ----------------------------</span>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_legendre_fenchel_1d_numeric_callable</span><span class="p">(</span><span class="n">L_func</span><span class="p">,</span> <span class="n">p_bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">),</span> <span class="n">n_grid</span><span class="o">=</span><span class="mi">2001</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_legendre_fenchel_1d_numeric_callable</span><span class="p">(</span><span class="n">L_func</span><span class="p">,</span> <span class="n">p_bounds</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">),</span> <span class="n">n_grid</span><span class="o">=</span><span class="mi">2001</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span>
                                              <span class="n">scipy_multistart</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Return a callable H_numeric(xi) = sup_p (xi*p - L(p)) for 1D L_func(p).</span>
 <span class="sd">        - L_func: callable p -&gt; L(p)</span>
-<span class="sd">        - mode: &quot;auto&quot; | &quot;scipy&quot; | &quot;grid&quot;</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        - mode: "auto" | "scipy" | "grid"</span>
+<span class="sd">        """</span>
         <span class="n">pmin</span><span class="p">,</span> <span class="n">pmax</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">_compute_by_grid</span><span class="p">(</span><span class="n">xi</span><span class="p">):</span>
@@ -263,7 +264,7 @@
             <span class="n">inits</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">pmin</span><span class="p">,</span> <span class="n">pmax</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">scipy_multistart</span><span class="p">)))</span>
             <span class="k">for</span> <span class="n">x0</span> <span class="ow">in</span> <span class="n">inits</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">res</span> <span class="o">=</span> <span class="n">_optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">negS</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x0</span><span class="p">)],</span> <span class="n">bounds</span><span class="o">=</span><span class="p">[(</span><span class="n">pmin</span><span class="p">,</span> <span class="n">pmax</span><span class="p">)],</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">)</span>
+                    <span class="n">res</span> <span class="o">=</span> <span class="n">_optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">negS</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x0</span><span class="p">)],</span> <span class="n">bounds</span><span class="o">=</span><span class="p">[(</span><span class="n">pmin</span><span class="p">,</span> <span class="n">pmax</span><span class="p">)],</span> <span class="n">method</span><span class="o">=</span><span class="s2">"L-BFGS-B"</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
                         <span class="n">pstar</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
                         <span class="n">sval</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">xi</span> <span class="o">*</span> <span class="n">pstar</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="n">L_func</span><span class="p">(</span><span class="n">pstar</span><span class="p">)))</span>
@@ -276,7 +277,7 @@
                 <span class="k">return</span> <span class="n">_compute_by_grid</span><span class="p">(</span><span class="n">xi</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">best_val</span><span class="p">,</span> <span class="n">best_p</span>
 
-        <span class="n">compute</span> <span class="o">=</span> <span class="n">_compute_by_scipy</span> <span class="k">if</span> <span class="p">(</span><span class="n">_HAS_SCIPY</span> <span class="ow">and</span> <span class="n">mode</span> <span class="o">!=</span> <span class="s2">&quot;grid&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">_compute_by_grid</span>
+        <span class="n">compute</span> <span class="o">=</span> <span class="n">_compute_by_scipy</span> <span class="k">if</span> <span class="p">(</span><span class="n">_HAS_SCIPY</span> <span class="ow">and</span> <span class="n">mode</span> <span class="o">!=</span> <span class="s2">"grid"</span><span class="p">)</span> <span class="k">else</span> <span class="n">_compute_by_grid</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">H_numeric</span><span class="p">(</span><span class="n">xi_in</span><span class="p">):</span>
             <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">xi_in</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
@@ -291,13 +292,13 @@
         <span class="k">return</span> <span class="n">H_numeric</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_legendre_fenchel_nd_numeric_callable</span><span class="p">(</span><span class="n">L_func</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">p_bounds</span><span class="p">,</span> <span class="n">n_grid_per_dim</span><span class="o">=</span><span class="mi">41</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_legendre_fenchel_nd_numeric_callable</span><span class="p">(</span><span class="n">L_func</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">p_bounds</span><span class="p">,</span> <span class="n">n_grid_per_dim</span><span class="o">=</span><span class="mi">41</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span>
                                               <span class="n">scipy_multistart</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">multistart_restarts</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Return callable H_numeric(xi_vector) approximating sup_p (xi·p - L(p)) for dim&gt;=2.</span>
 <span class="sd">        - L_func: callable p_vector -&gt; L(p)</span>
 <span class="sd">        - p_bounds: tuple/list of per-dimension bounds</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">pmin_list</span><span class="p">,</span> <span class="n">pmax_list</span> <span class="o">=</span> <span class="n">p_bounds</span>
         <span class="n">pmin</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">pmin_list</span><span class="p">]</span>
         <span class="n">pmax</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">pmax_list</span><span class="p">]</span>
@@ -335,7 +336,7 @@
             <span class="k">for</span> <span class="n">x0</span> <span class="ow">in</span> <span class="n">inits</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">res</span> <span class="o">=</span> <span class="n">_optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">negS</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="nb">tuple</span><span class="p">((</span><span class="n">pmin</span><span class="p">[</span><span class="n">d</span><span class="p">],</span> <span class="n">pmax</span><span class="p">[</span><span class="n">d</span><span class="p">])</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)),</span>
-                                             <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">)</span>
+                                             <span class="n">method</span><span class="o">=</span><span class="s2">"L-BFGS-B"</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
                         <span class="n">pstar</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
                         <span class="n">sval</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">xi_vec</span><span class="p">,</span> <span class="n">pstar</span><span class="p">)</span> <span class="o">-</span> <span class="n">L_func</span><span class="p">(</span><span class="n">pstar</span><span class="p">))</span>
@@ -348,7 +349,7 @@
                 <span class="k">return</span> <span class="n">compute_by_grid</span><span class="p">(</span><span class="n">xi_vec</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">best_val</span><span class="p">,</span> <span class="n">best_p</span>
 
-        <span class="n">compute</span> <span class="o">=</span> <span class="n">compute_by_scipy</span> <span class="k">if</span> <span class="p">(</span><span class="n">_HAS_SCIPY</span> <span class="ow">and</span> <span class="n">mode</span> <span class="o">!=</span> <span class="s2">&quot;grid&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">compute_by_grid</span>
+        <span class="n">compute</span> <span class="o">=</span> <span class="n">compute_by_scipy</span> <span class="k">if</span> <span class="p">(</span><span class="n">_HAS_SCIPY</span> <span class="ow">and</span> <span class="n">mode</span> <span class="o">!=</span> <span class="s2">"grid"</span><span class="p">)</span> <span class="k">else</span> <span class="n">compute_by_grid</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">H_numeric</span><span class="p">(</span><span class="n">xi_in</span><span class="p">):</span>
             <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">xi_in</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
@@ -371,35 +372,35 @@
 <a class="viewcode-back" href="../physics.html#physics.LagrangianHamiltonianConverter.L_to_H">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">L_to_H</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">,</span> <span class="n">return_symbol_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-               <span class="n">method</span><span class="o">=</span><span class="s2">&quot;legendre&quot;</span><span class="p">,</span> <span class="n">fenchel_opts</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+               <span class="n">method</span><span class="o">=</span><span class="s2">"legendre"</span><span class="p">,</span> <span class="n">fenchel_opts</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Convert L(x,u,p) -&gt; H(x,u,xi) with options for generalized Legendre (Fenchel).</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">          - method: &quot;legendre&quot; (default), &quot;fenchel_symbolic&quot;, &quot;fenchel_numeric&quot;</span>
+<span class="sd">          - method: "legendre" (default), "fenchel_symbolic", "fenchel_numeric"</span>
 <span class="sd">          - fenchel_opts: dict with options for numeric fenchel</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
+            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
         <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'eta'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D dimensions are supported.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Only 1D and 2D dimensions are supported."</span><span class="p">)</span>
 
         <span class="c1"># Quadratic fast-path (symbolic)</span>
-        <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;legendre&quot;</span><span class="p">,</span> <span class="s2">&quot;fenchel_symbolic&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_is_quadratic_in_p</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"legendre"</span><span class="p">,</span> <span class="s2">"fenchel_symbolic"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_is_quadratic_in_p</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">H_expr</span><span class="p">,</span> <span class="n">sol</span> <span class="o">=</span> <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_quadratic_legendre</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">return_symbol_only</span><span class="p">:</span>
                     <span class="n">H_expr</span> <span class="o">=</span> <span class="n">H_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span>
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span> <span class="ow">and</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;legendre&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span> <span class="ow">and</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"legendre"</span><span class="p">:</span>
                     <span class="k">raise</span>
 
         <span class="c1"># CLASSICAL LEGENDRE</span>
-        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;legendre&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"legendre"</span><span class="p">:</span>
             <span class="n">H_p</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">H_p</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">)</span>
@@ -408,15 +409,15 @@
                 <span class="n">det_H</span> <span class="o">=</span> <span class="kc">None</span>
 
             <span class="k">if</span> <span class="n">det_H</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">det_H</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Legendre transform not invertible: Hessian singular. Use force=True or Fenchel method.&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Legendre transform not invertible: Hessian singular. Use force=True or Fenchel method."</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">det_H</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to verify Hessian determinant symbolically. Use force=True to attempt solve().&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Unable to verify Hessian determinant symbolically. Use force=True to attempt solve()."</span><span class="p">)</span>
 
             <span class="n">eqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)]</span>
             <span class="n">sol_list</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">,</span> <span class="nb">dict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">sol_list</span><span class="p">:</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to solve symbolic Legendre relations. Use force=True or Fenchel fallback.&quot;</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Unable to solve symbolic Legendre relations. Use force=True or Fenchel fallback."</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">sol_list</span><span class="p">:</span>
                 <span class="n">sol</span> <span class="o">=</span> <span class="n">sol_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">p_vars</span><span class="p">):</span>
@@ -426,22 +427,22 @@
                 <span class="k">if</span> <span class="n">return_symbol_only</span><span class="p">:</span>
                     <span class="n">H_expr</span> <span class="o">=</span> <span class="n">H_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Legendre inversion failed even with solve().&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Legendre inversion failed even with solve()."</span><span class="p">)</span>
 
         <span class="c1"># FENCHEL: symbolic attempt</span>
         <span class="c1"># -----------------------------------------------------</span>
         <span class="c1">#  Prevent symbolic Fenchel when L is non-differentiable</span>
         <span class="c1"># -----------------------------------------------------</span>
-        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;fenchel_symbolic&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"fenchel_symbolic"</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">L_expr</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Abs</span><span class="p">)</span> <span class="ow">or</span> <span class="n">L_expr</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">sign</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
                 <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">sign</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">Abs</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">p_vars</span>
             <span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Symbolic Fenchel not possible for nonsmooth L (Abs, sign). &quot;</span>
-                    <span class="s2">&quot;Use method=&#39;fenchel_numeric&#39; instead.&quot;</span>
+                    <span class="s2">"Symbolic Fenchel not possible for nonsmooth L (Abs, sign). "</span>
+                    <span class="s2">"Use method='fenchel_numeric' instead."</span>
                 <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;fenchel_symbolic&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"fenchel_symbolic"</span><span class="p">:</span>
             <span class="n">eqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">L_expr</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)]</span>
             <span class="n">sol_list</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">p_vars</span><span class="p">,</span> <span class="nb">dict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">sol_list</span><span class="p">:</span>
@@ -455,26 +456,26 @@
                 <span class="k">if</span> <span class="n">return_symbol_only</span><span class="p">:</span>
                     <span class="n">H_candidates</span> <span class="o">=</span> <span class="n">H_candidates</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">H_candidates</span><span class="p">,</span> <span class="n">xi_vars</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Symbolic Fenchel conjugate not found; use method=&#39;fenchel_numeric&#39; for numeric computation.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Symbolic Fenchel conjugate not found; use method='fenchel_numeric' for numeric computation."</span><span class="p">)</span>
 
         <span class="c1"># FENCHEL: numeric path</span>
-        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;fenchel_numeric&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"fenchel_numeric"</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">fenchel_opts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">fenchel_opts</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">p_bounds</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;p_bounds&quot;</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">))</span>
-                <span class="n">n_grid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_grid&quot;</span><span class="p">,</span> <span class="mi">2001</span><span class="p">))</span>
-                <span class="n">mode</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">)</span>
-                <span class="n">scipy_multistart</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scipy_multistart&quot;</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+                <span class="n">p_bounds</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"p_bounds"</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">))</span>
+                <span class="n">n_grid</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"n_grid"</span><span class="p">,</span> <span class="mi">2001</span><span class="p">))</span>
+                <span class="n">mode</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mode"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">)</span>
+                <span class="n">scipy_multistart</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"scipy_multistart"</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
 
                 <span class="c1"># Build numeric L_func (try lambdify)</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">p_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">],),</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+                    <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">p_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">],),</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">"numpy"</span><span class="p">)</span>
                     <span class="k">def</span><span class="w"> </span><span class="nf">L_func_scalar</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
                         <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_lamb</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
                 <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                     <span class="k">try</span><span class="p">:</span>
-                        <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">p_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+                        <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">p_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">"numpy"</span><span class="p">)</span>
                         <span class="k">def</span><span class="w"> </span><span class="nf">L_func_scalar</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
                             <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_lamb</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
                     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
@@ -485,27 +486,27 @@
                     <span class="n">L_func_scalar</span><span class="p">,</span> <span class="n">p_bounds</span><span class="o">=</span><span class="n">p_bounds</span><span class="p">,</span> <span class="n">n_grid</span><span class="o">=</span><span class="n">n_grid</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
                     <span class="n">scipy_multistart</span><span class="o">=</span><span class="n">scipy_multistart</span>
                 <span class="p">)</span>
-                <span class="n">H_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s2">&quot;H_numeric&quot;</span><span class="p">)</span>
+                <span class="n">H_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s2">"H_numeric"</span><span class="p">)</span>
                 <span class="n">H_repr</span> <span class="o">=</span> <span class="n">H_func</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
                 <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_numeric_cache</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">H_repr</span><span class="p">)]</span> <span class="o">=</span> <span class="n">H_numeric</span>
                 <span class="k">return</span> <span class="n">H_repr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">H_numeric</span>
 
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># dim == 2</span>
-                <span class="n">p_bounds</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;p_bounds&quot;</span><span class="p">,</span> <span class="p">[(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)])</span>
-                <span class="n">n_grid_per_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n_grid_per_dim&quot;</span><span class="p">,</span> <span class="mi">41</span><span class="p">))</span>
-                <span class="n">mode</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">)</span>
-                <span class="n">scipy_multistart</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scipy_multistart&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span>
-                <span class="n">multistart_restarts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;multistart_restarts&quot;</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+                <span class="n">p_bounds</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"p_bounds"</span><span class="p">,</span> <span class="p">[(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)])</span>
+                <span class="n">n_grid_per_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"n_grid_per_dim"</span><span class="p">,</span> <span class="mi">41</span><span class="p">))</span>
+                <span class="n">mode</span> <span class="o">=</span> <span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mode"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">)</span>
+                <span class="n">scipy_multistart</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"scipy_multistart"</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span>
+                <span class="n">multistart_restarts</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fenchel_opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"multistart_restarts"</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
 
                 <span class="n">f_lamb</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">p_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p_vars</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+                    <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">p_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p_vars</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">"numpy"</span><span class="p">)</span>
                     <span class="k">def</span><span class="w"> </span><span class="nf">L_func_nd</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
                         <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_lamb</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span>
                 <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                     <span class="k">try</span><span class="p">:</span>
-                        <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">p_vars</span><span class="p">,),</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
+                        <span class="n">f_lamb</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">p_vars</span><span class="p">,),</span> <span class="n">L_expr</span><span class="p">,</span> <span class="s2">"numpy"</span><span class="p">)</span>
                         <span class="k">def</span><span class="w"> </span><span class="nf">L_func_nd</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
                             <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_lamb</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">p</span><span class="p">)))</span>
                     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
@@ -518,37 +519,37 @@
                     <span class="n">n_grid_per_dim</span><span class="o">=</span><span class="n">n_grid_per_dim</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
                     <span class="n">scipy_multistart</span><span class="o">=</span><span class="n">scipy_multistart</span><span class="p">,</span> <span class="n">multistart_restarts</span><span class="o">=</span><span class="n">multistart_restarts</span>
                 <span class="p">)</span>
-                <span class="n">H_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s2">&quot;H_numeric&quot;</span><span class="p">)</span>
+                <span class="n">H_func</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s2">"H_numeric"</span><span class="p">)</span>
                 <span class="n">H_repr</span> <span class="o">=</span> <span class="n">H_func</span><span class="p">(</span><span class="o">*</span><span class="n">xi_vars</span><span class="p">)</span>
                 <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">_numeric_cache</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">H_repr</span><span class="p">)]</span> <span class="o">=</span> <span class="n">H_numeric</span>
                 <span class="k">return</span> <span class="n">H_repr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">H_numeric</span>
 
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown method &#39;</span><span class="si">{}</span><span class="s2">&#39;. Choose &#39;legendre&#39;, &#39;fenchel_symbolic&#39; or &#39;fenchel_numeric&#39;.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">method</span><span class="p">))</span></div>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Unknown method '</span><span class="si">{}</span><span class="s2">'. Choose 'legendre', 'fenchel_symbolic' or 'fenchel_numeric'."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">method</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="LagrangianHamiltonianConverter.H_to_L">
 <a class="viewcode-back" href="../physics.html#physics.LagrangianHamiltonianConverter.H_to_L">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">H_to_L</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Inverse Legendre (classical). Does not attempt Fenchel inverse.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">p_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
+            <span class="n">p_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'p'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
         <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">p_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;p_x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;p_y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="n">p_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'p_x'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'p_y'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D are supported.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Only 1D and 2D are supported."</span><span class="p">)</span>
 
         <span class="n">eqs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">)]</span>
         <span class="n">sol</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="nb">dict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">sol</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to symbolically solve p = ∂H/∂ξ for ξ. Use force=True.&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Unable to symbolically solve p = ∂H/∂ξ for ξ. Use force=True."</span><span class="p">)</span>
             <span class="n">sol</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">eqs</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">sol</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Inverse Legendre transform failed; cannot find ξ(p).&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Inverse Legendre transform failed; cannot find ξ(p)."</span><span class="p">)</span>
         <span class="n">sol</span> <span class="o">=</span> <span class="n">sol</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">sol</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">):</span>
             <span class="n">sol</span> <span class="o">=</span> <span class="p">{</span><span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">sol</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">))}</span>
@@ -556,7 +557,7 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="n">sol</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sol</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="n">sol</span> <span class="o">=</span> <span class="n">sol</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unexpected output from solve(); cannot construct ξ(p).&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Unexpected output from solve(); cannot construct ξ(p)."</span><span class="p">)</span>
         <span class="n">L_expr</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">sol</span><span class="p">[</span><span class="n">xi_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">*</span> <span class="n">p_vars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span> <span class="o">-</span> <span class="n">H_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">sol</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">L_expr</span><span class="p">),</span> <span class="n">p_vars</span></div>
 </div>
@@ -569,29 +570,29 @@
 <div class="viewcode-block" id="HamiltonianSymbolicConverter">
 <a class="viewcode-back" href="../physics.html#physics.HamiltonianSymbolicConverter">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">HamiltonianSymbolicConverter</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Symbolic converter between Hamiltonians and formal PDEs (psiOp).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="HamiltonianSymbolicConverter.decompose_hamiltonian">
 <a class="viewcode-back" href="../physics.html#physics.HamiltonianSymbolicConverter.decompose_hamiltonian">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">decompose_hamiltonian</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Decomposes the Hamiltonian into polynomial (local) and non-polynomial (nonlocal) parts.</span>
 <span class="sd">        The heuristic treats terms containing sqrt, Abs, or sign as nonlocal.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">xi</span> <span class="o">=</span> <span class="n">xi_vars</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span> <span class="k">else</span> <span class="p">(</span><span class="n">xi_vars</span><span class="p">,)</span>
         <span class="n">poly_terms</span><span class="p">,</span> <span class="n">nonlocal_terms</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
         <span class="n">H_expand</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">H_expr</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">H_expand</span><span class="o">.</span><span class="n">as_ordered_terms</span><span class="p">():</span>
             <span class="c1"># Heuristic: treat terms containing sqrt/Abs/sign as nonlocal explicitly</span>
-            <span class="c1"># Check if the *current* &#39;term&#39; (from the outer loop) has these functions.</span>
-            <span class="c1"># The original code had a scoping bug in the &#39;any&#39; statement.</span>
+            <span class="c1"># Check if the *current* 'term' (from the outer loop) has these functions.</span>
+            <span class="c1"># The original code had a scoping bug in the 'any' statement.</span>
             <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">func</span> <span class="ow">in</span> <span class="n">term</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">for</span> <span class="n">func</span> <span class="ow">in</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">Abs</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">sign</span><span class="p">])</span> <span class="ow">or</span> \
                <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">)</span> <span class="ow">or</span> <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Abs</span><span class="p">)</span> <span class="ow">or</span> <span class="n">term</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">sign</span><span class="p">):</span>
                 <span class="c1"># Alternative and more robust check:</span>
-                <span class="c1"># This checks if the specific &#39;term&#39; object contains the specified functions.</span>
+                <span class="c1"># This checks if the specific 'term' object contains the specified functions.</span>
                 <span class="n">nonlocal_terms</span> <span class="o">+=</span> <span class="n">term</span>
             <span class="k">elif</span> <span class="nb">all</span><span class="p">(</span><span class="n">term</span><span class="o">.</span><span class="n">is_polynomial</span><span class="p">(</span><span class="n">xi_i</span><span class="p">)</span> <span class="k">for</span> <span class="n">xi_i</span> <span class="ow">in</span> <span class="n">xi</span><span class="p">):</span>
                 <span class="n">poly_terms</span> <span class="o">+=</span> <span class="n">term</span>
@@ -603,45 +604,45 @@
 <div class="viewcode-block" id="HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde">
 <a class="viewcode-back" href="../physics.html#physics.HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">hamiltonian_to_symbolic_pde</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">H_expr</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;schrodinger&quot;</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hamiltonian_to_symbolic_pde</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">H_expr</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"schrodinger"</span><span class="p">):</span>
         <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
+            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">"xi"</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
         <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;eta&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="n">xi_vars</span> <span class="o">=</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">"xi"</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">"eta"</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D Hamiltonians are supported.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Only 1D and 2D Hamiltonians are supported."</span><span class="p">)</span>
 
         <span class="n">H_poly</span><span class="p">,</span> <span class="n">H_nonlocal</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">decompose_hamiltonian</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">)</span>
         <span class="n">H_total</span> <span class="o">=</span> <span class="n">H_poly</span> <span class="o">+</span> <span class="n">H_nonlocal</span>
-        <span class="n">psiOp_H_u</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s2">&quot;psiOp&quot;</span><span class="p">)(</span><span class="n">H_total</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+        <span class="n">psiOp_H_u</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s2">"psiOp"</span><span class="p">)(</span><span class="n">H_total</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;stationary&quot;</span><span class="p">:</span>
-            <span class="n">E</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">"stationary"</span><span class="p">:</span>
+            <span class="n">E</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s2">"E"</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">pde</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">psiOp_H_u</span><span class="p">,</span> <span class="n">E</span> <span class="o">*</span> <span class="n">u</span><span class="p">)</span>
-            <span class="n">formal</span> <span class="o">=</span> <span class="s2">&quot;ψOp(H, u) = E u&quot;</span>
-        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;heat&quot;</span><span class="p">:</span>
+            <span class="n">formal</span> <span class="o">=</span> <span class="s2">"ψOp(H, u) = E u"</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">"heat"</span><span class="p">:</span>
             <span class="n">pde</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Derivative</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">),</span> <span class="o">-</span><span class="n">psiOp_H_u</span><span class="p">)</span>
-            <span class="n">formal</span> <span class="o">=</span> <span class="s2">&quot;∂_t u = -ψOp(H, u)&quot;</span>
-        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;schrodinger&quot;</span><span class="p">:</span>
+            <span class="n">formal</span> <span class="o">=</span> <span class="s2">"∂_t u = -ψOp(H, u)"</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">"schrodinger"</span><span class="p">:</span>
             <span class="n">pde</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">I</span> <span class="o">*</span> <span class="n">sp</span><span class="o">.</span><span class="n">Derivative</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">),</span> <span class="n">psiOp_H_u</span><span class="p">)</span>
-            <span class="n">formal</span> <span class="o">=</span> <span class="s2">&quot;i ∂_t u = ψOp(H, u)&quot;</span>
-        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;wave&quot;</span><span class="p">:</span>
+            <span class="n">formal</span> <span class="o">=</span> <span class="s2">"i ∂_t u = ψOp(H, u)"</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">"wave"</span><span class="p">:</span>
             <span class="n">pde</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Derivative</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="o">-</span><span class="n">psiOp_H_u</span><span class="p">)</span>
-            <span class="n">formal</span> <span class="o">=</span> <span class="s2">&quot;∂_</span><span class="si">{tt}</span><span class="s2"> u + ψOp(H, u) = 0&quot;</span>
+            <span class="n">formal</span> <span class="o">=</span> <span class="s2">"∂_</span><span class="si">{tt}</span><span class="s2"> u + ψOp(H, u) = 0"</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;mode must be one of: &#39;stationary&#39;, &#39;heat&#39;, &#39;schrodinger&#39; or &#39;wave&#39;.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"mode must be one of: 'stationary', 'heat', 'schrodinger' or 'wave'."</span><span class="p">)</span>
 
-        <span class="n">coord_str</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">)</span>
-        <span class="n">xi_str</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">xi_vars</span><span class="p">)</span>
-        <span class="n">formal</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;   (H = H(</span><span class="si">{</span><span class="n">coord_str</span><span class="si">}</span><span class="s2">; </span><span class="si">{</span><span class="n">xi_str</span><span class="si">}</span><span class="s2">))&quot;</span>
+        <span class="n">coord_str</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">)</span>
+        <span class="n">xi_str</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">xi_vars</span><span class="p">)</span>
+        <span class="n">formal</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">"   (H = H(</span><span class="si">{</span><span class="n">coord_str</span><span class="si">}</span><span class="s2">; </span><span class="si">{</span><span class="n">xi_str</span><span class="si">}</span><span class="s2">))"</span>
 
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;pde&quot;</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">pde</span><span class="p">),</span>
-            <span class="s2">&quot;H_poly&quot;</span><span class="p">:</span> <span class="n">H_poly</span><span class="p">,</span>
-            <span class="s2">&quot;H_nonlocal&quot;</span><span class="p">:</span> <span class="n">H_nonlocal</span><span class="p">,</span>
-            <span class="s2">&quot;formal_string&quot;</span><span class="p">:</span> <span class="n">formal</span><span class="p">,</span>
-            <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="n">mode</span>
+            <span class="s2">"pde"</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">pde</span><span class="p">),</span>
+            <span class="s2">"H_poly"</span><span class="p">:</span> <span class="n">H_poly</span><span class="p">,</span>
+            <span class="s2">"H_nonlocal"</span><span class="p">:</span> <span class="n">H_nonlocal</span><span class="p">,</span>
+            <span class="s2">"formal_string"</span><span class="p">:</span> <span class="n">formal</span><span class="p">,</span>
+            <span class="s2">"mode"</span><span class="p">:</span> <span class="n">mode</span>
         <span class="p">}</span></div>
 </div>
 

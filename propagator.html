@@ -52,6 +52,7 @@
 <li class="toctree-l1"><a class="reference internal" href="metric_catalogue.html">metric_catalogue</a></li>
 <li class="toctree-l1"><a class="reference internal" href="microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nufft.html">nufft</a></li>
 <li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">propagator</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#propagator-py-semiclassical-van-vleckpaulimorette-wavefunction">propagator.py — Semiclassical (Van Vleck–Pauli–Morette) wavefunction</a><ul>
@@ -316,7 +317,7 @@ specialised Pearcey evaluator.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">propagator</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_wavefunction</span><span class="p">,</span> <span class="n">plot_wavefunction</span>
 
 <span class="c1"># 1. Define the geometry via a Metric object</span>
-<span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'x'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,))</span>          <span class="c1"># flat 1D metric, g = 1</span>
 
 <span class="c1"># 2. Define the source point and a fan of initial velocities</span>
@@ -332,7 +333,7 @@ specialised Pearcey evaluator.</p>
     <span class="n">hbar</span>      <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
     <span class="n">n_steps</span>   <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
     <span class="n">N_grid</span>    <span class="o">=</span> <span class="mi">400</span><span class="p">,</span>
-    <span class="n">integrator</span><span class="o">=</span> <span class="s1">&#39;verlet&#39;</span><span class="p">,</span>
+    <span class="n">integrator</span><span class="o">=</span> <span class="s1">'verlet'</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="c1"># 4. Visualise</span>
@@ -342,13 +343,13 @@ specialised Pearcey evaluator.</p>
 </pre></div>
 </div>
 <p>For a curved metric built from a Hamiltonian H = p²/(2 m(x)):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'x p'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">from_hamiltonian</span><span class="p">(</span><span class="n">p</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="n">x</span><span class="p">,),</span> <span class="p">(</span><span class="n">p</span><span class="p">,))</span>
 <span class="c1"># metric.g_expr == x**2</span>
 </pre></div>
 </div>
 <p>For a general Hamiltonian (e.g. harmonic oscillator):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'x xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">H</span> <span class="o">=</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
     <span class="n">hamiltonian</span> <span class="o">=</span> <span class="n">H</span><span class="p">,</span>
@@ -865,7 +866,7 @@ frame.</p></li>
 <span class="kn">from</span><span class="w"> </span><span class="nn">propagator</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_wavefunction</span><span class="p">,</span> <span class="n">animate_wavefunction</span>
 
 <span class="c1"># 1D free particle on a flat metric</span>
-<span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'x'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,))</span>
 <span class="n">source</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,)</span>
 <span class="n">v_fan</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
@@ -880,7 +881,7 @@ frame.</p></li>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
 <span class="c1"># Save as GIF</span>
-<span class="n">animate_wavefunction</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="s2">&quot;wavepacket.gif&quot;</span><span class="p">)</span>
+<span class="n">animate_wavefunction</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="s2">"wavepacket.gif"</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -915,7 +916,7 @@ converting the supplied velocity fan: p₀ = g(x₀) · v₀.</p>
 <dt><strong>Mode B — General Hamiltonian</strong> (new interface, <code class="docutils literal notranslate"><span class="pre">p_fan</span></code> required):</dt><dd><p>Pass a SymPy expression H(coords, momenta) together with the
 coordinate and momentum symbol tuples.  Initial conditions are
 specified directly as a fan of <strong>canonical momenta</strong> p₀.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'x xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">H</span> <span class="o">=</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">sp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>        <span class="c1"># pendulum-type Hamiltonian</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">compute_wavefunction</span><span class="p">(</span>
     <span class="n">hamiltonian</span> <span class="o">=</span> <span class="n">H</span><span class="p">,</span>
