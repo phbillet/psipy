@@ -317,6 +317,98 @@ ALGORITHM evaluate_decomposition_quality(orig_expr, symbolic_pairs,
     RETURN {rel_l2_error, max_abs_error, mean_abs_error}
 ```
 
+Here is a markdown addendum designed to complement your original `apply.md` file. It formalizes the mathematical and numerical properties required for symbols to survive the `factorize_symbolic` phase without triggering the fallback mechanism.
+
+---
+
+# Addendum: The Class of Approximately Separable Functions
+
+This document serves as a complement to `apply.md`, focusing specifically on the mathematical profile of the **joint residual** $p_{\text{joint}}(x, \xi)$.
+
+When a symbol resists the algebraic Peetre decomposition `classify_terms`, it is passed to the numerical `factorize_symbolic` algorithm. The success of this low-rank Chebyshev/SVD decomposition—defined by satisfying `metrics.rel_l2_error <= joint_max_rel_error`—depends entirely on whether the symbol belongs to the class of **approximately separable functions** on the bounded sampling domain.
+
+---
+
+## 1. Mathematical Definition
+
+A function $p(x, \xi)$ is approximately separable on a bounded domain $\Omega = [x_{\text{min}}, x_{\text{max}}] \times [\xi_{\text{min}}, \xi_{\text{max}}]$ if it can be accurately represented by a heavily truncated sum of rank-1 tensors:
+
+$$p(x,\xi) \approx \sum_{k=1}^{r} a_k(x) q_k(\xi)$$
+
+where $r$ (the numerical rank) is small, and the relative $L^2$ error of this approximation over $\Omega$ is less than or equal to the designated tolerance (`joint_max_rel_error`).
+
+---
+
+## 2. Numerical Mechanism: The Chebyshev-SVD Link
+
+The `factorize_symbolic` algorithm evaluates the symbol on a tensor-product Chebyshev grid, maps it to a coefficient matrix, and performs a Singular Value Decomposition (SVD).
+
+For a symbol to be approximately separable in practice, its Chebyshev coefficient matrix must exhibit **rapid singular value decay**.
+
+> **The SVD Energy Condition**
+> The approximation is considered successful when the energy of the retained singular values $\sigma_k$ captures almost all the energy of the original matrix:
+> 
+> 
+> 
+> $$\frac{\left(\sum_{k>r} \sigma_k^2\right)^{1/2}}{\left(\sum_{k} \sigma_k^2\right)^{1/2}} \lesssim \texttt{joint\_max\_rel\_error}$$
+> 
+> 
+
+---
+
+## 3. Typology of Joint Residuals
+
+The behavior of the joint residual under `evaluate_decomposition_quality` generally falls into three categories:
+
+### A. Exactly Separable (Algebraically Obfuscated)
+
+These are symbols that are intrinsically of low rank but are written in a way that prevents the symbolic algebraic parser from separating them.
+
+* **Behavior:** The SVD naturally truncates to an exact small rank, giving an error close to machine precision.
+
+
+* **Examples:**
+* $\cos(x + \xi)$ (Exactly rank 2 via trigonometric identities).
+* $\log((x^2 + 1)(\xi^2 + 1))$ (Exactly rank 2 via logarithm rules).
+
+
+
+### B. Weakly Coupled or Smooth Analytic Symbols
+
+These symbols are not exactly separable, but their variables interact weakly, or the function is exceptionally smooth on the chosen bounded domain.
+
+* **Behavior:** The singular values decay exponentially. A small number of terms $r$ captures the function's structure perfectly.
+* **Examples:**
+* $e^{-(x-\xi)^2}$ (on moderate bounded domains).
+* $\frac{1}{1 + \alpha x \xi}$ (when $\vert{}\alpha x \xi\vert{} \ll 1$ on the bounds).
+* $e^{-\epsilon x^2 \xi^2}$ (for small $\epsilon$).
+
+
+
+### C. Strongly Entangled / High Numerical Rank (The Failures)
+
+These symbols possess genuine, deep entanglement between space and frequency.
+
+* **Behavior:** The singular values decay very slowly (or not at all). Truncating the SVD to a low rank discards vital wave/structural information. The Monte Carlo check yields a large `rel_l2_error`, safely triggering the fallback to the direct Kohn-Nirenberg quadrature.
+
+
+* **Examples:**
+* $\sin(x \cdot \xi)$ (Highly oscillatory across the domain).
+* $e^{i x \xi}$ (on large domains).
+* Any symbol with a discontinuity or sharp singularity inside the fitting box.
+
+
+
+---
+
+## 4. Summary Table
+
+| Category | Example | Numerical Rank ($r$) | `rel_l2_error` Expectation | Action Taken by `apply` |
+| --- | --- | --- | --- | --- |
+| **Algebraically Obfuscated** | $\cos(x+\xi)$ | Exact and small | $\approx 0$ | Accepts low-rank fit |
+| **Weakly Coupled / Smooth** | $e^{-(x-\xi)^2}$ | Approximately small | $\le$ `joint_max_rel_error` | Accepts low-rank fit |
+| **Strongly Entangled** | $\sin(x \cdot \xi)$ | Unbounded / Very high | $>$ `joint_max_rel_error` | Warns & Triggers Direct Fallback |
+
 **Key idea.** A simple, cheap statistical check: draw `num_samples` random
 points uniformly over the bounding box used for the fit, evaluate both the
 exact symbol and the candidate low-rank approximation there, and report

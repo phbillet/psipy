@@ -328,6 +328,17 @@ from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import warnings
 
+try:
+    from nufft import (
+        try_nufft_decomposition,
+        try_nufft_decomposition_2d,
+        apply_nufft,
+        apply_nufft_2d,
+    )
+    _HAVE_NUFFT = True
+except ImportError:
+    _HAVE_NUFFT = False
+
 class PseudoDifferentialOperator:
     """
     Pseudo-differential operator with dynamic symbol evaluation on spatial grids.
@@ -2141,6 +2152,33 @@ class PseudoDifferentialOperator:
         }
 
         return pairs, metrics
+
+    def _try_nufft_joint(self, joint_symbol):
+        """
+        Attempt NUFFT-compatible decomposition of the joint residual.
+        Returns a plan list if successful, None otherwise.
+        """
+        if not _HAVE_NUFFT:
+            return None
+        if self.dim == 1:
+            x = self.vars_x[0]
+            xi = next(
+                (s for s in joint_symbol.free_symbols if s.name == "xi"),
+                symbols("xi", real=True),
+            )
+            return try_nufft_decomposition(joint_symbol, x, xi)
+        elif self.dim == 2:
+            x, y = self.vars_x
+            xi = next(
+                (s for s in joint_symbol.free_symbols if s.name == "xi"),
+                symbols("xi", real=True),
+            )
+            eta = next(
+                (s for s in joint_symbol.free_symbols if s.name == "eta"),
+                symbols("eta", real=True),
+            )
+            return try_nufft_decomposition_2d(joint_symbol, x, y, xi, eta)
+        return None
         
     def peetre_decomposition(
         self,
@@ -2432,7 +2470,7 @@ class PseudoDifferentialOperator:
         decomposition=None,
         use_cache=True,
         separable_local=False,
-        joint_backend="direct",
+        joint_backend='direct',
         joint_degree=6,
         joint_tol=1e-5,
         joint_bounds=None,
@@ -2634,21 +2672,9 @@ class PseudoDifferentialOperator:
         # 3. Joint residual.
         # --------------------------------------------------------------
         joint_symbol = deco.get("joint_symbol", 0)
-    
         if not self._peetre_is_zero(joint_symbol):
+    
             def _apply_joint_direct():
-                """
-                Apply the irreducible joint residual symbol directly via the
-                full Kohn–Nirenberg pipeline, without any separable
-                decomposition. This is the exact (but expensive) fallback when
-                `joint_backend='direct'` or when the low-rank factorization
-                fails or exceeds the error tolerance.
-        
-                Returns
-                -------
-                ndarray
-                    Op[joint_symbol](u), same shape as u.
-                """
                 op_joint = PseudoDifferentialOperator(
                     joint_symbol,
                     self.vars_x,
@@ -2656,10 +2682,7 @@ class PseudoDifferentialOperator:
                     quantization=peetre_quantization,
                 )
                 return op_joint.apply(
-                    u,
-                    x_grid,
-                    kx,
-                    **common_apply_kwargs,
+                    u, x_grid, kx, **common_apply_kwargs,
                 )
     
             if not apply_joint:
@@ -2668,34 +2691,84 @@ class PseudoDifferentialOperator:
                     "The result is an asymptotic/local+separable approximation."
                 )
     
+            # ── direct ──────────────────────────────────────────────────
             elif joint_backend == "direct":
                 result = result + _apply_joint_direct()
     
+            # ── nufft (new tier, tried before lowrank) ──────────────────
+            elif joint_backend == "nufft":
+                nufft_plan = self._try_nufft_joint(joint_symbol)
+                if nufft_plan is not None:
+                    if self.dim == 1:
+                        dx = x_grid[1] - x_grid[0]
+                        dxi = kx[1] - kx[0] if len(kx) > 1 else 1.0
+                        result = result + apply_nufft(
+                            u, nufft_plan, x_grid, kx, dx, dxi,
+                        )
+                    else:
+                        dx = x_grid[1] - x_grid[0]
+                        dy = y_grid[1] - y_grid[0]
+                        dxi = kx[1] - kx[0] if len(kx) > 1 else 1.0
+                        deta = ky[1] - ky[0] if len(ky) > 1 else 1.0
+                        result = result + apply_nufft_2d(
+                            u, nufft_plan, x_grid, y_grid, kx, ky,
+                            dx, dy, dxi, deta,
+                        )
+                else:
+                    warnings.warn(
+                        "NUFFT decomposition not applicable; "
+                        "falling back to low-rank then direct."
+                    )
+                    if joint_bounds is None:
+                        joint_bounds = self._infer_joint_bounds(
+                            x_grid, kx, y_grid=y_grid, ky=ky,
+                        )
+                    try:
+                        pairs, metrics = self._low_rank_joint_pairs(
+                            joint_symbol, joint_bounds,
+                            degree=joint_degree, tol=joint_tol,
+                            num_samples=joint_num_samples,
+                            seed=joint_seed, use_cache=use_cache,
+                        )
+                        self.last_joint_lowrank_metrics = metrics
+                        if (
+                            joint_max_rel_error is not None
+                            and metrics.get("rel_l2_error", float("inf"))
+                            > joint_max_rel_error
+                        ):
+                            warnings.warn(
+                                f"Low-rank error {metrics['rel_l2_error']:.6e} "
+                                f"exceeds {joint_max_rel_error}; "
+                                "falling back to direct."
+                            )
+                            result = result + _apply_joint_direct()
+                        else:
+                            for a_k, q_k in pairs:
+                                result = result + _apply_separable_pair(a_k, q_k)
+                    except Exception as exc:
+                        warnings.warn(
+                            f"Low-rank also failed ({exc}); using direct."
+                        )
+                        result = result + _apply_joint_direct()
+    
+            # ── lowrank ─────────────────────────────────────────────────
             elif joint_backend == "lowrank":
                 if joint_bounds is None:
                     joint_bounds = self._infer_joint_bounds(
-                        x_grid,
-                        kx,
-                        y_grid=y_grid,
-                        ky=ky,
+                        x_grid, kx, y_grid=y_grid, ky=ky,
                     )
-    
                 try:
                     pairs, metrics = self._low_rank_joint_pairs(
-                        joint_symbol,
-                        joint_bounds,
-                        degree=joint_degree,
-                        tol=joint_tol,
+                        joint_symbol, joint_bounds,
+                        degree=joint_degree, tol=joint_tol,
                         num_samples=joint_num_samples,
-                        seed=joint_seed,
-                        use_cache=use_cache,
+                        seed=joint_seed, use_cache=use_cache,
                     )
-    
                     self.last_joint_lowrank_metrics = metrics
-    
                     if (
                         joint_max_rel_error is not None
-                        and metrics.get("rel_l2_error", float("inf")) > joint_max_rel_error
+                        and metrics.get("rel_l2_error", float("inf"))
+                        > joint_max_rel_error
                     ):
                         warnings.warn(
                             "Low-rank joint residual symbol error "
@@ -2707,7 +2780,6 @@ class PseudoDifferentialOperator:
                     else:
                         for a_k, q_k in pairs:
                             result = result + _apply_separable_pair(a_k, q_k)
-    
                 except Exception as exc:
                     warnings.warn(
                         "Low-rank joint decomposition failed: "
@@ -2717,11 +2789,10 @@ class PseudoDifferentialOperator:
     
             else:
                 raise ValueError(
-                    "joint_backend must be 'direct' or 'lowrank'."
+                    "joint_backend must be 'direct', 'nufft', or 'lowrank'."
                 )
     
         return result
-
         
     def peetre_apply(self, *args, **kwargs):
         """
