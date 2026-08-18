@@ -110,7 +110,6 @@ module docstrings.
    fio_bridge
    geometry
    hamiltonian_catalog
-   metric_catalogue
    microlocal
    misc
    physics

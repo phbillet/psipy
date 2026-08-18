@@ -2,7 +2,7 @@ import os
 import ast
 
 # Modules à exclure de la documentation
-EXCLUDE = {"imports", "mupsipy", "cotangent_bundle", "hpc_examples"}
+EXCLUDE = {"imports", "mupsipy", "cotangent_bundle", "hpc_examples", "metric_catalogue"}
 
 modules = [
     f[:-3] for f in os.listdir("src")

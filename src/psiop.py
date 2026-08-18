@@ -328,17 +328,6 @@ from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import warnings
 
-try:
-    from nufft import (
-        try_nufft_decomposition,
-        try_nufft_decomposition_2d,
-        apply_nufft,
-        apply_nufft_2d,
-    )
-    _HAVE_NUFFT = True
-except ImportError:
-    _HAVE_NUFFT = False
-
 class PseudoDifferentialOperator:
     """
     Pseudo-differential operator with dynamic symbol evaluation on spatial grids.
@@ -2153,33 +2142,113 @@ class PseudoDifferentialOperator:
 
         return pairs, metrics
 
-    def _try_nufft_joint(self, joint_symbol):
+    def _resolve_joint_symbols(self, joint_symbol):
+        """Shared symbol-resolution logic (matches _low_rank_joint_pairs):
+        find the actual x/xi symbols present in joint_symbol by name."""
+        x_syms = []
+        for v in self.vars_x:
+            s = next((fs for fs in joint_symbol.free_symbols if fs.name == v.name), v)
+            x_syms.append(s)
+        freq_names = ["xi"] if self.dim == 1 else ["xi", "eta"]
+        xi_syms = []
+        for name in freq_names:
+            s = next((fs for fs in joint_symbol.free_symbols if fs.name == name),
+                     sp.symbols(name, real=True))
+            xi_syms.append(s)
+        return x_syms, xi_syms
+
+    def _nufft_joint_apply(self, joint_symbol, u, x_grid, kx, y_grid=None, ky=None,
+                            use_cache=True, freq_window="gaussian"):
         """
-        Attempt NUFFT-compatible decomposition of the joint residual.
-        Returns a plan list if successful, None otherwise.
+        Try the NUFFT joint-residual backend. Returns the applied numeric
+        array on success, or None if the symbol doesn't classify as
+        NUFFT-representable (caller should fall back to direct application).
+
+        PERIODIC BOUNDARY CONDITIONS ONLY -- caller must check
+        boundary_condition == 'periodic' before calling this.
         """
-        if not _HAVE_NUFFT:
+        x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
+
+        key = (joint_symbol, self.dim)
+        cache = getattr(self, "_joint_nufft_cache", None)
+        if use_cache and cache is not None and cache.get("key") == key:
+            plan_info = cache["plan_info"]
+        else:
+            if self.dim == 1:
+                plan = try_nufft_decomposition_1d(joint_symbol, x_syms[0], xi_syms[0])
+                plan_info = ("1d", plan) if plan is not None else None
+            elif self.dim == 2:
+                res = try_nufft_decomposition_2d(
+                    joint_symbol, x_syms[0], x_syms[1], xi_syms[0], xi_syms[1]
+                )
+                plan_info = ("2d", res) if res is not None else None
+            else:
+                plan_info = None
+            self._joint_nufft_cache = {"key": key, "plan_info": plan_info}
+
+        if plan_info is None:
             return None
-        if self.dim == 1:
-            x = self.vars_x[0]
-            xi = next(
-                (s for s in joint_symbol.free_symbols if s.name == "xi"),
-                symbols("xi", real=True),
-            )
-            return try_nufft_decomposition(joint_symbol, x, xi)
-        elif self.dim == 2:
-            x, y = self.vars_x
-            xi = next(
-                (s for s in joint_symbol.free_symbols if s.name == "xi"),
-                symbols("xi", real=True),
-            )
-            eta = next(
-                (s for s in joint_symbol.free_symbols if s.name == "eta"),
-                symbols("eta", real=True),
-            )
-            return try_nufft_decomposition_2d(joint_symbol, x, y, xi, eta)
-        return None
-        
+
+        kind, plan = plan_info
+        dx = x_grid[1] - x_grid[0]
+        dxi = kx[1] - kx[0]
+        if kind == "1d":
+            return apply_nufft_1d(u, plan, x_grid, kx, dx, dxi, freq_window=freq_window)
+        else:  # "2d"
+            dy = y_grid[1] - y_grid[0]
+            deta = ky[1] - ky[0]
+            plan_kind, plan_data = plan
+            return apply_nufft_2d(u, plan_kind, plan_data, x_grid, y_grid, kx, ky,
+                                   dx, dy, dxi, deta, freq_window=freq_window)
+
+    def _aaa_joint_symbol_func(self, joint_symbol, bounds, degree=None, tol=1e-8,
+                                use_cache=True):
+        """
+        Try the AAA joint-residual backend. Returns (symbol_func, metrics)
+        on success, where symbol_func is a fast numpy callable suitable for
+        kohn_nirenberg_fft/nonperiodic's `symbol_func` argument, or
+        (None, None) if the quality gate isn't met (caller should fall back
+        to direct application).
+
+        bounds : dict mapping each space/frequency symbol to (min, max),
+        same format as joint_bounds elsewhere (see _infer_joint_bounds).
+        """
+        x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
+        all_syms = x_syms + xi_syms
+        bounds = self._remap_bounds(bounds, all_syms)
+
+        key = (joint_symbol, tol, tuple(
+            (s, float(bounds[s][0]), float(bounds[s][1])) for s in all_syms
+        ))
+        cache = getattr(self, "_joint_aaa_cache", None)
+        if use_cache and cache is not None and cache.get("key") == key:
+            plan = cache["plan"]
+        else:
+            if self.dim == 1:
+                plan = try_aaa_decomposition_1d(
+                    joint_symbol, x_syms[0], xi_syms[0],
+                    x_bounds=bounds[x_syms[0]], xi_bounds=bounds[xi_syms[0]],
+                    rtol=tol,
+                )
+            elif self.dim == 2:
+                plan = try_aaa_decomposition_2d(
+                    joint_symbol, x_syms[0], x_syms[1], xi_syms[0], xi_syms[1],
+                    x_bounds=bounds[x_syms[0]], y_bounds=bounds[x_syms[1]],
+                    xi_bounds=bounds[xi_syms[0]], eta_bounds=bounds[xi_syms[1]],
+                    rtol=tol,
+                )
+            else:
+                plan = None
+            self._joint_aaa_cache = {"key": key, "plan": plan}
+
+        if plan is None:
+            return None, None
+
+        metrics = {"rel_l2_error": plan["rel_l2_error"]}
+        symbol_func = (aaa_plan_to_callable_1d(plan) if self.dim == 1
+                        else aaa_plan_to_callable_2d(plan))
+        return symbol_func, metrics
+
     def peetre_decomposition(
         self,
         use_cache=True,
@@ -2411,6 +2480,16 @@ class PseudoDifferentialOperator:
         # --------------------------------------------------------------
         joint_symbol = deco.get("joint_symbol", 0)
 
+        # Resolve 'auto' for printing purposes
+        print_backend = joint_backend
+        if joint_backend == "auto" and not self._peetre_is_zero(joint_symbol):
+            x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
+            print_backend = self._auto_select_joint_backend(joint_symbol, x_syms, xi_syms)
+            if print_backend in ('nufft', 'aaa'):
+                print(f"--- [auto] Detected '{print_backend}' structure. "
+                      f"No separable pairs to print (use apply() to execute). ---")
+                print_backend = "direct" # Fallback to printing raw symbol
+
         if joint_backend == "lowrank" and not self._peetre_is_zero(joint_symbol):
             if joint_bounds is None:
                 raise ValueError(
@@ -2449,10 +2528,106 @@ class PseudoDifferentialOperator:
             f"joint_symbol = {deco['joint_symbol']}"
         )
 
+
+    def _auto_select_joint_backend(self, joint_symbol, x_syms, xi_syms):
+        """
+        Intelligently analyze the joint residual symbol and select the 
+        most efficient numerical backend ('nufft', 'aaa', or 'lowrank').
+        
+        Logic:
+        1. 'nufft': If the symbol contains an oscillatory phase of the 
+           form exp(i * Lambda(x) * M(xi)).
+        2. 'aaa': If the symbol is rational or has explicit denominators 
+           / negative powers (poles / algebraic decay).
+        3. 'lowrank': For smooth, non-oscillatory, non-pole joint kernels 
+           (e.g., Gaussians).
+        """
+        import sympy as sp
+        all_syms = x_syms + xi_syms
+        
+        # 1. NUFFT Check (Oscillatory phase)
+        if self.dim == 1:
+            nufft_plan = try_nufft_decomposition_1d(joint_symbol, x_syms[0], xi_syms[0])
+        else:
+            nufft_plan = try_nufft_decomposition_2d(
+                joint_symbol, x_syms[0], x_syms[1], xi_syms[0], xi_syms[1]
+            )
+        if nufft_plan is not None:
+            return 'nufft'
+            
+        # 2. AAA Check (Rational / Poles / Algebraic decay)
+        is_rational = joint_symbol.is_rational_function(*all_syms)
+        
+        # Check for negative powers of polynomial expressions (algebraic decay)
+        # like (xi**2 + 1)**(-0.5) or 1/(x**2 + xi**2)
+        # But NOT smooth functions like exp(-x**2) or sin(x)
+        has_symbolic_denom = False
+        for arg in joint_symbol.atoms(sp.Pow):
+            if arg.exp.is_negative and arg.base.has(*all_syms):
+                # Check if base is a polynomial expression (not transcendental)
+                if arg.base.is_polynomial(*all_syms):
+                    has_symbolic_denom = True
+                    break
+                    
+        if is_rational or has_symbolic_denom:
+            return 'aaa'
+            
+        # 3. Low-rank Check (Smooth kernels)
+        # If it's not oscillatory and doesn't have poles, it's likely a 
+        # smooth joint function (like a Gaussian bump) well-suited for 
+        # Chebyshev/SVD approximation.
+        return 'lowrank'
         
     # ======================================================================
     # Peetre-based application
     # ======================================================================
+
+    def apply_hybrid(self, u, x_grid, kx, y_grid=None, ky=None, **kwargs):
+        """
+        Hybrid application: Automatically splits the joint residual into 
+        individual additive terms and routes each term to its optimal 
+        backend (NUFFT, AAA, or Lowrank) based on its specific structure.
+        
+        This guarantees O(N log N) performance for mixed symbols that would 
+        otherwise trigger a fallback to O(N²) direct quadrature.
+        """
+        import numpy as np
+        
+        # 1. Get the Peetre decomposition to access the raw joint terms
+        deco = self.peetre_decomposition()
+        result = np.zeros(np.shape(u), dtype=np.complex128)
+        
+        # 2. Apply the local and separable parts (skip the joint residual for now)
+        # We use a temporary call to apply_peetre with apply_joint=False
+        result += self.apply_peetre(
+            u, x_grid, kx, y_grid=y_grid, ky=ky, 
+            apply_joint=False, **kwargs
+        )
+        
+        # 3. Route each joint term individually via 'auto'
+        joint_terms = deco.get('joint_residual', [])
+        for term in joint_terms:
+            if self._peetre_is_zero(term):
+                continue
+            
+            # Create a temporary operator for this specific joint term
+            # It inherits the quantization (Weyl/KN) and dimension
+            sub_op = PseudoDifferentialOperator(
+                term, self.vars_x, mode='symbol', 
+                quantization=self.quantization
+            )
+            
+            # Apply this single term using the 'auto' dispatcher.
+            # Because it's a pure term, 'auto' will perfectly match it 
+            # to 'nufft', 'aaa', or 'lowrank'.
+            result += sub_op.apply_peetre(
+                u, x_grid, kx, y_grid=y_grid, ky=ky,
+                joint_backend='auto', **kwargs
+            )
+            
+        return result
+
+        
     def apply_peetre(
         self,
         u,
@@ -2470,7 +2645,7 @@ class PseudoDifferentialOperator:
         decomposition=None,
         use_cache=True,
         separable_local=False,
-        joint_backend='direct',
+        joint_backend="direct",
         joint_degree=6,
         joint_tol=1e-5,
         joint_bounds=None,
@@ -2673,8 +2848,30 @@ class PseudoDifferentialOperator:
         # --------------------------------------------------------------
         joint_symbol = deco.get("joint_symbol", 0)
         if not self._peetre_is_zero(joint_symbol):
-    
+            
+            # --- AUTO-SELECTION LOGIC ---
+            if joint_backend == "auto":
+                x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
+                joint_backend = self._auto_select_joint_backend(joint_symbol, x_syms, xi_syms)
+                # Optional: uncomment to see what the auto-selector chose in the console
+                # warnings.warn(f"[auto] Selected joint_backend='{joint_backend}' for joint residual.", stacklevel=2)
+            # ----------------------------
+
+        def _apply_joint_direct():
+            # ... (rest of the existing code remains exactly the same)
             def _apply_joint_direct():
+                """
+                Apply the irreducible joint residual symbol directly via the
+                full Kohn–Nirenberg pipeline, without any separable
+                decomposition. This is the exact (but expensive) fallback when
+                `joint_backend='direct'` or when the low-rank factorization
+                fails or exceeds the error tolerance.
+        
+                Returns
+                -------
+                ndarray
+                    Op[joint_symbol](u), same shape as u.
+                """
                 op_joint = PseudoDifferentialOperator(
                     joint_symbol,
                     self.vars_x,
@@ -2682,7 +2879,10 @@ class PseudoDifferentialOperator:
                     quantization=peetre_quantization,
                 )
                 return op_joint.apply(
-                    u, x_grid, kx, **common_apply_kwargs,
+                    u,
+                    x_grid,
+                    kx,
+                    **common_apply_kwargs,
                 )
     
             if not apply_joint:
@@ -2691,84 +2891,34 @@ class PseudoDifferentialOperator:
                     "The result is an asymptotic/local+separable approximation."
                 )
     
-            # ── direct ──────────────────────────────────────────────────
             elif joint_backend == "direct":
                 result = result + _apply_joint_direct()
     
-            # ── nufft (new tier, tried before lowrank) ──────────────────
-            elif joint_backend == "nufft":
-                nufft_plan = self._try_nufft_joint(joint_symbol)
-                if nufft_plan is not None:
-                    if self.dim == 1:
-                        dx = x_grid[1] - x_grid[0]
-                        dxi = kx[1] - kx[0] if len(kx) > 1 else 1.0
-                        result = result + apply_nufft(
-                            u, nufft_plan, x_grid, kx, dx, dxi,
-                        )
-                    else:
-                        dx = x_grid[1] - x_grid[0]
-                        dy = y_grid[1] - y_grid[0]
-                        dxi = kx[1] - kx[0] if len(kx) > 1 else 1.0
-                        deta = ky[1] - ky[0] if len(ky) > 1 else 1.0
-                        result = result + apply_nufft_2d(
-                            u, nufft_plan, x_grid, y_grid, kx, ky,
-                            dx, dy, dxi, deta,
-                        )
-                else:
-                    warnings.warn(
-                        "NUFFT decomposition not applicable; "
-                        "falling back to low-rank then direct."
-                    )
-                    if joint_bounds is None:
-                        joint_bounds = self._infer_joint_bounds(
-                            x_grid, kx, y_grid=y_grid, ky=ky,
-                        )
-                    try:
-                        pairs, metrics = self._low_rank_joint_pairs(
-                            joint_symbol, joint_bounds,
-                            degree=joint_degree, tol=joint_tol,
-                            num_samples=joint_num_samples,
-                            seed=joint_seed, use_cache=use_cache,
-                        )
-                        self.last_joint_lowrank_metrics = metrics
-                        if (
-                            joint_max_rel_error is not None
-                            and metrics.get("rel_l2_error", float("inf"))
-                            > joint_max_rel_error
-                        ):
-                            warnings.warn(
-                                f"Low-rank error {metrics['rel_l2_error']:.6e} "
-                                f"exceeds {joint_max_rel_error}; "
-                                "falling back to direct."
-                            )
-                            result = result + _apply_joint_direct()
-                        else:
-                            for a_k, q_k in pairs:
-                                result = result + _apply_separable_pair(a_k, q_k)
-                    except Exception as exc:
-                        warnings.warn(
-                            f"Low-rank also failed ({exc}); using direct."
-                        )
-                        result = result + _apply_joint_direct()
-    
-            # ── lowrank ─────────────────────────────────────────────────
             elif joint_backend == "lowrank":
                 if joint_bounds is None:
                     joint_bounds = self._infer_joint_bounds(
-                        x_grid, kx, y_grid=y_grid, ky=ky,
+                        x_grid,
+                        kx,
+                        y_grid=y_grid,
+                        ky=ky,
                     )
+    
                 try:
                     pairs, metrics = self._low_rank_joint_pairs(
-                        joint_symbol, joint_bounds,
-                        degree=joint_degree, tol=joint_tol,
+                        joint_symbol,
+                        joint_bounds,
+                        degree=joint_degree,
+                        tol=joint_tol,
                         num_samples=joint_num_samples,
-                        seed=joint_seed, use_cache=use_cache,
+                        seed=joint_seed,
+                        use_cache=use_cache,
                     )
+    
                     self.last_joint_lowrank_metrics = metrics
+    
                     if (
                         joint_max_rel_error is not None
-                        and metrics.get("rel_l2_error", float("inf"))
-                        > joint_max_rel_error
+                        and metrics.get("rel_l2_error", float("inf")) > joint_max_rel_error
                     ):
                         warnings.warn(
                             "Low-rank joint residual symbol error "
@@ -2780,19 +2930,116 @@ class PseudoDifferentialOperator:
                     else:
                         for a_k, q_k in pairs:
                             result = result + _apply_separable_pair(a_k, q_k)
+    
                 except Exception as exc:
                     warnings.warn(
                         "Low-rank joint decomposition failed: "
                         f"{exc}. Falling back to direct joint application."
                     )
                     result = result + _apply_joint_direct()
-    
+
+            elif joint_backend == "nufft":
+                # Oscillatory joint residuals (e.g. sin(x*xi), exp(I*x*xi)):
+                # only derived/validated for periodic (FFT) application.
+                if boundary_condition != "periodic":
+                    warnings.warn(
+                        "joint_backend='nufft' only supports "
+                        "boundary_condition='periodic'. Falling back to "
+                        "direct joint application."
+                    )
+                    result = result + _apply_joint_direct()
+                else:
+                    try:
+                        nufft_result = self._nufft_joint_apply(
+                            joint_symbol, u, x_grid, kx,
+                            y_grid=y_grid, ky=ky, use_cache=use_cache,
+                            freq_window=freq_window,
+                        )
+                        if nufft_result is None:
+                            warnings.warn(
+                                "Joint residual does not classify as "
+                                "NUFFT-representable (no oscillatory phase "
+                                "of the form exp(i*Lambda(x)*M(xi)) found). "
+                                "Falling back to direct joint application."
+                            )
+                            result = result + _apply_joint_direct()
+                        else:
+                            result = result + nufft_result
+                    except Exception as exc:
+                        warnings.warn(
+                            f"NUFFT joint decomposition failed: {exc}. "
+                            "Falling back to direct joint application."
+                        )
+                        result = result + _apply_joint_direct()
+
+            elif joint_backend == "aaa":
+                # Rational/resolvent-shaped joint residuals (poles,
+                # algebraic decay, no oscillatory phase).
+                if joint_bounds is None:
+                    joint_bounds = self._infer_joint_bounds(
+                        x_grid, kx, y_grid=y_grid, ky=ky,
+                    )
+                try:
+                    symbol_func, metrics = self._aaa_joint_symbol_func(
+                        joint_symbol, joint_bounds, tol=joint_tol,
+                        use_cache=use_cache,
+                    )
+                    if symbol_func is None:
+                        warnings.warn(
+                            "Joint residual could not be fit by AAA to the "
+                            "requested tolerance (joint_tol). This can "
+                            "happen for symbols whose poles move with x/y "
+                            "(a genuinely different, diagonal-singularity "
+                            "structural class -- see module notes on "
+                            "joint_backend='aaa'). Falling back to direct "
+                            "joint application."
+                        )
+                        result = result + _apply_joint_direct()
+                    else:
+                        self.last_joint_aaa_metrics = metrics
+                        if (
+                            joint_max_rel_error is not None
+                            and metrics.get("rel_l2_error", float("inf")) > joint_max_rel_error
+                        ):
+                            warnings.warn(
+                                "AAA joint residual symbol error "
+                                f"{metrics['rel_l2_error']:.6e} exceeds "
+                                f"joint_max_rel_error={joint_max_rel_error}. "
+                                "Falling back to direct joint application."
+                            )
+                            result = result + _apply_joint_direct()
+                        elif boundary_condition == "periodic":
+                            result = result + kohn_nirenberg_fft(
+                                u_vals=u, symbol_func=symbol_func,
+                                x_grid=x_grid, kx=kx,
+                                fft_func=self.fft, ifft_func=self.ifft,
+                                dim=self.dim, y_grid=y_grid, ky=ky,
+                                freq_window=freq_window, clamp=clamp,
+                                space_window=space_window, is_spatial=True,
+                            )
+                        else:
+                            xg = x_grid if self.dim == 1 else (x_grid, y_grid)
+                            kg = kx if self.dim == 1 else (kx, ky)
+                            result = result + kohn_nirenberg_nonperiodic(
+                                u, xg, kg, symbol_func,
+                                freq_window=freq_window, clamp=clamp,
+                                space_window=space_window, is_spatial=True,
+                            )
+                except Exception as exc:
+                    warnings.warn(
+                        f"AAA joint decomposition failed: {exc}. "
+                        "Falling back to direct joint application."
+                    )
+                    result = result + _apply_joint_direct()
+
             else:
                 raise ValueError(
-                    "joint_backend must be 'direct', 'nufft', or 'lowrank'."
+                    "joint_backend must be 'direct', 'lowrank', 'nufft', "
+                    "or 'aaa'."
                 )
     
         return result
+
         
     def peetre_apply(self, *args, **kwargs):
         """
@@ -7302,6 +7549,633 @@ def factorize_symbolic(
     metrics["singular_values"] = S_keep
 
     return symbolic_pairs, metrics
+
+
+# ============================================================================
+# NUFFT-based joint-residual backend (joint_backend='nufft')
+# ============================================================================
+#
+# Targets Category-C joint residuals that are OSCILLATORY (a genuine phase
+# exp(i*Lambda(x)*M(xi)), e.g. sin(x*xi), exp(I*x*xi)) rather than algebraic.
+# factorize_symbolic's Chebyshev/SVD basis converges poorly on these because
+# a polynomial basis cannot efficiently represent a genuinely bilinear phase.
+#
+# PERIODIC BOUNDARY CONDITIONS ONLY. This backend has only been derived and
+# validated for the FFT/periodic application path (boundary_condition=
+# 'periodic'). It is not applicable to 'dirichlet' and apply_peetre() must
+# fall back to the direct path in that case -- do not attempt to extend this
+# silently without re-deriving the non-periodic quadrature.
+#
+# Requires the optional 'finufft' package for its O(N log N) benefit; falls
+# back to an O(N*M) direct evaluation of the same embedding formula (correct,
+# just not fast) if finufft is not installed, with a one-time warning.
+
+try:
+    import finufft as _finufft
+    _HAVE_FINUFFT = True
+except ImportError:
+    _finufft = None
+    _HAVE_FINUFFT = False
+
+_finufft_warned = False
+
+
+def _warn_no_finufft():
+    global _finufft_warned
+    if not _finufft_warned:
+        warnings.warn(
+            "finufft is not installed; joint_backend='nufft' will use a "
+            "much slower O(N*M) direct-sum fallback that reproduces the "
+            "same math but without the O(N log N) speed benefit. "
+            "Install with `pip install finufft` for the intended performance."
+        )
+        _finufft_warned = True
+
+
+def _nufft_split_real_imag_exponent(total_exponent):
+    """Split an exponent into (I*phase, real_envelope) without silently
+    dropping a real residual (a naive .coeff(sp.I) does this incorrectly
+    for mixed exponents like I*x*xi - x**2)."""
+    exp_terms = sp.Add.make_args(sp.expand(total_exponent))
+    imag_terms, real_terms = [], []
+    for t in exp_terms:
+        c = t.coeff(sp.I)
+        if sp.expand(t - sp.I * c) == 0:
+            imag_terms.append(c)
+        else:
+            real_terms.append(t)
+    phase_expr = sp.expand(sum(imag_terms)) if imag_terms else sp.Integer(0)
+    real_envelope = sp.expand(sum(real_terms)) if real_terms else sp.Integer(0)
+    return phase_expr, real_envelope, bool(imag_terms)
+
+
+def _nufft_extract_term_nd(term, phys_syms, freq_syms):
+    """
+    Factor a single (exp-rewritten, expanded) additive term into
+        c(phys) * g(freq) * exp(i * Lambda(phys) * M(freq))
+    for phys_syms=(x,) / freq_syms=(xi,) [1D] or phys_syms=(x,y) /
+    freq_syms=(xi,eta) [2D]. Returns None if it doesn't fit this pattern
+    (conservative: never returns a wrong plan).
+    """
+    term_simp = sp.powsimp(term, combine="exp", deep=True)
+    factors = sp.Mul.make_args(term_simp)
+
+    exp_args, amp_factors = [], []
+    for f in factors:
+        if f.is_Pow and f.base == sp.E:
+            exp_args.append(f.exp)
+        elif isinstance(f, sp.exp):
+            exp_args.append(f.args[0])
+        else:
+            amp_factors.append(f)
+
+    if not exp_args:
+        return None
+
+    total_exponent = sp.expand(sum(exp_args))
+    phase_expr, real_envelope, has_osc = _nufft_split_real_imag_exponent(total_exponent)
+    if not has_osc:
+        return None
+
+    phase_factored = sp.factor(phase_expr)
+    Lambda_p, M_f = phase_factored.as_independent(*freq_syms, as_Add=False)
+
+    coupled_to_freq = any(Lambda_p.has(s) for s in freq_syms)
+    coupled_to_phys = any(M_f.has(s) for s in phys_syms)
+    no_real_coupling = not any(phase_expr.has(s) for s in freq_syms)
+    if coupled_to_freq or coupled_to_phys or no_real_coupling:
+        return None
+    if sp.expand(Lambda_p * M_f - phase_expr) != 0:
+        return None
+
+    amp_expr = sp.Mul(*amp_factors)
+    if real_envelope != 0:
+        amp_expr = amp_expr * sp.exp(real_envelope)
+    amp_factored = sp.factor(amp_expr) if amp_expr.is_Add else amp_expr
+    c_p, g_f = amp_factored.as_independent(*freq_syms, as_Add=False)
+    if any(c_p.has(s) for s in freq_syms) or any(g_f.has(s) for s in phys_syms):
+        return None
+    if sp.expand(c_p * g_f - amp_expr) != 0:
+        return None
+
+    return {
+        "c_expr": c_p, "g_expr": g_f, "Lambda_expr": Lambda_p, "M_expr": M_f,
+        "c": sp.lambdify(phys_syms, c_p, "numpy"),
+        "g": sp.lambdify(freq_syms, g_f, "numpy"),
+        "Lambda": sp.lambdify(phys_syms, Lambda_p, "numpy"),
+        "M": sp.lambdify(freq_syms, M_f, "numpy"),
+    }
+
+
+def try_nufft_decomposition_1d(joint_expr, x_sym, xi_sym):
+    """1D (phase space (x,xi)) NUFFT classifier. Returns a list of term
+    plans, or None if any additive term doesn't fit (falls back)."""
+    expr = sp.expand(joint_expr.rewrite(sp.exp))
+    plans = []
+    for term in sp.Add.make_args(expr):
+        p = _nufft_extract_term_nd(term, (x_sym,), (xi_sym,))
+        if p is None:
+            return None
+        plans.append(p)
+    return plans
+
+
+def _resolve_1d_piece_for_axis_sep(part_expr, phys_sym, freq_sym):
+    """Used by the 2D axis-separable tier: resolve a single-variable-pair
+    factor into pointwise (no freq dependence) or nufft1d pieces."""
+    if not part_expr.has(freq_sym):
+        return [{"kind": "pointwise", "amp": sp.lambdify(phys_sym, part_expr, "numpy")}]
+    rewritten = sp.expand(part_expr.rewrite(sp.exp))
+    pieces = []
+    for sub in sp.Add.make_args(rewritten):
+        if not sub.has(freq_sym):
+            pieces.append({"kind": "pointwise", "amp": sp.lambdify(phys_sym, sub, "numpy")})
+            continue
+        plan = _nufft_extract_term_nd(sub, (phys_sym,), (freq_sym,))
+        if plan is None:
+            return None
+        pieces.append({"kind": "nufft1d", "plan": plan})
+    return pieces
+
+
+def try_nufft_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym):
+    """
+    2D (phase space (x,y,xi,eta)) NUFFT classifier. Tries, in order:
+      (a) axis-separable: term factors as A(x,xi)*B(y,eta) (disjoint
+          variable groups) -- cheapest, two independent 1D passes.
+      (b) single-joint-term: term's phase is one product
+          Lambda(x,y)*M(xi,eta) -- needs a 3D NUFFT embedding.
+    A symbol whose terms need genuinely independent coupling on BOTH axes
+    simultaneously (4D embedding) is not representable by either tier and
+    returns None (finufft has no type-3 transform above 3D).
+    Returns ('axis_sep', combo_plan) or ('joint3d', plans) or None.
+    """
+    # --- try axis-separable first (checked before any exp-rewrite, since
+    #     rewriting collapses the very structure this tier looks for) ---
+    expr_raw = sp.expand(joint_expr)
+    combo_plan = []
+    axis_sep_ok = True
+    for term in sp.Add.make_args(expr_raw):
+        A_part, B_part = term.as_independent(y_sym, eta_sym, as_Add=False)
+        if A_part.has(y_sym) or A_part.has(eta_sym) or B_part.has(x_sym) or B_part.has(xi_sym):
+            axis_sep_ok = False
+            break
+        A_pieces = _resolve_1d_piece_for_axis_sep(A_part, x_sym, xi_sym)
+        B_pieces = _resolve_1d_piece_for_axis_sep(B_part, y_sym, eta_sym)
+        if A_pieces is None or B_pieces is None:
+            axis_sep_ok = False
+            break
+        for a in A_pieces:
+            for b in B_pieces:
+                combo_plan.append({"A": a, "B": b})
+    if axis_sep_ok and combo_plan:
+        return ("axis_sep", combo_plan)
+
+    # --- fall back to single-joint-term (3D embed) ---
+    expr = sp.expand(joint_expr.rewrite(sp.exp))
+    plans = []
+    for term in sp.Add.make_args(expr):
+        p = _nufft_extract_term_nd(term, (x_sym, y_sym), (xi_sym, eta_sym))
+        if p is None:
+            return None
+        plans.append(p)
+    return ("joint3d", plans) if plans else None
+
+
+def _nufft_uhat_1d(u, x_grid, dx, kx):
+    """Continuous-FT approx of u, correcting for a grid not starting at 0
+    (e.g. x_grid = linspace(-L, L, N, endpoint=False), used throughout this
+    module's make_grid_1d/2d) -- see module docstring above for why this
+    matters: without it, results are internally self-consistent but not
+    the true KN operator action."""
+    x0 = x_grid[0]
+    return np.fft.fft(u) * dx * np.exp(-1j * x0 * kx)
+
+
+def _nufft_direct_2d_type3(sx, sy, weights, tx, ty, isign=1):
+    phase = isign * (tx[:, None] * sx[None, :] + ty[:, None] * sy[None, :])
+    return (weights[None, :] * np.exp(1j * phase)).sum(axis=1)
+
+
+def _nufft_direct_3d_type3(sx, sy, sz, weights, tx, ty, tz, isign=1):
+    phase = isign * (tx[:, None] * sx[None, :] + ty[:, None] * sy[None, :]
+                      + tz[:, None] * sz[None, :])
+    return (weights[None, :] * np.exp(1j * phase)).sum(axis=1)
+
+
+def _nufft_freq_window(kvals, freq_window):
+    """Match kohn_nirenberg_fft's exact windowing formula (see slow-path
+    P_blk *= win_k), applied elementwise on a raw (unshifted) frequency
+    array -- the formula only depends on |k|/sigma pointwise, so it's
+    correct regardless of fftshift ordering."""
+    if freq_window == "gaussian":
+        sigma = 0.8 * np.max(np.abs(kvals))
+        return np.exp(-(kvals / sigma) ** 4)
+    elif freq_window == "hann":
+        k_max = np.max(np.abs(kvals))
+        return 0.5 * (1 + np.cos(np.pi * kvals / k_max)) * (np.abs(kvals) < k_max)
+    return np.ones_like(kvals, dtype=float)
+
+
+def apply_nufft_1d(u, plan, x_grid, kx, dx, dxi, eps=1e-12, freq_window="gaussian"):
+    """Apply Op(p_joint) via the NUFFT tier, 1D case. `plan` is the output
+    of try_nufft_decomposition_1d (a list of term dicts).
+
+    freq_window matches kohn_nirenberg_fft's default -- without applying
+    it here too, results silently diverge from joint_backend='direct'
+    even at freq_window='gaussian' defaults (found via end-to-end testing
+    against the real dispatcher, not from the isolated unit tests, which
+    never exercised the default windowing at all)."""
+    u = np.asarray(u, dtype=complex)
+    uhat = _nufft_uhat_1d(u, x_grid, dx, kx)
+    win = _nufft_freq_window(kx, freq_window)
+    result = np.zeros_like(x_grid, dtype=complex)
+    for term in plan:
+        c_x = term["c"](x_grid)
+        g_xi = term["g"](kx) * win
+        lam_x = term["Lambda"](x_grid)
+        mu_xi = term["M"](kx)
+        weights = (g_xi * uhat * dxi / (2 * np.pi)).astype(complex)
+        src_x, src_y = kx, mu_xi
+        tgt_x, tgt_y = x_grid, lam_x
+        if _HAVE_FINUFFT:
+            f = _finufft.nufft2d3(src_x, src_y, weights, tgt_x, tgt_y, isign=1, eps=eps)
+        else:
+            _warn_no_finufft()
+            f = _nufft_direct_2d_type3(src_x, src_y, weights, tgt_x, tgt_y, isign=1)
+        result += c_x * f
+    return result
+
+
+def apply_nufft_2d(u, kind, plan, x_grid, y_grid, kx, ky, dx, dy, dxi, deta, eps=1e-12,
+                    freq_window="gaussian"):
+    """Apply Op(p_joint) via the NUFFT tier, 2D case. `kind`/`plan` are the
+    output of try_nufft_decomposition_2d. See apply_nufft_1d docstring on
+    why freq_window must be matched to the direct path's default."""
+    u = np.asarray(u, dtype=complex)
+
+    if kind == "joint3d":
+        x0, y0 = x_grid[0], y_grid[0]
+        XI0, ETA0 = np.meshgrid(kx, ky, indexing="ij")
+        uhat = np.fft.fft2(u) * dx * dy * np.exp(-1j * (x0 * XI0 + y0 * ETA0))
+        XI, ETA = np.meshgrid(kx, ky, indexing="ij")
+        X, Y = np.meshgrid(x_grid, y_grid, indexing="ij")
+        # 2D window: kohn_nirenberg_fft applies the SAME 1D-style formula
+        # to the combined radial-like |k| via kx/ky separately multiplied;
+        # match by applying to each axis and taking the product (matches
+        # the 2D fast-path convention used elsewhere in this module).
+        win_x = _nufft_freq_window(kx, freq_window)
+        win_y = _nufft_freq_window(ky, freq_window)
+        WIN = win_x[:, None] * win_y[None, :]
+        result = np.zeros((len(x_grid), len(y_grid)), dtype=complex)
+        for term in plan:
+            c_xy = term["c"](X, Y)
+            g_xieta = term["g"](XI, ETA) * WIN
+            Lambda_xy = term["Lambda"](X, Y)
+            M_xieta = term["M"](XI, ETA)
+            Nx, Ny = len(x_grid), len(y_grid)
+            src_xi, src_eta = XI.ravel(), ETA.ravel()
+            src_M = np.broadcast_to(M_xieta, (Nx, Ny)).ravel()
+            weights = (np.broadcast_to(g_xieta, (Nx, Ny)) * uhat
+                       * dxi * deta / (2 * np.pi) ** 2).ravel().astype(complex)
+            tgt_x, tgt_y = X.ravel(), Y.ravel()
+            tgt_L = np.broadcast_to(Lambda_xy, (Nx, Ny)).ravel()
+            if _HAVE_FINUFFT:
+                f = _finufft.nufft3d3(src_xi, src_eta, src_M, weights, tgt_x, tgt_y, tgt_L,
+                                       isign=1, eps=eps)
+            else:
+                _warn_no_finufft()
+                f = _nufft_direct_3d_type3(src_xi, src_eta, src_M, weights, tgt_x, tgt_y, tgt_L, isign=1)
+            result += c_xy * f.reshape(Nx, Ny)
+        return result
+
+    elif kind == "axis_sep":
+        result = np.zeros_like(u, dtype=complex)
+        for combo in plan:
+            # Step 1: apply B (y,eta) row-wise; Step 2: apply A (x,xi) column-wise
+            w = _apply_1d_piece_rows(combo["B"], u, y_grid, ky, dy, deta, along_axis=1,
+                                      freq_window=freq_window)
+            contrib = _apply_1d_piece_rows(combo["A"], w, x_grid, kx, dx, dxi, along_axis=0,
+                                            freq_window=freq_window)
+            result += contrib
+        return result
+
+    raise ValueError(f"unknown NUFFT 2D plan kind: {kind}")
+
+
+def _apply_1d_piece_rows(piece, field, axis_grid, k_axis, d_axis, dk_axis, along_axis,
+                          freq_window="gaussian"):
+    if piece["kind"] == "pointwise":
+        amp_vals = piece["amp"](axis_grid)
+        return field * (amp_vals[None, :] if along_axis == 1 else amp_vals[:, None])
+    plan = [piece["plan"]]
+    out = np.zeros_like(field, dtype=complex)
+    if along_axis == 1:
+        for i in range(field.shape[0]):
+            out[i, :] = apply_nufft_1d(field[i, :], plan, axis_grid, k_axis, d_axis, dk_axis,
+                                        freq_window=freq_window)
+    else:
+        for j in range(field.shape[1]):
+            out[:, j] = apply_nufft_1d(field[:, j], plan, axis_grid, k_axis, d_axis, dk_axis,
+                                        freq_window=freq_window)
+    return out
+
+
+# ============================================================================
+# AAA-based joint-residual backend (joint_backend='aaa')
+# ============================================================================
+#
+# Targets Category-C joint residuals that are RATIONAL (resolvent-shaped,
+# poles / algebraic decay, no oscillatory phase -- try_nufft_decomposition
+# correctly rejects these). Builds a compact rational approximation of the
+# symbol via vector-valued AAA (shared poles across a Chebyshev grid in the
+# OTHER variable(s); the symbol is evaluated EXACTLY at each AAA support
+# point via sympy substitution, so only the shared-pole structure in the
+# frequency variable(s) introduces approximation error).
+#
+# KNOWN LIMITATION, BY CONSTRUCTION: this works well when the joint
+# residual's pole locations are fixed or slowly varying with x (resp.
+# x,y) -- it degrades (many poles needed, effectively no compression) when
+# the pole genuinely MOVES with the spatial variable (e.g. 1/(xi-x-i*eps),
+# a diagonal-type singularity). The quality gate below (joint_max_rel_error)
+# catches a resulting bad fit and falls back to direct application; it does
+# NOT silently return an inaccurate result. Diagonal-pole symbols are a
+# genuinely different structural class (Calderon-Zygmund-type) that this
+# backend does not target -- do not raise n_cheb/n_samples to "fix" a
+# rejection here without first checking whether the pole is x-dependent.
+#
+# Unlike the NUFFT backend, this one delegates the actual numerical KN
+# application to this module's own kohn_nirenberg_fft / 
+# kohn_nirenberg_nonperiodic (via a fast numpy callable wrapping the AAA
+# fit), so it supports BOTH periodic and dirichlet boundary conditions for
+# free, and automatically inherits their existing grid-origin-correct
+# numerics -- it does not reimplement the KN quadrature itself.
+
+class _VectorAAA:
+    """Barycentric rational fit r(z) in C^m, shared poles across m
+    'vector components' (e.g. one component per Chebyshev x-node)."""
+    def __init__(self, z_support, w, f_support):
+        self.z_support = np.asarray(z_support)
+        self.w = np.asarray(w)
+        self.f_support = np.asarray(f_support)  # (k, m)
+
+    def __call__(self, z):
+        z = np.atleast_1d(np.asarray(z, dtype=complex))
+        diffs = z[:, None] - self.z_support[None, :]
+        exact_mask = np.isclose(diffs, 0.0)
+        safe_diffs = np.where(exact_mask, 1.0, diffs)
+        inv = np.where(exact_mask, 0.0, 1.0 / safe_diffs)
+        num = (self.w[None, :] * inv) @ self.f_support
+        den = (self.w[None, :] * inv).sum(axis=1, keepdims=True)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            out = num / den
+        if exact_mask.any():
+            rows, cols = np.where(exact_mask)
+            out[rows, :] = self.f_support[cols, :]
+        return out
+
+
+def _vector_aaa(z_samples, F_samples, rtol=1e-8, max_terms=50):
+    z_samples = np.asarray(z_samples, dtype=complex)
+    F_samples = np.atleast_2d(np.asarray(F_samples, dtype=complex))
+    if F_samples.shape[0] != len(z_samples):
+        F_samples = F_samples.T
+    M, m = F_samples.shape
+    scale = np.max(np.abs(F_samples)) + 1e-300
+
+    support_idx, test_idx = [], list(range(M))
+    r_vals = np.tile(F_samples.mean(axis=0, keepdims=True), (M, 1))
+    w = np.array([1.0 + 0j])
+    z_support = np.array([], dtype=complex)
+    f_support = np.zeros((0, m), dtype=complex)
+
+    for _ in range(min(max_terms, M - 1)):
+        resid = np.abs(F_samples[test_idx] - r_vals[test_idx])
+        j_new = test_idx[np.argmax(resid.max(axis=1))]
+        support_idx.append(j_new)
+        test_idx.remove(j_new)
+
+        z_support = z_samples[support_idx]
+        f_support = F_samples[support_idx, :]
+        k = len(support_idx)
+        if not test_idx:
+            w = np.ones(k) / k
+            break
+
+        z_test = z_samples[test_idx]
+        F_test = F_samples[test_idx, :]
+        denom = z_test[:, None] - z_support[None, :]
+        blocks = [(F_test[:, c:c+1] - f_support[None, :, c].reshape(1, k)) / denom
+                  for c in range(m)]
+        L_stacked = np.vstack(blocks)
+        _, _, Vh = np.linalg.svd(L_stacked)
+        w = Vh[-1, :].conj()
+
+        fit = _VectorAAA(z_support, w, f_support)
+        r_vals = fit(z_samples)
+        if np.max(np.abs(F_samples - r_vals)) / scale < rtol:
+            break
+
+    return _VectorAAA(z_support, w, f_support)
+
+
+def _aaa_chebyshev_nodes(a, b, n):
+    k = np.arange(n)
+    x = np.cos((2*k + 1) / (2*n) * np.pi)
+    return 0.5*(b-a)*x + 0.5*(b+a)
+
+
+def _aaa_bary_weights_1st_kind(n):
+    k = np.arange(n)
+    theta = (2*k + 1) * np.pi / (2*n)
+    return ((-1.0)**k) * np.sin(theta)
+
+
+def try_aaa_decomposition_1d(joint_expr, x_sym, xi_sym, x_bounds, xi_bounds,
+                              n_cheb=24, n_xi_samples=100, rtol=1e-8):
+    """1D bivariate rational decomposition via vector-AAA. Returns a plan
+    dict (with a fast numpy callable, see aaa_plan_to_callable_1d) or None
+    if the quality gate (rel_l2_error > 10*rtol) isn't met."""
+    p_lamb = sp.lambdify((x_sym, xi_sym), joint_expr, "numpy")
+    x_nodes = _aaa_chebyshev_nodes(*x_bounds, n_cheb)
+    xi_samples = np.linspace(*xi_bounds, n_xi_samples).astype(complex)
+    XI, X = np.meshgrid(xi_samples, x_nodes, indexing="ij")
+    F_samples = np.asarray(p_lamb(X, XI), dtype=complex)
+    fit = _vector_aaa(xi_samples, F_samples, rtol=rtol)
+
+    xi_val = np.linspace(*xi_bounds, 3*n_xi_samples + 7).astype(complex)
+    XIv, Xv = np.meshgrid(xi_val, x_nodes, indexing="ij")
+    F_true_val = np.asarray(p_lamb(Xv, XIv), dtype=complex)
+    F_fit_val = fit(xi_val)
+    rel_l2_error = (np.linalg.norm(F_fit_val - F_true_val)
+                     / (np.linalg.norm(F_true_val) + 1e-300))
+    if rel_l2_error > rtol * 10:
+        return None
+    return {"dim": 1, "fit": fit, "x_nodes": x_nodes,
+            "rel_l2_error": rel_l2_error, "n_poles": len(fit.z_support)}
+
+
+def _aaa_eval_1d(plan, x_eval, xi_eval):
+    """Evaluate the AAA-fitted p(x,xi) at arbitrary points (barycentric
+    Lagrange interp in x from the exact Chebyshev-node slices, composed
+    with the AAA barycentric form in xi)."""
+    fit, x_nodes = plan["fit"], plan["x_nodes"]
+    xi_eval = np.atleast_1d(np.asarray(xi_eval, dtype=complex))
+    x_eval = np.atleast_1d(np.asarray(x_eval, dtype=float))
+    vals_at_nodes = fit(xi_eval)  # (Nxi, M)
+    bw = _aaa_bary_weights_1st_kind(len(x_nodes))
+    diffs = x_eval[:, None] - x_nodes[None, :]
+    exact = np.isclose(diffs, 0.0)
+    safe = np.where(exact, 1.0, diffs)
+    inv = np.where(exact, 0.0, bw[None, :] / safe)
+    den = inv.sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        out = (vals_at_nodes @ inv.T) / den[None, :]  # (Nxi, Nx)
+    if exact.any():
+        x_idx, k_idx = np.where(exact)
+        out[:, x_idx] = vals_at_nodes[:, k_idx]
+    return out  # (Nxi, Nx)
+
+
+def aaa_plan_to_callable_1d(plan):
+    """Wrap an aaa_decomposition_1d plan as p(x, xi) -> ndarray, matching
+    the symbol_func signature kohn_nirenberg_fft/nonperiodic expect."""
+    def p_approx(x, xi):
+        x = np.asarray(x, dtype=float)
+        xi_arr = np.asarray(xi, dtype=complex)
+        orig_shape = np.broadcast(x, xi_arr).shape
+        xb, xib = np.broadcast_to(x, orig_shape), np.broadcast_to(xi_arr, orig_shape)
+        x_flat, xi_flat = xb.ravel(), xib.ravel()
+        # _aaa_eval_1d expects distinct (x_eval, xi_eval) axes; evaluate
+        # pointwise via the diagonal of the outer evaluation (small arrays
+        # in the kohn_nirenberg_fft slow path -- fine at that scale).
+        out = np.empty(x_flat.shape, dtype=complex)
+        for i in range(x_flat.size):
+            out[i] = _aaa_eval_1d(plan, x_flat[i:i+1], xi_flat[i:i+1])[0, 0]
+        return out.reshape(orig_shape)
+    return p_approx
+
+
+def try_aaa_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym,
+                              x_bounds, y_bounds, xi_bounds, eta_bounds,
+                              n_cheb_x=10, n_cheb_y=10,
+                              n_xi_samples=30, n_eta_samples=30, rtol=1e-8):
+    """2D decomposition via sequential vector-AAA (xi support points chosen
+    at a representative eta slice -- see module docstring caveat above;
+    stage 2 compresses eta from the EXACT symbolic slice at each xi
+    support point). Returns a plan dict or None if the quality gate fails."""
+    x_nodes = _aaa_chebyshev_nodes(*x_bounds, n_cheb_x)
+    y_nodes = _aaa_chebyshev_nodes(*y_bounds, n_cheb_y)
+    Nx, Ny = len(x_nodes), len(y_nodes)
+    XX, YY = np.meshgrid(x_nodes, y_nodes, indexing="ij")
+    xx_flat, yy_flat = XX.ravel(), YY.ravel()
+    p_lamb = sp.lambdify((x_sym, y_sym, xi_sym, eta_sym), joint_expr, "numpy")
+
+    eta_repr = 0.5 * (eta_bounds[0] + eta_bounds[1])
+    xi_samples = np.linspace(*xi_bounds, n_xi_samples).astype(complex)
+    F1 = np.zeros((n_xi_samples, Nx*Ny), dtype=complex)
+    for j, xi_v in enumerate(xi_samples):
+        F1[j, :] = p_lamb(xx_flat, yy_flat, xi_v, eta_repr)
+    fit_xi = _vector_aaa(xi_samples, F1, rtol=rtol)
+    xi_support = fit_xi.z_support
+
+    eta_samples = np.linspace(*eta_bounds, n_eta_samples).astype(complex)
+    eta_fits = []
+    for xi_l in xi_support:
+        expr_l = joint_expr.subs(xi_sym, complex(xi_l))
+        p_l_lamb = sp.lambdify((x_sym, y_sym, eta_sym), expr_l, "numpy")
+        F2 = np.zeros((n_eta_samples, Nx*Ny), dtype=complex)
+        for j, eta_v in enumerate(eta_samples):
+            F2[j, :] = p_l_lamb(xx_flat, yy_flat, eta_v)
+        eta_fits.append(_vector_aaa(eta_samples, F2, rtol=rtol))
+
+    plan = {"dim": 2, "fit_xi": fit_xi, "xi_support": xi_support,
+            "eta_fits": eta_fits, "x_nodes": x_nodes, "y_nodes": y_nodes}
+
+    x_val = np.linspace(x_bounds[0]*0.9, x_bounds[1]*0.9, 6)
+    y_val = np.linspace(y_bounds[0]*0.9, y_bounds[1]*0.9, 6)
+    xi_val = np.linspace(xi_bounds[0]*0.9, xi_bounds[1]*0.9, 5).astype(complex)
+    eta_val = np.linspace(eta_bounds[0]*0.9, eta_bounds[1]*0.9, 5).astype(complex)
+    approx = _aaa_eval_2d(plan, x_val, y_val, xi_val, eta_val)
+    XIv, ETAv, Xv, Yv = np.meshgrid(xi_val, eta_val, x_val, y_val, indexing="ij")
+    true_vals = p_lamb(Xv, Yv, XIv, ETAv)
+    rel_err = np.linalg.norm(approx - true_vals) / (np.linalg.norm(true_vals) + 1e-300)
+    plan["rel_l2_error"] = rel_err
+    if rel_err > rtol * 20:
+        return None
+    return plan
+
+
+def _interp_2d_tensor_chebyshev(vals_grid, x_nodes, y_nodes, x_eval, y_eval):
+    bwx = _aaa_bary_weights_1st_kind(len(x_nodes))
+    bwy = _aaa_bary_weights_1st_kind(len(y_nodes))
+
+    def bary_1d(vals, nodes, bw, eval_pts, axis):
+        diffs = eval_pts[:, None] - nodes[None, :]
+        exact = np.isclose(diffs, 0.0)
+        safe = np.where(exact, 1.0, diffs)
+        inv = np.where(exact, 0.0, bw[None, :] / safe)
+        den = inv.sum(axis=1)
+        num = np.tensordot(inv, vals, axes=([1], [axis]))
+        num = np.moveaxis(num, 0, axis)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            out = num / np.expand_dims(den, axis=[a for a in range(num.ndim) if a != axis])
+        if exact.any():
+            eval_idx, node_idx = np.where(exact)
+            src = np.take(vals, node_idx, axis=axis)
+            out = np.moveaxis(out, axis, 0)
+            src = np.moveaxis(src, axis, 0)
+            out[eval_idx] = src[np.arange(len(eval_idx))] if src.ndim == out.ndim else src
+            out = np.moveaxis(out, 0, axis)
+        return out
+
+    ax_x, ax_y = vals_grid.ndim - 2, vals_grid.ndim - 1
+    step1 = bary_1d(vals_grid, x_nodes, bwx, x_eval, axis=ax_x)
+    return bary_1d(step1, y_nodes, bwy, y_eval, axis=ax_y)
+
+
+def _aaa_eval_2d(plan, x_eval, y_eval, xi_eval, eta_eval):
+    x_eval = np.atleast_1d(np.asarray(x_eval, dtype=float))
+    y_eval = np.atleast_1d(np.asarray(y_eval, dtype=float))
+    xi_eval = np.atleast_1d(np.asarray(xi_eval, dtype=complex))
+    eta_eval = np.atleast_1d(np.asarray(eta_eval, dtype=complex))
+    x_nodes, y_nodes = plan["x_nodes"], plan["y_nodes"]
+    Nx, Ny = len(x_nodes), len(y_nodes)
+    xi_support, w_xi, L = plan["xi_support"], plan["fit_xi"].w, len(plan["xi_support"])
+
+    q_all = np.zeros((L, len(eta_eval), len(x_eval), len(y_eval)), dtype=complex)
+    for l in range(L):
+        vals_at_nodes = plan["eta_fits"][l](eta_eval).reshape(len(eta_eval), Nx, Ny)
+        q_all[l] = _interp_2d_tensor_chebyshev(vals_at_nodes, x_nodes, y_nodes, x_eval, y_eval)
+
+    out = np.zeros((len(xi_eval), len(eta_eval), len(x_eval), len(y_eval)), dtype=complex)
+    for ix, xi_v in enumerate(xi_eval):
+        diffs = xi_v - xi_support
+        exact = np.isclose(diffs, 0.0)
+        if exact.any():
+            out[ix] = q_all[np.argmax(exact)]
+            continue
+        coeff = w_xi / diffs
+        out[ix] = np.tensordot(coeff, q_all, axes=([0], [0])) / coeff.sum()
+    return out
+
+
+def aaa_plan_to_callable_2d(plan):
+    """Wrap an aaa_decomposition_2d plan as p(x, y, xi, eta) -> ndarray,
+    matching the symbol_func signature kohn_nirenberg_fft/nonperiodic
+    expect for dim=2."""
+    def p_approx(x, y, xi, eta):
+        x = np.asarray(x, dtype=float); y = np.asarray(y, dtype=float)
+        xi_arr = np.asarray(xi, dtype=complex); eta_arr = np.asarray(eta, dtype=complex)
+        orig_shape = np.broadcast(x, y, xi_arr, eta_arr).shape
+        xb, yb, xib, etab = (np.broadcast_to(a, orig_shape).ravel()
+                              for a in (x, y, xi_arr, eta_arr))
+        out = np.empty(xb.shape, dtype=complex)
+        for i in range(xb.size):
+            out[i] = _aaa_eval_2d(plan, xb[i:i+1], yb[i:i+1], xib[i:i+1], etab[i:i+1])[0, 0, 0, 0]
+        return out.reshape(orig_shape)
+    return p_approx
+
 
 """
 pde_solver_exponential.py

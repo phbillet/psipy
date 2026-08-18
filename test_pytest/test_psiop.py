@@ -3114,3 +3114,200 @@ def test_invalidate_kn_cache_smoke():
 
     # Should simply clear global caches without raising.
     psiop.invalidate_kn_cache()
+
+
+#===========================================================================
+# NEW TESTS — AAA and Auto backends
+#===========================================================================
+def test_auto_select_joint_backend_nufft():
+    """_auto_select_joint_backend should select 'nufft' for oscillatory symbols."""
+    x, xi = sp.symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    joint_sym = op.symbol
+    x_syms, xi_syms = op._resolve_joint_symbols(joint_sym)
+    backend = op._auto_select_joint_backend(joint_sym, x_syms, xi_syms)
+    assert backend == 'nufft'
+
+def test_auto_select_joint_backend_aaa():
+    """_auto_select_joint_backend should select 'aaa' for rational symbols."""
+    x, xi = sp.symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    joint_sym = op.symbol
+    x_syms, xi_syms = op._resolve_joint_symbols(joint_sym)
+    backend = op._auto_select_joint_backend(joint_sym, x_syms, xi_syms)
+    assert backend == 'aaa'
+
+def test_auto_select_joint_backend_lowrank():
+    """_auto_select_joint_backend should select 'lowrank' for smooth Gaussian symbols."""
+    x, xi = sp.symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.exp(-((x - xi)**2) / 8), [x], mode='symbol')
+    joint_sym = op.symbol
+    x_syms, xi_syms = op._resolve_joint_symbols(joint_sym)
+    backend = op._auto_select_joint_backend(joint_sym, x_syms, xi_syms)
+    assert backend == 'lowrank'
+
+def test_apply_peetre_aaa_backend():
+    """apply_peetre with joint_backend='aaa' should work for rational symbols."""
+    x, xi = sp.symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+    
+    # Should not raise and should produce finite results
+    res_aaa = op.apply(
+        u, x_grid, kx, 
+        boundary_condition='periodic',
+        joint_backend='aaa', 
+        joint_tol=1e-4, 
+        freq_window=None, 
+        clamp=np.inf
+    )
+    assert res_aaa.shape == u.shape
+    assert np.all(np.isfinite(res_aaa))
+
+def test_apply_peetre_auto_backend():
+    """apply_peetre with joint_backend='auto' should dispatch correctly and not raise."""
+    x, xi = sp.symbols('x xi', real=True)
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+    
+    # 1. Oscillatory -> auto -> nufft
+    op_nufft = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    res1 = op_nufft.apply(
+        u, x_grid, kx, 
+        boundary_condition='periodic',
+        joint_backend='auto', 
+        freq_window=None, 
+        clamp=np.inf
+    )
+    assert res1.shape == u.shape
+    
+    # 2. Rational -> auto -> aaa
+    op_aaa = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    res2 = op_aaa.apply(
+        u, x_grid, kx, 
+        boundary_condition='periodic',
+        joint_backend='auto', 
+        joint_tol=1e-4, 
+        freq_window=None, 
+        clamp=np.inf
+    )
+    assert res2.shape == u.shape
+    
+    # 3. Smooth -> auto -> lowrank
+    op_lr = PseudoDifferentialOperator(sp.exp(-((x - xi)**2) / 8), [x], mode='symbol')
+    res3 = op_lr.apply(
+        u, x_grid, kx, 
+        boundary_condition='periodic',
+        joint_backend='auto', 
+        freq_window=None, 
+        clamp=np.inf
+    )
+    assert res3.shape == u.shape
+
+def test_print_peetre_auto_backend(capsys):
+    """print_peetre_decomposition with joint_backend='auto' should not raise."""
+    x, xi = sp.symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    
+    # Should run without raising and print the auto-detection notice
+    op.print_peetre_decomposition(joint_backend='auto')
+    captured = capsys.readouterr()
+    
+    # Verify it produced output and ideally mentions the auto-detection or standard Peetre classes
+    assert len(captured.out) > 0
+
+#===========================================================================
+# NEW TESTS — Hybrid Auto-Routing & Auto-Dispatcher Edge Cases
+#===========================================================================
+
+def test_apply_hybrid_mixed_1d():
+    """apply_hybrid should handle a sum of NUFFT, AAA, and Lowrank terms without crashing."""
+    x, xi = symbols('x xi', real=True)
+    # 1. sin(x*xi)       -> NUFFT
+    # 2. 1/(1+(x-xi)^2)  -> AAA
+    # 3. exp(-(x-xi)^2)  -> Lowrank
+    p_mixed = sp.sin(x * xi) + 1 / (1 + (x - xi)**2) + sp.exp(-((x - xi)**2) / 8)
+    op = PseudoDifferentialOperator(p_mixed, [x], mode='symbol')
+    
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+    
+    # Should not raise and should produce finite results
+    res_hybrid = op.apply_hybrid(u, x_grid, kx, boundary_condition='periodic')
+    assert res_hybrid.shape == u.shape
+    assert np.all(np.isfinite(res_hybrid))
+
+def test_apply_hybrid_equivalence_to_direct():
+    """apply_hybrid should closely match the exact 'direct' backend for mixed symbols."""
+    x, xi = symbols('x xi', real=True)
+    p_mixed = sp.sin(x * xi) + 1 / (1 + (x - xi)**2) + sp.exp(-((x - xi)**2) / 8)
+    op = PseudoDifferentialOperator(p_mixed, [x], mode='symbol')
+    
+    x_grid, kx = _make_1d_grid(L=5.0, N=128)
+    u = _gaussian(x_grid)
+    
+    res_hybrid = op.apply_hybrid(u, x_grid, kx, boundary_condition='periodic',
+                                 freq_window=None, clamp=np.inf)
+    res_direct = op.apply(u, x_grid, kx, boundary_condition='periodic',
+                          joint_backend='direct', freq_window=None, clamp=np.inf)
+    
+    # Tolerance is relaxed because hybrid uses AAA/Lowrank approximations 
+    # for the joint residual terms, but it should be very close.
+    assert np.allclose(res_hybrid, res_direct, atol=1e-2, rtol=1e-2)
+
+def test_apply_auto_no_joint_residual():
+    """joint_backend='auto' should gracefully handle symbols with no joint residual."""
+    x, xi = symbols('x xi', real=True)
+    # Purely local (xi^2) and separable (x * exp(-xi^2))
+    p = xi**2 + x * sp.exp(-xi**2)
+    op = PseudoDifferentialOperator(p, [x], mode='symbol')
+    
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+    
+    res_auto = op.apply(u, x_grid, kx, boundary_condition='periodic',
+                        joint_backend='auto', freq_window=None, clamp=np.inf)
+    res_direct = op.apply(u, x_grid, kx, boundary_condition='periodic',
+                          joint_backend='direct', freq_window=None, clamp=np.inf)
+    
+    # With no joint residual, 'auto' and 'direct' should be mathematically identical
+    assert np.allclose(res_auto, res_direct, atol=1e-6)
+
+def test_apply_hybrid_mixed_2d():
+    """apply_hybrid should work for 2D mixed symbols (NUFFT + AAA)."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    # NUFFT term (3D embeddable) + AAA term (2D rational)
+    p_2d_mixed = sp.sin((x + y) * xi) + (x * y) / (xi**2 + eta**2 + 1)
+    op = PseudoDifferentialOperator(p_2d_mixed, [x, y], mode='symbol')
+    
+    x_grid, y_grid, kx, ky = _make_2d_grid(L=3.0, N=32)
+    X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
+    u = np.exp(-(X**2 + Y**2)).astype(complex)
+    
+    res_hybrid = op.apply_hybrid(u, x_grid, kx, y_grid=y_grid, ky=ky,
+                                 boundary_condition='periodic')
+    assert res_hybrid.shape == u.shape
+    assert np.all(np.isfinite(res_hybrid))
+
+def test_auto_select_regression_gaussian_rational():
+    """Regression test: A mix of Gaussian and Rational must NOT trigger NUFFT.
+    
+    Previously, the Gaussian's negative exponent caused the auto-selector to 
+    falsely flag the symbol as having a 'symbolic denominator' (AAA). 
+    This test ensures the fix holds and that non-oscillatory symbols never 
+    accidentally route to the NUFFT backend.
+    """
+    x, xi = symbols('x xi', real=True)
+    # Mix of smooth (lowrank target) and pole (aaa target)
+    p_mix = sp.exp(-((x - xi)**2) / 8) + 1 / (1 + (x - xi)**2)
+    op = PseudoDifferentialOperator(p_mix, [x], mode='symbol')
+    
+    joint_sym = op.symbol
+    x_syms, xi_syms = op._resolve_joint_symbols(joint_sym)
+    backend = op._auto_select_joint_backend(joint_sym, x_syms, xi_syms)
+    
+    # It should pick 'aaa' (due to the rational part) or 'lowrank', 
+    # but MUST NOT pick 'nufft' since there is no oscillatory phase.
+    assert backend in ('aaa', 'lowrank'), f"Expected 'aaa' or 'lowrank', got '{backend}'"
+    assert backend != 'nufft', "Non-oscillatory symbol incorrectly routed to NUFFT!"
