@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>psiop &mdash; psipy  documentation</title>
+  <title>psiop_old &mdash; psipy  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
@@ -73,7 +73,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
-      <li class="breadcrumb-item active">psiop</li>
+      <li class="breadcrumb-item active">psiop_old</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -82,7 +82,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for psiop</h1><div class="highlight"><pre>
+  <h1>Source code for psiop_old</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
 <span class="c1">#</span>
 <span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
@@ -414,7 +414,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
 <div class="viewcode-block" id="PseudoDifferentialOperator">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">PseudoDifferentialOperator</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Pseudo-differential operator with dynamic symbol evaluation on spatial grids.</span>
@@ -662,7 +662,7 @@
                 <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s1">'_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">_func'</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         
 <div class="viewcode-block" id="PseudoDifferentialOperator.evaluate">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.evaluate">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.evaluate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">KX</span><span class="p">,</span> <span class="n">KY</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Evaluate the pseudo-differential operator's symbol on a grid of spatial and frequency coordinates.</span>
@@ -704,20 +704,21 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.clear_cache">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.clear_cache">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.clear_cache">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Clear cached symbol evaluations and Peetre decompositions."""</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Clear cached symbol evaluations and Peetre decompositions.</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">symbol_cached</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_peetre_cache"</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_cache</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_peetre_decomposition"</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_decomposition</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_joint_lowrank_cache"</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_joint_lowrank_cache</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_joint_nufft_cache"</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_joint_nufft_cache</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_joint_aaa_cache"</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_joint_aaa_cache</span> <span class="o">=</span> <span class="kc">None</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_joint_lowrank_cache</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_peetre_decomposition</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -734,7 +735,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_decomposition</span>
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.apply">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.apply">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.apply">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">u</span><span class="p">,</span>
@@ -1150,7 +1151,7 @@
         <span class="k">return</span> <span class="n">result</span>
         
 <div class="viewcode-block" id="PseudoDifferentialOperator.principal_symbol">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.principal_symbol">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.principal_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">principal_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the leading homogeneous component of the pseudo-differential symbol.</span>
@@ -1200,7 +1201,7 @@
 
                        
 <div class="viewcode-block" id="PseudoDifferentialOperator.is_homogeneous">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.is_homogeneous">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.is_homogeneous">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_homogeneous</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Check whether the symbol is homogeneous in the frequency variables.</span>
@@ -1260,7 +1261,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.symbol_order">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.symbol_order">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.symbol_order">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">symbol_order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Estimate the asymptotic homogeneity order of the symbol as |ξ|→∞."""</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">symbols</span><span class="p">,</span> <span class="n">series</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">sin</span><span class="p">,</span> <span class="n">oo</span><span class="p">,</span>
@@ -1352,7 +1353,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.symbol_order_old">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.symbol_order_old">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.symbol_order_old">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">symbol_order_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Estimate the homogeneity order of the pseudo-differential symbol in high-frequency asymptotics.</span>
@@ -1537,7 +1538,7 @@
 
     
 <div class="viewcode-block" id="PseudoDifferentialOperator.asymptotic_expansion">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.asymptotic_expansion">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.asymptotic_expansion">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">asymptotic_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the asymptotic expansion of the symbol as |ξ| → ∞ (high-frequency regime).</span>
@@ -1632,7 +1633,7 @@
 
             
 <div class="viewcode-block" id="PseudoDifferentialOperator.compose_asymptotic">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.compose_asymptotic">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.compose_asymptotic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">compose_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compose two pseudo-differential operators using an asymptotic expansion</span>
@@ -2270,61 +2271,7 @@
             <span class="n">xi_syms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_nufft_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Resolve the NUFFT plan for a joint residual symbol (symbolic, grid-free).</span>
-<span class="sd">    </span>
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        plan_info : tuple or None</span>
-<span class="sd">            ("1d", plan) or ("2d", plan) if the symbol is NUFFT-representable,</span>
-<span class="sd">            None otherwise.</span>
-<span class="sd">        """</span>
-        <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_joint_symbols</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">joint_symbol</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
-        <span class="n">cache</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_joint_nufft_cache"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">use_cache</span> <span class="ow">and</span> <span class="n">cache</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"key"</span><span class="p">)</span> <span class="o">==</span> <span class="n">key</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">cache</span><span class="p">[</span><span class="s2">"plan_info"</span><span class="p">]</span>
-    
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">plan</span> <span class="o">=</span> <span class="n">try_nufft_decomposition_1d</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">,</span> <span class="n">x_syms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_syms</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-            <span class="n">plan_info</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"1d"</span><span class="p">,</span> <span class="n">plan</span><span class="p">)</span> <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">res</span> <span class="o">=</span> <span class="n">try_nufft_decomposition_2d</span><span class="p">(</span>
-                <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">x_syms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x_syms</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">xi_syms</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xi_syms</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-            <span class="p">)</span>
-            <span class="n">plan_info</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"2d"</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span> <span class="k">if</span> <span class="n">res</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">plan_info</span> <span class="o">=</span> <span class="kc">None</span>
-    
-        <span class="bp">self</span><span class="o">.</span><span class="n">_joint_nufft_cache</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"key"</span><span class="p">:</span> <span class="n">key</span><span class="p">,</span> <span class="s2">"plan_info"</span><span class="p">:</span> <span class="n">plan_info</span><span class="p">}</span>
-        <span class="k">return</span> <span class="n">plan_info</span>
-
     <span class="k">def</span><span class="w"> </span><span class="nf">_nufft_joint_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                            <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Try the NUFFT joint-residual backend. Returns the applied numeric</span>
-<span class="sd">        array on success, or None if the symbol doesn't classify as</span>
-<span class="sd">        NUFFT-representable (caller should fall back to direct application).</span>
-<span class="sd">        PERIODIC BOUNDARY CONDITIONS ONLY.</span>
-<span class="sd">        """</span>
-        <span class="n">plan_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_nufft_plan</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">plan_info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-    
-        <span class="n">kind</span><span class="p">,</span> <span class="n">plan</span> <span class="o">=</span> <span class="n">plan_info</span>
-        <span class="n">dx</span> <span class="o">=</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">dxi</span> <span class="o">=</span> <span class="n">kx</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">kx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"1d"</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">apply_nufft_1d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>  <span class="c1"># "2d"</span>
-            <span class="n">dy</span> <span class="o">=</span> <span class="n">y_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">deta</span> <span class="o">=</span> <span class="n">ky</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">ky</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">plan_kind</span><span class="p">,</span> <span class="n">plan_data</span> <span class="o">=</span> <span class="n">plan</span>
-            <span class="k">return</span> <span class="n">apply_nufft_2d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">plan_kind</span><span class="p">,</span> <span class="n">plan_data</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span>
-                                   <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">deta</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_nufft_joint_apply_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                             <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Try the NUFFT joint-residual backend. Returns the applied numeric</span>
@@ -2367,123 +2314,6 @@
             <span class="n">plan_kind</span><span class="p">,</span> <span class="n">plan_data</span> <span class="o">=</span> <span class="n">plan</span>
             <span class="k">return</span> <span class="n">apply_nufft_2d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">plan_kind</span><span class="p">,</span> <span class="n">plan_data</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span>
                                    <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">deta</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_joint_representation</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">joint_symbol</span><span class="p">,</span>
-        <span class="n">backend</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span>
-        <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">degree</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-        <span class="n">tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
-        <span class="n">num_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
-        <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
-        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Normalize the joint residual into an executable representation.</span>
-<span class="sd">    </span>
-<span class="sd">        This is the single entry point for turning a joint symbol into</span>
-<span class="sd">        something that can be numerically applied. It resolves 'auto' to a</span>
-<span class="sd">        concrete backend, then delegates to the appropriate cached helper.</span>
-<span class="sd">    </span>
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        joint_symbol : sympy.Expr</span>
-<span class="sd">            The irreducible joint residual.</span>
-<span class="sd">        backend : {'auto', 'direct', 'lowrank', 'nufft', 'aaa'}</span>
-<span class="sd">            Which factorization strategy to use.</span>
-<span class="sd">        bounds : dict, optional</span>
-<span class="sd">            Symbol -&gt; (min, max) mapping. Required for 'lowrank' and 'aaa'.</span>
-<span class="sd">        degree, tol, num_samples, seed :</span>
-<span class="sd">            Forwarded to the underlying factorization.</span>
-<span class="sd">        use_cache : bool</span>
-<span class="sd">            Whether to use per-backend caches.</span>
-<span class="sd">    </span>
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        dict</span>
-<span class="sd">            A representation with a "type" key:</span>
-<span class="sd">    </span>
-<span class="sd">            - {"type": "zero"}</span>
-<span class="sd">            - {"type": "direct", "symbol": ..., "backend": "direct"}</span>
-<span class="sd">            - {"type": "separable_pairs", "pairs": [...], "metrics": {...},</span>
-<span class="sd">               "backend": "lowrank"}</span>
-<span class="sd">            - {"type": "nufft_plan", "plan_info": (...), "backend": "nufft"}</span>
-<span class="sd">            - {"type": "nufft_unrepresentable", "symbol": ..., "backend": "nufft"}</span>
-<span class="sd">            - {"type": "aaa_callable", "symbol_func": ..., "metrics": {...},</span>
-<span class="sd">               "backend": "aaa"}</span>
-<span class="sd">            - {"type": "aaa_unfit", "symbol": ..., "backend": "aaa"}</span>
-<span class="sd">        """</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">):</span>
-            <span class="k">return</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"zero"</span><span class="p">}</span>
-    
-        <span class="c1"># Resolve 'auto' to a concrete backend</span>
-        <span class="n">resolved</span> <span class="o">=</span> <span class="n">backend</span>
-        <span class="k">if</span> <span class="n">resolved</span> <span class="o">==</span> <span class="s2">"auto"</span><span class="p">:</span>
-            <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_joint_symbols</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)</span>
-            <span class="n">resolved</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_auto_select_joint_backend</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">,</span> <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span><span class="p">)</span>
-    
-        <span class="k">if</span> <span class="n">resolved</span> <span class="o">==</span> <span class="s2">"direct"</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"direct"</span><span class="p">,</span> <span class="s2">"symbol"</span><span class="p">:</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="s2">"backend"</span><span class="p">:</span> <span class="s2">"direct"</span><span class="p">}</span>
-    
-        <span class="k">elif</span> <span class="n">resolved</span> <span class="o">==</span> <span class="s2">"lowrank"</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">"joint_bounds must be provided for backend='lowrank' "</span>
-                    <span class="s2">"(or use backend='auto' with grids available at apply time)."</span>
-                <span class="p">)</span>
-            <span class="n">pairs</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_low_rank_joint_pairs</span><span class="p">(</span>
-                <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="n">degree</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">,</span>
-                <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="p">{</span>
-                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"separable_pairs"</span><span class="p">,</span>
-                <span class="s2">"pairs"</span><span class="p">:</span> <span class="n">pairs</span><span class="p">,</span>
-                <span class="s2">"metrics"</span><span class="p">:</span> <span class="n">metrics</span><span class="p">,</span>
-                <span class="s2">"backend"</span><span class="p">:</span> <span class="s2">"lowrank"</span><span class="p">,</span>
-            <span class="p">}</span>
-    
-        <span class="k">elif</span> <span class="n">resolved</span> <span class="o">==</span> <span class="s2">"nufft"</span><span class="p">:</span>
-            <span class="n">plan_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_nufft_plan</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">plan_info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">{</span>
-                    <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"nufft_unrepresentable"</span><span class="p">,</span>
-                    <span class="s2">"symbol"</span><span class="p">:</span> <span class="n">joint_symbol</span><span class="p">,</span>
-                    <span class="s2">"backend"</span><span class="p">:</span> <span class="s2">"nufft"</span><span class="p">,</span>
-                <span class="p">}</span>
-            <span class="k">return</span> <span class="p">{</span>
-                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"nufft_plan"</span><span class="p">,</span>
-                <span class="s2">"plan_info"</span><span class="p">:</span> <span class="n">plan_info</span><span class="p">,</span>
-                <span class="s2">"backend"</span><span class="p">:</span> <span class="s2">"nufft"</span><span class="p">,</span>
-            <span class="p">}</span>
-    
-        <span class="k">elif</span> <span class="n">resolved</span> <span class="o">==</span> <span class="s2">"aaa"</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">"joint_bounds must be provided for backend='aaa' "</span>
-                    <span class="s2">"(or use backend='auto' with grids available at apply time)."</span>
-                <span class="p">)</span>
-            <span class="n">symbol_func</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aaa_joint_symbol_func</span><span class="p">(</span>
-                <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="n">symbol_func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">{</span>
-                    <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"aaa_unfit"</span><span class="p">,</span>
-                    <span class="s2">"symbol"</span><span class="p">:</span> <span class="n">joint_symbol</span><span class="p">,</span>
-                    <span class="s2">"backend"</span><span class="p">:</span> <span class="s2">"aaa"</span><span class="p">,</span>
-                <span class="p">}</span>
-            <span class="k">return</span> <span class="p">{</span>
-                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"aaa_callable"</span><span class="p">,</span>
-                <span class="s2">"symbol_func"</span><span class="p">:</span> <span class="n">symbol_func</span><span class="p">,</span>
-                <span class="s2">"metrics"</span><span class="p">:</span> <span class="n">metrics</span><span class="p">,</span>
-                <span class="s2">"backend"</span><span class="p">:</span> <span class="s2">"aaa"</span><span class="p">,</span>
-            <span class="p">}</span>
-    
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"joint_backend must be 'direct', 'lowrank', 'nufft', or 'aaa', "</span>
-                <span class="sa">f</span><span class="s2">"got '</span><span class="si">{</span><span class="n">resolved</span><span class="si">}</span><span class="s2">'."</span>
-            <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_aaa_joint_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span>
                                 <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
@@ -2533,254 +2363,33 @@
                         <span class="k">else</span> <span class="n">aaa_plan_to_callable_2d</span><span class="p">(</span><span class="n">plan</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">symbol_func</span><span class="p">,</span> <span class="n">metrics</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_joint_residual</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">joint_symbol</span><span class="p">,</span>
-        <span class="n">u</span><span class="p">,</span>
-        <span class="n">x_grid</span><span class="p">,</span>
-        <span class="n">kx</span><span class="p">,</span>
-        <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">boundary_condition</span><span class="o">=</span><span class="s2">"periodic"</span><span class="p">,</span>
-        <span class="n">peetre_quantization</span><span class="o">=</span><span class="s2">"kohn-nirenberg"</span><span class="p">,</span>
-        <span class="n">common_apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">apply_separable_pair</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">joint_backend</span><span class="o">=</span><span class="s2">"direct"</span><span class="p">,</span>
-        <span class="n">joint_degree</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-        <span class="n">joint_tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
-        <span class="n">joint_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">joint_max_rel_error</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">joint_num_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
-        <span class="n">joint_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
-        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">freq_window</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">,</span>
-        <span class="n">clamp</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span>
-        <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Apply the irreducible joint residual with backend selection,</span>
-<span class="sd">        quality gates, and automatic fallback to direct application.</span>
-<span class="sd">    </span>
-<span class="sd">        This method encapsulates the entire joint-residual execution</span>
-<span class="sd">        pipeline: auto-selection, representation resolution, quality</span>
-<span class="sd">        checking, and numerical application with fallbacks.</span>
-<span class="sd">    </span>
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        joint_symbol : sympy.Expr</span>
-<span class="sd">            The joint residual symbol to apply.</span>
-<span class="sd">        u : ndarray</span>
-<span class="sd">            Input field.</span>
-<span class="sd">        x_grid, kx, y_grid, ky : ndarray</span>
-<span class="sd">            Spatial and frequency grids.</span>
-<span class="sd">        boundary_condition : str</span>
-<span class="sd">            'periodic' or 'dirichlet'/'neumann'.</span>
-<span class="sd">        peetre_quantization : str</span>
-<span class="sd">            Quantization for sub-operators.</span>
-<span class="sd">        common_apply_kwargs : dict</span>
-<span class="sd">            Keyword arguments for sub-operator apply() calls.</span>
-<span class="sd">        apply_separable_pair : callable</span>
-<span class="sd">            The closure from apply_peetre that applies a(x)*q(D)u.</span>
-<span class="sd">        joint_backend, joint_degree, joint_tol, joint_bounds,</span>
-<span class="sd">        joint_max_rel_error, joint_num_samples, joint_seed, use_cache,</span>
-<span class="sd">        freq_window, clamp, space_window :</span>
-<span class="sd">            As documented in apply_peetre.</span>
-<span class="sd">    </span>
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        ndarray</span>
-<span class="sd">            The result of applying the joint residual to u.</span>
-<span class="sd">        """</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-    
-        <span class="n">common_apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">common_apply_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
-    
-        <span class="k">def</span><span class="w"> </span><span class="nf">_apply_joint_direct</span><span class="p">():</span>
-<span class="w">            </span><span class="sd">"""Exact (expensive) fallback: full KN application of joint symbol."""</span>
-            <span class="n">op_joint</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
-                <span class="n">joint_symbol</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
-                <span class="n">mode</span><span class="o">=</span><span class="s2">"symbol"</span><span class="p">,</span>
-                <span class="n">quantization</span><span class="o">=</span><span class="n">peetre_quantization</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="n">op_joint</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="o">**</span><span class="n">common_apply_kwargs</span><span class="p">)</span>
-    
-        <span class="c1"># ---------------------------------------------------------------</span>
-        <span class="c1"># Determine if we need bounds before resolving</span>
-        <span class="c1"># ---------------------------------------------------------------</span>
-        <span class="n">needs_bounds</span> <span class="o">=</span> <span class="n">joint_backend</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"lowrank"</span><span class="p">,</span> <span class="s2">"aaa"</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">joint_backend</span> <span class="o">==</span> <span class="s2">"auto"</span><span class="p">:</span>
-            <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_joint_symbols</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)</span>
-            <span class="n">peeked</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_auto_select_joint_backend</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">,</span> <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span><span class="p">)</span>
-            <span class="n">needs_bounds</span> <span class="o">=</span> <span class="n">peeked</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"lowrank"</span><span class="p">,</span> <span class="s2">"aaa"</span><span class="p">)</span>
-    
-        <span class="k">if</span> <span class="n">needs_bounds</span> <span class="ow">and</span> <span class="n">joint_bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">joint_bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_infer_joint_bounds</span><span class="p">(</span>
-                <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
-            <span class="p">)</span>
-    
-        <span class="c1"># ---------------------------------------------------------------</span>
-        <span class="c1"># Resolve the representation</span>
-        <span class="c1"># ---------------------------------------------------------------</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">rep</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_joint_representation</span><span class="p">(</span>
-                <span class="n">joint_symbol</span><span class="p">,</span>
-                <span class="n">backend</span><span class="o">=</span><span class="n">joint_backend</span><span class="p">,</span>
-                <span class="n">bounds</span><span class="o">=</span><span class="n">joint_bounds</span><span class="p">,</span>
-                <span class="n">degree</span><span class="o">=</span><span class="n">joint_degree</span><span class="p">,</span>
-                <span class="n">tol</span><span class="o">=</span><span class="n">joint_tol</span><span class="p">,</span>
-                <span class="n">num_samples</span><span class="o">=</span><span class="n">joint_num_samples</span><span class="p">,</span>
-                <span class="n">seed</span><span class="o">=</span><span class="n">joint_seed</span><span class="p">,</span>
-                <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"Joint representation resolution failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">. "</span>
-                <span class="s2">"Falling back to direct joint application."</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
-    
-        <span class="n">rep_type</span> <span class="o">=</span> <span class="n">rep</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span>
-    
-        <span class="c1"># ---------------------------------------------------------------</span>
-        <span class="c1"># Execute based on representation type</span>
-        <span class="c1"># ---------------------------------------------------------------</span>
-        <span class="k">if</span> <span class="n">rep_type</span> <span class="o">==</span> <span class="s2">"zero"</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
-    
-        <span class="k">elif</span> <span class="n">rep_type</span> <span class="o">==</span> <span class="s2">"direct"</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
-    
-        <span class="k">elif</span> <span class="n">rep_type</span> <span class="o">==</span> <span class="s2">"separable_pairs"</span><span class="p">:</span>
-            <span class="c1"># Low-rank: apply as sum of separable pairs</span>
-            <span class="n">metrics</span> <span class="o">=</span> <span class="n">rep</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"metrics"</span><span class="p">,</span> <span class="p">{})</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">last_joint_lowrank_metrics</span> <span class="o">=</span> <span class="n">metrics</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="n">joint_max_rel_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="ow">and</span> <span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rel_l2_error"</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">joint_max_rel_error</span>
-            <span class="p">):</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="s2">"Low-rank joint residual symbol error "</span>
-                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">metrics</span><span class="p">[</span><span class="s1">'rel_l2_error'</span><span class="p">]</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2"> exceeds "</span>
-                    <span class="sa">f</span><span class="s2">"joint_max_rel_error=</span><span class="si">{</span><span class="n">joint_max_rel_error</span><span class="si">}</span><span class="s2">. "</span>
-                    <span class="s2">"Falling back to direct joint application."</span>
-                <span class="p">)</span>
-                <span class="k">return</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">a_k</span><span class="p">,</span> <span class="n">q_k</span> <span class="ow">in</span> <span class="n">rep</span><span class="p">[</span><span class="s2">"pairs"</span><span class="p">]:</span>
-                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">apply_separable_pair</span><span class="p">(</span><span class="n">a_k</span><span class="p">,</span> <span class="n">q_k</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">result</span>
-    
-        <span class="k">elif</span> <span class="n">rep_type</span> <span class="o">==</span> <span class="s2">"nufft_plan"</span><span class="p">:</span>
-            <span class="c1"># NUFFT: periodic only</span>
-            <span class="k">if</span> <span class="n">boundary_condition</span> <span class="o">!=</span> <span class="s2">"periodic"</span><span class="p">:</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="s2">"joint_backend='nufft' only supports "</span>
-                    <span class="s2">"boundary_condition='periodic'. Falling back to "</span>
-                    <span class="s2">"direct joint application."</span>
-                <span class="p">)</span>
-                <span class="k">return</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">plan_info</span> <span class="o">=</span> <span class="n">rep</span><span class="p">[</span><span class="s2">"plan_info"</span><span class="p">]</span>
-                <span class="n">kind</span><span class="p">,</span> <span class="n">plan</span> <span class="o">=</span> <span class="n">plan_info</span>
-                <span class="n">dx</span> <span class="o">=</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">dxi</span> <span class="o">=</span> <span class="n">kx</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">kx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"1d"</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="n">apply_nufft_1d</span><span class="p">(</span>
-                        <span class="n">u</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span>
-                    <span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>  <span class="c1"># "2d"</span>
-                    <span class="n">dy</span> <span class="o">=</span> <span class="n">y_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                    <span class="n">deta</span> <span class="o">=</span> <span class="n">ky</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">ky</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                    <span class="n">plan_kind</span><span class="p">,</span> <span class="n">plan_data</span> <span class="o">=</span> <span class="n">plan</span>
-                    <span class="k">return</span> <span class="n">apply_nufft_2d</span><span class="p">(</span>
-                        <span class="n">u</span><span class="p">,</span> <span class="n">plan_kind</span><span class="p">,</span> <span class="n">plan_data</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span>
-                        <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">deta</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
-                    <span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">"NUFFT joint application failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">. "</span>
-                    <span class="s2">"Falling back to direct joint application."</span>
-                <span class="p">)</span>
-                <span class="k">return</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
-    
-        <span class="k">elif</span> <span class="n">rep_type</span> <span class="o">==</span> <span class="s2">"nufft_unrepresentable"</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">"Joint residual does not classify as NUFFT-representable "</span>
-                <span class="s2">"(no oscillatory phase of the form exp(i*Lambda(x)*M(xi)) "</span>
-                <span class="s2">"found). Falling back to direct joint application."</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
-    
-        <span class="k">elif</span> <span class="n">rep_type</span> <span class="o">==</span> <span class="s2">"aaa_callable"</span><span class="p">:</span>
-            <span class="c1"># AAA: rational fit applied via KN quadrature</span>
-            <span class="n">metrics</span> <span class="o">=</span> <span class="n">rep</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"metrics"</span><span class="p">,</span> <span class="p">{})</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">last_joint_aaa_metrics</span> <span class="o">=</span> <span class="n">metrics</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="n">joint_max_rel_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="ow">and</span> <span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rel_l2_error"</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">joint_max_rel_error</span>
-            <span class="p">):</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="s2">"AAA joint residual symbol error "</span>
-                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">metrics</span><span class="p">[</span><span class="s1">'rel_l2_error'</span><span class="p">]</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2"> exceeds "</span>
-                    <span class="sa">f</span><span class="s2">"joint_max_rel_error=</span><span class="si">{</span><span class="n">joint_max_rel_error</span><span class="si">}</span><span class="s2">. "</span>
-                    <span class="s2">"Falling back to direct joint application."</span>
-                <span class="p">)</span>
-                <span class="k">return</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
-            <span class="n">symbol_func</span> <span class="o">=</span> <span class="n">rep</span><span class="p">[</span><span class="s2">"symbol_func"</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s2">"periodic"</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">kohn_nirenberg_fft</span><span class="p">(</span>
-                    <span class="n">u_vals</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">symbol_func</span><span class="o">=</span><span class="n">symbol_func</span><span class="p">,</span>
-                    <span class="n">x_grid</span><span class="o">=</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="o">=</span><span class="n">kx</span><span class="p">,</span>
-                    <span class="n">fft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">,</span> <span class="n">ifft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">,</span>
-                    <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
-                    <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
-                    <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span> <span class="n">is_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">xg</span> <span class="o">=</span> <span class="n">x_grid</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">)</span>
-                <span class="n">kg</span> <span class="o">=</span> <span class="n">kx</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
-                    <span class="n">u</span><span class="p">,</span> <span class="n">xg</span><span class="p">,</span> <span class="n">kg</span><span class="p">,</span> <span class="n">symbol_func</span><span class="p">,</span>
-                    <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
-                    <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span> <span class="n">is_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="p">)</span>
-    
-        <span class="k">elif</span> <span class="n">rep_type</span> <span class="o">==</span> <span class="s2">"aaa_unfit"</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">"Joint residual could not be fit by AAA to the requested "</span>
-                <span class="s2">"tolerance (joint_tol). This can happen for symbols whose "</span>
-                <span class="s2">"poles move with x/y (a genuinely different, "</span>
-                <span class="s2">"diagonal-singularity structural class). Falling back to "</span>
-                <span class="s2">"direct joint application."</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
-    
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown joint representation type: '</span><span class="si">{</span><span class="n">rep_type</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
-
 <div class="viewcode-block" id="PseudoDifferentialOperator.peetre_decomposition">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.peetre_decomposition">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.peetre_decomposition">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">peetre_decomposition</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">separable_local</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">classify_joint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Symbolic Peetre-style decomposition of the operator symbol.</span>
 
+<span class="sd">        The symbol is split into:</span>
+
+<span class="sd">            local:</span>
+<span class="sd">                Polynomial part in the frequency variables.</span>
+
+<span class="sd">            separable:</span>
+<span class="sd">                Sum of terms a(x) q(xi), with q frequency-only.</span>
+
+<span class="sd">            joint_residual:</span>
+<span class="sd">                Remaining genuinely entangled terms.</span>
+
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
+
 <span class="sd">        use_cache : bool, default=True</span>
 <span class="sd">            Cache the decomposition.</span>
-<span class="sd">        separable_local : bool, default=False</span>
-<span class="sd">            If True, expose local polynomial terms as separable pairs.</span>
-<span class="sd">        classify_joint : bool, default=False</span>
-<span class="sd">            If True and the joint residual is non-zero, run the</span>
-<span class="sd">            auto-selector and store the recommended backend in</span>
-<span class="sd">            result["joint_backend"]. This is purely symbolic (no grids</span>
-<span class="sd">            needed) and cheap.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -2790,12 +2399,12 @@
         <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span><span class="p">,</span> <span class="n">sympify</span>
 
         <span class="n">cache</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_peetre_cache"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="p">(</span>
             <span class="n">use_cache</span>
             <span class="ow">and</span> <span class="n">cache</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"symbol"</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span>
             <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"separable_local"</span><span class="p">)</span> <span class="o">==</span> <span class="n">separable_local</span>
-            <span class="ow">and</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"classify_joint"</span><span class="p">)</span> <span class="o">==</span> <span class="n">classify_joint</span>
         <span class="p">):</span>
             <span class="k">return</span> <span class="n">cache</span><span class="p">[</span><span class="s2">"result"</span><span class="p">]</span>
 
@@ -2873,24 +2482,17 @@
             <span class="s2">"separable_local"</span><span class="p">:</span> <span class="n">separable_local</span><span class="p">,</span>
         <span class="p">}</span>
 
-        <span class="c1"># --- NEW: optional backend classification ---</span>
-        <span class="k">if</span> <span class="n">classify_joint</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">):</span>
-            <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_joint_symbols</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)</span>
-            <span class="n">result</span><span class="p">[</span><span class="s2">"joint_backend"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_auto_select_joint_backend</span><span class="p">(</span>
-                <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span>
-            <span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_cache</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">"symbol"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span>
             <span class="s2">"separable_local"</span><span class="p">:</span> <span class="n">separable_local</span><span class="p">,</span>
-            <span class="s2">"classify_joint"</span><span class="p">:</span> <span class="n">classify_joint</span><span class="p">,</span>
             <span class="s2">"result"</span><span class="p">:</span> <span class="n">result</span><span class="p">,</span>
         <span class="p">}</span>
+
         <span class="k">return</span> <span class="n">result</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.decompose_symbol_peetre">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.decompose_symbol_peetre">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.decompose_symbol_peetre">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">decompose_symbol_peetre</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Alias for peetre_decomposition(), for compatibility with the</span>
@@ -2900,142 +2502,8 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.print_peetre_decomposition">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.print_peetre_decomposition">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.print_peetre_decomposition">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">print_peetre_decomposition</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">joint_backend</span><span class="o">=</span><span class="s2">"direct"</span><span class="p">,</span>
-        <span class="n">joint_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">joint_degree</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-        <span class="n">joint_tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
-        <span class="n">joint_num_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
-        <span class="n">joint_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
-        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-    <span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Pretty-print the Peetre decomposition.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        joint_backend : {'direct', 'lowrank', 'nufft', 'aaa', 'auto'}</span>
-<span class="sd">            How to display the joint residual:</span>
-<span class="sd">            - 'direct' prints the raw (un-factorized) joint residual terms.</span>
-<span class="sd">            - 'lowrank' factorizes via _resolve_joint_representation and</span>
-<span class="sd">              prints the resulting separable pairs a_k(x)*q_k(xi).</span>
-<span class="sd">            - 'nufft' / 'aaa' print a structural summary (these backends</span>
-<span class="sd">              produce execution plans, not readable separable pairs).</span>
-<span class="sd">            - 'auto' selects the best backend and prints accordingly.</span>
-<span class="sd">        joint_bounds : dict, optional</span>
-<span class="sd">            Symbol -&gt; (min, max) mapping, required for 'lowrank' and 'aaa'</span>
-<span class="sd">            (no numerical grid available here to infer bounds from).</span>
-<span class="sd">        joint_degree, joint_tol, joint_num_samples, joint_seed :</span>
-<span class="sd">            Forwarded to the underlying factorization.</span>
-<span class="sd">        use_cache : bool</span>
-<span class="sd">            Whether to use decomposition/factorization caches.</span>
-<span class="sd">        **kwargs</span>
-<span class="sd">            Forwarded to peetre_decomposition().</span>
-<span class="sd">        """</span>
-        <span class="n">deco</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peetre_decomposition</span><span class="p">(</span><span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="n">xi_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_frequency_symbols</span><span class="p">()</span>
-
-        <span class="c1"># --------------------------------------------------------------</span>
-        <span class="c1"># Local terms.</span>
-        <span class="c1"># --------------------------------------------------------------</span>
-        <span class="n">local_terms</span> <span class="o">=</span> <span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"local_terms"</span><span class="p">,</span> <span class="p">[])</span>
-        <span class="k">if</span> <span class="n">local_terms</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"--- </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">local_terms</span><span class="p">)</span><span class="si">}</span><span class="s2"> local term(s), "</span>
-                <span class="sa">f</span><span class="s2">"represented as a(x)*q(</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">xi_vars</span><span class="p">)</span><span class="si">}</span><span class="s2">) ---"</span>
-            <span class="p">)</span>
-            <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">local_terms</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  (</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2">) * (</span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"--- </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s1">'local'</span><span class="p">])</span><span class="si">}</span><span class="s2"> local term(s), "</span>
-                <span class="sa">f</span><span class="s2">"polynomial in </span><span class="si">{</span><span class="n">xi_vars</span><span class="si">}</span><span class="s2"> ---"</span>
-            <span class="p">)</span>
-            <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">"local"</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">factors</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">power</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xi_vars</span><span class="p">,</span> <span class="n">monom</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="n">power</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                        <span class="n">factors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">var</span><span class="p">))</span>
-                    <span class="k">elif</span> <span class="n">power</span><span class="p">:</span>
-                        <span class="n">factors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2">**</span><span class="si">{</span><span class="n">power</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-                <span class="n">monom_str</span> <span class="o">=</span> <span class="s2">"*"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">factors</span><span class="p">)</span> <span class="k">if</span> <span class="n">factors</span> <span class="k">else</span> <span class="s2">"1"</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  (</span><span class="si">{</span><span class="n">coeff</span><span class="si">}</span><span class="s2">) * </span><span class="si">{</span><span class="n">monom_str</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-
-        <span class="c1"># --------------------------------------------------------------</span>
-        <span class="c1"># Separable non-local terms.</span>
-        <span class="c1"># --------------------------------------------------------------</span>
-        <span class="nb">print</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">"--- </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s1">'separable'</span><span class="p">])</span><span class="si">}</span><span class="s2"> separable non-local term(s) ---"</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">"separable"</span><span class="p">]:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  (</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2">) * (</span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-
-        <span class="c1"># --------------------------------------------------------------</span>
-        <span class="c1"># Joint residual — via the unified representation.</span>
-        <span class="c1"># --------------------------------------------------------------</span>
-        <span class="n">joint_symbol</span> <span class="o">=</span> <span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"joint_symbol"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">):</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">"--- no joint residual ---"</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">resolved</span> <span class="o">=</span> <span class="n">joint_backend</span>
-            <span class="k">if</span> <span class="n">resolved</span> <span class="o">==</span> <span class="s2">"auto"</span><span class="p">:</span>
-                <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_joint_symbols</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)</span>
-                <span class="n">resolved</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_auto_select_joint_backend</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">,</span> <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="n">resolved</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"lowrank"</span><span class="p">,</span> <span class="s2">"aaa"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">joint_bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--- detected '</span><span class="si">{</span><span class="n">resolved</span><span class="si">}</span><span class="s2">' structure; joint_bounds required "</span>
-                      <span class="sa">f</span><span class="s2">"to factorize it here. Raw joint term(s): ---"</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">"joint_residual"</span><span class="p">]:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">rep</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_joint_representation</span><span class="p">(</span>
-                    <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="n">resolved</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">joint_bounds</span><span class="p">,</span>
-                    <span class="n">degree</span><span class="o">=</span><span class="n">joint_degree</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">joint_tol</span><span class="p">,</span>
-                    <span class="n">num_samples</span><span class="o">=</span><span class="n">joint_num_samples</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">joint_seed</span><span class="p">,</span>
-                    <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="n">rt</span> <span class="o">=</span> <span class="n">rep</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span>
-                <span class="k">if</span> <span class="n">rt</span> <span class="o">==</span> <span class="s2">"separable_pairs"</span><span class="p">:</span>
-                    <span class="n">pairs</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">rep</span><span class="p">[</span><span class="s2">"pairs"</span><span class="p">],</span> <span class="n">rep</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"metrics"</span><span class="p">,</span> <span class="p">{})</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--- joint residual factorized into </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span><span class="si">}</span><span class="s2"> low-rank "</span>
-                          <span class="sa">f</span><span class="s2">"term(s) via factorize_symbolic "</span>
-                          <span class="sa">f</span><span class="s2">"(rel_l2_error=</span><span class="si">{</span><span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'rel_l2_error'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">) ---"</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  (</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2">) * (</span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">rt</span> <span class="o">==</span> <span class="s2">"nufft_plan"</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--- NUFFT structure detected (</span><span class="si">{</span><span class="n">rep</span><span class="p">[</span><span class="s1">'plan_info'</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">): oscillatory "</span>
-                          <span class="sa">f</span><span class="s2">"phase exp(i*Lambda(x)*M(xi)). No separable pairs to print "</span>
-                          <span class="sa">f</span><span class="s2">"(use apply() to execute). ---"</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">rt</span> <span class="o">==</span> <span class="s2">"aaa_callable"</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--- AAA rational structure detected "</span>
-                          <span class="sa">f</span><span class="s2">"(rel_l2_error=</span><span class="si">{</span><span class="n">rep</span><span class="p">[</span><span class="s1">'metrics'</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'rel_l2_error'</span><span class="p">,</span><span class="w"> </span><span class="nb">float</span><span class="p">(</span><span class="s1">'nan'</span><span class="p">))</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2">). "</span>
-                          <span class="sa">f</span><span class="s2">"No separable pairs to print (use apply() to execute). ---"</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">rt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"nufft_unrepresentable"</span><span class="p">,</span> <span class="s2">"aaa_unfit"</span><span class="p">):</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--- joint residual: backend '</span><span class="si">{</span><span class="n">resolved</span><span class="si">}</span><span class="s2">' could not represent "</span>
-                          <span class="sa">f</span><span class="s2">"the symbol. Raw joint term(s): ---"</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">"joint_residual"</span><span class="p">]:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--- </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">deco</span><span class="p">[</span><span class="s1">'joint_residual'</span><span class="p">])</span><span class="si">}</span><span class="s2"> irreducible joint term(s) ---"</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">deco</span><span class="p">[</span><span class="s2">"joint_residual"</span><span class="p">]:</span>
-                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-
-        <span class="c1"># --------------------------------------------------------------</span>
-        <span class="c1"># Summary.</span>
-        <span class="c1"># --------------------------------------------------------------</span>
-        <span class="nb">print</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">"local_symbol = </span><span class="si">{</span><span class="n">deco</span><span class="p">[</span><span class="s1">'local_symbol'</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="sa">f</span><span class="s2">"separable_symbol = </span><span class="si">{</span><span class="n">deco</span><span class="p">[</span><span class="s1">'separable_symbol'</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
-            <span class="sa">f</span><span class="s2">"joint_symbol = </span><span class="si">{</span><span class="n">deco</span><span class="p">[</span><span class="s1">'joint_symbol'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
-        <span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="PseudoDifferentialOperator.print_peetre_decomposition_old">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.print_peetre_decomposition_old">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">print_peetre_decomposition_old</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">joint_backend</span><span class="o">=</span><span class="s2">"direct"</span><span class="p">,</span>
         <span class="n">joint_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -3238,7 +2706,7 @@
     <span class="c1"># ======================================================================</span>
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.apply_hybrid">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.apply_hybrid">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.apply_hybrid">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply_hybrid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Hybrid application: Automatically splits the joint residual into </span>
@@ -3287,7 +2755,7 @@
 
         
 <div class="viewcode-block" id="PseudoDifferentialOperator.apply_peetre">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.apply_peetre">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.apply_peetre">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply_peetre</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">u</span><span class="p">,</span>
@@ -3508,42 +2976,202 @@
         <span class="c1"># --------------------------------------------------------------</span>
         <span class="n">joint_symbol</span> <span class="o">=</span> <span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"joint_symbol"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">):</span>
+            
+            <span class="c1"># --- AUTO-SELECTION LOGIC ---</span>
+            <span class="k">if</span> <span class="n">joint_backend</span> <span class="o">==</span> <span class="s2">"auto"</span><span class="p">:</span>
+                <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_joint_symbols</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)</span>
+                <span class="n">joint_backend</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_auto_select_joint_backend</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">,</span> <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span><span class="p">)</span>
+                <span class="c1"># Optional: uncomment to see what the auto-selector chose in the console</span>
+                <span class="c1"># warnings.warn(f"[auto] Selected joint_backend='{joint_backend}' for joint residual.", stacklevel=2)</span>
+            <span class="c1"># ----------------------------</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">_apply_joint_direct</span><span class="p">():</span>
+            <span class="c1"># ... (rest of the existing code remains exactly the same)</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">_apply_joint_direct</span><span class="p">():</span>
+<span class="w">                </span><span class="sd">"""</span>
+<span class="sd">                Apply the irreducible joint residual symbol directly via the</span>
+<span class="sd">                full Kohn–Nirenberg pipeline, without any separable</span>
+<span class="sd">                decomposition. This is the exact (but expensive) fallback when</span>
+<span class="sd">                `joint_backend='direct'` or when the low-rank factorization</span>
+<span class="sd">                fails or exceeds the error tolerance.</span>
+<span class="sd">        </span>
+<span class="sd">                Returns</span>
+<span class="sd">                -------</span>
+<span class="sd">                ndarray</span>
+<span class="sd">                    Op[joint_symbol](u), same shape as u.</span>
+<span class="sd">                """</span>
+                <span class="n">op_joint</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">joint_symbol</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="s2">"symbol"</span><span class="p">,</span>
+                    <span class="n">quantization</span><span class="o">=</span><span class="n">peetre_quantization</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">op_joint</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                    <span class="n">u</span><span class="p">,</span>
+                    <span class="n">x_grid</span><span class="p">,</span>
+                    <span class="n">kx</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">common_apply_kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+    
             <span class="k">if</span> <span class="ow">not</span> <span class="n">apply_joint</span><span class="p">:</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
                     <span class="s2">"Peetre joint residual has been ignored. "</span>
                     <span class="s2">"The result is an asymptotic/local+separable approximation."</span>
                 <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_joint_residual</span><span class="p">(</span>
-                    <span class="n">joint_symbol</span><span class="p">,</span>
-                    <span class="n">u</span><span class="p">,</span>
-                    <span class="n">x_grid</span><span class="p">,</span>
-                    <span class="n">kx</span><span class="p">,</span>
-                    <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span>
-                    <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
-                    <span class="n">boundary_condition</span><span class="o">=</span><span class="n">boundary_condition</span><span class="p">,</span>
-                    <span class="n">peetre_quantization</span><span class="o">=</span><span class="n">peetre_quantization</span><span class="p">,</span>
-                    <span class="n">common_apply_kwargs</span><span class="o">=</span><span class="n">common_apply_kwargs</span><span class="p">,</span>
-                    <span class="n">apply_separable_pair</span><span class="o">=</span><span class="n">_apply_separable_pair</span><span class="p">,</span>
-                    <span class="n">joint_backend</span><span class="o">=</span><span class="n">joint_backend</span><span class="p">,</span>
-                    <span class="n">joint_degree</span><span class="o">=</span><span class="n">joint_degree</span><span class="p">,</span>
-                    <span class="n">joint_tol</span><span class="o">=</span><span class="n">joint_tol</span><span class="p">,</span>
-                    <span class="n">joint_bounds</span><span class="o">=</span><span class="n">joint_bounds</span><span class="p">,</span>
-                    <span class="n">joint_max_rel_error</span><span class="o">=</span><span class="n">joint_max_rel_error</span><span class="p">,</span>
-                    <span class="n">joint_num_samples</span><span class="o">=</span><span class="n">joint_num_samples</span><span class="p">,</span>
-                    <span class="n">joint_seed</span><span class="o">=</span><span class="n">joint_seed</span><span class="p">,</span>
-                    <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
-                    <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
-                    <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
-                    <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span>
-                <span class="p">)</span>
+    
+            <span class="k">elif</span> <span class="n">joint_backend</span> <span class="o">==</span> <span class="s2">"direct"</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
+    
+            <span class="k">elif</span> <span class="n">joint_backend</span> <span class="o">==</span> <span class="s2">"lowrank"</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">joint_bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">joint_bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_infer_joint_bounds</span><span class="p">(</span>
+                        <span class="n">x_grid</span><span class="p">,</span>
+                        <span class="n">kx</span><span class="p">,</span>
+                        <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span>
+                        <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
+                    <span class="p">)</span>
+    
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">pairs</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_low_rank_joint_pairs</span><span class="p">(</span>
+                        <span class="n">joint_symbol</span><span class="p">,</span>
+                        <span class="n">joint_bounds</span><span class="p">,</span>
+                        <span class="n">degree</span><span class="o">=</span><span class="n">joint_degree</span><span class="p">,</span>
+                        <span class="n">tol</span><span class="o">=</span><span class="n">joint_tol</span><span class="p">,</span>
+                        <span class="n">num_samples</span><span class="o">=</span><span class="n">joint_num_samples</span><span class="p">,</span>
+                        <span class="n">seed</span><span class="o">=</span><span class="n">joint_seed</span><span class="p">,</span>
+                        <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
+                    <span class="p">)</span>
+    
+                    <span class="bp">self</span><span class="o">.</span><span class="n">last_joint_lowrank_metrics</span> <span class="o">=</span> <span class="n">metrics</span>
+    
+                    <span class="k">if</span> <span class="p">(</span>
+                        <span class="n">joint_max_rel_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                        <span class="ow">and</span> <span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rel_l2_error"</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">joint_max_rel_error</span>
+                    <span class="p">):</span>
+                        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                            <span class="s2">"Low-rank joint residual symbol error "</span>
+                            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">metrics</span><span class="p">[</span><span class="s1">'rel_l2_error'</span><span class="p">]</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2"> exceeds "</span>
+                            <span class="sa">f</span><span class="s2">"joint_max_rel_error=</span><span class="si">{</span><span class="n">joint_max_rel_error</span><span class="si">}</span><span class="s2">. "</span>
+                            <span class="s2">"Falling back to direct joint application."</span>
+                        <span class="p">)</span>
+                        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">a_k</span><span class="p">,</span> <span class="n">q_k</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
+                            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_separable_pair</span><span class="p">(</span><span class="n">a_k</span><span class="p">,</span> <span class="n">q_k</span><span class="p">)</span>
+    
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="s2">"Low-rank joint decomposition failed: "</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">. Falling back to direct joint application."</span>
+                    <span class="p">)</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
 
+            <span class="k">elif</span> <span class="n">joint_backend</span> <span class="o">==</span> <span class="s2">"nufft"</span><span class="p">:</span>
+                <span class="c1"># Oscillatory joint residuals (e.g. sin(x*xi), exp(I*x*xi)):</span>
+                <span class="c1"># only derived/validated for periodic (FFT) application.</span>
+                <span class="k">if</span> <span class="n">boundary_condition</span> <span class="o">!=</span> <span class="s2">"periodic"</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="s2">"joint_backend='nufft' only supports "</span>
+                        <span class="s2">"boundary_condition='periodic'. Falling back to "</span>
+                        <span class="s2">"direct joint application."</span>
+                    <span class="p">)</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">nufft_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nufft_joint_apply</span><span class="p">(</span>
+                            <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span>
+                            <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
+                            <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="k">if</span> <span class="n">nufft_result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                                <span class="s2">"Joint residual does not classify as "</span>
+                                <span class="s2">"NUFFT-representable (no oscillatory phase "</span>
+                                <span class="s2">"of the form exp(i*Lambda(x)*M(xi)) found). "</span>
+                                <span class="s2">"Falling back to direct joint application."</span>
+                            <span class="p">)</span>
+                            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">nufft_result</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"NUFFT joint decomposition failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">. "</span>
+                            <span class="s2">"Falling back to direct joint application."</span>
+                        <span class="p">)</span>
+                        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
+
+            <span class="k">elif</span> <span class="n">joint_backend</span> <span class="o">==</span> <span class="s2">"aaa"</span><span class="p">:</span>
+                <span class="c1"># Rational/resolvent-shaped joint residuals (poles,</span>
+                <span class="c1"># algebraic decay, no oscillatory phase).</span>
+                <span class="k">if</span> <span class="n">joint_bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">joint_bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_infer_joint_bounds</span><span class="p">(</span>
+                        <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">symbol_func</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aaa_joint_symbol_func</span><span class="p">(</span>
+                        <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">joint_bounds</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="n">joint_tol</span><span class="p">,</span>
+                        <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">symbol_func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                            <span class="s2">"Joint residual could not be fit by AAA to the "</span>
+                            <span class="s2">"requested tolerance (joint_tol). This can "</span>
+                            <span class="s2">"happen for symbols whose poles move with x/y "</span>
+                            <span class="s2">"(a genuinely different, diagonal-singularity "</span>
+                            <span class="s2">"structural class -- see module notes on "</span>
+                            <span class="s2">"joint_backend='aaa'). Falling back to direct "</span>
+                            <span class="s2">"joint application."</span>
+                        <span class="p">)</span>
+                        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">last_joint_aaa_metrics</span> <span class="o">=</span> <span class="n">metrics</span>
+                        <span class="k">if</span> <span class="p">(</span>
+                            <span class="n">joint_max_rel_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                            <span class="ow">and</span> <span class="n">metrics</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rel_l2_error"</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">joint_max_rel_error</span>
+                        <span class="p">):</span>
+                            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                                <span class="s2">"AAA joint residual symbol error "</span>
+                                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">metrics</span><span class="p">[</span><span class="s1">'rel_l2_error'</span><span class="p">]</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2"> exceeds "</span>
+                                <span class="sa">f</span><span class="s2">"joint_max_rel_error=</span><span class="si">{</span><span class="n">joint_max_rel_error</span><span class="si">}</span><span class="s2">. "</span>
+                                <span class="s2">"Falling back to direct joint application."</span>
+                            <span class="p">)</span>
+                            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
+                        <span class="k">elif</span> <span class="n">boundary_condition</span> <span class="o">==</span> <span class="s2">"periodic"</span><span class="p">:</span>
+                            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">kohn_nirenberg_fft</span><span class="p">(</span>
+                                <span class="n">u_vals</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">symbol_func</span><span class="o">=</span><span class="n">symbol_func</span><span class="p">,</span>
+                                <span class="n">x_grid</span><span class="o">=</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="o">=</span><span class="n">kx</span><span class="p">,</span>
+                                <span class="n">fft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">,</span> <span class="n">ifft_func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ifft</span><span class="p">,</span>
+                                <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
+                                <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
+                                <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span> <span class="n">is_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">xg</span> <span class="o">=</span> <span class="n">x_grid</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">)</span>
+                            <span class="n">kg</span> <span class="o">=</span> <span class="n">kx</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">)</span>
+                            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
+                                <span class="n">u</span><span class="p">,</span> <span class="n">xg</span><span class="p">,</span> <span class="n">kg</span><span class="p">,</span> <span class="n">symbol_func</span><span class="p">,</span>
+                                <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span>
+                                <span class="n">space_window</span><span class="o">=</span><span class="n">space_window</span><span class="p">,</span> <span class="n">is_spatial</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"AAA joint decomposition failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">. "</span>
+                        <span class="s2">"Falling back to direct joint application."</span>
+                    <span class="p">)</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">_apply_joint_direct</span><span class="p">()</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"joint_backend must be 'direct', 'lowrank', 'nufft', "</span>
+                    <span class="s2">"or 'aaa'."</span>
+                <span class="p">)</span>
+    
         <span class="k">return</span> <span class="n">result</span></div>
 
 
         
 <div class="viewcode-block" id="PseudoDifferentialOperator.peetre_apply">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.peetre_apply">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.peetre_apply">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">peetre_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Alias for apply_peetre().</span>
@@ -3553,7 +3181,7 @@
 
         
 <div class="viewcode-block" id="PseudoDifferentialOperator.commutator_symbolic">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.commutator_symbolic">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.commutator_symbolic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">commutator_symbolic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the symbolic commutator [A, B] = A∘B − B∘A of two pseudo-differential operators</span>
@@ -3592,7 +3220,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.right_inverse_asymptotic">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.right_inverse_asymptotic">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.right_inverse_asymptotic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">right_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Construct a formal right inverse R of the pseudo-differential operator P such that </span>
@@ -3653,7 +3281,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.left_inverse_asymptotic">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.left_inverse_asymptotic">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.left_inverse_asymptotic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">left_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Construct a formal left inverse L such that the composition L ∘ P equals the identity </span>
@@ -3718,7 +3346,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.formal_adjoint">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.formal_adjoint">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.formal_adjoint">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">formal_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the formal adjoint symbol P* of the pseudo-differential operator.</span>
@@ -3754,7 +3382,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.fractional_power">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.fractional_power">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.fractional_power">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">fractional_power</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'symbolic'</span><span class="p">,</span> <span class="n">x_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the symbol or discrete matrix representation of the fractional </span>
@@ -3930,7 +3558,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.exponential_symbol">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.exponential_symbol">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.exponential_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">exponential_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the symbol of exp(tP) using asymptotic expansion methods.</span>
@@ -4035,7 +3663,7 @@
 
         
 <div class="viewcode-block" id="PseudoDifferentialOperator.trace_formula">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.trace_formula">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.trace_formula">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">trace_formula</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">volume_element</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">numerical</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> 
                       <span class="n">x_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
@@ -4195,7 +3823,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.pseudospectrum_analysis">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.pseudospectrum_analysis">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.pseudospectrum_analysis">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">pseudospectrum_analysis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">lambda_real_range</span><span class="p">,</span> <span class="n">lambda_imag_range</span><span class="p">,</span>
                                <span class="n">epsilon_levels</span><span class="o">=</span><span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.0001</span><span class="p">],</span>
                                <span class="n">resolution</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'spectral'</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -4763,7 +4391,7 @@
     
     
 <div class="viewcode-block" id="PseudoDifferentialOperator.symplectic_flow">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.symplectic_flow">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.symplectic_flow">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">symplectic_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the Hamiltonian vector field associated with the principal symbol.</span>
@@ -4804,7 +4432,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.is_elliptic_numerically">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.is_elliptic_numerically">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.is_elliptic_numerically">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_elliptic_numerically</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
                                  <span class="n">xi_frac</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">n_random</span><span class="o">=</span><span class="mi">100_000</span><span class="p">,</span> <span class="n">n_edge</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
@@ -5020,7 +4648,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.is_self_adjoint">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.is_self_adjoint">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.is_self_adjoint">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">is_self_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Check whether the pseudo-differential operator is formally self-adjoint (Hermitian).</span>
@@ -5191,7 +4819,7 @@
     <span class="c1"># ===========================================================================</span>
     
 <div class="viewcode-block" id="PseudoDifferentialOperator.weyl_to_kn_symbol">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.weyl_to_kn_symbol">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.weyl_to_kn_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">weyl_to_kn_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Convert the Weyl symbol to its Kohn-Nirenberg equivalent.</span>
@@ -5262,7 +4890,7 @@
     <span class="c1"># ===========================================================================</span>
     
 <div class="viewcode-block" id="PseudoDifferentialOperator.kn_to_weyl_symbol">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.kn_to_weyl_symbol">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.kn_to_weyl_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">kn_to_weyl_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Convert the Kohn-Nirenberg symbol to its Weyl equivalent.</span>
@@ -5317,7 +4945,7 @@
 <span class="c1">#########################</span>
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_fiber">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_fiber">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.visualize_fiber">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_fiber</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Plot the cotangent fiber structure at a fixed spatial point (x₀[, y₀]).</span>
@@ -5369,7 +4997,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_symbol_amplitude">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_symbol_amplitude">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.visualize_symbol_amplitude">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_symbol_amplitude</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Display the modulus |p(x, ξ)| or |p(x, y, ξ₀, η₀)| as a color map.</span>
@@ -5417,7 +5045,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_phase">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_phase">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.visualize_phase">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Plot the phase (argument) of the pseudodifferential operator's symbol p(x, ξ) or p(x, y, ξ, η).</span>
@@ -5472,7 +5100,7 @@
 
             
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_characteristic_set">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_characteristic_set">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.visualize_characteristic_set">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="p">[</span><span class="mf">1e-1</span><span class="p">]):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Visualize the characteristic set of the pseudo-differential symbol, defined as the approximate zero set p(x, ξ) ≈ 0.</span>
@@ -5537,7 +5165,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_characteristic_gradient">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_characteristic_gradient">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.visualize_characteristic_gradient">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Visualize the norm of the gradient of the symbol in phase space.</span>
@@ -5603,7 +5231,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.plot_hamiltonian_flow">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.plot_hamiltonian_flow">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.plot_hamiltonian_flow">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_hamiltonian_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">show_field</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Integrate and plot the Hamiltonian trajectories of the symbol in phase space.</span>
@@ -5737,7 +5365,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.plot_symplectic_vector_field">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.plot_symplectic_vector_field">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.plot_symplectic_vector_field">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_symplectic_vector_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Visualize the symplectic vector field (Hamiltonian vector field) associated with the operator's symbol.</span>
@@ -5791,7 +5419,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_micro_support">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_micro_support">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.visualize_micro_support">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_micro_support</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="mi">300</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Visualize the micro-support of the operator by plotting the inverse of the symbol magnitude 1 / |p(x, ξ)|.</span>
@@ -5840,7 +5468,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.group_velocity_field">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.group_velocity_field">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.group_velocity_field">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">group_velocity_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Plot the group velocity field ∇_ξ p(x, ξ) for 1D pseudo-differential operators.</span>
@@ -5891,7 +5519,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.animate_singularity">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.animate_singularity">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.animate_singularity">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">animate_singularity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
                             <span class="n">tmax</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">n_frames</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
@@ -6102,7 +5730,7 @@
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.interactive_symbol_analysis">
-<a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.interactive_symbol_analysis">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.PseudoDifferentialOperator.interactive_symbol_analysis">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">interactive_symbol_analysis</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span>
                                     <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">ylim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
                                     <span class="n">xi_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">eta_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
@@ -6398,7 +6026,7 @@
 
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator">
-<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.MatrixPseudoDifferentialOperator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MatrixPseudoDifferentialOperator</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    N x N matrix-valued pseudodifferential operator, built from a sympy</span>
@@ -6469,7 +6097,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ifft</span>
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply">
-<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.apply">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.MatrixPseudoDifferentialOperator.apply">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply P(x, xi) to a vector field u = (u_1, ..., u_N).</span>
@@ -6505,7 +6133,7 @@
 
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.symbol_matrix">
-<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.symbol_matrix">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.MatrixPseudoDifferentialOperator.symbol_matrix">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">symbol_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Numerically evaluate P(x[, y], xi[, eta]) at a point or</span>
@@ -6539,7 +6167,7 @@
 
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply_matrix_field">
-<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.apply_matrix_field">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.MatrixPseudoDifferentialOperator.apply_matrix_field">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply P(x, xi) to a matrix-valued field U(x) by left matrix</span>
@@ -6598,7 +6226,7 @@
 
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply_matrix_field_right">
-<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.apply_matrix_field_right">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.MatrixPseudoDifferentialOperator.apply_matrix_field_right">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field_right</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply this operator's symbol Q(x, xi) to a matrix-valued field</span>
@@ -6690,7 +6318,7 @@
 
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.eigen_symbol">
-<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.eigen_symbol">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.MatrixPseudoDifferentialOperator.eigen_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">eigen_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Pointwise eigenvalues/eigenvectors of the symbol matrix</span>
@@ -6754,7 +6382,7 @@
 
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.compose_asymptotic">
-<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.compose_asymptotic">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.MatrixPseudoDifferentialOperator.compose_asymptotic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">compose_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compose two matrix-valued symbols via the same asymptotic</span>
@@ -6842,7 +6470,7 @@
 
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.commutator_symbolic">
-<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.commutator_symbolic">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.MatrixPseudoDifferentialOperator.commutator_symbolic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">commutator_symbolic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Symbol of the commutator `[Op[self], Op[other]]`, generalizing</span>
@@ -6862,7 +6490,7 @@
 
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.exponential_symbol">
-<a class="viewcode-back" href="../psiop.html#psiop.MatrixPseudoDifferentialOperator.exponential_symbol">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.MatrixPseudoDifferentialOperator.exponential_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">exponential_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Symbol of `exp(t Op[self])` for the matrix-valued operator, via</span>
@@ -6987,7 +6615,7 @@
 
 
 <div class="viewcode-block" id="invalidate_kn_cache">
-<a class="viewcode-back" href="../psiop.html#psiop.invalidate_kn_cache">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.invalidate_kn_cache">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">invalidate_kn_cache</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Clear the phase-matrix cache for non-periodic 1D operations."""</span>
     <span class="n">_KN_CACHE</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
@@ -6999,7 +6627,7 @@
 <span class="c1"># ============================================================================</span>
 
 <div class="viewcode-block" id="kohn_nirenberg_fft">
-<a class="viewcode-back" href="../psiop.html#psiop.kohn_nirenberg_fft">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.kohn_nirenberg_fft">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">kohn_nirenberg_fft</span><span class="p">(</span>
     <span class="n">u_vals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">symbol_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -7410,7 +7038,7 @@
 
 
 <div class="viewcode-block" id="kohn_nirenberg_nonperiodic">
-<a class="viewcode-back" href="../psiop.html#psiop.kohn_nirenberg_nonperiodic">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.kohn_nirenberg_nonperiodic">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">kohn_nirenberg_nonperiodic</span><span class="p">(</span>
     <span class="n">u_vals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">x_grid</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
@@ -7810,7 +7438,7 @@
     <span class="k">return</span> <span class="n">t_curr</span>
 
 <div class="viewcode-block" id="evaluate_decomposition_quality">
-<a class="viewcode-back" href="../psiop.html#psiop.evaluate_decomposition_quality">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.evaluate_decomposition_quality">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">evaluate_decomposition_quality</span><span class="p">(</span>
     <span class="n">orig_expr</span><span class="p">,</span>
     <span class="n">symbolic_pairs</span><span class="p">,</span>
@@ -7924,7 +7552,7 @@
 
 
 <div class="viewcode-block" id="factorize_symbolic">
-<a class="viewcode-back" href="../psiop.html#psiop.factorize_symbolic">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.factorize_symbolic">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">factorize_symbolic</span><span class="p">(</span>
     <span class="n">expr</span><span class="p">,</span>
     <span class="n">x_syms</span><span class="p">,</span>
@@ -8287,7 +7915,7 @@
 
 
 <div class="viewcode-block" id="try_nufft_decomposition_1d">
-<a class="viewcode-back" href="../psiop.html#psiop.try_nufft_decomposition_1d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.try_nufft_decomposition_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">try_nufft_decomposition_1d</span><span class="p">(</span><span class="n">joint_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""1D (phase space (x,xi)) NUFFT classifier. Returns a list of term</span>
 <span class="sd">    plans, or None if any additive term doesn't fit (falls back)."""</span>
@@ -8321,7 +7949,7 @@
 
 
 <div class="viewcode-block" id="try_nufft_decomposition_2d">
-<a class="viewcode-back" href="../psiop.html#psiop.try_nufft_decomposition_2d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.try_nufft_decomposition_2d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">try_nufft_decomposition_2d</span><span class="p">(</span><span class="n">joint_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">,</span> <span class="n">eta_sym</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    2D (phase space (x,y,xi,eta)) NUFFT classifier. Tries, in order:</span>
@@ -8403,7 +8031,7 @@
 
 
 <div class="viewcode-block" id="apply_nufft_1d">
-<a class="viewcode-back" href="../psiop.html#psiop.apply_nufft_1d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.apply_nufft_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">apply_nufft_1d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Apply Op(p_joint) via the NUFFT tier, 1D case. `plan` is the output</span>
 <span class="sd">    of try_nufft_decomposition_1d (a list of term dicts).</span>
@@ -8436,7 +8064,7 @@
 
 
 <div class="viewcode-block" id="apply_nufft_2d">
-<a class="viewcode-back" href="../psiop.html#psiop.apply_nufft_2d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.apply_nufft_2d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">apply_nufft_2d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">deta</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span>
                     <span class="n">freq_window</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Apply Op(p_joint) via the NUFFT tier, 2D case. `kind`/`plan` are the</span>
@@ -8623,7 +8251,7 @@
 
 
 <div class="viewcode-block" id="try_aaa_decomposition_1d">
-<a class="viewcode-back" href="../psiop.html#psiop.try_aaa_decomposition_1d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.try_aaa_decomposition_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">try_aaa_decomposition_1d</span><span class="p">(</span><span class="n">joint_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">,</span> <span class="n">x_bounds</span><span class="p">,</span> <span class="n">xi_bounds</span><span class="p">,</span>
                               <span class="n">n_cheb</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">n_xi_samples</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""1D bivariate rational decomposition via vector-AAA. Returns a plan</span>
@@ -8672,7 +8300,7 @@
 
 
 <div class="viewcode-block" id="aaa_plan_to_callable_1d">
-<a class="viewcode-back" href="../psiop.html#psiop.aaa_plan_to_callable_1d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.aaa_plan_to_callable_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">aaa_plan_to_callable_1d</span><span class="p">(</span><span class="n">plan</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Wrap an aaa_decomposition_1d plan as p(x, xi) -&gt; ndarray, matching</span>
 <span class="sd">    the symbol_func signature kohn_nirenberg_fft/nonperiodic expect."""</span>
@@ -8694,7 +8322,7 @@
 
 
 <div class="viewcode-block" id="try_aaa_decomposition_2d">
-<a class="viewcode-back" href="../psiop.html#psiop.try_aaa_decomposition_2d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.try_aaa_decomposition_2d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">try_aaa_decomposition_2d</span><span class="p">(</span><span class="n">joint_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">y_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">,</span> <span class="n">eta_sym</span><span class="p">,</span>
                               <span class="n">x_bounds</span><span class="p">,</span> <span class="n">y_bounds</span><span class="p">,</span> <span class="n">xi_bounds</span><span class="p">,</span> <span class="n">eta_bounds</span><span class="p">,</span>
                               <span class="n">n_cheb_x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">n_cheb_y</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
@@ -8801,7 +8429,7 @@
 
 
 <div class="viewcode-block" id="aaa_plan_to_callable_2d">
-<a class="viewcode-back" href="../psiop.html#psiop.aaa_plan_to_callable_2d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.aaa_plan_to_callable_2d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">aaa_plan_to_callable_2d</span><span class="p">(</span><span class="n">plan</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Wrap an aaa_decomposition_2d plan as p(x, y, xi, eta) -&gt; ndarray,</span>
 <span class="sd">    matching the symbol_func signature kohn_nirenberg_fft/nonperiodic</span>
@@ -8832,7 +8460,7 @@
 <span class="c1"># ----------------------------------------------------------------------</span>
 
 <div class="viewcode-block" id="make_grid_1d">
-<a class="viewcode-back" href="../psiop.html#psiop.make_grid_1d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.make_grid_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">make_grid_1d</span><span class="p">(</span><span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Construct a uniform periodic spatial grid and its associated FFT-ordered</span>
@@ -8872,7 +8500,7 @@
 
 
 <div class="viewcode-block" id="make_grid_2d">
-<a class="viewcode-back" href="../psiop.html#psiop.make_grid_2d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.make_grid_2d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">make_grid_2d</span><span class="p">(</span><span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">128</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Construct uniform periodic spatial grids and their associated FFT-ordered</span>
@@ -8916,7 +8544,7 @@
 <span class="c1"># ----------------------------------------------------------------------</span>
 
 <div class="viewcode-block" id="build_propagator">
-<a class="viewcode-back" href="../psiop.html#psiop.build_propagator">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.build_propagator">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">build_propagator</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span>
                      <span class="n">mode_composition</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
@@ -9006,7 +8634,7 @@
 
 
 <div class="viewcode-block" id="solve_first_order">
-<a class="viewcode-back" href="../psiop.html#psiop.solve_first_order">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.solve_first_order">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">solve_first_order</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
                       <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
                       <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">):</span>
@@ -9186,7 +8814,7 @@
     <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([[</span><span class="n">s_expr</span><span class="p">]])</span>
 
 <div class="viewcode-block" id="block_matrix_second_order">
-<a class="viewcode-back" href="../psiop.html#psiop.block_matrix_second_order">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.block_matrix_second_order">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">block_matrix_second_order</span><span class="p">(</span><span class="n">s_expr</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Convert a second-order-in-time operator symbol S into a first-order</span>
@@ -9237,7 +8865,7 @@
 
 
 <div class="viewcode-block" id="solve_second_order">
-<a class="viewcode-back" href="../psiop.html#psiop.solve_second_order">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.solve_second_order">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">solve_second_order</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
                        <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
                        <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">):</span>
@@ -9336,7 +8964,7 @@
 <span class="c1"># ----------------------------------------------------------------------</span>
 
 <div class="viewcode-block" id="plot_scalar_1d">
-<a class="viewcode-back" href="../psiop.html#psiop.plot_scalar_1d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.plot_scalar_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_scalar_1d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">"u(x, t)"</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'real'</span><span class="p">,</span>
                    <span class="n">n_snapshots</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
@@ -9393,7 +9021,7 @@
 
 
 <div class="viewcode-block" id="plot_matrix_1d">
-<a class="viewcode-back" href="../psiop.html#psiop.plot_matrix_1d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.plot_matrix_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix_1d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'real'</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot each component of a matrix-valued 1D solution as a stacked</span>
@@ -9446,7 +9074,7 @@
 
 
 <div class="viewcode-block" id="plot_scalar_2d">
-<a class="viewcode-back" href="../psiop.html#psiop.plot_scalar_2d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.plot_scalar_2d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_scalar_2d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'real'</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot a scalar 2D solution at selected time instants as a row of</span>
@@ -9500,7 +9128,7 @@
 
 
 <div class="viewcode-block" id="animate_scalar_1d">
-<a class="viewcode-back" href="../psiop.html#psiop.animate_scalar_1d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.animate_scalar_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">animate_scalar_1d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'real'</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Create an animated line plot of a scalar 1D solution evolving in time.</span>
@@ -9588,7 +9216,7 @@
     <span class="k">return</span> <span class="n">out</span><span class="p">[:</span><span class="n">dim</span><span class="p">]</span>
 
 <div class="viewcode-block" id="characteristic_hamiltonians">
-<a class="viewcode-back" href="../psiop.html#psiop.characteristic_hamiltonians">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.characteristic_hamiltonians">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">characteristic_hamiltonians</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">vars_xi</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Extract the characteristic Hamiltonian functions H(x, ξ) from a</span>
@@ -9653,7 +9281,7 @@
 
 
 <div class="viewcode-block" id="integrate_singularity">
-<a class="viewcode-back" href="../psiop.html#psiop.integrate_singularity">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.integrate_singularity">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">integrate_singularity</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
                           <span class="n">n_frames</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">vars_xi</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">branches</span><span class="o">=</span><span class="s1">'all'</span><span class="p">,</span>
                           <span class="n">method</span><span class="o">=</span><span class="s1">'RK45'</span><span class="p">,</span> <span class="o">**</span><span class="n">ivp_kwargs</span><span class="p">):</span>
@@ -9728,7 +9356,7 @@
 
 
 <div class="viewcode-block" id="animate_singularity">
-<a class="viewcode-back" href="../psiop.html#psiop.animate_singularity">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.animate_singularity">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">animate_singularity</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
                         <span class="n">n_frames</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">branches</span><span class="o">=</span><span class="s1">'all'</span><span class="p">,</span>
                         <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">contours</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -9820,7 +9448,7 @@
 
 
 <div class="viewcode-block" id="animate_singularity_3d">
-<a class="viewcode-back" href="../psiop.html#psiop.animate_singularity_3d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.animate_singularity_3d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">animate_singularity_3d</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
                            <span class="n">n_frames</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">branches</span><span class="o">=</span><span class="s1">'all'</span><span class="p">,</span>
                            <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -9902,7 +9530,7 @@
 
 
 <div class="viewcode-block" id="solve_matrix_field">
-<a class="viewcode-back" href="../psiop.html#psiop.solve_matrix_field">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.solve_matrix_field">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">solve_matrix_field</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
                         <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
                         <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">):</span>
@@ -10022,7 +9650,7 @@
 
 
 <div class="viewcode-block" id="solve_sylvester_field">
-<a class="viewcode-back" href="../psiop.html#psiop.solve_sylvester_field">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.solve_sylvester_field">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">solve_sylvester_field</span><span class="p">(</span><span class="n">P_expr</span><span class="p">,</span> <span class="n">Q_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
                            <span class="n">splitting</span><span class="o">=</span><span class="s1">'strang'</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span>
                            <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
@@ -10201,7 +9829,7 @@
 
 
 <div class="viewcode-block" id="solve_ricci_flow_conformal_2d">
-<a class="viewcode-back" href="../psiop.html#psiop.solve_ricci_flow_conformal_2d">[docs]</a>
+<a class="viewcode-back" href="../psiop_old.html#psiop_old.solve_ricci_flow_conformal_2d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">solve_ricci_flow_conformal_2d</span><span class="p">(</span><span class="n">phi0</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
                                    <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span>
                                    <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">):</span>
