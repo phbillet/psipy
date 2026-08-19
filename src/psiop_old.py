@@ -614,18 +614,19 @@ class PseudoDifferentialOperator:
         return symbol
 
     def clear_cache(self):
-        """Clear cached symbol evaluations and Peetre decompositions."""
+        """
+        Clear cached symbol evaluations and Peetre decompositions.
+        """
         self.symbol_cached = None
+
         if hasattr(self, "_peetre_cache"):
             self._peetre_cache = None
+
         if hasattr(self, "_peetre_decomposition"):
             self._peetre_decomposition = None
+
         if hasattr(self, "_joint_lowrank_cache"):
             self._joint_lowrank_cache = None
-        if hasattr(self, "_joint_nufft_cache"):
-            self._joint_nufft_cache = None
-        if hasattr(self, "_joint_aaa_cache"):
-            self._joint_aaa_cache = None
 
     def _get_peetre_decomposition(self):
         """
@@ -2156,61 +2157,7 @@ class PseudoDifferentialOperator:
             xi_syms.append(s)
         return x_syms, xi_syms
 
-    def _resolve_nufft_plan(self, joint_symbol, use_cache=True):
-        """
-        Resolve the NUFFT plan for a joint residual symbol (symbolic, grid-free).
-    
-        Returns
-        -------
-        plan_info : tuple or None
-            ("1d", plan) or ("2d", plan) if the symbol is NUFFT-representable,
-            None otherwise.
-        """
-        x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
-        key = (joint_symbol, self.dim)
-        cache = getattr(self, "_joint_nufft_cache", None)
-        if use_cache and cache is not None and cache.get("key") == key:
-            return cache["plan_info"]
-    
-        if self.dim == 1:
-            plan = try_nufft_decomposition_1d(joint_symbol, x_syms[0], xi_syms[0])
-            plan_info = ("1d", plan) if plan is not None else None
-        elif self.dim == 2:
-            res = try_nufft_decomposition_2d(
-                joint_symbol, x_syms[0], x_syms[1], xi_syms[0], xi_syms[1]
-            )
-            plan_info = ("2d", res) if res is not None else None
-        else:
-            plan_info = None
-    
-        self._joint_nufft_cache = {"key": key, "plan_info": plan_info}
-        return plan_info
-
     def _nufft_joint_apply(self, joint_symbol, u, x_grid, kx, y_grid=None, ky=None,
-                            use_cache=True, freq_window="gaussian"):
-        """
-        Try the NUFFT joint-residual backend. Returns the applied numeric
-        array on success, or None if the symbol doesn't classify as
-        NUFFT-representable (caller should fall back to direct application).
-        PERIODIC BOUNDARY CONDITIONS ONLY.
-        """
-        plan_info = self._resolve_nufft_plan(joint_symbol, use_cache=use_cache)
-        if plan_info is None:
-            return None
-    
-        kind, plan = plan_info
-        dx = x_grid[1] - x_grid[0]
-        dxi = kx[1] - kx[0]
-        if kind == "1d":
-            return apply_nufft_1d(u, plan, x_grid, kx, dx, dxi, freq_window=freq_window)
-        else:  # "2d"
-            dy = y_grid[1] - y_grid[0]
-            deta = ky[1] - ky[0]
-            plan_kind, plan_data = plan
-            return apply_nufft_2d(u, plan_kind, plan_data, x_grid, y_grid, kx, ky,
-                                   dx, dy, dxi, deta, freq_window=freq_window)
-
-    def _nufft_joint_apply_old(self, joint_symbol, u, x_grid, kx, y_grid=None, ky=None,
                             use_cache=True, freq_window="gaussian"):
         """
         Try the NUFFT joint-residual backend. Returns the applied numeric
@@ -2253,123 +2200,6 @@ class PseudoDifferentialOperator:
             plan_kind, plan_data = plan
             return apply_nufft_2d(u, plan_kind, plan_data, x_grid, y_grid, kx, ky,
                                    dx, dy, dxi, deta, freq_window=freq_window)
-
-    def _resolve_joint_representation(
-        self,
-        joint_symbol,
-        backend="auto",
-        bounds=None,
-        degree=6,
-        tol=1e-5,
-        num_samples=10000,
-        seed=42,
-        use_cache=True,
-    ):
-        """
-        Normalize the joint residual into an executable representation.
-    
-        This is the single entry point for turning a joint symbol into
-        something that can be numerically applied. It resolves 'auto' to a
-        concrete backend, then delegates to the appropriate cached helper.
-    
-        Parameters
-        ----------
-        joint_symbol : sympy.Expr
-            The irreducible joint residual.
-        backend : {'auto', 'direct', 'lowrank', 'nufft', 'aaa'}
-            Which factorization strategy to use.
-        bounds : dict, optional
-            Symbol -> (min, max) mapping. Required for 'lowrank' and 'aaa'.
-        degree, tol, num_samples, seed :
-            Forwarded to the underlying factorization.
-        use_cache : bool
-            Whether to use per-backend caches.
-    
-        Returns
-        -------
-        dict
-            A representation with a "type" key:
-    
-            - {"type": "zero"}
-            - {"type": "direct", "symbol": ..., "backend": "direct"}
-            - {"type": "separable_pairs", "pairs": [...], "metrics": {...},
-               "backend": "lowrank"}
-            - {"type": "nufft_plan", "plan_info": (...), "backend": "nufft"}
-            - {"type": "nufft_unrepresentable", "symbol": ..., "backend": "nufft"}
-            - {"type": "aaa_callable", "symbol_func": ..., "metrics": {...},
-               "backend": "aaa"}
-            - {"type": "aaa_unfit", "symbol": ..., "backend": "aaa"}
-        """
-        if self._peetre_is_zero(joint_symbol):
-            return {"type": "zero"}
-    
-        # Resolve 'auto' to a concrete backend
-        resolved = backend
-        if resolved == "auto":
-            x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
-            resolved = self._auto_select_joint_backend(joint_symbol, x_syms, xi_syms)
-    
-        if resolved == "direct":
-            return {"type": "direct", "symbol": joint_symbol, "backend": "direct"}
-    
-        elif resolved == "lowrank":
-            if bounds is None:
-                raise ValueError(
-                    "joint_bounds must be provided for backend='lowrank' "
-                    "(or use backend='auto' with grids available at apply time)."
-                )
-            pairs, metrics = self._low_rank_joint_pairs(
-                joint_symbol, bounds, degree=degree, tol=tol,
-                num_samples=num_samples, seed=seed, use_cache=use_cache,
-            )
-            return {
-                "type": "separable_pairs",
-                "pairs": pairs,
-                "metrics": metrics,
-                "backend": "lowrank",
-            }
-    
-        elif resolved == "nufft":
-            plan_info = self._resolve_nufft_plan(joint_symbol, use_cache=use_cache)
-            if plan_info is None:
-                return {
-                    "type": "nufft_unrepresentable",
-                    "symbol": joint_symbol,
-                    "backend": "nufft",
-                }
-            return {
-                "type": "nufft_plan",
-                "plan_info": plan_info,
-                "backend": "nufft",
-            }
-    
-        elif resolved == "aaa":
-            if bounds is None:
-                raise ValueError(
-                    "joint_bounds must be provided for backend='aaa' "
-                    "(or use backend='auto' with grids available at apply time)."
-                )
-            symbol_func, metrics = self._aaa_joint_symbol_func(
-                joint_symbol, bounds, tol=tol, use_cache=use_cache,
-            )
-            if symbol_func is None:
-                return {
-                    "type": "aaa_unfit",
-                    "symbol": joint_symbol,
-                    "backend": "aaa",
-                }
-            return {
-                "type": "aaa_callable",
-                "symbol_func": symbol_func,
-                "metrics": metrics,
-                "backend": "aaa",
-            }
-    
-        else:
-            raise ValueError(
-                f"joint_backend must be 'direct', 'lowrank', 'nufft', or 'aaa', "
-                f"got '{resolved}'."
-            )
 
     def _aaa_joint_symbol_func(self, joint_symbol, bounds, degree=None, tol=1e-8,
                                 use_cache=True):
@@ -2419,252 +2249,31 @@ class PseudoDifferentialOperator:
                         else aaa_plan_to_callable_2d(plan))
         return symbol_func, metrics
 
-    def _apply_joint_residual(
-        self,
-        joint_symbol,
-        u,
-        x_grid,
-        kx,
-        y_grid=None,
-        ky=None,
-        boundary_condition="periodic",
-        peetre_quantization="kohn-nirenberg",
-        common_apply_kwargs=None,
-        apply_separable_pair=None,
-        joint_backend="direct",
-        joint_degree=6,
-        joint_tol=1e-5,
-        joint_bounds=None,
-        joint_max_rel_error=None,
-        joint_num_samples=10000,
-        joint_seed=42,
-        use_cache=True,
-        freq_window="gaussian",
-        clamp=1e6,
-        space_window=False,
-    ):
-        """
-        Apply the irreducible joint residual with backend selection,
-        quality gates, and automatic fallback to direct application.
-    
-        This method encapsulates the entire joint-residual execution
-        pipeline: auto-selection, representation resolution, quality
-        checking, and numerical application with fallbacks.
-    
-        Parameters
-        ----------
-        joint_symbol : sympy.Expr
-            The joint residual symbol to apply.
-        u : ndarray
-            Input field.
-        x_grid, kx, y_grid, ky : ndarray
-            Spatial and frequency grids.
-        boundary_condition : str
-            'periodic' or 'dirichlet'/'neumann'.
-        peetre_quantization : str
-            Quantization for sub-operators.
-        common_apply_kwargs : dict
-            Keyword arguments for sub-operator apply() calls.
-        apply_separable_pair : callable
-            The closure from apply_peetre that applies a(x)*q(D)u.
-        joint_backend, joint_degree, joint_tol, joint_bounds,
-        joint_max_rel_error, joint_num_samples, joint_seed, use_cache,
-        freq_window, clamp, space_window :
-            As documented in apply_peetre.
-    
-        Returns
-        -------
-        ndarray
-            The result of applying the joint residual to u.
-        """
-        import numpy as np
-    
-        common_apply_kwargs = dict(common_apply_kwargs or {})
-    
-        def _apply_joint_direct():
-            """Exact (expensive) fallback: full KN application of joint symbol."""
-            op_joint = PseudoDifferentialOperator(
-                joint_symbol,
-                self.vars_x,
-                mode="symbol",
-                quantization=peetre_quantization,
-            )
-            return op_joint.apply(u, x_grid, kx, **common_apply_kwargs)
-    
-        # ---------------------------------------------------------------
-        # Determine if we need bounds before resolving
-        # ---------------------------------------------------------------
-        needs_bounds = joint_backend in ("lowrank", "aaa")
-        if joint_backend == "auto":
-            x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
-            peeked = self._auto_select_joint_backend(joint_symbol, x_syms, xi_syms)
-            needs_bounds = peeked in ("lowrank", "aaa")
-    
-        if needs_bounds and joint_bounds is None:
-            joint_bounds = self._infer_joint_bounds(
-                x_grid, kx, y_grid=y_grid, ky=ky,
-            )
-    
-        # ---------------------------------------------------------------
-        # Resolve the representation
-        # ---------------------------------------------------------------
-        try:
-            rep = self._resolve_joint_representation(
-                joint_symbol,
-                backend=joint_backend,
-                bounds=joint_bounds,
-                degree=joint_degree,
-                tol=joint_tol,
-                num_samples=joint_num_samples,
-                seed=joint_seed,
-                use_cache=use_cache,
-            )
-        except Exception as exc:
-            warnings.warn(
-                f"Joint representation resolution failed: {exc}. "
-                "Falling back to direct joint application."
-            )
-            return _apply_joint_direct()
-    
-        rep_type = rep["type"]
-    
-        # ---------------------------------------------------------------
-        # Execute based on representation type
-        # ---------------------------------------------------------------
-        if rep_type == "zero":
-            return np.zeros(np.shape(u), dtype=np.complex128)
-    
-        elif rep_type == "direct":
-            return _apply_joint_direct()
-    
-        elif rep_type == "separable_pairs":
-            # Low-rank: apply as sum of separable pairs
-            metrics = rep.get("metrics", {})
-            self.last_joint_lowrank_metrics = metrics
-            if (
-                joint_max_rel_error is not None
-                and metrics.get("rel_l2_error", float("inf")) > joint_max_rel_error
-            ):
-                warnings.warn(
-                    "Low-rank joint residual symbol error "
-                    f"{metrics['rel_l2_error']:.6e} exceeds "
-                    f"joint_max_rel_error={joint_max_rel_error}. "
-                    "Falling back to direct joint application."
-                )
-                return _apply_joint_direct()
-            result = np.zeros(np.shape(u), dtype=np.complex128)
-            for a_k, q_k in rep["pairs"]:
-                result = result + apply_separable_pair(a_k, q_k)
-            return result
-    
-        elif rep_type == "nufft_plan":
-            # NUFFT: periodic only
-            if boundary_condition != "periodic":
-                warnings.warn(
-                    "joint_backend='nufft' only supports "
-                    "boundary_condition='periodic'. Falling back to "
-                    "direct joint application."
-                )
-                return _apply_joint_direct()
-            try:
-                plan_info = rep["plan_info"]
-                kind, plan = plan_info
-                dx = x_grid[1] - x_grid[0]
-                dxi = kx[1] - kx[0]
-                if kind == "1d":
-                    return apply_nufft_1d(
-                        u, plan, x_grid, kx, dx, dxi, freq_window=freq_window
-                    )
-                else:  # "2d"
-                    dy = y_grid[1] - y_grid[0]
-                    deta = ky[1] - ky[0]
-                    plan_kind, plan_data = plan
-                    return apply_nufft_2d(
-                        u, plan_kind, plan_data, x_grid, y_grid, kx, ky,
-                        dx, dy, dxi, deta, freq_window=freq_window,
-                    )
-            except Exception as exc:
-                warnings.warn(
-                    f"NUFFT joint application failed: {exc}. "
-                    "Falling back to direct joint application."
-                )
-                return _apply_joint_direct()
-    
-        elif rep_type == "nufft_unrepresentable":
-            warnings.warn(
-                "Joint residual does not classify as NUFFT-representable "
-                "(no oscillatory phase of the form exp(i*Lambda(x)*M(xi)) "
-                "found). Falling back to direct joint application."
-            )
-            return _apply_joint_direct()
-    
-        elif rep_type == "aaa_callable":
-            # AAA: rational fit applied via KN quadrature
-            metrics = rep.get("metrics", {})
-            self.last_joint_aaa_metrics = metrics
-            if (
-                joint_max_rel_error is not None
-                and metrics.get("rel_l2_error", float("inf")) > joint_max_rel_error
-            ):
-                warnings.warn(
-                    "AAA joint residual symbol error "
-                    f"{metrics['rel_l2_error']:.6e} exceeds "
-                    f"joint_max_rel_error={joint_max_rel_error}. "
-                    "Falling back to direct joint application."
-                )
-                return _apply_joint_direct()
-            symbol_func = rep["symbol_func"]
-            if boundary_condition == "periodic":
-                return kohn_nirenberg_fft(
-                    u_vals=u, symbol_func=symbol_func,
-                    x_grid=x_grid, kx=kx,
-                    fft_func=self.fft, ifft_func=self.ifft,
-                    dim=self.dim, y_grid=y_grid, ky=ky,
-                    freq_window=freq_window, clamp=clamp,
-                    space_window=space_window, is_spatial=True,
-                )
-            else:
-                xg = x_grid if self.dim == 1 else (x_grid, y_grid)
-                kg = kx if self.dim == 1 else (kx, ky)
-                return kohn_nirenberg_nonperiodic(
-                    u, xg, kg, symbol_func,
-                    freq_window=freq_window, clamp=clamp,
-                    space_window=space_window, is_spatial=True,
-                )
-    
-        elif rep_type == "aaa_unfit":
-            warnings.warn(
-                "Joint residual could not be fit by AAA to the requested "
-                "tolerance (joint_tol). This can happen for symbols whose "
-                "poles move with x/y (a genuinely different, "
-                "diagonal-singularity structural class). Falling back to "
-                "direct joint application."
-            )
-            return _apply_joint_direct()
-    
-        else:
-            raise ValueError(f"Unknown joint representation type: '{rep_type}'")
-
     def peetre_decomposition(
         self,
         use_cache=True,
         separable_local=False,
-        classify_joint=False,
     ):
         """
         Symbolic Peetre-style decomposition of the operator symbol.
 
+        The symbol is split into:
+
+            local:
+                Polynomial part in the frequency variables.
+
+            separable:
+                Sum of terms a(x) q(xi), with q frequency-only.
+
+            joint_residual:
+                Remaining genuinely entangled terms.
+
+
         Parameters
         ----------
+
         use_cache : bool, default=True
             Cache the decomposition.
-        separable_local : bool, default=False
-            If True, expose local polynomial terms as separable pairs.
-        classify_joint : bool, default=False
-            If True and the joint residual is non-zero, run the
-            auto-selector and store the recommended backend in
-            result["joint_backend"]. This is purely symbolic (no grids
-            needed) and cheap.
 
         Returns
         -------
@@ -2674,12 +2283,12 @@ class PseudoDifferentialOperator:
         from sympy import Add, Integer, expand, sympify
 
         cache = getattr(self, "_peetre_cache", None)
+
         if (
             use_cache
             and cache is not None
             and cache.get("symbol") == self.symbol
             and cache.get("separable_local") == separable_local
-            and cache.get("classify_joint") == classify_joint
         ):
             return cache["result"]
 
@@ -2757,19 +2366,12 @@ class PseudoDifferentialOperator:
             "separable_local": separable_local,
         }
 
-        # --- NEW: optional backend classification ---
-        if classify_joint and not self._peetre_is_zero(joint_symbol):
-            x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
-            result["joint_backend"] = self._auto_select_joint_backend(
-                joint_symbol, x_syms, xi_syms
-            )
-
         self._peetre_cache = {
             "symbol": self.symbol,
             "separable_local": separable_local,
-            "classify_joint": classify_joint,
             "result": result,
         }
+
         return result
 
     def decompose_symbol_peetre(self, *args, **kwargs):
@@ -2780,137 +2382,6 @@ class PseudoDifferentialOperator:
         return self.peetre_decomposition(*args, **kwargs)
 
     def print_peetre_decomposition(
-        self,
-        joint_backend="direct",
-        joint_bounds=None,
-        joint_degree=6,
-        joint_tol=1e-5,
-        joint_num_samples=10000,
-        joint_seed=42,
-        use_cache=True,
-        **kwargs,
-    ):
-        """
-        Pretty-print the Peetre decomposition.
-
-        Parameters
-        ----------
-        joint_backend : {'direct', 'lowrank', 'nufft', 'aaa', 'auto'}
-            How to display the joint residual:
-            - 'direct' prints the raw (un-factorized) joint residual terms.
-            - 'lowrank' factorizes via _resolve_joint_representation and
-              prints the resulting separable pairs a_k(x)*q_k(xi).
-            - 'nufft' / 'aaa' print a structural summary (these backends
-              produce execution plans, not readable separable pairs).
-            - 'auto' selects the best backend and prints accordingly.
-        joint_bounds : dict, optional
-            Symbol -> (min, max) mapping, required for 'lowrank' and 'aaa'
-            (no numerical grid available here to infer bounds from).
-        joint_degree, joint_tol, joint_num_samples, joint_seed :
-            Forwarded to the underlying factorization.
-        use_cache : bool
-            Whether to use decomposition/factorization caches.
-        **kwargs
-            Forwarded to peetre_decomposition().
-        """
-        deco = self.peetre_decomposition(use_cache=use_cache, **kwargs)
-        xi_vars = self._peetre_frequency_symbols()
-
-        # --------------------------------------------------------------
-        # Local terms.
-        # --------------------------------------------------------------
-        local_terms = deco.get("local_terms", [])
-        if local_terms:
-            print(
-                f"--- {len(local_terms)} local term(s), "
-                f"represented as a(x)*q({', '.join(str(v) for v in xi_vars)}) ---"
-            )
-            for a, q in local_terms:
-                print(f"  ({a}) * ({q})")
-        else:
-            print(
-                f"--- {len(deco['local'])} local term(s), "
-                f"polynomial in {xi_vars} ---"
-            )
-            for monom, coeff in deco["local"].items():
-                factors = []
-                for var, power in zip(xi_vars, monom):
-                    if power == 1:
-                        factors.append(str(var))
-                    elif power:
-                        factors.append(f"{var}**{power}")
-                monom_str = "*".join(factors) if factors else "1"
-                print(f"  ({coeff}) * {monom_str}")
-
-        # --------------------------------------------------------------
-        # Separable non-local terms.
-        # --------------------------------------------------------------
-        print(
-            f"--- {len(deco['separable'])} separable non-local term(s) ---"
-        )
-        for a, q in deco["separable"]:
-            print(f"  ({a}) * ({q})")
-
-        # --------------------------------------------------------------
-        # Joint residual — via the unified representation.
-        # --------------------------------------------------------------
-        joint_symbol = deco.get("joint_symbol", 0)
-        if self._peetre_is_zero(joint_symbol):
-            print("--- no joint residual ---")
-        else:
-            resolved = joint_backend
-            if resolved == "auto":
-                x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
-                resolved = self._auto_select_joint_backend(joint_symbol, x_syms, xi_syms)
-
-            if resolved in ("lowrank", "aaa") and joint_bounds is None:
-                print(f"--- detected '{resolved}' structure; joint_bounds required "
-                      f"to factorize it here. Raw joint term(s): ---")
-                for t in deco["joint_residual"]:
-                    print(f"  {t}")
-            else:
-                rep = self._resolve_joint_representation(
-                    joint_symbol, backend=resolved, bounds=joint_bounds,
-                    degree=joint_degree, tol=joint_tol,
-                    num_samples=joint_num_samples, seed=joint_seed,
-                    use_cache=use_cache,
-                )
-                rt = rep["type"]
-                if rt == "separable_pairs":
-                    pairs, metrics = rep["pairs"], rep.get("metrics", {})
-                    print(f"--- joint residual factorized into {len(pairs)} low-rank "
-                          f"term(s) via factorize_symbolic "
-                          f"(rel_l2_error={metrics.get('rel_l2_error', float('nan')):.3e}) ---")
-                    for a, q in pairs:
-                        print(f"  ({a}) * ({q})")
-                elif rt == "nufft_plan":
-                    print(f"--- NUFFT structure detected ({rep['plan_info'][0]}): oscillatory "
-                          f"phase exp(i*Lambda(x)*M(xi)). No separable pairs to print "
-                          f"(use apply() to execute). ---")
-                elif rt == "aaa_callable":
-                    print(f"--- AAA rational structure detected "
-                          f"(rel_l2_error={rep['metrics'].get('rel_l2_error', float('nan')):.3e}). "
-                          f"No separable pairs to print (use apply() to execute). ---")
-                elif rt in ("nufft_unrepresentable", "aaa_unfit"):
-                    print(f"--- joint residual: backend '{resolved}' could not represent "
-                          f"the symbol. Raw joint term(s): ---")
-                    for t in deco["joint_residual"]:
-                        print(f"  {t}")
-                else:
-                    print(f"--- {len(deco['joint_residual'])} irreducible joint term(s) ---")
-                    for t in deco["joint_residual"]:
-                        print(f"  {t}")
-
-        # --------------------------------------------------------------
-        # Summary.
-        # --------------------------------------------------------------
-        print(
-            f"local_symbol = {deco['local_symbol']}\n"
-            f"separable_symbol = {deco['separable_symbol']}\n"
-            f"joint_symbol = {deco['joint_symbol']}"
-        )
-
-    def print_peetre_decomposition_old(
         self,
         joint_backend="direct",
         joint_bounds=None,
@@ -3377,36 +2848,196 @@ class PseudoDifferentialOperator:
         # --------------------------------------------------------------
         joint_symbol = deco.get("joint_symbol", 0)
         if not self._peetre_is_zero(joint_symbol):
+            
+            # --- AUTO-SELECTION LOGIC ---
+            if joint_backend == "auto":
+                x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
+                joint_backend = self._auto_select_joint_backend(joint_symbol, x_syms, xi_syms)
+                # Optional: uncomment to see what the auto-selector chose in the console
+                # warnings.warn(f"[auto] Selected joint_backend='{joint_backend}' for joint residual.", stacklevel=2)
+            # ----------------------------
+
+        def _apply_joint_direct():
+            # ... (rest of the existing code remains exactly the same)
+            def _apply_joint_direct():
+                """
+                Apply the irreducible joint residual symbol directly via the
+                full Kohn–Nirenberg pipeline, without any separable
+                decomposition. This is the exact (but expensive) fallback when
+                `joint_backend='direct'` or when the low-rank factorization
+                fails or exceeds the error tolerance.
+        
+                Returns
+                -------
+                ndarray
+                    Op[joint_symbol](u), same shape as u.
+                """
+                op_joint = PseudoDifferentialOperator(
+                    joint_symbol,
+                    self.vars_x,
+                    mode="symbol",
+                    quantization=peetre_quantization,
+                )
+                return op_joint.apply(
+                    u,
+                    x_grid,
+                    kx,
+                    **common_apply_kwargs,
+                )
+    
             if not apply_joint:
                 warnings.warn(
                     "Peetre joint residual has been ignored. "
                     "The result is an asymptotic/local+separable approximation."
                 )
-            else:
-                result = result + self._apply_joint_residual(
-                    joint_symbol,
-                    u,
-                    x_grid,
-                    kx,
-                    y_grid=y_grid,
-                    ky=ky,
-                    boundary_condition=boundary_condition,
-                    peetre_quantization=peetre_quantization,
-                    common_apply_kwargs=common_apply_kwargs,
-                    apply_separable_pair=_apply_separable_pair,
-                    joint_backend=joint_backend,
-                    joint_degree=joint_degree,
-                    joint_tol=joint_tol,
-                    joint_bounds=joint_bounds,
-                    joint_max_rel_error=joint_max_rel_error,
-                    joint_num_samples=joint_num_samples,
-                    joint_seed=joint_seed,
-                    use_cache=use_cache,
-                    freq_window=freq_window,
-                    clamp=clamp,
-                    space_window=space_window,
-                )
+    
+            elif joint_backend == "direct":
+                result = result + _apply_joint_direct()
+    
+            elif joint_backend == "lowrank":
+                if joint_bounds is None:
+                    joint_bounds = self._infer_joint_bounds(
+                        x_grid,
+                        kx,
+                        y_grid=y_grid,
+                        ky=ky,
+                    )
+    
+                try:
+                    pairs, metrics = self._low_rank_joint_pairs(
+                        joint_symbol,
+                        joint_bounds,
+                        degree=joint_degree,
+                        tol=joint_tol,
+                        num_samples=joint_num_samples,
+                        seed=joint_seed,
+                        use_cache=use_cache,
+                    )
+    
+                    self.last_joint_lowrank_metrics = metrics
+    
+                    if (
+                        joint_max_rel_error is not None
+                        and metrics.get("rel_l2_error", float("inf")) > joint_max_rel_error
+                    ):
+                        warnings.warn(
+                            "Low-rank joint residual symbol error "
+                            f"{metrics['rel_l2_error']:.6e} exceeds "
+                            f"joint_max_rel_error={joint_max_rel_error}. "
+                            "Falling back to direct joint application."
+                        )
+                        result = result + _apply_joint_direct()
+                    else:
+                        for a_k, q_k in pairs:
+                            result = result + _apply_separable_pair(a_k, q_k)
+    
+                except Exception as exc:
+                    warnings.warn(
+                        "Low-rank joint decomposition failed: "
+                        f"{exc}. Falling back to direct joint application."
+                    )
+                    result = result + _apply_joint_direct()
 
+            elif joint_backend == "nufft":
+                # Oscillatory joint residuals (e.g. sin(x*xi), exp(I*x*xi)):
+                # only derived/validated for periodic (FFT) application.
+                if boundary_condition != "periodic":
+                    warnings.warn(
+                        "joint_backend='nufft' only supports "
+                        "boundary_condition='periodic'. Falling back to "
+                        "direct joint application."
+                    )
+                    result = result + _apply_joint_direct()
+                else:
+                    try:
+                        nufft_result = self._nufft_joint_apply(
+                            joint_symbol, u, x_grid, kx,
+                            y_grid=y_grid, ky=ky, use_cache=use_cache,
+                            freq_window=freq_window,
+                        )
+                        if nufft_result is None:
+                            warnings.warn(
+                                "Joint residual does not classify as "
+                                "NUFFT-representable (no oscillatory phase "
+                                "of the form exp(i*Lambda(x)*M(xi)) found). "
+                                "Falling back to direct joint application."
+                            )
+                            result = result + _apply_joint_direct()
+                        else:
+                            result = result + nufft_result
+                    except Exception as exc:
+                        warnings.warn(
+                            f"NUFFT joint decomposition failed: {exc}. "
+                            "Falling back to direct joint application."
+                        )
+                        result = result + _apply_joint_direct()
+
+            elif joint_backend == "aaa":
+                # Rational/resolvent-shaped joint residuals (poles,
+                # algebraic decay, no oscillatory phase).
+                if joint_bounds is None:
+                    joint_bounds = self._infer_joint_bounds(
+                        x_grid, kx, y_grid=y_grid, ky=ky,
+                    )
+                try:
+                    symbol_func, metrics = self._aaa_joint_symbol_func(
+                        joint_symbol, joint_bounds, tol=joint_tol,
+                        use_cache=use_cache,
+                    )
+                    if symbol_func is None:
+                        warnings.warn(
+                            "Joint residual could not be fit by AAA to the "
+                            "requested tolerance (joint_tol). This can "
+                            "happen for symbols whose poles move with x/y "
+                            "(a genuinely different, diagonal-singularity "
+                            "structural class -- see module notes on "
+                            "joint_backend='aaa'). Falling back to direct "
+                            "joint application."
+                        )
+                        result = result + _apply_joint_direct()
+                    else:
+                        self.last_joint_aaa_metrics = metrics
+                        if (
+                            joint_max_rel_error is not None
+                            and metrics.get("rel_l2_error", float("inf")) > joint_max_rel_error
+                        ):
+                            warnings.warn(
+                                "AAA joint residual symbol error "
+                                f"{metrics['rel_l2_error']:.6e} exceeds "
+                                f"joint_max_rel_error={joint_max_rel_error}. "
+                                "Falling back to direct joint application."
+                            )
+                            result = result + _apply_joint_direct()
+                        elif boundary_condition == "periodic":
+                            result = result + kohn_nirenberg_fft(
+                                u_vals=u, symbol_func=symbol_func,
+                                x_grid=x_grid, kx=kx,
+                                fft_func=self.fft, ifft_func=self.ifft,
+                                dim=self.dim, y_grid=y_grid, ky=ky,
+                                freq_window=freq_window, clamp=clamp,
+                                space_window=space_window, is_spatial=True,
+                            )
+                        else:
+                            xg = x_grid if self.dim == 1 else (x_grid, y_grid)
+                            kg = kx if self.dim == 1 else (kx, ky)
+                            result = result + kohn_nirenberg_nonperiodic(
+                                u, xg, kg, symbol_func,
+                                freq_window=freq_window, clamp=clamp,
+                                space_window=space_window, is_spatial=True,
+                            )
+                except Exception as exc:
+                    warnings.warn(
+                        f"AAA joint decomposition failed: {exc}. "
+                        "Falling back to direct joint application."
+                    )
+                    result = result + _apply_joint_direct()
+
+            else:
+                raise ValueError(
+                    "joint_backend must be 'direct', 'lowrank', 'nufft', "
+                    "or 'aaa'."
+                )
+    
         return result
 
         

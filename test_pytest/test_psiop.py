@@ -3311,3 +3311,516 @@ def test_auto_select_regression_gaussian_rational():
     # but MUST NOT pick 'nufft' since there is no oscillatory phase.
     assert backend in ('aaa', 'lowrank'), f"Expected 'aaa' or 'lowrank', got '{backend}'"
     assert backend != 'nufft', "Non-oscillatory symbol incorrectly routed to NUFFT!"
+
+#===========================================================================
+# NEW TESTS — _resolve_nufft_plan (extracted grid-free NUFFT plan resolution)
+#===========================================================================
+
+def test_resolve_nufft_plan_1d_representable():
+    """_resolve_nufft_plan should return a ('1d', plan) tuple for oscillatory symbols."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    plan_info = op._resolve_nufft_plan(op.symbol)
+    assert plan_info is not None
+    kind, plan = plan_info
+    assert kind == "1d"
+    assert plan is not None
+
+
+def test_resolve_nufft_plan_1d_unrepresentable():
+    """_resolve_nufft_plan should return None for non-oscillatory symbols."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    plan_info = op._resolve_nufft_plan(op.symbol)
+    assert plan_info is None
+
+
+def test_resolve_nufft_plan_caching():
+    """_resolve_nufft_plan should cache and reuse the plan."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    plan1 = op._resolve_nufft_plan(op.symbol, use_cache=True)
+    plan2 = op._resolve_nufft_plan(op.symbol, use_cache=True)
+    assert plan1 is not None
+    assert plan2 is not None
+    # Both calls should hit the same cache entry
+    assert hasattr(op, '_joint_nufft_cache')
+    assert op._joint_nufft_cache is not None
+
+
+def test_resolve_nufft_plan_2d():
+    """_resolve_nufft_plan should return a ('2d', plan) tuple for 2D oscillatory symbols."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    op = PseudoDifferentialOperator(sp.sin((x + y) * xi), [x, y], mode='symbol')
+    plan_info = op._resolve_nufft_plan(op.symbol)
+    assert plan_info is not None
+    kind, plan = plan_info
+    assert kind == "2d"
+
+
+def test_nufft_joint_apply_delegates_to_resolve():
+    """_nufft_joint_apply should delegate plan resolution to _resolve_nufft_plan."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+
+    # NUFFT-representable: should produce a numeric result
+    result = op._nufft_joint_apply(op.symbol, u, x_grid, kx, freq_window=None)
+    assert result is not None
+    assert result.shape == u.shape
+    assert np.all(np.isfinite(result))
+
+    # Non-NUFFT symbol: should return None (caller falls back)
+    op2 = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    result2 = op2._nufft_joint_apply(op2.symbol, u, x_grid, kx, freq_window=None)
+    assert result2 is None
+
+
+#===========================================================================
+# NEW TESTS — _resolve_joint_representation (unified resolver)
+#===========================================================================
+
+def test_resolve_joint_representation_zero():
+    """Zero joint symbol should return {'type': 'zero'}."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2, [x], mode='symbol')
+    rep = op._resolve_joint_representation(sp.Integer(0), backend='direct')
+    assert rep["type"] == "zero"
+
+
+def test_resolve_joint_representation_direct():
+    """Direct backend should return the raw symbol unchanged."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    rep = op._resolve_joint_representation(op.symbol, backend='direct')
+    assert rep["type"] == "direct"
+    assert rep["backend"] == "direct"
+    assert rep["symbol"] == op.symbol
+
+
+def test_resolve_joint_representation_lowrank():
+    """Lowrank backend should return separable_pairs with pairs and metrics."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.exp(-((x - xi)**2) / 8), [x], mode='symbol')
+    bounds = {x: (-3, 3), xi: (-10, 10)}
+    rep = op._resolve_joint_representation(op.symbol, backend='lowrank', bounds=bounds)
+    assert rep["type"] == "separable_pairs"
+    assert rep["backend"] == "lowrank"
+    assert "pairs" in rep
+    assert "metrics" in rep
+    assert len(rep["pairs"]) >= 1
+    assert "rel_l2_error" in rep["metrics"]
+
+
+def test_resolve_joint_representation_lowrank_no_bounds_raises():
+    """Lowrank backend without bounds should raise ValueError."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.exp(-((x - xi)**2) / 8), [x], mode='symbol')
+    with pytest.raises(ValueError, match="joint_bounds"):
+        op._resolve_joint_representation(op.symbol, backend='lowrank', bounds=None)
+
+
+def test_resolve_joint_representation_nufft_representable():
+    """NUFFT backend with representable symbol should return nufft_plan."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    rep = op._resolve_joint_representation(op.symbol, backend='nufft')
+    assert rep["type"] == "nufft_plan"
+    assert rep["backend"] == "nufft"
+    assert "plan_info" in rep
+    assert rep["plan_info"] is not None
+
+
+def test_resolve_joint_representation_nufft_unrepresentable():
+    """NUFFT backend with non-representable symbol should return nufft_unrepresentable."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    rep = op._resolve_joint_representation(op.symbol, backend='nufft')
+    assert rep["type"] == "nufft_unrepresentable"
+    assert rep["backend"] == "nufft"
+    assert "symbol" in rep
+
+
+def test_resolve_joint_representation_aaa():
+    """AAA backend with rational symbol should return aaa_callable or aaa_unfit."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    bounds = {x: (-3, 3), xi: (-10, 10)}
+    rep = op._resolve_joint_representation(op.symbol, backend='aaa',
+                                           bounds=bounds, tol=1e-4)
+    assert rep["type"] in ("aaa_callable", "aaa_unfit")
+    assert rep["backend"] == "aaa"
+    if rep["type"] == "aaa_callable":
+        assert "symbol_func" in rep
+        assert callable(rep["symbol_func"])
+        assert "metrics" in rep
+        assert "rel_l2_error" in rep["metrics"]
+
+
+def test_resolve_joint_representation_aaa_no_bounds_raises():
+    """AAA backend without bounds should raise ValueError."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    with pytest.raises(ValueError, match="joint_bounds"):
+        op._resolve_joint_representation(op.symbol, backend='aaa', bounds=None)
+
+
+def test_resolve_joint_representation_auto_nufft():
+    """Auto backend should resolve oscillatory symbols to nufft_plan."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    rep = op._resolve_joint_representation(op.symbol, backend='auto')
+    assert rep["type"] == "nufft_plan"
+
+
+def test_resolve_joint_representation_auto_needs_bounds():
+    """Auto resolving to lowrank/aaa without bounds should raise ValueError."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.exp(-((x - xi)**2) / 8), [x], mode='symbol')
+    with pytest.raises(ValueError, match="joint_bounds"):
+        op._resolve_joint_representation(op.symbol, backend='auto', bounds=None)
+
+
+def test_resolve_joint_representation_invalid_backend():
+    """Invalid backend name should raise ValueError."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    with pytest.raises(ValueError):
+        op._resolve_joint_representation(op.symbol, backend='invalid_backend')
+
+
+def test_resolve_joint_representation_2d_lowrank():
+    """2D lowrank representation should produce separable pairs."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    expr = sp.exp(-((x - xi)**2 + (y - eta)**2) / 8)
+    op = PseudoDifferentialOperator(expr, [x, y], mode='symbol')
+    bounds = {x: (-3, 3), y: (-3, 3), xi: (-3, 3), eta: (-3, 3)}
+    rep = op._resolve_joint_representation(op.symbol, backend='lowrank',
+                                           bounds=bounds, degree=3)
+    assert rep["type"] == "separable_pairs"
+    assert len(rep["pairs"]) >= 1
+
+
+def test_resolve_joint_representation_2d_nufft():
+    """2D NUFFT representation should return nufft_plan."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    op = PseudoDifferentialOperator(sp.sin((x + y) * xi), [x, y], mode='symbol')
+    rep = op._resolve_joint_representation(op.symbol, backend='nufft')
+    assert rep["type"] == "nufft_plan"
+
+
+#===========================================================================
+# NEW TESTS — peetre_decomposition with classify_joint
+#===========================================================================
+
+def test_peetre_decomposition_classify_joint_true():
+    """classify_joint=True should add 'joint_backend' to the decomposition dict."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    deco = op.peetre_decomposition(classify_joint=True)
+    assert "joint_backend" in deco
+    assert deco["joint_backend"] == "nufft"
+
+
+def test_peetre_decomposition_classify_joint_false_default():
+    """classify_joint=False (default) should NOT add 'joint_backend'."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    deco = op.peetre_decomposition(classify_joint=False)
+    assert "joint_backend" not in deco
+
+
+def test_peetre_decomposition_classify_joint_no_joint_residual():
+    """classify_joint=True with no joint residual should not set joint_backend."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(xi**2 + x * xi, [x], mode='symbol')
+    deco = op.peetre_decomposition(classify_joint=True)
+    # No joint residual → joint_backend should be absent or None
+    assert deco.get("joint_backend") is None
+
+
+def test_peetre_decomposition_classify_joint_aaa():
+    """classify_joint=True should detect AAA structure for rational symbols."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    deco = op.peetre_decomposition(classify_joint=True)
+    assert deco.get("joint_backend") == "aaa"
+
+
+def test_peetre_decomposition_classify_joint_lowrank():
+    """classify_joint=True should detect lowrank structure for smooth symbols."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.exp(-((x - xi)**2) / 8), [x], mode='symbol')
+    deco = op.peetre_decomposition(classify_joint=True)
+    assert deco.get("joint_backend") == "lowrank"
+
+
+def test_peetre_decomposition_classify_joint_caching():
+    """Cache key should include classify_joint; different flags → different entries."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    d1 = op.peetre_decomposition(classify_joint=True, use_cache=True)
+    d2 = op.peetre_decomposition(classify_joint=True, use_cache=True)
+    assert d1 is d2  # same cached object
+
+    d3 = op.peetre_decomposition(classify_joint=False, use_cache=True)
+    assert d3 is not d1  # different cache entry
+
+
+#===========================================================================
+# NEW TESTS — apply_peetre joint block (bug-fix verification + executor)
+#===========================================================================
+
+def test_apply_peetre_joint_actually_applied():
+    """Verify the joint residual is actually applied (dead-code bug fix).
+
+    Previously the joint dispatch was wrapped in an uncalled nested
+    ``def _apply_joint_direct():``, so the joint residual was silently
+    skipped.  This test confirms the joint part now contributes.
+    """
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+
+    result_with = op.apply(
+        u, x_grid, kx,
+        boundary_condition='periodic',
+        joint_backend='direct',
+        freq_window=None, clamp=np.inf,
+    )
+    result_without = op.apply_peetre(
+        u, x_grid, kx,
+        boundary_condition='periodic',
+        apply_joint=False,
+        freq_window=None, clamp=np.inf,
+    )
+    # The two results must differ because the joint part is non-zero
+    assert not np.allclose(result_with, result_without, atol=1e-10)
+
+
+def test_apply_peetre_nufft_nonperiodic_fallback():
+    """NUFFT backend with non-periodic BC should warn and fall back to direct."""
+    import warnings as _w
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+
+    with _w.catch_warnings(record=True) as w:
+        _w.simplefilter("always")
+        result = op.apply(
+            u, x_grid, kx,
+            boundary_condition='dirichlet',
+            joint_backend='nufft',
+            freq_window=None, clamp=np.inf,
+        )
+        assert len(w) >= 1  # fallback warning emitted
+
+    assert result.shape == u.shape
+    assert np.all(np.isfinite(result))
+
+
+def test_apply_peetre_quality_gate_fallback():
+    """Impossibly low joint_max_rel_error should trigger direct fallback."""
+    import warnings as _w
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.exp(-((x - xi)**2) / 8), [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+
+    with _w.catch_warnings(record=True) as w:
+        _w.simplefilter("always")
+        result = op.apply(
+            u, x_grid, kx,
+            boundary_condition='periodic',
+            joint_backend='lowrank',
+            joint_max_rel_error=1e-30,   # impossibly tight
+            freq_window=None, clamp=np.inf,
+        )
+
+    assert result.shape == u.shape
+    assert np.all(np.isfinite(result))
+
+
+def test_apply_peetre_weyl_with_joint_residual():
+    """Weyl quantization + joint residual should produce finite results."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(
+        x * xi + sp.sin(x * xi), [x],
+        mode='symbol', quantization='weyl',
+    )
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+
+    result = op.apply(
+        u, x_grid, kx,
+        boundary_condition='periodic',
+        joint_backend='auto',
+        freq_window=None, clamp=np.inf,
+    )
+    assert result.shape == u.shape
+    assert np.all(np.isfinite(result))
+    assert not np.allclose(result, 0)
+
+
+#===========================================================================
+# NEW TESTS — updated print_peetre_decomposition (representation consumer)
+#===========================================================================
+
+def test_print_peetre_nufft_friendly(capsys):
+    """Printing with nufft backend on an oscillatory symbol should report the plan."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+    op.print_peetre_decomposition(joint_backend='nufft')
+    captured = capsys.readouterr()
+    assert len(captured.out) > 0
+    assert 'nufft' in captured.out.lower()
+
+
+def test_print_peetre_nufft_unrepresentable(capsys):
+    """Printing with nufft backend on a rational symbol should show raw terms."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    op.print_peetre_decomposition(joint_backend='nufft')
+    captured = capsys.readouterr()
+    assert len(captured.out) > 0
+
+
+def test_print_peetre_aaa_with_bounds(capsys):
+    """Printing with aaa backend and bounds should report the fit."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(1 / (1 + (x - xi)**2), [x], mode='symbol')
+    op.print_peetre_decomposition(
+        joint_backend='aaa',
+        joint_bounds={x: (-3, 3), xi: (-10, 10)},
+        joint_tol=1e-4,
+    )
+    captured = capsys.readouterr()
+    assert len(captured.out) > 0
+
+
+def test_print_peetre_auto_no_bounds(capsys):
+    """Auto printing without bounds should still produce output (raw or summary)."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.exp(-((x - xi)**2) / 8), [x], mode='symbol')
+    op.print_peetre_decomposition(joint_backend='auto')
+    captured = capsys.readouterr()
+    assert len(captured.out) > 0
+
+
+def test_print_peetre_lowrank_with_bounds(capsys):
+    """Lowrank printing should show factorized separable pairs."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.exp(-((x - xi)**2) / 8), [x], mode='symbol')
+    op.print_peetre_decomposition(
+        joint_backend='lowrank',
+        joint_bounds={x: (-3, 3), xi: (-10, 10)},
+        joint_degree=4,
+    )
+    captured = capsys.readouterr()
+    assert len(captured.out) > 0
+    assert 'low-rank' in captured.out.lower() or 'factorized' in captured.out.lower()
+
+
+#===========================================================================
+# NEW TESTS — clear_cache (all joint caches)
+#===========================================================================
+
+def test_clear_cache_all_caches():
+    """clear_cache should reset peetre, lowrank, nufft, and aaa caches."""
+    x, xi = symbols('x xi', real=True)
+    op = PseudoDifferentialOperator(sp.sin(x * xi), [x], mode='symbol')
+
+    # Populate caches
+    op._resolve_nufft_plan(op.symbol, use_cache=True)
+    op.peetre_decomposition(use_cache=True)
+    assert hasattr(op, '_joint_nufft_cache')
+    assert hasattr(op, '_peetre_cache')
+
+    op.clear_cache()
+
+    assert op.symbol_cached is None
+    assert getattr(op, '_peetre_cache', None) is None
+    assert getattr(op, '_joint_nufft_cache', None) is None
+    assert getattr(op, '_joint_lowrank_cache', None) is None
+    assert getattr(op, '_joint_aaa_cache', None) is None
+
+
+#===========================================================================
+# NEW TESTS — integration: decompose → classify → resolve → apply
+#===========================================================================
+
+def test_full_pipeline_decompose_resolve_apply():
+    """End-to-end: classify at decomposition, resolve representation, apply."""
+    x, xi = symbols('x xi', real=True)
+    expr = xi**2 + x * sp.sin(xi) + sp.sin(x * xi)
+    op = PseudoDifferentialOperator(expr, [x], mode='symbol')
+
+    # 1. Decompose with classification
+    deco = op.peetre_decomposition(classify_joint=True)
+    assert deco["joint_backend"] == "nufft"
+
+    # 2. Resolve the joint representation
+    joint_symbol = deco["joint_symbol"]
+    if not op._peetre_is_zero(joint_symbol):
+        rep = op._resolve_joint_representation(joint_symbol,
+                                               backend=deco["joint_backend"])
+        assert rep["type"] == "nufft_plan"
+
+    # 3. Apply through the public API
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+    result = op.apply(
+        u, x_grid, kx,
+        boundary_condition='periodic',
+        joint_backend='auto',
+        freq_window=None, clamp=np.inf,
+    )
+    assert result.shape == u.shape
+    assert np.all(np.isfinite(result))
+
+
+def test_apply_peetre_2d_all_joint_backends():
+    """All joint backends should work in 2D and agree with direct."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    expr = xi**2 + eta**2 + sp.sin((x + y) * xi)
+    op = PseudoDifferentialOperator(expr, [x, y], mode='symbol')
+
+    x_grid, y_grid, kx, ky = _make_2d_grid(L=3.0, N=32)
+    X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
+    u = np.exp(-(X**2 + Y**2)).astype(complex)
+
+    res_direct = op.apply(
+        u, x_grid, kx, y_grid=y_grid, ky=ky,
+        boundary_condition='periodic',
+        joint_backend='direct',
+        freq_window=None, clamp=np.inf,
+    )
+    res_nufft = op.apply(
+        u, x_grid, kx, y_grid=y_grid, ky=ky,
+        boundary_condition='periodic',
+        joint_backend='nufft',
+        freq_window=None, clamp=np.inf,
+    )
+    assert res_nufft.shape == u.shape
+    assert np.allclose(res_nufft, res_direct, atol=0.1)
+
+
+def test_apply_hybrid_uses_representation_layer():
+    """apply_hybrid should route each additive joint term through the resolver."""
+    x, xi = symbols('x xi', real=True)
+    p_mixed = sp.sin(x * xi) + 1 / (1 + (x - xi)**2) + sp.exp(-((x - xi)**2) / 8)
+    op = PseudoDifferentialOperator(p_mixed, [x], mode='symbol')
+    x_grid, kx = _make_1d_grid(L=5.0, N=64)
+    u = _gaussian(x_grid)
+
+    res_hybrid = op.apply_hybrid(u, x_grid, kx, boundary_condition='periodic',
+                                 freq_window=None, clamp=np.inf)
+    res_direct = op.apply(u, x_grid, kx, boundary_condition='periodic',
+                          joint_backend='direct', freq_window=None, clamp=np.inf)
+    assert res_hybrid.shape == u.shape
+    assert np.all(np.isfinite(res_hybrid))
+    # Hybrid uses per-term fast backends; should be close to direct
+    assert np.allclose(res_hybrid, res_direct, atol=0.05, rtol=0.05)
