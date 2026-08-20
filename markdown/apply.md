@@ -1,436 +1,648 @@
 # Algorithms in `psiop.py`
 
-This note extracts, as pseudocode, the four algorithms requested:
-
-1. `PseudoDifferentialOperator.apply`
-2. Peetre-style symbolic decomposition (`peetre_decomposition` + `apply_peetre`)
-3. `factorize_symbolic`
-4. `evaluate_decomposition_quality`
+This note presents the core algorithms of the Peetre-based application
+pipeline using **mathematical equations** rather than pseudo-code.
 
 ---
 
-## 1. `apply(u, x_grid, kx, ...)` — operator application
+## 1. `apply(u, x_grid, kx, …)` — operator application
 
-**Goal.** Compute `(Op(p) u)` for the symbol `p(x, ξ)` of the operator, dispatching
-to the cheapest numerically valid path.
+### 1.1 Kohn–Nirenberg quantization
 
-```
-ALGORITHM apply(u, x_grid, kx, boundary_condition, y_grid, ky,
-                backend, weyl_order, apply_joint, joint_backend, ...):
+The fundamental operation applied by every backend is the
+Kohn–Nirenberg integral. For a symbol $p(x,\xi)$ acting on a field
+$u(x)$ in one dimension:
 
-    backend ← backend or self.apply_backend        # 'direct' | 'peetre'
+$$
+(\mathrm{Op}(p)\,u)(x)
+= \frac{1}{2\pi}\int_{\mathbb{R}} e^{i x \xi}\, p(x,\xi)\,
+  \widehat{u}(\xi)\,d\xi,
+\qquad
+\widehat{u}(\xi) = \int_{\mathbb{R}} e^{-i y \xi}\,u(y)\,dy.
+$$
 
-    IF backend == "peetre":
-        RETURN apply_peetre(u, x_grid, kx, ...)      # see Algorithm 2
+In two dimensions $(x,y,\xi,\eta)$ the prefactor becomes $(2\pi)^{-2}$
+and the integral extends over both frequency variables.
 
-    is_spatial ← symbol depends on x (and/or y)?
+### 1.2 Constant-coefficient fast path
 
-    # --- Case 1: constant-coefficient symbol on a periodic grid ---
-    IF NOT is_spatial AND boundary_condition == "periodic":
-        RETURN _apply_constant_fft(u, x_grid, kx, y_grid, ky, ...)
-        #   U   ← FFT(u)
-        #   P   ← p(ξ)  evaluated once on the FFT frequency grid
-        #   P   ← clip(P, clamp); apply freq_window (gaussian/hann)
-        #   RETURN IFFT(P · U)                        # O(N log N)
+When $p$ is independent of $x$, the operator reduces to a **Fourier
+multiplier**:
 
-    # --- Effective symbol (handles Weyl → Kohn-Nirenberg correction) ---
-    IF self.quantization == "weyl":
-        p_eff ← weyl_to_kn_symbol(order = weyl_order)
-        #   p_KN = exp(+i/2 ∂x ∂ξ) p_Weyl   (series truncated at weyl_order)
-    ELSE:
-        p_eff ← self.symbol
-    symbol_func ← lambdify(p_eff)                    # numeric callable
+$$
+\mathrm{Op}(p)\,u = \mathcal{F}^{-1}\!\bigl[p(\xi)\;\mathcal{F}[u](\xi)\bigr],
+$$
 
-    # --- Case 2: spatially varying symbol, periodic boundary ---
-    IF boundary_condition == "periodic":
-        RETURN kohn_nirenberg_fft(u, symbol_func, x_grid, kx, fft, ifft, ...)
-        #   Fast path (symbol numerically x-independent despite is_spatial flag):
-        #       U ← FFT(u);  P ← p(x0, ξ);  RETURN IFFT(P·U)
-        #   Slow / memory-bounded path (genuine x-dependence):
-        #       f̂(ξ) ← FFT(u) · dx                       (shifted, windowed)
-        #       for each x (chunked to stay under a fixed memory budget):
-        #           (Op p u)(x) = (1/2π) Σ_ξ p(x, ξ) f̂(ξ) e^{i x ξ} dξ
-        #       1D: chunk over x;  2D: chunk over x AND ξ, using
-        #           multi-threaded row blocks + np.einsum for the ξ-sum.
-        #       clamp |p| ≤ clamp; apply freq_window; optional Gaussian
-        #       space_window taper on u before transforming.
+computed in $O(N\log N)$ via the FFT. The discrete implementation is:
 
-    # --- Case 3: Dirichlet / Neumann boundary (non-periodic) ---
-    IF boundary_condition in {"dirichlet", "neumann"}:
-        RETURN kohn_nirenberg_nonperiodic(u, x_grid, kx, symbol_func, ...)
-        #   Same Kohn-Nirenberg integral as above but evaluated with a
-        #   non-periodic (e.g. sine/cosine or direct quadrature) transform
-        #   pair instead of the FFT, since periodic wrap-around is invalid.
+$$
+U_m = \mathrm{FFT}(u)_m,\qquad
+P_m = p(k_m),\qquad
+(\mathrm{Op}(p)\,u)_j = \mathrm{IFFT}(P\cdot U)_j,
+$$
 
-    ELSE:
-        RAISE ValueError("invalid boundary_condition")
-```
+where $k_m = 2\pi\,\mathrm{fftfreq}(N,\Delta x)_m$ is the angular
+frequency grid in FFT ordering.
 
-**Key ideas**
+### 1.3 Weyl → Kohn–Nirenberg conversion
 
-- `apply` is a *dispatcher*: it never computes anything numerically heavy
-  itself; it decides which of `_apply_constant_fft`, `kohn_nirenberg_fft`,
-  `kohn_nirenberg_nonperiodic`, or `apply_peetre` should do the work.
-- The choice hinges on three independent axes:
-  - **backend**: `direct` (apply the full symbol) vs `peetre` (decompose first).
-  - **spatial dependence**: constant symbols get the O(N log N) FFT-multiplier
-    fast path; x-dependent symbols fall back to the O(N²)-type Kohn–Nirenberg
-    quadrature (with a fast-path re-check and a chunked slow path to bound memory).
-  - **boundary condition**: periodic uses FFTs; Dirichlet/Neumann uses a
-    non-periodic quadrature variant of the same Kohn–Nirenberg integral.
-- Weyl-quantized operators are always converted to an equivalent
-  Kohn–Nirenberg symbol (`p_KN = exp(i/2 ∂x∂ξ) p_Weyl`, truncated at
-  `weyl_order`) before any numerical kernel runs, so only one numerical
-  backend needs to be maintained.
+When the operator is Weyl-quantized, the symbol is first converted to
+its Kohn–Nirenberg equivalent via the asymptotic series:
+
+$$
+p_{\mathrm{KN}}(x,\xi)
+= \exp\!\Bigl(\tfrac{i}{2}\,\partial_x\partial_\xi\Bigr)\,
+  p_{\mathrm{Weyl}}(x,\xi)
+= \sum_{k=0}^{\mathrm{order}}
+  \frac{1}{k!}\Bigl(\tfrac{i}{2}\Bigr)^{k}
+  \partial_x^k \partial_\xi^k\, p_{\mathrm{Weyl}}(x,\xi).
+$$
+
+In 2D the cross-derivative operator becomes
+$\partial_x\partial_\xi + \partial_y\partial_\eta$, and the
+multinomial expansion distributes the $k$ differentiations between the
+two pairs:
+
+$$
+\bigl(\partial_x\partial_\xi + \partial_y\partial_\eta\bigr)^k
+= \sum_{j=0}^{k}\binom{k}{j}
+  (\partial_x\partial_\xi)^{j}\,(\partial_y\partial_\eta)^{k-j}.
+$$
+
+### 1.4 Dispatch summary
+
+| Condition | Path | Complexity |
+|---|---|---|
+| $p$ independent of $x$, periodic BC | FFT multiplier | $O(N\log N)$ |
+| $p$ depends on $x$, periodic BC | `kohn_nirenberg_fft` (chunked) | $O(N^2)$ in 1D |
+| $p$ depends on $x$, Dirichlet/Neumann | `kohn_nirenberg_nonperiodic` | $O(N^2)$ in 1D |
+| `backend = "peetre"` | Peetre decomposition pipeline | see §2 |
 
 ---
 
 ## 2. Peetre decomposition
 
-Mathematically, the Peetre-type decomposition splits a symbol `p(x, ξ)` into
+### 2.1 Formal decomposition
 
-```
-p(x, ξ) = p_local(x, ξ) + p_separable(x, ξ) + p_joint(x, ξ)
-```
+The Peetre-type decomposition splits a symbol into three structurally
+distinct parts:
 
-where
+$$
+p(x,\xi) \;=\; p_{\mathrm{local}}(x,\xi)
+             \;+\; p_{\mathrm{sep}}(x,\xi)
+             \;+\; p_{\mathrm{joint}}(x,\xi).
+$$
 
-- `p_local` is **polynomial in ξ** with x-dependent coefficients
-  (a genuine differential part, e.g. `(1+x²) ξ² + x ξ + V(x)`),
-- `p_separable` is a finite sum `Σ a_k(x) q_k(ξ)` with `q_k` **not**
-  polynomial in ξ but depending only on ξ (Fourier multipliers modulated
-  by a spatial amplitude),
-- `p_joint` is whatever remains genuinely entangled (not expressible as a
-  finite sum of `a(x) q(ξ)` terms by simple term inspection).
+**Local part** (polynomial in $\xi$, differential-type):
 
-### 2a. Classification (`_peetre_classify_terms`)
+$$
+p_{\mathrm{local}}(x,\xi)
+= \sum_{\alpha} a_\alpha(x)\,\xi^{\alpha},
+\qquad
+a_\alpha(x) \in C^\infty.
+$$
 
-```
-ALGORITHM classify_terms(expr):
-    xi_vars ← frequency symbols in use (ξ, or ξ,η in 2D)
-    expr ← expand(expr)                     # sum of monomial-like terms
+In 1D this reads
+$p_{\mathrm{local}} = \sum_{n=0}^{d} a_n(x)\,\xi^n$.
 
-    local_terms, separable, joint ← [], [], []
+**Separable part** (Fourier multipliers modulated by spatial amplitude):
 
-    FOR each additive term t in expr:
-        (a, q) ← as_independent(t, xi_vars)   # t = a(x) · q(x, ξ)
-        IF q still contains an x-variable:
-            joint.append(t)                    # truly entangled
-        ELIF q is a polynomial in xi_vars:
-            local_terms.append(t)              # differential-type term
-        ELSE:
-            separable.append((a, q))           # Fourier-multiplier term
+$$
+p_{\mathrm{sep}}(x,\xi)
+= \sum_{k} a_k(x)\,q_k(\xi),
+\qquad
+q_k \text{ non-polynomial in } \xi.
+$$
 
-    # Collapse local_terms into a coefficient dictionary keyed by ξ-multi-index
-    poly ← Poly(Σ local_terms, xi_vars)
-    local_coeffs ← { multi_index: simplify(coeff) for each poly term }
-    #  (falls back to keeping the terms as "joint" if Poly parsing fails,
-    #   to avoid silently mis-attributing coefficients)
+Each term is applied as
+$u \mapsto a_k(x)\;\mathrm{Op}(q_k)\,u$.
 
-    RETURN local_coeffs, separable, joint
-```
+**Joint residual** (genuinely entangled, not expressible as a finite
+sum of $a(x)\,q(\xi)$ terms):
 
-### 2b. Assembling the decomposition (`peetre_decomposition`)
+$$
+p_{\mathrm{joint}}(x,\xi)
+= p(x,\xi) - p_{\mathrm{local}}(x,\xi) - p_{\mathrm{sep}}(x,\xi).
+$$
 
-```
-ALGORITHM peetre_decomposition(use_cache, separable_local):
-    IF cached result matches (self.symbol, separable_local): RETURN it
+### 2.2 Classification criteria
 
-    local_coeffs, separable, joint ← classify_terms(self.symbol)
+For each additive term $t$ of the expanded symbol, the classification
+proceeds by extracting the frequency-independent factor:
 
-    separable ← merge_separable(separable)      # combine terms sharing q(ξ)
-    joint     ← [expand(Σ joint)]  if nonzero else []
-    drop all-zero entries from local_coeffs / separable / joint
+$$
+t = a(x)\cdot q(x,\xi)
+\quad\text{via}\quad
+(a,\,q) = t.\texttt{as\_independent}(\xi).
+$$
 
-    # Re-express the local polynomial part operationally as a(x)·q(ξ) pairs,
-    # merging terms that share the same spatial coefficient a(x):
-    local_terms ← local_as_separable(local_coeffs)
+The decision rule is:
 
-    IF separable_local AND local_terms:
-        # legacy mode: fold local terms into "separable" and empty "local"
-        separable ← merge_separable(local_terms + separable)
-        local_coeffs, local_terms, local_symbol ← {}, [], 0
-    ELSE:
-        local_symbol ← rebuild_polynomial(local_coeffs)   # Σ coeff(x)·ξ^α
+$$
+\boxed{
+\begin{aligned}
+q \text{ still contains } x &\;\Longrightarrow\; t \in \texttt{joint},\\[4pt]
+q \text{ is a polynomial in } \xi &\;\Longrightarrow\; t \in \texttt{local},\\[4pt]
+\text{otherwise} &\;\Longrightarrow\; t \in \texttt{separable}.
+\end{aligned}
+}
+$$
 
-    separable_symbol ← Σ a·q over separable
-    joint_symbol     ← Σ joint  (0 if empty)
+### 2.3 Application of the decomposition
 
-    RETURN {local, local_terms, separable, joint_residual,
-            local_symbol, separable_symbol, joint_symbol, separable_local}
-```
+The application of the Peetre decomposition to a field $u$ is:
 
-`merge_separable` groups `(a, q)` pairs that share the *same* `q(ξ)` and
-sums their spatial amplitudes; `local_as_separable`/`local_to_separable`
-do the converse — turn each `coeff(x)·ξ^α` term into an `(a, q)` pair and
-merge pairs that share the same spatial coefficient `a(x)`. Both directions
-exist purely to give a single uniform operational form `a(x) · Op(q) u` for
-everything that isn't in the irreducible joint residual.
+$$
+\mathrm{Op}(p)\,u
+= \underbrace{\sum_{\alpha} a_\alpha(x)\;\mathrm{Op}(\xi^\alpha)\,u}_{\text{local}}
++ \underbrace{\sum_{k} a_k(x)\;\mathrm{Op}(q_k)\,u}_{\text{separable}}
++ \underbrace{\mathrm{Op}(p_{\mathrm{joint}})\,u}_{\text{joint residual}}.
+$$
 
-### 2c. Applying the decomposition (`apply_peetre`)
+The joint residual is handled by one of the backends described in §3.
 
-```
-ALGORITHM apply_peetre(u, x_grid, kx, ..., apply_joint, joint_backend):
-    IF self.quantization == "weyl":
-        p_eff ← weyl_to_kn_symbol(weyl_order)      # convert once
-        decomposition ← peetre_decomposition(of a temporary KN operator on p_eff)
-    ELSE:
-        decomposition ← self.peetre_decomposition()
+### 2.4 `classify_joint` option
 
-    result ← 0
+When `peetre_decomposition(classify_joint=True)` is requested, the
+auto-selector (§3.5) is run at decomposition time and the recommended
+backend is stored:
 
-    # 1. Local polynomial part: apply each a(x)·Op(ξ^α) as
-    #        a(x) · (direct apply of the monomial suboperator to u)
-    FOR (a, q) in decomposition.local_terms:
-        result += a(x_grid) * PseudoDifferentialOperator(q).apply(u, ..., backend='direct')
+$$
+\texttt{result}[\texttt{"joint\_backend"}]
+= \texttt{\_auto\_select\_joint\_backend}(p_{\mathrm{joint}}).
+$$
 
-    # 2. Separable non-local part: identical pattern
-    FOR (a, q) in decomposition.separable:
-        result += a(x_grid) * PseudoDifferentialOperator(q).apply(u, ..., backend='direct')
-
-    # 3. Joint residual (irreducible x–ξ coupling)
-    IF joint_symbol is nonzero:
-        IF NOT apply_joint:
-            warn "joint residual ignored — approximate result"
-        ELIF joint_backend == "direct":
-            result += PseudoDifferentialOperator(joint_symbol).apply(u, ..., backend='direct')
-        ELIF joint_backend == "lowrank":
-            bounds ← joint_bounds or inferred from (x_grid, kx[, y_grid, ky])
-            pairs, metrics ← factorize_symbolic(joint_symbol, bounds, ...)  # Algorithm 3
-            IF metrics.rel_l2_error > joint_max_rel_error:
-                warn; result += direct application of joint_symbol      # fallback
-            ELSE:
-                FOR (a_k, q_k) in pairs:
-                    result += a_k(x_grid) * PseudoDifferentialOperator(q_k).apply(u, ..., backend='direct')
-
-    RETURN result
-```
-
-**Key idea.** Every local or separable term reduces application to
-"Fourier-multiply, then pointwise-multiply by a spatial amplitude" —
-cheap and exact. Only the leftover joint residual (if any) needs either
-a full direct Kohn–Nirenberg quadrature, or — optionally — a further
-*numerical* low-rank separable approximation via `factorize_symbolic`,
-trading a controlled `rel_l2_error` for speed.
+This is purely symbolic — no grid, no bounds required.
 
 ---
 
-## 3. `factorize_symbolic` — low-rank Chebyshev/SVD decomposition of the joint residual
+## 3. Joint-residual backends
 
-**Goal.** Given a symbol `p(x, ξ)` that resisted the algebraic Peetre split
-(the joint residual), produce a numerically-fitted separable approximation
+### 3.1 Direct backend
 
-```
-p(x, ξ) ≈ Σ_{k=1}^{r} a_k(x) · q_k(ξ)
-```
+The joint residual is applied via the full Kohn–Nirenberg quadrature
+(§1.1), with no approximation:
 
-valid on a bounded rectangle, by treating `p` as a matrix over a
-tensor-product Chebyshev grid and truncating its SVD.
+$$
+(\mathrm{Op}(p_{\mathrm{joint}})\,u)(x)
+= \frac{1}{2\pi}\int e^{ix\xi}\,p_{\mathrm{joint}}(x,\xi)\,
+  \widehat{u}(\xi)\,d\xi.
+$$
 
-```
-ALGORITHM factorize_symbolic(expr, x_syms, xi_syms, bounds,
-                              degree, tol, num_samples, seed, digits):
+This is exact but costs $O(N^2)$ in 1D and $O(N^4)$ in 2D.
 
-    all_syms ← x_syms + xi_syms
+### 3.2 Low-rank backend (`factorize_symbolic`)
 
-    # 1. Chebyshev–Gauss–Lobatto nodes on [-1, 1] for each variable
-    nodes_1d[i] ← cos(π · k / degree),  k = 0..degree      for each variable
+#### 3.2.1 Chebyshev grid construction
 
-    # 2. Affine map each variable's physical bounds [s_min, s_max] to [-1, 1]
-    #    and build the corresponding physical grid points from the nodes.
+For each variable $s \in \{x_1,\ldots,\xi_1,\ldots\}$ with bounds
+$[s_{\min}, s_{\max}]$, the Chebyshev–Gauss–Lobatto nodes on $[-1,1]$
+are:
 
-    # 3. Evaluate expr on the full tensor-product grid
-    mesh ← meshgrid(physical nodes for every variable)
-    P_eval ← lambdify(expr)(mesh)                # (degree+1)^d tensor
-    IF P_eval ≈ 0 everywhere: RETURN [], empty_metrics
+$$
+\tau_k = \cos\!\Bigl(\frac{\pi k}{d}\Bigr),
+\qquad k = 0, 1, \ldots, d,
+$$
 
-    # 4. Chebyshev coefficients via per-axis Vandermonde inversion
-    FOR each variable axis i:
-        V_i ← chebvander(nodes_1d[i], degree)          # (degree+1)×(degree+1)
-        C_tensor ← apply  inv(V_i)  along axis i        # coefficient tensor
+mapped affinely to the physical interval:
 
-    # 5. Reshape the coefficient tensor into a matrix:
-    #        rows    = all spatial multi-indices   (size (degree+1)^{d_x})
-    #        columns = all frequency multi-indices (size (degree+1)^{d_ξ})
-    C_matrix ← reshape(C_tensor, (N_x_total, N_xi_total))
+$$
+s_k = \frac{s_{\min}+s_{\max}}{2}
+    + \frac{s_{\max}-s_{\min}}{2}\,\tau_k.
+$$
 
-    # 6. SVD low-rank truncation
-    U, S, Vt ← SVD(C_matrix)
-    keep ← { k : S[k] > tol · S[0] }                # relative cutoff
-    IF keep is empty: keep ← {0}                    # always keep leading mode
-    svd_energy_retained_pct ← 100 · Σ_{k∈keep} S[k]² / Σ_k S[k]²
+#### 3.2.2 Coefficient extraction
 
-    # 7. Reconstruct each retained mode as a pair of symbolic polynomials
-    FOR k in keep (ordered by descending singular value):
-        a_k(x)  ← Σ over spatial multi-indices of
-                     (√S[k] · U[:,k][idx]) · Π_m T_{deg_m}(normalized x_m)
-                     — terms with |coeff| ≤ tol are dropped
-        q_k(ξ)  ← same construction using V[k,:] and Chebyshev polys in ξ
-        append (expand(a_k), expand(q_k)) to symbolic_pairs
+The symbol is evaluated on the tensor-product grid to form a
+$d_x$-dimensional tensor $P_{\mathrm{eval}}$, then converted to
+Chebyshev coefficients by inverting the Vandermonde matrix along each
+axis:
 
-    # 8. Quality diagnostics via Monte Carlo (Algorithm 4)
-    metrics ← evaluate_decomposition_quality(expr, symbolic_pairs,
-                                              x_syms, xi_syms, bounds,
-                                              num_samples, seed)
-    metrics.svd_energy_retained_pct ← svd_energy_retained_pct
-    metrics.singular_values ← S[keep]
+$$
+V_{ij} = T_j(\tau_i),
+\qquad
+C = V^{-1}\,P_{\mathrm{eval}}\quad\text{(applied along each axis)}.
+$$
 
-    RETURN symbolic_pairs, metrics
-```
+#### 3.2.3 SVD low-rank truncation
 
-**Key idea.** This is a discrete separation-of-variables procedure:
-sampling `p` on a Chebyshev tensor grid turns "is `p` (approximately)
-separable?" into "does the coefficient matrix `C` (approximately) have low
-rank?", answered by SVD. Each retained singular triplet `(σ_k, u_k, v_k)`
-becomes one separable term, with `u_k`/`v_k` re-expanded from
-Chebyshev-coefficient space back into explicit polynomials in `x` and `ξ`
-respectively (weighted by `√σ_k` so that `a_k · q_k` carries the correct
-magnitude). The Chebyshev basis is used (rather than monomials) for its
-favorable conditioning/interpolation accuracy on `[-1, 1]`.
+The coefficient tensor is reshaped into a matrix
+$C \in \mathbb{C}^{N_x \times N_\xi}$ where
+$N_x = (d+1)^{d_x}$ and $N_\xi = (d+1)^{d_\xi}$, then decomposed:
+
+$$
+C = U\,\Sigma\,V^*,
+\qquad
+\Sigma = \mathrm{diag}(\sigma_1, \sigma_2, \ldots).
+$$
+
+The truncation retains indices $k$ satisfying:
+
+$$
+\sigma_k > \texttt{tol}\cdot\sigma_1.
+$$
+
+The retained SVD energy fraction is:
+
+$$
+E_{\mathrm{retained}}
+= 100\cdot\frac{\sum_{k\in\texttt{keep}}\sigma_k^2}
+                {\sum_{k}\sigma_k^2}.
+$$
+
+#### 3.2.4 Symbolic reconstruction
+
+Each retained singular triplet $(\sigma_k, u_k, v_k)$ produces a
+separable pair:
+
+$$
+a_k(x) = \sum_{\mathbf{m}}
+  \sqrt{\sigma_k}\;u_k[\mathbf{m}]\;
+  \prod_{j} T_{m_j}\!\Bigl(\frac{2x_j - (x_j^{\min}+x_j^{\max})}
+                                   {x_j^{\max}-x_j^{\min}}\Bigr),
+$$
+
+$$
+q_k(\xi) = \sum_{\mathbf{n}}
+  \sqrt{\sigma_k}\;v_k[\mathbf{n}]\;
+  \prod_{j} T_{n_j}\!\Bigl(\frac{2\xi_j - (\xi_j^{\min}+\xi_j^{\max})}
+                                   {\xi_j^{\max}-\xi_j^{\min}}\Bigr),
+$$
+
+where terms with $|\sqrt{\sigma_k}\,u_k[\mathbf{m}]| \le \texttt{tol}$
+are dropped. The joint residual is then approximated as:
+
+$$
+p_{\mathrm{joint}}(x,\xi)
+\;\approx\; \sum_{k=1}^{r} a_k(x)\,q_k(\xi).
+$$
+
+### 3.3 NUFFT backend
+
+#### 3.3.1 Target structure
+
+The NUFFT backend targets joint residuals of the form:
+
+$$
+p_{\mathrm{joint}}(x,\xi)
+= \sum_{k} c_k(x)\;g_k(\xi)\;
+  e^{\,i\,\Lambda_k(x)\,M_k(\xi)}.
+$$
+
+#### 3.3.2 Phase extraction
+
+Each additive term is rewritten via Euler's formula
+($\sin\theta = \frac{e^{i\theta}-e^{-i\theta}}{2i}$), expanded, and
+factored. For a single exponential factor $e^{f}$, the exponent is
+split:
+
+$$
+f = i\,\underbrace{\Lambda(x)}_{\text{spatial}}
+    \cdot\underbrace{M(\xi)}_{\text{spectral}}
+  + \underbrace{r(x,\xi)}_{\text{real envelope}}.
+$$
+
+The term is NUFFT-representable if and only if:
+
+$$
+\Lambda(x)\cdot M(\xi) = \mathrm{phase}(f),
+\qquad
+\Lambda \text{ independent of } \xi,
+\qquad
+M \text{ independent of } x.
+$$
+
+#### 3.3.3 Application via type-3 NUFFT
+
+For each term, the application reduces to a type-3 non-uniform FFT:
+
+$$
+f_j = \sum_{m} w_m\; e^{\,i\,(x_j\,s_m + \Lambda(x_j)\,M(k_m))},
+\qquad
+w_m = g(k_m)\,\widehat{u}(k_m)\,\frac{\Delta\xi}{2\pi},
+$$
+
+where $s_m = k_m$ are the source frequencies and
+$(x_j, \Lambda(x_j))$ are the target points. The result is modulated
+by the spatial amplitude:
+
+$$
+(\mathrm{Op}(p_{\mathrm{joint}})\,u)(x_j)
+= c(x_j)\;f_j.
+$$
+
+This is $O(N\log N)$ when `finufft` is available, or $O(N\cdot M)$
+via direct summation as a fallback.
+
+#### 3.3.4 Periodicity requirement
+
+The NUFFT backend requires `boundary_condition = 'periodic'`. For
+non-periodic boundary conditions, the executor falls back to direct
+quadrature.
+
+### 3.4 AAA backend
+
+#### 3.4.1 Target structure
+
+The AAA backend targets joint residuals that are **rational** or have
+**algebraic decay / poles** in the frequency variable, with no
+oscillatory phase:
+
+$$
+p_{\mathrm{joint}}(x,\xi)
+= \frac{N(x,\xi)}{D(x,\xi)},
+\qquad
+\text{or}\qquad
+p_{\mathrm{joint}}(x,\xi) \sim |\xi|^{-\alpha}.
+$$
+
+#### 3.4.2 Vector-valued AAA approximation
+
+The symbol is sampled at Chebyshev nodes $\{x_j\}$ in the spatial
+variable and at uniform points $\{\xi_m\}$ in the frequency variable,
+producing a matrix:
+
+$$
+F_{m,j} = p(x_j,\xi_m).
+$$
+
+A barycentric rational approximation with **shared poles** across all
+spatial nodes is constructed:
+
+$$
+r(\xi) = \frac{\displaystyle\sum_{\ell}
+  \frac{w_\ell\,f_\ell}{\xi - z_\ell}}
+  {\displaystyle\sum_{\ell}
+  \frac{w_\ell}{\xi - z_\ell}},
+$$
+
+where $z_\ell$ are the support points (selected greedily by maximum
+residual), $f_\ell = F_{\ell,:}$ are the corresponding row vectors,
+and $w_\ell$ are the barycentric weights obtained from the null space
+of the Loewner matrix.
+
+#### 3.4.3 Quality gate
+
+The fit is accepted if the relative $L^2$ error over a validation grid
+satisfies:
+
+$$
+\frac{\|F_{\mathrm{val}} - r(\xi_{\mathrm{val}})\|_2}
+     {\|F_{\mathrm{val}}\|_2}
+\;\le\; 10\cdot\texttt{rtol}.
+$$
+
+If the gate fails (e.g. for **moving poles** where $z_\ell$ depends on
+$x$), the executor falls back to direct quadrature.
+
+#### 3.4.4 Application
+
+The AAA plan is wrapped as a fast numpy callable
+$\tilde{p}(x,\xi)$ and passed to the existing Kohn–Nirenberg
+quadrature:
+
+$$
+(\mathrm{Op}(p_{\mathrm{joint}})\,u)(x)
+= \frac{1}{2\pi}\int e^{ix\xi}\,
+  \tilde{p}(x,\xi)\,\widehat{u}(\xi)\,d\xi.
+$$
+
+This supports **both** periodic and non-periodic boundary conditions.
+
+### 3.5 Auto-selection (`_auto_select_joint_backend`)
+
+The auto-selector applies three symbolic tests in sequence:
+
+$$
+\boxed{
+\begin{aligned}
+&\textbf{Test 1 (NUFFT):}\quad
+\text{try\_nufft\_decomposition}(p_{\mathrm{joint}}) \neq \text{None}
+\;\Longrightarrow\; \texttt{'nufft'}.\\[6pt]
+&\textbf{Test 2 (AAA):}\quad
+p_{\mathrm{joint}}\text{ is rational}
+\;\lor\;
+\exists\, (b,e)\in p_{\mathrm{joint}}.\texttt{atoms(Pow)}
+\text{ with } e<0,\; b\text{ polynomial}
+\;\Longrightarrow\; \texttt{'aaa'}.\\[6pt]
+&\textbf{Test 3 (Lowrank):}\quad
+\text{otherwise}
+\;\Longrightarrow\; \texttt{'lowrank'}.
+\end{aligned}
+}
+$$
+
+### 3.6 Hybrid routing (`apply_hybrid`)
+
+For symbols containing a **mix** of structural classes, monolithic
+`auto` may fail to find a global pattern. The hybrid method exploits
+the **linearity** of the operator:
+
+$$
+\mathrm{Op}(A + B + C)\,u
+= \mathrm{Op}(A)\,u + \mathrm{Op}(B)\,u + \mathrm{Op}(C)\,u.
+$$
+
+The joint residual is split into its additive terms:
+
+$$
+p_{\mathrm{joint}} = \sum_{k} t_k,
+$$
+
+and each term $t_k$ is routed independently via `auto`:
+
+$$
+\mathrm{Op}(p_{\mathrm{joint}})\,u
+= \sum_{k} \mathrm{Op}(t_k)\,u,
+\qquad
+\text{each } \mathrm{Op}(t_k) \text{ dispatched by }
+\texttt{\_auto\_select\_joint\_backend}(t_k).
+$$
+
+This preserves $O(N\log N)$ per term, recovering the fast path across
+the board even for mixed symbols.
 
 ---
 
-## 4. `evaluate_decomposition_quality` — Monte Carlo symbol-level error
+## 4. Quality metrics (`evaluate_decomposition_quality`)
 
-**Goal.** Quantify how well `Σ a_k(x) q_k(ξ)` reproduces the original
-expression `p(x, ξ)`, off the interpolation grid (to catch overfitting to
-the Chebyshev nodes), using random sampling.
+### 4.1 Monte Carlo sampling
 
-```
-ALGORITHM evaluate_decomposition_quality(orig_expr, symbolic_pairs,
-                                          x_syms, xi_syms, bounds,
-                                          num_samples, seed):
+Given the original symbol $p(x,\xi)$ and a candidate approximation
+$\tilde{p}(x,\xi) = \sum_k a_k(x)\,q_k(\xi)$, the quality is assessed
+by drawing $M$ random points uniformly over the bounding box:
 
-    rng ← seeded random generator
-    FOR each variable s in x_syms ∪ xi_syms:
-        sample s ~ Uniform(bounds[s].min, bounds[s].max), num_samples draws
+$$
+(x^{(j)},\xi^{(j)}) \sim \mathcal{U}(\texttt{bounds}),
+\qquad j = 1,\ldots,M.
+$$
 
-    y_orig  ← lambdify(orig_expr)(samples)                     # ground truth
-    y_approx ← Σ_k  lambdify(a_k)(x-samples) · lambdify(q_k)(ξ-samples)
+### 4.2 Error metrics
 
-    diff ← y_orig - y_approx
+$$
+\texttt{rel\_l2\_error}
+= \frac{\bigl\|p(\mathbf{x}^{(j)},\boldsymbol{\xi}^{(j)})
+       - \tilde{p}(\mathbf{x}^{(j)},\boldsymbol{\xi}^{(j)})\bigr\|_2}
+       {\bigl\|p(\mathbf{x}^{(j)},\boldsymbol{\xi}^{(j)})\bigr\|_2},
+$$
 
-    rel_l2_error   ← ‖diff‖₂ / ‖y_orig‖₂          (or ‖diff‖₂ if y_orig ≡ 0)
-    max_abs_error  ← max |diff|
-    mean_abs_error ← mean |diff|
+$$
+\texttt{max\_abs\_error}
+= \max_j \bigl|p^{(j)} - \tilde{p}^{(j)}\bigr|,
+$$
 
-    RETURN {rel_l2_error, max_abs_error, mean_abs_error}
-```
+$$
+\texttt{mean\_abs\_error}
+= \frac{1}{M}\sum_{j=1}^{M}
+  \bigl|p^{(j)} - \tilde{p}^{(j)}\bigr|.
+$$
 
-Here is a markdown addendum designed to complement your original `apply.md` file. It formalizes the mathematical and numerical properties required for symbols to survive the `factorize_symbolic` phase without triggering the fallback mechanism.
+### 4.3 Fallback criterion
 
----
+The low-rank or AAA approximation is **accepted** if:
 
-# Addendum: The Class of Approximately Separable Functions
+$$
+\texttt{rel\_l2\_error} \le \texttt{joint\_max\_rel\_error}.
+$$
 
-This document serves as a complement to `apply.md`, focusing specifically on the mathematical profile of the **joint residual** $p_{\text{joint}}(x, \xi)$.
-
-When a symbol resists the algebraic Peetre decomposition `classify_terms`, it is passed to the numerical `factorize_symbolic` algorithm. The success of this low-rank Chebyshev/SVD decomposition—defined by satisfying `metrics.rel_l2_error <= joint_max_rel_error`—depends entirely on whether the symbol belongs to the class of **approximately separable functions** on the bounded sampling domain.
-
----
-
-## 1. Mathematical Definition
-
-A function $p(x, \xi)$ is approximately separable on a bounded domain $\Omega = [x_{\text{min}}, x_{\text{max}}] \times [\xi_{\text{min}}, \xi_{\text{max}}]$ if it can be accurately represented by a heavily truncated sum of rank-1 tensors:
-
-$$p(x,\xi) \approx \sum_{k=1}^{r} a_k(x) q_k(\xi)$$
-
-where $r$ (the numerical rank) is small, and the relative $L^2$ error of this approximation over $\Omega$ is less than or equal to the designated tolerance (`joint_max_rel_error`).
+Otherwise the executor falls back to direct quadrature (§3.1).
 
 ---
 
-## 2. Numerical Mechanism: The Chebyshev-SVD Link
+## 5. Unified representation layer
 
-The `factorize_symbolic` algorithm evaluates the symbol on a tensor-product Chebyshev grid, maps it to a coefficient matrix, and performs a Singular Value Decomposition (SVD).
+### 5.1 `_resolve_joint_representation`
 
-For a symbol to be approximately separable in practice, its Chebyshev coefficient matrix must exhibit **rapid singular value decay**.
+This method normalizes the joint residual into a **typed dict** that is
+consumed identically by `apply_peetre`, `apply_hybrid`, and
+`print_peetre_decomposition`:
 
-> **The SVD Energy Condition**
-> The approximation is considered successful when the energy of the retained singular values $\sigma_k$ captures almost all the energy of the original matrix:
-> 
-> 
-> 
-> $$\frac{\left(\sum_{k>r} \sigma_k^2\right)^{1/2}}{\left(\sum_{k} \sigma_k^2\right)^{1/2}} \lesssim \texttt{joint\_max\_rel\_error}$$
-> 
-> 
+| `rep["type"]` | backend | content | grid needed? |
+|---|---|---|---|
+| `"zero"` | — | (empty) | no |
+| `"direct"` | direct | raw symbol | no |
+| `"separable_pairs"` | lowrank | `pairs`, `metrics` | yes (bounds) |
+| `"nufft_plan"` | nufft | `plan_info` | no (symbolic) |
+| `"nufft_unrepresentable"` | nufft | raw symbol | no |
+| `"aaa_callable"` | aaa | `symbol_func`, `metrics` | yes (bounds) |
+| `"aaa_unfit"` | aaa | raw symbol | no |
 
----
+### 5.2 `_apply_joint_residual`
 
-## 3. Typology of Joint Residuals
+The executor applies the representation with quality gates and
+fallbacks. The decision tree is:
 
-The behavior of the joint residual under `evaluate_decomposition_quality` generally falls into three categories:
-
-### A. Exactly Separable (Algebraically Obfuscated)
-
-These are symbols that are intrinsically of low rank but are written in a way that prevents the symbolic algebraic parser from separating them.
-
-* **Behavior:** The SVD naturally truncates to an exact small rank, giving an error close to machine precision.
-
-
-* **Examples:**
-* $\cos(x + \xi)$ (Exactly rank 2 via trigonometric identities).
-* $\log((x^2 + 1)(\xi^2 + 1))$ (Exactly rank 2 via logarithm rules).
-
-
-
-### B. Weakly Coupled or Smooth Analytic Symbols
-
-These symbols are not exactly separable, but their variables interact weakly, or the function is exceptionally smooth on the chosen bounded domain.
-
-* **Behavior:** The singular values decay exponentially. A small number of terms $r$ captures the function's structure perfectly.
-* **Examples:**
-* $e^{-(x-\xi)^2}$ (on moderate bounded domains).
-* $\frac{1}{1 + \alpha x \xi}$ (when $\vert{}\alpha x \xi\vert{} \ll 1$ on the bounds).
-* $e^{-\epsilon x^2 \xi^2}$ (for small $\epsilon$).
-
-
-
-### C. Strongly Entangled / High Numerical Rank (The Failures)
-
-These symbols possess genuine, deep entanglement between space and frequency.
-
-* **Behavior:** The singular values decay very slowly (or not at all). Truncating the SVD to a low rank discards vital wave/structural information. The Monte Carlo check yields a large `rel_l2_error`, safely triggering the fallback to the direct Kohn-Nirenberg quadrature.
-
-
-* **Examples:**
-* $\sin(x \cdot \xi)$ (Highly oscillatory across the domain).
-* $e^{i x \xi}$ (on large domains).
-* Any symbol with a discontinuity or sharp singularity inside the fitting box.
-
-
+$$
+\boxed{
+\begin{aligned}
+&\texttt{type} = \texttt{"zero"}
+  \;\Longrightarrow\; \mathbf{0}.\\[4pt]
+&\texttt{type} = \texttt{"direct"}
+  \;\Longrightarrow\; \text{direct KN quadrature}.\\[4pt]
+&\texttt{type} = \texttt{"separable\_pairs"}:\\
+&\quad
+  \text{if } \texttt{rel\_l2\_error} > \texttt{joint\_max\_rel\_error}
+  \;\Longrightarrow\; \text{fallback to direct},\\
+&\quad
+  \text{else } \sum_k a_k(x)\;\mathrm{Op}(q_k)\,u.\\[4pt]
+&\texttt{type} = \texttt{"nufft\_plan"}:\\
+&\quad
+  \text{if BC} \neq \texttt{periodic}
+  \;\Longrightarrow\; \text{fallback to direct},\\
+&\quad
+  \text{else apply via type-3 NUFFT}.\\[4pt]
+&\texttt{type} = \texttt{"aaa\_callable"}:\\
+&\quad
+  \text{if } \texttt{rel\_l2\_error} > \texttt{joint\_max\_rel\_error}
+  \;\Longrightarrow\; \text{fallback to direct},\\
+&\quad
+  \text{else apply via KN quadrature with } \tilde{p}(x,\xi).\\[4pt]
+&\texttt{type} \in \{\texttt{"nufft\_unrepresentable"},
+  \texttt{"aaa\_unfit"}\}
+  \;\Longrightarrow\; \text{warn, fallback to direct}.
+\end{aligned}
+}
+$$
 
 ---
 
-## 4. Summary Table
-
-| Category | Example | Numerical Rank ($r$) | `rel_l2_error` Expectation | Action Taken by `apply` |
-| --- | --- | --- | --- | --- |
-| **Algebraically Obfuscated** | $\cos(x+\xi)$ | Exact and small | $\approx 0$ | Accepts low-rank fit |
-| **Weakly Coupled / Smooth** | $e^{-(x-\xi)^2}$ | Approximately small | $\le$ `joint_max_rel_error` | Accepts low-rank fit |
-| **Strongly Entangled** | $\sin(x \cdot \xi)$ | Unbounded / Very high | $>$ `joint_max_rel_error` | Warns & Triggers Direct Fallback |
-
-**Key idea.** A simple, cheap statistical check: draw `num_samples` random
-points uniformly over the bounding box used for the fit, evaluate both the
-exact symbol and the candidate low-rank approximation there, and report
-relative-L2 / max / mean absolute error. This is what `factorize_symbolic`
-uses (and what `apply_peetre`'s `joint_backend="lowrank"` path checks
-against `joint_max_rel_error`) to decide whether the separable
-approximation is trustworthy enough to use instead of falling back to a
-direct (exact) application of the joint residual.
-
----
-
-## How the four pieces fit together
+## 6. How the pieces fit together
 
 ```
 apply(u, ...)
  └─ backend='peetre' ─► apply_peetre(u, ...)
-                          ├─ peetre_decomposition()      [Algorithm 2a/2b]
+                          ├─ peetre_decomposition(classify_joint=...)
                           │    └─ classify_terms → local / separable / joint
-                          ├─ apply local & separable terms directly (FFT-based)
-                          └─ apply joint residual:
-                               ├─ 'direct'  → full Kohn–Nirenberg apply()
-                               └─ 'lowrank' → factorize_symbolic()   [Algorithm 3]
-                                               └─ evaluate_decomposition_quality()  [Algorithm 4]
-                                                  → accept fit, or fall back to 'direct'
+                          │    └─ (optional) auto_select → joint_backend
+                          │
+                          ├─ apply local & separable terms
+                          │    └─ a(x) · Op(q)(u) for each (a, q) pair
+                          │
+                          └─ apply joint residual via _apply_joint_residual:
+                               ├─ _resolve_joint_representation(...)
+                               │    ├─ 'direct'  → direct type
+                               │    ├─ 'lowrank' → separable_pairs type
+                               │    ├─ 'nufft'   → nufft_plan / unrepresentable
+                               │    └─ 'aaa'     → aaa_callable / unfit
+                               │
+                               └─ execute based on rep["type"]:
+                                    ├─ separable_pairs → Σ a_k · Op(q_k) u
+                                    ├─ nufft_plan     → type-3 NUFFT
+                                    ├─ aaa_callable   → KN quadrature
+                                    └─ fallback       → direct KN quadrature
+
+
+apply_hybrid(u, ...)
+ ├─ apply_peetre(u, ..., apply_joint=False)
+ └─ for each joint term t_k:
+      └─ sub_op.apply_peetre(u, ..., joint_backend='auto')
+           └─ auto_select routes to optimal backend
+```
+
+---
+
+## 7. Addendum: The Class of Approximately Separable Functions
+
+### 7.1 Definition
+
+A function $p(x,\xi)$ is **approximately separable** on a bounded
+domain $\Omega$ if it admits a low-rank representation:
+
+$$
+p(x,\xi) \approx \sum_{k=1}^{r} a_k(x)\,q_k(\xi),
+\qquad r \ll \min(N_x, N_\xi),
+$$
+
+with relative $L^2$ error at most `joint_max_rel_error`.
+
+### 7.2 SVD energy condition
+
+The approximation succeeds when the singular values of the Chebyshev
+coefficient matrix decay rapidly:
+
+$$
+\frac{\bigl(\sum_{k>r}\sigma_k^2\bigr)^{1/2}}
+     {\bigl(\sum_{k}\sigma_k^2\bigr)^{1/2}}
+\;\lesssim\; \texttt{joint\_max\_rel\_error}.
+$$
+
+### 7.3 Typology
+
+| Category | Example | Numerical rank | Error expectation | Action |
+|---|---|---|---|---|
+| Algebraically obfuscated | $\cos(x+\xi)$ | Exact, small | $\approx 0$ | Accept low-rank |
+| Weakly coupled / smooth | $e^{-(x-\xi)^2}$ | Small | $\le$ tolerance | Accept low-rank |
+| Oscillatory phase | $\sin(x\cdot\xi)$ | Very high | $>$ tolerance | Use NUFFT |
+| Rational / poles | $\frac{1}{1+(x-\xi)^2}$ | Very high | $>$ tolerance | Use AAA |
+| Strongly entangled | $e^{ix\xi}$ on large domains | Unbounded | $>$ tolerance | Direct fallback |
+
+### 7.4 Backend suitability summary
+
+| Symbol class | Best backend | Why others fail |
+|---|---|---|
+| Smooth Gaussian $e^{-(x\xi)^2/w}$ | `lowrank` | NUFFT: no phase; AAA: no poles |
+| Rational $\frac{1}{1+x^2+\xi^2}$ | `aaa` | NUFFT: no phase; lowrank: slow convergence on peaks |
+| Oscillatory $\sin(x\xi)$ | `nufft` | AAA: cannot fit oscillations; lowrank: too many terms |
+| Chirp $x^2 e^{ix\xi}\cos\xi$ | `nufft` | Same as oscillatory |
+| Mixed (all three) | `hybrid` | Monolithic `auto`: no global pattern → direct |
 ```
