@@ -28,6 +28,10 @@ def _make_2d_grid(L=4.0, N=32):
     ky = np.fft.fftfreq(N, d=dy) * 2.0 * np.pi
     return x, y, kx, ky
 
+
+def _close():
+    plt.close('all')
+
 # ===========================================================================
 # 1. Constructor – symbol mode, 1D
 # ===========================================================================
@@ -3824,3 +3828,106 @@ def test_apply_hybrid_uses_representation_layer():
     assert np.all(np.isfinite(res_hybrid))
     # Hybrid uses per-term fast backends; should be close to direct
     assert np.allclose(res_hybrid, res_direct, atol=0.05, rtol=0.05)
+
+
+# ==============================================================================
+# NEW TESTS — Matrix Field Solvers & Plotters
+# ==============================================================================
+
+def test_solve_matrix_field_1d():
+    """solve_matrix_field should evolve a matrix field U_t = P U."""
+    x, xi = sp.symbols('x xi', real=True)
+    P_expr = sp.diag(-xi**2, -2 * xi**2)
+    
+    def F(X):
+        Nx = X.shape[0]
+        out = np.zeros((2, 2, Nx), dtype=complex)
+        out[0, 0, :] = np.exp(-X**2)
+        out[1, 1, :] = np.exp(-X**2)
+        out[0, 1, :] = 0.5 * np.exp(-X**2)
+        out[1, 0, :] = 0.5 * np.exp(-X**2)
+        return out
+        
+    t_arr, U_arr, grids = solve_matrix_field(
+        P_expr, [x], F, dt=0.01, n_steps=5, order=2,
+        L=5.0, N=32, apply_kwargs={'freq_window': None, 'clamp': np.inf}
+    )
+    
+    assert len(t_arr) > 1
+    # Expected shape: (n_saved, N, N, Nx) -> (6, 2, 2, 32)
+    assert U_arr.shape == (6, 2, 2, 32)
+    assert np.all(np.isfinite(U_arr))
+
+def test_solve_sylvester_field_1d():
+    """solve_sylvester_field should evolve U_t = P U - U Q."""
+    x, xi = sp.symbols('x xi', real=True)
+    P_expr = sp.diag(-xi**2, -xi**2)
+    Q_expr = sp.diag(-xi**2, -xi**2)
+    
+    def F(X):
+        Nx = X.shape[0]
+        out = np.zeros((2, 2, Nx), dtype=complex)
+        out[0, 0, :] = np.exp(-X**2)
+        out[1, 1, :] = np.exp(-X**2)
+        return out
+        
+    t_arr, U_arr, grids = solve_sylvester_field(
+        P_expr, Q_expr, [x], F, dt=0.01, n_steps=5, order=2,
+        splitting='strang', L=5.0, N=32,
+        apply_kwargs={'freq_window': None, 'clamp': np.inf}
+    )
+    
+    assert len(t_arr) > 1
+    assert U_arr.shape == (6, 2, 2, 32)
+    assert np.all(np.isfinite(U_arr))
+
+def test_solve_ricci_flow_conformal_2d():
+    """solve_ricci_flow_conformal_2d should evolve the conformal factor."""
+    def phi0(X, Y):
+        return 0.1 * np.exp(-(X**2 + Y**2))
+        
+    t_arr, phi_arr, grids = solve_ricci_flow_conformal_2d(
+        phi0, dt=0.001, n_steps=5, L=4.0, N=16
+    )
+    
+    assert len(t_arr) > 1
+    assert phi_arr.shape == (6, 16, 16)
+    assert np.all(np.isfinite(phi_arr))
+
+def test_plot_matrix_field_1d_diag():
+    """plot_matrix_field_1d with component='diag' should produce a figure."""
+    t = np.linspace(0, 1, 5)
+    U = np.random.randn(5, 2, 2, 32)
+    x = np.linspace(-1, 1, 32)
+    fig = plot_matrix_field_1d(t, U, x, component='diag')
+    assert fig is not None
+    _close()
+
+def test_plot_matrix_field_1d_trace():
+    """plot_matrix_field_1d with component='trace' should produce a figure."""
+    t = np.linspace(0, 1, 5)
+    U = np.random.randn(5, 2, 2, 32)
+    x = np.linspace(-1, 1, 32)
+    fig = plot_matrix_field_1d(t, U, x, component='trace')
+    assert fig is not None
+    _close()
+
+def test_plot_matrix_field_2d():
+    """plot_matrix_field_2d should produce a figure."""
+    t = np.linspace(0, 1, 5)
+    U = np.random.randn(5, 2, 2, 16, 16)
+    x = np.linspace(-1, 1, 16)
+    y = np.linspace(-1, 1, 16)
+    fig = plot_matrix_field_2d(t, U, x, y, component='frobenius')
+    assert fig is not None
+    _close()
+
+def test_plot_wave_solution_1d():
+    """plot_wave_solution_1d should produce a figure with U and V."""
+    t = np.linspace(0, 1, 5)
+    U = np.random.randn(5, 32)
+    V = np.random.randn(5, 32)
+    x = np.linspace(-1, 1, 32)
+    fig = plot_wave_solution_1d(t, U, V, x)
+    assert fig is not None
+    _close()
