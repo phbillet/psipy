@@ -32,7 +32,7 @@ from sympy import (
     diff, Derivative, integrate, 
     fourier_transform, inverse_fourier_transform,zeros,
     Integer, Rational, 
-    latex, together, eye, 
+    latex, together, eye, sympify, 
 )
 from sympy.core.numbers import Zero, One
 from sympy.core.function import AppliedUndef
