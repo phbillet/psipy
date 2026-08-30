@@ -3931,3 +3931,185 @@ def test_plot_wave_solution_1d():
     fig = plot_wave_solution_1d(t, U, V, x)
     assert fig is not None
     _close()
+
+# ==============================================================================
+# NEW TESTS — dimension-generic asymptotic calculus refactor
+#
+# Covers:
+#  - the corrected, dimension-general Weyl (Moyal) formula in
+#    compose_asymptotic (scalar and matrix), which replaces the previous
+#    2D branch that silently dropped cross-derivative terms present in
+#    the (correct) 1D formula;
+#  - the new matrix-valued right_inverse_asymptotic, left_inverse_asymptotic,
+#    and formal_adjoint methods on MatrixPseudoDifferentialOperator.
+# ==============================================================================
+
+def test_compose_asymptotic_weyl_2d_reduces_to_1d():
+    """The dimension-general Weyl/Moyal formula must reduce exactly to the
+    1D formula when both symbols are independent of the second spatial
+    and frequency variable. This is the correctness check for the fix to
+    the previous 2D Weyl branch (which dropped cross-derivative terms
+    that the 1D formula correctly included)."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    f = xi**2 + x * xi
+    g = xi + x**2
+
+    p1d = PseudoDifferentialOperator(f, [x], mode='symbol')
+    q1d = PseudoDifferentialOperator(g, [x], mode='symbol')
+    res_1d = p1d.compose_asymptotic(q1d, order=3, mode='weyl')
+
+    p2d = PseudoDifferentialOperator(f, [x, y], mode='symbol')
+    q2d = PseudoDifferentialOperator(g, [x, y], mode='symbol')
+    res_2d = p2d.compose_asymptotic(q2d, order=3, mode='weyl')
+
+    assert simplify(res_1d - res_2d) == 0
+
+
+def test_compose_asymptotic_weyl_2d_has_cross_terms():
+    """For symbols that genuinely mix both axes, the corrected 2D Weyl
+    composition should differ from the naive (bugged) formula that only
+    differentiated p in (xi, eta) and q in (x, y). Detected here by
+    comparing against the KN composition of the same symbols: KN and the
+    (correct) Weyl composition should generally disagree at order >= 1
+    for non-commuting, axis-mixing symbols, confirming Weyl isn't
+    silently collapsing to something KN-equivalent."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    p = PseudoDifferentialOperator(x * xi + y * eta, vars_x=[x, y], mode='symbol')
+    q = PseudoDifferentialOperator(xi**2 + eta**2, vars_x=[x, y], mode='symbol')
+    kn = p.compose_asymptotic(q, order=2, mode='kn')
+    weyl = p.compose_asymptotic(q, order=2, mode='weyl')
+    assert simplify(kn - weyl) != 0
+
+
+def test_compose_asymptotic_kn_2d_multiindex_regression():
+    """Regression check for the KN branch after unifying 1D/2D via a
+    shared multi-index loop: order-1 composition of x*xi + y*eta with
+    xi**2 + eta**2 should match the known closed form."""
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    p = PseudoDifferentialOperator(x * xi + y * eta, vars_x=[x, y], mode='symbol')
+    q = PseudoDifferentialOperator(xi**2 + eta**2, vars_x=[x, y], mode='symbol')
+    result = p.compose_asymptotic(q, order=1, mode='kn')
+    # q = xi^2 + eta^2 doesn't depend on (x, y), so every n>=1 KN
+    # correction term (which differentiates q in x, y) vanishes identically
+    # -- the order-1 composition reduces to the plain product p*q.
+    expected = (x * xi + y * eta) * (xi**2 + eta**2)
+    assert simplify(result - expected) == 0
+
+
+def test_asymptotic_inverse_right_left_agree_for_constant_coefficient():
+    """For an x-independent ('constant-coefficient') symbol, the right and
+    left asymptotic inverses should coincide exactly with 1/p at any
+    order, since every n>=1 correction term involves a vanishing spatial
+    derivative -- a strong regression check for the shared
+    `_asymptotic_inverse` recursion behind both public methods."""
+    x, xi = symbols('x xi', real=True)
+    p = PseudoDifferentialOperator(xi**2 + 1, vars_x=[x], mode='symbol')
+    r = p.right_inverse_asymptotic(order=3)
+    l = p.left_inverse_asymptotic(order=3)
+    assert simplify(r - 1 / (xi**2 + 1)) == 0
+    assert simplify(l - 1 / (xi**2 + 1)) == 0
+    assert simplify(r - l) == 0
+
+
+# ------------------------------------------------------------------------
+# Matrix right_inverse_asymptotic / left_inverse_asymptotic / formal_adjoint
+# ------------------------------------------------------------------------
+
+def test_matrix_right_inverse_constant_coefficient_exact_1d():
+    """For a constant-coefficient (x-independent) diagonal matrix symbol,
+    the matrix right inverse should equal P.inv() exactly, at any order,
+    same reasoning as the scalar constant-coefficient case."""
+    x, xi = sp.symbols('x xi', real=True)
+    P = sp.diag(xi + 1, xi + 2)
+    mop = MatrixPseudoDifferentialOperator(P, [x], mode='symbol')
+    R = mop.right_inverse_asymptotic(order=3)
+    assert isinstance(R, sp.MatrixBase)
+    assert sp.simplify(R - P.inv()) == sp.zeros(2, 2)
+
+
+def test_matrix_left_inverse_constant_coefficient_exact_1d():
+    x, xi = sp.symbols('x xi', real=True)
+    P = sp.diag(xi + 1, xi + 2)
+    mop = MatrixPseudoDifferentialOperator(P, [x], mode='symbol')
+    L = mop.left_inverse_asymptotic(order=3)
+    assert isinstance(L, sp.MatrixBase)
+    assert sp.simplify(L - P.inv()) == sp.zeros(2, 2)
+
+
+def test_matrix_right_inverse_constant_coefficient_exact_2d():
+    """Same exactness check in 2D."""
+    x, y, xi, eta = sp.symbols('x y xi eta', real=True)
+    P = sp.diag(xi + eta + 1, xi - eta + 2)
+    mop = MatrixPseudoDifferentialOperator(P, [x, y], mode='symbol')
+    R = mop.right_inverse_asymptotic(order=2)
+    assert sp.simplify(R - P.inv()) == sp.zeros(2, 2)
+
+
+def test_matrix_right_inverse_x_dependent_leading_order():
+    """For an x-dependent (non-constant-coefficient) upper-triangular
+    matrix symbol, the diagonal of P . R should be exactly 1 (the
+    diagonal blocks behave like the scalar case and the off-diagonal
+    x-dependence only pollutes the off-diagonal residual at this
+    truncation order)."""
+    x, xi = sp.symbols('x xi', real=True)
+    P = sp.Matrix([[xi + 1, x], [0, xi + 2]])
+    mop = MatrixPseudoDifferentialOperator(P, [x], mode='symbol')
+    R = mop.right_inverse_asymptotic(order=2)
+    mopR = MatrixPseudoDifferentialOperator(R, [x], mode='symbol')
+    comp = mop.compose_asymptotic(mopR, order=2, mode='kn')
+    assert sp.simplify(comp[0, 0] - 1) == 0
+    assert sp.simplify(comp[1, 1] - 1) == 0
+
+
+def test_matrix_inverse_singular_symbol_raises():
+    """A symbol matrix that is symbolically singular (det P == 0) must
+    raise, rather than silently returning nonsense or hanging on
+    P.inv()."""
+    x, xi = sp.symbols('x xi', real=True)
+    P = sp.Matrix([[xi, xi], [xi, xi]])  # det == 0
+    mop = MatrixPseudoDifferentialOperator(P, [x], mode='symbol')
+    with pytest.raises(ValueError, match="not invertible"):
+        mop.right_inverse_asymptotic(order=1)
+    with pytest.raises(ValueError, match="not invertible"):
+        mop.left_inverse_asymptotic(order=1)
+
+
+def test_matrix_formal_adjoint_hermitian():
+    """A real, symmetric matrix symbol is Hermitian; its formal adjoint
+    should equal the original symbol (up to simplification)."""
+    x, xi = sp.symbols('x xi', real=True)
+    P = sp.Matrix([[xi**2, x], [x, xi**2]])
+    mop = MatrixPseudoDifferentialOperator(P, [x], mode='symbol')
+    adj = mop.formal_adjoint()
+    assert isinstance(adj, sp.MatrixBase)
+    assert sp.simplify(adj - P) == sp.zeros(2, 2)
+
+
+def test_matrix_formal_adjoint_non_hermitian_differs():
+    """A non-Hermitian complex matrix symbol should have a formal adjoint
+    that differs from the original symbol."""
+    x, xi = sp.symbols('x xi', real=True)
+    P = sp.Matrix([[I * xi, x], [0, xi]])
+    mop = MatrixPseudoDifferentialOperator(P, [x], mode='symbol')
+    adj = mop.formal_adjoint()
+    assert sp.simplify(adj - P) != sp.zeros(2, 2)
+
+
+def test_matrix_formal_adjoint_2d_shape():
+    x, y, xi, eta = sp.symbols('x y xi eta', real=True)
+    P = sp.Matrix([[xi**2 + eta**2, x * y], [x * y, xi**2]])
+    mop = MatrixPseudoDifferentialOperator(P, [x, y], mode='symbol')
+    adj = mop.formal_adjoint()
+    assert isinstance(adj, sp.MatrixBase)
+    assert adj.shape == (2, 2)
+
+
+def test_matrix_right_inverse_dim3_not_implemented():
+    """dim > 2 should raise NotImplementedError, matching the scalar
+    convention, rather than silently returning a wrong result."""
+    x, y, z, xi, eta, zeta = sp.symbols('x y z xi eta zeta', real=True)
+    P = sp.diag(xi + 1, eta + 1)  # dim is taken from vars_x, so fake a 3D op
+    mop = MatrixPseudoDifferentialOperator(P, [x, y], mode='symbol')
+    mop.dim = 3  # force an unsupported dimension for this regression check
+    with pytest.raises(NotImplementedError):
+        mop.right_inverse_asymptotic(order=1)

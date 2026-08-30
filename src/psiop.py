@@ -430,6 +430,46 @@ def _make_real(expr):
     return simplify(sp.re(expr.doit(deep=True)))
 
 
+# ============================================================================
+# Multi-index helpers -- shared, dimension-generic building blocks for the
+# asymptotic symbolic calculus (composition, formal inverses, exponential
+# symbol, formal adjoint) used by both PseudoDifferentialOperator and
+# MatrixPseudoDifferentialOperator. Factored out to replace what used to be
+# separate hand-unrolled 1D/2D code paths in each of those methods.
+# ============================================================================
+
+def _mi_all(n, dim):
+    """Yield all `dim`-tuples of non-negative ints summing to exactly n."""
+    if dim == 1:
+        yield (n,)
+        return
+    for i in range(n + 1):
+        for rest in _mi_all(n - i, dim - 1):
+            yield (i,) + rest
+
+
+def _mi_upto(n, dim):
+    """Yield all `dim`-tuples of non-negative ints with 1 <= sum <= n."""
+    for m in range(1, n + 1):
+        yield from _mi_all(m, dim)
+
+
+def _mi_diff(expr, mvars, alpha):
+    """d^|alpha| expr / prod(mvars_i ** alpha_i), entrywise for sympy
+    Matrix `expr` (via .diff) as well as scalar sympy expressions."""
+    for v, a in zip(mvars, alpha):
+        if a:
+            expr = expr.diff(v, a)
+    return expr
+
+
+def _mi_factorial(alpha):
+    fact = 1
+    for a in alpha:
+        fact *= factorial(a)
+    return fact
+
+
 class PseudoDifferentialOperator:
     """
     Pseudo-differential operator with dynamic symbol evaluation on spatial grids.
@@ -1477,80 +1517,45 @@ class PseudoDifferentialOperator:
     
         """
     
-        from sympy import diff, factorial, simplify, symbols
-    
         assert self.dim == other.dim, "Operator dimensions must match"
-        p, q = self.symbol, other.symbol
-    
-        # Default sign convention
-        if sign_convention is None:
-            sign_convention = 'standard'
-        sign = -1 if sign_convention == 'standard' else +1
-    
-        # --- 1D case ---
-        if self.dim == 1:
-            x = self.vars_x[0]
-            xi = symbols('xi', real=True)
-            result = 0
-    
-            if mode == 'kn':  # Kohn–Nirenberg
-                for n in range(order + 1):
-                    term = (1 / factorial(n)) * diff(p, xi, n) * diff(q, x, n) * (1j) ** (sign * n)
-                    result += term
-    
-            elif mode == 'weyl':  # Weyl symmetric composition
-                # Weyl star product: exp((i/2)(∂_ξ^p ∂_x^q - ∂_x^p ∂_ξ^q))
-                result = 0
-                for n in range(order + 1):
-                    for k in range(n + 1):
-                        # k derivatives acting as (∂_ξ^k p)(∂_x^(n−k) q)
-                        coeff = (1 / (factorial(k) * factorial(n - k))) * ((1j / 2) ** n) * ((-1) ** (n - k))
-                        term = coeff * diff(p, xi, k, x, n - k, evaluate=True) * diff(q, x, k, xi, n - k, evaluate=True)
-                        result += term
-    
-            else:
-                raise ValueError("mode must be either 'kn' or 'weyl'")
-    
-            # Replace: return simplify(result)
-            try:
-                return simplify(result)
-            except TypeError:
-                # Fallback for SymPy sorting bugs with undefined functions/derivatives
-                return result 
-    
-        # --- 2D case ---
-        elif self.dim == 2:
-            x, y = self.vars_x
-            xi, eta = symbols('xi eta', real=True)
-            result = 0
-    
-            if mode == 'kn':
-                for n in range(order + 1):
-                    for i in range(n + 1):
-                        j = n - i
-                        term = (1 / (factorial(i) * factorial(j))) * \
-                               diff(p, xi, i, eta, j) * diff(q, x, i, y, j) * (1j) ** (sign * n)
-                        result += term
-    
-            elif mode == 'weyl':
-                for n in range(order + 1):
-                    for i in range(n + 1):
-                        j = n - i
-                        coeff = (1 / (factorial(i) * factorial(j))) * ((1j / 2) ** n) * ((-1) ** (n - i))
-                        term = coeff * diff(p, xi, i, eta, j, x, 0, y, 0) * diff(q, x, i, y, j, xi, 0, eta, 0)
-                        result += term
-            else:
-                raise ValueError("mode must be either 'kn' or 'weyl'")
-    
-            # Replace: return simplify(result)
-            try:
-                return simplify(result)
-            except TypeError:
-                # Fallback for SymPy sorting bugs with undefined functions/derivatives
-                return result 
-    
-        else:
+        if mode not in ('kn', 'weyl'):
+            raise ValueError("mode must be either 'kn' or 'weyl'")
+        dim = self.dim
+        if dim not in (1, 2):
             raise NotImplementedError("Only 1D and 2D cases are implemented")
+
+        p, q = self.symbol, other.symbol
+        x_vars = self.vars_x
+        xi_vars = self._peetre_frequency_symbols()
+        sign = -1 if (sign_convention or 'standard') == 'standard' else +1
+
+        result = 0
+        if mode == 'kn':  # Kohn-Nirenberg
+            for n in range(order + 1):
+                for alpha in _mi_all(n, dim):
+                    fact = _mi_factorial(alpha)
+                    dp = _mi_diff(p, xi_vars, alpha)
+                    dq = _mi_diff(q, x_vars, alpha)
+                    result += (dp * dq / fact) * (1j) ** (sign * n)
+        else:  # 'weyl' -- general dimension-generic Moyal star product,
+               # exact match to the previous 1D formula (which was the
+               # mathematically correct one); see class-level notes.
+            for total in range(order + 1):
+                for a_deg in range(total + 1):
+                    b_deg = total - a_deg
+                    for alpha in _mi_all(a_deg, dim):
+                        for beta in _mi_all(b_deg, dim):
+                            coeff = (1j / 2) ** total * (-1) ** b_deg
+                            coeff /= (_mi_factorial(alpha) * _mi_factorial(beta))
+                            dp = _mi_diff(_mi_diff(p, xi_vars, alpha), x_vars, beta)
+                            dq = _mi_diff(_mi_diff(q, x_vars, alpha), xi_vars, beta)
+                            result += coeff * dp * dq
+
+        try:
+            return simplify(result)
+        except TypeError:
+            # Fallback for SymPy sorting bugs with undefined functions/derivatives
+            return result
 
     # ======================================================================
     # Peetre-style symbolic decomposition
@@ -3225,34 +3230,31 @@ class PseudoDifferentialOperator:
         - Each term in the expansion corresponds to higher-order corrections involving commutators 
           between the operator P and the current approximation of R.
         """
+        return self._asymptotic_inverse(order, side='right')
+
+    def _asymptotic_inverse(self, order, side):
+        """Shared recursion behind right_inverse_asymptotic and
+        left_inverse_asymptotic (dimension-generic multi-index Leibniz
+        recursion; the two sides only differ in which symbol gets which
+        derivative and the multiplication order)."""
+        dim = self.dim
+        if dim not in (1, 2):
+            raise NotImplementedError("Only 1D and 2D cases are implemented")
         p = self.symbol
-        if self.dim == 1:
-            x = self.vars_x[0]
-            xi = symbols('xi', real=True)
-            r = 1 / p.subs(xi, xi)  # r0
-            R = r
-            for n in range(1, order + 1):
-                term = 0
-                for k in range(1, n + 1):
-                    coeff = (1j)**(-k) / factorial(k)
-                    inner = diff(p, xi, k) * diff(R, x, k)
-                    term += coeff * inner
-                R = R - r * term
-        elif self.dim == 2:
-            x, y = self.vars_x
-            xi, eta = symbols('xi eta', real=True)
-            r = 1 / p.subs({xi: xi, eta: eta})
-            R = r
-            for n in range(1, order + 1):
-                term = 0
-                for k1 in range(n + 1):
-                    for k2 in range(n + 1 - k1):
-                        if k1 + k2 == 0: continue
-                        coeff = (1j)**(-(k1 + k2)) / (factorial(k1) * factorial(k2))
-                        dp = diff(p, xi, k1, eta, k2)
-                        dR = diff(R, x, k1, y, k2)
-                        term += coeff * dp * dR
-                R = R - r * term
+        x_vars = self.vars_x
+        xi_vars = self._peetre_frequency_symbols()
+
+        r = 1 / p
+        R = r
+        for n in range(1, order + 1):
+            term = 0
+            for alpha in _mi_upto(n, dim):
+                coeff = (1j) ** (-sum(alpha)) / _mi_factorial(alpha)
+                if side == 'right':
+                    term += coeff * _mi_diff(p, xi_vars, alpha) * _mi_diff(R, x_vars, alpha)
+                else:  # 'left'
+                    term += coeff * _mi_diff(R, xi_vars, alpha) * _mi_diff(p, x_vars, alpha)
+            R = R - r * term
         return R
 
     def left_inverse_asymptotic(self, order=1):
@@ -3287,35 +3289,7 @@ class PseudoDifferentialOperator:
           previously computed terms of the inverse.
         - Coefficients include powers of 1j (i) and factorial normalization for derivative terms.
         """
-        p = self.symbol
-        if self.dim == 1:
-            x = self.vars_x[0]
-            xi = symbols('xi', real=True)
-            l = 1 / p.subs(xi, xi)
-            L = l
-            for n in range(1, order + 1):
-                term = 0
-                for k in range(1, n + 1):
-                    coeff = (1j)**(-k) / factorial(k)
-                    inner = diff(L, xi, k) * diff(p, x, k)
-                    term += coeff * inner
-                L = L - term * l
-        elif self.dim == 2:
-            x, y = self.vars_x
-            xi, eta = symbols('xi eta', real=True)
-            l = 1 / p.subs({xi: xi, eta: eta})
-            L = l
-            for n in range(1, order + 1):
-                term = 0
-                for k1 in range(n + 1):
-                    for k2 in range(n + 1 - k1):
-                        if k1 + k2 == 0: continue
-                        coeff = (1j)**(-(k1 + k2)) / (factorial(k1) * factorial(k2))
-                        dp = diff(p, x, k1, y, k2)
-                        dL = diff(L, xi, k1, eta, k2)
-                        term += coeff * dL * dp
-                L = L - term * l
-        return L
+        return self._asymptotic_inverse(order, side='left')
 
     def formal_adjoint(self):
         """
@@ -3336,19 +3310,10 @@ class PseudoDifferentialOperator:
         - In 2D, the expansion is radial in |ξ| = sqrt(ξ² + η²).
         - This method ensures symbolic simplifications for readability and efficiency.
         """
-        p = self.symbol
-        if self.dim == 1:
-            x, = self.vars_x
-            xi = symbols('xi', real=True)
-            p_star = conjugate(p)
-            p_star = simplify(series(p_star, xi, oo, n=6).removeO())
-            return p_star
-        elif self.dim == 2:
-            x, y = self.vars_x
-            xi, eta = symbols('xi eta', real=True)
-            p_star = conjugate(p)
-            p_star = simplify(series(p_star, sqrt(xi**2 + eta**2), oo, n=6).removeO())
-            return p_star
+        xi_vars = self._peetre_frequency_symbols()
+        expansion_var = xi_vars[0] if self.dim == 1 else sqrt(sum(v**2 for v in xi_vars))
+        p_star = conjugate(self.symbol)
+        return simplify(series(p_star, expansion_var, oo, n=6).removeO())
 
     def fractional_power(self, alpha, order=1, method='symbolic', x_grid=None, L=None, N=None):
         """
@@ -3571,59 +3536,18 @@ class PseudoDifferentialOperator:
         - In parabolic PDEs (heat equation): exp(tΔ) is the heat kernel.
 
         """
-        if self.dim == 1:
-            x = self.vars_x[0]
-            xi = symbols('xi', real=True)
-            
-            # Initialize with identity
-            result = 1
-            
-            # First order term: tP
-            current_power = self.symbol
-            result += t * current_power
-            
-            # Higher order terms: (t^n/n!) P^n computed via composition
-            for n in range(2, order + 1):
-                # Compute P^n = P^(n-1) ∘ P via asymptotic composition
-                # We use a temporary operator for composition
-                temp_op = PseudoDifferentialOperator(
-                    current_power, [x], mode='symbol'
-                )
-                current_power = temp_op.compose_asymptotic(self, order=order, mode=mode, sign_convention=sign_convention)
-                
-                # Add term (t^n/n!) * P^n
-                coeff = t**n / factorial(n)
-                result += coeff * current_power
-            
-            return simplify(result)
-        
-        elif self.dim == 2:
-            x, y = self.vars_x
-            xi, eta = symbols('xi eta', real=True)
-            
-            # Initialize with identity
-            result = 1
-            
-            # First order term: tP
-            current_power = self.symbol
-            result += t * current_power
-            
-            # Higher order terms: (t^n/n!) P^n computed via composition
-            for n in range(2, order + 1):
-                # Compute P^n = P^(n-1) ∘ P via asymptotic composition
-                temp_op = PseudoDifferentialOperator(
-                    current_power, [x, y], mode='symbol'
-                )
-                current_power = temp_op.compose_asymptotic(self, order=order, mode=mode, sign_convention=sign_convention)
-                
-                # Add term (t^n/n!) * P^n
-                coeff = t**n / factorial(n)
-                result += coeff * current_power
-            
-            return simplify(result)
-        
-        else:
+        if self.dim not in (1, 2):
             raise NotImplementedError("Only 1D and 2D operators are supported")
+
+        result = 1 + t * self.symbol
+        current_power = self.symbol
+        for n in range(2, order + 1):
+            temp_op = PseudoDifferentialOperator(current_power, self.vars_x, mode='symbol')
+            current_power = temp_op.compose_asymptotic(
+                self, order=order, mode=mode, sign_convention=sign_convention)
+            result += t**n / factorial(n) * current_power
+
+        return simplify(result)
         
     def trace_formula(self, volume_element=None, numerical=False, 
                       x_bounds=None, xi_bounds=None):
@@ -5524,60 +5448,42 @@ class MatrixPseudoDifferentialOperator:
         """
         assert self.dim == other.dim, "Operator dimensions must match"
         assert self.size == other.size, "Matrix sizes must match"
-
-        sign_convention = sign_convention or 'standard'
-        sign = -1 if sign_convention == 'standard' else +1
-        P, Q = self.P_expr, other.P_expr
-
-        if self.dim == 1:
-            x = self.vars_x[0]
-            xi = sp.symbols('xi', real=True)
-            result = sp.zeros(self.size, self.size)
-            if mode == 'kn':
-                for k in range(order + 1):
-                    coeff = (1 / sp.factorial(k)) * (1j) ** (sign * k)
-                    result += coeff * (P.diff(xi, k) * Q.diff(x, k))
-            elif mode == 'weyl':
-                for n in range(order + 1):
-                    for k in range(n + 1):
-                        coeff = ((1 / (sp.factorial(k) * sp.factorial(n - k)))
-                                 * ((1j / 2) ** n) * ((-1) ** (n - k)))
-                        dP = P.diff(xi, k, x, n - k)
-                        dQ = Q.diff(x, k, xi, n - k)
-                        result += coeff * (dP * dQ)
-            else:
-                raise ValueError("mode must be 'kn' or 'weyl'")
-            return sp.simplify(result)
-
-        elif self.dim == 2:
-            x, y = self.vars_x
-            xi, eta = sp.symbols('xi eta', real=True)
-            result = sp.zeros(self.size, self.size)
-            if mode == 'kn':
-                for n in range(order + 1):
-                    for i in range(n + 1):
-                        j = n - i
-                        coeff = (1 / (sp.factorial(i) * sp.factorial(j))) * (1j) ** (sign * n)
-                        result += coeff * (P.diff(xi, i, eta, j) * Q.diff(x, i, y, j))
-            elif mode == 'weyl':
-                # ── NEW: 2D Weyl (Moyal) composition for matrix symbols ──
-                for n in range(order + 1):
-                    for i in range(n + 1):
-                        j = n - i
-                        coeff = (
-                            (1 / (sp.factorial(i) * sp.factorial(j)))
-                            * ((1j / 2) ** n)
-                            * ((-1) ** (n - i))
-                        )
-                        dP = P.diff(xi, i).diff(eta, j)   # ∂_ξ^i ∂_η^j P
-                        dQ = Q.diff(x, i).diff(y, j)      # ∂_x^i ∂_y^j Q
-                        result += coeff * (dP * dQ)       # matrix mult, order-preserving
-            else:
-                raise ValueError("mode must be 'kn' or 'weyl'")
-            return sp.simplify(result)
-
-        else:
+        if mode not in ('kn', 'weyl'):
+            raise ValueError("mode must be 'kn' or 'weyl'")
+        dim = self.dim
+        if dim not in (1, 2):
             raise NotImplementedError("dim must be 1 or 2")
+
+        P, Q = self.P_expr, other.P_expr
+        x_vars = self.vars_x
+        xi_vars = sp.symbols('xi eta', real=True) if dim == 2 else (sp.symbols('xi', real=True),)
+        sign = -1 if (sign_convention or 'standard') == 'standard' else +1
+
+        result = sp.zeros(self.size, self.size)
+        if mode == 'kn':
+            for n in range(order + 1):
+                for alpha in _mi_all(n, dim):
+                    fact = _mi_factorial(alpha)
+                    dP = _mi_diff(P, xi_vars, alpha)
+                    dQ = _mi_diff(Q, x_vars, alpha)
+                    result += (dP * dQ / fact) * (1j) ** (sign * n)
+        else:  # 'weyl' -- general dimension-generic Moyal product; this
+               # replaces the previous 2D branch, which only differentiated
+               # P in (xi, eta) and Q in (x, y) and so dropped the cross
+               # terms present in the exact 1D formula (see scalar
+               # compose_asymptotic for the same fix and more detail).
+            for total in range(order + 1):
+                for a_deg in range(total + 1):
+                    b_deg = total - a_deg
+                    for alpha in _mi_all(a_deg, dim):
+                        for beta in _mi_all(b_deg, dim):
+                            coeff = (1j / 2) ** total * (-1) ** b_deg
+                            coeff /= (_mi_factorial(alpha) * _mi_factorial(beta))
+                            dP = _mi_diff(_mi_diff(P, xi_vars, alpha), x_vars, beta)
+                            dQ = _mi_diff(_mi_diff(Q, x_vars, alpha), xi_vars, beta)
+                            result += coeff * (dP * dQ)  # matrix mult, order preserved
+
+        return sp.simplify(result)
 
     def commutator_symbolic(self, other, order=1, mode='kn', sign_convention=None):
         """
@@ -5659,6 +5565,83 @@ class MatrixPseudoDifferentialOperator:
             result += coeff * current_power
 
         return sp.simplify(result)
+
+    def _asymptotic_matrix_inverse(self, order, side):
+        """Matrix analogue of PseudoDifferentialOperator._asymptotic_inverse.
+        Requires P(x, xi) to be invertible as a matrix (det P != 0
+        symbolically); P.inv() is used as the 0th-order term. Matrix
+        multiplication order is preserved: the inverse factor stays on
+        the side that actually cancels P in `P . R ~ I` / `L . P ~ I`.
+        """
+        dim = self.dim
+        if dim not in (1, 2):
+            raise NotImplementedError("dim must be 1 or 2")
+        P = self.P_expr
+        x_vars = self.vars_x
+        xi_vars = sp.symbols('xi eta', real=True) if dim == 2 else (sp.symbols('xi', real=True),)
+
+        try:
+            R0 = P.inv()
+        except Exception as e:
+            raise ValueError(
+                "MatrixPseudoDifferentialOperator: symbol is not invertible "
+                "(det P == 0 or SymPy could not confirm invertibility); "
+                "asymptotic inverses require an invertible principal symbol. "
+                f"Original error: {e}"
+            )
+
+        R = R0
+        for n in range(1, order + 1):
+            term = sp.zeros(self.size, self.size)
+            for alpha in _mi_upto(n, dim):
+                coeff = (1j) ** (-sum(alpha)) / _mi_factorial(alpha)
+                if side == 'right':
+                    dP = _mi_diff(P, xi_vars, alpha)
+                    dR = _mi_diff(R, x_vars, alpha)
+                    term += coeff * (dP * dR)
+                else:  # 'left'
+                    dR = _mi_diff(R, xi_vars, alpha)
+                    dP = _mi_diff(P, x_vars, alpha)
+                    term += coeff * (dR * dP)
+            R = R - (R0 * term if side == 'right' else term * R0)
+        return sp.simplify(R)
+
+    def right_inverse_asymptotic(self, order=1):
+        """Formal right inverse R such that Op[self] . Op[R] ~ Id up to
+        O(<xi>^-order), matrix analogue of
+        PseudoDifferentialOperator.right_inverse_asymptotic. Requires
+        the symbol P(x, xi) to be invertible as a matrix.
+        """
+        return self._asymptotic_matrix_inverse(order, side='right')
+
+    def left_inverse_asymptotic(self, order=1):
+        """Formal left inverse L such that Op[L] . Op[self] ~ Id up to
+        O(<xi>^-order), matrix analogue of
+        PseudoDifferentialOperator.left_inverse_asymptotic. Requires
+        the symbol P(x, xi) to be invertible as a matrix.
+        """
+        return self._asymptotic_matrix_inverse(order, side='left')
+
+    def formal_adjoint(self, n_terms=6):
+        """Formal Hermitian adjoint symbol P* of the matrix operator.
+
+        Each entry gets the same scalar treatment as
+        `PseudoDifferentialOperator.formal_adjoint` (conjugate + asymptotic
+        expansion at infinity in |xi|); the resulting matrix is then
+        transposed (not conjugate-transposed again -- conjugation already
+        happened entrywise) because (Op[P]u, v) = (u, Op[P]* v) swaps the
+        row/column roles of the symbol, same as for a plain matrix adjoint.
+        """
+        dim = self.dim
+        xi_vars = sp.symbols('xi eta', real=True) if dim == 2 else (sp.symbols('xi', real=True),)
+        expansion_var = xi_vars[0] if dim == 1 else sp.sqrt(sum(v**2 for v in xi_vars))
+
+        P_star = self.P_expr.applyfunc(
+            lambda p_ij: sp.simplify(
+                sp.series(sp.conjugate(p_ij), expansion_var, sp.oo, n=n_terms).removeO()
+            )
+        )
+        return P_star.T
 
 
 # ============================================================================
@@ -8043,6 +8026,386 @@ def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
         V = V[:, 0, ...]
         
     return t, U, V, grids
+
+def solve_matrix_field(s_expr, vars_x, F, dt, n_steps, order=3,
+                        L=10.0, N=256, apply_kwargs=None, save_every=1,
+                        quantization='kohn-nirenberg', apply_backend='peetre',
+                        check_finite=True):
+    """
+    Time-step the matrix-field evolution equation `∂ₜU = P U`, where `P`
+    is the pseudo-differential operator with N×N matrix symbol `s_expr`
+    and `U(x)` is itself an N×N matrix at every spatial point (e.g. a
+    density matrix or matrix Green's function), with `P` acting on `U`
+    only from the left: `(P U)_ik = Σⱼ Op[P_ij](U_jk)`. This repeatedly
+    applies the exponential propagator `Op(exp(dt·s))` built by
+    `build_propagator`, via
+    `MatrixPseudoDifferentialOperator.apply_matrix_field`, exactly as
+    `solve` does for vector fields via `apply`.
+
+    Parameters
+    ----------
+    s_expr : sympy.MatrixBase or nested list of sympy.Expr
+        N×N matrix symbol `S(x, ξ)` of the generator `P`; must be
+        matrix-valued (matrix left-multiplication only makes sense at
+        `N > 1` -- use `solve` for a scalar generator).
+    vars_x : list of sympy symbols
+        Spatial variables (length 1 or 2).
+    F : callable
+        Initial matrix field `U(·, 0)`, called as `F(X)` in 1D or
+        `F(X, Y)` in 2D on the meshgrid-ed spatial coordinates, and
+        expected to return an N×N array/nested list of grid-shaped
+        components (`F(...)[j][k]`, or an ndarray of shape
+        `(N, N, *grid_shape)`).
+    dt : float
+        Time step.
+    n_steps : int
+        Number of propagator applications (time steps) to take.
+    order : int, optional
+        Truncation order of the exponential symbol expansion. Default 3.
+    L : float, optional
+        Half-width of the spatial domain. Default 10.0.
+    N : int, optional
+        Number of grid points per axis. Default 256.
+    apply_kwargs : dict, optional
+        Extra keyword arguments forwarded to `apply_matrix_field`.
+    save_every : int, optional
+        Save the solution every `save_every` steps (plus the final step
+        and `t=0`). Default 1 (save every step).
+    quantization : str, optional
+        Quantization convention. Default 'kohn-nirenberg'.
+    apply_backend : str, optional
+        Numerical application backend. Default 'peetre'.
+    check_finite : bool, default True
+        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead of
+        silently returning a diverged trajectory.
+
+    Returns
+    -------
+    t_list : ndarray
+        Saved time points, starting at 0.
+    U_list : ndarray, shape (n_saved, N, N, *grid_shape)
+        Saved matrix-field snapshots `U(t)`.
+    grids : tuple of ndarray
+        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D, as returned by
+        `make_grid_1d`/`make_grid_2d`.
+
+    Raises
+    ------
+    NotImplementedError
+        If `vars_x` has a length other than 1 or 2.
+    ValueError
+        If `s_expr` is not matrix-valued, or `F` does not return an
+        N×N field.
+    """
+    apply_kwargs = dict(apply_kwargs or {})
+    X, Y, x, y_grid, kx, ky, grids = _make_grids(vars_x, L, N)
+
+    prop, is_matrix, size = build_propagator(
+        s_expr, vars_x, dt, order=order,
+        quantization=quantization, apply_backend=apply_backend,
+    )
+    if not is_matrix:
+        raise ValueError(
+            "solve_matrix_field requires a matrix symbol; got a scalar "
+            "symbol. Use solve_first_order() for scalar/vector fields instead."
+        )
+
+    U0 = F(X) if Y is None else F(X, Y)
+    U0 = np.asarray(U0, dtype=complex)
+    if U0.shape[0] != size or U0.shape[1] != size:
+        raise ValueError(
+            f"F must return a {size}x{size} matrix field, got shape "
+            f"{U0.shape[:2]}."
+        )
+
+    def step(U):
+        result = prop.apply_matrix_field(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
+        return np.asarray(result, dtype=complex)
+
+    t_arr, U_arr = _run_time_loop(step, U0, dt, n_steps, save_every, check_finite)
+    return t_arr, U_arr, grids
+
+def solve_sylvester_field(P_expr, Q_expr, vars_x, F, dt, n_steps, order=3,
+                           splitting='strang', L=10.0, N=256,
+                           apply_kwargs=None, save_every=1,
+                           quantization='kohn-nirenberg', apply_backend='peetre',
+                           check_finite=True):
+    """
+    Time-step the Sylvester-type matrix-field evolution equation
+    `∂ₜU = P U − U Q`, where `P` and `Q` are pseudo-differential
+    operators with N×N matrix symbols and `U(x)` is an N×N matrix at
+    every spatial point.
+
+    Left-multiplication by `P` and right-multiplication by `Q` always
+    commute as *operations* (`(P U) Q == P (U Q)`), so when `P` and `Q`
+    are x-independent (Fourier multipliers), the exact solution over a
+    step `dt` is the closed-form
+
+        U(t) = exp(t P) U(0) exp(-t Q) ,
+
+    obtained by applying the left-propagator `Op(exp(dt·P))`
+    (`apply_matrix_field`) and the right-propagator `Op(exp(-dt·Q))`
+    (`apply_matrix_field_right`), in either order. When `P` and/or `Q`
+    depend on x, `Op[P_ij]` and `Op[Q_jk]` need not commute with each
+    other, so the two sub-steps no longer combine exactly; this function
+    then falls back to a standard Lie-Trotter (first-order, `O(dt)`
+    splitting error) or Strang (second-order, `O(dt^2)`) operator
+    splitting between the left and right exponential propagators.
+
+    Parameters
+    ----------
+    P_expr : sympy.MatrixBase or nested list of sympy.Expr
+        N×N matrix symbol `P(x, ξ)` acting on U from the left.
+    Q_expr : sympy.MatrixBase or nested list of sympy.Expr
+        N×N matrix symbol `Q(x, ξ)` acting on U from the right (with a
+        minus sign, as in `∂ₜU = P U − U Q`); must be the same size as
+        `P_expr`.
+    vars_x : list of sympy symbols
+        Spatial variables (length 1 or 2).
+    F : callable
+        Initial matrix field `U(·, 0)`, called as `F(X)` in 1D or
+        `F(X, Y)` in 2D, returning an N×N array/nested list of
+        grid-shaped components (as for `solve_matrix_field`).
+    dt : float
+        Time step.
+    n_steps : int
+        Number of splitting steps (each advancing `U` by `dt`).
+    order : int, optional
+        Truncation order of each exponential-symbol expansion. Default 3.
+    splitting : str, {'lie', 'strang'}, optional
+        Operator-splitting scheme between the `P` (left) and `Q` (right)
+        sub-steps:
+
+        - 'lie'    : one full left step `exp(dt·P)`, then one full right
+                     step `exp(-dt·Q)` -- first order accurate, `O(dt)`.
+        - 'strang' : half left step `exp(dt/2·P)`, full right step
+                     `exp(-dt·Q)`, half left step `exp(dt/2·P)` --
+                     second order accurate, `O(dt^2)`. Default.
+    L : float, optional
+        Half-width of the spatial domain. Default 10.0.
+    N : int, optional
+        Number of grid points per axis. Default 256.
+    apply_kwargs : dict, optional
+        Extra keyword arguments forwarded to `apply_matrix_field` and
+        `apply_matrix_field_right`.
+    save_every : int, optional
+        Save the solution every `save_every` steps (plus the final step
+        and `t=0`). Default 1.
+    quantization : str, optional
+        Quantization convention. Default 'kohn-nirenberg'.
+    apply_backend : str, optional
+        Numerical application backend. Default 'peetre'.
+    check_finite : bool, default True
+        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead
+        of silently returning a diverged trajectory.
+
+    Returns
+    -------
+    t_list : ndarray
+        Saved time points, starting at 0.
+    U_list : ndarray, shape (n_saved, N, N, *grid_shape)
+        Saved matrix-field snapshots `U(t)`.
+    grids : tuple of ndarray
+        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D.
+
+    Raises
+    ------
+    NotImplementedError
+        If `vars_x` has a length other than 1 or 2.
+    ValueError
+        If `P_expr`/`Q_expr` are not matrix-valued of matching size, if
+        `F` does not return an N×N field, or if `splitting` is not
+        'lie' or 'strang'.
+    """
+    if splitting not in ('lie', 'strang'):
+        raise ValueError("splitting must be 'lie' or 'strang'.")
+
+    apply_kwargs = dict(apply_kwargs or {})
+    X, Y, x, y_grid, kx, ky, grids = _make_grids(vars_x, L, N)
+
+    prop_Q_full, is_matrix_Q, size_Q = build_propagator(
+        Q_expr, vars_x, -dt, order=order,
+        quantization=quantization, apply_backend=apply_backend,
+    )
+    if splitting == 'lie':
+        prop_P_full, is_matrix_P, size_P = build_propagator(
+            P_expr, vars_x, dt, order=order,
+            quantization=quantization, apply_backend=apply_backend,
+        )
+        prop_P_half = None
+    else:  # 'strang'
+        prop_P_half, is_matrix_P, size_P = build_propagator(
+            P_expr, vars_x, dt / 2.0, order=order,
+            quantization=quantization, apply_backend=apply_backend,
+        )
+        prop_P_full = None
+
+    if not (is_matrix_P and is_matrix_Q):
+        raise ValueError(
+            "solve_sylvester_field requires matrix symbols for both P "
+            "and Q; got a scalar symbol for at least one of them."
+        )
+    if size_P != size_Q:
+        raise ValueError(
+            f"P_expr ({size_P}x{size_P}) and Q_expr ({size_Q}x{size_Q}) "
+            "must have the same size."
+        )
+    size = size_P
+
+    U0 = F(X) if Y is None else F(X, Y)
+    U0 = np.asarray(U0, dtype=complex)
+    if U0.shape[0] != size or U0.shape[1] != size:
+        raise ValueError(
+            f"F must return a {size}x{size} matrix field, got shape "
+            f"{U0.shape[:2]}."
+        )
+
+    def step(U):
+        if splitting == 'lie':
+            U = prop_P_full.apply_matrix_field(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
+            U = prop_Q_full.apply_matrix_field_right(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
+        else:  # 'strang'
+            U = prop_P_half.apply_matrix_field(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
+            U = prop_Q_full.apply_matrix_field_right(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
+            U = prop_P_half.apply_matrix_field(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
+        return np.asarray(U, dtype=complex)
+
+    t_arr, U_arr = _run_time_loop(step, U0, dt, n_steps, save_every, check_finite)
+    return t_arr, U_arr, grids
+
+def solve_ricci_flow_conformal_2d(phi0, dt, n_steps, order=3, L=8.0, N=64,
+                                   save_every=1, quantization='kohn-nirenberg',
+                                   apply_backend='peetre', check_finite=True):
+    """
+    Integrate 2D Ricci flow in conformal gauge on a flat, doubly periodic
+    background.
+
+    Writing the metric as `g = e^{2φ}(dx² + dy²)`, the Gauss curvature is
+    `K = −e^{−2φ}Δφ` and, since `R_ij = K·g_ij` in two dimensions, the
+    tensorial flow `∂ₜg_ij = −2R_ij` collapses to the scalar quasi-linear
+    heat equation
+
+        ∂ₜφ = e^{−2φ} Δφ ,
+
+    with `Δ = ∂ₓ² + ∂ᵧ²` the flat Laplacian. This is NOT handled by
+    `psiop`'s ordinary linear/matrix machinery: the coefficient
+    `e^{−2φ}` depends on the evolving solution itself, so no fixed
+    `sympy` symbol `p(x, ξ)` describes the operator ahead of time.
+
+    Instead, each step uses an IMEX/Lie splitting that still reuses
+    `psiop`'s exact exponential propagator for the stiff part:
+
+    1. **Explicit correction** — using the *current* coefficient field
+       `c(x) = e^{−2φ(x)}`, compute `Δφ` once via a plain (x-independent)
+       Laplacian `PseudoDifferentialOperator`, and take one explicit
+       Euler sub-step with the deviation of `c` from its spatial average
+       `c₀`: `residual = (c − c₀) Δφ`.
+    2. **Stiff step** — propagate the spatially averaged, x-independent
+       (Fourier-multiplier) generator `c₀·Δ` applied to the
+       explicitly-corrected field. Since `c0 * lap_symbol` is a pure
+       Fourier multiplier, `exp(dt · c0 · Δ)` has the closed form
+       `exp(-dt · c0 · |k|^2)` on this grid -- applied directly via FFT
+       instead of rebuilding an asymptotic exponential-symbol propagator
+       through `build_propagator` on every step. This is both cheaper
+       (no symbolic recomputation per step) and *more* accurate (exact
+       exponential instead of an order-`n` Taylor truncation in dt);
+       `order` is kept only for backward compatibility and no longer
+       affects the stiff step.
+
+    This freezes the quasi-linear coefficient once per step (a Rothe-type
+    linearization), so accuracy in `dt` is limited by that freezing, not
+    by the stiff step itself, which is now exact for the frozen
+    (constant-coefficient) part at every step.
+
+    Parameters
+    ----------
+    phi0 : callable
+        Initial conformal factor, called as `phi0(X, Y)` on the
+        meshgrid-ed spatial coordinates; must return a real-valued array.
+    dt : float
+        Time step.
+    n_steps : int
+        Number of steps to take.
+    order : int, optional
+        Kept for backward compatibility; no longer affects the (now
+        closed-form) stiff step. Default 3.
+    L : float, optional
+        Half-width of the (periodic) spatial domain along each axis.
+        Default 8.0.
+    N : int, optional
+        Number of grid points per axis. Default 64.
+    save_every : int, optional
+        Save every `save_every` steps (plus the final step and `t=0`).
+        Default 1.
+    quantization : str, optional
+        Quantization convention used for the explicit Laplacian
+        evaluation. Default 'kohn-nirenberg'.
+    apply_backend : str, optional
+        Numerical application backend for the explicit Laplacian
+        evaluation. Default 'peetre'.
+    check_finite : bool, default True
+        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead
+        of silently returning a diverged trajectory.
+
+    Returns
+    -------
+    t_list : ndarray
+        Saved time points, starting at 0.
+    phi_list : ndarray, shape (n_saved, N, N)
+        Saved conformal-factor snapshots `φ(x, y, t)`; the metric at each
+        saved time is `g(t) = e^{2·phi_list[k]} (dx² + dy²)`.
+    grids : tuple of ndarray
+        `(x, y)` spatial grids, as returned by `make_grid_2d`.
+    """
+    x_s, y_s, xi_s, eta_s = sp.symbols('x y xi eta', real=True)
+    lap_symbol = -(xi_s**2 + eta_s**2)
+
+    x_grid, y_grid, kx, ky = make_grid_2d(L, N)
+    X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
+    KX, KY = np.meshgrid(kx, ky, indexing='ij')
+    K2 = KX**2 + KY**2  # |xi|^2 + |eta|^2, i.e. -lap_symbol on this grid
+
+    lap_op = PseudoDifferentialOperator(
+        lap_symbol, [x_s, y_s], mode='symbol',
+        quantization=quantization, apply_backend=apply_backend,
+    )
+
+    # phi is real-valued by construction -- no need for complex dtype here.
+    phi = np.asarray(phi0(X, Y), dtype=float)
+    t_list = [0.0]
+    phi_list = [phi.copy()]
+    t = 0.0
+
+    for n in range(1, n_steps + 1):
+        c = np.exp(-2 * phi)
+        c0 = float(np.mean(c))
+
+        lap_phi = lap_op.apply(phi, x_grid, kx, y_grid=y_grid, ky=ky).real
+        residual = (c - c0) * lap_phi
+        phi_explicit = phi + dt * residual
+
+        # Closed-form stiff step: exp(dt * c0 * Delta) is exactly the
+        # Fourier multiplier exp(-dt * c0 * |k|^2) for this x-independent
+        # generator -- apply it directly instead of rebuilding an
+        # asymptotic exponential-symbol propagator every step.
+        phi_hat = np.fft.fft2(phi_explicit)
+        phi_hat *= np.exp(-dt * c0 * K2)
+        phi = np.fft.ifft2(phi_hat).real
+
+        if check_finite and not np.isfinite(phi).all():
+            raise FloatingPointError(
+                f"Non-finite values detected at step {n} (t={t + dt:.6g}); "
+                "reduce dt or the spatial resolution N."
+            )
+
+        t += dt
+        if n % save_every == 0 or n == n_steps:
+            t_list.append(t)
+            phi_list.append(phi.copy())
+
+    return np.array(t_list), np.array(phi_list), (x_grid, y_grid)
+
+    return np.array(t_list), np.array(phi_list), (x_grid, y_grid)
 # ----------------------------------------------------------------------
 # Visualization
 # ----------------------------------------------------------------------
@@ -8558,384 +8921,3 @@ def animate_singularity_3d(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
     if save_path:
         anim.save(save_path)
     return anim
-
-
-def solve_matrix_field(s_expr, vars_x, F, dt, n_steps, order=3,
-                        L=10.0, N=256, apply_kwargs=None, save_every=1,
-                        quantization='kohn-nirenberg', apply_backend='peetre',
-                        check_finite=True):
-    """
-    Time-step the matrix-field evolution equation `∂ₜU = P U`, where `P`
-    is the pseudo-differential operator with N×N matrix symbol `s_expr`
-    and `U(x)` is itself an N×N matrix at every spatial point (e.g. a
-    density matrix or matrix Green's function), with `P` acting on `U`
-    only from the left: `(P U)_ik = Σⱼ Op[P_ij](U_jk)`. This repeatedly
-    applies the exponential propagator `Op(exp(dt·s))` built by
-    `build_propagator`, via
-    `MatrixPseudoDifferentialOperator.apply_matrix_field`, exactly as
-    `solve` does for vector fields via `apply`.
-
-    Parameters
-    ----------
-    s_expr : sympy.MatrixBase or nested list of sympy.Expr
-        N×N matrix symbol `S(x, ξ)` of the generator `P`; must be
-        matrix-valued (matrix left-multiplication only makes sense at
-        `N > 1` -- use `solve` for a scalar generator).
-    vars_x : list of sympy symbols
-        Spatial variables (length 1 or 2).
-    F : callable
-        Initial matrix field `U(·, 0)`, called as `F(X)` in 1D or
-        `F(X, Y)` in 2D on the meshgrid-ed spatial coordinates, and
-        expected to return an N×N array/nested list of grid-shaped
-        components (`F(...)[j][k]`, or an ndarray of shape
-        `(N, N, *grid_shape)`).
-    dt : float
-        Time step.
-    n_steps : int
-        Number of propagator applications (time steps) to take.
-    order : int, optional
-        Truncation order of the exponential symbol expansion. Default 3.
-    L : float, optional
-        Half-width of the spatial domain. Default 10.0.
-    N : int, optional
-        Number of grid points per axis. Default 256.
-    apply_kwargs : dict, optional
-        Extra keyword arguments forwarded to `apply_matrix_field`.
-    save_every : int, optional
-        Save the solution every `save_every` steps (plus the final step
-        and `t=0`). Default 1 (save every step).
-    quantization : str, optional
-        Quantization convention. Default 'kohn-nirenberg'.
-    apply_backend : str, optional
-        Numerical application backend. Default 'peetre'.
-    check_finite : bool, default True
-        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead of
-        silently returning a diverged trajectory.
-
-    Returns
-    -------
-    t_list : ndarray
-        Saved time points, starting at 0.
-    U_list : ndarray, shape (n_saved, N, N, *grid_shape)
-        Saved matrix-field snapshots `U(t)`.
-    grids : tuple of ndarray
-        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D, as returned by
-        `make_grid_1d`/`make_grid_2d`.
-
-    Raises
-    ------
-    NotImplementedError
-        If `vars_x` has a length other than 1 or 2.
-    ValueError
-        If `s_expr` is not matrix-valued, or `F` does not return an
-        N×N field.
-    """
-    apply_kwargs = dict(apply_kwargs or {})
-    X, Y, x, y_grid, kx, ky, grids = _make_grids(vars_x, L, N)
-
-    prop, is_matrix, size = build_propagator(
-        s_expr, vars_x, dt, order=order,
-        quantization=quantization, apply_backend=apply_backend,
-    )
-    if not is_matrix:
-        raise ValueError(
-            "solve_matrix_field requires a matrix symbol; got a scalar "
-            "symbol. Use solve_first_order() for scalar/vector fields instead."
-        )
-
-    U0 = F(X) if Y is None else F(X, Y)
-    U0 = np.asarray(U0, dtype=complex)
-    if U0.shape[0] != size or U0.shape[1] != size:
-        raise ValueError(
-            f"F must return a {size}x{size} matrix field, got shape "
-            f"{U0.shape[:2]}."
-        )
-
-    def step(U):
-        result = prop.apply_matrix_field(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
-        return np.asarray(result, dtype=complex)
-
-    t_arr, U_arr = _run_time_loop(step, U0, dt, n_steps, save_every, check_finite)
-    return t_arr, U_arr, grids
-
-def solve_sylvester_field(P_expr, Q_expr, vars_x, F, dt, n_steps, order=3,
-                           splitting='strang', L=10.0, N=256,
-                           apply_kwargs=None, save_every=1,
-                           quantization='kohn-nirenberg', apply_backend='peetre',
-                           check_finite=True):
-    """
-    Time-step the Sylvester-type matrix-field evolution equation
-    `∂ₜU = P U − U Q`, where `P` and `Q` are pseudo-differential
-    operators with N×N matrix symbols and `U(x)` is an N×N matrix at
-    every spatial point.
-
-    Left-multiplication by `P` and right-multiplication by `Q` always
-    commute as *operations* (`(P U) Q == P (U Q)`), so when `P` and `Q`
-    are x-independent (Fourier multipliers), the exact solution over a
-    step `dt` is the closed-form
-
-        U(t) = exp(t P) U(0) exp(-t Q) ,
-
-    obtained by applying the left-propagator `Op(exp(dt·P))`
-    (`apply_matrix_field`) and the right-propagator `Op(exp(-dt·Q))`
-    (`apply_matrix_field_right`), in either order. When `P` and/or `Q`
-    depend on x, `Op[P_ij]` and `Op[Q_jk]` need not commute with each
-    other, so the two sub-steps no longer combine exactly; this function
-    then falls back to a standard Lie-Trotter (first-order, `O(dt)`
-    splitting error) or Strang (second-order, `O(dt^2)`) operator
-    splitting between the left and right exponential propagators.
-
-    Parameters
-    ----------
-    P_expr : sympy.MatrixBase or nested list of sympy.Expr
-        N×N matrix symbol `P(x, ξ)` acting on U from the left.
-    Q_expr : sympy.MatrixBase or nested list of sympy.Expr
-        N×N matrix symbol `Q(x, ξ)` acting on U from the right (with a
-        minus sign, as in `∂ₜU = P U − U Q`); must be the same size as
-        `P_expr`.
-    vars_x : list of sympy symbols
-        Spatial variables (length 1 or 2).
-    F : callable
-        Initial matrix field `U(·, 0)`, called as `F(X)` in 1D or
-        `F(X, Y)` in 2D, returning an N×N array/nested list of
-        grid-shaped components (as for `solve_matrix_field`).
-    dt : float
-        Time step.
-    n_steps : int
-        Number of splitting steps (each advancing `U` by `dt`).
-    order : int, optional
-        Truncation order of each exponential-symbol expansion. Default 3.
-    splitting : str, {'lie', 'strang'}, optional
-        Operator-splitting scheme between the `P` (left) and `Q` (right)
-        sub-steps:
-
-        - 'lie'    : one full left step `exp(dt·P)`, then one full right
-                     step `exp(-dt·Q)` -- first order accurate, `O(dt)`.
-        - 'strang' : half left step `exp(dt/2·P)`, full right step
-                     `exp(-dt·Q)`, half left step `exp(dt/2·P)` --
-                     second order accurate, `O(dt^2)`. Default.
-    L : float, optional
-        Half-width of the spatial domain. Default 10.0.
-    N : int, optional
-        Number of grid points per axis. Default 256.
-    apply_kwargs : dict, optional
-        Extra keyword arguments forwarded to `apply_matrix_field` and
-        `apply_matrix_field_right`.
-    save_every : int, optional
-        Save the solution every `save_every` steps (plus the final step
-        and `t=0`). Default 1.
-    quantization : str, optional
-        Quantization convention. Default 'kohn-nirenberg'.
-    apply_backend : str, optional
-        Numerical application backend. Default 'peetre'.
-    check_finite : bool, default True
-        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead
-        of silently returning a diverged trajectory.
-
-    Returns
-    -------
-    t_list : ndarray
-        Saved time points, starting at 0.
-    U_list : ndarray, shape (n_saved, N, N, *grid_shape)
-        Saved matrix-field snapshots `U(t)`.
-    grids : tuple of ndarray
-        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D.
-
-    Raises
-    ------
-    NotImplementedError
-        If `vars_x` has a length other than 1 or 2.
-    ValueError
-        If `P_expr`/`Q_expr` are not matrix-valued of matching size, if
-        `F` does not return an N×N field, or if `splitting` is not
-        'lie' or 'strang'.
-    """
-    if splitting not in ('lie', 'strang'):
-        raise ValueError("splitting must be 'lie' or 'strang'.")
-
-    apply_kwargs = dict(apply_kwargs or {})
-    X, Y, x, y_grid, kx, ky, grids = _make_grids(vars_x, L, N)
-
-    prop_Q_full, is_matrix_Q, size_Q = build_propagator(
-        Q_expr, vars_x, -dt, order=order,
-        quantization=quantization, apply_backend=apply_backend,
-    )
-    if splitting == 'lie':
-        prop_P_full, is_matrix_P, size_P = build_propagator(
-            P_expr, vars_x, dt, order=order,
-            quantization=quantization, apply_backend=apply_backend,
-        )
-        prop_P_half = None
-    else:  # 'strang'
-        prop_P_half, is_matrix_P, size_P = build_propagator(
-            P_expr, vars_x, dt / 2.0, order=order,
-            quantization=quantization, apply_backend=apply_backend,
-        )
-        prop_P_full = None
-
-    if not (is_matrix_P and is_matrix_Q):
-        raise ValueError(
-            "solve_sylvester_field requires matrix symbols for both P "
-            "and Q; got a scalar symbol for at least one of them."
-        )
-    if size_P != size_Q:
-        raise ValueError(
-            f"P_expr ({size_P}x{size_P}) and Q_expr ({size_Q}x{size_Q}) "
-            "must have the same size."
-        )
-    size = size_P
-
-    U0 = F(X) if Y is None else F(X, Y)
-    U0 = np.asarray(U0, dtype=complex)
-    if U0.shape[0] != size or U0.shape[1] != size:
-        raise ValueError(
-            f"F must return a {size}x{size} matrix field, got shape "
-            f"{U0.shape[:2]}."
-        )
-
-    def step(U):
-        if splitting == 'lie':
-            U = prop_P_full.apply_matrix_field(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
-            U = prop_Q_full.apply_matrix_field_right(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
-        else:  # 'strang'
-            U = prop_P_half.apply_matrix_field(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
-            U = prop_Q_full.apply_matrix_field_right(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
-            U = prop_P_half.apply_matrix_field(U, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
-        return np.asarray(U, dtype=complex)
-
-    t_arr, U_arr = _run_time_loop(step, U0, dt, n_steps, save_every, check_finite)
-    return t_arr, U_arr, grids
-
-def solve_ricci_flow_conformal_2d(phi0, dt, n_steps, order=3, L=8.0, N=64,
-                                   save_every=1, quantization='kohn-nirenberg',
-                                   apply_backend='peetre', check_finite=True):
-    """
-    Integrate 2D Ricci flow in conformal gauge on a flat, doubly periodic
-    background.
-
-    Writing the metric as `g = e^{2φ}(dx² + dy²)`, the Gauss curvature is
-    `K = −e^{−2φ}Δφ` and, since `R_ij = K·g_ij` in two dimensions, the
-    tensorial flow `∂ₜg_ij = −2R_ij` collapses to the scalar quasi-linear
-    heat equation
-
-        ∂ₜφ = e^{−2φ} Δφ ,
-
-    with `Δ = ∂ₓ² + ∂ᵧ²` the flat Laplacian. This is NOT handled by
-    `psiop`'s ordinary linear/matrix machinery: the coefficient
-    `e^{−2φ}` depends on the evolving solution itself, so no fixed
-    `sympy` symbol `p(x, ξ)` describes the operator ahead of time.
-
-    Instead, each step uses an IMEX/Lie splitting that still reuses
-    `psiop`'s exact exponential propagator for the stiff part:
-
-    1. **Explicit correction** — using the *current* coefficient field
-       `c(x) = e^{−2φ(x)}`, compute `Δφ` once via a plain (x-independent)
-       Laplacian `PseudoDifferentialOperator`, and take one explicit
-       Euler sub-step with the deviation of `c` from its spatial average
-       `c₀`: `residual = (c − c₀) Δφ`.
-    2. **Stiff step** — propagate the spatially averaged, x-independent
-       (Fourier-multiplier) generator `c₀·Δ` applied to the
-       explicitly-corrected field. Since `c0 * lap_symbol` is a pure
-       Fourier multiplier, `exp(dt · c0 · Δ)` has the closed form
-       `exp(-dt · c0 · |k|^2)` on this grid -- applied directly via FFT
-       instead of rebuilding an asymptotic exponential-symbol propagator
-       through `build_propagator` on every step. This is both cheaper
-       (no symbolic recomputation per step) and *more* accurate (exact
-       exponential instead of an order-`n` Taylor truncation in dt);
-       `order` is kept only for backward compatibility and no longer
-       affects the stiff step.
-
-    This freezes the quasi-linear coefficient once per step (a Rothe-type
-    linearization), so accuracy in `dt` is limited by that freezing, not
-    by the stiff step itself, which is now exact for the frozen
-    (constant-coefficient) part at every step.
-
-    Parameters
-    ----------
-    phi0 : callable
-        Initial conformal factor, called as `phi0(X, Y)` on the
-        meshgrid-ed spatial coordinates; must return a real-valued array.
-    dt : float
-        Time step.
-    n_steps : int
-        Number of steps to take.
-    order : int, optional
-        Kept for backward compatibility; no longer affects the (now
-        closed-form) stiff step. Default 3.
-    L : float, optional
-        Half-width of the (periodic) spatial domain along each axis.
-        Default 8.0.
-    N : int, optional
-        Number of grid points per axis. Default 64.
-    save_every : int, optional
-        Save every `save_every` steps (plus the final step and `t=0`).
-        Default 1.
-    quantization : str, optional
-        Quantization convention used for the explicit Laplacian
-        evaluation. Default 'kohn-nirenberg'.
-    apply_backend : str, optional
-        Numerical application backend for the explicit Laplacian
-        evaluation. Default 'peetre'.
-    check_finite : bool, default True
-        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead
-        of silently returning a diverged trajectory.
-
-    Returns
-    -------
-    t_list : ndarray
-        Saved time points, starting at 0.
-    phi_list : ndarray, shape (n_saved, N, N)
-        Saved conformal-factor snapshots `φ(x, y, t)`; the metric at each
-        saved time is `g(t) = e^{2·phi_list[k]} (dx² + dy²)`.
-    grids : tuple of ndarray
-        `(x, y)` spatial grids, as returned by `make_grid_2d`.
-    """
-    x_s, y_s, xi_s, eta_s = sp.symbols('x y xi eta', real=True)
-    lap_symbol = -(xi_s**2 + eta_s**2)
-
-    x_grid, y_grid, kx, ky = make_grid_2d(L, N)
-    X, Y = np.meshgrid(x_grid, y_grid, indexing='ij')
-    KX, KY = np.meshgrid(kx, ky, indexing='ij')
-    K2 = KX**2 + KY**2  # |xi|^2 + |eta|^2, i.e. -lap_symbol on this grid
-
-    lap_op = PseudoDifferentialOperator(
-        lap_symbol, [x_s, y_s], mode='symbol',
-        quantization=quantization, apply_backend=apply_backend,
-    )
-
-    # phi is real-valued by construction -- no need for complex dtype here.
-    phi = np.asarray(phi0(X, Y), dtype=float)
-    t_list = [0.0]
-    phi_list = [phi.copy()]
-    t = 0.0
-
-    for n in range(1, n_steps + 1):
-        c = np.exp(-2 * phi)
-        c0 = float(np.mean(c))
-
-        lap_phi = lap_op.apply(phi, x_grid, kx, y_grid=y_grid, ky=ky).real
-        residual = (c - c0) * lap_phi
-        phi_explicit = phi + dt * residual
-
-        # Closed-form stiff step: exp(dt * c0 * Delta) is exactly the
-        # Fourier multiplier exp(-dt * c0 * |k|^2) for this x-independent
-        # generator -- apply it directly instead of rebuilding an
-        # asymptotic exponential-symbol propagator every step.
-        phi_hat = np.fft.fft2(phi_explicit)
-        phi_hat *= np.exp(-dt * c0 * K2)
-        phi = np.fft.ifft2(phi_hat).real
-
-        if check_finite and not np.isfinite(phi).all():
-            raise FloatingPointError(
-                f"Non-finite values detected at step {n} (t={t + dt:.6g}); "
-                "reduce dt or the spatial resolution N."
-            )
-
-        t += dt
-        if n % save_every == 0 or n == n_steps:
-            t_list.append(t)
-            phi_list.append(phi.copy())
-
-    return np.array(t_list), np.array(phi_list), (x_grid, y_grid)
-
-    return np.array(t_list), np.array(phi_list), (x_grid, y_grid)
