@@ -77,6 +77,9 @@
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.compose_asymptotic"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.compose_asymptotic()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.eigen_symbol"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.eigen_symbol()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.exponential_symbol"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.exponential_symbol()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.formal_adjoint"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.formal_adjoint()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.left_inverse_asymptotic"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.left_inverse_asymptotic()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.right_inverse_asymptotic"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.right_inverse_asymptotic()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.symbol_matrix"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.symbol_matrix()</span></code></a></li>
 </ul>
 </li>
@@ -839,6 +842,36 @@ general two-operator case.</p></li>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="psiop.MatrixPseudoDifferentialOperator.formal_adjoint">
+<span class="sig-name descname"><span class="pre">formal_adjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_terms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#MatrixPseudoDifferentialOperator.formal_adjoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.MatrixPseudoDifferentialOperator.formal_adjoint" title="Link to this definition"></a></dt>
+<dd><p>Formal Hermitian adjoint symbol P* of the matrix operator.</p>
+<p>Each entry gets the same scalar treatment as
+<cite>PseudoDifferentialOperator.formal_adjoint</cite> (conjugate + asymptotic
+expansion at infinity in <a href="#id19"><span class="problematic" id="id20">|xi|</span></a>); the resulting matrix is then
+transposed (not conjugate-transposed again – conjugation already
+happened entrywise) because (Op[P]u, v) = (u, Op[P]* v) swaps the
+row/column roles of the symbol, same as for a plain matrix adjoint.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="psiop.MatrixPseudoDifferentialOperator.left_inverse_asymptotic">
+<span class="sig-name descname"><span class="pre">left_inverse_asymptotic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#MatrixPseudoDifferentialOperator.left_inverse_asymptotic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.MatrixPseudoDifferentialOperator.left_inverse_asymptotic" title="Link to this definition"></a></dt>
+<dd><p>Formal left inverse L such that Op[L] . Op[self] ~ Id up to
+O(&lt;xi&gt;^-order), matrix analogue of
+PseudoDifferentialOperator.left_inverse_asymptotic. Requires
+the symbol P(x, xi) to be invertible as a matrix.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="psiop.MatrixPseudoDifferentialOperator.right_inverse_asymptotic">
+<span class="sig-name descname"><span class="pre">right_inverse_asymptotic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#MatrixPseudoDifferentialOperator.right_inverse_asymptotic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.MatrixPseudoDifferentialOperator.right_inverse_asymptotic" title="Link to this definition"></a></dt>
+<dd><p>Formal right inverse R such that Op[self] . Op[R] ~ Id up to
+O(&lt;xi&gt;^-order), matrix analogue of
+PseudoDifferentialOperator.right_inverse_asymptotic. Requires
+the symbol P(x, xi) to be invertible as a matrix.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="psiop.MatrixPseudoDifferentialOperator.symbol_matrix">
 <span class="sig-name descname"><span class="pre">symbol_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#MatrixPseudoDifferentialOperator.symbol_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.MatrixPseudoDifferentialOperator.symbol_matrix" title="Link to this definition"></a></dt>
 <dd><p>Numerically evaluate P(x[, y], xi[, eta]) at a point or
@@ -1077,10 +1110,10 @@ Kohn-Nirenberg equivalent before the Peetre decomposition is performed.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.asymptotic_expansion">
 <span class="sig-name descname"><span class="pre">asymptotic_expansion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.asymptotic_expansion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.asymptotic_expansion" title="Link to this definition"></a></dt>
-<dd><p>Compute the asymptotic expansion of the symbol as <a href="#id19"><span class="problematic" id="id20">|ξ|</span></a> → ∞ (high-frequency regime).</p>
+<dd><p>Compute the asymptotic expansion of the symbol as <a href="#id21"><span class="problematic" id="id22">|ξ|</span></a> → ∞ (high-frequency regime).</p>
 <p>This method expands the pseudo-differential symbol in inverse powers of the
 frequency variable(s), either in 1D or 2D. It handles both polynomial and
-exponential symbols by performing a series expansion in 1/<a href="#id21"><span class="problematic" id="id22">|ξ|</span></a> up to the specified order.</p>
+exponential symbols by performing a series expansion in 1/<a href="#id23"><span class="problematic" id="id24">|ξ|</span></a> up to the specified order.</p>
 <p>The expansion is performed directly in Cartesian coordinates for 1D symbols.
 For 2D symbols, the method uses polar coordinates (ρ, θ) to perform the expansion
 at infinity in ρ, then converts the result back to Cartesian coordinates.</p>
@@ -1259,7 +1292,7 @@ expansion via iterated composition:
 exp(tP) ~ I + tP + (t²/2!)P∘P + (t³/3!)P∘P∘P + …</p></li>
 <li><p>Each power P^n is computed via compose_asymptotic, which accounts
 for the non-commutativity through derivative terms.</p></li>
-<li><p>The expansion is valid for <a href="#id23"><span class="problematic" id="id24">|t|</span></a> small enough or when the symbol has
+<li><p>The expansion is valid for <a href="#id25"><span class="problematic" id="id26">|t|</span></a> small enough or when the symbol has
 appropriate decay/growth properties.</p></li>
 <li><p>In quantum mechanics (Schrödinger): U(t) = exp(-itH/ℏ) represents
 the time evolution operator.</p></li>
@@ -1402,13 +1435,13 @@ instead of duplicating their 1D/2D branches inline (previously
 R &gt; 0 such that</p>
 <blockquote>
 <div><dl class="simple">
-<dt><a href="#id25"><span class="problematic" id="id26">|p(x, ξ)|</span></a> ≥ C · (1 + <a href="#id27"><span class="problematic" id="id28">|ξ|²)^(m/2)     for all |ξ|</span></a> ≥ R (and x in the</dt><dd><p>region of interest).</p>
+<dt><a href="#id27"><span class="problematic" id="id28">|p(x, ξ)|</span></a> ≥ C · (1 + <a href="#id29"><span class="problematic" id="id30">|ξ|²)^(m/2)     for all |ξ|</span></a> ≥ R (and x in the</dt><dd><p>region of interest).</p>
 </dd>
 </dl>
 </div></blockquote>
 <p>Ellipticity is a <em>high-frequency</em> condition: it makes no requirement on the
-symbol near ξ = 0, so this method only probes the region <a href="#id29"><span class="problematic" id="id30">|ξ|</span></a> ≥ R, where R
-is taken as a fraction (<cite>xi_frac</cite>) of the largest <a href="#id31"><span class="problematic" id="id32">|ξ|</span></a> present in <cite>xi_grid</cite>.
+symbol near ξ = 0, so this method only probes the region <a href="#id31"><span class="problematic" id="id32">|ξ|</span></a> ≥ R, where R
+is taken as a fraction (<cite>xi_frac</cite>) of the largest <a href="#id33"><span class="problematic" id="id34">|ξ|</span></a> present in <cite>xi_grid</cite>.
 This intentionally excludes the low-frequency region, so a symbol like the
 harmonic oscillator x² + ξ² — which has an isolated zero at (0, 0) but is
 the textbook example of a globally elliptic symbol — is correctly detected
@@ -1425,15 +1458,15 @@ For 2D: a tuple (ξ, η) of two 1D arrays.</p></li>
 If None (default), it is auto-detected via <cite>self.symbol_order()</cite>. Raises
 ValueError if auto-detection fails and no <cite>order</cite> was supplied.</p></li>
 <li><p><strong>threshold</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum acceptable value of the <em>normalized</em> symbol
-<a href="#id33"><span class="problematic" id="id34">|p(x,ξ)|</span></a> / (1 + <a href="#id9"><span class="problematic" id="id10">|</span></a>ξ|²)^(m/2), i.e. the constant C in the ellipticity
+<a href="#id35"><span class="problematic" id="id36">|p(x,ξ)|</span></a> / (1 + <a href="#id9"><span class="problematic" id="id10">|</span></a>ξ|²)^(m/2), i.e. the constant C in the ellipticity
 definition above. Default is 1e-6.</p></li>
-<li><p><strong>xi_frac</strong> (<em>float</em><em>, </em><em>optional</em>) – Fraction (in (0, 1)) of the largest <a href="#id35"><span class="problematic" id="id36">|ξ|</span></a> available in <cite>xi_grid</cite> used as
-the high-frequency cutoff R. Only points with <a href="#id37"><span class="problematic" id="id38">|ξ|</span></a> ≥ R are tested.
+<li><p><strong>xi_frac</strong> (<em>float</em><em>, </em><em>optional</em>) – Fraction (in (0, 1)) of the largest <a href="#id37"><span class="problematic" id="id38">|ξ|</span></a> available in <cite>xi_grid</cite> used as
+the high-frequency cutoff R. Only points with <a href="#id39"><span class="problematic" id="id40">|ξ|</span></a> ≥ R are tested.
 Default is 0.5.</p></li>
 <li><p><strong>n_random</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of random points sampled in the high-frequency region. Default
 100_000.</p></li>
 <li><p><strong>n_edge</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of spatial points per dimension used in the deterministic check
-performed at the largest available <a href="#id39"><span class="problematic" id="id40">|ξ|</span></a> (the edge of the supplied grid).
+performed at the largest available <a href="#id41"><span class="problematic" id="id42">|ξ|</span></a> (the edge of the supplied grid).
 Default 32.</p></li>
 <li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Seed for the random sampling, for reproducible results. Default None
 (non-deterministic across calls).</p></li>
@@ -1450,10 +1483,10 @@ point in the high-frequency region, otherwise False.</p>
 <p class="rubric">Notes</p>
 <dl class="simple">
 <dt>This method combines two checks:</dt><dd><ol class="arabic simple">
-<li><p><strong>Random sampling</strong> in the shell <a href="#id41"><span class="problematic" id="id42">|ξ|</span></a> ≥ R (rejection-sampled from the
+<li><p><strong>Random sampling</strong> in the shell <a href="#id43"><span class="problematic" id="id44">|ξ|</span></a> ≥ R (rejection-sampled from the
 hyperrectangle defined by <cite>xi_grid</cite>’s extremes).</p></li>
 <li><p><strong>Deterministic edge sampling</strong> — the symbol is evaluated at the
-largest available <a href="#id43"><span class="problematic" id="id44">|ξ|</span></a> (the corners/extremes of <cite>xi_grid</cite>) over a
+largest available <a href="#id45"><span class="problematic" id="id46">|ξ|</span></a> (the corners/extremes of <cite>xi_grid</cite>) over a
 spatial grid of <cite>n_edge</cite> points per dimension, to guarantee the most
 informative high-frequency points are always checked, not just
 randomly sampled ones.</p></li>
@@ -1641,12 +1674,12 @@ instead of re-deriving the Hamiltonian vector field inline.</p>
 <span class="sig-name descname"><span class="pre">principal_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.principal_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.principal_symbol" title="Link to this definition"></a></dt>
 <dd><p>Compute the leading homogeneous component of the pseudo-differential symbol.</p>
 <p>This method extracts the principal part of the symbol, which is the dominant
-term under high-frequency asymptotics (<a href="#id45"><span class="problematic" id="id46">|ξ|</span></a> → ∞). The expansion is performed
+term under high-frequency asymptotics (<a href="#id47"><span class="problematic" id="id48">|ξ|</span></a> → ∞). The expansion is performed
 in polar coordinates for 2D symbols to maintain rotational symmetry, then
 converted back to Cartesian form.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>order</strong> (<em>int</em>) – Order of the asymptotic expansion in powers of 1/ρ, where ρ = <a href="#id47"><span class="problematic" id="id48">|ξ|</span></a> in 1D
+<dd class="field-odd"><p><strong>order</strong> (<em>int</em>) – Order of the asymptotic expansion in powers of 1/ρ, where ρ = <a href="#id49"><span class="problematic" id="id50">|ξ|</span></a> in 1D
 or ρ = sqrt(ξ² + η²) in 2D. Only the leading-order term is returned.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1847,7 +1880,7 @@ coherent states / Weyl quantization.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_characteristic_gradient">
 <span class="sig-name descname"><span class="pre">visualize_characteristic_gradient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_characteristic_gradient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_characteristic_gradient" title="Link to this definition"></a></dt>
-<dd><p>Visualize <a href="#id49"><span class="problematic" id="id50">|grad p|</span></a> in phase space. NOTE: both the 1D and 2D
+<dd><p>Visualize <a href="#id51"><span class="problematic" id="id52">|grad p|</span></a> in phase space. NOTE: both the 1D and 2D
 branches now consistently use abs(.)**2 in the gradient norm (the
 original 1D branch omitted the abs(), inconsistently with 2D).</p>
 </dd></dl>
@@ -1871,7 +1904,7 @@ for both frequency axes, matching the original behavior exactly.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_micro_support">
 <span class="sig-name descname"><span class="pre">visualize_micro_support</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-10,</span> <span class="pre">10)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_micro_support"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_micro_support" title="Link to this definition"></a></dt>
-<dd><p>Visualize 1/<a href="#id51"><span class="problematic" id="id52">|p(x, xi)|</span></a> to highlight regions where the symbol is
+<dd><p>Visualize 1/<a href="#id53"><span class="problematic" id="id54">|p(x, xi)|</span></a> to highlight regions where the symbol is
 near zero. NOTE: no longer restricted to 1D – the shared grid/render
 helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y).</p>
 </dd></dl>
@@ -1885,7 +1918,7 @@ helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y).</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_symbol_amplitude">
 <span class="sig-name descname"><span class="pre">visualize_symbol_amplitude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_symbol_amplitude"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_symbol_amplitude" title="Link to this definition"></a></dt>
-<dd><p>Display <a href="#id53"><span class="problematic" id="id54">|p(x, xi)|</span></a> (1D) or <a href="#id55"><span class="problematic" id="id56">|p(x, y, xi0, eta0)|</span></a> (2D) as a color map.</p>
+<dd><p>Display <a href="#id55"><span class="problematic" id="id56">|p(x, xi)|</span></a> (1D) or <a href="#id57"><span class="problematic" id="id58">|p(x, y, xi0, eta0)|</span></a> (2D) as a color map.</p>
 </dd></dl>
 
 <dl class="py method">
