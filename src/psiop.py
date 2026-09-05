@@ -7643,6 +7643,124 @@ def _run_time_loop(step_fn, U0, dt, n_steps, save_every, check_finite=True):
     return np.array(t_list), np.array(U_list)
 
 
+class PropagatorFamily:
+    """
+    A one-step propagator family exp(dt · Op[s]) for a *fixed* symbol `s`
+    but *variable* dt, built so that changing dt is cheap.
+
+    `build_propagator` rebuilds the full truncated exponential series
+    (via `exponential_symbol`, i.e. `order` rounds of symbolic
+    differentiation and `compose_asymptotic`) from scratch every time it
+    is called -- expensive, and wasteful if the same symbol is re-solved
+    at several different step sizes (a dt-convergence study, a parameter
+    sweep, or an adaptive/embedded stepper that changes dt every few
+    steps).
+
+    `exponential_symbol` already accepts `t` as a sympy Symbol, so this
+    class builds it ONCE with dt left symbolic, and produces a concrete
+    propagator for any numeric dt via a single cheap `sympy.subs` call --
+    skipping the `compose_asymptotic` recursion entirely on every
+    subsequent request. `build_propagator` below uses this internally
+    (via a small process-wide cache), so existing call sites benefit
+    automatically with no code changes required.
+
+    Parameters
+    ----------
+    s_expr : sympy.Expr or sympy.Matrix
+        Symbol expression (scalar or matrix-valued), same as
+        `build_propagator`.
+    vars_x : list of sympy.Symbol
+        Spatial variables.
+    order : int, default 3
+        Truncation order for both the Taylor series in t and the
+        asymptotic composition at each power.
+    quantization : {'kohn-nirenberg', 'weyl'}, default 'kohn-nirenberg'
+        Quantization convention for the resulting propagator.
+    mode_composition : {'kn', 'weyl'}, default 'kn'
+        Composition rule used inside `exponential_symbol`.
+    apply_backend : {'peetre', 'direct'}, default 'peetre'
+        Numerical backend attached to the propagator operator.
+
+    Examples
+    --------
+    >>> family = PropagatorFamily(xi**2, [x], order=4)
+    >>> prop_1, _, _ = family.propagator_for(0.01)
+    >>> prop_2, _, _ = family.propagator_for(0.02)   # cheap: no recomposition
+    >>> u1 = prop_1.apply(u, x_grid, kx)
+    """
+
+    def __init__(self, s_expr, vars_x, order=3, quantization='kohn-nirenberg',
+                 mode_composition='kn', apply_backend='peetre'):
+        self.vars_x = vars_x
+        self.order = order
+        self.quantization = quantization
+        self.mode_composition = mode_composition
+        self.apply_backend = apply_backend
+        self.is_matrix = isinstance(s_expr, (sp.MatrixBase, list, tuple))
+        self.size = None
+
+        self._dt_sym = sp.Symbol('_dt_family', positive=True)
+
+        if self.is_matrix:
+            s_mat = sp.Matrix(s_expr)
+            self.size = s_mat.shape[0]
+            op = MatrixPseudoDifferentialOperator(
+                s_mat, vars_x, mode='symbol',
+                quantization=quantization, apply_backend=apply_backend,
+            )
+        else:
+            op = PseudoDifferentialOperator(
+                s_expr, vars_x, mode='symbol',
+                quantization=quantization, apply_backend=apply_backend,
+            )
+
+        # The expensive step -- performed exactly ONCE, with dt symbolic.
+        self._Esym_generic = op.exponential_symbol(
+            t=self._dt_sym, order=order, mode=mode_composition,
+        )
+
+    def propagator_for(self, dt):
+        """
+        Return the concrete one-step propagator for a numeric `dt`.
+
+        Cheap: a single `sympy.subs` call -- no `compose_asymptotic`
+        recursion. Returns the same `(prop, is_matrix, size)` triple as
+        `build_propagator`, so it is a drop-in replacement at the call
+        site.
+        """
+        Esym = self._Esym_generic.subs(self._dt_sym, dt)
+
+        if self.is_matrix:
+            prop = MatrixPseudoDifferentialOperator(
+                Esym, self.vars_x, mode='symbol',
+                quantization=self.quantization, apply_backend=self.apply_backend,
+            )
+        else:
+            prop = PseudoDifferentialOperator(
+                Esym, self.vars_x, mode='symbol',
+                quantization=self.quantization, apply_backend=self.apply_backend,
+            )
+        return prop, self.is_matrix, self.size
+
+
+# Process-wide cache of PropagatorFamily objects, keyed by everything that
+# determines the *symbolic* composition (i.e. everything except dt itself).
+# `build_propagator` consults this before doing any symbolic work, so
+# repeated calls with the same symbol/order/quantization/backend but a
+# different `dt` reuse the expensive composition automatically.
+_propagator_family_cache = {}
+
+
+def _propagator_family_key(s_expr, vars_x, order, quantization,
+                            mode_composition, apply_backend):
+    if isinstance(s_expr, (sp.MatrixBase, list, tuple)):
+        expr_key = sp.srepr(sp.Matrix(s_expr))
+    else:
+        expr_key = sp.srepr(s_expr)
+    return (expr_key, tuple(str(v) for v in vars_x), order,
+            quantization, mode_composition, apply_backend)
+
+
 def build_propagator(s_expr, vars_x, dt, order=3, quantization='kohn-nirenberg',
                      mode_composition='kn', apply_backend='peetre'):
     """
@@ -7695,40 +7813,32 @@ def build_propagator(s_expr, vars_x, dt, order=3, quantization='kohn-nirenberg',
     derivative corrections vanish), so the only error is the Taylor
     truncation in dt.
 
+    This function is backed by a process-wide cache of `PropagatorFamily`
+    objects (see above), keyed on everything except `dt`. So calling it
+    repeatedly with the *same* `s_expr`/`vars_x`/`order`/`quantization`/
+    `mode_composition`/`apply_backend` but a *different* `dt` (e.g. a
+    step-size sweep, or an adaptive stepper) reuses the expensive
+    `exponential_symbol`/`compose_asymptotic` recursion instead of
+    redoing it from scratch -- only a cheap `sympy.subs` is performed per
+    new `dt`. The very first call for a given symbol still pays the full
+    cost.
+
     Examples
     --------
     >>> prop, is_mat, sz = build_propagator(xi**2, [x], dt=0.01, order=4)
     >>> u_next = prop.apply(u, x_grid, kx)
     """
-    is_matrix = isinstance(s_expr, (sp.MatrixBase, list, tuple))
-
-    if is_matrix:
-        s_mat = sp.Matrix(s_expr)
-        size = s_mat.shape[0]
-
-        op = MatrixPseudoDifferentialOperator(
-            s_mat, vars_x, mode='symbol',
-            quantization=quantization, apply_backend=apply_backend,
+    key = _propagator_family_key(s_expr, vars_x, order, quantization,
+                                  mode_composition, apply_backend)
+    family = _propagator_family_cache.get(key)
+    if family is None:
+        family = PropagatorFamily(
+            s_expr, vars_x, order=order, quantization=quantization,
+            mode_composition=mode_composition, apply_backend=apply_backend,
         )
-        Esym = op.exponential_symbol(t=dt, order=order, mode=mode_composition)
+        _propagator_family_cache[key] = family
 
-        prop = MatrixPseudoDifferentialOperator(
-            Esym, vars_x, mode='symbol',
-            quantization=quantization, apply_backend=apply_backend,
-        )
-        return prop, True, size
-    else:
-        op = PseudoDifferentialOperator(
-            s_expr, vars_x, mode='symbol',
-            quantization=quantization, apply_backend=apply_backend,
-        )
-        Esym = op.exponential_symbol(t=dt, order=order, mode=mode_composition)
-
-        prop = PseudoDifferentialOperator(
-            Esym, vars_x, mode='symbol',
-            quantization=quantization, apply_backend=apply_backend,
-        )
-        return prop, False, None
+    return family.propagator_for(dt)
 
 def solve_first_order(s_expr, vars_x, f, dt, n_steps, order=3,
                       L=10.0, N=256, apply_kwargs=None, save_every=1,

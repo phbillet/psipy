@@ -7925,6 +7925,130 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">t_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">U_list</span><span class="p">)</span>
 
 
+<div class="viewcode-block" id="PropagatorFamily">
+<a class="viewcode-back" href="../psiop.html#psiop.PropagatorFamily">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PropagatorFamily</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A one-step propagator family exp(dt · Op[s]) for a *fixed* symbol `s`</span>
+<span class="sd">    but *variable* dt, built so that changing dt is cheap.</span>
+
+<span class="sd">    `build_propagator` rebuilds the full truncated exponential series</span>
+<span class="sd">    (via `exponential_symbol`, i.e. `order` rounds of symbolic</span>
+<span class="sd">    differentiation and `compose_asymptotic`) from scratch every time it</span>
+<span class="sd">    is called -- expensive, and wasteful if the same symbol is re-solved</span>
+<span class="sd">    at several different step sizes (a dt-convergence study, a parameter</span>
+<span class="sd">    sweep, or an adaptive/embedded stepper that changes dt every few</span>
+<span class="sd">    steps).</span>
+
+<span class="sd">    `exponential_symbol` already accepts `t` as a sympy Symbol, so this</span>
+<span class="sd">    class builds it ONCE with dt left symbolic, and produces a concrete</span>
+<span class="sd">    propagator for any numeric dt via a single cheap `sympy.subs` call --</span>
+<span class="sd">    skipping the `compose_asymptotic` recursion entirely on every</span>
+<span class="sd">    subsequent request. `build_propagator` below uses this internally</span>
+<span class="sd">    (via a small process-wide cache), so existing call sites benefit</span>
+<span class="sd">    automatically with no code changes required.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    s_expr : sympy.Expr or sympy.Matrix</span>
+<span class="sd">        Symbol expression (scalar or matrix-valued), same as</span>
+<span class="sd">        `build_propagator`.</span>
+<span class="sd">    vars_x : list of sympy.Symbol</span>
+<span class="sd">        Spatial variables.</span>
+<span class="sd">    order : int, default 3</span>
+<span class="sd">        Truncation order for both the Taylor series in t and the</span>
+<span class="sd">        asymptotic composition at each power.</span>
+<span class="sd">    quantization : {&#39;kohn-nirenberg&#39;, &#39;weyl&#39;}, default &#39;kohn-nirenberg&#39;</span>
+<span class="sd">        Quantization convention for the resulting propagator.</span>
+<span class="sd">    mode_composition : {&#39;kn&#39;, &#39;weyl&#39;}, default &#39;kn&#39;</span>
+<span class="sd">        Composition rule used inside `exponential_symbol`.</span>
+<span class="sd">    apply_backend : {&#39;peetre&#39;, &#39;direct&#39;}, default &#39;peetre&#39;</span>
+<span class="sd">        Numerical backend attached to the propagator operator.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; family = PropagatorFamily(xi**2, [x], order=4)</span>
+<span class="sd">    &gt;&gt;&gt; prop_1, _, _ = family.propagator_for(0.01)</span>
+<span class="sd">    &gt;&gt;&gt; prop_2, _, _ = family.propagator_for(0.02)   # cheap: no recomposition</span>
+<span class="sd">    &gt;&gt;&gt; u1 = prop_1.apply(u, x_grid, kx)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">&#39;kohn-nirenberg&#39;</span><span class="p">,</span>
+                 <span class="n">mode_composition</span><span class="o">=</span><span class="s1">&#39;kn&#39;</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">&#39;peetre&#39;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span> <span class="o">=</span> <span class="n">vars_x</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">order</span> <span class="o">=</span> <span class="n">order</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quantization</span> <span class="o">=</span> <span class="n">quantization</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode_composition</span> <span class="o">=</span> <span class="n">mode_composition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_backend</span> <span class="o">=</span> <span class="n">apply_backend</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dt_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">&#39;_dt_family&#39;</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span><span class="p">:</span>
+            <span class="n">s_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">s_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">op</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">s_mat</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># The expensive step -- performed exactly ONCE, with dt symbolic.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Esym_generic</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">exponential_symbol</span><span class="p">(</span>
+            <span class="n">t</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_dt_sym</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode_composition</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="PropagatorFamily.propagator_for">
+<a class="viewcode-back" href="../psiop.html#psiop.PropagatorFamily.propagator_for">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">propagator_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the concrete one-step propagator for a numeric `dt`.</span>
+
+<span class="sd">        Cheap: a single `sympy.subs` call -- no `compose_asymptotic`</span>
+<span class="sd">        recursion. Returns the same `(prop, is_matrix, size)` triple as</span>
+<span class="sd">        `build_propagator`, so it is a drop-in replacement at the call</span>
+<span class="sd">        site.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">Esym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Esym_generic</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dt_sym</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span><span class="p">:</span>
+            <span class="n">prop</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">Esym</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_backend</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">prop</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">Esym</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_backend</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">prop</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span></div>
+</div>
+
+
+
+<span class="c1"># Process-wide cache of PropagatorFamily objects, keyed by everything that</span>
+<span class="c1"># determines the *symbolic* composition (i.e. everything except dt itself).</span>
+<span class="c1"># `build_propagator` consults this before doing any symbolic work, so</span>
+<span class="c1"># repeated calls with the same symbol/order/quantization/backend but a</span>
+<span class="c1"># different `dt` reuse the expensive composition automatically.</span>
+<span class="n">_propagator_family_cache</span> <span class="o">=</span> <span class="p">{}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_propagator_family_key</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">quantization</span><span class="p">,</span>
+                            <span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">expr_key</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">srepr</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">expr_key</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">srepr</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">expr_key</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vars_x</span><span class="p">),</span> <span class="n">order</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="p">,</span> <span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="build_propagator">
 <a class="viewcode-back" href="../psiop.html#psiop.build_propagator">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">build_propagator</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">&#39;kohn-nirenberg&#39;</span><span class="p">,</span>
@@ -7979,40 +8103,32 @@
 <span class="sd">    derivative corrections vanish), so the only error is the Taylor</span>
 <span class="sd">    truncation in dt.</span>
 
+<span class="sd">    This function is backed by a process-wide cache of `PropagatorFamily`</span>
+<span class="sd">    objects (see above), keyed on everything except `dt`. So calling it</span>
+<span class="sd">    repeatedly with the *same* `s_expr`/`vars_x`/`order`/`quantization`/</span>
+<span class="sd">    `mode_composition`/`apply_backend` but a *different* `dt` (e.g. a</span>
+<span class="sd">    step-size sweep, or an adaptive stepper) reuses the expensive</span>
+<span class="sd">    `exponential_symbol`/`compose_asymptotic` recursion instead of</span>
+<span class="sd">    redoing it from scratch -- only a cheap `sympy.subs` is performed per</span>
+<span class="sd">    new `dt`. The very first call for a given symbol still pays the full</span>
+<span class="sd">    cost.</span>
+
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
 <span class="sd">    &gt;&gt;&gt; prop, is_mat, sz = build_propagator(xi**2, [x], dt=0.01, order=4)</span>
 <span class="sd">    &gt;&gt;&gt; u_next = prop.apply(u, x_grid, kx)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">is_matrix</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span>
-
-    <span class="k">if</span> <span class="n">is_matrix</span><span class="p">:</span>
-        <span class="n">s_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
-        <span class="n">size</span> <span class="o">=</span> <span class="n">s_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-        <span class="n">op</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span>
-            <span class="n">s_mat</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
-            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">_propagator_family_key</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">quantization</span><span class="p">,</span>
+                                  <span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="p">)</span>
+    <span class="n">family</span> <span class="o">=</span> <span class="n">_propagator_family_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">family</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">family</span> <span class="o">=</span> <span class="n">PropagatorFamily</span><span class="p">(</span>
+            <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span>
+            <span class="n">mode_composition</span><span class="o">=</span><span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">Esym</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">exponential_symbol</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode_composition</span><span class="p">)</span>
+        <span class="n">_propagator_family_cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">family</span>
 
-        <span class="n">prop</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span>
-            <span class="n">Esym</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
-            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">prop</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">size</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
-            <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
-            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">Esym</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">exponential_symbol</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode_composition</span><span class="p">)</span>
-
-        <span class="n">prop</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
-            <span class="n">Esym</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
-            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">prop</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span></div>
+    <span class="k">return</span> <span class="n">family</span><span class="o">.</span><span class="n">propagator_for</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="solve_first_order">
