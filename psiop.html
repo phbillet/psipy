@@ -83,6 +83,10 @@
 <li class="toctree-l3"><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.symbol_matrix"><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator.symbol_matrix()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#psiop.PropagatorFamily"><code class="docutils literal notranslate"><span class="pre">PropagatorFamily</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#psiop.PropagatorFamily.propagator_for"><code class="docutils literal notranslate"><span class="pre">PropagatorFamily.propagator_for()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#psiop.PseudoDifferentialOperator"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.dim"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.dim</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.p_func"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.p_func</span></code></a></li>
@@ -889,6 +893,59 @@ broadcast shape.</p>
 <dd class="field-even"><p>ndarray, shape (…, N, N) or sympy.Matrix if no args are provided.</p>
 </dd>
 </dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="psiop.PropagatorFamily">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">PropagatorFamily</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kohn-nirenberg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode_composition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kn'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'peetre'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PropagatorFamily"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PropagatorFamily" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A one-step propagator family exp(dt · Op[s]) for a <em>fixed</em> symbol <cite>s</cite>
+but <em>variable</em> dt, built so that changing dt is cheap.</p>
+<p><cite>build_propagator</cite> rebuilds the full truncated exponential series
+(via <cite>exponential_symbol</cite>, i.e. <cite>order</cite> rounds of symbolic
+differentiation and <cite>compose_asymptotic</cite>) from scratch every time it
+is called – expensive, and wasteful if the same symbol is re-solved
+at several different step sizes (a dt-convergence study, a parameter
+sweep, or an adaptive/embedded stepper that changes dt every few
+steps).</p>
+<p><cite>exponential_symbol</cite> already accepts <cite>t</cite> as a sympy Symbol, so this
+class builds it ONCE with dt left symbolic, and produces a concrete
+propagator for any numeric dt via a single cheap <cite>sympy.subs</cite> call –
+skipping the <cite>compose_asymptotic</cite> recursion entirely on every
+subsequent request. <cite>build_propagator</cite> below uses this internally
+(via a small process-wide cache), so existing call sites benefit
+automatically with no code changes required.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>s_expr</strong> (<em>sympy.Expr</em><em> or </em><em>sympy.Matrix</em>) – Symbol expression (scalar or matrix-valued), same as
+<cite>build_propagator</cite>.</p></li>
+<li><p><strong>vars_x</strong> (<em>list</em><em> of </em><em>sympy.Symbol</em>) – Spatial variables.</p></li>
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default 3</em>) – Truncation order for both the Taylor series in t and the
+asymptotic composition at each power.</p></li>
+<li><p><strong>quantization</strong> (<em>{'kohn-nirenberg'</em><em>, </em><em>'weyl'}</em><em>, </em><em>default 'kohn-nirenberg'</em>) – Quantization convention for the resulting propagator.</p></li>
+<li><p><strong>mode_composition</strong> (<em>{'kn'</em><em>, </em><em>'weyl'}</em><em>, </em><em>default 'kn'</em>) – Composition rule used inside <cite>exponential_symbol</cite>.</p></li>
+<li><p><strong>apply_backend</strong> (<em>{'peetre'</em><em>, </em><em>'direct'}</em><em>, </em><em>default 'peetre'</em>) – Numerical backend attached to the propagator operator.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">family</span> <span class="o">=</span> <span class="n">PropagatorFamily</span><span class="p">(</span><span class="n">xi</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">prop_1</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">family</span><span class="o">.</span><span class="n">propagator_for</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">prop_2</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">family</span><span class="o">.</span><span class="n">propagator_for</span><span class="p">(</span><span class="mf">0.02</span><span class="p">)</span>   <span class="c1"># cheap: no recomposition</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u1</span> <span class="o">=</span> <span class="n">prop_1</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="psiop.PropagatorFamily.propagator_for">
+<span class="sig-name descname"><span class="pre">propagator_for</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dt</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PropagatorFamily.propagator_for"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PropagatorFamily.propagator_for" title="Link to this definition"></a></dt>
+<dd><p>Return the concrete one-step propagator for a numeric <cite>dt</cite>.</p>
+<p>Cheap: a single <cite>sympy.subs</cite> call – no <cite>compose_asymptotic</cite>
+recursion. Returns the same <cite>(prop, is_matrix, size)</cite> triple as
+<cite>build_propagator</cite>, so it is a drop-in replacement at the call
+site.</p>
 </dd></dl>
 
 </dd></dl>
@@ -2147,6 +2204,15 @@ by one time step dt.</p></li>
 For constant-coefficient symbols the composition is exact (all
 derivative corrections vanish), so the only error is the Taylor
 truncation in dt.</p>
+<p>This function is backed by a process-wide cache of <cite>PropagatorFamily</cite>
+objects (see above), keyed on everything except <cite>dt</cite>. So calling it
+repeatedly with the <em>same</em> <cite>s_expr</cite>/<cite>vars_x</cite>/<cite>order</cite>/<cite>quantization</cite>/
+<cite>mode_composition</cite>/<cite>apply_backend</cite> but a <em>different</em> <cite>dt</cite> (e.g. a
+step-size sweep, or an adaptive stepper) reuses the expensive
+<cite>exponential_symbol</cite>/<cite>compose_asymptotic</cite> recursion instead of
+redoing it from scratch – only a cheap <cite>sympy.subs</cite> is performed per
+new <cite>dt</cite>. The very first call for a given symbol still pays the full
+cost.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">prop</span><span class="p">,</span> <span class="n">is_mat</span><span class="p">,</span> <span class="n">sz</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span><span class="n">xi</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u_next</span> <span class="o">=</span> <span class="n">prop</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">)</span>
