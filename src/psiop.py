@@ -3186,60 +3186,59 @@ class PseudoDifferentialOperator:
     # Peetre-based application
     # ======================================================================
 
-    def apply_hybrid_old(self, u, x_grid, kx, y_grid=None, ky=None, **kwargs):
-        """
-        Hybrid application: Automatically splits the joint residual into 
-        individual additive terms and routes each term to its optimal 
-        backend (NUFFT, AAA, or Lowrank) based on its specific structure.
-        
-        This guarantees O(N log N) performance for mixed symbols that would 
-        otherwise trigger a fallback to O(N²) direct quadrature.
-        """
-        import numpy as np
-        
-        # 1. Get the Peetre decomposition to access the raw joint terms
-        deco = self.peetre_decomposition()
-        result = np.zeros(np.shape(u), dtype=np.complex128)
-        
-        # 2. Apply the local and separable parts (skip the joint residual for now)
-        # We use a temporary call to apply_peetre with apply_joint=False
-        result += self.apply_peetre(
-            u, x_grid, kx, y_grid=y_grid, ky=ky, 
-            apply_joint=False, **kwargs
-        )
-        
-        # 3. Route each joint term individually via 'auto'
-        joint_terms = deco.get('joint_residual', [])
-        print("joint_terms = ", joint_terms)
-        for term in joint_terms:
-            if self._peetre_is_zero(term):
-                continue
-            
-            # Create a temporary operator for this specific joint term
-            # It inherits the quantization (Weyl/KN) and dimension
-            sub_op = PseudoDifferentialOperator(
-                term, self.vars_x, mode='symbol', 
-                quantization=self.quantization
-            )
-            
-            # Apply this single term using the 'auto' dispatcher.
-            # Because it's a pure term, 'auto' will perfectly match it 
-            # to 'nufft', 'aaa', or 'lowrank'.
-            result += sub_op.apply_peetre(
-                u, x_grid, kx, y_grid=y_grid, ky=ky,
-                joint_backend='auto', **kwargs
-            )
-            
-        return result
-
     def apply_hybrid(self, u, x_grid, kx, y_grid=None, ky=None, **kwargs):
         """
-        Hybrid application: Automatically splits the joint residual into 
-        individual additive terms and routes each term to its optimal 
-        backend (NUFFT, AAA, or Lowrank) based on its specific structure.
-        
-        This guarantees O(N log N) performance for mixed symbols that would 
-        otherwise trigger a fallback to O(N²) direct quadrature.
+        Apply the operator via Peetre decomposition with per-term backend routing.
+    
+        The symbol is split with `peetre_decomposition` into a separable part and a
+        joint (non-separable) residual. The separable part is applied directly
+        through `apply_peetre` (`apply_joint=False`). The joint residual is then
+        expanded and split into its individual additive terms
+        (`sympy.Add.make_args` on the expanded symbol); each nonzero term is wrapped
+        in its own `PseudoDifferentialOperator` and applied with
+        `joint_backend='auto'`, so `_auto_select_joint_backend` picks a backend
+        independently for *that term* — NUFFT if a decomposition exists for it,
+        AAA if it's a rational function (or has a symbolic polynomial denominator),
+        otherwise low-rank.
+    
+        Splitting before routing means terms that individually admit a fast
+        decomposition get one, instead of the whole joint residual being treated as
+        a single mixed term and falling back to O(N\u00b2) direct quadrature.
+    
+        Parameters
+        ----------
+        u : array_like
+            Input field values, matching the shape/dtype convention used by
+            `apply`/`apply_peetre`.
+        x_grid, y_grid : array_like
+            Spatial grid(s). `y_grid` is only used for 2D operators.
+        kx, ky : array_like
+            Frequency grid(s) conjugate to `x_grid`/`y_grid`. `ky` is only used
+            for 2D operators.
+        **kwargs
+            Forwarded to every `apply_peetre` call this method makes (both the
+            separable-part call and each per-term joint call) — e.g.
+            `boundary_condition`, `freq_window`, `clamp`, `space_window`,
+            `weyl_order`, `joint_degree`, `joint_tol`, `joint_bounds`,
+            `joint_max_rel_error`, `joint_num_samples`, `joint_seed`, `use_cache`.
+            Do not pass `apply_joint` or `joint_backend` here: both are fixed
+            internally by this method, and supplying them will raise
+            `TypeError: apply_peetre() got multiple values for keyword argument`.
+    
+        Returns
+        -------
+        numpy.ndarray
+            Complex128 array, same shape as `u`: the separable contribution plus
+            the sum of the per-term joint contributions.
+    
+        Notes
+        -----
+        Backend selection happens per additive term of the joint symbol, not once
+        for the whole residual, so this can outperform calling `apply_peetre`
+        directly with `joint_backend='auto'` whenever the joint part mixes terms
+        that individually favor different backends. Compare with `apply_hybrid_old`,
+        which instead loops over `peetre_decomposition`'s own `joint_residual` list
+        without expanding it into additive terms.
         """
         import numpy as np, sympy as sp
         deco = self.peetre_decomposition()
@@ -3284,10 +3283,67 @@ class PseudoDifferentialOperator:
         joint_seed=42,
     ):
         """
-        Apply the operator using its Peetre decomposition.
-    
+        Apply the operator by summing the pieces of its Peetre decomposition.
+        
+        `peetre_decomposition` splits the symbol into three kinds of contributions,
+        each applied by whichever method suits its structure:
+        
+        - **Local terms** (`local_terms`, or the legacy `local`/`local_symbol` keys):
+          applied directly via `PseudoDifferentialOperator.apply` when a term isn't
+          separable, or as an amplitude-times-operator pair otherwise.
+        - **Separable terms** `a(x) * q(xi)` (`deco['separable']`): `q` is applied to
+          `u` as its own operator, then the result is multiplied pointwise by `a`
+          evaluated on `x_grid`/`y_grid` (falling back to applying the full product
+          `a * q` as one operator if `a` can't be lambdified).
+        - **Joint residual** (`deco['joint_symbol']`, the non-separable remainder):
+          applied via `_apply_joint_residual` using `joint_backend` ('direct',
+          'lowrank', 'nufft', or 'aaa'), unless `apply_joint=False`, in which case it
+          is dropped and a warning is issued — the returned result is then only a
+          local+separable (asymptotic) approximation of the true operator.
+        
         For Weyl-quantized operators, the Weyl symbol is first converted to its
-        Kohn-Nirenberg equivalent before the Peetre decomposition is performed.
+        Kohn-Nirenberg equivalent (`weyl_to_kn_symbol`, truncated at `weyl_order`)
+        before the decomposition above is computed or used; all downstream sub-operators
+        are built with `quantization='kohn-nirenberg'`.
+        
+        Parameters
+        ----------
+        u : array_like
+            Input field values on the grid(s).
+        x_grid, y_grid : array_like
+            Spatial grid(s). `y_grid` is required for 2D operators.
+        kx, ky : array_like
+            Frequency grid(s) conjugate to `x_grid`/`y_grid`. `ky` is required for
+            2D operators.
+        boundary_condition : str, optional
+            Boundary handling passed through to each sub-operator's `apply`.
+        dealiasing_mask, freq_window, clamp, space_window : optional
+            Passed through to each sub-operator's `apply` call.
+        weyl_order : int, optional
+            Truncation order used when converting a Weyl symbol to Kohn-Nirenberg.
+        apply_joint : bool, optional
+            If False, skip the joint residual entirely (faster, but only an
+            approximation) and warn that it was ignored.
+        decomposition : dict, optional
+            A precomputed `peetre_decomposition` result to reuse instead of computing
+            one. If omitted, it's computed (and cached, per `use_cache`) internally.
+        use_cache, separable_local : optional
+            Forwarded to `peetre_decomposition` when `decomposition` is not supplied.
+        joint_backend : {'direct', 'lowrank', 'nufft', 'aaa'}, optional
+            Backend used to apply the joint residual.
+        joint_degree, joint_tol, joint_bounds, joint_max_rel_error, joint_num_samples, joint_seed : optional
+            Backend-specific parameters forwarded to `_apply_joint_residual`.
+        
+        Returns
+        -------
+        numpy.ndarray
+            Complex128 array, same shape as `u`, equal to the sum of the local,
+            separable, and (if `apply_joint`) joint contributions.
+        
+        Raises
+        ------
+        ValueError
+            If `self.dim == 2` and `y_grid` or `ky` is not provided.
         """
         import numpy as np
         from sympy import lambdify
@@ -5284,8 +5340,9 @@ class PseudoDifferentialOperator:
         _quiver_field(self, xlim, klim, density,
                       lambda p, x, xi: (diff(p, xi), -diff(p, x)),
                       "Symplectic Vector Field (1D)")
-
-    def visualize_micro_support(self, xlim=(-2, 2), klim=(-10, 10), threshold=1e-3, density=300):
+        
+        
+    def visualize_micro_support(self, xlim=(-2, 2), klim=(-10, 10), threshold=0.001, density=300, xi0=0.0, eta0=0.0):
         """Visualize 1/|p(x, xi)| to highlight regions where the symbol is
         near zero. NOTE: no longer restricted to 1D -- the shared grid/render
         helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y)."""
@@ -5294,10 +5351,10 @@ class PseudoDifferentialOperator:
         if self.dim == 1:
             a1, a2, l1, l2, Z = _slice_grid(self, 'freq', x_grid, xi_grid)
         else:
-            a1, a2, l1, l2, Z = _slice_grid(self, 'space', x_grid, None, x_grid, None, xi0=0.0, eta0=0.0)
-        _render_field(a1, a2, 1 / (np.abs(Z) + 1e-10), style='contourf', cmap='inferno',
-                      cbar_label=r'$1/|p(x,\xi)|$', xlabel=l1, ylabel=l2,
-                      title="Micro-Support Estimate (1/|Symbol|)")
+            a1, a2, l1, l2, Z = _slice_grid(self, 'space', x_grid, None, x_grid, None, xi0=xi0, eta0=eta0)
+        title = 'Micro-Support Estimate (1/|Symbol|)' if self.dim == 1 else f'Micro-Support Estimate at ξ={xi0}, η={eta0}'
+        _render_field(a1, a2, 1 / (np.abs(Z) + 1e-10), style='contourf', 
+                      cmap='inferno', cbar_label='$1/|p(x,\\xi)|$', xlabel=l1, ylabel=l2, title=title)
 
     def group_velocity_field(self, xlim=(-2, 2), klim=(-10, 10), density=30):
         """Quiver plot of the group velocity field (1, dp/dxi). 1D only."""
@@ -5337,10 +5394,10 @@ class PseudoDifferentialOperator:
                       'Cotangent Fiber', 'Characteristic Set', 'Characteristic Gradient',
                       'Group Velocity Field', 'Symplectic Vector Field', 'Hamiltonian Flow']
             needs = {
-                'Symbol Amplitude': ('xi',), 'Symbol Phase': ('xi',),
-                'Micro-Support (1/|p|)': ('xi',), 'Group Velocity Field': ('xi',),
-                'Symplectic Vector Field': ('xi',), 'Hamiltonian Flow': ('xi', 'x'),
-                'Cotangent Fiber': (), 'Characteristic Set': (), 'Characteristic Gradient': (),
+                'Symbol Amplitude': (), 'Symbol Phase': (), 'Micro-Support (1/|p|)': (), 
+                'Group Velocity Field': (), 'Symplectic Vector Field': (), 
+                'Hamiltonian Flow': ('xi', 'x'), 'Cotangent Fiber': (), 'Characteristic Set': (),
+                'Characteristic Gradient': ()
             }
             mode_selector = Dropdown(options=modes, value='Symbol Amplitude', description='Mode:')
             xi_slider = FloatSlider(min=xi_range[0], max=xi_range[1], step=0.1, value=1.0, description='\u03be\u2080')
@@ -5396,7 +5453,8 @@ class PseudoDifferentialOperator:
                 elif mode == 'Symbol Phase':
                     pseudo_op.visualize_phase(x_vals, xi_lin, y_vals, eta_lin, xi0=xi0, eta0=eta0)
                 elif mode == 'Micro-Support (1/|p|)':
-                    pseudo_op.visualize_micro_support(xlim, xi_range, density=density)
+                    # pseudo_op.visualize_micro_support(xlim, xi_range, density=density)
+                    pseudo_op.visualize_micro_support(xlim, xi_range, density=density, xi0=xi0, eta0=eta0)
                 elif mode == 'Symplectic Vector Field':
                     x, y = pseudo_op.vars_x
                     xi, eta = symbols('xi eta', real=True)

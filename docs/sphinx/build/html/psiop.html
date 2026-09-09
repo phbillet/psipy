@@ -93,7 +93,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.animate_singularity"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.animate_singularity()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.apply"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.apply_hybrid"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply_hybrid()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.apply_hybrid_old"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply_hybrid_old()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.apply_peetre"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply_peetre()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.asymptotic_expansion"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.asymptotic_expansion()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.clear_cache"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.clear_cache()</span></code></a></li>
@@ -1379,29 +1378,124 @@ to a more accurate method if this is exceeded.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.apply_hybrid">
 <span class="sig-name descname"><span class="pre">apply_hybrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.apply_hybrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.apply_hybrid" title="Link to this definition"></a></dt>
-<dd><p>Hybrid application: Automatically splits the joint residual into
-individual additive terms and routes each term to its optimal
-backend (NUFFT, AAA, or Lowrank) based on its specific structure.</p>
-<p>This guarantees O(N log N) performance for mixed symbols that would
-otherwise trigger a fallback to O(N²) direct quadrature.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.apply_hybrid_old">
-<span class="sig-name descname"><span class="pre">apply_hybrid_old</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.apply_hybrid_old"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.apply_hybrid_old" title="Link to this definition"></a></dt>
-<dd><p>Hybrid application: Automatically splits the joint residual into
-individual additive terms and routes each term to its optimal
-backend (NUFFT, AAA, or Lowrank) based on its specific structure.</p>
-<p>This guarantees O(N log N) performance for mixed symbols that would
-otherwise trigger a fallback to O(N²) direct quadrature.</p>
+<dd><p>Apply the operator via Peetre decomposition with per-term backend routing.</p>
+<p>The symbol is split with <cite>peetre_decomposition</cite> into a separable part and a
+joint (non-separable) residual. The separable part is applied directly
+through <cite>apply_peetre</cite> (<cite>apply_joint=False</cite>). The joint residual is then
+expanded and split into its individual additive terms
+(<cite>sympy.Add.make_args</cite> on the expanded symbol); each nonzero term is wrapped
+in its own <cite>PseudoDifferentialOperator</cite> and applied with
+<cite>joint_backend=’auto’</cite>, so <cite>_auto_select_joint_backend</cite> picks a backend
+independently for <em>that term</em> — NUFFT if a decomposition exists for it,
+AAA if it’s a rational function (or has a symbolic polynomial denominator),
+otherwise low-rank.</p>
+<p>Splitting before routing means terms that individually admit a fast
+decomposition get one, instead of the whole joint residual being treated as
+a single mixed term and falling back to O(N²) direct quadrature.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>u</strong> (<em>array_like</em>) – Input field values, matching the shape/dtype convention used by
+<cite>apply</cite>/<cite>apply_peetre</cite>.</p></li>
+<li><p><strong>x_grid</strong> (<em>array_like</em>) – Spatial grid(s). <cite>y_grid</cite> is only used for 2D operators.</p></li>
+<li><p><strong>y_grid</strong> (<em>array_like</em>) – Spatial grid(s). <cite>y_grid</cite> is only used for 2D operators.</p></li>
+<li><p><strong>kx</strong> (<em>array_like</em>) – Frequency grid(s) conjugate to <cite>x_grid</cite>/<cite>y_grid</cite>. <cite>ky</cite> is only used
+for 2D operators.</p></li>
+<li><p><strong>ky</strong> (<em>array_like</em>) – Frequency grid(s) conjugate to <cite>x_grid</cite>/<cite>y_grid</cite>. <cite>ky</cite> is only used
+for 2D operators.</p></li>
+<li><p><strong>**kwargs</strong> – Forwarded to every <cite>apply_peetre</cite> call this method makes (both the
+separable-part call and each per-term joint call) — e.g.
+<cite>boundary_condition</cite>, <cite>freq_window</cite>, <cite>clamp</cite>, <cite>space_window</cite>,
+<cite>weyl_order</cite>, <cite>joint_degree</cite>, <cite>joint_tol</cite>, <cite>joint_bounds</cite>,
+<cite>joint_max_rel_error</cite>, <cite>joint_num_samples</cite>, <cite>joint_seed</cite>, <cite>use_cache</cite>.
+Do not pass <cite>apply_joint</cite> or <cite>joint_backend</cite> here: both are fixed
+internally by this method, and supplying them will raise
+<cite>TypeError: apply_peetre() got multiple values for keyword argument</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Complex128 array, same shape as <cite>u</cite>: the separable contribution plus
+the sum of the per-term joint contributions.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Backend selection happens per additive term of the joint symbol, not once
+for the whole residual, so this can outperform calling <cite>apply_peetre</cite>
+directly with <cite>joint_backend=’auto’</cite> whenever the joint part mixes terms
+that individually favor different backends. Compare with <cite>apply_hybrid_old</cite>,
+which instead loops over <cite>peetre_decomposition</cite>’s own <cite>joint_residual</cite> list
+without expanding it into additive terms.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.apply_peetre">
 <span class="sig-name descname"><span class="pre">apply_peetre</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary_condition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'periodic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dealiasing_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'gaussian'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">space_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weyl_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_joint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decomposition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separable_local</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'direct'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_degree</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_max_rel_error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_num_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.apply_peetre"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.apply_peetre" title="Link to this definition"></a></dt>
-<dd><p>Apply the operator using its Peetre decomposition.</p>
+<dd><p>Apply the operator by summing the pieces of its Peetre decomposition.</p>
+<p><cite>peetre_decomposition</cite> splits the symbol into three kinds of contributions,
+each applied by whichever method suits its structure:</p>
+<ul class="simple">
+<li><p><strong>Local terms</strong> (<cite>local_terms</cite>, or the legacy <cite>local</cite>/<cite>local_symbol</cite> keys):
+applied directly via <cite>PseudoDifferentialOperator.apply</cite> when a term isn’t
+separable, or as an amplitude-times-operator pair otherwise.</p></li>
+<li><p><strong>Separable terms</strong> <cite>a(x) * q(xi)</cite> (<cite>deco[‘separable’]</cite>): <cite>q</cite> is applied to
+<cite>u</cite> as its own operator, then the result is multiplied pointwise by <cite>a</cite>
+evaluated on <cite>x_grid</cite>/<cite>y_grid</cite> (falling back to applying the full product
+<cite>a * q</cite> as one operator if <cite>a</cite> can’t be lambdified).</p></li>
+<li><p><strong>Joint residual</strong> (<cite>deco[‘joint_symbol’]</cite>, the non-separable remainder):
+applied via <cite>_apply_joint_residual</cite> using <cite>joint_backend</cite> (‘direct’,
+‘lowrank’, ‘nufft’, or ‘aaa’), unless <cite>apply_joint=False</cite>, in which case it
+is dropped and a warning is issued — the returned result is then only a
+local+separable (asymptotic) approximation of the true operator.</p></li>
+</ul>
 <p>For Weyl-quantized operators, the Weyl symbol is first converted to its
-Kohn-Nirenberg equivalent before the Peetre decomposition is performed.</p>
+Kohn-Nirenberg equivalent (<cite>weyl_to_kn_symbol</cite>, truncated at <cite>weyl_order</cite>)
+before the decomposition above is computed or used; all downstream sub-operators
+are built with <cite>quantization=’kohn-nirenberg’</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>u</strong> (<em>array_like</em>) – Input field values on the grid(s).</p></li>
+<li><p><strong>x_grid</strong> (<em>array_like</em>) – Spatial grid(s). <cite>y_grid</cite> is required for 2D operators.</p></li>
+<li><p><strong>y_grid</strong> (<em>array_like</em>) – Spatial grid(s). <cite>y_grid</cite> is required for 2D operators.</p></li>
+<li><p><strong>kx</strong> (<em>array_like</em>) – Frequency grid(s) conjugate to <cite>x_grid</cite>/<cite>y_grid</cite>. <cite>ky</cite> is required for
+2D operators.</p></li>
+<li><p><strong>ky</strong> (<em>array_like</em>) – Frequency grid(s) conjugate to <cite>x_grid</cite>/<cite>y_grid</cite>. <cite>ky</cite> is required for
+2D operators.</p></li>
+<li><p><strong>boundary_condition</strong> (<em>str</em><em>, </em><em>optional</em>) – Boundary handling passed through to each sub-operator’s <cite>apply</cite>.</p></li>
+<li><p><strong>dealiasing_mask</strong> (<em>optional</em>) – Passed through to each sub-operator’s <cite>apply</cite> call.</p></li>
+<li><p><strong>freq_window</strong> (<em>optional</em>) – Passed through to each sub-operator’s <cite>apply</cite> call.</p></li>
+<li><p><strong>clamp</strong> (<em>optional</em>) – Passed through to each sub-operator’s <cite>apply</cite> call.</p></li>
+<li><p><strong>space_window</strong> (<em>optional</em>) – Passed through to each sub-operator’s <cite>apply</cite> call.</p></li>
+<li><p><strong>weyl_order</strong> (<em>int</em><em>, </em><em>optional</em>) – Truncation order used when converting a Weyl symbol to Kohn-Nirenberg.</p></li>
+<li><p><strong>apply_joint</strong> (<em>bool</em><em>, </em><em>optional</em>) – If False, skip the joint residual entirely (faster, but only an
+approximation) and warn that it was ignored.</p></li>
+<li><p><strong>decomposition</strong> (<em>dict</em><em>, </em><em>optional</em>) – A precomputed <cite>peetre_decomposition</cite> result to reuse instead of computing
+one. If omitted, it’s computed (and cached, per <cite>use_cache</cite>) internally.</p></li>
+<li><p><strong>use_cache</strong> (<em>optional</em>) – Forwarded to <cite>peetre_decomposition</cite> when <cite>decomposition</cite> is not supplied.</p></li>
+<li><p><strong>separable_local</strong> (<em>optional</em>) – Forwarded to <cite>peetre_decomposition</cite> when <cite>decomposition</cite> is not supplied.</p></li>
+<li><p><strong>joint_backend</strong> (<em>{'direct'</em><em>, </em><em>'lowrank'</em><em>, </em><em>'nufft'</em><em>, </em><em>'aaa'}</em><em>, </em><em>optional</em>) – Backend used to apply the joint residual.</p></li>
+<li><p><strong>joint_degree</strong> (<em>optional</em>) – Backend-specific parameters forwarded to <cite>_apply_joint_residual</cite>.</p></li>
+<li><p><strong>joint_tol</strong> (<em>optional</em>) – Backend-specific parameters forwarded to <cite>_apply_joint_residual</cite>.</p></li>
+<li><p><strong>joint_bounds</strong> (<em>optional</em>) – Backend-specific parameters forwarded to <cite>_apply_joint_residual</cite>.</p></li>
+<li><p><strong>joint_max_rel_error</strong> (<em>optional</em>) – Backend-specific parameters forwarded to <cite>_apply_joint_residual</cite>.</p></li>
+<li><p><strong>joint_num_samples</strong> (<em>optional</em>) – Backend-specific parameters forwarded to <cite>_apply_joint_residual</cite>.</p></li>
+<li><p><strong>joint_seed</strong> (<em>optional</em>) – Backend-specific parameters forwarded to <cite>_apply_joint_residual</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Complex128 array, same shape as <cite>u</cite>, equal to the sum of the local,
+separable, and (if <cite>apply_joint</cite>) joint contributions.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If <cite>self.dim == 2</cite> and <cite>y_grid</cite> or <cite>ky</cite> is not provided.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -2257,7 +2351,7 @@ for both frequency axes, matching the original behavior exactly.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_micro_support">
-<span class="sig-name descname"><span class="pre">visualize_micro_support</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-10,</span> <span class="pre">10)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_micro_support"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_micro_support" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">visualize_micro_support</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-10,</span> <span class="pre">10)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_micro_support"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_micro_support" title="Link to this definition"></a></dt>
 <dd><p>Visualize 1/<a href="#id59"><span class="problematic" id="id60">|p(x, xi)|</span></a> to highlight regions where the symbol is
 near zero. NOTE: no longer restricted to 1D – the shared grid/render
 helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y).</p>
