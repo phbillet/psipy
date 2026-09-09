@@ -46,27 +46,80 @@ Main objects and workflows
     expression acting on a test function (`mode='auto'`).
 
 * `MatrixPseudoDifferentialOperator`
-    Matrix‑valued pseudo‑differential operator acting on vector fields. Each
-    matrix entry is wrapped as a scalar operator, so application reuses the
-    existing scalar numerical machinery.
+    N x N matrix-valued pseudo-differential operator, built from a sympy
+    matrix of scalar symbols `P_ij(x[, y], ξ[, η])` and acting on vector
+    fields `u = (u_1, ..., u_N)`. Each entry `P_ij` is wrapped as its own
+    scalar `PseudoDifferentialOperator`, so `apply()` and
+    `apply_matrix_field()`/`apply_matrix_field_right()` (left/right action
+    on an N x N matrix-valued field, e.g. a density matrix or matrix
+    Green's function) reuse the existing scalar FFT/Peetre numerical
+    machinery entrywise, with no separate matrix-specific kernel. Entries
+    may depend on `x` (and `y`) for variable-coefficient systems, or be
+    frequency-only for constant-coefficient ones; `symbol_matrix()`
+    numerically evaluates the full `(..., N, N)` symbol on a grid, or
+    returns the symbolic `sympy.Matrix` when called without arguments, and
+    `eigen_symbol()` gives pointwise eigenvalues/eigenvectors of the
+    symbol matrix (closed-form for N=2, used e.g. to build the
+    per-branch Hamiltonians of coupled systems).
+
+    The same asymptotic symbolic calculus available for scalar operators
+    is generalized here to matrix multiplication order: `compose_asymptotic`
+    is the symbol of `Op[self] . Op[other]` (exact, at any order, for
+    constant-coefficient entries) and is noncommutative even at 0th order
+    since matrices don't commute; `commutator_symbolic`, formal left/right
+    inverses, the formal adjoint, and matrix exponential symbols
+    `exp(t · Op[P])` (for propagators of coupled/vector-valued PDE systems)
+    are all built on top of it. This is the class used whenever a
+    scalar-valued `PseudoDifferentialOperator` isn't enough — e.g. coupled
+    systems, N-component wave/Dirac-type equations, or matrix-valued
+    Green's functions and density matrices propagated in time.
 
 * Numerical application backends
     Operators may be applied either through direct Kohn–Nirenberg quadrature
     or through a Peetre‑decomposition backend, which splits the symbol into
-    local, separable, and low‑rank joint contributions.
+    local, separable, and joint contributions and represents the joint
+    residual via whichever of NUFFT, AAA rational approximation, or
+    Chebyshev/SVD low‑rank factorization best matches its structure.
 
 * Symbolic calculus
     Composition, commutators, formal inverses, formal adjoints, fractional
     powers, exponential symbols `exp(tP)`, and Weyl/Kohn–Nirenberg symbol
     conversion are implemented through asymptotic symbolic expansions.
 
-* PDE propagation helpers
-    The module includes propagator construction and time‑stepping utilities
-    for equations of the form
+* Propagators and time-stepping solvers
+    `build_propagator` constructs the one-step approximate propagator
+    `exp(dt · Op[s])` for a symbol `s` by truncating its asymptotic
+    exponential-symbol expansion at a chosen `order`, then quantizing the
+    result; `PropagatorFamily` wraps this for the common case where the
+    same symbol `s` is propagated at many different step sizes (parameter
+    sweeps, dt-convergence studies, adaptive/embedded steppers): it builds
+    the exponential expansion once with `dt` left as a free symbol, and
+    produces each concrete propagator via a single cheap substitution
+    instead of repeating the full `compose_asymptotic` recursion per call.
+    On top of this, `solve_first_order` time-steps `∂ₜu = Op(s)(u)` by
+    repeated propagator application, `solve_second_order` handles
+    second-order-in-time equations by reducing them to first-order block
+    form via a companion system, and `solve_matrix_field` /
+    `solve_sylvester_field` extend the same propagator machinery to
+    matrix-valued fields — the latter via operator (Lie/Strang) splitting
+    between independent left- and right-acting symbols `P`, `Q`, for
+    equations of Sylvester type `∂ₜU = Op(P)U + U·Op(Q)`.
 
-        ∂ₜ u = Op(s)(u)
-
-    and second‑order systems reduced to first‑order block form.
+    `solve_ricci_flow_conformal_2d` is a further, structurally different
+    example built on the same propagator infrastructure: it integrates 2D
+    Ricci flow in conformal gauge, `∂ₜφ = e^{−2φ}Δφ`, a quasi-linear
+    equation not directly covered by the linear/matrix solvers above,
+    since its coefficient depends on the evolving solution itself and so
+    cannot be described by one fixed symbol ahead of time. Each step
+    instead freezes the coefficient at its current value (a Rothe-type
+    linearization) and applies an IMEX/Lie splitting: an explicit Euler
+    correction for the deviation from the coefficient's spatial average,
+    followed by an exact stiff step for the spatially averaged part,
+    which reduces to a plain Fourier multiplier and is applied directly
+    via FFT rather than through a rebuilt exponential-symbol propagator.
+    It illustrates how `psiop`'s exact/asymptotic propagator machinery can
+    be reused as a building block inside a custom splitting scheme for
+    equations outside the module's ordinary linear/matrix solver path.
 
 * Visualization and animation
     Symbol amplitude/phase plots, characteristic sets, cotangent fibers,
@@ -104,15 +157,26 @@ Key features
     - local polynomial part in the frequency variables;
     - separable terms of the form `a(x) q(ξ)`;
     - genuinely joint, non‑separable residual terms;
-    - Chebyshev/SVD low‑rank factorization of joint residuals:
-
-          p_joint(x, ξ) ≈ Σ_k a_k(x) q_k(ξ);
-
+    - automatic backend selection for the joint residual, based on its
+      structure:
+        * NUFFT — when the residual has an oscillatory phase of the
+          form `exp(i · Λ(x) · M(ξ))`, applied via non‑uniform FFTs
+          (`finufft` if available, with a pure‑NumPy fallback);
+        * AAA (rational barycentric approximation) — when the residual
+          is a rational function of `(x, ξ)` or has explicit poles /
+          algebraic decay (negative powers of a polynomial base);
+        * Chebyshev/SVD low‑rank factorization — for smooth,
+          non‑oscillatory, pole‑free joint kernels (e.g. Gaussian
+          bumps):
+              p_joint(x, ξ) ≈ Σ_k a_k(x) q_k(ξ);
+      the joint residual can also be split additively and each term
+      routed independently to its best‑matching backend (`apply_hybrid`).
     - Monte Carlo quality diagnostics for the low‑rank approximation.
 
 * Numerical application backends:
     - direct pointwise Kohn–Nirenberg evaluation on space–frequency grids;
-    - Peetre‑based application using local, separable, and low‑rank terms;
+    - Peetre‑based application using local, separable, and NUFFT/AAA/
+      low‑rank joint terms;
     - periodic FFT‑based evaluation for periodic problems;
     - non‑periodic quadrature for Dirichlet‑type settings;
     - frequency windowing, dealiasing masks, spatial tapering, magnitude
@@ -142,9 +206,15 @@ Key features
     - characteristic set and characteristic gradient visualization.
 
 * Time‑dependent solver utilities:
-    - construction of approximate propagators `exp(dt · Op(s))`;
+    - construction of approximate propagators `exp(dt · Op(s))`, including
+      `PropagatorFamily` for reusing one symbolic exponential expansion
+      across many step sizes `dt` instead of rebuilding it per call;
     - first‑order evolution solver;
     - second‑order evolution solver via block companion reduction;
+    - matrix‑valued field solvers, including Sylvester‑type equations via
+      operator splitting;
+    - a quasi‑linear 2D conformal Ricci flow solver built on the same
+      propagator infrastructure via per‑step IMEX/Lie splitting;
     - 1D/2D grid generation utilities;
     - plotting and animation of scalar and matrix‑valued solutions.
 
@@ -156,33 +226,106 @@ Key features
 
 Mathematical background
 -----------------------
-A pseudo‑differential operator `P` acting on functions of `x ∈ ℝⁿ` is defined
-by its **symbol** `p(x, ξ)` on phase space `T*ℝⁿ`. In the Kohn–Nirenberg
-quantization,
+**Symbols and quantization.** A pseudo‑differential operator `P` acting on
+functions of `x ∈ ℝⁿ` (n = 1 or 2 in this module) is defined by its
+**symbol** `p(x, ξ)`, a function on phase space `T*ℝⁿ = ℝⁿ_x × ℝⁿ_ξ`. Loosely
+speaking, `p` prescribes how `P` acts on each Fourier mode `e^{ix·ξ}`,
+with `x`-dependence allowed so that the "multiplier" itself may vary in
+space — this is what distinguishes a genuine ΨDO from an ordinary Fourier
+multiplier. Symbols are classified by their growth in `ξ`: `p` belongs to
+the Hörmander class `S^m_{1,0}` if
 
-    (P u)(x) = (2π)^{-n} ∫_{ℝⁿ} e^{i x·ξ} p(x, ξ) û(ξ) dξ,
+    |∂_x^β ∂_ξ^α p(x, ξ)| ≤ C_{α,β} (1 + |ξ|)^{m - |α|}
 
-where `û` denotes the Fourier transform of `u`. If `p` is independent of `x`,
-the operator reduces to a Fourier multiplier:
+for all multi‑indices `α, β`, i.e. each `ξ`‑derivative improves the decay
+by one power of `⟨ξ⟩ = (1+|ξ|²)^{1/2}`. The integer/real number `m` is the
+**order** of the operator; differential operators of degree `m` have
+symbols that are polynomial in `ξ` of degree `m` and lie in `S^m_{1,0}`.
+`psiop` does not enforce class membership explicitly, but the asymptotic
+expansions used throughout (composition, inverses, exponentials, symbol
+order estimation) are only guaranteed accurate for symbols of this kind,
+or for symbols with a well‑defined asymptotic behaviour as `|ξ| → ∞`
+(polynomial, WKB/oscillatory, or otherwise expandable in inverse powers
+of `⟨ξ⟩`).
 
-    P u = ℱ^{-1}[p(ξ) ℱ[u](ξ)].
+**Quantization maps.** A symbol alone does not fix an operator: different
+*quantization* conventions assign different operators to the same `p`,
+differing by lower‑order corrections. `psiop` implements the two most
+common choices, plus the asymptotic dictionary between them.
 
-The Weyl quantization uses a symmetric midpoint convention. The two
-quantizations are related by an asymptotic differential correction. In 1D,
+*Kohn–Nirenberg (left/standard) quantization.* This is the default:
 
-    a_KN(x, ξ) = exp(− i/2 · ∂_x ∂_ξ) a_Weyl(x, ξ),
+    (P u)(x) = Op^{KN}(p) u(x) = (2π)^{-n} ∫_{ℝⁿ} e^{i x·ξ} p(x, ξ) û(ξ) dξ,
+
+where `û(ξ) = ∫ e^{-i x·ξ} u(x) dx` is the Fourier transform of `u`. The
+symbol is evaluated at the *output* point `x` only — the quantization is
+"left" in the sense that, for a differential operator, `x` and `D_x`
+appear with `x` always to the left of `D_x = -i∂_x`. If `p` is
+independent of `x`, the `x`‑integral collapses and `P` reduces to an
+ordinary Fourier multiplier
+
+    P u = ℱ^{-1}[p(ξ) ℱ[u](ξ)],
+
+which is exactly the fast‑path FFT evaluation used numerically whenever
+the symbol has no spatial dependence (see *Numerical design notes*
+below). Numerically, `kohn_nirenberg_fft` realizes the periodic case by
+evaluating `p` on the DFT frequency grid and applying it as a (possibly
+`x`‑dependent) multiplier in Fourier space; `kohn_nirenberg_nonperiodic`
+evaluates the same defining integral directly by quadrature for
+Dirichlet‑type boundary conditions, where no global Fourier basis is
+available.
+
+*Weyl (symmetric) quantization.* The Weyl quantization symmetrizes the
+choice of evaluation point between `x` and the dual variable, formally
+
+    Op^{w}(a) u(x) = (2π)^{-n} ∫∫ e^{i(x-y)·ξ} a((x+y)/2, ξ) u(y) dy dξ,
+
+i.e. the symbol is evaluated at the *midpoint* `(x+y)/2` of the operator's
+input and output arguments rather than at `x` alone. This convention is
+preferred in semiclassical and quantum‑mechanical contexts because it
+makes real‑valued symbols correspond to formally self‑adjoint operators,
+and because Weyl composition (the Moyal product) has a symmetric,
+commutator‑friendly asymptotic expansion (`compose_asymptotic(mode='weyl')`).
+
+*Converting between conventions.* Because both quantizations act on the
+same underlying operator up to a reshuffling of `x` and `ξ` dependence,
+there is an exact formal dictionary between the corresponding symbols,
+realized as an asymptotic series in mixed `x`–`ξ` derivatives. In 1D,
+
+    a_KN(x, ξ) = exp(− i/2 · ∂_x ∂_ξ) a_Weyl(x, ξ)
+               ~ Σ_{k≥0} (−i/2)^k / k! · (∂_x ∂_ξ)^k a_Weyl(x, ξ),
 
 and conversely,
 
-    a_Weyl(x, ξ) = exp(+ i/2 · ∂_x ∂_ξ) a_KN(x, ξ).
+    a_Weyl(x, ξ) = exp(+ i/2 · ∂_x ∂_ξ) a_KN(x, ξ)
+                ~ Σ_{k≥0} (+i/2)^k / k! · (∂_x ∂_ξ)^k a_KN(x, ξ).
 
-In 2D, the cross‑derivative operator becomes
+In 2D the cross‑derivative operator sums the contributions from both
+coordinate pairs,
 
-    ∂_x ∂_ξ + ∂_y ∂_η.
+    ∂_x ∂_ξ  →  ∂_x ∂_ξ + ∂_y ∂_η,
 
-For polynomial symbols the conversion series is finite and exact; for general
-symbol classes it is interpreted asymptotically.
+and the mixed term `(∂_x ∂_ξ + ∂_y ∂_η)^k` is expanded binomially into
+`(∂_x ∂_ξ)^j (∂_y ∂_η)^{k-j}` pieces before differentiating, to avoid
+redundant symbolic work (`weyl_to_kn_symbol` / `kn_to_weyl_symbol`, via
+the shared `_quantization_symbol_correction` helper).
 
+For symbols polynomial in `ξ` (i.e. differential operators), both series
+are **exact and finite**: differentiating a degree‑`d` polynomial in `ξ`
+more than `d` times with respect to `ξ` vanishes identically, so the
+series terminates on its own and the truncation order only needs to be
+chosen large enough to reach that point. For general symbol classes
+(`S^m_{1,0}`, WKB/oscillatory symbols, etc.) the series does not
+terminate and is instead interpreted *asymptotically*: truncating at a
+finite order `k` introduces an error that is formally of one lower order
+in `⟨ξ⟩` for each additional term dropped, which is why a modest
+truncation order (typically 2–4) already gives a good approximation
+away from very low frequencies, while the numerically applied operator
+always uses the *converted* symbol evaluated through the ordinary KN
+pipeline — no separate Weyl numerical kernel is needed, since after
+conversion `apply(quantization='weyl')` simply hands the corrected
+symbol to the same `kohn_nirenberg_fft` / `kohn_nirenberg_nonperiodic`
+machinery used for KN symbols directly.
 
 Asymptotic composition
 ----------------------
@@ -234,14 +377,34 @@ pieces:
 
       u ↦ a_k(x) · Op(q_k)(u).
 
-* `p_joint` contains genuinely entangled space–frequency dependence. On a
-  bounded phase‑space window, this residual may be approximated by a low‑rank
-  Chebyshev/SVD expansion
+* `p_joint` contains genuinely entangled space–frequency dependence. Its
+  numerical representation is chosen automatically from the structure of
+  the residual (or may be selected explicitly via `joint_backend`):
 
-      p_joint(x, ξ) ≈ Σ_{k=1}^r a_k(x) q_k(ξ),
+  - **NUFFT** (`joint_backend='nufft'`): if `p_joint` factors into an
+    oscillatory phase `exp(i · Λ(x) · M(ξ))` times slowly varying
+    amplitudes, the application is carried out with non‑uniform FFTs —
+    periodic problems only. Falls back automatically if the residual is
+    not NUFFT‑representable.
+  - **AAA** (`joint_backend='aaa'`): if `p_joint` is a rational function
+    of `(x, ξ)`, or otherwise has explicit poles / algebraic decay
+    (negative powers of a polynomial base — e.g. `(x² + ξ²)^{-1/2}`),
+    it is fit with the AAA barycentric rational algorithm on a supplied
+    bounding box (`joint_bounds` is required in this case).
+  - **Chebyshev/SVD low‑rank factorization** (`joint_backend='lowrank'`,
+    the default fallback): for smooth, non‑oscillatory, pole‑free
+    kernels (e.g. Gaussian bumps), on a bounded phase‑space window the
+    residual is approximated as
 
-  reducing the numerical application of a general ΨDO to a small number of
-  separable FFT‑based operations.
+        p_joint(x, ξ) ≈ Σ_{k=1}^r a_k(x) q_k(ξ).
+
+  With `joint_backend='auto'`, the residual's algebraic structure is
+  inspected and one of the three backends above is picked automatically
+  (checked in the order NUFFT → AAA → low‑rank); `apply_hybrid` goes
+  further and splits the residual into additive terms, routing each term
+  to its own best‑matching backend. In every case, reducing `p_joint` to
+  one of these representations turns the numerical application of a
+  general ΨDO into a small number of separable, FFT‑based operations.
 
 
 Hamiltonian flow and propagation of singularities
@@ -289,8 +452,14 @@ speed:
   or rapidly growing symbols.
 * Phase matrices and window functions are cached in non‑periodic transforms.
 * The Peetre backend reduces complex symbols to a small number of efficient
-  separable applications.
-* Matrix‑valued application reuses scalar operator infrastructure entrywise.
+  separable applications, automatically matched (NUFFT / AAA / low‑rank) to
+  the joint residual's structure.
+* Matrix‑valued application (`MatrixPseudoDifferentialOperator`) reuses
+  the scalar `PseudoDifferentialOperator` numerical infrastructure
+  entrywise, so it inherits the same Peetre/NUFFT/AAA backend selection
+  described above with no separate matrix-specific kernel.
+* `PropagatorFamily` amortizes the cost of exponential-symbol propagators
+  across repeated calls at different step sizes `dt`.
 
 
 References
@@ -394,8 +563,74 @@ def _grad_norm(Z):
     return np.sqrt(np.abs(gx) ** 2 + np.abs(gy) ** 2)
 
 
-def _quiver_field(op, xlim, klim, density, vec_exprs_fn, title, scale=10, width=0.005):
+def _quiver_colored(ax, X, Y, U, V, cmap='viridis', scale=25, width=0.004,
+                     colorbar=True, cbar_label='|field|', **quiver_kwargs):
+    """Draw a quiver field with fixed-length arrows, colored by magnitude.
+
+    Plain `plt.quiver(X, Y, U, V)` sizes each arrow by its own (U, V)
+    magnitude, which is what makes raw vector-field plots look like a
+    tangle of dark arrows of wildly different lengths whenever the field
+    spans more than about one order of magnitude (e.g. near a symbol's
+    zero set). Here every arrow is normalized to the same unit length
+    (direction only), and the original magnitude is instead mapped to
+    color via matplotlib's `quiver(X, Y, U, V, C)` form -- the same trick
+    used for wind/flow-field plots.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes or the `matplotlib.pyplot` module
+        Target to draw on; anything exposing `.quiver(...)` (an Axes) or
+        module-level `quiver(...)` (`plt` itself) works.
+    X, Y : ndarray
+        Arrow base positions (same shape as U, V).
+    U, V : ndarray
+        Raw (unnormalized) vector field components.
+    cmap : str, default='viridis'
+        Colormap used for the magnitude.
+    scale : float, default=25
+        Passed to `quiver`; larger values shrink the (now uniform) arrow
+        length. Tune this once the field is normalized -- it no longer
+        needs to be re-tuned per symbol the way a magnitude-scaled plot
+        would.
+    width : float, default=0.004
+        Arrow shaft width, passed to `quiver`.
+    colorbar : bool, default=True
+        If True, attach a colorbar labelled `cbar_label` showing the
+        magnitude scale. Skipped automatically if `ax` has no attached
+        figure to draw it on (e.g. `ax=plt`, when called more than once
+        on the same axes -- pass `colorbar=False` for background/overlay
+        fields to avoid stacking colorbars).
+    **quiver_kwargs
+        Extra keyword arguments forwarded to `quiver` (e.g. `alpha`).
+        `color` is ignored if passed here, since color is used to encode
+        magnitude; use `cmap` instead.
+
+    Returns
+    -------
+    matplotlib.quiver.Quiver
+        The artist returned by the underlying `quiver` call, so callers
+        can attach their own colorbar/legend if `colorbar=False`.
+    """
+    quiver_kwargs.pop('color', None)
+    mag = np.hypot(np.abs(U), np.abs(V))
+    safe_mag = np.where(mag == 0, 1.0, mag)
+    Un, Vn = np.real(U) / safe_mag, np.real(V) / safe_mag
+
+    q = ax.quiver(X, Y, Un, Vn, mag, cmap=cmap, scale=scale, width=width,
+                  **quiver_kwargs)
+    if colorbar:
+        fig = ax.figure if hasattr(ax, 'figure') else plt.gcf()
+        fig.colorbar(q, ax=(ax if hasattr(ax, 'figure') else plt.gca()),
+                     label=cbar_label)
+    return q
+
+
+def _quiver_field(op, xlim, klim, density, vec_exprs_fn, title, scale=25,
+                   width=0.004, cmap='viridis', cbar_label='|field|'):
     """1D-only quiver plot of a vector field derived from the symbol.
+
+    Arrows are drawn at fixed length; the field's local magnitude is
+    encoded by color instead (see `_quiver_colored`).
 
     vec_exprs_fn(p, x, xi) -> (U_expr, V_expr)
     """
@@ -415,7 +650,8 @@ def _quiver_field(op, xlim, klim, density, vec_exprs_fn, title, scale=10, width=
     if np.isscalar(V):
         V = np.full_like(X, V, dtype=float)
 
-    plt.quiver(X, XI, U, V, scale=scale, width=width)
+    _quiver_colored(plt.gca(), X, XI, U, V, cmap=cmap, scale=scale,
+                     width=width, cbar_label=cbar_label)
     plt.xlabel('x')
     plt.ylabel(r'$\xi$')
     plt.title(title)
@@ -859,6 +1095,31 @@ class PseudoDifferentialOperator:
             Truncation order for the Weyl -> KN asymptotic correction.
             Ignored when ``self.quantization != 'weyl'``.
             The series is exact and finite for polynomial symbols.
+        backend : {'peetre', 'direct'}, optional
+            Numerical application backend. If None (default), uses
+            `self.apply_backend`. 'peetre' applies the operator via the
+            local/separable/low-rank Peetre decomposition; 'direct' evaluates
+            the Kohn-Nirenberg (or Weyl-corrected) integral pointwise.
+        apply_joint : bool, default=True
+            When `backend='peetre'`, whether to include the genuinely joint
+            (non-separable) residual term of the Peetre decomposition. If
+            False, only the local and separable terms are applied.
+        joint_backend : str, default="direct"
+            Numerical representation used for the joint residual term when
+            `apply_joint=True` (e.g. direct evaluation, low-rank/AAA, etc.).
+        joint_degree : int, default=6
+            Polynomial/Chebyshev degree used when approximating the joint
+            residual term.
+        joint_tol : float, default=1e-5
+            Tolerance controlling the accuracy of the joint-residual
+            approximation.
+        joint_bounds : tuple, optional
+            Bounding box for the joint residual's domain of approximation.
+            If None, inferred automatically.
+        joint_max_rel_error : float, optional
+            If given, an upper bound on the acceptable relative error of the
+            joint-residual approximation; the backend may refine or fall back
+            to a more accurate method if this is exceeded.
      
         Returns
         -------
@@ -1300,7 +1561,51 @@ class PseudoDifferentialOperator:
             return False, None
 
     def symbol_order(self, max_order=10, tol=1e-3):
-        """Estimate the asymptotic homogeneity order of the symbol as |ξ|→∞."""
+        """
+        Estimate the asymptotic homogeneity order of the symbol as |ξ| → ∞.
+        
+        If the symbol has no frequency dependence at all, returns 0
+        immediately. If the symbol is exactly homogeneous (as determined by
+        `is_homogeneous`), returns that degree directly. Otherwise, the
+        leading-order behavior is estimated via a series expansion:
+        
+        - 1D: tries `series(symbol, xi, oo)` first (order ≥ 0 case), then
+          falls back to substituting `xi = 1/z` and expanding around `z = 0`
+          (order < 0 case).
+        - 2D: same two-step strategy in polar frequency coordinates
+          `(rho, theta)`, expanding around `rho = oo` and, on failure,
+          around `z = 1/rho -> 0`.
+        
+        In each case the leading term is isolated and its coefficient checked
+        for being symbolically nonzero; if it vanishes, that method's result
+        is discarded and the next fallback is tried. Warnings about
+        non-homogeneous symbols or a symbolically zero leading coefficient are
+        printed to stdout rather than raised.
+        
+        Parameters
+        ----------
+        max_order : int, default=10
+            Number of terms requested from each underlying `sympy.series`
+            expansion; higher values can resolve the true leading order when
+            lower-order terms cancel, at increased symbolic cost.
+        tol : float, default=1e-3
+            Currently unused by the estimation logic itself (reserved for
+            numerical-order estimation call sites); present for interface
+            consistency.
+        
+        Returns
+        -------
+        int, float, or None
+            The estimated homogeneity order. Returns an `int` when the
+            estimated order is (numerically) integral, a `float` otherwise,
+            and `None` if no method (series at infinity nor at zero, in
+            either coordinate system) could determine a nonzero leading term.
+        
+        Raises
+        ------
+        NotImplementedError
+            If `self.dim` is not 1 or 2.
+        """
         from sympy import (symbols, series, simplify, cos, sin, oo,
                             powdenest, radsimp, Add)
     
@@ -2434,17 +2739,38 @@ class PseudoDifferentialOperator:
             return _apply_joint_direct()
     
         elif rep_type == "separable_pairs":
-            # Low-rank: apply as sum of separable pairs
+            # Low-rank: apply as sum of separable pairs.
+            #
+            # FIX: unlike the AAA branch below -- whose underlying fitter
+            # (try_aaa_decomposition_*) enforces rtol=joint_tol internally
+            # and reports "aaa_unfit" (forcing a fallback) regardless of
+            # joint_max_rel_error -- the low-rank fitter has no equivalent
+            # built-in rejection: factorize_symbolic always returns *some*
+            # rank-r fit, however bad. Previously this branch only checked
+            # metrics['rel_l2_error'] when the caller explicitly passed
+            # joint_max_rel_error, so with the defaults used by e.g.
+            # apply_hybrid (joint_max_rel_error=None), a low-rank fit could
+            # silently be applied with 10-80%+ relative error whenever the
+            # fixed 'joint_degree' under-resolves the residual over the
+            # (grid-inferred, possibly very wide) bounding box -- see e.g.
+            # a joint term like exp(-x**2/8)*exp(-xi**2/8)*exp(x*xi/4)
+            # fit at degree=6 over a full FFT frequency range, which was
+            # observed to reach rel_l2_error ~ 0.82.
+            #
+            # The gate now always applies, using joint_tol as the default
+            # threshold (mirroring AAA's rtol=joint_tol) when the caller
+            # hasn't overridden it via joint_max_rel_error.
             metrics = rep.get("metrics", {})
             self.last_joint_lowrank_metrics = metrics
-            if (
-                joint_max_rel_error is not None
-                and metrics.get("rel_l2_error", float("inf")) > joint_max_rel_error
-            ):
+            effective_max_rel_error = (
+                joint_max_rel_error if joint_max_rel_error is not None else joint_tol
+            )
+            if metrics.get("rel_l2_error", float("inf")) > effective_max_rel_error:
                 warnings.warn(
                     "Low-rank joint residual symbol error "
                     f"{metrics['rel_l2_error']:.6e} exceeds "
-                    f"joint_max_rel_error={joint_max_rel_error}. "
+                    f"{'joint_max_rel_error' if joint_max_rel_error is not None else 'joint_tol (default quality gate)'}"
+                    f"={effective_max_rel_error}. "
                     "Falling back to direct joint application."
                 )
                 return _apply_joint_direct()
@@ -2860,7 +3186,7 @@ class PseudoDifferentialOperator:
     # Peetre-based application
     # ======================================================================
 
-    def apply_hybrid(self, u, x_grid, kx, y_grid=None, ky=None, **kwargs):
+    def apply_hybrid_old(self, u, x_grid, kx, y_grid=None, ky=None, **kwargs):
         """
         Hybrid application: Automatically splits the joint residual into 
         individual additive terms and routes each term to its optimal 
@@ -2884,6 +3210,7 @@ class PseudoDifferentialOperator:
         
         # 3. Route each joint term individually via 'auto'
         joint_terms = deco.get('joint_residual', [])
+        print("joint_terms = ", joint_terms)
         for term in joint_terms:
             if self._peetre_is_zero(term):
                 continue
@@ -2903,6 +3230,31 @@ class PseudoDifferentialOperator:
                 joint_backend='auto', **kwargs
             )
             
+        return result
+
+    def apply_hybrid(self, u, x_grid, kx, y_grid=None, ky=None, **kwargs):
+        """
+        Hybrid application: Automatically splits the joint residual into 
+        individual additive terms and routes each term to its optimal 
+        backend (NUFFT, AAA, or Lowrank) based on its specific structure.
+        
+        This guarantees O(N log N) performance for mixed symbols that would 
+        otherwise trigger a fallback to O(N²) direct quadrature.
+        """
+        import numpy as np, sympy as sp
+        deco = self.peetre_decomposition()
+        result = np.zeros(np.shape(u), dtype=np.complex128)
+        result += self.apply_peetre(u, x_grid, kx, y_grid=y_grid, ky=ky,
+                                    apply_joint=False, **kwargs)
+        joint_symbol = deco.get('joint_symbol', 0)
+        if not self._peetre_is_zero(joint_symbol):
+            for term in sp.Add.make_args(sp.expand(joint_symbol)):   # <-- the real split
+                if self._peetre_is_zero(term):
+                    continue
+                sub_op = PseudoDifferentialOperator(term, self.vars_x, mode='symbol',
+                                                    quantization=self.quantization)
+                result += sub_op.apply_peetre(u, x_grid, kx, y_grid=y_grid, ky=ky,
+                                              joint_backend='auto', **kwargs)
         return result
 
         
@@ -3184,6 +3536,13 @@ class PseudoDifferentialOperator:
             Maximum order of the asymptotic expansion. 
             - order=1 yields the leading term proportional to the Poisson bracket {p, q}.
             - Higher orders include correction terms involving higher mixed derivatives.
+        mode : {'kn', 'weyl'}, default='kn'
+            Quantization mode forwarded to `compose_asymptotic` for both
+            A∘B and B∘A.
+        sign_convention : {'standard', 'inverse'}, optional
+            Phase-factor convention forwarded to `compose_asymptotic`
+            (controls the sign of `[x, ξ]`); see `compose_asymptotic` for
+            details. If None, defaults to 'standard'.
     
         Returns
         -------
@@ -3488,7 +3847,7 @@ class PseudoDifferentialOperator:
             
         return q_sym
 
-    def exponential_symbol(self, t=1.0, order=1, mode='kn', sign_convention=None):
+    def exponential_symbol(self, t=1.0, order=2, mode='kn', sign_convention=None):
         """
         Compute the symbol of exp(tP) using asymptotic expansion methods.
         
@@ -3504,10 +3863,16 @@ class PseudoDifferentialOperator:
             - t = -i*τ for Schrödinger evolution: exp(-iτH)
             - t = τ for heat/diffusion: exp(τΔ)
             - t for general propagators
-        order : int, default=3
+        order : int, default=2
             Maximum order of the asymptotic expansion. Higher orders include 
             more composition terms, improving accuracy for small t or when 
             non-commutativity effects are significant.
+        mode : {'kn', 'weyl'}, default='kn'
+            Quantization mode forwarded to `compose_asymptotic` at each power
+            P^n in the series.
+        sign_convention : {'standard', 'inverse'}, optional
+            Phase-factor convention forwarded to `compose_asymptotic`; see
+            `compose_asymptotic` for details. If None, defaults to 'standard'.
         
         Returns
         -------
@@ -3749,6 +4114,15 @@ class PseudoDifferentialOperator:
             Use adaptive grid refinement
         adaptive_threshold : float
             Threshold for adaptive refinement
+        auto_range : bool, default=True
+            If True, `lambda_real_range`/`lambda_imag_range` are ignored and
+            instead recomputed as a 20%-margin box around the eigenvalues of
+            the discretized operator (once eigenvalues are available). Set to
+            False to use the ranges passed in as-is.
+        plot : bool, default=True
+            If True, calls the internal pseudospectrum visualization after
+            computing the resolvent-norm grid. Set to False to only return
+            the data dictionary without producing a figure.
             
         Returns
         -------
@@ -4878,7 +5252,11 @@ class PseudoDifferentialOperator:
         elif self.dim == 2:
             x_vals, y_vals, xi_vals, eta_vals = Y
             plt.plot(x_vals, y_vals, label='Position')
-            plt.quiver(x_vals, y_vals, xi_vals, eta_vals, scale=20, width=0.003, alpha=0.5, color='r')
+            # Momentum along the trajectory: fixed-length arrows, colored by
+            # |(xi, eta)| instead of drawn at raw (often wildly varying) length.
+            _quiver_colored(plt.gca(), x_vals, y_vals, xi_vals, eta_vals,
+                             cmap='autumn', scale=20, width=0.003, alpha=0.7,
+                             cbar_label=r'$|(\xi,\eta)|$')
             if show_field:
                 x, y = self.vars_x
                 xi, eta = symbols('xi eta', real=True)
@@ -4888,8 +5266,14 @@ class PseudoDifferentialOperator:
                 Xg, Yg = np.meshgrid(np.linspace(min(x_vals), max(x_vals), 20),
                                      np.linspace(min(y_vals), max(y_vals), 20))
                 XI, ETA = xi0 * np.ones_like(Xg), eta0 * np.ones_like(Yg)
-                plt.quiver(Xg, Yg, dxdt(Xg, Yg, XI, ETA), dydt(Xg, Yg, XI, ETA),
-                          color='gray', alpha=0.2, scale=30, width=0.002)
+                # Background reference field: normalized length, uniform gray,
+                # no colorbar -- it's a faint decorative overlay, not the
+                # quantity of interest, so magnitude isn't color-coded here.
+                Ub, Vb = dxdt(Xg, Yg, XI, ETA), dydt(Xg, Yg, XI, ETA)
+                mag_b = np.hypot(Ub, Vb)
+                safe_b = np.where(mag_b == 0, 1.0, mag_b)
+                plt.quiver(Xg, Yg, Ub / safe_b, Vb / safe_b,
+                           color='gray', alpha=0.25, scale=30, width=0.002)
             plt.xlabel("x"); plt.ylabel("y")
             plt.title("Hamiltonian Flow in Phase Space (2D)")
             plt.legend(); plt.grid(True); plt.axis('equal')
@@ -5020,7 +5404,8 @@ class PseudoDifferentialOperator:
                     U, V = lambdify((x, y, xi, eta),
                                     [diff(pseudo_op.expr, xi), diff(pseudo_op.expr, eta)],
                                     'numpy')(Xg, Yg, xi0, eta0)
-                    plt.quiver(Xg, Yg, U, V, scale=10, width=0.004)
+                    _quiver_colored(plt.gca(), Xg, Yg, U, V, scale=10, width=0.004,
+                                     cbar_label='|(dp/d\u03be, dp/d\u03b7)|')
                     plt.xlabel('x'); plt.ylabel('y')
                     plt.title(f'Symplectic Field at \u03be={xi0:.2f}, \u03b7={eta0:.2f}')
                 elif mode == 'Cotangent Fiber':
@@ -5502,7 +5887,7 @@ class MatrixPseudoDifferentialOperator:
         qp = other.compose_asymptotic(self, order=order, mode=mode, sign_convention=sign_convention)
         return sp.simplify(pq - qp)
 
-    def exponential_symbol(self, t=1.0, order=1, mode='kn', sign_convention=None):
+    def exponential_symbol(self, t=1.0, order=2, mode='kn', sign_convention=None):
         """
         Symbol of `exp(t Op[self])` for the matrix-valued operator, via
         the matrix analogue of `PseudoDifferentialOperator.exponential_symbol`.
@@ -5525,7 +5910,7 @@ class MatrixPseudoDifferentialOperator:
         t : float or sympy.Symbol, default=1.0
             Evolution parameter, same conventions as the scalar version
             (e.g. t = -i*tau for exp(-i*tau*H), t = tau for exp(tau*Delta)).
-        order : int, default=1
+        order : int, default=2
             Truncation order, used both for the outer Taylor series and
             as the `order` passed to each `compose_asymptotic` call.
         mode : {'kn', 'weyl'}, default='kn'
@@ -5783,6 +6168,10 @@ def kohn_nirenberg_fft(
     space_window : bool, default=False
         If True, applies a centered Gaussian spatial taper to mitigate edge boundary artifacts. 
         *Note: Setting `space_window=True` forces execution through the slow path.*
+    is_spatial : bool or None, default=None
+        Explicit hint about whether the 2D symbol depends on (x1, x2).
+        True forces the slow (space-dependent) path, False forces the fast
+        (space-independent) path, None triggers the sampling heuristic.
     
     Returns
     -------
@@ -7198,7 +7587,6 @@ def _apply_1d_piece_rows(piece, field, axis_grid, k_axis, d_axis, dk_axis, along
                                         freq_window=freq_window)
     return out
 
-
 # ============================================================================
 # AAA-based joint-residual backend (joint_backend='aaa')
 # ============================================================================
@@ -8540,9 +8928,33 @@ def _finish_headless(fig, save_path=None):
 
 def plot_scalar_1d(t, U, x, title="u(x, t)", quantity='real',
                    n_snapshots=6, save_path=None):
-    """Plot a scalar 1D space-time solution as a combined heatmap and
-    snapshot overlay. See original docstring for full parameter docs;
-    behavior and return value unchanged."""
+    """
+    Plot a scalar 1D space-time solution as a combined heatmap and
+    snapshot overlay.
+    
+    Parameters
+    ----------
+    t : ndarray, shape (n_times,)
+        Time samples.
+    U : ndarray, shape (n_times, Nx)
+        Solution values u(x, t) sampled on the grid.
+    x : ndarray, shape (Nx,)
+        Spatial grid.
+    title : str, default="u(x, t)"
+        Base title used for the heatmap panel.
+    quantity : {'real', 'imag', 'abs'}, default='real'
+        Which part of U to plot.
+    n_snapshots : int, default=6
+        Number of time slices drawn as line overlays in the second panel.
+    save_path : str, optional
+        If given, the figure is saved to this path (dpi=150) before closing.
+    
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The completed figure (already closed via `_finish_headless`, so it
+        will not display inline; use `save_path` or re-show it explicitly).
+    """
     field = _quantity_fn(quantity)(U)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
 
@@ -8563,8 +8975,31 @@ def plot_scalar_1d(t, U, x, title="u(x, t)", quantity='real',
 
 
 def plot_matrix_1d(t, U, x, labels=None, quantity='real', save_path=None):
-    """Plot each component of a matrix-valued 1D solution as a stacked
-    space-time heatmap. See original docstring; behavior unchanged."""
+    """
+    Plot each component of a matrix-valued 1D solution as a stacked
+    space-time heatmap.
+    
+    Parameters
+    ----------
+    t : ndarray, shape (n_times,)
+        Time samples.
+    U : ndarray, shape (n_times, size, Nx)
+        Diagonal (or otherwise reduced) matrix solution components, one
+        row of panels per index k = 0, ..., size-1.
+    x : ndarray, shape (Nx,)
+        Spatial grid.
+    labels : list of str, optional
+        One label per component; defaults to `["u_1", ..., "u_size"]`.
+    quantity : {'real', 'imag', 'abs'}, default='real'
+        Which part of U to plot.
+    save_path : str, optional
+        If given, the figure is saved to this path (dpi=150) before closing.
+    
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The completed figure (already closed via `_finish_headless`).
+    """
     field_fn = _quantity_fn(quantity)
     size = U.shape[1]
     labels = labels or [f"u_{k+1}" for k in range(size)]
@@ -8583,9 +9018,31 @@ def plot_matrix_1d(t, U, x, labels=None, quantity='real', save_path=None):
 
 
 def plot_scalar_2d(t, U, x, y, times=None, quantity='real', save_path=None):
-    """Plot a scalar 2D solution at selected time instants as a row of
-    side-by-side pcolormesh panels. See original docstring; behavior
-    unchanged."""
+    """
+    Plot a scalar 2D solution at selected time instants as a row of
+    side-by-side pcolormesh panels.
+    
+    Parameters
+    ----------
+    t : ndarray, shape (n_times,)
+        Time samples.
+    U : ndarray, shape (n_times, Nx, Ny)
+        Solution values u(x, y, t) sampled on the grid.
+    x, y : ndarray
+        Spatial grids along each axis.
+    times : array_like of int, optional
+        Indices into `t` selecting which snapshots to plot. Defaults to 6
+        indices evenly spaced across the whole time range.
+    quantity : {'real', 'imag', 'abs'}, default='real'
+        Which part of U to plot.
+    save_path : str, optional
+        If given, the figure is saved to this path (dpi=150) before closing.
+    
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The completed figure (already closed via `_finish_headless`).
+    """
     field_fn = _quantity_fn(quantity)
     times = np.linspace(0, len(t) - 1, 6).astype(int) if times is None else times
 
@@ -8605,8 +9062,30 @@ def plot_scalar_2d(t, U, x, y, times=None, quantity='real', save_path=None):
 
 
 def animate_scalar_1d(t, U, x, quantity='real', interval=40, save_path=None):
-    """Animated line plot of a scalar 1D solution evolving in time. See
-    original docstring; behavior unchanged."""
+    """
+    Animate a scalar 1D solution as a line plot evolving in time.
+    
+    Parameters
+    ----------
+    t : ndarray, shape (n_times,)
+        Time samples.
+    U : ndarray, shape (n_times, Nx)
+        Solution values u(x, t) sampled on the grid.
+    x : ndarray, shape (Nx,)
+        Spatial grid.
+    quantity : {'real', 'imag', 'abs'}, default='real'
+        Which part of U to plot; also sets the fixed y-axis limits from
+        the min/max of that quantity over the whole trajectory.
+    interval : int, default=40
+        Delay between animation frames, in milliseconds.
+    save_path : str, optional
+        If given, the animation is saved to this path via `anim.save`.
+    
+    Returns
+    -------
+    matplotlib.animation.FuncAnimation
+        The animation object (figure is not shown automatically).
+"""
     from matplotlib.animation import FuncAnimation
     field = _quantity_fn(quantity)(U)
     fig, ax = plt.subplots(figsize=(6, 4))
@@ -8648,17 +9127,35 @@ def _matrix_field_reduce(U, component, quantity):
 
 
 def plot_matrix_field_1d(t, U, x, quantity='abs', component='diag', labels=None, save_path=None):
-    """Space-time heatmap(s) for a matrix-valued 1D solution, shape
-    (n_times, N, N, Nx) -- the output of solve_matrix_field /
-    solve_sylvester_field in 1D.
-
+    """
+    Space-time heatmap(s) for a matrix-valued 1D solution.
+    
     Parameters
     ----------
-    component : 'diag' | 'trace' | 'frobenius' | (i, j)
+    t : ndarray, shape (n_times,)
+        Time samples.
+    U : ndarray, shape (n_times, N, N, Nx)
+        Matrix-valued solution field, as returned by `solve_matrix_field`
+        / `solve_sylvester_field` in 1D.
+    x : ndarray, shape (Nx,)
+        Spatial grid.
+    quantity : {'real', 'imag', 'abs'}, default='abs'
+        Which part of the (reduced) field to plot.
+    component : 'diag' | 'trace' | 'frobenius' | (i, j), default='diag'
         'diag'      -- one panel per diagonal entry U_kk(x, t).
         'trace'     -- single panel, sum_k U_kk(x, t).
         'frobenius' -- single panel, ||U(x, t)||_F.
         (i, j)      -- single panel, the (i, j) entry U_ij(x, t).
+    labels : list of str, optional
+        Panel labels used when `component='diag'`; defaults to
+        `["U_11", "U_22", ...]`.
+    save_path : str, optional
+        If given, the figure is saved to this path (dpi=150) before closing.
+    
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The completed figure (already closed via `_finish_headless`).
     """
     if component == 'diag':
         field_fn = _quantity_fn(quantity)
@@ -8766,12 +9263,12 @@ def characteristic_hamiltonians(s_expr, vars_x, vars_xi=None):
 
     For a scalar symbol p(x, ξ), the single Hamiltonian is
 
-        H(x, ξ) = Re(i · p(x, ξ))
+        H(x, ξ) = Re(p(x, ξ))
 
     For a matrix symbol P(x, ξ), the eigenvalues λ_k(x, ξ) are computed
     symbolically and each branch yields
 
-        H_k(x, ξ) = Re(i · λ_k(x, ξ))
+        H_k(x, ξ) = Re(λ_k(x, ξ))
 
     These Hamiltonians generate the bicharacteristic (ray) flow via
     Hamilton's equations:
@@ -8800,6 +9297,12 @@ def characteristic_hamiltonians(s_expr, vars_x, vars_xi=None):
 
     Notes
     -----
+    The classical Hamiltonian governing bicharacteristic flow is the
+    (real part of the) principal symbol itself.  A previous version of
+    this function erroneously computed ``Re(i * p)``, which vanishes
+    identically for any real-valued symbol and therefore produced
+    trivial (stationary) trajectories in the flow visualization.
+
     The substitution to fresh canonical symbols ensures consistent
     differentiation even if the input expression uses symbols with
     different assumptions.
@@ -8817,8 +9320,7 @@ def characteristic_hamiltonians(s_expr, vars_x, vars_xi=None):
 
     H_list = []
     for lam in eigen:
-        omega = sp.I * lam
-        H_list.append(sp.simplify(sp.re(omega)))
+        H_list.append(sp.simplify(sp.re(lam)))
     return H_list, xs, xis
 
 def integrate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
@@ -8965,11 +9467,57 @@ def animate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
                         n_frames=100, projection=None, branches='all',
                         labels=None, interval=50, contours=True,
                         solution=None, quantity='abs', save_path=None):
-    """Animate the propagation of singularities along bicharacteristic
-    trajectories in a 2D phase-space projection. See original docstring
-    for full parameter docs; behavior unchanged. Now built on the shared
-    `_trail_animation` helper instead of duplicating the figure/update
-    setup that also appears in `animate_singularity_3d`."""
+    """
+    Animate the propagation of singularities along bicharacteristic
+    trajectories, projected onto a 2D phase-space plane.
+    
+    Internally calls `integrate_singularity` to obtain the trajectories,
+    then draws a growing dashed trail plus a moving point per branch via
+    the shared `_trail_animation` helper.
+    
+    Parameters
+    ----------
+    s_expr : sympy.Expr
+        Principal symbol used to build the Hamiltonian(s).
+    vars_x : list of sympy.Symbol
+        Spatial variables.
+    x0 : float or array_like, default=0.0
+        Initial spatial position(s).
+    xi0 : float or array_like, default=5.0
+        Initial frequency (momentum) component(s).
+    tmax : float, default=4.0
+        Final integration time.
+    n_frames : int, default=100
+        Number of time samples used for the trajectory and the animation.
+    projection : {'phase', 'position', 'frequency'} or None, default=None
+        Which plane to draw. In 1D, defaults to 'phase' (x vs xi); in 2D,
+        defaults to 'position' (x vs y) and ('frequency'/'phase' are not
+        selectable in 2D -- the projection is always (x, y)).
+    branches : 'all', int, or list of int, default='all'
+        Which characteristic branches to animate.
+    labels : list of str, optional
+        Currently unused (reserved for per-branch legend labels).
+    interval : int, default=50
+        Delay between animation frames, in milliseconds.
+    contours : bool, default=True
+        Currently unused (reserved for background contour overlays).
+    solution : optional
+        Currently unused (reserved for overlaying a PDE solution field).
+    quantity : str, default='abs'
+        Currently unused (reserved alongside `solution`).
+    save_path : str, optional
+        If given, the animation is saved to this path via `anim.save`.
+    
+    Returns
+    -------
+    matplotlib.animation.FuncAnimation
+        The animation object.
+    
+    Raises
+    ------
+    ValueError
+        If `projection` is not one of the supported values for a 1D symbol.
+    """
     from matplotlib.animation import FuncAnimation
     dim = len(vars_x)
     H_list, xs, xis, t_eval, trajs = integrate_singularity(
@@ -9011,9 +9559,47 @@ def animate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
 def animate_singularity_3d(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
                            n_frames=100, projection=None, branches='all',
                            labels=None, interval=50, save_path=None):
-    """Animate bicharacteristic trajectories in a 3D matplotlib plot. See
-    original docstring for full parameter docs; behavior unchanged. Now
-    built on the shared `_trail_animation` helper."""
+    """
+    Animate bicharacteristic trajectories in a 3D matplotlib plot.
+    
+    Internally calls `integrate_singularity` to obtain the trajectories,
+    then draws a growing dashed trail plus a moving point per branch via
+    the shared `_trail_animation` helper. In 1D, the third axis is time
+    `t`; in 2D (or higher), the first three phase-space coordinates
+    `(x, y, ...)` are used directly.
+    
+    Parameters
+    ----------
+    s_expr : sympy.Expr
+        Principal symbol used to build the Hamiltonian(s).
+    vars_x : list of sympy.Symbol
+        Spatial variables.
+    x0 : float or array_like, default=0.0
+        Initial spatial position(s).
+    xi0 : float or array_like, default=5.0
+        Initial frequency (momentum) component(s).
+    tmax : float, default=4.0
+        Final integration time.
+    n_frames : int, default=100
+        Number of time samples used for the trajectory and the animation.
+    projection : optional
+        Currently unused for the 3D case (reserved for API parity with
+        `animate_singularity`); the axes are always chosen as described
+        above.
+    branches : 'all', int, or list of int, default='all'
+        Which characteristic branches to animate.
+    labels : list of str, optional
+        Currently unused (reserved for per-branch legend labels).
+    interval : int, default=50
+        Delay between animation frames, in milliseconds.
+    save_path : str, optional
+        If given, the animation is saved to this path via `anim.save`.
+    
+    Returns
+    -------
+    matplotlib.animation.FuncAnimation
+        The animation object.
+    """
     from matplotlib.animation import FuncAnimation
     import mpl_toolkits.mplot3d  # noqa: F401
 

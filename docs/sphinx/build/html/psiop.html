@@ -93,6 +93,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.animate_singularity"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.animate_singularity()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.apply"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.apply_hybrid"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply_hybrid()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.apply_hybrid_old"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply_hybrid_old()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.apply_peetre"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply_peetre()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.asymptotic_expansion"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.asymptotic_expansion()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop.PseudoDifferentialOperator.clear_cache"><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.clear_cache()</span></code></a></li>
@@ -229,17 +230,42 @@ expression acting on a test function (<cite>mode=’auto’</cite>).</p>
 </dd>
 </dl>
 </li>
-<li><dl class="simple">
-<dt><cite>MatrixPseudoDifferentialOperator</cite></dt><dd><p>Matrix‑valued pseudo‑differential operator acting on vector fields. Each
-matrix entry is wrapped as a scalar operator, so application reuses the
-existing scalar numerical machinery.</p>
+<li><dl>
+<dt><cite>MatrixPseudoDifferentialOperator</cite></dt><dd><p>N x N matrix-valued pseudo-differential operator, built from a sympy
+matrix of scalar symbols <cite>P_ij(x[, y], ξ[, η])</cite> and acting on vector
+fields <cite>u = (u_1, …, u_N)</cite>. Each entry <cite>P_ij</cite> is wrapped as its own
+scalar <cite>PseudoDifferentialOperator</cite>, so <cite>apply()</cite> and
+<cite>apply_matrix_field()</cite>/<cite>apply_matrix_field_right()</cite> (left/right action
+on an N x N matrix-valued field, e.g. a density matrix or matrix
+Green’s function) reuse the existing scalar FFT/Peetre numerical
+machinery entrywise, with no separate matrix-specific kernel. Entries
+may depend on <cite>x</cite> (and <cite>y</cite>) for variable-coefficient systems, or be
+frequency-only for constant-coefficient ones; <cite>symbol_matrix()</cite>
+numerically evaluates the full <cite>(…, N, N)</cite> symbol on a grid, or
+returns the symbolic <cite>sympy.Matrix</cite> when called without arguments, and
+<cite>eigen_symbol()</cite> gives pointwise eigenvalues/eigenvectors of the
+symbol matrix (closed-form for N=2, used e.g. to build the
+per-branch Hamiltonians of coupled systems).</p>
+<p>The same asymptotic symbolic calculus available for scalar operators
+is generalized here to matrix multiplication order: <cite>compose_asymptotic</cite>
+is the symbol of <cite>Op[self] . Op[other]</cite> (exact, at any order, for
+constant-coefficient entries) and is noncommutative even at 0th order
+since matrices don’t commute; <cite>commutator_symbolic</cite>, formal left/right
+inverses, the formal adjoint, and matrix exponential symbols
+<cite>exp(t · Op[P])</cite> (for propagators of coupled/vector-valued PDE systems)
+are all built on top of it. This is the class used whenever a
+scalar-valued <cite>PseudoDifferentialOperator</cite> isn’t enough — e.g. coupled
+systems, N-component wave/Dirac-type equations, or matrix-valued
+Green’s functions and density matrices propagated in time.</p>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
 <dt>Numerical application backends</dt><dd><p>Operators may be applied either through direct Kohn–Nirenberg quadrature
 or through a Peetre‑decomposition backend, which splits the symbol into
-local, separable, and low‑rank joint contributions.</p>
+local, separable, and joint contributions and represents the joint
+residual via whichever of NUFFT, AAA rational approximation, or
+Chebyshev/SVD low‑rank factorization best matches its structure.</p>
 </dd>
 </dl>
 </li>
@@ -251,12 +277,38 @@ conversion are implemented through asymptotic symbolic expansions.</p>
 </dl>
 </li>
 <li><dl>
-<dt>PDE propagation helpers</dt><dd><p>The module includes propagator construction and time‑stepping utilities
-for equations of the form</p>
-<blockquote>
-<div><p>∂ₜ u = Op(s)(u)</p>
-</div></blockquote>
-<p>and second‑order systems reduced to first‑order block form.</p>
+<dt>Propagators and time-stepping solvers</dt><dd><p><cite>build_propagator</cite> constructs the one-step approximate propagator
+<cite>exp(dt · Op[s])</cite> for a symbol <cite>s</cite> by truncating its asymptotic
+exponential-symbol expansion at a chosen <cite>order</cite>, then quantizing the
+result; <cite>PropagatorFamily</cite> wraps this for the common case where the
+same symbol <cite>s</cite> is propagated at many different step sizes (parameter
+sweeps, dt-convergence studies, adaptive/embedded steppers): it builds
+the exponential expansion once with <cite>dt</cite> left as a free symbol, and
+produces each concrete propagator via a single cheap substitution
+instead of repeating the full <cite>compose_asymptotic</cite> recursion per call.
+On top of this, <cite>solve_first_order</cite> time-steps <cite>∂ₜu = Op(s)(u)</cite> by
+repeated propagator application, <cite>solve_second_order</cite> handles
+second-order-in-time equations by reducing them to first-order block
+form via a companion system, and <cite>solve_matrix_field</cite> /
+<cite>solve_sylvester_field</cite> extend the same propagator machinery to
+matrix-valued fields — the latter via operator (Lie/Strang) splitting
+between independent left- and right-acting symbols <cite>P</cite>, <cite>Q</cite>, for
+equations of Sylvester type <cite>∂ₜU = Op(P)U + U·Op(Q)</cite>.</p>
+<p><cite>solve_ricci_flow_conformal_2d</cite> is a further, structurally different
+example built on the same propagator infrastructure: it integrates 2D
+Ricci flow in conformal gauge, <cite>∂ₜφ = e^{−2φ}Δφ</cite>, a quasi-linear
+equation not directly covered by the linear/matrix solvers above,
+since its coefficient depends on the evolving solution itself and so
+cannot be described by one fixed symbol ahead of time. Each step
+instead freezes the coefficient at its current value (a Rothe-type
+linearization) and applies an IMEX/Lie splitting: an explicit Euler
+correction for the deviation from the coefficient’s spatial average,
+followed by an exact stiff step for the spatially averaged part,
+which reduces to a plain Fourier multiplier and is applied directly
+via FFT rather than through a rebuilt exponential-symbol propagator.
+It illustrates how <cite>psiop</cite>’s exact/asymptotic propagator machinery can
+be reused as a building block inside a custom splitting scheme for
+equations outside the module’s ordinary linear/matrix solver path.</p>
 </dd>
 </dl>
 </li>
@@ -293,7 +345,7 @@ fields, pseudospectra, and interactive dashboards are provided.</p>
 <li><dl class="simple">
 <dt>High‑frequency symbolic analysis:</dt><dd><ul class="simple">
 <li><p>principal symbol extraction;</p></li>
-<li><p>asymptotic expansion as <a href="#id15"><span class="problematic" id="id16">|ξ|</span></a> → ∞;</p></li>
+<li><p>asymptotic expansion as <a href="#id13"><span class="problematic" id="id14">|ξ|</span></a> → ∞;</p></li>
 <li><p>homogeneity detection;</p></li>
 <li><p>symbolic/numerical estimation of operator order.</p></li>
 </ul>
@@ -317,10 +369,27 @@ fields, pseudospectra, and interactive dashboards are provided.</p>
 <li><p>local polynomial part in the frequency variables;</p></li>
 <li><p>separable terms of the form <cite>a(x) q(ξ)</cite>;</p></li>
 <li><p>genuinely joint, non‑separable residual terms;</p></li>
-<li><p>Chebyshev/SVD low‑rank factorization of joint residuals:</p>
+<li><p>automatic backend selection for the joint residual, based on its
+structure:</p>
+<blockquote>
+<div><ul>
+<li><p>NUFFT — when the residual has an oscillatory phase of the
+form <cite>exp(i · Λ(x) · M(ξ))</cite>, applied via non‑uniform FFTs
+(<cite>finufft</cite> if available, with a pure‑NumPy fallback);</p></li>
+<li><p>AAA (rational barycentric approximation) — when the residual
+is a rational function of <cite>(x, ξ)</cite> or has explicit poles /
+algebraic decay (negative powers of a polynomial base);</p></li>
+<li><p>Chebyshev/SVD low‑rank factorization — for smooth,
+non‑oscillatory, pole‑free joint kernels (e.g. Gaussian
+bumps):</p>
 <blockquote>
 <div><p>p_joint(x, ξ) ≈ Σ_k a_k(x) q_k(ξ);</p>
 </div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+<p>the joint residual can also be split additively and each term
+routed independently to its best‑matching backend (<cite>apply_hybrid</cite>).</p>
 </li>
 <li><p>Monte Carlo quality diagnostics for the low‑rank approximation.</p></li>
 </ul>
@@ -330,7 +399,8 @@ fields, pseudospectra, and interactive dashboards are provided.</p>
 <li><dl class="simple">
 <dt>Numerical application backends:</dt><dd><ul class="simple">
 <li><p>direct pointwise Kohn–Nirenberg evaluation on space–frequency grids;</p></li>
-<li><p>Peetre‑based application using local, separable, and low‑rank terms;</p></li>
+<li><p>Peetre‑based application using local, separable, and NUFFT/AAA/
+low‑rank joint terms;</p></li>
 <li><p>periodic FFT‑based evaluation for periodic problems;</p></li>
 <li><p>non‑periodic quadrature for Dirichlet‑type settings;</p></li>
 <li><p>frequency windowing, dealiasing masks, spatial tapering, magnitude
@@ -376,9 +446,15 @@ adaptive refinement, and parallel evaluation.</p></li>
 </li>
 <li><dl class="simple">
 <dt>Time‑dependent solver utilities:</dt><dd><ul class="simple">
-<li><p>construction of approximate propagators <cite>exp(dt · Op(s))</cite>;</p></li>
+<li><p>construction of approximate propagators <cite>exp(dt · Op(s))</cite>, including
+<cite>PropagatorFamily</cite> for reusing one symbolic exponential expansion
+across many step sizes <cite>dt</cite> instead of rebuilding it per call;</p></li>
 <li><p>first‑order evolution solver;</p></li>
 <li><p>second‑order evolution solver via block companion reduction;</p></li>
+<li><p>matrix‑valued field solvers, including Sylvester‑type equations via
+operator splitting;</p></li>
+<li><p>a quasi‑linear 2D conformal Ricci flow solver built on the same
+propagator infrastructure via per‑step IMEX/Lie splitting;</p></li>
 <li><p>1D/2D grid generation utilities;</p></li>
 <li><p>plotting and animation of scalar and matrix‑valued solutions.</p></li>
 </ul>
@@ -398,32 +474,105 @@ cotangent fibers, and vector fields.</p></li>
 </section>
 <section id="mathematical-background">
 <h3>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h3>
-<p>A pseudo‑differential operator <cite>P</cite> acting on functions of <cite>x ∈ ℝⁿ</cite> is defined
-by its <strong>symbol</strong> <cite>p(x, ξ)</cite> on phase space <cite>T*ℝⁿ</cite>. In the Kohn–Nirenberg
-quantization,</p>
+<p><strong>Symbols and quantization.</strong> A pseudo‑differential operator <cite>P</cite> acting on
+functions of <cite>x ∈ ℝⁿ</cite> (n = 1 or 2 in this module) is defined by its
+<strong>symbol</strong> <cite>p(x, ξ)</cite>, a function on phase space <cite>T*ℝⁿ = ℝⁿ_x × ℝⁿ_ξ</cite>. Loosely
+speaking, <cite>p</cite> prescribes how <cite>P</cite> acts on each Fourier mode <cite>e^{ix·ξ}</cite>,
+with <cite>x</cite>-dependence allowed so that the “multiplier” itself may vary in
+space — this is what distinguishes a genuine ΨDO from an ordinary Fourier
+multiplier. Symbols are classified by their growth in <cite>ξ</cite>: <cite>p</cite> belongs to
+the Hörmander class <cite>S^m_{1,0}</cite> if</p>
 <blockquote>
-<div><p>(P u)(x) = (2π)^{-n} ∫_{ℝⁿ} e^{i x·ξ} p(x, ξ) û(ξ) dξ,</p>
+<div><p><a href="#id15"><span class="problematic" id="id16">|∂_x^β ∂_ξ^α p(x, ξ)|</span></a> ≤ C_{α,β} (1 + <a href="#id17"><span class="problematic" id="id18">|ξ|</span></a>)^{m - <a href="#id19"><span class="problematic" id="id20">|α|</span></a>}</p>
 </div></blockquote>
-<p>where <cite>û</cite> denotes the Fourier transform of <cite>u</cite>. If <cite>p</cite> is independent of <cite>x</cite>,
-the operator reduces to a Fourier multiplier:</p>
+<p>for all multi‑indices <cite>α, β</cite>, i.e. each <cite>ξ</cite>‑derivative improves the decay
+by one power of <cite>⟨ξ⟩ = (1+|ξ|²)^{1/2}</cite>. The integer/real number <cite>m</cite> is the
+<strong>order</strong> of the operator; differential operators of degree <cite>m</cite> have
+symbols that are polynomial in <cite>ξ</cite> of degree <cite>m</cite> and lie in <cite>S^m_{1,0}</cite>.
+<cite>psiop</cite> does not enforce class membership explicitly, but the asymptotic
+expansions used throughout (composition, inverses, exponentials, symbol
+order estimation) are only guaranteed accurate for symbols of this kind,
+or for symbols with a well‑defined asymptotic behaviour as <cite>|ξ| → ∞</cite>
+(polynomial, WKB/oscillatory, or otherwise expandable in inverse powers
+of <cite>⟨ξ⟩</cite>).</p>
+<p><strong>Quantization maps.</strong> A symbol alone does not fix an operator: different
+<em>quantization</em> conventions assign different operators to the same <cite>p</cite>,
+differing by lower‑order corrections. <cite>psiop</cite> implements the two most
+common choices, plus the asymptotic dictionary between them.</p>
+<p><em>Kohn–Nirenberg (left/standard) quantization.</em> This is the default:</p>
 <blockquote>
-<div><p>P u = ℱ^{-1}[p(ξ) ℱ[u](ξ)].</p>
+<div><p>(P u)(x) = Op^{KN}(p) u(x) = (2π)^{-n} ∫_{ℝⁿ} e^{i x·ξ} p(x, ξ) û(ξ) dξ,</p>
 </div></blockquote>
-<p>The Weyl quantization uses a symmetric midpoint convention. The two
-quantizations are related by an asymptotic differential correction. In 1D,</p>
+<p>where <cite>û(ξ) = ∫ e^{-i x·ξ} u(x) dx</cite> is the Fourier transform of <cite>u</cite>. The
+symbol is evaluated at the <em>output</em> point <cite>x</cite> only — the quantization is
+“left” in the sense that, for a differential operator, <cite>x</cite> and <cite>D_x</cite>
+appear with <cite>x</cite> always to the left of <cite>D_x = -i∂_x</cite>. If <cite>p</cite> is
+independent of <cite>x</cite>, the <cite>x</cite>‑integral collapses and <cite>P</cite> reduces to an
+ordinary Fourier multiplier</p>
 <blockquote>
-<div><p>a_KN(x, ξ) = exp(− i/2 · ∂_x ∂_ξ) a_Weyl(x, ξ),</p>
+<div><p>P u = ℱ^{-1}[p(ξ) ℱ[u](ξ)],</p>
+</div></blockquote>
+<p>which is exactly the fast‑path FFT evaluation used numerically whenever
+the symbol has no spatial dependence (see <em>Numerical design notes</em>
+below). Numerically, <cite>kohn_nirenberg_fft</cite> realizes the periodic case by
+evaluating <cite>p</cite> on the DFT frequency grid and applying it as a (possibly
+<cite>x</cite>‑dependent) multiplier in Fourier space; <cite>kohn_nirenberg_nonperiodic</cite>
+evaluates the same defining integral directly by quadrature for
+Dirichlet‑type boundary conditions, where no global Fourier basis is
+available.</p>
+<p><em>Weyl (symmetric) quantization.</em> The Weyl quantization symmetrizes the
+choice of evaluation point between <cite>x</cite> and the dual variable, formally</p>
+<blockquote>
+<div><p>Op^{w}(a) u(x) = (2π)^{-n} ∫∫ e^{i(x-y)·ξ} a((x+y)/2, ξ) u(y) dy dξ,</p>
+</div></blockquote>
+<p>i.e. the symbol is evaluated at the <em>midpoint</em> <cite>(x+y)/2</cite> of the operator’s
+input and output arguments rather than at <cite>x</cite> alone. This convention is
+preferred in semiclassical and quantum‑mechanical contexts because it
+makes real‑valued symbols correspond to formally self‑adjoint operators,
+and because Weyl composition (the Moyal product) has a symmetric,
+commutator‑friendly asymptotic expansion (<cite>compose_asymptotic(mode=’weyl’)</cite>).</p>
+<p><em>Converting between conventions.</em> Because both quantizations act on the
+same underlying operator up to a reshuffling of <cite>x</cite> and <cite>ξ</cite> dependence,
+there is an exact formal dictionary between the corresponding symbols,
+realized as an asymptotic series in mixed <cite>x</cite>–<cite>ξ</cite> derivatives. In 1D,</p>
+<blockquote>
+<div><dl class="simple">
+<dt>a_KN(x, ξ) = exp(− i/2 · ∂_x ∂_ξ) a_Weyl(x, ξ)</dt><dd><p>~ Σ_{k≥0} (−i/2)^k / k! · (∂_x ∂_ξ)^k a_Weyl(x, ξ),</p>
+</dd>
+</dl>
 </div></blockquote>
 <p>and conversely,</p>
 <blockquote>
-<div><p>a_Weyl(x, ξ) = exp(+ i/2 · ∂_x ∂_ξ) a_KN(x, ξ).</p>
+<div><dl class="simple">
+<dt>a_Weyl(x, ξ) = exp(+ i/2 · ∂_x ∂_ξ) a_KN(x, ξ)</dt><dd><p>~ Σ_{k≥0} (+i/2)^k / k! · (∂_x ∂_ξ)^k a_KN(x, ξ).</p>
+</dd>
+</dl>
 </div></blockquote>
-<p>In 2D, the cross‑derivative operator becomes</p>
+<p>In 2D the cross‑derivative operator sums the contributions from both
+coordinate pairs,</p>
 <blockquote>
-<div><p>∂_x ∂_ξ + ∂_y ∂_η.</p>
+<div><p>∂_x ∂_ξ  →  ∂_x ∂_ξ + ∂_y ∂_η,</p>
 </div></blockquote>
-<p>For polynomial symbols the conversion series is finite and exact; for general
-symbol classes it is interpreted asymptotically.</p>
+<p>and the mixed term <cite>(∂_x ∂_ξ + ∂_y ∂_η)^k</cite> is expanded binomially into
+<cite>(∂_x ∂_ξ)^j (∂_y ∂_η)^{k-j}</cite> pieces before differentiating, to avoid
+redundant symbolic work (<cite>weyl_to_kn_symbol</cite> / <cite>kn_to_weyl_symbol</cite>, via
+the shared <cite>_quantization_symbol_correction</cite> helper).</p>
+<p>For symbols polynomial in <cite>ξ</cite> (i.e. differential operators), both series
+are <strong>exact and finite</strong>: differentiating a degree‑<cite>d</cite> polynomial in <cite>ξ</cite>
+more than <cite>d</cite> times with respect to <cite>ξ</cite> vanishes identically, so the
+series terminates on its own and the truncation order only needs to be
+chosen large enough to reach that point. For general symbol classes
+(<cite>S^m_{1,0}</cite>, WKB/oscillatory symbols, etc.) the series does not
+terminate and is instead interpreted <em>asymptotically</em>: truncating at a
+finite order <cite>k</cite> introduces an error that is formally of one lower order
+in <cite>⟨ξ⟩</cite> for each additional term dropped, which is why a modest
+truncation order (typically 2–4) already gives a good approximation
+away from very low frequencies, while the numerically applied operator
+always uses the <em>converted</em> symbol evaluated through the ordinary KN
+pipeline — no separate Weyl numerical kernel is needed, since after
+conversion <cite>apply(quantization=’weyl’)</cite> simply hands the corrected
+symbol to the same <cite>kohn_nirenberg_fft</cite> / <cite>kohn_nirenberg_nonperiodic</cite>
+machinery used for KN symbols directly.</p>
 </section>
 <section id="asymptotic-composition">
 <h3>Asymptotic composition<a class="headerlink" href="#asymptotic-composition" title="Link to this heading"></a></h3>
@@ -445,7 +594,7 @@ adjoints, fractional powers, and exponential symbols.</p>
 <h3>Principal symbol and order<a class="headerlink" href="#principal-symbol-and-order" title="Link to this heading"></a></h3>
 <p>The high‑frequency behaviour of <cite>p(x, ξ)</cite> determines the order of the
 operator. The <strong>principal symbol</strong> is the leading homogeneous component as
-<a href="#id17"><span class="problematic" id="id18">|ξ|</span></a> → ∞. If <cite>p</cite> is homogeneous of degree <cite>m</cite>, then</p>
+<a href="#id21"><span class="problematic" id="id22">|ξ|</span></a> → ∞. If <cite>p</cite> is homogeneous of degree <cite>m</cite>, then</p>
 <blockquote>
 <div><p>p(x, λ ξ) = λ^m p(x, ξ),    λ &gt; 0.</p>
 </div></blockquote>
@@ -476,14 +625,36 @@ differential operators:</p>
 <div><p>u ↦ a_k(x) · Op(q_k)(u).</p>
 </div></blockquote>
 </li>
-<li><p><cite>p_joint</cite> contains genuinely entangled space–frequency dependence. On a
-bounded phase‑space window, this residual may be approximated by a low‑rank
-Chebyshev/SVD expansion</p>
+<li><p><cite>p_joint</cite> contains genuinely entangled space–frequency dependence. Its
+numerical representation is chosen automatically from the structure of
+the residual (or may be selected explicitly via <cite>joint_backend</cite>):</p>
+<ul>
+<li><p><strong>NUFFT</strong> (<cite>joint_backend=’nufft’</cite>): if <cite>p_joint</cite> factors into an
+oscillatory phase <cite>exp(i · Λ(x) · M(ξ))</cite> times slowly varying
+amplitudes, the application is carried out with non‑uniform FFTs —
+periodic problems only. Falls back automatically if the residual is
+not NUFFT‑representable.</p></li>
+<li><p><strong>AAA</strong> (<cite>joint_backend=’aaa’</cite>): if <cite>p_joint</cite> is a rational function
+of <cite>(x, ξ)</cite>, or otherwise has explicit poles / algebraic decay
+(negative powers of a polynomial base — e.g. <cite>(x² + ξ²)^{-1/2}</cite>),
+it is fit with the AAA barycentric rational algorithm on a supplied
+bounding box (<cite>joint_bounds</cite> is required in this case).</p></li>
+<li><p><strong>Chebyshev/SVD low‑rank factorization</strong> (<cite>joint_backend=’lowrank’</cite>,
+the default fallback): for smooth, non‑oscillatory, pole‑free
+kernels (e.g. Gaussian bumps), on a bounded phase‑space window the
+residual is approximated as</p>
 <blockquote>
-<div><p>p_joint(x, ξ) ≈ Σ_{k=1}^r a_k(x) q_k(ξ),</p>
+<div><p>p_joint(x, ξ) ≈ Σ_{k=1}^r a_k(x) q_k(ξ).</p>
 </div></blockquote>
-<p>reducing the numerical application of a general ΨDO to a small number of
-separable FFT‑based operations.</p>
+</li>
+</ul>
+<p>With <cite>joint_backend=’auto’</cite>, the residual’s algebraic structure is
+inspected and one of the three backends above is picked automatically
+(checked in the order NUFFT → AAA → low‑rank); <cite>apply_hybrid</cite> goes
+further and splits the residual into additive terms, routing each term
+to its own best‑matching backend. In every case, reducing <cite>p_joint</cite> to
+one of these representations turns the numerical application of a
+general ΨDO into a small number of separable, FFT‑based operations.</p>
 </li>
 </ul>
 </section>
@@ -530,8 +701,14 @@ quadrature to avoid excessive memory allocation.</p></li>
 or rapidly growing symbols.</p></li>
 <li><p>Phase matrices and window functions are cached in non‑periodic transforms.</p></li>
 <li><p>The Peetre backend reduces complex symbols to a small number of efficient
-separable applications.</p></li>
-<li><p>Matrix‑valued application reuses scalar operator infrastructure entrywise.</p></li>
+separable applications, automatically matched (NUFFT / AAA / low‑rank) to
+the joint residual’s structure.</p></li>
+<li><p>Matrix‑valued application (<cite>MatrixPseudoDifferentialOperator</cite>) reuses
+the scalar <cite>PseudoDifferentialOperator</cite> numerical infrastructure
+entrywise, so it inherits the same Peetre/NUFFT/AAA backend selection
+described above with no separate matrix-specific kernel.</p></li>
+<li><p><cite>PropagatorFamily</cite> amortizes the cost of exponential-symbol propagators
+across repeated calls at different step sizes <cite>dt</cite>.</p></li>
 </ul>
 <p class="rubric">References</p>
 <aside class="footnote-list brackets">
@@ -798,7 +975,7 @@ If called without arguments, computes symbolic eigenvalues/eigenvectors.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.MatrixPseudoDifferentialOperator.exponential_symbol">
-<span class="sig-name descname"><span class="pre">exponential_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kn'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sign_convention</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#MatrixPseudoDifferentialOperator.exponential_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.MatrixPseudoDifferentialOperator.exponential_symbol" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">exponential_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kn'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sign_convention</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#MatrixPseudoDifferentialOperator.exponential_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.MatrixPseudoDifferentialOperator.exponential_symbol" title="Link to this definition"></a></dt>
 <dd><p>Symbol of <cite>exp(t Op[self])</cite> for the matrix-valued operator, via
 the matrix analogue of <cite>PseudoDifferentialOperator.exponential_symbol</cite>.</p>
 <p>Same truncated power series as the scalar case,</p>
@@ -818,7 +995,7 @@ already branches on dimension internally.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>t</strong> (<em>float</em><em> or </em><em>sympy.Symbol</em><em>, </em><em>default=1.0</em>) – Evolution parameter, same conventions as the scalar version
 (e.g. t = -i*tau for exp(-i*tau*H), t = tau for exp(tau*Delta)).</p></li>
-<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default=1</em>) – Truncation order, used both for the outer Taylor series and
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default=2</em>) – Truncation order, used both for the outer Taylor series and
 as the <cite>order</cite> passed to each <cite>compose_asymptotic</cite> call.</p></li>
 <li><p><strong>mode</strong> (<em>{'kn'</em><em>, </em><em>'weyl'}</em><em>, </em><em>default='kn'</em>) – Quantization convention for the composition (2D Weyl is not
 implemented for matrix symbols – see <cite>compose_asymptotic</cite>).</p></li>
@@ -851,7 +1028,7 @@ general two-operator case.</p></li>
 <dd><p>Formal Hermitian adjoint symbol P* of the matrix operator.</p>
 <p>Each entry gets the same scalar treatment as
 <cite>PseudoDifferentialOperator.formal_adjoint</cite> (conjugate + asymptotic
-expansion at infinity in <a href="#id19"><span class="problematic" id="id20">|xi|</span></a>); the resulting matrix is then
+expansion at infinity in <a href="#id23"><span class="problematic" id="id24">|xi|</span></a>); the resulting matrix is then
 transposed (not conjugate-transposed again – conjugation already
 happened entrywise) because (Op[P]u, v) = (u, Op[P]* v) swaps the
 row/column roles of the symbol, same as for a plain matrix adjoint.</p>
@@ -1133,6 +1310,59 @@ The series is exact and finite for polynomial symbols.</p>
 <dt class="field-even">type weyl_order<span class="colon">:</span></dt>
 <dd class="field-even"><p>int, default=4</p>
 </dd>
+<dt class="field-odd">param backend<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Numerical application backend. If None (default), uses
+<cite>self.apply_backend</cite>. ‘peetre’ applies the operator via the
+local/separable/low-rank Peetre decomposition; ‘direct’ evaluates
+the Kohn-Nirenberg (or Weyl-corrected) integral pointwise.</p>
+</dd>
+<dt class="field-even">type backend<span class="colon">:</span></dt>
+<dd class="field-even"><p>{‘peetre’, ‘direct’}, optional</p>
+</dd>
+<dt class="field-odd">param apply_joint<span class="colon">:</span></dt>
+<dd class="field-odd"><p>When <cite>backend=’peetre’</cite>, whether to include the genuinely joint
+(non-separable) residual term of the Peetre decomposition. If
+False, only the local and separable terms are applied.</p>
+</dd>
+<dt class="field-even">type apply_joint<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, default=True</p>
+</dd>
+<dt class="field-odd">param joint_backend<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Numerical representation used for the joint residual term when
+<cite>apply_joint=True</cite> (e.g. direct evaluation, low-rank/AAA, etc.).</p>
+</dd>
+<dt class="field-even">type joint_backend<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, default=”direct”</p>
+</dd>
+<dt class="field-odd">param joint_degree<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Polynomial/Chebyshev degree used when approximating the joint
+residual term.</p>
+</dd>
+<dt class="field-even">type joint_degree<span class="colon">:</span></dt>
+<dd class="field-even"><p>int, default=6</p>
+</dd>
+<dt class="field-odd">param joint_tol<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tolerance controlling the accuracy of the joint-residual
+approximation.</p>
+</dd>
+<dt class="field-even">type joint_tol<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, default=1e-5</p>
+</dd>
+<dt class="field-odd">param joint_bounds<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Bounding box for the joint residual’s domain of approximation.
+If None, inferred automatically.</p>
+</dd>
+<dt class="field-even">type joint_bounds<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple, optional</p>
+</dd>
+<dt class="field-odd">param joint_max_rel_error<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If given, an upper bound on the acceptable relative error of the
+joint-residual approximation; the backend may refine or fall back
+to a more accurate method if this is exceeded.</p>
+</dd>
+<dt class="field-even">type joint_max_rel_error<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, optional</p>
+</dd>
 <dt class="field-odd">returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Result of applying the operator, same shape as u.</p>
 </dd>
@@ -1157,6 +1387,16 @@ otherwise trigger a fallback to O(N²) direct quadrature.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.apply_hybrid_old">
+<span class="sig-name descname"><span class="pre">apply_hybrid_old</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.apply_hybrid_old"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.apply_hybrid_old" title="Link to this definition"></a></dt>
+<dd><p>Hybrid application: Automatically splits the joint residual into
+individual additive terms and routes each term to its optimal
+backend (NUFFT, AAA, or Lowrank) based on its specific structure.</p>
+<p>This guarantees O(N log N) performance for mixed symbols that would
+otherwise trigger a fallback to O(N²) direct quadrature.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.apply_peetre">
 <span class="sig-name descname"><span class="pre">apply_peetre</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary_condition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'periodic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dealiasing_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'gaussian'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">space_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weyl_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_joint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decomposition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separable_local</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'direct'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_degree</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_max_rel_error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_num_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">joint_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.apply_peetre"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.apply_peetre" title="Link to this definition"></a></dt>
 <dd><p>Apply the operator using its Peetre decomposition.</p>
@@ -1167,10 +1407,10 @@ Kohn-Nirenberg equivalent before the Peetre decomposition is performed.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.asymptotic_expansion">
 <span class="sig-name descname"><span class="pre">asymptotic_expansion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.asymptotic_expansion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.asymptotic_expansion" title="Link to this definition"></a></dt>
-<dd><p>Compute the asymptotic expansion of the symbol as <a href="#id21"><span class="problematic" id="id22">|ξ|</span></a> → ∞ (high-frequency regime).</p>
+<dd><p>Compute the asymptotic expansion of the symbol as <a href="#id25"><span class="problematic" id="id26">|ξ|</span></a> → ∞ (high-frequency regime).</p>
 <p>This method expands the pseudo-differential symbol in inverse powers of the
 frequency variable(s), either in 1D or 2D. It handles both polynomial and
-exponential symbols by performing a series expansion in 1/<a href="#id23"><span class="problematic" id="id24">|ξ|</span></a> up to the specified order.</p>
+exponential symbols by performing a series expansion in 1/<a href="#id27"><span class="problematic" id="id28">|ξ|</span></a> up to the specified order.</p>
 <p>The expansion is performed directly in Cartesian coordinates for 1D symbols.
 For 2D symbols, the method uses polar coordinates (ρ, θ) to perform the expansion
 at infinity in ρ, then converts the result back to Cartesian coordinates.</p>
@@ -1223,6 +1463,11 @@ captures the leading-order noncommutativity of the operators.</p>
 <li><p><strong>order</strong> (<em>int</em><em>, </em><em>default=1</em>) – Maximum order of the asymptotic expansion.
 - order=1 yields the leading term proportional to the Poisson bracket {p, q}.
 - Higher orders include correction terms involving higher mixed derivatives.</p></li>
+<li><p><strong>mode</strong> (<em>{'kn'</em><em>, </em><em>'weyl'}</em><em>, </em><em>default='kn'</em>) – Quantization mode forwarded to <cite>compose_asymptotic</cite> for both
+A∘B and B∘A.</p></li>
+<li><p><strong>sign_convention</strong> (<em>{'standard'</em><em>, </em><em>'inverse'}</em><em>, </em><em>optional</em>) – Phase-factor convention forwarded to <cite>compose_asymptotic</cite>
+(controls the sign of <cite>[x, ξ]</cite>); see <cite>compose_asymptotic</cite> for
+details. If None, defaults to ‘standard’.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1314,7 +1559,7 @@ If caching is enabled and a cached symbol exists, it returns the cached result t
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.exponential_symbol">
-<span class="sig-name descname"><span class="pre">exponential_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kn'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sign_convention</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.exponential_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.exponential_symbol" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">exponential_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kn'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sign_convention</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.exponential_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.exponential_symbol" title="Link to this definition"></a></dt>
 <dd><p>Compute the symbol of exp(tP) using asymptotic expansion methods.</p>
 <p>This method calculates the exponential of a pseudo-differential operator
 using either a direct power series expansion or a Magnus expansion,
@@ -1327,9 +1572,13 @@ the specified asymptotic order.</p>
 - t = -i*τ for Schrödinger evolution: exp(-iτH)
 - t = τ for heat/diffusion: exp(τΔ)
 - t for general propagators</p></li>
-<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default=3</em>) – Maximum order of the asymptotic expansion. Higher orders include
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default=2</em>) – Maximum order of the asymptotic expansion. Higher orders include
 more composition terms, improving accuracy for small t or when
 non-commutativity effects are significant.</p></li>
+<li><p><strong>mode</strong> (<em>{'kn'</em><em>, </em><em>'weyl'}</em><em>, </em><em>default='kn'</em>) – Quantization mode forwarded to <cite>compose_asymptotic</cite> at each power
+P^n in the series.</p></li>
+<li><p><strong>sign_convention</strong> (<em>{'standard'</em><em>, </em><em>'inverse'}</em><em>, </em><em>optional</em>) – Phase-factor convention forwarded to <cite>compose_asymptotic</cite>; see
+<cite>compose_asymptotic</cite> for details. If None, defaults to ‘standard’.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1349,7 +1598,7 @@ expansion via iterated composition:
 exp(tP) ~ I + tP + (t²/2!)P∘P + (t³/3!)P∘P∘P + …</p></li>
 <li><p>Each power P^n is computed via compose_asymptotic, which accounts
 for the non-commutativity through derivative terms.</p></li>
-<li><p>The expansion is valid for <a href="#id25"><span class="problematic" id="id26">|t|</span></a> small enough or when the symbol has
+<li><p>The expansion is valid for <a href="#id29"><span class="problematic" id="id30">|t|</span></a> small enough or when the symbol has
 appropriate decay/growth properties.</p></li>
 <li><p>In quantum mechanics (Schrödinger): U(t) = exp(-itH/ℏ) represents
 the time evolution operator.</p></li>
@@ -1492,13 +1741,13 @@ instead of duplicating their 1D/2D branches inline (previously
 R &gt; 0 such that</p>
 <blockquote>
 <div><dl class="simple">
-<dt><a href="#id27"><span class="problematic" id="id28">|p(x, ξ)|</span></a> ≥ C · (1 + <a href="#id29"><span class="problematic" id="id30">|ξ|²)^(m/2)     for all |ξ|</span></a> ≥ R (and x in the</dt><dd><p>region of interest).</p>
+<dt><a href="#id31"><span class="problematic" id="id32">|p(x, ξ)|</span></a> ≥ C · (1 + <a href="#id33"><span class="problematic" id="id34">|ξ|²)^(m/2)     for all |ξ|</span></a> ≥ R (and x in the</dt><dd><p>region of interest).</p>
 </dd>
 </dl>
 </div></blockquote>
 <p>Ellipticity is a <em>high-frequency</em> condition: it makes no requirement on the
-symbol near ξ = 0, so this method only probes the region <a href="#id31"><span class="problematic" id="id32">|ξ|</span></a> ≥ R, where R
-is taken as a fraction (<cite>xi_frac</cite>) of the largest <a href="#id33"><span class="problematic" id="id34">|ξ|</span></a> present in <cite>xi_grid</cite>.
+symbol near ξ = 0, so this method only probes the region <a href="#id35"><span class="problematic" id="id36">|ξ|</span></a> ≥ R, where R
+is taken as a fraction (<cite>xi_frac</cite>) of the largest <a href="#id37"><span class="problematic" id="id38">|ξ|</span></a> present in <cite>xi_grid</cite>.
 This intentionally excludes the low-frequency region, so a symbol like the
 harmonic oscillator x² + ξ² — which has an isolated zero at (0, 0) but is
 the textbook example of a globally elliptic symbol — is correctly detected
@@ -1515,15 +1764,15 @@ For 2D: a tuple (ξ, η) of two 1D arrays.</p></li>
 If None (default), it is auto-detected via <cite>self.symbol_order()</cite>. Raises
 ValueError if auto-detection fails and no <cite>order</cite> was supplied.</p></li>
 <li><p><strong>threshold</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum acceptable value of the <em>normalized</em> symbol
-<a href="#id35"><span class="problematic" id="id36">|p(x,ξ)|</span></a> / (1 + <a href="#id9"><span class="problematic" id="id10">|</span></a>ξ|²)^(m/2), i.e. the constant C in the ellipticity
+<a href="#id39"><span class="problematic" id="id40">|p(x,ξ)|</span></a> / (1 + <a href="#id9"><span class="problematic" id="id10">|</span></a>ξ|²)^(m/2), i.e. the constant C in the ellipticity
 definition above. Default is 1e-6.</p></li>
-<li><p><strong>xi_frac</strong> (<em>float</em><em>, </em><em>optional</em>) – Fraction (in (0, 1)) of the largest <a href="#id37"><span class="problematic" id="id38">|ξ|</span></a> available in <cite>xi_grid</cite> used as
-the high-frequency cutoff R. Only points with <a href="#id39"><span class="problematic" id="id40">|ξ|</span></a> ≥ R are tested.
+<li><p><strong>xi_frac</strong> (<em>float</em><em>, </em><em>optional</em>) – Fraction (in (0, 1)) of the largest <a href="#id41"><span class="problematic" id="id42">|ξ|</span></a> available in <cite>xi_grid</cite> used as
+the high-frequency cutoff R. Only points with <a href="#id43"><span class="problematic" id="id44">|ξ|</span></a> ≥ R are tested.
 Default is 0.5.</p></li>
 <li><p><strong>n_random</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of random points sampled in the high-frequency region. Default
 100_000.</p></li>
 <li><p><strong>n_edge</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of spatial points per dimension used in the deterministic check
-performed at the largest available <a href="#id41"><span class="problematic" id="id42">|ξ|</span></a> (the edge of the supplied grid).
+performed at the largest available <a href="#id45"><span class="problematic" id="id46">|ξ|</span></a> (the edge of the supplied grid).
 Default 32.</p></li>
 <li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Seed for the random sampling, for reproducible results. Default None
 (non-deterministic across calls).</p></li>
@@ -1540,10 +1789,10 @@ point in the high-frequency region, otherwise False.</p>
 <p class="rubric">Notes</p>
 <dl class="simple">
 <dt>This method combines two checks:</dt><dd><ol class="arabic simple">
-<li><p><strong>Random sampling</strong> in the shell <a href="#id43"><span class="problematic" id="id44">|ξ|</span></a> ≥ R (rejection-sampled from the
+<li><p><strong>Random sampling</strong> in the shell <a href="#id47"><span class="problematic" id="id48">|ξ|</span></a> ≥ R (rejection-sampled from the
 hyperrectangle defined by <cite>xi_grid</cite>’s extremes).</p></li>
 <li><p><strong>Deterministic edge sampling</strong> — the symbol is evaluated at the
-largest available <a href="#id45"><span class="problematic" id="id46">|ξ|</span></a> (the corners/extremes of <cite>xi_grid</cite>) over a
+largest available <a href="#id49"><span class="problematic" id="id50">|ξ|</span></a> (the corners/extremes of <cite>xi_grid</cite>) over a
 spatial grid of <cite>n_edge</cite> points per dimension, to guarantee the most
 informative high-frequency points are always checked, not just
 randomly sampled ones.</p></li>
@@ -1731,12 +1980,12 @@ instead of re-deriving the Hamiltonian vector field inline.</p>
 <span class="sig-name descname"><span class="pre">principal_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.principal_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.principal_symbol" title="Link to this definition"></a></dt>
 <dd><p>Compute the leading homogeneous component of the pseudo-differential symbol.</p>
 <p>This method extracts the principal part of the symbol, which is the dominant
-term under high-frequency asymptotics (<a href="#id47"><span class="problematic" id="id48">|ξ|</span></a> → ∞). The expansion is performed
+term under high-frequency asymptotics (<a href="#id51"><span class="problematic" id="id52">|ξ|</span></a> → ∞). The expansion is performed
 in polar coordinates for 2D symbols to maintain rotational symmetry, then
 converted back to Cartesian form.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>order</strong> (<em>int</em>) – Order of the asymptotic expansion in powers of 1/ρ, where ρ = <a href="#id49"><span class="problematic" id="id50">|ξ|</span></a> in 1D
+<dd class="field-odd"><p><strong>order</strong> (<em>int</em>) – Order of the asymptotic expansion in powers of 1/ρ, where ρ = <a href="#id53"><span class="problematic" id="id54">|ξ|</span></a> in 1D
 or ρ = sqrt(ξ² + η²) in 2D. Only the leading-order term is returned.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1810,6 +2059,13 @@ produce execution plans, not readable separable pairs).</p></li>
 <li><p><strong>n_workers</strong> (<em>int</em>) – Number of parallel workers</p></li>
 <li><p><strong>adaptive</strong> (<em>bool</em>) – Use adaptive grid refinement</p></li>
 <li><p><strong>adaptive_threshold</strong> (<em>float</em>) – Threshold for adaptive refinement</p></li>
+<li><p><strong>auto_range</strong> (<em>bool</em><em>, </em><em>default=True</em>) – If True, <cite>lambda_real_range</cite>/<cite>lambda_imag_range</cite> are ignored and
+instead recomputed as a 20%-margin box around the eigenvalues of
+the discretized operator (once eigenvalues are available). Set to
+False to use the ranges passed in as-is.</p></li>
+<li><p><strong>plot</strong> (<em>bool</em><em>, </em><em>default=True</em>) – If True, calls the internal pseudospectrum visualization after
+computing the resolvent-norm grid. Set to False to only return
+the data dictionary without producing a figure.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1854,7 +2110,48 @@ between the operator P and the current approximation of R.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.symbol_order">
 <span class="sig-name descname"><span class="pre">symbol_order</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.symbol_order"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.symbol_order" title="Link to this definition"></a></dt>
-<dd><p>Estimate the asymptotic homogeneity order of the symbol as <a href="#id13"><span class="problematic" id="id14">|</span></a>ξ|→∞.</p>
+<dd><p>Estimate the asymptotic homogeneity order of the symbol as <a href="#id55"><span class="problematic" id="id56">|ξ|</span></a> → ∞.</p>
+<p>If the symbol has no frequency dependence at all, returns 0
+immediately. If the symbol is exactly homogeneous (as determined by
+<cite>is_homogeneous</cite>), returns that degree directly. Otherwise, the
+leading-order behavior is estimated via a series expansion:</p>
+<ul class="simple">
+<li><p>1D: tries <cite>series(symbol, xi, oo)</cite> first (order ≥ 0 case), then
+falls back to substituting <cite>xi = 1/z</cite> and expanding around <cite>z = 0</cite>
+(order &lt; 0 case).</p></li>
+<li><p>2D: same two-step strategy in polar frequency coordinates
+<cite>(rho, theta)</cite>, expanding around <cite>rho = oo</cite> and, on failure,
+around <cite>z = 1/rho -&gt; 0</cite>.</p></li>
+</ul>
+<p>In each case the leading term is isolated and its coefficient checked
+for being symbolically nonzero; if it vanishes, that method’s result
+is discarded and the next fallback is tried. Warnings about
+non-homogeneous symbols or a symbolically zero leading coefficient are
+printed to stdout rather than raised.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>max_order</strong> (<em>int</em><em>, </em><em>default=10</em>) – Number of terms requested from each underlying <cite>sympy.series</cite>
+expansion; higher values can resolve the true leading order when
+lower-order terms cancel, at increased symbolic cost.</p></li>
+<li><p><strong>tol</strong> (<em>float</em><em>, </em><em>default=1e-3</em>) – Currently unused by the estimation logic itself (reserved for
+numerical-order estimation call sites); present for interface
+consistency.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The estimated homogeneity order. Returns an <cite>int</cite> when the
+estimated order is (numerically) integral, a <cite>float</cite> otherwise,
+and <cite>None</cite> if no method (series at infinity nor at zero, in
+either coordinate system) could determine a nonzero leading term.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int, float, or None</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NotImplementedError</strong> – If <cite>self.dim</cite> is not 1 or 2.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -1937,7 +2234,7 @@ coherent states / Weyl quantization.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_characteristic_gradient">
 <span class="sig-name descname"><span class="pre">visualize_characteristic_gradient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_characteristic_gradient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_characteristic_gradient" title="Link to this definition"></a></dt>
-<dd><p>Visualize <a href="#id51"><span class="problematic" id="id52">|grad p|</span></a> in phase space. NOTE: both the 1D and 2D
+<dd><p>Visualize <a href="#id57"><span class="problematic" id="id58">|grad p|</span></a> in phase space. NOTE: both the 1D and 2D
 branches now consistently use abs(.)**2 in the gradient norm (the
 original 1D branch omitted the abs(), inconsistently with 2D).</p>
 </dd></dl>
@@ -1961,7 +2258,7 @@ for both frequency axes, matching the original behavior exactly.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_micro_support">
 <span class="sig-name descname"><span class="pre">visualize_micro_support</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-10,</span> <span class="pre">10)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_micro_support"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_micro_support" title="Link to this definition"></a></dt>
-<dd><p>Visualize 1/<a href="#id53"><span class="problematic" id="id54">|p(x, xi)|</span></a> to highlight regions where the symbol is
+<dd><p>Visualize 1/<a href="#id59"><span class="problematic" id="id60">|p(x, xi)|</span></a> to highlight regions where the symbol is
 near zero. NOTE: no longer restricted to 1D – the shared grid/render
 helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y).</p>
 </dd></dl>
@@ -1975,7 +2272,7 @@ helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y).</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_symbol_amplitude">
 <span class="sig-name descname"><span class="pre">visualize_symbol_amplitude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_symbol_amplitude"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_symbol_amplitude" title="Link to this definition"></a></dt>
-<dd><p>Display <a href="#id55"><span class="problematic" id="id56">|p(x, xi)|</span></a> (1D) or <a href="#id57"><span class="problematic" id="id58">|p(x, y, xi0, eta0)|</span></a> (2D) as a color map.</p>
+<dd><p>Display <a href="#id61"><span class="problematic" id="id62">|p(x, xi)|</span></a> (1D) or <a href="#id63"><span class="problematic" id="id64">|p(x, y, xi0, eta0)|</span></a> (2D) as a color map.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -2068,26 +2365,103 @@ expect for dim=2.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.animate_scalar_1d">
 <span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">animate_scalar_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'real'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">40</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#animate_scalar_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.animate_scalar_1d" title="Link to this definition"></a></dt>
-<dd><p>Animated line plot of a scalar 1D solution evolving in time. See
-original docstring; behavior unchanged.</p>
+<dd><p>Animate a scalar 1D solution as a line plot evolving in time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>,</em><em>)</em>) – Time samples.</p></li>
+<li><p><strong>U</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>, </em><em>Nx</em><em>)</em>) – Solution values u(x, t) sampled on the grid.</p></li>
+<li><p><strong>x</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>Nx</em><em>,</em><em>)</em>) – Spatial grid.</p></li>
+<li><p><strong>quantity</strong> (<em>{'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'}</em><em>, </em><em>default='real'</em>) – Which part of U to plot; also sets the fixed y-axis limits from
+the min/max of that quantity over the whole trajectory.</p></li>
+<li><p><strong>interval</strong> (<em>int</em><em>, </em><em>default=40</em>) – Delay between animation frames, in milliseconds.</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em>, </em><em>optional</em>) – If given, the animation is saved to this path via <cite>anim.save</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The animation object (figure is not shown automatically).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.animation.FuncAnimation</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.animate_singularity">
 <span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">animate_singularity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_frames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">branches</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contours</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'abs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#animate_singularity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.animate_singularity" title="Link to this definition"></a></dt>
 <dd><p>Animate the propagation of singularities along bicharacteristic
-trajectories in a 2D phase-space projection. See original docstring
-for full parameter docs; behavior unchanged. Now built on the shared
-<cite>_trail_animation</cite> helper instead of duplicating the figure/update
-setup that also appears in <cite>animate_singularity_3d</cite>.</p>
+trajectories, projected onto a 2D phase-space plane.</p>
+<p>Internally calls <cite>integrate_singularity</cite> to obtain the trajectories,
+then draws a growing dashed trail plus a moving point per branch via
+the shared <cite>_trail_animation</cite> helper.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>s_expr</strong> (<em>sympy.Expr</em>) – Principal symbol used to build the Hamiltonian(s).</p></li>
+<li><p><strong>vars_x</strong> (<em>list</em><em> of </em><em>sympy.Symbol</em>) – Spatial variables.</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em> or </em><em>array_like</em><em>, </em><em>default=0.0</em>) – Initial spatial position(s).</p></li>
+<li><p><strong>xi0</strong> (<em>float</em><em> or </em><em>array_like</em><em>, </em><em>default=5.0</em>) – Initial frequency (momentum) component(s).</p></li>
+<li><p><strong>tmax</strong> (<em>float</em><em>, </em><em>default=4.0</em>) – Final integration time.</p></li>
+<li><p><strong>n_frames</strong> (<em>int</em><em>, </em><em>default=100</em>) – Number of time samples used for the trajectory and the animation.</p></li>
+<li><p><strong>projection</strong> (<em>{'phase'</em><em>, </em><em>'position'</em><em>, </em><em>'frequency'}</em><em> or </em><em>None</em><em>, </em><em>default=None</em>) – Which plane to draw. In 1D, defaults to ‘phase’ (x vs xi); in 2D,
+defaults to ‘position’ (x vs y) and (‘frequency’/’phase’ are not
+selectable in 2D – the projection is always (x, y)).</p></li>
+<li><p><strong>branches</strong> (<em>'all'</em><em>, </em><em>int</em><em>, or </em><em>list</em><em> of </em><em>int</em><em>, </em><em>default='all'</em>) – Which characteristic branches to animate.</p></li>
+<li><p><strong>labels</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Currently unused (reserved for per-branch legend labels).</p></li>
+<li><p><strong>interval</strong> (<em>int</em><em>, </em><em>default=50</em>) – Delay between animation frames, in milliseconds.</p></li>
+<li><p><strong>contours</strong> (<em>bool</em><em>, </em><em>default=True</em>) – Currently unused (reserved for background contour overlays).</p></li>
+<li><p><strong>solution</strong> (<em>optional</em>) – Currently unused (reserved for overlaying a PDE solution field).</p></li>
+<li><p><strong>quantity</strong> (<em>str</em><em>, </em><em>default='abs'</em>) – Currently unused (reserved alongside <cite>solution</cite>).</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em>, </em><em>optional</em>) – If given, the animation is saved to this path via <cite>anim.save</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The animation object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.animation.FuncAnimation</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If <cite>projection</cite> is not one of the supported values for a 1D symbol.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.animate_singularity_3d">
 <span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">animate_singularity_3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_frames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">branches</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#animate_singularity_3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.animate_singularity_3d" title="Link to this definition"></a></dt>
-<dd><p>Animate bicharacteristic trajectories in a 3D matplotlib plot. See
-original docstring for full parameter docs; behavior unchanged. Now
-built on the shared <cite>_trail_animation</cite> helper.</p>
+<dd><p>Animate bicharacteristic trajectories in a 3D matplotlib plot.</p>
+<p>Internally calls <cite>integrate_singularity</cite> to obtain the trajectories,
+then draws a growing dashed trail plus a moving point per branch via
+the shared <cite>_trail_animation</cite> helper. In 1D, the third axis is time
+<cite>t</cite>; in 2D (or higher), the first three phase-space coordinates
+<cite>(x, y, …)</cite> are used directly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>s_expr</strong> (<em>sympy.Expr</em>) – Principal symbol used to build the Hamiltonian(s).</p></li>
+<li><p><strong>vars_x</strong> (<em>list</em><em> of </em><em>sympy.Symbol</em>) – Spatial variables.</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em> or </em><em>array_like</em><em>, </em><em>default=0.0</em>) – Initial spatial position(s).</p></li>
+<li><p><strong>xi0</strong> (<em>float</em><em> or </em><em>array_like</em><em>, </em><em>default=5.0</em>) – Initial frequency (momentum) component(s).</p></li>
+<li><p><strong>tmax</strong> (<em>float</em><em>, </em><em>default=4.0</em>) – Final integration time.</p></li>
+<li><p><strong>n_frames</strong> (<em>int</em><em>, </em><em>default=100</em>) – Number of time samples used for the trajectory and the animation.</p></li>
+<li><p><strong>projection</strong> (<em>optional</em>) – Currently unused for the 3D case (reserved for API parity with
+<cite>animate_singularity</cite>); the axes are always chosen as described
+above.</p></li>
+<li><p><strong>branches</strong> (<em>'all'</em><em>, </em><em>int</em><em>, or </em><em>list</em><em> of </em><em>int</em><em>, </em><em>default='all'</em>) – Which characteristic branches to animate.</p></li>
+<li><p><strong>labels</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Currently unused (reserved for per-branch legend labels).</p></li>
+<li><p><strong>interval</strong> (<em>int</em><em>, </em><em>default=50</em>) – Delay between animation frames, in milliseconds.</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em>, </em><em>optional</em>) – If given, the animation is saved to this path via <cite>anim.save</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The animation object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.animation.FuncAnimation</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -2227,12 +2601,12 @@ cost.</p>
 (possibly matrix-valued) operator symbol.</p>
 <p>For a scalar symbol p(x, ξ), the single Hamiltonian is</p>
 <blockquote>
-<div><p>H(x, ξ) = Re(i · p(x, ξ))</p>
+<div><p>H(x, ξ) = Re(p(x, ξ))</p>
 </div></blockquote>
 <p>For a matrix symbol P(x, ξ), the eigenvalues λ_k(x, ξ) are computed
 symbolically and each branch yields</p>
 <blockquote>
-<div><p>H_k(x, ξ) = Re(i · λ_k(x, ξ))</p>
+<div><p>H_k(x, ξ) = Re(λ_k(x, ξ))</p>
 </div></blockquote>
 <p>These Hamiltonians generate the bicharacteristic (ray) flow via
 Hamilton’s equations:</p>
@@ -2259,6 +2633,11 @@ canonically via <cite>_order_freq_vars</cite>.</p></li>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
+<p>The classical Hamiltonian governing bicharacteristic flow is the
+(real part of the) principal symbol itself.  A previous version of
+this function erroneously computed <code class="docutils literal notranslate"><span class="pre">Re(i</span> <span class="pre">*</span> <span class="pre">p)</span></code>, which vanishes
+identically for any real-valued symbol and therefore produced
+trivial (stationary) trajectories in the flow visualization.</p>
 <p>The substitution to fresh canonical symbols ensures consistent
 differentiation even if the input expression uses symbols with
 different assumptions.</p>
@@ -2434,6 +2813,9 @@ broadcasted and cast to complex128 to handle scalar outputs safely (e.g., from <
 value are clipped to prevent overflow.</p></li>
 <li><p><strong>space_window</strong> (<em>bool</em><em>, </em><em>default=False</em>) – If True, applies a centered Gaussian spatial taper to mitigate edge boundary artifacts.
 <em>Note: Setting `space_window=True` forces execution through the slow path.</em></p></li>
+<li><p><strong>is_spatial</strong> (<em>bool</em><em> or </em><em>None</em><em>, </em><em>default=None</em>) – Explicit hint about whether the 2D symbol depends on (x1, x2).
+True forces the slow (space-dependent) path, False forces the fast
+(space-independent) path, None triggers the sampling heuristic.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -2609,21 +2991,54 @@ kx_m = 2π · fftfreq(N, Δx),  ky_n = 2π · fftfreq(N, Δy)</p>
 <dt class="sig sig-object py" id="psiop.plot_matrix_1d">
 <span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">plot_matrix_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'real'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#plot_matrix_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.plot_matrix_1d" title="Link to this definition"></a></dt>
 <dd><p>Plot each component of a matrix-valued 1D solution as a stacked
-space-time heatmap. See original docstring; behavior unchanged.</p>
+space-time heatmap.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>,</em><em>)</em>) – Time samples.</p></li>
+<li><p><strong>U</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>, </em><a class="reference internal" href="#psiop.MatrixPseudoDifferentialOperator.size" title="psiop.MatrixPseudoDifferentialOperator.size"><em>size</em></a><em>, </em><em>Nx</em><em>)</em>) – Diagonal (or otherwise reduced) matrix solution components, one
+row of panels per index k = 0, …, size-1.</p></li>
+<li><p><strong>x</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>Nx</em><em>,</em><em>)</em>) – Spatial grid.</p></li>
+<li><p><strong>labels</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – One label per component; defaults to <cite>[“u_1”, …, “u_size”]</cite>.</p></li>
+<li><p><strong>quantity</strong> (<em>{'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'}</em><em>, </em><em>default='real'</em>) – Which part of U to plot.</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em>, </em><em>optional</em>) – If given, the figure is saved to this path (dpi=150) before closing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The completed figure (already closed via <cite>_finish_headless</cite>).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.plot_matrix_field_1d">
 <span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">plot_matrix_field_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'abs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'diag'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#plot_matrix_field_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.plot_matrix_field_1d" title="Link to this definition"></a></dt>
-<dd><p>Space-time heatmap(s) for a matrix-valued 1D solution, shape
-(n_times, N, N, Nx) – the output of solve_matrix_field /
-solve_sylvester_field in 1D.</p>
+<dd><p>Space-time heatmap(s) for a matrix-valued 1D solution.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>component</strong> (<em>'diag'</em><em> | </em><em>'trace'</em><em> | </em><em>'frobenius'</em><em> | </em><em>(</em><em>i</em><em>, </em><em>j</em><em>)</em>) – ‘diag’      – one panel per diagonal entry U_kk(x, t).
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>,</em><em>)</em>) – Time samples.</p></li>
+<li><p><strong>U</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>, </em><em>N</em><em>, </em><em>N</em><em>, </em><em>Nx</em><em>)</em>) – Matrix-valued solution field, as returned by <cite>solve_matrix_field</cite>
+/ <cite>solve_sylvester_field</cite> in 1D.</p></li>
+<li><p><strong>x</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>Nx</em><em>,</em><em>)</em>) – Spatial grid.</p></li>
+<li><p><strong>quantity</strong> (<em>{'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'}</em><em>, </em><em>default='abs'</em>) – Which part of the (reduced) field to plot.</p></li>
+<li><p><strong>component</strong> (<em>'diag'</em><em> | </em><em>'trace'</em><em> | </em><em>'frobenius'</em><em> | </em><em>(</em><em>i</em><em>, </em><em>j</em><em>)</em><em>, </em><em>default='diag'</em>) – ‘diag’      – one panel per diagonal entry U_kk(x, t).
 ‘trace’     – single panel, sum_k U_kk(x, t).
 ‘frobenius’ – single panel, ||U(x, t)||_F.
-(i, j)      – single panel, the (i, j) entry U_ij(x, t).</p>
+(i, j)      – single panel, the (i, j) entry U_ij(x, t).</p></li>
+<li><p><strong>labels</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Panel labels used when <cite>component=’diag’</cite>; defaults to
+<cite>[“U_11”, “U_22”, …]</cite>.</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em>, </em><em>optional</em>) – If given, the figure is saved to this path (dpi=150) before closing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The completed figure (already closed via <cite>_finish_headless</cite>).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
 </dd>
 </dl>
 </dd></dl>
@@ -2642,16 +3057,54 @@ except ‘diag’ isn’t supported here (pick a single scalar reduction:
 <dt class="sig sig-object py" id="psiop.plot_scalar_1d">
 <span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">plot_scalar_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'u(x,</span> <span class="pre">t)'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'real'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_snapshots</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#plot_scalar_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.plot_scalar_1d" title="Link to this definition"></a></dt>
 <dd><p>Plot a scalar 1D space-time solution as a combined heatmap and
-snapshot overlay. See original docstring for full parameter docs;
-behavior and return value unchanged.</p>
+snapshot overlay.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>,</em><em>)</em>) – Time samples.</p></li>
+<li><p><strong>U</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>, </em><em>Nx</em><em>)</em>) – Solution values u(x, t) sampled on the grid.</p></li>
+<li><p><strong>x</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>Nx</em><em>,</em><em>)</em>) – Spatial grid.</p></li>
+<li><p><strong>title</strong> (<em>str</em><em>, </em><em>default=&quot;u</em><em>(</em><a class="reference internal" href="geometry.html#geometry.CausticStructure.x" title="geometry.CausticStructure.x"><em>x</em></a><em>, </em><a class="reference internal" href="geometry.html#geometry.CausticStructure.t" title="geometry.CausticStructure.t"><em>t</em></a><em>)</em><em>&quot;</em>) – Base title used for the heatmap panel.</p></li>
+<li><p><strong>quantity</strong> (<em>{'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'}</em><em>, </em><em>default='real'</em>) – Which part of U to plot.</p></li>
+<li><p><strong>n_snapshots</strong> (<em>int</em><em>, </em><em>default=6</em>) – Number of time slices drawn as line overlays in the second panel.</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em>, </em><em>optional</em>) – If given, the figure is saved to this path (dpi=150) before closing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The completed figure (already closed via <cite>_finish_headless</cite>, so it
+will not display inline; use <cite>save_path</cite> or re-show it explicitly).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.plot_scalar_2d">
 <span class="sig-prename descclassname"><span class="pre">psiop.</span></span><span class="sig-name descname"><span class="pre">plot_scalar_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'real'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#plot_scalar_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.plot_scalar_2d" title="Link to this definition"></a></dt>
 <dd><p>Plot a scalar 2D solution at selected time instants as a row of
-side-by-side pcolormesh panels. See original docstring; behavior
-unchanged.</p>
+side-by-side pcolormesh panels.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>,</em><em>)</em>) – Time samples.</p></li>
+<li><p><strong>U</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>, </em><em>Nx</em><em>, </em><em>Ny</em><em>)</em>) – Solution values u(x, y, t) sampled on the grid.</p></li>
+<li><p><strong>x</strong> (<em>ndarray</em>) – Spatial grids along each axis.</p></li>
+<li><p><strong>y</strong> (<em>ndarray</em>) – Spatial grids along each axis.</p></li>
+<li><p><strong>times</strong> (<em>array_like</em><em> of </em><em>int</em><em>, </em><em>optional</em>) – Indices into <cite>t</cite> selecting which snapshots to plot. Defaults to 6
+indices evenly spaced across the whole time range.</p></li>
+<li><p><strong>quantity</strong> (<em>{'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'}</em><em>, </em><em>default='real'</em>) – Which part of U to plot.</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em>, </em><em>optional</em>) – If given, the figure is saved to this path (dpi=150) before closing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The completed figure (already closed via <cite>_finish_headless</cite>).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
