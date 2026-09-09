@@ -1734,7 +1734,7 @@ class PDESolver:
                     boundary_condition=self.boundary_condition,
                     dealiasing_mask=self.dealiasing_mask,
                     backend='peetre',
-                    joint_backend='direct',
+                    joint_backend='auto',
                 )
             elif self.dim == 2:
                 contribution = psi_op.apply(
@@ -1746,7 +1746,7 @@ class PDESolver:
                     boundary_condition=self.boundary_condition,
                     dealiasing_mask=self.dealiasing_mask,
                     backend='peetre',
-                    joint_backend='direct',
+                    joint_backend='auto',
                 )
             else:
                 raise ValueError("Only 1D and 2D supported")
