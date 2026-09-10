@@ -491,180 +491,22 @@ References
        l’analyse harmonique.”
        *Ricerche di Matematica*, 1968.
 """
-
 from imports import *
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import warnings
 
-# ============================================================================
-# Shared visualization helpers (used by PseudoDifferentialOperator's
-# visualize_*/plot_*/animate_* methods below). Factored out because nearly
-# every one of those methods used to re-implement the same handful of
-# shapes from scratch: evaluate the symbol over a 2D phase-space slice and
-# render it (5 methods + micro-support), or build a 1D quiver field from
-# the symbol's derivatives (2 methods).
-# ============================================================================
-
-def _slice_grid(op, kind, x_grid=None, xi_grid=None, y_grid=None, eta_grid=None,
-                 x0=0.0, y0=0.0, xi0=0.0, eta0=0.0):
-    """Evaluate op.p_func over one canonical 2D slice of phase space.
-
-    kind='freq'  : 1D -> vary (x, xi).   2D -> fix (x0, y0), vary (xi, eta).
-                   (used by: fiber, characteristic set/gradient, micro-support)
-    kind='space' : 1D -> vary (x, xi) (1D has only one slice, same as above).
-                   2D -> fix (xi0, eta0), vary (x, y).
-                   (used by: symbol amplitude, phase)
-
-    Returns (axis1_vals, axis2_vals, axis1_label, axis2_label, Z).
-    """
-    if op.dim == 1:
-        A, B = np.meshgrid(x_grid, xi_grid, indexing='ij')
-        return x_grid, xi_grid, 'x', r'$\xi$', op.p_func(A, B)
-    if kind == 'space':
-        A, B = np.meshgrid(x_grid, y_grid, indexing='ij')
-        Z = op.p_func(A, B, np.full_like(A, xi0), np.full_like(B, eta0))
-        return x_grid, y_grid, 'x', 'y', Z
-    # kind == 'freq'
-    A, B = np.meshgrid(xi_grid, eta_grid, indexing='ij')
-    Z = op.p_func(x0, y0, A, B)
-    return xi_grid, eta_grid, r'$\xi$', r'$\eta$', Z
-
-
-def _render_field(ax1, ax2, Z, style='pcolormesh', cmap='viridis', cbar_label=None,
-                   xlabel='x', ylabel=r'$\xi$', title='', levels=50,
-                   contour_color='red', grid=False, show=True):
-    """One shared renderer for pcolormesh / contourf / contour panels."""
-    if style == 'pcolormesh':
-        im_ = plt.pcolormesh(ax1, ax2, Z, shading='auto', cmap=cmap)
-        plt.colorbar(im_, label=cbar_label)
-    elif style == 'contourf':
-        im_ = plt.contourf(ax1, ax2, Z, levels=levels, cmap=cmap)
-        plt.colorbar(im_, label=cbar_label)
-    elif style == 'contour':
-        plt.contour(ax1, ax2, Z, levels=levels, colors=contour_color)
-    else:
-        raise ValueError(f"unknown style {style!r}")
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.title(title)
-    if grid:
-        plt.grid(True)
-    if show:
-        plt.show()
-
-
-def _grad_norm(Z):
-    """|grad Z| over a 2D array, using a consistent abs()**2 convention on
-    both axes (see visualize_characteristic_gradient's note: this unifies
-    an inconsistency that used to exist between its 1D and 2D branches)."""
-    gx = np.gradient(Z, axis=0)
-    gy = np.gradient(Z, axis=1)
-    return np.sqrt(np.abs(gx) ** 2 + np.abs(gy) ** 2)
-
-
-def _quiver_colored(ax, X, Y, U, V, cmap='viridis', scale=25, width=0.004,
-                     colorbar=True, cbar_label='|field|', **quiver_kwargs):
-    """Draw a quiver field with fixed-length arrows, colored by magnitude.
-
-    Plain `plt.quiver(X, Y, U, V)` sizes each arrow by its own (U, V)
-    magnitude, which is what makes raw vector-field plots look like a
-    tangle of dark arrows of wildly different lengths whenever the field
-    spans more than about one order of magnitude (e.g. near a symbol's
-    zero set). Here every arrow is normalized to the same unit length
-    (direction only), and the original magnitude is instead mapped to
-    color via matplotlib's `quiver(X, Y, U, V, C)` form -- the same trick
-    used for wind/flow-field plots.
-
-    Parameters
-    ----------
-    ax : matplotlib Axes or the `matplotlib.pyplot` module
-        Target to draw on; anything exposing `.quiver(...)` (an Axes) or
-        module-level `quiver(...)` (`plt` itself) works.
-    X, Y : ndarray
-        Arrow base positions (same shape as U, V).
-    U, V : ndarray
-        Raw (unnormalized) vector field components.
-    cmap : str, default='viridis'
-        Colormap used for the magnitude.
-    scale : float, default=25
-        Passed to `quiver`; larger values shrink the (now uniform) arrow
-        length. Tune this once the field is normalized -- it no longer
-        needs to be re-tuned per symbol the way a magnitude-scaled plot
-        would.
-    width : float, default=0.004
-        Arrow shaft width, passed to `quiver`.
-    colorbar : bool, default=True
-        If True, attach a colorbar labelled `cbar_label` showing the
-        magnitude scale. Skipped automatically if `ax` has no attached
-        figure to draw it on (e.g. `ax=plt`, when called more than once
-        on the same axes -- pass `colorbar=False` for background/overlay
-        fields to avoid stacking colorbars).
-    **quiver_kwargs
-        Extra keyword arguments forwarded to `quiver` (e.g. `alpha`).
-        `color` is ignored if passed here, since color is used to encode
-        magnitude; use `cmap` instead.
-
-    Returns
-    -------
-    matplotlib.quiver.Quiver
-        The artist returned by the underlying `quiver` call, so callers
-        can attach their own colorbar/legend if `colorbar=False`.
-    """
-    quiver_kwargs.pop('color', None)
-    mag = np.hypot(np.abs(U), np.abs(V))
-    safe_mag = np.where(mag == 0, 1.0, mag)
-    Un, Vn = np.real(U) / safe_mag, np.real(V) / safe_mag
-
-    q = ax.quiver(X, Y, Un, Vn, mag, cmap=cmap, scale=scale, width=width,
-                  **quiver_kwargs)
-    if colorbar:
-        fig = ax.figure if hasattr(ax, 'figure') else plt.gcf()
-        fig.colorbar(q, ax=(ax if hasattr(ax, 'figure') else plt.gca()),
-                     label=cbar_label)
-    return q
-
-
-def _quiver_field(op, xlim, klim, density, vec_exprs_fn, title, scale=25,
-                   width=0.004, cmap='viridis', cbar_label='|field|'):
-    """1D-only quiver plot of a vector field derived from the symbol.
-
-    Arrows are drawn at fixed length; the field's local magnitude is
-    encoded by color instead (see `_quiver_colored`).
-
-    vec_exprs_fn(p, x, xi) -> (U_expr, V_expr)
-    """
-    if op.dim != 1:
-        raise NotImplementedError("Only 1D version implemented.")
-    x, = op.vars_x
-    xi = symbols('xi', real=True)
-    x_vals = np.linspace(*xlim, density)
-    xi_vals = np.linspace(*klim, density)
-    X, XI = np.meshgrid(x_vals, xi_vals, indexing='ij')
-
-    U_expr, V_expr = vec_exprs_fn(op.symbol, x, xi)
-    U = lambdify((x, xi), simplify(U_expr), 'numpy')(X, XI)
-    V = lambdify((x, xi), simplify(V_expr), 'numpy')(X, XI)
-    if np.isscalar(U):
-        U = np.full_like(X, U, dtype=float)
-    if np.isscalar(V):
-        V = np.full_like(X, V, dtype=float)
-
-    _quiver_colored(plt.gca(), X, XI, U, V, cmap=cmap, scale=scale,
-                     width=width, cbar_label=cbar_label)
-    plt.xlabel('x')
-    plt.ylabel(r'$\xi$')
-    plt.title(title)
-    plt.grid(True)
-    plt.show()
-
-
-def _make_real(expr):
-    """Re(expr), fully evaluated -- used when a Hamiltonian field may come
-    out complex-valued from sympy but only the real part is physically
-    meaningful for the flow."""
-    return simplify(sp.re(expr.doit(deep=True)))
-
+# The plotting system (rendering helpers, operator visualizations,
+# pseudospectrum plots, and solver-output/animation plotting) lives in
+# microlocal.py. psiop keeps only the operator algebra/numerics;
+# the methods below delegate to microlocal_ud for anything that draws.
+import microlocal as _mu
+from microlocal import (
+    plot_scalar_1d, plot_matrix_1d, plot_scalar_2d, animate_scalar_1d,
+    plot_matrix_field_1d, plot_matrix_field_2d, plot_wave_solution_1d,
+    animate_singularity, animate_singularity_3d,
+    characteristic_hamiltonians, integrate_singularity,
+)
 
 # ============================================================================
 # Multi-index helpers -- shared, dimension-generic building blocks for the
@@ -673,7 +515,6 @@ def _make_real(expr):
 # MatrixPseudoDifferentialOperator. Factored out to replace what used to be
 # separate hand-unrolled 1D/2D code paths in each of those methods.
 # ============================================================================
-
 def _mi_all(n, dim):
     """Yield all `dim`-tuples of non-negative ints summing to exactly n."""
     if dim == 1:
@@ -681,14 +522,12 @@ def _mi_all(n, dim):
         return
     for i in range(n + 1):
         for rest in _mi_all(n - i, dim - 1):
-            yield (i,) + rest
-
+            yield ((i,) + rest)
 
 def _mi_upto(n, dim):
     """Yield all `dim`-tuples of non-negative ints with 1 <= sum <= n."""
     for m in range(1, n + 1):
         yield from _mi_all(m, dim)
-
 
 def _mi_diff(expr, mvars, alpha):
     """d^|alpha| expr / prod(mvars_i ** alpha_i), entrywise for sympy
@@ -698,13 +537,11 @@ def _mi_diff(expr, mvars, alpha):
             expr = expr.diff(v, a)
     return expr
 
-
 def _mi_factorial(alpha):
     fact = 1
     for a in alpha:
         fact *= factorial(a)
     return fact
-
 
 class PseudoDifferentialOperator:
     """
@@ -754,8 +591,7 @@ class PseudoDifferentialOperator:
     >>> op = PseudoDifferentialOperator(expr=expr, vars_x=[x], var_u=u(x), mode='auto')
     """
 
-    def __init__(self, expr, vars_x, var_u=None, mode='symbol', 
-                 quantization='kohn-nirenberg', apply_backend='peetre', compute_peetre=False, peetre_options=None,):
+    def __init__(self, expr, vars_x, var_u=None, mode='symbol', quantization='kohn-nirenberg', apply_backend='peetre', compute_peetre=False, peetre_options=None):
         """
         Build a PseudoDifferentialOperator from a symbolic expression.
 
@@ -810,16 +646,13 @@ class PseudoDifferentialOperator:
         self.expr = expr
         self.vars_x = vars_x
         self.quantization = quantization
-        if apply_backend not in {"direct", "peetre"}:
+        if apply_backend not in {'direct', 'peetre'}:
             raise ValueError("apply_backend must be 'direct' or 'peetre'")
-    
         self.apply_backend = apply_backend
         self._peetre_options = dict(peetre_options or {})
         self._peetre_decomposition = None
-    
         if compute_peetre is None:
-            compute_peetre = apply_backend == "peetre"
-
+            compute_peetre = apply_backend == 'peetre'
         if self.dim == 1:
             x, = vars_x
             xi_internal = symbols('xi', real=True)
@@ -827,14 +660,12 @@ class PseudoDifferentialOperator:
             expr = expr.subs(symbols('xi', real=True), xi_internal)
             self.fft = partial(fft, workers=FFT_WORKERS)
             self.ifft = partial(ifft, workers=FFT_WORKERS)
-
             if mode == 'symbol':
                 self.symbol = expr
                 try:
                     self.p_func = lambdify((x, xi_internal), expr, 'numpy')
                 except Exception:
-                    # Graceful fallback for symbols with undefined functions (e.g. Derivative(c(x), x))
-                    self.p_func = None 
+                    self.p_func = None
             elif mode == 'auto':
                 if var_u is None:
                     raise ValueError("var_u must be provided in mode='auto'")
@@ -849,7 +680,6 @@ class PseudoDifferentialOperator:
                     self.p_func = None
             else:
                 raise ValueError("mode must be 'auto' or 'symbol'")
-
         elif self.dim == 2:
             x, y = vars_x
             xi_internal, eta_internal = symbols('xi eta', real=True)
@@ -858,7 +688,6 @@ class PseudoDifferentialOperator:
             expr = expr.subs(symbols('eta', real=True), eta_internal)
             self.fft = partial(fft2, workers=FFT_WORKERS)
             self.ifft = partial(ifft2, workers=FFT_WORKERS)
-
             if mode == 'symbol':
                 self.symbol = expr
                 try:
@@ -879,22 +708,14 @@ class PseudoDifferentialOperator:
                     self.p_func = None
             else:
                 raise ValueError("mode must be 'auto' or 'symbol'")
-
         else:
-            raise NotImplementedError("Only 1D and 2D supported")
-
+            raise NotImplementedError('Only 1D and 2D supported')
         if mode == 'auto':
-            self._compute_symbol_derivatives() 
-            print("\nsymbol = ")
+            self._compute_symbol_derivatives()
+            print('\nsymbol = ')
             pprint(self.symbol, num_columns=NUM_COLS)
-
-        # ------------------------------------------------------------
-        # Optional eager Peetre decomposition
-        # ------------------------------------------------------------
         if compute_peetre:
-            self._peetre_decomposition = self.peetre_decomposition(
-                **self._peetre_options
-            )
+            self._peetre_decomposition = self.peetre_decomposition(**self._peetre_options)
 
     def _compute_symbol_derivatives(self):
         """
@@ -938,20 +759,16 @@ class PseudoDifferentialOperator:
             self.derivatives['d2p_dy2'] = diff(self.symbol, y, 2)
             self.derivatives['d2p_dxidx'] = diff(diff(self.symbol, xi), x)
             self.derivatives['d2p_detady'] = diff(diff(self.symbol, eta), y)
-        
-        # Lambdify for numerical evaluation
         if self.dim == 1:
             vars_tuple = (self.vars_x[0], symbols('xi', real=True))
         else:
             vars_tuple = tuple(self.vars_x) + (symbols('xi', real=True), symbols('eta', real=True))
-            
         for name, expr in self.derivatives.items():
             try:
                 setattr(self, f'_{name}_func', lambdify(vars_tuple, expr, 'numpy'))
             except Exception:
-                # Fallback if derivative contains undefined functions
                 setattr(self, f'_{name}_func', None)
-        
+
     def evaluate(self, X, Y, KX, KY, cache=True):
         """
         Evaluate the pseudo-differential operator's symbol on a grid of spatial and frequency coordinates.
@@ -980,29 +797,26 @@ class PseudoDifferentialOperator:
         """
         if cache and self.symbol_cached is not None:
             return self.symbol_cached
-
         if self.dim == 1:
             symbol = self.p_func(X, KX)
         elif self.dim == 2:
             symbol = self.p_func(X, Y, KX, KY)
-
         if cache:
             self.symbol_cached = symbol
-
         return symbol
 
     def clear_cache(self):
         """Clear cached symbol evaluations and Peetre decompositions."""
         self.symbol_cached = None
-        if hasattr(self, "_peetre_cache"):
+        if hasattr(self, '_peetre_cache'):
             self._peetre_cache = None
-        if hasattr(self, "_peetre_decomposition"):
+        if hasattr(self, '_peetre_decomposition'):
             self._peetre_decomposition = None
-        if hasattr(self, "_joint_lowrank_cache"):
+        if hasattr(self, '_joint_lowrank_cache'):
             self._joint_lowrank_cache = None
-        if hasattr(self, "_joint_nufft_cache"):
+        if hasattr(self, '_joint_nufft_cache'):
             self._joint_nufft_cache = None
-        if hasattr(self, "_joint_aaa_cache"):
+        if hasattr(self, '_joint_aaa_cache'):
             self._joint_aaa_cache = None
 
     def _get_peetre_decomposition(self):
@@ -1012,10 +826,9 @@ class PseudoDifferentialOperator:
         If the decomposition was not computed in __init__, it is computed
         lazily on first use.
         """
-        if getattr(self, "_peetre_decomposition", None) is None:
-            opts = getattr(self, "_peetre_options", None) or {}
+        if getattr(self, '_peetre_decomposition', None) is None:
+            opts = getattr(self, '_peetre_options', None) or {}
             self._peetre_decomposition = self.peetre_decomposition(**opts)
-    
         return self._peetre_decomposition
 
     def apply(
@@ -1222,7 +1035,7 @@ class PseudoDifferentialOperator:
                 )
      
         raise ValueError(f"Invalid boundary condition '{boundary_condition}'")
-
+        
     def _is_spatial_dependent(self):
         """
         Check if the symbol depends on spatial variables.
@@ -1239,7 +1052,7 @@ class PseudoDifferentialOperator:
             return self.symbol.has(x) or self.symbol.has(y)
         else:
             return False
-    
+
     def _get_symbol_func(self):
         """
         Get a lambdified version of the symbol.
@@ -1258,7 +1071,7 @@ class PseudoDifferentialOperator:
             xi, eta = symbols('xi eta', real=True)
             return lambdify((x, y, xi, eta), self.symbol, 'numpy')
         else:
-            raise NotImplementedError("Only 1D and 2D supported")
+            raise NotImplementedError('Only 1D and 2D supported')
 
     def _get_effective_symbol_func(self, weyl_order=4):
         """
@@ -1296,37 +1109,19 @@ class PseudoDifferentialOperator:
         if self.quantization == 'weyl':
             effective_symbol = self.weyl_to_kn_symbol(order=weyl_order)
         else:
-            # 'kohn-nirenberg' or legacy behaviour
             effective_symbol = self.symbol
-     
-        # Lambdify with the effective symbol
         if self.dim == 1:
-            x  = self.vars_x[0]
+            x = self.vars_x[0]
             xi = symbols('xi', real=True)
             return lambdify((x, xi), effective_symbol, 'numpy')
-     
         elif self.dim == 2:
-            x, y    = self.vars_x
+            x, y = self.vars_x
             xi, eta = symbols('xi eta', real=True)
             return lambdify((x, y, xi, eta), effective_symbol, 'numpy')
-     
         else:
-            raise NotImplementedError(
-                "_get_effective_symbol_func: only 1D and 2D are supported."
-            )
-    
-    def _apply_constant_fft(
-        self,
-        u,
-        x_grid,
-        kx,
-        y_grid=None,
-        ky=None,
-        dealiasing_mask=None,
-        freq_window="gaussian",
-        clamp=1e6,
-        space_window=False,
-    ):
+            raise NotImplementedError('_get_effective_symbol_func: only 1D and 2D are supported.')
+
+    def _apply_constant_fft(self, u, x_grid, kx, y_grid=None, ky=None, dealiasing_mask=None, freq_window='gaussian', clamp=1000000.0, space_window=False):
         """
         Apply a constant-coefficient pseudo-differential operator in Fourier space.
     
@@ -1338,124 +1133,76 @@ class PseudoDifferentialOperator:
         apply_peetre are consistent with the periodic variable-coefficient path.
         """
         import numpy as np
-    
         u_hat = self.fft(u)
-    
         if self.dim == 1:
             Nx = len(x_grid)
             dx = x_grid[1] - x_grid[0]
-    
             kx_fft = 2.0 * np.pi * np.fft.fftfreq(Nx, d=dx)
-    
             X_dummy = np.zeros_like(kx_fft)
             symbol_vals = self.p_func(X_dummy, kx_fft)
-    
-            symbol_vals = np.broadcast_to(
-                symbol_vals,
-                kx_fft.shape
-            ).astype(np.complex128).copy()
-    
+            symbol_vals = np.broadcast_to(symbol_vals, kx_fft.shape).astype(np.complex128).copy()
             symbol_vals = _clip_complex_magnitude(symbol_vals, clamp)
-    
-            if freq_window == "gaussian":
+            if freq_window == 'gaussian':
                 k_max = np.max(np.abs(kx_fft))
                 if k_max > 0:
                     sigma = 0.8 * k_max
                     symbol_vals *= np.exp(-(kx_fft / sigma) ** 4)
-    
-            elif freq_window == "hann":
+            elif freq_window == 'hann':
                 k_max = np.max(np.abs(kx_fft))
                 if k_max > 0:
-                    W = 0.5 * (
-                        1.0 + np.cos(np.pi * kx_fft / k_max)
-                    ) * (np.abs(kx_fft) < k_max)
+                    W = 0.5 * (1.0 + np.cos(np.pi * kx_fft / k_max)) * (np.abs(kx_fft) < k_max)
                     symbol_vals *= W
-    
         elif self.dim == 2:
             if y_grid is None:
-                raise ValueError("y_grid is required for 2D operators.")
-    
+                raise ValueError('y_grid is required for 2D operators.')
             Nx = len(x_grid)
             Ny = len(y_grid)
-    
             dx = x_grid[1] - x_grid[0]
             dy = y_grid[1] - y_grid[0]
-    
             kx_fft = 2.0 * np.pi * np.fft.fftfreq(Nx, d=dx)
             ky_fft = 2.0 * np.pi * np.fft.fftfreq(Ny, d=dy)
-    
-            KX, KY = np.meshgrid(kx_fft, ky_fft, indexing="ij")
-    
+            KX, KY = np.meshgrid(kx_fft, ky_fft, indexing='ij')
             X_dummy = np.zeros_like(KX)
             Y_dummy = np.zeros_like(KY)
-    
             symbol_vals = self.p_func(X_dummy, Y_dummy, KX, KY)
-    
-            symbol_vals = np.broadcast_to(
-                symbol_vals,
-                KX.shape
-            ).astype(np.complex128).copy()
-    
+            symbol_vals = np.broadcast_to(symbol_vals, KX.shape).astype(np.complex128).copy()
             symbol_vals = _clip_complex_magnitude(symbol_vals, clamp)
-    
-            if freq_window == "gaussian":
+            if freq_window == 'gaussian':
                 kx_max = np.max(np.abs(kx_fft))
                 ky_max = np.max(np.abs(ky_fft))
-    
                 if kx_max > 0 and ky_max > 0:
                     sx = 0.8 * kx_max
                     sy = 0.8 * ky_max
-                    symbol_vals *= (
-                        np.exp(-(KX / sx) ** 4)
-                        * np.exp(-(KY / sy) ** 4)
-                    )
-    
-            elif freq_window == "hann":
+                    symbol_vals *= np.exp(-(KX / sx) ** 4) * np.exp(-(KY / sy) ** 4)
+            elif freq_window == 'hann':
                 kx_max = np.max(np.abs(kx_fft))
                 ky_max = np.max(np.abs(ky_fft))
-    
                 if kx_max > 0 and ky_max > 0:
-                    Wx = 0.5 * (
-                        1.0 + np.cos(np.pi * KX / kx_max)
-                    ) * (np.abs(KX) < kx_max)
-    
-                    Wy = 0.5 * (
-                        1.0 + np.cos(np.pi * KY / ky_max)
-                    ) * (np.abs(KY) < ky_max)
-    
+                    Wx = 0.5 * (1.0 + np.cos(np.pi * KX / kx_max)) * (np.abs(KX) < kx_max)
+                    Wy = 0.5 * (1.0 + np.cos(np.pi * KY / ky_max)) * (np.abs(KY) < ky_max)
                     symbol_vals *= Wx * Wy
-    
         else:
-            raise ValueError("Only 1D and 2D supported")
-    
+            raise ValueError('Only 1D and 2D supported')
         u_hat *= symbol_vals
-    
         if dealiasing_mask is not None:
             u_hat *= dealiasing_mask
-    
         result = self.ifft(u_hat)
-    
         if space_window:
             if self.dim == 1:
                 x0 = (x_grid[0] + x_grid[-1]) / 2.0
                 L = (x_grid[-1] - x_grid[0]) / 2.0
                 sw_x = np.exp(-((x_grid - x0) / L) ** 2)
                 result *= sw_x
-    
             elif self.dim == 2:
                 x0 = (x_grid[0] + x_grid[-1]) / 2.0
                 y0 = (y_grid[0] + y_grid[-1]) / 2.0
-    
                 Lx = (x_grid[-1] - x_grid[0]) / 2.0
                 Ly = (y_grid[-1] - y_grid[0]) / 2.0
-    
                 sw_x = np.exp(-((x_grid - x0) / Lx) ** 2)
                 sw_y = np.exp(-((y_grid - y0) / Ly) ** 2)
-    
                 result *= sw_x[:, None] * sw_y[None, :]
-    
         return result
-        
+
     def principal_symbol(self, order=1):
         """
         Compute the leading homogeneous component of the pseudo-differential symbol.
@@ -1482,27 +1229,19 @@ class PseudoDifferentialOperator:
         - In 2D, expands in radial variable ρ while preserving angular dependence.
         - Useful for microlocal analysis and constructing parametrices.
         """
-
         p = self.symbol
         if self.dim == 1:
-            # Reuse the xi symbol actually present in self.symbol; a fresh
-            # symbols('xi', real=True, positive=True) is a distinct object and
-            # series(p, xi, ...) would silently treat p as constant in xi.
             xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
             return simplify(series(p, xi, oo, n=order).removeO())
         elif self.dim == 2:
             xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
             eta = next((s for s in p.free_symbols if s.name == 'eta'), symbols('eta', real=True))
-            # Homogeneous radial expansion: we set (ξ, η) = ρ (cosθ, sinθ)
             rho, theta = symbols('rho theta', real=True, positive=True)
             p_rho = p.subs({xi: rho * cos(theta), eta: rho * sin(theta)})
             expansion = series(p_rho, rho, oo, n=order).removeO()
-            # Revert back to (ξ, η)
-            expansion_cart = expansion.subs({rho: sqrt(xi**2 + eta**2),
-                                             cos(theta): xi / sqrt(xi**2 + eta**2),
-                                             sin(theta): eta / sqrt(xi**2 + eta**2)})
+            expansion_cart = expansion.subs({rho: sqrt(xi ** 2 + eta ** 2), cos(theta): xi / sqrt(xi ** 2 + eta ** 2), sin(theta): eta / sqrt(xi ** 2 + eta ** 2)})
             return simplify(powdenest(expansion_cart, force=True))
-                       
+
     def is_homogeneous(self, tol=1e-10):
         """
         Check whether the symbol is homogeneous in the frequency variables.
@@ -1515,32 +1254,22 @@ class PseudoDifferentialOperator:
             - degree: the detected degree m if homogeneous, or None
         """
         from sympy import symbols, simplify, expand, Eq, nsimplify
-    
         if self.dim == 1:
             p = self.symbol
-            # IMPORTANT: reuse the xi symbol actually present in self.symbol.
-            # Creating a fresh symbols('xi', real=True, positive=True) here is a
-            # *different* sympy Symbol object from the one baked into p (which is
-            # typically only real=True), so p.subs(xi, ...) would silently no-op.
             xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
             l = symbols('l', real=True, positive=True)
             p_scaled = p.subs(xi, l * xi)
             ratio = simplify(p_scaled / p)
             if ratio.has(xi):
-                return False, None
+                return (False, None)
             try:
-                # Float alpha (e.g. 0.5) can leave stray 1.0 coefficients (e.g.
-                # 1.0*l**1.0) that keep the ratio a Mul instead of a bare Pow, so
-                # as_base_exp() would return (1.0*l**1.0, 1) instead of (l, 1).
-                # nsimplify(..., rational=True) restores the exact form first.
                 ratio_clean = nsimplify(simplify(ratio), rational=True)
                 base, deg = ratio_clean.as_base_exp()
                 if base == l:
-                    return True, deg
-                return False, None
+                    return (True, deg)
+                return (False, None)
             except Exception:
-                return False, None
-    
+                return (False, None)
         elif self.dim == 2:
             p = self.symbol
             xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
@@ -1548,19 +1277,18 @@ class PseudoDifferentialOperator:
             l = symbols('l', real=True, positive=True)
             p_scaled = p.subs({xi: l * xi, eta: l * eta})
             ratio = simplify(p_scaled / p)
-            # If ratio == l**m with no (xi, eta) left, it's homogeneous
             if ratio.has(xi, eta):
-                return False, None
+                return (False, None)
             try:
                 ratio_clean = nsimplify(ratio, rational=True)
                 base, exp = ratio_clean.as_base_exp()
                 if base == l:
-                    return True, exp
+                    return (True, exp)
             except Exception:
                 pass
-            return False, None
+            return (False, None)
 
-    def symbol_order(self, max_order=10, tol=1e-3):
+    def symbol_order(self, max_order=10, tol=0.001):
         """
         Estimate the asymptotic homogeneity order of the symbol as |ξ| → ∞.
         
@@ -1606,94 +1334,79 @@ class PseudoDifferentialOperator:
         NotImplementedError
             If `self.dim` is not 1 or 2.
         """
-        from sympy import (symbols, series, simplify, cos, sin, oo,
-                            powdenest, radsimp, Add)
-    
+        from sympy import symbols, series, simplify, cos, sin, oo, powdenest, radsimp, Add
+
         def validate_order(power, coeff, tol):
             if power is None:
                 return None
             if simplify(coeff) == 0 or coeff.equals(0):
-                print("⚠️ Coefficient is symbolically zero; ignoring")
+                print('⚠️ Coefficient is symbolically zero; ignoring')
                 return None
             return int(power) if float(power) == int(power) else float(power)
-    
-        # ---- FIX 3: order-0 shortcut (no frequency dependence at all) ----
         freq_syms = [s for s in self.symbol.free_symbols if s.name in ('xi', 'eta')]
         if not freq_syms:
             return 0
-    
         is_homog, degree = self.is_homogeneous()
         if is_homog:
             return float(degree)
-        print("⚠️ The symbol is not homogeneous. The asymptotic order is not well defined.")
-    
+        print('⚠️ The symbol is not homogeneous. The asymptotic order is not well defined.')
+
         def leading_power(s, var):
-            """(power, coeff) of the HIGHEST-power part of s in var.
-            Collects ALL terms sharing the top power (not just one)."""
-            terms  = Add.make_args(s)
+            terms = Add.make_args(s)
             powers = [t.as_powers_dict().get(var, 0) for t in terms]
-            top    = max(powers)
-            lead   = Add(*[t for t, p in zip(terms, powers) if p == top])
-            lead   = radsimp(simplify(powdenest(lead, force=True)))
-            coeff  = lead / var**top if top else lead
-            return top, coeff
-    
+            top = max(powers)
+            lead = Add(*[t for t, p in zip(terms, powers) if p == top])
+            lead = radsimp(simplify(powdenest(lead, force=True)))
+            coeff = lead / var ** top if top else lead
+            return (top, coeff)
         if self.dim == 1:
-            x  = self.vars_x[0]
-            xi = next((s for s in self.symbol.free_symbols if s.name == 'xi'),
-                      symbols('xi', real=True))
-            try:                                    # method 1: xi → ∞
+            x = self.vars_x[0]
+            xi = next((s for s in self.symbol.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+            try:
                 s = series(self.symbol, xi, oo, n=max_order).removeO()
-                power, coeff = leading_power(s, xi)          # FIX 2: was rho
+                power, coeff = leading_power(s, xi)
                 order = validate_order(power, coeff, tol)
                 if order is not None:
                     return order
             except Exception:
                 pass
-            try:                                    # method 2: xi = 1/z
+            try:
                 z = symbols('z', real=True, positive=True)
-                s = series(self.symbol.subs(xi, 1/z), z, 0, n=max_order).removeO()
-                power, coeff = leading_power(s, z)           # FIX 2: was rho
+                s = series(self.symbol.subs(xi, 1 / z), z, 0, n=max_order).removeO()
+                power, coeff = leading_power(s, z)
                 order = validate_order(power, coeff, tol)
                 if order is not None:
                     return -order
             except Exception as e:
-                print(f"⚠️ fallback z failed: {e}")
+                print(f'⚠️ fallback z failed: {e}')
             return None
-    
         elif self.dim == 2:
             x, y = self.vars_x
-            xi  = next((s for s in self.symbol.free_symbols if s.name == 'xi'),
-                       symbols('xi', real=True))
-            eta = next((s for s in self.symbol.free_symbols if s.name == 'eta'),
-                       symbols('eta', real=True))
+            xi = next((s for s in self.symbol.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+            eta = next((s for s in self.symbol.free_symbols if s.name == 'eta'), symbols('eta', real=True))
             rho, theta = symbols('rho theta', real=True, positive=True)
-            try:                                    # method 1: polar, rho → ∞
-                p_rho = self.symbol.subs({xi: rho*cos(theta), eta: rho*sin(theta)})
-                # FIX 1: dropped preprocess_power/preprocess_sqrt — they inject
-                #        a spurious factor 2**n into rho**n terms.
+            try:
+                p_rho = self.symbol.subs({xi: rho * cos(theta), eta: rho * sin(theta)})
                 s = series(simplify(p_rho), rho, oo, n=max_order).removeO()
                 power, coeff = leading_power(s, rho)
                 order = validate_order(power, coeff, tol)
                 if order is not None:
                     return order
             except Exception as e:
-                print(f"⚠️ polar expansion failed: {e}")
-            try:                                    # method 2: z = 1/rho
+                print(f'⚠️ polar expansion failed: {e}')
+            try:
                 z = symbols('z', real=True, positive=True)
-                p_z = self.symbol.subs({xi: cos(theta)/z, eta: sin(theta)/z})
+                p_z = self.symbol.subs({xi: cos(theta) / z, eta: sin(theta) / z})
                 s = series(simplify(p_z), z, 0, n=max_order).removeO()
-                power, coeff = leading_power(s, z)           # FIX 2: was rho
+                power, coeff = leading_power(s, z)
                 order = validate_order(power, coeff, tol)
                 if order is not None:
                     return -order
             except Exception as e:
-                print(f"⚠️ fallback z (2D) failed: {e}")
+                print(f'⚠️ fallback z (2D) failed: {e}')
             return None
-    
-        raise NotImplementedError("Only 1D and 2D supported.")
+        raise NotImplementedError('Only 1D and 2D supported.')
 
-    
     def asymptotic_expansion(self, order=3):
         """
         Compute the asymptotic expansion of the symbol as |ξ| → ∞ (high-frequency regime).
@@ -1727,12 +1440,9 @@ class PseudoDifferentialOperator:
         - Final expression is simplified using `powdenest` and `expand` for improved readability.
         """
         p = self.symbol
-    
         if self.dim == 1:
             xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
-    
             try:
-                # Case: exponential function
                 if p.func == exp and len(p.args) == 1:
                     arg = p.args[0]
                     arg_series = series(arg, xi, oo, n=order).removeO()
@@ -1741,51 +1451,31 @@ class PseudoDifferentialOperator:
                 else:
                     expanded = series(p, xi, oo, n=order).removeO()
                     return simplify(powdenest(expanded, force=True))
-    
             except Exception as e:
-                print(f"Warning: 1D expansion failed: {e}")
+                print(f'Warning: 1D expansion failed: {e}')
                 return p
-    
         elif self.dim == 2:
             xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
             eta = next((s for s in p.free_symbols if s.name == 'eta'), symbols('eta', real=True))
             rho, theta = symbols('rho theta', real=True, positive=True)
-    
-            # Normalize before substitution
             p = simplify(p)
-    
-            # Substitute polar coordinates
-            p_polar = p.subs({
-                xi: rho * cos(theta),
-                eta: rho * sin(theta)
-            })
-    
+            p_polar = p.subs({xi: rho * cos(theta), eta: rho * sin(theta)})
             try:
-                # Handle exponentials
                 if p_polar.func == exp and len(p_polar.args) == 1:
                     arg = p_polar.args[0]
                     arg_series = series(arg, rho, oo, n=order).removeO()
                     expanded = series(exp(expand(arg_series)), rho, oo, n=order).removeO()
                 else:
                     expanded = series(p_polar, rho, oo, n=order).removeO()
-    
-                # Convert back to Cartesian
-                norm = sqrt(xi**2 + eta**2)
-                expansion_cart = expanded.subs({
-                    rho: norm,
-                    cos(theta): xi / norm,
-                    sin(theta): eta / norm
-                })
-    
-                # Final simplifications
+                norm = sqrt(xi ** 2 + eta ** 2)
+                expansion_cart = expanded.subs({rho: norm, cos(theta): xi / norm, sin(theta): eta / norm})
                 result = simplify(powdenest(expansion_cart, force=True))
                 result = expand(result)
                 return result
-    
             except Exception as e:
-                print(f"Warning: 2D expansion failed: {e}")
-                return p  
-            
+                print(f'Warning: 2D expansion failed: {e}')
+                return p
+
     def compose_asymptotic(self, other, order=1, mode='kn', sign_convention=None):
         """
         Compose two pseudo-differential operators using an asymptotic expansion
@@ -1821,51 +1511,45 @@ class PseudoDifferentialOperator:
             truncated at given order.
     
         """
-    
-        assert self.dim == other.dim, "Operator dimensions must match"
+        assert self.dim == other.dim, 'Operator dimensions must match'
         if mode not in ('kn', 'weyl'):
             raise ValueError("mode must be either 'kn' or 'weyl'")
         dim = self.dim
         if dim not in (1, 2):
-            raise NotImplementedError("Only 1D and 2D cases are implemented")
-
-        p, q = self.symbol, other.symbol
+            raise NotImplementedError('Only 1D and 2D cases are implemented')
+        p, q = (self.symbol, other.symbol)
         x_vars = self.vars_x
         xi_vars = self._peetre_frequency_symbols()
         sign = -1 if (sign_convention or 'standard') == 'standard' else +1
-
         result = 0
-        if mode == 'kn':  # Kohn-Nirenberg
+        if mode == 'kn':
             for n in range(order + 1):
                 for alpha in _mi_all(n, dim):
                     fact = _mi_factorial(alpha)
                     dp = _mi_diff(p, xi_vars, alpha)
                     dq = _mi_diff(q, x_vars, alpha)
-                    result += (dp * dq / fact) * (1j) ** (sign * n)
-        else:  # 'weyl' -- general dimension-generic Moyal star product,
-               # exact match to the previous 1D formula (which was the
-               # mathematically correct one); see class-level notes.
+                    result += dp * dq / fact * 1j ** (sign * n)
+        else:
             for total in range(order + 1):
                 for a_deg in range(total + 1):
                     b_deg = total - a_deg
                     for alpha in _mi_all(a_deg, dim):
                         for beta in _mi_all(b_deg, dim):
                             coeff = (1j / 2) ** total * (-1) ** b_deg
-                            coeff /= (_mi_factorial(alpha) * _mi_factorial(beta))
+                            coeff /= _mi_factorial(alpha) * _mi_factorial(beta)
                             dp = _mi_diff(_mi_diff(p, xi_vars, alpha), x_vars, beta)
                             dq = _mi_diff(_mi_diff(q, x_vars, alpha), xi_vars, beta)
                             result += coeff * dp * dq
-
         try:
             return simplify(result)
         except TypeError:
-            # Fallback for SymPy sorting bugs with undefined functions/derivatives
             return result
 
     # ======================================================================
     # Peetre-style symbolic decomposition
     # ======================================================================
         
+ 
     def _peetre_frequency_symbols(self):
         """
         Return the frequency symbols actually used in the symbol.
@@ -1876,26 +1560,14 @@ class PseudoDifferentialOperator:
             (xi,) in 1D or (xi, eta) in 2D.
         """
         from sympy import symbols
-
         if self.dim == 1:
-            xi = next(
-                (s for s in self.symbol.free_symbols if s.name == "xi"),
-                symbols("xi", real=True),
-            )
+            xi = next((s for s in self.symbol.free_symbols if s.name == 'xi'), symbols('xi', real=True))
             return (xi,)
-
         elif self.dim == 2:
-            xi = next(
-                (s for s in self.symbol.free_symbols if s.name == "xi"),
-                symbols("xi", real=True),
-            )
-            eta = next(
-                (s for s in self.symbol.free_symbols if s.name == "eta"),
-                symbols("eta", real=True),
-            )
-            return xi, eta
-
-        raise NotImplementedError("Peetre decomposition supports only 1D and 2D operators.")
+            xi = next((s for s in self.symbol.free_symbols if s.name == 'xi'), symbols('xi', real=True))
+            eta = next((s for s in self.symbol.free_symbols if s.name == 'eta'), symbols('eta', real=True))
+            return (xi, eta)
+        raise NotImplementedError('Peetre decomposition supports only 1D and 2D operators.')
 
     @staticmethod
     def _peetre_merge_local(dst, src):
@@ -1920,7 +1592,6 @@ class PseudoDifferentialOperator:
             `dst` is mutated in place; nothing is returned.
         """
         from sympy import simplify, together
-
         for monom, coeff in src.items():
             dst[monom] = simplify(together(dst.get(monom, 0) + coeff))
 
@@ -1949,13 +1620,10 @@ class PseudoDifferentialOperator:
             inconclusive.
         """
         from sympy import simplify
-
         if expr is None:
             return True
-
         if expr == 0:
             return True
-
         try:
             if expr.is_zero is True:
                 return True
@@ -1963,7 +1631,6 @@ class PseudoDifferentialOperator:
                 return False
         except Exception:
             pass
-
         try:
             return bool(simplify(expr) == 0)
         except Exception:
@@ -1998,58 +1665,37 @@ class PseudoDifferentialOperator:
             Terms still entangled between space and frequency variables.
         """
         from sympy import Add, Poly, expand, simplify, together
-
         xi_vars = self._peetre_frequency_symbols()
         x_vars = self.vars_x
-
         expr = expand(expr)
-
         local_terms = []
         separable = []
         joint = []
-
         for t in Add.make_args(expr):
             try:
                 a, q = t.as_independent(*xi_vars)
             except Exception:
-                a, q = 1, t
-
-            # If the frequency-dependent part still contains space variables,
-            # the term is genuinely joint.
-            if any(q.has(xv) for xv in x_vars):
+                a, q = (1, t)
+            if any((q.has(xv) for xv in x_vars)):
                 joint.append(t)
-
-            # Polynomial in frequency variables => local/differential part.
             elif q.is_polynomial(*xi_vars):
                 local_terms.append(t)
-
-            # Non-polynomial but frequency-only => separable Fourier multiplier
-            # with spatial amplitude.
             else:
                 separable.append((simplify(a), simplify(q)))
-
         local_coeffs = {}
-
         if local_terms:
             p_local = Add(*local_terms)
-
             try:
                 poly = Poly(p_local, *xi_vars)
             except Exception:
                 try:
                     poly = Poly(p_local, *xi_vars, extension=True)
                 except Exception:
-                    # If Poly cannot safely parse the polynomial part, keep it
-                    # as joint rather than producing wrong coefficients.
                     joint.extend(local_terms)
-                    return local_coeffs, separable, joint
-
+                    return (local_coeffs, separable, joint)
             for monom, coeff in poly.terms():
-                local_coeffs[monom] = simplify(
-                    together(local_coeffs.get(monom, 0) + coeff)
-                )
-
-        return local_coeffs, separable, joint
+                local_coeffs[monom] = simplify(together(local_coeffs.get(monom, 0) + coeff))
+        return (local_coeffs, separable, joint)
 
     def _peetre_local_symbol(self, local_coeffs):
         """
@@ -2071,17 +1717,14 @@ class PseudoDifferentialOperator:
             reconstructed from `local_coeffs`.
         """
         from sympy import Integer, expand
-
         xi_vars = self._peetre_frequency_symbols()
         expr = Integer(0)
-
         for monom, coeff in local_coeffs.items():
             term = coeff
             for xi_var, power in zip(xi_vars, monom):
                 if power:
-                    term = term * xi_var**power
+                    term = term * xi_var ** power
             expr = expr + term
-
         return expand(expr)
 
     def _peetre_separable_symbol(self, separable):
@@ -2103,12 +1746,9 @@ class PseudoDifferentialOperator:
             `sympy.Integer(0)` if `separable` is empty.
         """
         from sympy import Add, Integer, expand
-
         if not separable:
             return Integer(0)
-
         return expand(Add(*[a * q for a, q in separable]))
-
 
     def _peetre_merge_separable(self, separable):
         """
@@ -2117,30 +1757,20 @@ class PseudoDifferentialOperator:
         This is purely cosmetic but makes the decomposition much easier to read.
         """
         from sympy import simplify
-
         merged = {}
         ordered_keys = []
-
         for a, q in separable:
             a = simplify(a)
             q = simplify(q)
-
             if self._peetre_is_zero(a) or self._peetre_is_zero(q):
                 continue
-
             key = q
-
             if key in merged:
                 merged[key] = simplify(merged[key] + a)
             else:
                 merged[key] = a
                 ordered_keys.append(key)
-
-        return [
-            (merged[q], q)
-            for q in ordered_keys
-            if not self._peetre_is_zero(merged[q])
-        ]
+        return [(merged[q], q) for q in ordered_keys if not self._peetre_is_zero(merged[q])]
 
     def _peetre_local_to_separable(self, local_coeffs):
         """
@@ -2157,38 +1787,26 @@ class PseudoDifferentialOperator:
         Terms with the same spatial coefficient are merged.
         """
         from sympy import Integer, expand, simplify
-    
         xi_vars = self._peetre_frequency_symbols()
         separable = []
-    
         for monom, coeff in local_coeffs.items():
             if self._peetre_is_zero(coeff):
                 continue
-    
             q = Integer(1)
             for var, power in zip(xi_vars, monom):
                 if power:
-                    q = q * var**power
-    
+                    q = q * var ** power
             coeff = simplify(coeff)
             q = expand(q)
-    
-            # Merge if the same spatial coefficient already exists.
             merged = False
             for i, (c0, q0) in enumerate(separable):
                 if self._peetre_is_zero(c0 - coeff):
                     separable[i] = (c0, expand(q0 + q))
                     merged = True
                     break
-    
             if not merged:
                 separable.append((coeff, q))
-    
-        return [
-            (c, expand(q))
-            for c, q in separable
-            if not self._peetre_is_zero(c) and not self._peetre_is_zero(q)
-        ]
+        return [(c, expand(q)) for c, q in separable if not self._peetre_is_zero(c) and (not self._peetre_is_zero(q))]
 
     def _peetre_local_as_separable(self, local_coeffs):
         """
@@ -2206,14 +1824,12 @@ class PseudoDifferentialOperator:
         """
         if not local_coeffs:
             return []
-
-        return self._peetre_merge_separable(
-            self._peetre_local_to_separable(local_coeffs)
-        )
+        return self._peetre_merge_separable(self._peetre_local_to_separable(local_coeffs))
 
     # ------------------------------------------------------------------
     # Low-rank joint residual helpers
     # ------------------------------------------------------------------
+    
     def _infer_joint_bounds(self, x_grid, kx, y_grid=None, ky=None):
         """
         Infer physical bounds for low-rank joint decomposition from
@@ -2224,38 +1840,22 @@ class PseudoDifferentialOperator:
         def _bounds(arr):
             arr = np.asarray(arr)
             if arr.size == 0:
-                raise ValueError("Empty grid encountered while inferring bounds.")
-
+                raise ValueError('Empty grid encountered while inferring bounds.')
             lo = float(np.min(arr))
             hi = float(np.max(arr))
-
             if hi <= lo:
                 lo -= 1.0
                 hi += 1.0
-
-            return lo, hi
-
+            return (lo, hi)
         freq_syms = self._peetre_frequency_symbols()
-
         if self.dim == 1:
-            return {
-                self.vars_x[0]: _bounds(x_grid),
-                freq_syms[0]: _bounds(kx),
-            }
-
+            return {self.vars_x[0]: _bounds(x_grid), freq_syms[0]: _bounds(kx)}
         elif self.dim == 2:
             if y_grid is None or ky is None:
-                raise ValueError("y_grid and ky are required for 2D bounds.")
-
-            return {
-                self.vars_x[0]: _bounds(x_grid),
-                self.vars_x[1]: _bounds(y_grid),
-                freq_syms[0]: _bounds(kx),
-                freq_syms[1]: _bounds(ky),
-            }
-
+                raise ValueError('y_grid and ky are required for 2D bounds.')
+            return {self.vars_x[0]: _bounds(x_grid), self.vars_x[1]: _bounds(y_grid), freq_syms[0]: _bounds(kx), freq_syms[1]: _bounds(ky)}
         else:
-            raise NotImplementedError("Only 1D and 2D bounds are supported.")
+            raise NotImplementedError('Only 1D and 2D bounds are supported.')
 
     def _remap_bounds(self, bounds, syms):
         """
@@ -2263,35 +1863,21 @@ class PseudoDifferentialOperator:
         expression. If necessary, match by symbol name.
         """
         out = {}
-
         for s in syms:
             if s in bounds:
                 out[s] = bounds[s]
                 continue
-
             matched_key = None
             for k in bounds.keys():
-                if getattr(k, "name", str(k)) == getattr(s, "name", str(s)):
+                if getattr(k, 'name', str(k)) == getattr(s, 'name', str(s)):
                     matched_key = k
                     break
-
             if matched_key is None:
                 raise ValueError(f"No bound provided for symbol '{s}'.")
-
             out[s] = bounds[matched_key]
-
         return out
 
-    def _low_rank_joint_pairs(
-        self,
-        joint_symbol,
-        bounds,
-        degree=6,
-        tol=1e-5,
-        num_samples=10000,
-        seed=42,
-        use_cache=True,
-    ):
+    def _low_rank_joint_pairs(self, joint_symbol, bounds, degree=6, tol=1e-05, num_samples=10000, seed=42, use_cache=True):
         """
         Factorize the joint residual into separable pairs.
 
@@ -2304,73 +1890,26 @@ class PseudoDifferentialOperator:
         """
         import numpy as np
         from sympy import symbols
-
         if self._peetre_is_zero(joint_symbol):
-            return [], {
-                "rel_l2_error": 0.0,
-                "max_abs_error": 0.0,
-                "mean_abs_error": 0.0,
-                "svd_energy_retained_pct": 100.0,
-                "singular_values": np.array([]),
-            }
-
-        # ----------------------------------------------------------
-        # Use symbols actually present in the joint residual when
-        # possible. This avoids subtle SymPy symbol-mismatch issues.
-        # ----------------------------------------------------------
+            return ([], {'rel_l2_error': 0.0, 'max_abs_error': 0.0, 'mean_abs_error': 0.0, 'svd_energy_retained_pct': 100.0, 'singular_values': np.array([])})
         x_syms = []
         for v in self.vars_x:
-            s = next(
-                (fs for fs in joint_symbol.free_symbols if fs.name == v.name),
-                v,
-            )
+            s = next((fs for fs in joint_symbol.free_symbols if fs.name == v.name), v)
             x_syms.append(s)
-
-        freq_names = ["xi"] if self.dim == 1 else ["xi", "eta"]
+        freq_names = ['xi'] if self.dim == 1 else ['xi', 'eta']
         xi_syms = []
         for name in freq_names:
-            s = next(
-                (fs for fs in joint_symbol.free_symbols if fs.name == name),
-                symbols(name, real=True),
-            )
+            s = next((fs for fs in joint_symbol.free_symbols if fs.name == name), symbols(name, real=True))
             xi_syms.append(s)
-
         all_syms = x_syms + xi_syms
         bounds = self._remap_bounds(bounds, all_syms)
-
-        key = (
-            joint_symbol,
-            degree,
-            tol,
-            tuple(
-                (s, float(bounds[s][0]), float(bounds[s][1]))
-                for s in all_syms
-            ),
-        )
-
-        cache = getattr(self, "_joint_lowrank_cache", None)
-
-        if use_cache and cache is not None and cache.get("key") == key:
-            return cache["pairs"], cache["metrics"]
-
-        pairs, metrics = factorize_symbolic(
-            joint_symbol,
-            x_syms,
-            xi_syms,
-            bounds,
-            degree=degree,
-            tol=tol,
-            num_samples=num_samples,
-            seed=seed,
-        )
-
-        self._joint_lowrank_cache = {
-            "key": key,
-            "pairs": pairs,
-            "metrics": metrics,
-        }
-
-        return pairs, metrics
+        key = (joint_symbol, degree, tol, tuple(((s, float(bounds[s][0]), float(bounds[s][1])) for s in all_syms)))
+        cache = getattr(self, '_joint_lowrank_cache', None)
+        if use_cache and cache is not None and (cache.get('key') == key):
+            return (cache['pairs'], cache['metrics'])
+        pairs, metrics = factorize_symbolic(joint_symbol, x_syms, xi_syms, bounds, degree=degree, tol=tol, num_samples=num_samples, seed=seed)
+        self._joint_lowrank_cache = {'key': key, 'pairs': pairs, 'metrics': metrics}
+        return (pairs, metrics)
 
     def _resolve_joint_symbols(self, joint_symbol):
         """Shared symbol-resolution logic (matches _low_rank_joint_pairs):
@@ -2379,13 +1918,12 @@ class PseudoDifferentialOperator:
         for v in self.vars_x:
             s = next((fs for fs in joint_symbol.free_symbols if fs.name == v.name), v)
             x_syms.append(s)
-        freq_names = ["xi"] if self.dim == 1 else ["xi", "eta"]
+        freq_names = ['xi'] if self.dim == 1 else ['xi', 'eta']
         xi_syms = []
         for name in freq_names:
-            s = next((fs for fs in joint_symbol.free_symbols if fs.name == name),
-                     sp.symbols(name, real=True))
+            s = next((fs for fs in joint_symbol.free_symbols if fs.name == name), sp.symbols(name, real=True))
             xi_syms.append(s)
-        return x_syms, xi_syms
+        return (x_syms, xi_syms)
 
     def _resolve_nufft_plan(self, joint_symbol, use_cache=True):
         """
@@ -2399,26 +1937,21 @@ class PseudoDifferentialOperator:
         """
         x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
         key = (joint_symbol, self.dim)
-        cache = getattr(self, "_joint_nufft_cache", None)
-        if use_cache and cache is not None and cache.get("key") == key:
-            return cache["plan_info"]
-    
+        cache = getattr(self, '_joint_nufft_cache', None)
+        if use_cache and cache is not None and (cache.get('key') == key):
+            return cache['plan_info']
         if self.dim == 1:
             plan = try_nufft_decomposition_1d(joint_symbol, x_syms[0], xi_syms[0])
-            plan_info = ("1d", plan) if plan is not None else None
+            plan_info = ('1d', plan) if plan is not None else None
         elif self.dim == 2:
-            res = try_nufft_decomposition_2d(
-                joint_symbol, x_syms[0], x_syms[1], xi_syms[0], xi_syms[1]
-            )
-            plan_info = ("2d", res) if res is not None else None
+            res = try_nufft_decomposition_2d(joint_symbol, x_syms[0], x_syms[1], xi_syms[0], xi_syms[1])
+            plan_info = ('2d', res) if res is not None else None
         else:
             plan_info = None
-    
-        self._joint_nufft_cache = {"key": key, "plan_info": plan_info}
+        self._joint_nufft_cache = {'key': key, 'plan_info': plan_info}
         return plan_info
 
-    def _nufft_joint_apply(self, joint_symbol, u, x_grid, kx, y_grid=None, ky=None,
-                            use_cache=True, freq_window="gaussian"):
+    def _nufft_joint_apply(self, joint_symbol, u, x_grid, kx, y_grid=None, ky=None, use_cache=True, freq_window='gaussian'):
         """
         Try the NUFFT joint-residual backend. Returns the applied numeric
         array on success, or None if the symbol doesn't classify as
@@ -2428,19 +1961,16 @@ class PseudoDifferentialOperator:
         plan_info = self._resolve_nufft_plan(joint_symbol, use_cache=use_cache)
         if plan_info is None:
             return None
-    
         kind, plan = plan_info
         dx = x_grid[1] - x_grid[0]
         dxi = kx[1] - kx[0]
-        if kind == "1d":
+        if kind == '1d':
             return apply_nufft_1d(u, plan, x_grid, kx, dx, dxi, freq_window=freq_window)
-        else:  # "2d"
+        else:
             dy = y_grid[1] - y_grid[0]
             deta = ky[1] - ky[0]
             plan_kind, plan_data = plan
-            return apply_nufft_2d(u, plan_kind, plan_data, x_grid, y_grid, kx, ky,
-                                   dx, dy, dxi, deta, freq_window=freq_window)
-
+            return apply_nufft_2d(u, plan_kind, plan_data, x_grid, y_grid, kx, ky, dx, dy, dxi, deta, freq_window=freq_window)
 
     def _resolve_joint_representation(
         self,
@@ -3573,6 +3103,7 @@ class PseudoDifferentialOperator:
         """
         return self.apply_peetre(*args, **kwargs)
 
+
         
     def commutator_symbolic(self, other, order=1, mode='kn', sign_convention=None):
         """
@@ -4608,8 +4139,7 @@ class PseudoDifferentialOperator:
             warnings.warn(f'Eigenvalue computation failed: {e}')
             return None
 
-    def _plot_pseudospectrum(self, Lambda, resolvent_norm, sigma_min_grid,
-                            epsilon_levels, eigenvalues):
+    def _plot_pseudospectrum(self, Lambda, resolvent_norm, sigma_min_grid, epsilon_levels, eigenvalues):
         """
         Plot pseudospectrum results.
         
@@ -4626,81 +4156,8 @@ class PseudoDifferentialOperator:
         eigenvalues : ndarray or None
             Eigenvalues to overlay
         """
-        Lambda_re = Lambda.real
-        Lambda_im = Lambda.imag
-        
-        plt.figure(figsize=(14, 6))
-        
-        # Left plot: ε-pseudospectrum
-        plt.subplot(1, 2, 1)
-        
-        # Better contour level computation
-        log_resolvent = np.log10(resolvent_norm + 1e-16)
-        levels_log = np.log10(1.0 / np.array(epsilon_levels))
-        
-        # Only plot contours that exist in the data range
-        valid_levels = [lv for lv in levels_log 
-                       if log_resolvent.min() <= lv <= log_resolvent.max()]
-        
-        if len(valid_levels) > 0:
-            cs = plt.contour(Lambda_re, Lambda_im, log_resolvent,
-                            levels=valid_levels, colors='blue', linewidths=1.5)
-            # Better labels
-            labels = [f'ε={eps:.0e}' for eps in epsilon_levels[:len(valid_levels)]]
-            fmt = dict(zip(cs.levels, labels))
-            plt.clabel(cs, inline=True, fmt=fmt, fontsize=9)
-        else:
-            print('⚠️ Warning: No contours in specified epsilon range')
-            # Plot general contours
-            cs = plt.contour(Lambda_re, Lambda_im, log_resolvent,
-                            levels=10, colors='blue', linewidths=1.5)
-        
-        if eigenvalues is not None:
-            plt.plot(eigenvalues.real, eigenvalues.imag, 'r*', 
-                    markersize=10, label='Eigenvalues', markeredgecolor='darkred')
-        
-        plt.xlabel('Re(λ)', fontsize=12)
-        plt.ylabel('Im(λ)', fontsize=12)
-        plt.title('ε-Pseudospectrum: log₁₀(‖(H - λI)⁻¹‖)', fontsize=13)
-        plt.grid(alpha=0.3)
-        plt.legend(fontsize=10)
-        plt.axis('equal')
-        
-        # Right plot: Smallest singular value
-        plt.subplot(1, 2, 2)
-        
-        # Use better colormap normalization
-        from matplotlib.colors import LogNorm
-        
-        # Filter out invalid values
-        sigma_plot = np.where(np.isfinite(sigma_min_grid), sigma_min_grid, np.nan)
-        vmin = np.nanmin(sigma_plot[sigma_plot > 0]) if np.any(sigma_plot > 0) else 1e-10
-        vmax = np.nanmax(sigma_plot)
-        
-        cs2 = plt.contourf(Lambda_re, Lambda_im, sigma_plot,
-                          levels=50, cmap='viridis',
-                          norm=LogNorm(vmin=vmin, vmax=vmax))
-        plt.colorbar(cs2, label='σ_min(H - λI)')
-        
-        if eigenvalues is not None:
-            plt.plot(eigenvalues.real, eigenvalues.imag, 'r*', 
-                    markersize=10, markeredgecolor='darkred')
-        
-        # Plot epsilon contours
-        for eps in epsilon_levels:
-            cs_eps = plt.contour(Lambda_re, Lambda_im, sigma_plot,
-                               levels=[eps], colors='red', linewidths=2, alpha=0.8)
-        
-        plt.xlabel('Re(λ)', fontsize=12)
-        plt.ylabel('Im(λ)', fontsize=12)
-        plt.title('Smallest singular value σ_min(H - λI)', fontsize=13)
-        plt.grid(alpha=0.3)
-        plt.axis('equal')
-        
-        plt.tight_layout()
-        plt.show()
-    
-    
+        return _mu.plot_pseudospectrum(Lambda, resolvent_norm, sigma_min_grid, epsilon_levels, eigenvalues)
+
     def symplectic_flow(self):
         """
         Compute the Hamiltonian vector field associated with the principal symbol.
@@ -5236,266 +4693,72 @@ class PseudoDifferentialOperator:
         """
         return self._quantization_symbol_correction(sign=+1, order=order)
 
-#########################
-####  Visualizations ####
-#########################
+    # -- visualization: thin wrappers delegating to microlocal_ud -----
+    # All rendering logic lives in microlocal_ud.py; these keep the
+    # familiar op.visualize_...(...) call sites working unchanged.
 
     def visualize_fiber(self, x_grid, xi_grid, x0=0.0, y0=0.0):
         """Plot the cotangent fiber structure at a fixed spatial point (x0[, y0]).
         See _slice_grid/_render_field docstrings for the shared implementation.
         NOTE: original signature has no eta_grid param -- 2D reuses xi_grid
         for both frequency axes, matching the original behavior exactly."""
-        a1, a2, l1, l2, Z = _slice_grid(self, 'freq', x_grid, xi_grid, eta_grid=xi_grid, x0=x0, y0=y0)
-        title = 'Cotangent Fiber Structure' if self.dim == 1 else f'Cotangent Fiber at x={x0}, y={y0}'
-        _render_field(a1, a2, np.abs(Z), style='contourf', cbar_label='|Symbol|',
-                      xlabel=l1, ylabel=l2, title=title)
+        return _mu.visualize_fiber(self, x_grid, xi_grid, x0=x0, y0=y0)
 
     def visualize_symbol_amplitude(self, x_grid, xi_grid, y_grid=None, eta_grid=None, xi0=0.0, eta0=0.0):
         """Display |p(x, xi)| (1D) or |p(x, y, xi0, eta0)| (2D) as a color map."""
-        kind = 'freq' if self.dim == 1 else 'space'
-        a1, a2, l1, l2, Z = _slice_grid(self, kind, x_grid, xi_grid, y_grid, eta_grid, xi0=xi0, eta0=eta0)
-        title = 'Symbol Amplitude |p(x, \u03be)|' if self.dim == 1 else f'Symbol Amplitude at \u03be={xi0}, \u03b7={eta0}'
-        _render_field(a1, a2, np.abs(Z), style='pcolormesh', cbar_label='|Symbol|',
-                      xlabel=l1, ylabel=l2, title=title)
+        return _mu.visualize_symbol_amplitude(self, x_grid, xi_grid, y_grid, eta_grid, xi0=xi0, eta0=eta0)
 
     def visualize_phase(self, x_grid, xi_grid, y_grid=None, eta_grid=None, xi0=0.0, eta0=0.0):
         """Plot arg(p(x, xi)) (1D) or arg(p(x, y, xi0, eta0)) (2D)."""
-        kind = 'freq' if self.dim == 1 else 'space'
-        a1, a2, l1, l2, Z = _slice_grid(self, kind, x_grid, xi_grid, y_grid, eta_grid, xi0=xi0, eta0=eta0)
-        title = 'Phase Portrait (arg p(x, \u03be))' if self.dim == 1 else f'Phase Portrait at \u03be={xi0}, \u03b7={eta0}'
-        _render_field(a1, a2, np.angle(Z), style='pcolormesh', cmap='twilight',
-                      cbar_label='arg(Symbol) [rad]', xlabel=l1, ylabel=l2, title=title)
-            
-    def visualize_characteristic_set(self, x_grid, xi_grid, y_grid=None, eta_grid=None, y0=0.0, x0=0.0, levels=[1e-1]):
+        return _mu.visualize_phase(self, x_grid, xi_grid, y_grid, eta_grid, xi0=xi0, eta0=eta0)
+
+    def visualize_characteristic_set(self, x_grid, xi_grid, y_grid=None, eta_grid=None, y0=0.0, x0=0.0, levels=[0.1]):
         """Visualize the characteristic set p(x, xi) ~= 0 (1D) or the (xi, eta)
         slice at fixed (x0, y0) (2D)."""
-        if self.dim not in (1, 2):
-            raise NotImplementedError("Only 1D/2D characteristic sets supported.")
-        if self.dim == 2 and eta_grid is None:
-            raise ValueError("eta_grid must be provided for 2D visualization.")
-        a1, a2, l1, l2, Z = _slice_grid(self, 'freq', x_grid, xi_grid, y_grid, eta_grid, x0=x0, y0=y0)
-        title = 'Characteristic Set (p(x, \u03be) \u2248 0)' if self.dim == 1 else f'Characteristic Set at x={x0}, y={y0}'
-        _render_field(a1, a2, np.abs(Z), style='contour', levels=levels,
-                      xlabel=l1, ylabel=l2, title=title, grid=True)
+        return _mu.visualize_characteristic_set(self, x_grid, xi_grid, y_grid, eta_grid, y0=y0, x0=x0, levels=levels)
 
     def visualize_characteristic_gradient(self, x_grid, xi_grid, y_grid=None, eta_grid=None, y0=0.0, x0=0.0):
         """Visualize |grad p| in phase space. NOTE: both the 1D and 2D
         branches now consistently use abs(.)**2 in the gradient norm (the
         original 1D branch omitted the abs(), inconsistently with 2D)."""
-        a1, a2, l1, l2, Z = _slice_grid(self, 'freq', x_grid, xi_grid, y_grid, eta_grid, x0=x0, y0=y0)
-        title = 'Gradient Norm (High Near Zeros)' if self.dim == 1 else f'Gradient Norm at x={x0}, y={y0}'
-        _render_field(a1, a2, _grad_norm(Z), style='pcolormesh', cmap='inferno',
-                      cbar_label='|\u2207p|', xlabel=l1, ylabel=l2, title=title, grid=True)
+        return _mu.visualize_characteristic_gradient(self, x_grid, xi_grid, y_grid, eta_grid, y0=y0, x0=x0)
 
-    def plot_hamiltonian_flow(self, x0=0.0, xi0=5.0, y0=0.0, eta0=0.0, tmax=1.0,
-                               n_steps=100, show_field=True):
+    def plot_hamiltonian_flow(self, x0=0.0, xi0=5.0, y0=0.0, eta0=0.0, tmax=1.0, n_steps=100, show_field=True):
         """Integrate and plot the Hamiltonian trajectories of the symbol in
         phase space. Delegates to the shared `integrate_singularity` engine
         instead of re-deriving the Hamiltonian vector field inline."""
-        x0v = [x0] if self.dim == 1 else [x0, y0]
-        xi0v = [xi0] if self.dim == 1 else [xi0, eta0]
-        _, _, _, _, trajs = integrate_singularity(
-            self.symbol, self.vars_x, x0=x0v, xi0=xi0v, tmax=tmax, n_frames=n_steps)
-        Y = trajs[0]
-
-        if self.dim == 1:
-            x_vals, xi_vals = Y
-            plt.plot(x_vals, xi_vals)
-            plt.xlabel("x"); plt.ylabel("\u03be")
-            plt.title("Hamiltonian Flow in Phase Space (1D)")
-            plt.grid(True)
-            plt.show()
-        elif self.dim == 2:
-            x_vals, y_vals, xi_vals, eta_vals = Y
-            plt.plot(x_vals, y_vals, label='Position')
-            # Momentum along the trajectory: fixed-length arrows, colored by
-            # |(xi, eta)| instead of drawn at raw (often wildly varying) length.
-            _quiver_colored(plt.gca(), x_vals, y_vals, xi_vals, eta_vals,
-                             cmap='autumn', scale=20, width=0.003, alpha=0.7,
-                             cbar_label=r'$|(\xi,\eta)|$')
-            if show_field:
-                x, y = self.vars_x
-                xi, eta = symbols('xi eta', real=True)
-                H = self.symplectic_flow()
-                dxdt = lambdify((x, y, xi, eta), _make_real(H['dx/dt']), 'numpy')
-                dydt = lambdify((x, y, xi, eta), _make_real(H['dy/dt']), 'numpy')
-                Xg, Yg = np.meshgrid(np.linspace(min(x_vals), max(x_vals), 20),
-                                     np.linspace(min(y_vals), max(y_vals), 20))
-                XI, ETA = xi0 * np.ones_like(Xg), eta0 * np.ones_like(Yg)
-                # Background reference field: normalized length, uniform gray,
-                # no colorbar -- it's a faint decorative overlay, not the
-                # quantity of interest, so magnitude isn't color-coded here.
-                Ub, Vb = dxdt(Xg, Yg, XI, ETA), dydt(Xg, Yg, XI, ETA)
-                mag_b = np.hypot(Ub, Vb)
-                safe_b = np.where(mag_b == 0, 1.0, mag_b)
-                plt.quiver(Xg, Yg, Ub / safe_b, Vb / safe_b,
-                           color='gray', alpha=0.25, scale=30, width=0.002)
-            plt.xlabel("x"); plt.ylabel("y")
-            plt.title("Hamiltonian Flow in Phase Space (2D)")
-            plt.legend(); plt.grid(True); plt.axis('equal')
-            plt.show()
+        return _mu.plot_hamiltonian_flow(self, x0=x0, xi0=xi0, y0=y0, eta0=eta0, tmax=tmax, n_steps=n_steps, show_field=show_field)
 
     def plot_symplectic_vector_field(self, xlim=(-2, 2), klim=(-5, 5), density=30):
         """Quiver plot of the symplectic vector field (dp/dxi, -dp/dx). 1D only."""
-        _quiver_field(self, xlim, klim, density,
-                      lambda p, x, xi: (diff(p, xi), -diff(p, x)),
-                      "Symplectic Vector Field (1D)")
-        
-        
+        return _mu.plot_symplectic_vector_field(self, xlim=xlim, klim=klim, density=density)
+
     def visualize_micro_support(self, xlim=(-2, 2), klim=(-10, 10), threshold=0.001, density=300, xi0=0.0, eta0=0.0):
         """Visualize 1/|p(x, xi)| to highlight regions where the symbol is
         near zero. NOTE: no longer restricted to 1D -- the shared grid/render
         helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y)."""
-        x_grid = np.linspace(*xlim, density)
-        xi_grid = np.linspace(*klim, density)
-        if self.dim == 1:
-            a1, a2, l1, l2, Z = _slice_grid(self, 'freq', x_grid, xi_grid)
-        else:
-            a1, a2, l1, l2, Z = _slice_grid(self, 'space', x_grid, None, x_grid, None, xi0=xi0, eta0=eta0)
-        title = 'Micro-Support Estimate (1/|Symbol|)' if self.dim == 1 else f'Micro-Support Estimate at ξ={xi0}, η={eta0}'
-        _render_field(a1, a2, 1 / (np.abs(Z) + 1e-10), style='contourf', 
-                      cmap='inferno', cbar_label='$1/|p(x,\\xi)|$', xlabel=l1, ylabel=l2, title=title)
+        return _mu.visualize_micro_support(self, xlim=xlim, klim=klim, threshold=threshold, density=density, xi0=xi0, eta0=eta0)
 
     def group_velocity_field(self, xlim=(-2, 2), klim=(-10, 10), density=30):
         """Quiver plot of the group velocity field (1, dp/dxi). 1D only."""
-        _quiver_field(self, xlim, klim, density,
-                      lambda p, x, xi: (sp.Integer(1), diff(p, xi)),
-                      "Group Velocity Field (1D)")
+        return _mu.group_velocity_field(self, xlim=xlim, klim=klim, density=density)
 
-    def animate_singularity(self, xi0=5.0, eta0=0.0, x0=0.0, y0=0.0,
-                             tmax=4.0, n_frames=100, projection=None):
+    def animate_singularity(self, xi0=5.0, eta0=0.0, x0=0.0, y0=0.0, tmax=4.0, n_frames=100, projection=None):
         """Animate the propagation of a singularity under the Hamiltonian
         flow. Thin delegate to the module-level `animate_singularity`
         engine (previously ~130 lines of duplicated Hamiltonian/ODE setup
         here, plus a near-identical copy further down the module)."""
-        rc('animation', html='jshtml')
-        x0v = x0 if self.dim == 1 else [x0, y0]
-        xi0v = xi0 if self.dim == 1 else [xi0, eta0]
-        if projection is None:
-            projection = 'phase' if self.dim == 1 else 'position'
-        return animate_singularity(self.symbol, self.vars_x, x0=x0v, xi0=xi0v,
-                                    tmax=tmax, n_frames=n_frames, projection=projection)
+        return _mu.animate_operator_singularity(self, xi0=xi0, eta0=eta0, x0=x0, y0=y0, tmax=tmax, n_frames=n_frames, projection=projection)
 
-    def interactive_symbol_analysis(pseudo_op, xlim=(-2, 2), ylim=(-2, 2),
-                                    xi_range=(0.1, 5), eta_range=(-5, 5), density=50):
+    def interactive_symbol_analysis(self, xlim=(-2, 2), ylim=(-2, 2), xi_range=(0.1, 5), eta_range=(-5, 5), density=50):
         """Launch an ipywidgets dashboard for symbol exploration. Same modes,
         same sliders, same defaults as before -- rewritten as a mode-table
         dispatcher that delegates to the visualize_*/plot_* methods above
         instead of duplicating their 1D/2D branches inline (previously
         ~260 lines of near-duplicated if-elif chains)."""
-        dim = pseudo_op.dim
-        x_vals = np.linspace(*xlim, density)
-        y_vals = np.linspace(*ylim, density) if dim == 2 else None
-        xi_lin = np.linspace(*xi_range, density)
-        eta_lin = np.linspace(*eta_range, density) if dim == 2 else None
+        return _mu.interactive_symbol_analysis(self, xlim=xlim, ylim=ylim, xi_range=xi_range, eta_range=eta_range, density=density)
 
-        if dim == 1:
-            modes = ['Symbol Amplitude', 'Symbol Phase', 'Micro-Support (1/|p|)',
-                      'Cotangent Fiber', 'Characteristic Set', 'Characteristic Gradient',
-                      'Group Velocity Field', 'Symplectic Vector Field', 'Hamiltonian Flow']
-            needs = {
-                'Symbol Amplitude': (), 'Symbol Phase': (), 'Micro-Support (1/|p|)': (), 
-                'Group Velocity Field': (), 'Symplectic Vector Field': (), 
-                'Hamiltonian Flow': ('xi', 'x'), 'Cotangent Fiber': (), 'Characteristic Set': (),
-                'Characteristic Gradient': ()
-            }
-            mode_selector = Dropdown(options=modes, value='Symbol Amplitude', description='Mode:')
-            xi_slider = FloatSlider(min=xi_range[0], max=xi_range[1], step=0.1, value=1.0, description='\u03be\u2080')
-            x_slider = FloatSlider(min=xlim[0], max=xlim[1], step=0.1, value=0.0, description='x\u2080')
-            all_sliders = {'xi': xi_slider, 'x': x_slider}
-
-            def render(mode, xi0, x0):
-                plt.close('all'); plt.figure()
-                if mode == 'Symbol Amplitude':
-                    pseudo_op.visualize_symbol_amplitude(x_vals, xi_lin, xi0=xi0)
-                elif mode == 'Symbol Phase':
-                    pseudo_op.visualize_phase(x_vals, xi_lin, xi0=xi0)
-                elif mode == 'Micro-Support (1/|p|)':
-                    pseudo_op.visualize_micro_support(xlim, xi_range, density=density)
-                elif mode == 'Group Velocity Field':
-                    pseudo_op.group_velocity_field(xlim, xi_range, density=density)
-                elif mode == 'Symplectic Vector Field':
-                    pseudo_op.plot_symplectic_vector_field(xlim, xi_range, density=density)
-                elif mode == 'Cotangent Fiber':
-                    pseudo_op.visualize_fiber(x_vals, xi_lin, x0=x0)
-                elif mode == 'Characteristic Set':
-                    pseudo_op.visualize_characteristic_set(x_vals, xi_lin, x0=x0)
-                elif mode == 'Characteristic Gradient':
-                    pseudo_op.visualize_characteristic_gradient(x_vals, xi_lin, x0=x0)
-                elif mode == 'Hamiltonian Flow':
-                    pseudo_op.plot_hamiltonian_flow(x0=x0, xi0=xi0)
-
-            interactive_kwargs = {'mode': mode_selector, 'xi0': xi_slider, 'x0': x_slider}
-            slider_order = ['xi', 'x']
-
-        else:  # dim == 2
-            modes = ['Symbol Amplitude', 'Symbol Phase', 'Micro-Support (1/|p|)',
-                      'Cotangent Fiber', 'Characteristic Set', 'Characteristic Gradient',
-                      'Symplectic Vector Field', 'Hamiltonian Flow']
-            needs = {
-                'Symbol Amplitude': ('xi', 'eta'), 'Symbol Phase': ('xi', 'eta'),
-                'Micro-Support (1/|p|)': ('xi', 'eta'), 'Symplectic Vector Field': ('xi', 'eta'),
-                'Hamiltonian Flow': ('xi', 'eta', 'x', 'y'),
-                'Cotangent Fiber': ('x', 'y'), 'Characteristic Set': ('x', 'y'),
-                'Characteristic Gradient': ('x', 'y'),
-            }
-            mode_selector = Dropdown(options=modes, value='Symbol Amplitude', description='Mode:')
-            xi_slider = FloatSlider(min=xi_range[0], max=xi_range[1], step=0.1, value=1.0, description='\u03be\u2080')
-            eta_slider = FloatSlider(min=eta_range[0], max=eta_range[1], step=0.1, value=1.0, description='\u03b7\u2080')
-            x_slider = FloatSlider(min=xlim[0], max=xlim[1], step=0.1, value=0.0, description='x\u2080')
-            y_slider = FloatSlider(min=ylim[0], max=ylim[1], step=0.1, value=0.0, description='y\u2080')
-            all_sliders = {'xi': xi_slider, 'eta': eta_slider, 'x': x_slider, 'y': y_slider}
-
-            def render(mode, xi0, eta0, x0, y0):
-                plt.close('all'); plt.figure()
-                if mode == 'Symbol Amplitude':
-                    pseudo_op.visualize_symbol_amplitude(x_vals, xi_lin, y_vals, eta_lin, xi0=xi0, eta0=eta0)
-                elif mode == 'Symbol Phase':
-                    pseudo_op.visualize_phase(x_vals, xi_lin, y_vals, eta_lin, xi0=xi0, eta0=eta0)
-                elif mode == 'Micro-Support (1/|p|)':
-                    # pseudo_op.visualize_micro_support(xlim, xi_range, density=density)
-                    pseudo_op.visualize_micro_support(xlim, xi_range, density=density, xi0=xi0, eta0=eta0)
-                elif mode == 'Symplectic Vector Field':
-                    x, y = pseudo_op.vars_x
-                    xi, eta = symbols('xi eta', real=True)
-                    Xg, Yg = np.meshgrid(x_vals, y_vals, indexing='ij')
-                    U, V = lambdify((x, y, xi, eta),
-                                    [diff(pseudo_op.expr, xi), diff(pseudo_op.expr, eta)],
-                                    'numpy')(Xg, Yg, xi0, eta0)
-                    _quiver_colored(plt.gca(), Xg, Yg, U, V, scale=10, width=0.004,
-                                     cbar_label='|(dp/d\u03be, dp/d\u03b7)|')
-                    plt.xlabel('x'); plt.ylabel('y')
-                    plt.title(f'Symplectic Field at \u03be={xi0:.2f}, \u03b7={eta0:.2f}')
-                elif mode == 'Cotangent Fiber':
-                    pseudo_op.visualize_fiber(xi_lin, eta_lin, x0=x0, y0=y0)
-                elif mode == 'Characteristic Set':
-                    pseudo_op.visualize_characteristic_set(x_vals, xi_lin, y_vals, eta_lin, x0=x0, y0=y0)
-                elif mode == 'Characteristic Gradient':
-                    pseudo_op.visualize_characteristic_gradient(x_vals, xi_lin, y_vals, eta_lin, x0=x0, y0=y0)
-                elif mode == 'Hamiltonian Flow':
-                    pseudo_op.plot_hamiltonian_flow(x0=x0, y0=y0, xi0=xi0, eta0=eta0)
-
-                if mode not in ("Cotangent Fiber", "Characteristic Set",
-                                "Characteristic Gradient", "Hamiltonian Flow"):
-                    plt.show()
-
-            interactive_kwargs = {'mode': mode_selector, 'xi0': xi_slider, 'eta0': eta_slider,
-                                  'x0': x_slider, 'y0': y_slider}
-            slider_order = ['xi', 'eta', 'x', 'y']
-
-        controls_box = VBox([mode_selector] + list(all_sliders.values()))
-
-        def update_controls(change):
-            active = needs[change['new']]
-            controls_box.children = [mode_selector] + [all_sliders[k] for k in slider_order if k in active]
-        mode_selector.observe(update_controls, names='value')
-        update_controls({'new': mode_selector.value})
-
-        out = interactive_output(render, interactive_kwargs)
-        display(VBox([controls_box, out]))
-
-
-
+        
 # ============================================================================
 # Matrix-Valued (N x N) Pseudodifferential Operators
 # ============================================================================
@@ -6085,7 +5348,6 @@ class MatrixPseudoDifferentialOperator:
             )
         )
         return P_star.T
-
 
 # ============================================================================
 # Standalone functions for Kohn-Nirenberg quantization
@@ -8960,718 +8222,3 @@ def solve_ricci_flow_conformal_2d(phi0, dt, n_steps, order=3, L=8.0, N=64,
             phi_list.append(phi.copy())
 
     return np.array(t_list), np.array(phi_list), (x_grid, y_grid)
-
-    return np.array(t_list), np.array(phi_list), (x_grid, y_grid)
-# ----------------------------------------------------------------------
-# Visualization
-# ----------------------------------------------------------------------
-
-def _quantity_fn(quantity):
-    """'real' | 'imag' | 'abs' -> the corresponding numpy function."""
-    try:
-        return {'real': np.real, 'imag': np.imag, 'abs': np.abs}[quantity]
-    except KeyError:
-        raise ValueError("quantity must be 'real', 'imag', or 'abs'")
-
-
-def _finish_headless(fig, save_path=None):
-    """Standard ending for the 'returns a Figure, doesn't display it'
-    PDE-solution plots: tight layout, optional save, close, return."""
-    fig.tight_layout()
-    if save_path:
-        fig.savefig(save_path, dpi=150)
-    plt.close(fig)
-    return fig
-
-
-def plot_scalar_1d(t, U, x, title="u(x, t)", quantity='real',
-                   n_snapshots=6, save_path=None):
-    """
-    Plot a scalar 1D space-time solution as a combined heatmap and
-    snapshot overlay.
-    
-    Parameters
-    ----------
-    t : ndarray, shape (n_times,)
-        Time samples.
-    U : ndarray, shape (n_times, Nx)
-        Solution values u(x, t) sampled on the grid.
-    x : ndarray, shape (Nx,)
-        Spatial grid.
-    title : str, default="u(x, t)"
-        Base title used for the heatmap panel.
-    quantity : {'real', 'imag', 'abs'}, default='real'
-        Which part of U to plot.
-    n_snapshots : int, default=6
-        Number of time slices drawn as line overlays in the second panel.
-    save_path : str, optional
-        If given, the figure is saved to this path (dpi=150) before closing.
-    
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The completed figure (already closed via `_finish_headless`, so it
-        will not display inline; use `save_path` or re-show it explicitly).
-    """
-    field = _quantity_fn(quantity)(U)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
-
-    im = ax1.pcolormesh(x, t, field, shading='auto', cmap='RdBu_r')
-    ax1.set_xlabel('x'); ax1.set_ylabel('t')
-    ax1.set_title(f"{title} -- space-time ({quantity})")
-    fig.colorbar(im, ax=ax1)
-
-    idx = np.linspace(0, len(t) - 1, n_snapshots).astype(int)
-    cmap = plt.cm.viridis(np.linspace(0, 1, len(idx)))
-    for c, i in zip(cmap, idx):
-        ax2.plot(x, field[i], color=c, label=f"t={t[i]:.2f}")
-    ax2.set_xlabel('x'); ax2.set_ylabel(quantity)
-    ax2.set_title("snapshots")
-    ax2.legend(fontsize=8, ncol=2)
-
-    return _finish_headless(fig, save_path)
-
-
-def plot_matrix_1d(t, U, x, labels=None, quantity='real', save_path=None):
-    """
-    Plot each component of a matrix-valued 1D solution as a stacked
-    space-time heatmap.
-    
-    Parameters
-    ----------
-    t : ndarray, shape (n_times,)
-        Time samples.
-    U : ndarray, shape (n_times, size, Nx)
-        Diagonal (or otherwise reduced) matrix solution components, one
-        row of panels per index k = 0, ..., size-1.
-    x : ndarray, shape (Nx,)
-        Spatial grid.
-    labels : list of str, optional
-        One label per component; defaults to `["u_1", ..., "u_size"]`.
-    quantity : {'real', 'imag', 'abs'}, default='real'
-        Which part of U to plot.
-    save_path : str, optional
-        If given, the figure is saved to this path (dpi=150) before closing.
-    
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The completed figure (already closed via `_finish_headless`).
-    """
-    field_fn = _quantity_fn(quantity)
-    size = U.shape[1]
-    labels = labels or [f"u_{k+1}" for k in range(size)]
-
-    fig, axes = plt.subplots(size, 1, figsize=(6, 3 * size), sharex=True)
-    axes = [axes] if size == 1 else axes
-
-    for k, ax in enumerate(axes):
-        im = ax.pcolormesh(x, t, field_fn(U[:, k, :]), shading='auto', cmap='RdBu_r')
-        ax.set_ylabel('t')
-        ax.set_title(f"{labels[k]} ({quantity})")
-        fig.colorbar(im, ax=ax)
-    axes[-1].set_xlabel('x')
-
-    return _finish_headless(fig, save_path)
-
-
-def plot_scalar_2d(t, U, x, y, times=None, quantity='real', save_path=None):
-    """
-    Plot a scalar 2D solution at selected time instants as a row of
-    side-by-side pcolormesh panels.
-    
-    Parameters
-    ----------
-    t : ndarray, shape (n_times,)
-        Time samples.
-    U : ndarray, shape (n_times, Nx, Ny)
-        Solution values u(x, y, t) sampled on the grid.
-    x, y : ndarray
-        Spatial grids along each axis.
-    times : array_like of int, optional
-        Indices into `t` selecting which snapshots to plot. Defaults to 6
-        indices evenly spaced across the whole time range.
-    quantity : {'real', 'imag', 'abs'}, default='real'
-        Which part of U to plot.
-    save_path : str, optional
-        If given, the figure is saved to this path (dpi=150) before closing.
-    
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The completed figure (already closed via `_finish_headless`).
-    """
-    field_fn = _quantity_fn(quantity)
-    times = np.linspace(0, len(t) - 1, 6).astype(int) if times is None else times
-
-    n = len(times)
-    fig, axes = plt.subplots(1, n, figsize=(3 * n, 3), sharey=True)
-    axes = [axes] if n == 1 else axes
-
-    im = None
-    for ax, i in zip(axes, times):
-        im = ax.pcolormesh(x, y, field_fn(U[i]).T, shading='auto', cmap='RdBu_r')
-        ax.set_title(f"t={t[i]:.2f}")
-        ax.set_xlabel('x')
-    axes[0].set_ylabel('y')
-    fig.colorbar(im, ax=axes[-1])
-
-    return _finish_headless(fig, save_path)
-
-
-def animate_scalar_1d(t, U, x, quantity='real', interval=40, save_path=None):
-    """
-    Animate a scalar 1D solution as a line plot evolving in time.
-    
-    Parameters
-    ----------
-    t : ndarray, shape (n_times,)
-        Time samples.
-    U : ndarray, shape (n_times, Nx)
-        Solution values u(x, t) sampled on the grid.
-    x : ndarray, shape (Nx,)
-        Spatial grid.
-    quantity : {'real', 'imag', 'abs'}, default='real'
-        Which part of U to plot; also sets the fixed y-axis limits from
-        the min/max of that quantity over the whole trajectory.
-    interval : int, default=40
-        Delay between animation frames, in milliseconds.
-    save_path : str, optional
-        If given, the animation is saved to this path via `anim.save`.
-    
-    Returns
-    -------
-    matplotlib.animation.FuncAnimation
-        The animation object (figure is not shown automatically).
-"""
-    from matplotlib.animation import FuncAnimation
-    field = _quantity_fn(quantity)(U)
-    fig, ax = plt.subplots(figsize=(6, 4))
-    line, = ax.plot(x, field[0])
-    ax.set_ylim(field.min(), field.max())
-    ax.set_xlabel('x'); ax.set_ylabel(quantity)
-    title = ax.set_title(f"t={t[0]:.2f}")
-
-    def update(i):
-        line.set_ydata(field[i])
-        title.set_text(f"t={t[i]:.2f}")
-        return line, title
-
-    anim = FuncAnimation(fig, update, frames=len(t), interval=interval, blit=False)
-    if save_path:
-        anim.save(save_path)
-    plt.close(fig)
-    return anim
-
-
-# --- New: matrix-field solvers (solve_matrix_field / solve_sylvester_field)
-# had NO plotting function at all -- their output shape (n_saved, N, N,
-# *grid) doesn't fit plot_matrix_1d's (n_saved, size, *grid). These fill
-# that gap.
-
-def _matrix_field_reduce(U, component, quantity):
-    """Reduce a (n_saved, N, N, *grid) matrix-field array to a single
-    real/complex scalar field (n_saved, *grid), per `component`."""
-    if component == 'trace':
-        return np.trace(U, axis1=1, axis2=2), _quantity_fn(quantity)
-    if component == 'frobenius':
-        return np.linalg.norm(U, axis=(1, 2)), np.abs  # already real, non-negative
-    if component == 'diag':
-        raise ValueError("component='diag' needs the *_1d panel-per-entry "
-                         "helper (plot_matrix_field_1d); pick 'trace', "
-                         "'frobenius', or an (i, j) entry here.")
-    i, j = component
-    return U[:, i, j, ...], _quantity_fn(quantity)
-
-
-def plot_matrix_field_1d(t, U, x, quantity='abs', component='diag', labels=None, save_path=None):
-    """
-    Space-time heatmap(s) for a matrix-valued 1D solution.
-    
-    Parameters
-    ----------
-    t : ndarray, shape (n_times,)
-        Time samples.
-    U : ndarray, shape (n_times, N, N, Nx)
-        Matrix-valued solution field, as returned by `solve_matrix_field`
-        / `solve_sylvester_field` in 1D.
-    x : ndarray, shape (Nx,)
-        Spatial grid.
-    quantity : {'real', 'imag', 'abs'}, default='abs'
-        Which part of the (reduced) field to plot.
-    component : 'diag' | 'trace' | 'frobenius' | (i, j), default='diag'
-        'diag'      -- one panel per diagonal entry U_kk(x, t).
-        'trace'     -- single panel, sum_k U_kk(x, t).
-        'frobenius' -- single panel, ||U(x, t)||_F.
-        (i, j)      -- single panel, the (i, j) entry U_ij(x, t).
-    labels : list of str, optional
-        Panel labels used when `component='diag'`; defaults to
-        `["U_11", "U_22", ...]`.
-    save_path : str, optional
-        If given, the figure is saved to this path (dpi=150) before closing.
-    
-    Returns
-    -------
-    matplotlib.figure.Figure
-        The completed figure (already closed via `_finish_headless`).
-    """
-    if component == 'diag':
-        field_fn = _quantity_fn(quantity)
-        size = U.shape[1]
-        labels = labels or [f"U_{k+1}{k+1}" for k in range(size)]
-        fig, axes = plt.subplots(size, 1, figsize=(6, 3 * size), sharex=True)
-        axes = [axes] if size == 1 else axes
-        for k, ax in enumerate(axes):
-            im = ax.pcolormesh(x, t, field_fn(U[:, k, k, :]), shading='auto', cmap='RdBu_r')
-            ax.set_ylabel('t'); ax.set_title(f"{labels[k]} ({quantity})")
-            fig.colorbar(im, ax=ax)
-        axes[-1].set_xlabel('x')
-        return _finish_headless(fig, save_path)
-
-    panel, field_fn = _matrix_field_reduce(U, component, quantity)
-    if component in ('trace', 'frobenius'):
-        title = 'tr U(x, t)' if component == 'trace' else '||U(x, t)||_F'
-    else:
-        title = f"U_{component[0]+1}{component[1]+1}(x, t)"
-
-    fig, ax = plt.subplots(figsize=(6, 4))
-    im = ax.pcolormesh(x, t, field_fn(panel), shading='auto', cmap='RdBu_r')
-    ax.set_xlabel('x'); ax.set_ylabel('t'); ax.set_title(f"{title} ({quantity})")
-    fig.colorbar(im, ax=ax)
-    return _finish_headless(fig, save_path)
-
-
-def plot_matrix_field_2d(t, U, x, y, times=None, quantity='abs', component='trace', save_path=None):
-    """Snapshot panels for a matrix-valued 2D solution, shape
-    (n_times, N, N, Nx, Ny) -- the output of solve_matrix_field /
-    solve_sylvester_field in 2D. `component` as in `plot_matrix_field_1d`,
-    except 'diag' isn't supported here (pick a single scalar reduction:
-    'trace', 'frobenius', or an (i, j) entry)."""
-    panel_all, field_fn = _matrix_field_reduce(U, component, quantity)
-    times = np.linspace(0, len(t) - 1, 6).astype(int) if times is None else times
-
-    n = len(times)
-    fig, axes = plt.subplots(1, n, figsize=(3 * n, 3), sharey=True)
-    axes = [axes] if n == 1 else axes
-    im = None
-    for ax, idx in zip(axes, times):
-        im = ax.pcolormesh(x, y, field_fn(panel_all[idx]).T, shading='auto', cmap='RdBu_r')
-        ax.set_title(f"t={t[idx]:.2f}"); ax.set_xlabel('x')
-    axes[0].set_ylabel('y')
-    fig.colorbar(im, ax=axes[-1])
-    return _finish_headless(fig, save_path)
-
-
-# --- New: solve_second_order returns (U, V) but there was no combined
-# view -- previously required calling plot_scalar_1d twice by hand.
-
-def plot_wave_solution_1d(t, U, V, x, quantity='real', save_path=None):
-    """Side-by-side space-time heatmaps of displacement U and velocity V,
-    as returned by solve_second_order (scalar, 1D case)."""
-    field_fn = _quantity_fn(quantity)
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4), sharex=True, sharey=True)
-    for ax, field, label in zip(axes, (U, V), ('u', r'$\partial_t u$')):
-        im = ax.pcolormesh(x, t, field_fn(field), shading='auto', cmap='RdBu_r')
-        ax.set_xlabel('x'); ax.set_title(f"{label} ({quantity})")
-        fig.colorbar(im, ax=ax)
-    axes[0].set_ylabel('t')
-    return _finish_headless(fig, save_path)
-
-# ----------------------------------------------------------------------
-# Singularity & Ray Flow
-# ----------------------------------------------------------------------
-
-def _order_freq_vars(freq, dim):
-    """
-    Order a set of free frequency symbols into canonical (ξ, η) or
-    (ξ, η, …) sequence matching the spatial dimension.
-
-    Recognised canonical names are matched first ('xi', 'eta', 'kx',
-    'ky', 'k1', 'k2'); any remaining symbols are appended in
-    alphabetical order. This ensures a deterministic variable ordering
-    for differentiation and lambdification regardless of the order in
-    which SymPy reports free symbols.
-
-    Parameters
-    ----------
-    freq : iterable of sympy.Symbol
-        Candidate frequency symbols extracted from an expression.
-    dim : int
-        Number of frequency variables expected (1 or 2).
-
-    Returns
-    -------
-    list of sympy.Symbol
-        Ordered frequency symbols of length `dim`.
-    """
-    if dim == 1:
-        return list(freq)
-    by_name = {str(s): s for s in freq}
-    out = []
-    for canon in ('xi', 'eta', 'kx', 'ky', 'k1', 'k2'):
-        if canon in by_name and len(out) < dim:
-            out.append(by_name.pop(canon))
-    out += sorted(by_name.values(), key=lambda s: s.name)
-    return out[:dim]
-
-def characteristic_hamiltonians(s_expr, vars_x, vars_xi=None):
-    """
-    Extract the characteristic Hamiltonian functions H(x, ξ) from a
-    (possibly matrix-valued) operator symbol.
-
-    For a scalar symbol p(x, ξ), the single Hamiltonian is
-
-        H(x, ξ) = Re(p(x, ξ))
-
-    For a matrix symbol P(x, ξ), the eigenvalues λ_k(x, ξ) are computed
-    symbolically and each branch yields
-
-        H_k(x, ξ) = Re(λ_k(x, ξ))
-
-    These Hamiltonians generate the bicharacteristic (ray) flow via
-    Hamilton's equations:
-
-        ẋ = ∂H/∂ξ,   ξ̇ = −∂H/∂x
-
-    Parameters
-    ----------
-    s_expr : sympy.Expr or sympy.Matrix
-        Operator symbol (scalar or matrix-valued).
-    vars_x : list of sympy.Symbol
-        Spatial variables.
-    vars_xi : list of sympy.Symbol, optional
-        Frequency variables. If None, they are inferred from the free
-        symbols of `s_expr` that are not in `vars_x`, and ordered
-        canonically via `_order_freq_vars`.
-
-    Returns
-    -------
-    H_list : list of sympy.Expr
-        One Hamiltonian per characteristic branch (eigenvalue).
-    xs : list of sympy.Symbol
-        Canonical spatial symbols (real=True) used in H_list.
-    xis : list of sympy.Symbol
-        Canonical frequency symbols (real=True) used in H_list.
-
-    Notes
-    -----
-    The classical Hamiltonian governing bicharacteristic flow is the
-    (real part of the) principal symbol itself.  A previous version of
-    this function erroneously computed ``Re(i * p)``, which vanishes
-    identically for any real-valued symbol and therefore produced
-    trivial (stationary) trajectories in the flow visualization.
-
-    The substitution to fresh canonical symbols ensures consistent
-    differentiation even if the input expression uses symbols with
-    different assumptions.
-    """
-    S = _matrix_of(s_expr)
-    dim = len(vars_x)
-    freq = [s for s in S.free_symbols if s not in set(vars_x)]
-    vars_xi = list(vars_xi) if vars_xi is not None else _order_freq_vars(freq, dim)
-
-    xs = [sp.Symbol(v.name, real=True) for v in vars_x]
-    xis = [sp.Symbol(v.name, real=True) for v in vars_xi]
-    S = S.subs(dict(zip(list(vars_x) + list(vars_xi), xs + xis)))
-
-    eigen = [S[0, 0]] if S.shape == (1, 1) else list(S.eigenvals().keys())
-
-    H_list = []
-    for lam in eigen:
-        H_list.append(sp.simplify(sp.re(lam)))
-    return H_list, xs, xis
-
-def integrate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
-                          n_frames=100, vars_xi=None, branches='all',
-                          method='RK45', **ivp_kwargs):
-    """
-    Numerically integrate bicharacteristic (Hamiltonian ray) trajectories
-    from an initial phase-space point (x₀, ξ₀).
-
-    For each characteristic branch H_k, Hamilton's equations
-
-        ẋ = ∂H_k/∂ξ,   ξ̇ = −∂H_k/∂x
-
-    are integrated using `scipy.integrate.solve_ivp` over [0, tmax].
-
-    Parameters
-    ----------
-    s_expr : sympy.Expr or sympy.Matrix
-        Operator symbol from which Hamiltonians are extracted.
-    vars_x : list of sympy.Symbol
-        Spatial variables.
-    x0 : float or array_like, default 0.0
-        Initial spatial position(s). Scalar for 1D, sequence for 2D.
-    xi0 : float or array_like, default 5.0
-        Initial frequency (momentum) component(s).
-    tmax : float, default 4.0
-        Final integration time.
-    n_frames : int, default 100
-        Number of output time samples in [0, tmax].
-    vars_xi : list of sympy.Symbol, optional
-        Explicit frequency variables (inferred if None).
-    branches : 'all', int, or list of int, default 'all'
-        Which characteristic branches to integrate. 'all' integrates
-        every branch; an int or list selects specific ones.
-    method : str, default 'RK45'
-        ODE solver method passed to `solve_ivp`.
-    **ivp_kwargs
-        Additional keyword arguments forwarded to `solve_ivp`
-        (e.g. `rtol`, `atol`, `max_step`).
-
-    Returns
-    -------
-    H_list : list of sympy.Expr
-        Hamiltonian expressions for the integrated branches.
-    xs : list of sympy.Symbol
-        Canonical spatial symbols.
-    xis : list of sympy.Symbol
-        Canonical frequency symbols.
-    t_eval : ndarray, shape (n_frames,)
-        Time samples at which trajectories are recorded.
-    trajs : list of ndarray
-        `trajs[b]` has shape (2·dim, n_frames): the first dim rows are
-        position components, the last dim rows are momentum components.
-
-    Examples
-    --------
-    >>> H, xs, xis, t, trajs = integrate_singularity(xi**2 + x**2, [x],
-    ...                                              x0=0.0, xi0=3.0, tmax=6.0)
-    """
-    H_all, xs, xis = characteristic_hamiltonians(s_expr, vars_x, vars_xi)
-    H_list = [H_all[b] for b in ([branches] if isinstance(branches, int) else branches)] if branches != 'all' else H_all
-
-    dim = len(xs)
-    y0 = np.concatenate([np.atleast_1d(x0), np.atleast_1d(xi0)])
-    t_eval = np.linspace(0.0, tmax, n_frames)
-
-    trajs = []
-    for H in H_list:
-        rhs_exprs = [sp.diff(H, k) for k in xis] + [-sp.diff(H, x) for x in xs]
-        f = sp.lambdify(xs + xis, rhs_exprs, 'numpy')
-        sol = solve_ivp(lambda t, Y: f(*Y), (0.0, tmax), y0, t_eval=t_eval, method=method, **ivp_kwargs)
-        trajs.append(sol.y)
-    return H_list, xs, xis, t_eval, trajs
-
-def _trail_animation(coords_list, colors, px, py, pz=None, interval=50, pad_frac=0.08):
-    """Shared 'growing dashed trail + moving point' animation builder for
-    both the 2D and 3D singularity animations -- factors out what used to
-    be two near-identical copies of the same figure/update-function setup.
-
-    FIX: the axes are now explicitly sized to the full trajectory range
-    (with a small padding margin) before the animation starts. Previously
-    no xlim/ylim(/zlim) were set at all: since every trail/point artist is
-    created empty (`ax.plot([], [])`) and only ever updated via
-    `set_data`/`set_3d_properties` (not `ax.relim()` + `autoscale_view()`),
-    matplotlib never grew the view beyond its default (0, 1) x (0, 1) box,
-    so the rendered animation domain was almost always far too small to
-    show the actual ray flow.
-    """
-    is_3d = pz is not None
-    fig = plt.figure(figsize=(7.5, 5.5) if is_3d else (6, 5))
-    ax = fig.add_subplot(111, projection='3d') if is_3d else fig.add_subplot(111)
-
-    def _padded_range(values):
-        lo, hi = float(np.min(values)), float(np.max(values))
-        span = hi - lo
-        pad = span * pad_frac if span > 0 else (abs(lo) * pad_frac or 1.0)
-        return lo - pad, hi + pad
-
-    all_x = np.concatenate([np.atleast_1d(c[px]) for c in coords_list])
-    all_y = np.concatenate([np.atleast_1d(c[py]) for c in coords_list])
-    ax.set_xlim(*_padded_range(all_x))
-    ax.set_ylim(*_padded_range(all_y))
-    ax.set_xlabel(px)
-    ax.set_ylabel(py)
-    if is_3d:
-        all_z = np.concatenate([np.atleast_1d(c[pz]) for c in coords_list])
-        ax.set_zlim(*_padded_range(all_z))
-        ax.set_zlabel(pz)
-    else:
-        ax.grid(True, alpha=0.3)
-
-    trails, points = [], []
-    for c in colors:
-        if is_3d:
-            tr, = ax.plot([], [], [], ls='--', lw=1.3, color=c)
-            pt, = ax.plot([], [], [], 'o', ms=6, color=c)
-        else:
-            tr, = ax.plot([], [], ls='--', lw=1.3, alpha=0.6, color=c)
-            pt, = ax.plot([], [], 'o', ms=6.5, color=c)
-        trails.append(tr)
-        points.append(pt)
-
-    n_act = min(len(c[px]) for c in coords_list)
-
-    def update(i):
-        for b, c in enumerate(coords_list):
-            xa, ya = c[px][:i + 1], c[py][:i + 1]
-            trails[b].set_data(xa, ya)
-            if is_3d:
-                za = c[pz][:i + 1]
-                trails[b].set_3d_properties(za)
-                points[b].set_data([xa[-1]], [ya[-1]])
-                points[b].set_3d_properties([za[-1]])
-            else:
-                points[b].set_data([xa[-1]], [ya[-1]])
-        return trails + points
-
-    anim = FuncAnimation(fig, update, frames=n_act, interval=interval, blit=False)
-    plt.close(fig)
-    return fig, anim
-
-
-def animate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
-                        n_frames=100, projection=None, branches='all',
-                        labels=None, interval=50, contours=True,
-                        solution=None, quantity='abs', save_path=None):
-    """
-    Animate the propagation of singularities along bicharacteristic
-    trajectories, projected onto a 2D phase-space plane.
-    
-    Internally calls `integrate_singularity` to obtain the trajectories,
-    then draws a growing dashed trail plus a moving point per branch via
-    the shared `_trail_animation` helper.
-    
-    Parameters
-    ----------
-    s_expr : sympy.Expr
-        Principal symbol used to build the Hamiltonian(s).
-    vars_x : list of sympy.Symbol
-        Spatial variables.
-    x0 : float or array_like, default=0.0
-        Initial spatial position(s).
-    xi0 : float or array_like, default=5.0
-        Initial frequency (momentum) component(s).
-    tmax : float, default=4.0
-        Final integration time.
-    n_frames : int, default=100
-        Number of time samples used for the trajectory and the animation.
-    projection : {'phase', 'position', 'frequency'} or None, default=None
-        Which plane to draw. In 1D, defaults to 'phase' (x vs xi); in 2D,
-        defaults to 'position' (x vs y) and ('frequency'/'phase' are not
-        selectable in 2D -- the projection is always (x, y)).
-    branches : 'all', int, or list of int, default='all'
-        Which characteristic branches to animate.
-    labels : list of str, optional
-        Currently unused (reserved for per-branch legend labels).
-    interval : int, default=50
-        Delay between animation frames, in milliseconds.
-    contours : bool, default=True
-        Currently unused (reserved for background contour overlays).
-    solution : optional
-        Currently unused (reserved for overlaying a PDE solution field).
-    quantity : str, default='abs'
-        Currently unused (reserved alongside `solution`).
-    save_path : str, optional
-        If given, the animation is saved to this path via `anim.save`.
-    
-    Returns
-    -------
-    matplotlib.animation.FuncAnimation
-        The animation object.
-    
-    Raises
-    ------
-    ValueError
-        If `projection` is not one of the supported values for a 1D symbol.
-    """
-    from matplotlib.animation import FuncAnimation
-    dim = len(vars_x)
-    H_list, xs, xis, t_eval, trajs = integrate_singularity(
-        s_expr, vars_x, x0=x0, xi0=xi0, tmax=tmax, n_frames=n_frames, branches=branches)
-    n_act = min(Y.shape[1] for Y in trajs)
-    t_eval = t_eval[:n_act]
-    trajs = [Y[:, :n_act] for Y in trajs]
-
-    names = [v.name for v in xs] + [v.name for v in xis]
-    coords = [{**dict(zip(names, Y)), 't': t_eval} for Y in trajs]
-
-    # FIX: `projection` was never defaulted when None, so in 1D the
-    # fallback branch picked py='y' -- a key that doesn't exist in 1D
-    # coords (only 'x', 'xi', 't') -- raising a KeyError as soon as the
-    # axis limits are computed from the data. Default explicitly, as
-    # documented ('phase' in 1D, 'position' in 2D), and support the same
-    # projections as the class method (position/frequency plotted on the
-    # diagonal in 1D, since there's only one spatial/frequency axis).
-    if projection is None:
-        projection = 'phase' if dim == 1 else 'position'
-    if dim == 1:
-        px, py = {'phase': ('x', 'xi'), 'position': ('x', 'x'),
-                  'frequency': ('xi', 'xi')}.get(projection, (None, None))
-        if px is None:
-            raise ValueError(
-                f"Invalid projection {projection!r} for a 1D symbol; "
-                "use 'phase', 'position', or 'frequency'."
-            )
-    else:
-        px, py = 'x', 'y'
-
-    colors = [plt.cm.tab10.colors[b % 10] for b in range(len(H_list))]
-    _, anim = _trail_animation(coords, colors, px, py, interval=interval)
-    if save_path:
-        anim.save(save_path)
-    return anim
-
-
-def animate_singularity_3d(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
-                           n_frames=100, projection=None, branches='all',
-                           labels=None, interval=50, save_path=None):
-    """
-    Animate bicharacteristic trajectories in a 3D matplotlib plot.
-    
-    Internally calls `integrate_singularity` to obtain the trajectories,
-    then draws a growing dashed trail plus a moving point per branch via
-    the shared `_trail_animation` helper. In 1D, the third axis is time
-    `t`; in 2D (or higher), the first three phase-space coordinates
-    `(x, y, ...)` are used directly.
-    
-    Parameters
-    ----------
-    s_expr : sympy.Expr
-        Principal symbol used to build the Hamiltonian(s).
-    vars_x : list of sympy.Symbol
-        Spatial variables.
-    x0 : float or array_like, default=0.0
-        Initial spatial position(s).
-    xi0 : float or array_like, default=5.0
-        Initial frequency (momentum) component(s).
-    tmax : float, default=4.0
-        Final integration time.
-    n_frames : int, default=100
-        Number of time samples used for the trajectory and the animation.
-    projection : optional
-        Currently unused for the 3D case (reserved for API parity with
-        `animate_singularity`); the axes are always chosen as described
-        above.
-    branches : 'all', int, or list of int, default='all'
-        Which characteristic branches to animate.
-    labels : list of str, optional
-        Currently unused (reserved for per-branch legend labels).
-    interval : int, default=50
-        Delay between animation frames, in milliseconds.
-    save_path : str, optional
-        If given, the animation is saved to this path via `anim.save`.
-    
-    Returns
-    -------
-    matplotlib.animation.FuncAnimation
-        The animation object.
-    """
-    from matplotlib.animation import FuncAnimation
-    import mpl_toolkits.mplot3d  # noqa: F401
-
-    H_list, xs, xis, t_eval, trajs = integrate_singularity(
-        s_expr, vars_x, x0=x0, xi0=xi0, tmax=tmax, n_frames=n_frames, branches=branches)
-    n_act = min(Y.shape[1] for Y in trajs)
-    t_eval, trajs = t_eval[:n_act], [Y[:, :n_act] for Y in trajs]
-
-    names = [v.name for v in xs] + [v.name for v in xis]
-    coords = [{**dict(zip(names, Y)), 't': t_eval} for Y in trajs]
-    px, py, pz = (names[0], names[1], 't') if len(vars_x) == 1 else (names[0], names[1], names[2])
-
-    colors = [plt.cm.tab10.colors[b % 10] for b in range(len(H_list))]
-    _, anim = _trail_animation(coords, colors, px, py, pz=pz, interval=interval)
-    if save_path:
-        anim.save(save_path)
-    return anim
