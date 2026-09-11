@@ -1,0 +1,906 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>psiop.matpsiop &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../geometry.html">geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../microlocal.html">microlocal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../propagator.html">propagator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../psiop.html">psiop package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../riemannian.html">riemannian</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../symplectic.html">symplectic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../psiop.html">psiop</a></li>
+      <li class="breadcrumb-item active">psiop.matpsiop</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for psiop.matpsiop</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="sd">"""</span>
+<span class="sd">matpsiop — N × N matrix-valued pseudo-differential operators</span>
+<span class="sd">============================================================</span>
+
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The ``matpsiop`` submodule extends the scalar pseudo-differential </span>
+<span class="sd">framework to systems of coupled partial differential equations, </span>
+<span class="sd">Dirac-type equations, and matrix-valued fields (such as density </span>
+<span class="sd">matrices or matrix Green's functions). </span>
+
+<span class="sd">It provides the ``MatrixPseudoDifferentialOperator`` class, which </span>
+<span class="sd">wraps an N × N matrix of scalar symbols Pᵢⱼ(x, ξ) </span>
+<span class="sd">and orchestrates their numerical application and symbolic calculus. </span>
+<span class="sd">Because matrix multiplication is inherently non-commutative, this </span>
+<span class="sd">module implements specialized asymptotic expansions for composition, </span>
+<span class="sd">commutators, and exponentials that preserve matrix ordering.</span>
+
+<span class="sd">Main object</span>
+<span class="sd">-----------</span>
+<span class="sd">``MatrixPseudoDifferentialOperator``</span>
+<span class="sd">    N × N matrix-valued pseudo-differential operator. Each entry </span>
+<span class="sd">    Pᵢⱼ is internally wrapped as its own scalar </span>
+<span class="sd">    ``PseudoDifferentialOperator``. This design allows the matrix </span>
+<span class="sd">    operator to seamlessly inherit all scalar numerical backends </span>
+<span class="sd">    (FFT, Peetre decomposition, NUFFT, AAA, low-rank) entrywise, </span>
+<span class="sd">    without requiring separate matrix-specific numerical kernels.</span>
+
+<span class="sd">Key features</span>
+<span class="sd">------------</span>
+<span class="sd">Vector and matrix field application:</span>
+<span class="sd">    Entrywise application to vector fields u = (u₁, …, uₙ);</span>
+<span class="sd">    left and right matrix-multiplication actions on N × N </span>
+<span class="sd">    matrix-valued fields (essential for Sylvester-type equations </span>
+<span class="sd">    ∂ₜU = P U - U Q).</span>
+
+<span class="sd">Symbol matrix evaluation and spectral analysis:</span>
+<span class="sd">    Pointwise numerical evaluation of the full (…, N, N) symbol </span>
+<span class="sd">    on spatial/frequency grids;</span>
+<span class="sd">    pointwise eigenvalues and eigenvectors of the symbol matrix </span>
+<span class="sd">    (closed-form for N=2, used to build per-branch Hamiltonians </span>
+<span class="sd">    for coupled systems).</span>
+
+<span class="sd">Non-commutative asymptotic symbolic calculus:</span>
+<span class="sd">    Matrix composition P ∘ Q (exact for constant-coefficient </span>
+<span class="sd">    entries, non-commutative even at 0th order);</span>
+<span class="sd">    matrix commutators [P, Q];</span>
+<span class="sd">    formal left and right asymptotic inverses (requiring an </span>
+<span class="sd">    invertible principal symbol);</span>
+<span class="sd">    formal Hermitian adjoint P*;</span>
+<span class="sd">    matrix exponential symbols exp(t · Op[P]) for </span>
+<span class="sd">    propagators of coupled/vector-valued PDE systems.</span>
+
+<span class="sd">Mathematical background</span>
+<span class="sd">-----------------------</span>
+<span class="sd">Matrix-valued symbols and quantization</span>
+<span class="sd">    A matrix pseudo-differential operator P acting on a </span>
+<span class="sd">    vector field u(x) = (u₁(x), …, uₙ(x))ᵀ is defined by </span>
+<span class="sd">    an N × N matrix of scalar symbols P(x, ξ). The </span>
+<span class="sd">    Kohn–Nirenberg quantization is applied entrywise:</span>
+
+<span class="sd">        (P u)ᵢ(x) = (2π)⁻ᵈ Σⱼ ∫ exp(i x·ξ) Pᵢⱼ(x, ξ) ûⱼ(ξ) dξ</span>
+
+<span class="sd">    For matrix-valued fields U(x) (e.g., density matrices), the </span>
+<span class="sd">    operator can act from the left (P U) or from the </span>
+<span class="sd">    right (U Q), corresponding to the row-wise or </span>
+<span class="sd">    column-wise application of the scalar entries.</span>
+
+<span class="sd">Asymptotic matrix composition</span>
+<span class="sd">    The symbol of the composition P ∘ Q </span>
+<span class="sd">    admits the Kohn–Nirenberg asymptotic expansion:</span>
+
+<span class="sd">        (P ∘ Q)ᵢₖ(x, ξ) ∼ Σⱼ Σ_α [ i^(-|α|) / α! ] ∂_ξ^α Pᵢⱼ(x, ξ) · ∂_x^α Qⱼₖ(x, ξ)</span>
+
+<span class="sd">    Unlike the scalar case, matrices do not commute. Therefore, the </span>
+<span class="sd">    0th-order term of the composition is the standard matrix product </span>
+<span class="sd">    P(x, ξ) Q(x, ξ), and P ∘ Q ≠ Q ∘ P even </span>
+<span class="sd">    for constant-coefficient symbols. For x-independent symbols, </span>
+<span class="sd">    all higher-order derivative terms vanish identically, making the </span>
+<span class="sd">    0th-order matrix product the *exact* composition symbol.</span>
+
+<span class="sd">Matrix exponential and propagators</span>
+<span class="sd">    The symbol of the exponential operator exp(t P) is </span>
+<span class="sd">    computed via a truncated Taylor series using the matrix </span>
+<span class="sd">    composition rule:</span>
+
+<span class="sd">        exp(t P) ∼ I + t P + (t²/2!) (P ∘ P) + …</span>
+
+<span class="sd">    This is the fundamental building block for time-stepping coupled </span>
+<span class="sd">    systems ∂ₜu = P u. Because the composition </span>
+<span class="sd">    is exact for constant-coefficient matrices, the propagator symbol </span>
+<span class="sd">    for such systems reduces to the standard matrix exponential </span>
+<span class="sd">    exp(t P(ξ)).</span>
+
+<span class="sd">Formal adjoints and inverses</span>
+<span class="sd">    The formal Hermitian adjoint P* is obtained by taking </span>
+<span class="sd">    the formal adjoint of each scalar entry (complex conjugation + </span>
+<span class="sd">    asymptotic expansion in |ξ| → ∞), and then </span>
+<span class="sd">    transposing the resulting matrix. </span>
+<span class="sd">    </span>
+<span class="sd">    Formal asymptotic inverses R (such that </span>
+<span class="sd">    P ∘ R ∼ I) require the principal </span>
+<span class="sd">    symbol matrix to be invertible (det P ≠ 0). The recursion </span>
+<span class="sd">    preserves matrix multiplication order, ensuring the inverse factor </span>
+<span class="sd">    remains on the correct side to cancel P.</span>
+
+<span class="sd">Numerical design notes</span>
+<span class="sd">----------------------</span>
+<span class="sd">Entrywise numerical orchestration:</span>
+<span class="sd">    ``MatrixPseudoDifferentialOperator`` introduces *no new numerical </span>
+<span class="sd">    kernels* for application. The ``apply()`` method simply orchestrates </span>
+<span class="sd">    N² independent calls to the scalar ``PseudoDifferentialOperator.apply()``. </span>
+<span class="sd">    Consequently, it automatically inherits the Peetre decomposition, </span>
+<span class="sd">    NUFFT, AAA, and low-rank backends for each entry.</span>
+
+<span class="sd">Memory and performance:</span>
+<span class="sd">    Because each of the N² scalar operators is constructed and </span>
+<span class="sd">    cached independently, memory usage scales linearly with N². </span>
+<span class="sd">    For large systems, constant-coefficient entries benefit from the </span>
+<span class="sd">    scalar fast-path FFT multiplier, making matrix application highly </span>
+<span class="sd">    efficient.</span>
+
+<span class="sd">Sylvester-type equations:</span>
+<span class="sd">    The ``apply_matrix_field`` (left action) and </span>
+<span class="sd">    ``apply_matrix_field_right`` (right action) methods are designed </span>
+<span class="sd">    to support operator splitting for equations of the form </span>
+<span class="sd">    ∂ₜU = P U - U Q. Left and right </span>
+<span class="sd">    actions commute as *operations* ((P U) Q = </span>
+<span class="sd">    P (U Q)), enabling efficient Lie-Trotter or </span>
+<span class="sd">    Strang splitting schemes even when the underlying scalar operators </span>
+<span class="sd">    do not commute.</span>
+<span class="sd">"""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Import core components from the parent package</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">PseudoDifferentialOperator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">_mi_all</span><span class="p">,</span> <span class="n">_mi_diff</span><span class="p">,</span> <span class="n">_mi_factorial</span><span class="p">,</span> <span class="n">_mi_upto</span>
+
+
+<span class="c1"># ============================================================================</span>
+<span class="c1"># Matrix-Valued (N x N) Pseudodifferential Operators</span>
+<span class="c1"># ============================================================================</span>
+<span class="c1">#</span>
+<span class="c1"># P(x, xi) an N x N matrix of scalar symbols, acting on a vector field</span>
+<span class="c1"># u = (u_1, ..., u_N) via the same Kohn-Nirenberg / Weyl quantization used</span>
+<span class="c1"># throughout this module:</span>
+<span class="c1">#</span>
+<span class="c1">#     (P u)_i(x) = (1/2pi)^d  sum_j  int P_ij(x, xi) u_hat_j(xi) e^{i x.xi} dxi</span>
+<span class="c1">#</span>
+<span class="c1"># i.e. entrywise it's just N^2 ordinary scalar PseudoDifferentialOperator</span>
+<span class="c1"># applies, summed row-wise -- so `apply()` below adds no new numerics at</span>
+<span class="c1"># all, it only orchestrates N^2 existing scalar operators on the plain</span>
+<span class="c1"># periodic/rectangular grid (no cutoffs, no diffuse interfaces). Symbol</span>
+<span class="c1"># composition and the commutator DO need new code, because matrix</span>
+<span class="c1"># multiplication doesn't commute: even the leading (0th-order) term of the</span>
+<span class="c1"># composed symbol is the matrix product P(x,xi) Q(x,xi), not interchangeable</span>
+<span class="c1"># in either order, and for x-independent ("constant-coefficient") symbols</span>
+<span class="c1"># that matrix product IS the *exact* composition at any order -- every</span>
+<span class="c1"># n&gt;=1 term in the KN expansion involves d/dx of a xi-only expression,</span>
+<span class="c1"># which is identically zero. That exactness is the natural correctness</span>
+<span class="c1"># check for `compose_asymptotic` below.</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MatrixPseudoDifferentialOperator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    N x N matrix-valued pseudodifferential operator, built from a sympy</span>
+<span class="sd">    Matrix of scalar symbols P_ij(x[, y], xi[, eta]).</span>
+
+<span class="sd">    Each entry P_ij is wrapped as its own scalar `PseudoDifferentialOperator`</span>
+<span class="sd">    (same `expr`/`mode`/`quantization`/`apply_backend` conventions), so</span>
+<span class="sd">    `apply()` reuses the existing periodic FFT / Peetre machinery entirely.</span>
+<span class="sd">    Entries may depend on `x` (and `y`) for variable-coefficient systems,</span>
+<span class="sd">    or be `xi`(`, eta`)-only for constant-coefficient ones -- both are</span>
+<span class="sd">    supported by the same class; nothing here forces one or the other.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    P_expr : sympy.Matrix or nested list of sympy.Expr</span>
+<span class="sd">        N x N matrix of scalar symbol expressions, in the same</span>
+<span class="sd">        `x[, y], xi[, eta]` convention as `PseudoDifferentialOperator`.</span>
+<span class="sd">    vars_x : list of sympy symbols</span>
+<span class="sd">        Spatial variables; length 1 or 2, as for `PseudoDifferentialOperator`.</span>
+<span class="sd">    mode, quantization, apply_backend, compute_peetre, peetre_options</span>
+<span class="sd">        Forwarded to each entry's `PseudoDifferentialOperator`.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    size : int</span>
+<span class="sd">        Matrix dimension N (the constructor accepts any square N, but</span>
+<span class="sd">        `eigen_symbol`'s closed-form path is specific to N=2).</span>
+<span class="sd">    entries : list of list of PseudoDifferentialOperator</span>
+<span class="sd">        `entries[i][j]` is the scalar operator for `P_ij`.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">P_expr</span><span class="p">,</span>
+        <span class="n">vars_x</span><span class="p">,</span>
+        <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
+        <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span>
+        <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span>
+        <span class="n">compute_peetre</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">peetre_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">P_expr</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">P_expr</span><span class="p">)</span>
+        <span class="n">n</span><span class="p">,</span> <span class="n">m</span> <span class="o">=</span> <span class="n">P_expr</span><span class="o">.</span><span class="n">shape</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="n">m</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"P_expr must be a square matrix of symbols."</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">n</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vars_x</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">vars_x</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quantization</span> <span class="o">=</span> <span class="n">quantization</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_backend</span> <span class="o">=</span> <span class="n">apply_backend</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">P_expr</span> <span class="o">=</span> <span class="n">P_expr</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">entries</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">[</span>
+                <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                    <span class="n">P_expr</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">],</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span>
+                    <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span> <span class="n">compute_peetre</span><span class="o">=</span><span class="n">compute_peetre</span><span class="p">,</span>
+                    <span class="n">peetre_options</span><span class="o">=</span><span class="n">peetre_options</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+            <span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="c1"># every entry shares the same grid conventions -- borrow one FFT/IFFT pair</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">fft</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ifft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ifft</span>
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.apply">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Apply P(x, xi) to a vector field u = (u_1, ..., u_N).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        u : sequence of N ndarrays</span>
+<span class="sd">            Vector field components, each sampled on the grid.</span>
+<span class="sd">        x_grid, kx, y_grid, ky</span>
+<span class="sd">            As for `PseudoDifferentialOperator.apply`.</span>
+<span class="sd">        **apply_kwargs</span>
+<span class="sd">            Forwarded to every entry's scalar `apply()` (e.g.</span>
+<span class="sd">            `boundary_condition`, `freq_window`, ...).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of N ndarrays</span>
+<span class="sd">            `(P u)_i = sum_j Op[P_ij](u_j)`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Expected </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> vector components, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">u</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="n">v_i</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+                <span class="n">contrib</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                    <span class="n">u</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+                <span class="p">)</span>
+                <span class="n">v_i</span> <span class="o">=</span> <span class="n">contrib</span> <span class="k">if</span> <span class="n">v_i</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">v_i</span> <span class="o">+</span> <span class="n">contrib</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v_i</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.symbol_matrix">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.symbol_matrix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">symbol_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Numerically evaluate P(x[, y], xi[, eta]) at a point or</span>
+<span class="sd">        broadcastable arrays, returning an ndarray of shape `(..., N, N)`.</span>
+<span class="sd">        If called without arguments, returns the symbolic sympy.Matrix.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *args</span>
+<span class="sd">            The point(s) to evaluate at, in the order each entry's</span>
+<span class="sd">            `p_func` expects: `(x, xi)` for 1D, `(x, y, xi, eta)` for 2D.</span>
+<span class="sd">            Arguments may be broadcastable ndarrays (e.g. full grids), in</span>
+<span class="sd">            which case the leading dimensions of the output match their</span>
+<span class="sd">            broadcast shape.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray, shape (..., N, N) or sympy.Matrix if no args are provided.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Fallback for symbolic evaluation when no numerical grid is provided</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_expr</span>
+            
+        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">sample</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">])</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sample</span><span class="o">.</span><span class="n">shape</span> <span class="o">+</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                <span class="n">P</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">P</span></div>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply_matrix_field">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.apply_matrix_field">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Apply P(x, xi) to a matrix-valued field U(x) by left matrix</span>
+<span class="sd">        multiplication on U's own N x N structure:</span>
+
+<span class="sd">            (P U)_ik(x) = sum_j Op[P_ij] (U_jk) (x)</span>
+
+<span class="sd">        Unlike `apply()`, which propagates a single vector field</span>
+<span class="sd">        u = (u_1, ..., u_N), here U itself carries an extra N x N index</span>
+<span class="sd">        pair (e.g. a density matrix or matrix Green's function) that P</span>
+<span class="sd">        acts on only from the left. Each column `U[:, k]` of U is an</span>
+<span class="sd">        ordinary vector field, so this reduces to N independent calls to</span>
+<span class="sd">        `apply()`, one per column, with the results reassembled into the</span>
+<span class="sd">        matrix-shaped output; P is applied to U, never U to P.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U : sequence of N sequences of N ndarrays, or ndarray of shape (N, N, ...)</span>
+<span class="sd">            Matrix-valued field; `U[j][k]` (equivalently `U[j, k]` for an</span>
+<span class="sd">            ndarray) is the scalar (j, k) component field sampled on the</span>
+<span class="sd">            grid, so that U plays the role of an N x N matrix at every</span>
+<span class="sd">            grid point.</span>
+<span class="sd">        x_grid, kx, y_grid, ky</span>
+<span class="sd">            As for `apply`.</span>
+<span class="sd">        **apply_kwargs</span>
+<span class="sd">            Forwarded to every entry's scalar `apply()` (e.g.</span>
+<span class="sd">            `boundary_condition`, `freq_window`, ...).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of N lists of N ndarrays</span>
+<span class="sd">            `out[i][k]` holds `(P U)_ik`, indexed the same way as `U`.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If `U` is not an N x N array of fields, with N equal to</span>
+<span class="sd">            `self.size`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">U</span><span class="p">):</span>
+            <span class="n">got_cols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Expected a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> matrix field, got "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">got_cols</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="n">column</span> <span class="o">=</span> <span class="p">[</span><span class="n">U</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)]</span>
+            <span class="n">result_column</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                <span class="n">column</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">result_column</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply_matrix_field_right">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.apply_matrix_field_right">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field_right</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Apply this operator's symbol Q(x, xi) to a matrix-valued field</span>
+<span class="sd">        U(x) by right matrix multiplication on U's own N x N structure:</span>
+
+<span class="sd">            (U Q)_ik(x) = sum_j Op[Q_jk] (U_ij) (x)</span>
+
+<span class="sd">        This is the mirror image of `apply_matrix_field` (which</span>
+<span class="sd">        left-multiplies by P): here each *row* `U[i, :]` of U is an</span>
+<span class="sd">        ordinary vector field acted on from the right by Q, which is</span>
+<span class="sd">        equivalent to the left action of the transposed symbol matrix Q^T</span>
+<span class="sd">        on that row -- hence the index order `Op[Q_jk]`, not `Op[Q_kj]`,</span>
+<span class="sd">        so the two methods are genuinely different unless Q is symmetric.</span>
+
+<span class="sd">        Together with `apply_matrix_field`, this is the numerical</span>
+<span class="sd">        primitive needed to time-step Sylvester-type equations</span>
+<span class="sd">        `d_t U = P U - U Q`, since left- and right-multiplication always</span>
+<span class="sd">        commute as *operations* (`(P U) Q == P (U Q)`), even though the</span>
+<span class="sd">        underlying scalar operators `Op[P_ij]` and `Op[Q_jk]` need not</span>
+<span class="sd">        commute with each other when the symbols depend on x. See</span>
+<span class="sd">        `solve_sylvester_field` for the corresponding time-stepper.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        U : sequence of N sequences of N ndarrays, or ndarray of shape (N, N, ...)</span>
+<span class="sd">            Matrix-valued field; `U[i][j]` (equivalently `U[i, j]` for an</span>
+<span class="sd">            ndarray) is the scalar (i, j) component field sampled on the</span>
+<span class="sd">            grid.</span>
+<span class="sd">        x_grid, kx, y_grid, ky</span>
+<span class="sd">            As for `apply`.</span>
+<span class="sd">        **apply_kwargs</span>
+<span class="sd">            Forwarded to every entry's scalar `apply()`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of N lists of N ndarrays</span>
+<span class="sd">            `out[i][k]` holds `(U Q)_ik`, indexed the same way as `U`.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If `U` is not an N x N array of fields, with N equal to</span>
+<span class="sd">            `self.size`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">U</span><span class="p">):</span>
+            <span class="n">got_cols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Expected a </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> matrix field, got "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">U</span><span class="p">)</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">got_cols</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+                <span class="n">v_ik</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+                    <span class="n">contrib</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                        <span class="n">U</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span>
+                    <span class="p">)</span>
+                    <span class="n">v_ik</span> <span class="o">=</span> <span class="n">contrib</span> <span class="k">if</span> <span class="n">v_ik</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">v_ik</span> <span class="o">+</span> <span class="n">contrib</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v_ik</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Numerically evaluate P(x[, y], xi[, eta]) at a point or</span>
+<span class="sd">        broadcastable arrays, returning an ndarray of shape `(..., N, N)`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *args</span>
+<span class="sd">            The point(s) to evaluate at, in the order each entry's</span>
+<span class="sd">            `p_func` expects: `(x, xi)` for 1D, `(x, y, xi, eta)` for 2D.</span>
+<span class="sd">            Arguments may be broadcastable ndarrays (e.g. full grids), in</span>
+<span class="sd">            which case the leading dimensions of the output match their</span>
+<span class="sd">            broadcast shape.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray, shape (..., N, N)</span>
+<span class="sd">        """</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">sample</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">])</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sample</span><span class="o">.</span><span class="n">shape</span> <span class="o">+</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                <span class="n">P</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">P</span></div>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.eigen_symbol">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.eigen_symbol">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eigen_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Pointwise eigenvalues/eigenvectors of the symbol matrix</span>
+<span class="sd">        P(x[, y], xi[, eta]) at given point(s).</span>
+<span class="sd">        If called without arguments, computes symbolic eigenvalues/eigenvectors.</span>
+<span class="sd">        """</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol_matrix</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        
+        <span class="c1"># --- Symbolic Path (when no args are provided) ---</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">P</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">P</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">c</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">P</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">P</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">tr</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">d</span>
+                <span class="n">det</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">d</span> <span class="o">-</span> <span class="n">b</span> <span class="o">*</span> <span class="n">c</span>
+                <span class="n">disc</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">tr</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">det</span><span class="p">)</span>
+                <span class="n">lam1</span> <span class="o">=</span> <span class="p">(</span><span class="n">tr</span> <span class="o">+</span> <span class="n">disc</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+                <span class="n">lam2</span> <span class="o">=</span> <span class="p">(</span><span class="n">tr</span> <span class="o">-</span> <span class="n">disc</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+                <span class="n">eigvals</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([</span><span class="n">lam1</span><span class="p">,</span> <span class="n">lam2</span><span class="p">])</span>
+                
+                <span class="k">def</span><span class="w"> </span><span class="nf">_eigvec</span><span class="p">(</span><span class="n">lam</span><span class="p">):</span>
+                    <span class="n">v_row0</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([</span><span class="n">b</span><span class="p">,</span> <span class="n">lam</span> <span class="o">-</span> <span class="n">a</span><span class="p">])</span>
+                    <span class="n">v_row1</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([</span><span class="n">lam</span> <span class="o">-</span> <span class="n">d</span><span class="p">,</span> <span class="n">c</span><span class="p">])</span>
+                    <span class="c1"># Choose the row that avoids division by zero</span>
+                    <span class="n">v</span> <span class="o">=</span> <span class="n">v_row0</span> <span class="k">if</span> <span class="n">b</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">v_row1</span>
+                    <span class="n">norm</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">v</span>
+                    <span class="k">return</span> <span class="n">v</span> <span class="o">/</span> <span class="n">norm</span>
+                
+                <span class="n">eigvecs</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">_eigvec</span><span class="p">(</span><span class="n">lam1</span><span class="p">),</span> <span class="n">_eigvec</span><span class="p">(</span><span class="n">lam2</span><span class="p">))</span>
+                <span class="k">return</span> <span class="n">eigvals</span><span class="p">,</span> <span class="n">eigvecs</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># General N x N symbolic eigenvalues</span>
+                <span class="k">return</span> <span class="n">P</span><span class="o">.</span><span class="n">eigenvals</span><span class="p">(),</span> <span class="kc">None</span>
+
+        <span class="c1"># --- Numeric Path ---</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">P</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">P</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">c</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">P</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">P</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">tr</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">d</span>
+            <span class="n">det</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">d</span> <span class="o">-</span> <span class="n">b</span> <span class="o">*</span> <span class="n">c</span>
+            <span class="n">disc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">tr</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">det</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">complex</span><span class="p">))</span>
+            <span class="n">lam1</span> <span class="o">=</span> <span class="p">(</span><span class="n">tr</span> <span class="o">+</span> <span class="n">disc</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="n">lam2</span> <span class="o">=</span> <span class="p">(</span><span class="n">tr</span> <span class="o">-</span> <span class="n">disc</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="n">eigvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">lam1</span><span class="p">,</span> <span class="n">lam2</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            
+            <span class="k">def</span><span class="w"> </span><span class="nf">_eigvec</span><span class="p">(</span><span class="n">lam</span><span class="p">):</span>
+                <span class="n">v_row0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">b</span><span class="p">,</span> <span class="n">lam</span> <span class="o">-</span> <span class="n">a</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">v_row1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">lam</span> <span class="o">-</span> <span class="n">d</span><span class="p">,</span> <span class="n">c</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">use_row0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">use_row0</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">v_row0</span><span class="p">,</span> <span class="n">v_row1</span><span class="p">)</span>
+                <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">norm</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">v</span> <span class="o">/</span> <span class="n">norm</span>
+                
+            <span class="n">eigvecs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">_eigvec</span><span class="p">(</span><span class="n">lam1</span><span class="p">),</span> <span class="n">_eigvec</span><span class="p">(</span><span class="n">lam2</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">eigvals</span><span class="p">,</span> <span class="n">eigvecs</span>
+            
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eig</span><span class="p">(</span><span class="n">P</span><span class="p">)</span>  <span class="c1"># general N x N fallback: (eigvals, eigvecs)</span></div>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.compose_asymptotic">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.compose_asymptotic">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compose_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compose two matrix-valued symbols via the same asymptotic</span>
+<span class="sd">        Kohn-Nirenberg / Weyl expansion as</span>
+<span class="sd">        `PseudoDifferentialOperator.compose_asymptotic`, generalized to</span>
+<span class="sd">        (order-preserving) matrix multiplication: this is the symbol of</span>
+<span class="sd">        `Op[self] . Op[other]`, and</span>
+<span class="sd">        `self.compose_asymptotic(other) != other.compose_asymptotic(self)`</span>
+<span class="sd">        in general -- unlike the scalar case, matrices don't commute even</span>
+<span class="sd">        at 0th order.</span>
+
+<span class="sd">        For x[, y]-independent ("constant-coefficient") symbols this is</span>
+<span class="sd">        *exact* at any `order`: every n&gt;=1 term involves a spatial</span>
+<span class="sd">        derivative of a xi-only expression, which vanishes identically, so</span>
+<span class="sd">        the result reduces to the ordinary matrix product `P(xi) Q(xi)`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        other : MatrixPseudoDifferentialOperator</span>
+<span class="sd">            Same `size` and `dim` as `self`.</span>
+<span class="sd">        order, mode, sign_convention and do_simplify</span>
+<span class="sd">            As for the scalar `compose_asymptotic`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Matrix, shape (size, size)</span>
+<span class="sd">            The composed symbol.</span>
+<span class="sd">        """</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="s2">"Operator dimensions must match"</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="s2">"Matrix sizes must match"</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'kn'</span><span class="p">,</span> <span class="s1">'weyl'</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"mode must be 'kn' or 'weyl'"</span><span class="p">)</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"dim must be 1 or 2"</span><span class="p">)</span>
+
+        <span class="n">P</span><span class="p">,</span> <span class="n">Q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_expr</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">P_expr</span>
+        <span class="n">x_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span>
+        <span class="n">xi_vars</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'xi eta'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
+        <span class="n">sign</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="p">(</span><span class="n">sign_convention</span> <span class="ow">or</span> <span class="s1">'standard'</span><span class="p">)</span> <span class="o">==</span> <span class="s1">'standard'</span> <span class="k">else</span> <span class="o">+</span><span class="mi">1</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">'kn'</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">_mi_all</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+                    <span class="n">fact</span> <span class="o">=</span> <span class="n">_mi_factorial</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+                    <span class="n">dP</span> <span class="o">=</span> <span class="n">_mi_diff</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+                    <span class="n">dQ</span> <span class="o">=</span> <span class="n">_mi_diff</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">x_vars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+                    <span class="n">result</span> <span class="o">+=</span> <span class="p">(</span><span class="n">dP</span> <span class="o">*</span> <span class="n">dQ</span> <span class="o">/</span> <span class="n">fact</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="n">sign</span> <span class="o">*</span> <span class="n">n</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># 'weyl' -- general dimension-generic Moyal product; this</span>
+               <span class="c1"># replaces the previous 2D branch, which only differentiated</span>
+               <span class="c1"># P in (xi, eta) and Q in (x, y) and so dropped the cross</span>
+               <span class="c1"># terms present in the exact 1D formula (see scalar</span>
+               <span class="c1"># compose_asymptotic for the same fix and more detail).</span>
+            <span class="k">for</span> <span class="n">total</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">a_deg</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">total</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">b_deg</span> <span class="o">=</span> <span class="n">total</span> <span class="o">-</span> <span class="n">a_deg</span>
+                    <span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">_mi_all</span><span class="p">(</span><span class="n">a_deg</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+                        <span class="k">for</span> <span class="n">beta</span> <span class="ow">in</span> <span class="n">_mi_all</span><span class="p">(</span><span class="n">b_deg</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+                            <span class="n">coeff</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="n">total</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="n">b_deg</span>
+                            <span class="n">coeff</span> <span class="o">/=</span> <span class="p">(</span><span class="n">_mi_factorial</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">_mi_factorial</span><span class="p">(</span><span class="n">beta</span><span class="p">))</span>
+                            <span class="n">dP</span> <span class="o">=</span> <span class="n">_mi_diff</span><span class="p">(</span><span class="n">_mi_diff</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">),</span> <span class="n">x_vars</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+                            <span class="n">dQ</span> <span class="o">=</span> <span class="n">_mi_diff</span><span class="p">(</span><span class="n">_mi_diff</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">x_vars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">),</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+                            <span class="n">result</span> <span class="o">+=</span> <span class="n">coeff</span> <span class="o">*</span> <span class="p">(</span><span class="n">dP</span> <span class="o">*</span> <span class="n">dQ</span><span class="p">)</span>  <span class="c1"># matrix mult, order preserved</span>
+
+        <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">do_simplify</span> <span class="k">else</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.commutator_symbolic">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.commutator_symbolic">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">commutator_symbolic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Symbol of the commutator `[Op[self], Op[other]]`, generalizing</span>
+<span class="sd">        `PseudoDifferentialOperator.commutator_symbolic` to matrices.</span>
+
+<span class="sd">        Unlike the scalar case (whose 0th-order term always vanishes,</span>
+<span class="sd">        since scalars commute), the matrix commutator is generally</span>
+<span class="sd">        nonzero already at 0th order: it's the ordinary matrix commutator</span>
+<span class="sd">        `P(x,xi) Q(x,xi) - Q(x,xi) P(x,xi)`. Higher orders add the</span>
+<span class="sd">        noncommutative analogue of the Poisson-bracket correction. For</span>
+<span class="sd">        constant-coefficient `self`/`other` this is exact, and reduces</span>
+<span class="sd">        exactly to the plain matrix commutator (see `compose_asymptotic`).</span>
+<span class="sd">        """</span>
+        <span class="n">pq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="n">sign_convention</span><span class="p">)</span>
+        <span class="n">qp</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="n">sign_convention</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">pq</span> <span class="o">-</span> <span class="n">qp</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.exponential_symbol">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.exponential_symbol">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exponential_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Symbol of `exp(t Op[self])` for the matrix-valued operator, via</span>
+<span class="sd">        the matrix analogue of `PseudoDifferentialOperator.exponential_symbol`.</span>
+
+<span class="sd">        Same truncated power series as the scalar case,</span>
+
+<span class="sd">            exp(tP) ~ I + t P + (t^2/2!) P^{.2} + (t^3/3!) P^{.3} + ...</span>
+
+<span class="sd">        but "P^{.n}" means the symbol of `Op[P] . Op[P] . ... . Op[P]`</span>
+<span class="sd">        (n times), computed via the *matrix* `compose_asymptotic` --</span>
+<span class="sd">        i.e. ordinary matrix multiplication `P @ P` order-corrected by</span>
+<span class="sd">        the KN/Weyl derivative terms -- since matrix symbols do not</span>
+<span class="sd">        commute and `sp.Matrix.__mul__(P, P)` alone is only the 0th-order</span>
+<span class="sd">        (frozen-coefficient) approximation to that composition. Works</span>
+<span class="sd">        for both `dim == 1` and `dim == 2` -- `compose_asymptotic`</span>
+<span class="sd">        already branches on dimension internally.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        t : float or sympy.Symbol, default=1.0</span>
+<span class="sd">            Evolution parameter, same conventions as the scalar version</span>
+<span class="sd">            (e.g. t = -i*tau for exp(-i*tau*H), t = tau for exp(tau*Delta)).</span>
+<span class="sd">        order : int, default=2</span>
+<span class="sd">            Truncation order, used both for the outer Taylor series and</span>
+<span class="sd">            as the `order` passed to each `compose_asymptotic` call.</span>
+<span class="sd">        mode : {'kn', 'weyl'}, default='kn'</span>
+<span class="sd">            Quantization convention for the composition (2D Weyl is not</span>
+<span class="sd">            implemented for matrix symbols -- see `compose_asymptotic`).</span>
+<span class="sd">        sign_convention : optional</span>
+<span class="sd">            Forwarded to `compose_asymptotic`.</span>
+<span class="sd">        do_simplify : bool, default True</span>
+<span class="sd">            Whether to call sympy's `simplify()` while assembling the</span>
+<span class="sd">            propagator symbol (once when building it, and once inside every</span>
+<span class="sd">            `compose_asymptotic()` call in the asymptotic expansion loop).</span>
+<span class="sd">            This does not change the operator being applied -- `lambdify`</span>
+<span class="sd">            evaluates the same function on an unsimplified expression -- it</span>
+<span class="sd">            only affects how much symbolic cleanup happens before that.</span>
+<span class="sd">            `simplify()` is the dominant cost of `build_propagator()` for</span>
+<span class="sd">            symbols mixing trigonometric and polynomial terms, and its cost</span>
+<span class="sd">            grows with `order`; set to `False` to skip it and speed up</span>
+<span class="sd">            propagator construction, at the risk of a larger (but</span>
+<span class="sd">            numerically equivalent) unsimplified expression tree.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Matrix, shape (size, size)</span>
+<span class="sd">            Truncated symbol of exp(t Op[self]).</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - For x[, y]-independent ("constant-coefficient") `self`,</span>
+<span class="sd">          `compose_asymptotic` is exact, so this reduces to the exact</span>
+<span class="sd">          truncated matrix exponential series of `P(xi[, eta])`; compare</span>
+<span class="sd">          against `scipy.linalg.expm` at sample points to sanity-check.</span>
+<span class="sd">        - Non-commutativity means `self` and `other`'s roles in each</span>
+<span class="sd">          `compose_asymptotic` call matter; here every factor is `self`,</span>
+<span class="sd">          so ordering is moot, but see `commutator_symbolic` for the</span>
+<span class="sd">          general two-operator case.</span>
+<span class="sd">        """</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">+</span> <span class="n">t</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_expr</span>
+
+        <span class="n">current_power</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_expr</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">temp_op</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">current_power</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_backend</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">current_power</span> <span class="o">=</span> <span class="n">temp_op</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span>
+                <span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="n">sign_convention</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
+            <span class="p">)</span>
+            <span class="n">coeff</span> <span class="o">=</span> <span class="n">t</span><span class="o">**</span><span class="n">n</span> <span class="o">/</span> <span class="n">sp</span><span class="o">.</span><span class="n">factorial</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">+=</span> <span class="n">coeff</span> <span class="o">*</span> <span class="n">current_power</span>
+
+        <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">do_simplify</span> <span class="k">else</span> <span class="n">result</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_asymptotic_matrix_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">side</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Matrix analogue of PseudoDifferentialOperator._asymptotic_inverse.</span>
+<span class="sd">        Requires P(x, xi) to be invertible as a matrix (det P != 0</span>
+<span class="sd">        symbolically); P.inv() is used as the 0th-order term. Matrix</span>
+<span class="sd">        multiplication order is preserved: the inverse factor stays on</span>
+<span class="sd">        the side that actually cancels P in `P . R ~ I` / `L . P ~ I`.</span>
+<span class="sd">        """</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"dim must be 1 or 2"</span><span class="p">)</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_expr</span>
+        <span class="n">x_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span>
+        <span class="n">xi_vars</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'xi eta'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">R0</span> <span class="o">=</span> <span class="n">P</span><span class="o">.</span><span class="n">inv</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"MatrixPseudoDifferentialOperator: symbol is not invertible "</span>
+                <span class="s2">"(det P == 0 or SymPy could not confirm invertibility); "</span>
+                <span class="s2">"asymptotic inverses require an invertible principal symbol. "</span>
+                <span class="sa">f</span><span class="s2">"Original error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+
+        <span class="n">R</span> <span class="o">=</span> <span class="n">R0</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">term</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">_mi_upto</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+                <span class="n">coeff</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="nb">sum</span><span class="p">(</span><span class="n">alpha</span><span class="p">))</span> <span class="o">/</span> <span class="n">_mi_factorial</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">side</span> <span class="o">==</span> <span class="s1">'right'</span><span class="p">:</span>
+                    <span class="n">dP</span> <span class="o">=</span> <span class="n">_mi_diff</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+                    <span class="n">dR</span> <span class="o">=</span> <span class="n">_mi_diff</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">x_vars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+                    <span class="n">term</span> <span class="o">+=</span> <span class="n">coeff</span> <span class="o">*</span> <span class="p">(</span><span class="n">dP</span> <span class="o">*</span> <span class="n">dR</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>  <span class="c1"># 'left'</span>
+                    <span class="n">dR</span> <span class="o">=</span> <span class="n">_mi_diff</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">xi_vars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+                    <span class="n">dP</span> <span class="o">=</span> <span class="n">_mi_diff</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">x_vars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+                    <span class="n">term</span> <span class="o">+=</span> <span class="n">coeff</span> <span class="o">*</span> <span class="p">(</span><span class="n">dR</span> <span class="o">*</span> <span class="n">dP</span><span class="p">)</span>
+            <span class="n">R</span> <span class="o">=</span> <span class="n">R</span> <span class="o">-</span> <span class="p">(</span><span class="n">R0</span> <span class="o">*</span> <span class="n">term</span> <span class="k">if</span> <span class="n">side</span> <span class="o">==</span> <span class="s1">'right'</span> <span class="k">else</span> <span class="n">term</span> <span class="o">*</span> <span class="n">R0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.right_inverse_asymptotic">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.right_inverse_asymptotic">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">right_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Formal right inverse R such that Op[self] . Op[R] ~ Id up to</span>
+<span class="sd">        O(&lt;xi&gt;^-order), matrix analogue of</span>
+<span class="sd">        PseudoDifferentialOperator.right_inverse_asymptotic. Requires</span>
+<span class="sd">        the symbol P(x, xi) to be invertible as a matrix.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_asymptotic_matrix_inverse</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">'right'</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.left_inverse_asymptotic">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.left_inverse_asymptotic">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">left_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Formal left inverse L such that Op[L] . Op[self] ~ Id up to</span>
+<span class="sd">        O(&lt;xi&gt;^-order), matrix analogue of</span>
+<span class="sd">        PseudoDifferentialOperator.left_inverse_asymptotic. Requires</span>
+<span class="sd">        the symbol P(x, xi) to be invertible as a matrix.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_asymptotic_matrix_inverse</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">'left'</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.formal_adjoint">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.formal_adjoint">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">formal_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_terms</span><span class="o">=</span><span class="mi">6</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Formal Hermitian adjoint symbol P* of the matrix operator.</span>
+
+<span class="sd">        Each entry gets the same scalar treatment as</span>
+<span class="sd">        `PseudoDifferentialOperator.formal_adjoint` (conjugate + asymptotic</span>
+<span class="sd">        expansion at infinity in |xi|); the resulting matrix is then</span>
+<span class="sd">        transposed (not conjugate-transposed again -- conjugation already</span>
+<span class="sd">        happened entrywise) because (Op[P]u, v) = (u, Op[P]* v) swaps the</span>
+<span class="sd">        row/column roles of the symbol, same as for a plain matrix adjoint.</span>
+<span class="sd">        """</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
+        <span class="n">xi_vars</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'xi eta'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>
+        <span class="n">expansion_var</span> <span class="o">=</span> <span class="n">xi_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">v</span><span class="o">**</span><span class="mi">2</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">xi_vars</span><span class="p">))</span>
+
+        <span class="n">P_star</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_expr</span><span class="o">.</span><span class="n">applyfunc</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">p_ij</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span>
+                <span class="n">sp</span><span class="o">.</span><span class="n">series</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">conjugate</span><span class="p">(</span><span class="n">p_ij</span><span class="p">),</span> <span class="n">expansion_var</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">oo</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">n_terms</span><span class="p">)</span><span class="o">.</span><span class="n">removeO</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">P_star</span><span class="o">.</span><span class="n">T</span></div>
+</div>
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

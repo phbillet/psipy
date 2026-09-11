@@ -1,0 +1,1436 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>psiop.psiop_solver &mdash; psipy  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            psipy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../asymptotic.html">asymptotic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../caustics.html">caustics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../fio_bridge.html">fio_bridge</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../geometry.html">geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hamiltonian_catalog.html">hamiltonian_catalog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../microlocal.html">microlocal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../misc.html">misc</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../physics.html">physics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../propagator.html">propagator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../psiop.html">psiop package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../riemannian.html">riemannian</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../solver.html">solver</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../symplectic.html">symplectic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../wkb.html">wkb</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">psipy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../psiop.html">psiop</a></li>
+      <li class="breadcrumb-item active">psiop.psiop_solver</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for psiop.psiop_solver</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2026 Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="sd">"""</span>
+<span class="sd">psiop_solver — Time-stepping solvers, propagators, and grid utilities</span>
+<span class="sd">=====================================================================</span>
+
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The ``psiop_solver`` submodule orchestrates the numerical application of </span>
+<span class="sd">scalar and matrix-valued pseudo-differential operators (from ``psiop`` and </span>
+<span class="sd">``psiop.matpsiop``) to evolve fields in time. It provides high-level </span>
+<span class="sd">time-stepping routines, amortized exponential propagators, operator-splitting </span>
+<span class="sd">schemes for coupled matrix systems, and specialized quasi-linear solvers, </span>
+<span class="sd">along with the underlying periodic spatial and frequency grid generation.</span>
+
+<span class="sd">The submodule is designed to seamlessly bridge the symbolic asymptotic </span>
+<span class="sd">calculus of ``psiop`` with efficient, memory-bounded numerical integration, </span>
+<span class="sd">handling both simple linear evolution and complex non-commutative or </span>
+<span class="sd">quasi-linear systems.</span>
+
+<span class="sd">Main objects and workflows</span>
+<span class="sd">--------------------------</span>
+<span class="sd">`PropagatorFamily` and `build_propagator`</span>
+<span class="sd">    Construct the one-step approximate propagator ``exp(dt · Op[s])`` for a </span>
+<span class="sd">    given symbol ``s``. ``PropagatorFamily`` amortizes the cost by building </span>
+<span class="sd">    the asymptotic exponential-symbol expansion *once* with ``dt`` left as </span>
+<span class="sd">    a free symbolic parameter, allowing subsequent propagators for different </span>
+<span class="sd">    step sizes to be generated via a single, cheap ``sympy.subs`` call </span>
+<span class="sd">    rather than repeating the full ``compose_asymptotic`` recursion.</span>
+
+<span class="sd">`solve_first_order`</span>
+<span class="sd">    Time-steps the first-order evolution equation ``∂ₜu = Op(s)(u)`` by </span>
+<span class="sd">    repeated application of the asymptotic propagator.</span>
+
+<span class="sd">`solve_second_order`</span>
+<span class="sd">    Handles second-order-in-time equations ``∂²ₜu = Op(S)(u)`` by reducing </span>
+<span class="sd">    them to a first-order block companion system of double the dimension, </span>
+<span class="sd">    then time-stepping via `solve_first_order`.</span>
+
+<span class="sd">`solve_matrix_field`</span>
+<span class="sd">    Extends the propagator machinery to matrix-valued fields ``U(x)``, </span>
+<span class="sd">    evolving ``∂ₜU = Op(P)U`` where ``P`` acts on ``U`` from the left </span>
+<span class="sd">    (e.g., density matrices or matrix Green's functions).</span>
+
+<span class="sd">`solve_sylvester_field`</span>
+<span class="sd">    Time-steps Sylvester-type equations ``∂ₜU = Op(P)U − U·Op(Q)`` using </span>
+<span class="sd">    Lie-Trotter or Strang operator splitting between the independent </span>
+<span class="sd">    left-acting ``P`` and right-acting ``Q`` symbols.</span>
+
+<span class="sd">`solve_ricci_flow_conformal_2d`</span>
+<span class="sd">    Integrates the 2D conformal Ricci flow ``∂ₜφ = e⁻²ᵠΔφ``. Because the </span>
+<span class="sd">    coefficient depends on the evolving solution, this quasi-linear equation </span>
+<span class="sd">    cannot be described by a fixed symbol. It uses an IMEX/Lie splitting: </span>
+<span class="sd">    an explicit Euler correction for the deviation from the spatial average, </span>
+<span class="sd">    followed by an exact stiff step for the averaged part applied directly </span>
+<span class="sd">    via FFT.</span>
+
+<span class="sd">Grid utilities</span>
+<span class="sd">    `make_grid_1d` and `make_grid_2d` construct uniform periodic spatial </span>
+<span class="sd">    grids and their associated FFT-ordered angular frequency grids.</span>
+
+<span class="sd">Key features</span>
+<span class="sd">------------</span>
+<span class="sd">Amortized propagator construction:</span>
+<span class="sd">    `PropagatorFamily` computes the symbolic ``exp(t · Op[s])`` once; </span>
+<span class="sd">    `build_propagator` caches these families process-wide, making parameter </span>
+<span class="sd">    sweeps, adaptive stepping, and dt-convergence studies extremely cheap.</span>
+
+<span class="sd">Block companion reduction:</span>
+<span class="sd">    Automatic conversion of scalar or matrix second-order operators into </span>
+<span class="sd">    first-order ``2k × 2k`` block systems ``[[0, I], [S, 0]]``.</span>
+
+<span class="sd">Operator splitting for non-commutative matrix fields:</span>
+<span class="sd">    Lie (``𝒪(dt)``) and Strang (``𝒪(dt²)``) splitting for Sylvester-type </span>
+<span class="sd">    equations, leveraging the fact that left and right operator actions </span>
+<span class="sd">    commute as operations even when the underlying symbols do not.</span>
+
+<span class="sd">Quasi-linear IMEX integration:</span>
+<span class="sd">    Rothe-type linearization for the conformal Ricci flow, freezing the </span>
+<span class="sd">    non-linear coefficient once per step and applying the stiff, </span>
+<span class="sd">    constant-coefficient remainder exactly via Fourier multipliers.</span>
+
+<span class="sd">Robust time-loop management:</span>
+<span class="sd">    Built-in snapshot cadence, automatic finite-value checking to prevent </span>
+<span class="sd">    silent divergence, and unified handling of scalar vs. matrix-valued </span>
+<span class="sd">    initial conditions.</span>
+
+<span class="sd">Mathematical background and numerical design</span>
+<span class="sd">--------------------------------------------</span>
+<span class="sd">Asymptotic exponential symbol</span>
+<span class="sd">    The propagator ``exp(dt · P)`` is constructed via the truncated </span>
+<span class="sd">    asymptotic series:</span>
+<span class="sd">        exp(tP) ~ I + tP + (t²/2!)P∘P + (t³/3!)P∘P∘P + ...</span>
+<span class="sd">    where ``∘`` denotes the asymptotic composition (Kohn–Nirenberg or Weyl). </span>
+<span class="sd">    For constant-coefficient symbols, all derivative corrections in the </span>
+<span class="sd">    composition vanish, making the series exact at any truncation order </span>
+<span class="sd">    (reducing to the standard matrix/scalar exponential of the symbol).</span>
+
+<span class="sd">Amortized propagator families</span>
+<span class="sd">    Evaluating the asymptotic series for ``exp(tP)`` requires repeated </span>
+<span class="sd">    calls to ``compose_asymptotic``, which involves heavy symbolic </span>
+<span class="sd">    differentiation. `PropagatorFamily` performs this expensive recursion </span>
+<span class="sd">    exactly once, leaving ``t`` as a symbolic parameter ``_dt_family``. </span>
+<span class="sd">    Requesting a propagator for a specific numeric ``dt`` then requires </span>
+<span class="sd">    only a single ``sympy.subs`` operation, bypassing the recursion </span>
+<span class="sd">    entirely. This is cached process-wide by `build_propagator`.</span>
+
+<span class="sd">Second-order block companion reduction</span>
+<span class="sd">    The equation ``∂²ₜu = Op(S)(u)`` is rewritten as a first-order system </span>
+<span class="sd">    for the state vector ``[u, v]ᵀ`` where ``v = ∂ₜu``:</span>
+<span class="sd">        ∂ₜ [u]   [ 0   I ] [u]</span>
+<span class="sd">           [v] = [ S   0 ] [v]</span>
+<span class="sd">    For a ``k × k`` matrix symbol ``S``, the companion matrix is ``2k × 2k``. </span>
+<span class="sd">    This allows the full machinery of `solve_first_order` to be reused </span>
+<span class="sd">    without deriving a separate second-order integrator.</span>
+
+<span class="sd">Sylvester-type operator splitting</span>
+<span class="sd">    For ``∂ₜU = Op(P)U − U·Op(Q)``, the left action ``L_P(U) = Op(P)U`` </span>
+<span class="sd">    and right action ``R_Q(U) = U·Op(Q)`` commute as operations: </span>
+<span class="sd">    ``L_P(R_Q(U)) = R_Q(L_P(U))``. </span>
+<span class="sd">    If ``P`` and ``Q`` are constant-coefficient (Fourier multipliers), the </span>
+<span class="sd">    exact solution over a step ``dt`` is ``U(t) = exp(tP) U(0) exp(-tQ)``. </span>
+<span class="sd">    If they depend on ``x``, the underlying scalar operators ``Op[P_ij]`` </span>
+<span class="sd">    and ``Op[Q_jk]`` may not commute. The solver then falls back to:</span>
+<span class="sd">    - Lie-Trotter: ``U^{n+1} = exp(dt·P) exp(-dt·Q) U^n``  (``𝒪(dt)`` error)</span>
+<span class="sd">    - Strang: ``U^{n+1} = exp(dt/2·P) exp(-dt·Q) exp(dt/2·P) U^n`` (``𝒪(dt²)``)</span>
+
+<span class="sd">Quasi-linear IMEX for conformal Ricci flow</span>
+<span class="sd">    The 2D Ricci flow in conformal gauge ``g = e²ᵠ(dx² + dy²)`` reduces to </span>
+<span class="sd">    the scalar quasi-linear heat equation ``∂ₜφ = e⁻²ᵠΔφ``. </span>
+<span class="sd">    Because the coefficient ``c(x) = e⁻²ᵠ`` depends on the solution, no </span>
+<span class="sd">    fixed symbol describes the operator ahead of time. Each step uses an </span>
+<span class="sd">    IMEX/Lie splitting:</span>
+<span class="sd">    1. Explicit correction: Compute ``Δφ`` via a plain Laplacian. Take one </span>
+<span class="sd">       explicit Euler sub-step using the deviation of ``c`` from its spatial </span>
+<span class="sd">       average ``c₀``: ``φ_explicit = φ + dt · (c − c₀)Δφ``.</span>
+<span class="sd">    2. Stiff step: Propagate the spatially averaged, x-independent generator </span>
+<span class="sd">       ``c₀·Δ``. Since ``c₀·Δ`` is a pure Fourier multiplier, </span>
+<span class="sd">       ``exp(dt · c₀ · Δ)`` has the closed form ``exp(-dt · c₀ · |k|²)`` </span>
+<span class="sd">       on the grid. This is applied directly via FFT, avoiding the need to </span>
+<span class="sd">       rebuild an asymptotic exponential-symbol propagator at every step. </span>
+<span class="sd">       This makes the stiff step exact for the frozen coefficient and </span>
+<span class="sd">       significantly cheaper.</span>
+
+<span class="sd">Numerical design notes</span>
+<span class="sd">----------------------</span>
+<span class="sd">- Grid generation strictly follows FFT ordering (``np.fft.fftfreq``) to </span>
+<span class="sd">  ensure compatibility with the fast-path FFT multipliers in ``psiop_apply``.</span>
+<span class="sd">- Time-stepping loops include automatic ``np.isfinite`` checks to raise </span>
+<span class="sd">  ``FloatingPointError`` immediately upon divergence, rather than silently </span>
+<span class="sd">  returning ``NaN``-filled arrays.</span>
+<span class="sd">- Snapshot saving is decoupled from the integration step via a ``save_every`` </span>
+<span class="sd">  parameter, allowing high-resolution temporal integration with low-resolution </span>
+<span class="sd">  storage.</span>
+<span class="sd">- Matrix-valued solvers rigorously distinguish between left-action </span>
+<span class="sd">  (``apply_matrix_field``) and right-action (``apply_matrix_field_right``), </span>
+<span class="sd">  ensuring correct index contraction for density matrices and Green's functions.</span>
+
+<span class="sd">References</span>
+<span class="sd">----------</span>
+<span class="sd">.. [1] Hairer, E., Lubich, C., and Wanner, G. </span>
+<span class="sd">       *Geometric Numerical Integration: Structure-Preserving Algorithms </span>
+<span class="sd">       for Ordinary Differential Equations*, Springer, 2006. </span>
+<span class="sd">       (For Lie-Trotter and Strang operator splitting).</span>
+<span class="sd">.. [2] Trefethen, L. N. </span>
+<span class="sd">       *Spectral Methods in MATLAB*, SIAM, 2000. </span>
+<span class="sd">       (For FFT-based grid generation and Fourier multiplier application).</span>
+<span class="sd">.. [3] Chorin, A. J., and Marsden, J. E. </span>
+<span class="sd">       *A Mathematical Introduction to Fluid Dynamics*, Springer, 1990. </span>
+<span class="sd">       (For IMEX and Rothe-type linearization strategies).</span>
+<span class="sd">"""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+
+<span class="c1"># Import operators from the parent package</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">PseudoDifferentialOperator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.matpsiop</span><span class="w"> </span><span class="kn">import</span> <span class="n">MatrixPseudoDifferentialOperator</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1"># Grids</span>
+<span class="c1"># ----------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="make_grid_1d">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.make_grid_1d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_grid_1d</span><span class="p">(</span><span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Construct a uniform periodic spatial grid and its associated FFT-ordered</span>
+<span class="sd">    angular frequency grid in one dimension.</span>
+
+<span class="sd">    The spatial domain is [−L, L) discretised into N equally spaced points,</span>
+<span class="sd">    and the frequency grid covers the discrete angular wavenumbers compatible</span>
+<span class="sd">    with the FFT ordering:</span>
+
+<span class="sd">        x_j = −L + j·Δx,  j = 0, …, N−1,  Δx = 2L/N</span>
+<span class="sd">        k_m = 2π · fftfreq(N, Δx)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    L : float, default 10.0</span>
+<span class="sd">        Half-length of the spatial domain. The full period is 2L.</span>
+<span class="sd">    N : int, default 256</span>
+<span class="sd">        Number of grid points.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    x : ndarray, shape (N,)</span>
+<span class="sd">        Spatial coordinates in [−L, L).</span>
+<span class="sd">    kx : ndarray, shape (N,)</span>
+<span class="sd">        Angular frequency grid in FFT order (radians per unit length).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, kx = make_grid_1d(L=5.0, N=128)</span>
+<span class="sd">    &gt;&gt;&gt; x[0], x[-1]</span>
+<span class="sd">    (-5.0, 4.921875)</span>
+<span class="sd">    """</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">L</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">kx</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">dx</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span></div>
+
+
+<div class="viewcode-block" id="make_grid_2d">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.make_grid_2d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_grid_2d</span><span class="p">(</span><span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">128</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Construct uniform periodic spatial grids and their associated FFT-ordered</span>
+<span class="sd">    angular frequency grids in two dimensions.</span>
+
+<span class="sd">    Both axes share the same half-length L and resolution N, yielding a</span>
+<span class="sd">    square domain [−L, L)² with N × N grid points.</span>
+
+<span class="sd">        x_i = −L + i·Δx,  y_j = −L + j·Δy,  Δx = Δy = 2L/N</span>
+<span class="sd">        kx_m = 2π · fftfreq(N, Δx),  ky_n = 2π · fftfreq(N, Δy)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    L : float, default 10.0</span>
+<span class="sd">        Half-length of the spatial domain along each axis.</span>
+<span class="sd">    N : int, default 128</span>
+<span class="sd">        Number of grid points per axis.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    x : ndarray, shape (N,)</span>
+<span class="sd">        Spatial coordinates along x.</span>
+<span class="sd">    y : ndarray, shape (N,)</span>
+<span class="sd">        Spatial coordinates along y.</span>
+<span class="sd">    kx : ndarray, shape (N,)</span>
+<span class="sd">        Angular frequency grid along x in FFT order.</span>
+<span class="sd">    ky : ndarray, shape (N,)</span>
+<span class="sd">        Angular frequency grid along y in FFT order.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y, kx, ky = make_grid_2d(L=5.0, N=64)</span>
+<span class="sd">    """</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">kx</span> <span class="o">=</span> <span class="n">make_grid_1d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="n">y</span><span class="p">,</span> <span class="n">ky</span> <span class="o">=</span> <span class="n">make_grid_1d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span></div>
+
+
+<span class="c1"># ----------------------------------------------------------------------</span>
+<span class="c1"># Propagator &amp; Solvers</span>
+<span class="c1"># ----------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="make_grids">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.make_grids">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_grids</span><span class="p">(</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Build spatial + frequency grids and the meshgrid-ed spatial</span>
+<span class="sd">    coordinates used to evaluate initial conditions -- factors out the</span>
+<span class="sd">    grid-setup boilerplate that used to be copy-pasted verbatim in every</span>
+<span class="sd">    solve_* function below.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    X, Y : ndarray, ndarray or None</span>
+<span class="sd">        Meshgrid-ed spatial coordinates ('ij' indexing). Y is None in 1D.</span>
+<span class="sd">    x_grid, y_grid : ndarray, ndarray or None</span>
+<span class="sd">        1D spatial axes (y_grid is None in 1D).</span>
+<span class="sd">    kx, ky : ndarray, ndarray or None</span>
+<span class="sd">        Frequency axes (ky is None in 1D).</span>
+<span class="sd">    grids : tuple</span>
+<span class="sd">        (x, kx) in 1D or (x, y, kx, ky) in 2D -- what callers return.</span>
+<span class="sd">    """</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vars_x</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span> <span class="o">=</span> <span class="n">make_grid_1d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x_grid</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span> <span class="o">=</span> <span class="n">make_grid_2d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">'ij'</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Only 1D and 2D are supported"</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="run_time_loop">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.run_time_loop">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_time_loop</span><span class="p">(</span><span class="n">step_fn</span><span class="p">,</span> <span class="n">U0</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">check_finite</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Repeatedly apply `step_fn(U) -&gt; U_next`, saving a snapshot every</span>
+<span class="sd">    `save_every` steps (plus the final step and t=0) -- factors out the</span>
+<span class="sd">    save-cadence bookkeeping that used to be copy-pasted verbatim in every</span>
+<span class="sd">    solve_* function below.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    FloatingPointError</span>
+<span class="sd">        If `check_finite` is True and a non-finite value shows up -- avoids</span>
+<span class="sd">        silently returning a diverged/garbage trajectory.</span>
+<span class="sd">    """</span>
+    <span class="n">t_list</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
+    <span class="n">U_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U0</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">U0</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">step_fn</span><span class="p">(</span><span class="n">U</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">check_finite</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">U</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">FloatingPointError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Non-finite values detected at step </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> (t=</span><span class="si">{</span><span class="n">t</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">dt</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2">); "</span>
+                <span class="s2">"reduce dt, increase `order`, or check the input symbol."</span>
+            <span class="p">)</span>
+        <span class="n">t</span> <span class="o">+=</span> <span class="n">dt</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">%</span> <span class="n">save_every</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">==</span> <span class="n">n_steps</span><span class="p">:</span>
+            <span class="n">t_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">U_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">t_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">U_list</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="PropagatorFamily">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.PropagatorFamily">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PropagatorFamily</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    A one-step propagator family exp(dt · Op[s]) for a *fixed* symbol `s`</span>
+<span class="sd">    but *variable* dt, built so that changing dt is cheap.</span>
+
+<span class="sd">    `build_propagator` rebuilds the full truncated exponential series</span>
+<span class="sd">    (via `exponential_symbol`, i.e. `order` rounds of symbolic</span>
+<span class="sd">    differentiation and `compose_asymptotic`) from scratch every time it</span>
+<span class="sd">    is called -- expensive, and wasteful if the same symbol is re-solved</span>
+<span class="sd">    at several different step sizes (a dt-convergence study, a parameter</span>
+<span class="sd">    sweep, or an adaptive/embedded stepper that changes dt every few</span>
+<span class="sd">    steps).</span>
+
+<span class="sd">    `exponential_symbol` already accepts `t` as a sympy Symbol, so this</span>
+<span class="sd">    class builds it ONCE with dt left symbolic, and produces a concrete</span>
+<span class="sd">    propagator for any numeric dt via a single cheap `sympy.subs` call --</span>
+<span class="sd">    skipping the `compose_asymptotic` recursion entirely on every</span>
+<span class="sd">    subsequent request. `build_propagator` below uses this internally</span>
+<span class="sd">    (via a small process-wide cache), so existing call sites benefit</span>
+<span class="sd">    automatically with no code changes required.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    s_expr : sympy.Expr or sympy.Matrix</span>
+<span class="sd">        Symbol expression (scalar or matrix-valued), same as</span>
+<span class="sd">        `build_propagator`.</span>
+<span class="sd">    vars_x : list of sympy.Symbol</span>
+<span class="sd">        Spatial variables.</span>
+<span class="sd">    order : int, default 3</span>
+<span class="sd">        Truncation order for both the Taylor series in t and the</span>
+<span class="sd">        asymptotic composition at each power.</span>
+<span class="sd">    quantization : {'kohn-nirenberg', 'weyl'}, default 'kohn-nirenberg'</span>
+<span class="sd">        Quantization convention for the resulting propagator.</span>
+<span class="sd">    mode_composition : {'kn', 'weyl'}, default 'kn'</span>
+<span class="sd">        Composition rule used inside `exponential_symbol`.</span>
+<span class="sd">    apply_backend : {'peetre', 'direct'}, default 'peetre'</span>
+<span class="sd">        Numerical backend attached to the propagator operator.</span>
+<span class="sd">    do_simplify : bool, default True</span>
+<span class="sd">        Whether to call sympy's `simplify()` while assembling the</span>
+<span class="sd">        propagator symbol (once when building it, and once inside every</span>
+<span class="sd">        `compose_asymptotic()` call in the asymptotic expansion loop).</span>
+<span class="sd">        This does not change the operator being applied -- `lambdify`</span>
+<span class="sd">        evaluates the same function on an unsimplified expression -- it</span>
+<span class="sd">        only affects how much symbolic cleanup happens before that.</span>
+<span class="sd">        `simplify()` is the dominant cost of `build_propagator()` for</span>
+<span class="sd">        symbols mixing trigonometric and polynomial terms, and its cost</span>
+<span class="sd">        grows with `order`; set to `False` to skip it and speed up</span>
+<span class="sd">        propagator construction, at the risk of a larger (but</span>
+<span class="sd">        numerically equivalent) unsimplified expression tree.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; family = PropagatorFamily(xi**2, [x], order=4)</span>
+<span class="sd">    &gt;&gt;&gt; prop_1, _, _ = family.propagator_for(0.01)</span>
+<span class="sd">    &gt;&gt;&gt; prop_2, _, _ = family.propagator_for(0.02)   # cheap: no recomposition</span>
+<span class="sd">    &gt;&gt;&gt; u1 = prop_1.apply(u, x_grid, kx)</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span>
+                 <span class="n">mode_composition</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span> <span class="o">=</span> <span class="n">vars_x</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">order</span> <span class="o">=</span> <span class="n">order</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quantization</span> <span class="o">=</span> <span class="n">quantization</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode_composition</span> <span class="o">=</span> <span class="n">mode_composition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_backend</span> <span class="o">=</span> <span class="n">apply_backend</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dt_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'_dt_family'</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span><span class="p">:</span>
+            <span class="n">s_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">s_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">op</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">s_mat</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># The expensive step -- performed exactly ONCE, with dt symbolic.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Esym_generic</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">exponential_symbol</span><span class="p">(</span>
+            <span class="n">t</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_dt_sym</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode_composition</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="PropagatorFamily.propagator_for">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.PropagatorFamily.propagator_for">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">propagator_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Return the concrete one-step propagator for a numeric `dt`.</span>
+
+<span class="sd">        Cheap: a single `sympy.subs` call -- no `compose_asymptotic`</span>
+<span class="sd">        recursion. Returns the same `(prop, is_matrix, size)` triple as</span>
+<span class="sd">        `build_propagator`, so it is a drop-in replacement at the call</span>
+<span class="sd">        site.</span>
+<span class="sd">        """</span>
+        <span class="n">Esym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Esym_generic</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dt_sym</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span><span class="p">:</span>
+            <span class="n">prop</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">Esym</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_backend</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">prop</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+                <span class="n">Esym</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
+                <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_backend</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">prop</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span></div>
+</div>
+
+
+
+<span class="c1"># Process-wide cache of PropagatorFamily objects, keyed by everything that</span>
+<span class="c1"># determines the *symbolic* composition (i.e. everything except dt itself).</span>
+<span class="c1"># `build_propagator` consults this before doing any symbolic work, so</span>
+<span class="c1"># repeated calls with the same symbol/order/quantization/backend but a</span>
+<span class="c1"># different `dt` reuse the expensive composition automatically.</span>
+<span class="n">_propagator_family_cache</span> <span class="o">=</span> <span class="p">{}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_propagator_family_key</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">quantization</span><span class="p">,</span>
+                            <span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">expr_key</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">srepr</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">expr_key</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">srepr</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">expr_key</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vars_x</span><span class="p">),</span> <span class="n">order</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="p">,</span> <span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="build_propagator">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.build_propagator">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_propagator</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span>
+                     <span class="n">mode_composition</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Build the one-step numerical propagator exp(dt · Op[s]) for a</span>
+<span class="sd">    pseudo-differential operator via truncated asymptotic exponentiation.</span>
+
+<span class="sd">    Given a symbol s(x, ξ) (scalar or matrix-valued), this function:</span>
+<span class="sd">      1. Wraps it into the appropriate operator class.</span>
+<span class="sd">      2. Computes the symbol of exp(dt · P) via `exponential_symbol(t=dt, order=order)`:</span>
+
+<span class="sd">             exp(dt · P) ≈ I + dt·P + (dt²/2!)·P∘P + ⋯ + (dtⁿ/n!)·P^{∘n}</span>
+
+<span class="sd">         where each power P^{∘n} is obtained through asymptotic composition.</span>
+<span class="sd">      3. Wraps the resulting symbol into a new operator ready for `apply()`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    s_expr : sympy.Expr or sympy.Matrix</span>
+<span class="sd">        Symbol expression. A scalar expression produces a</span>
+<span class="sd">        `PseudoDifferentialOperator`; a matrix (or nested list) produces a</span>
+<span class="sd">        `MatrixPseudoDifferentialOperator`.</span>
+<span class="sd">    vars_x : list of sympy.Symbol</span>
+<span class="sd">        Spatial variables ([x] for 1D, [x, y] for 2D).</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time-step size used as the evolution parameter t in exp(t·P).</span>
+<span class="sd">    order : int, default 3</span>
+<span class="sd">        Truncation order for both the Taylor series in t and the</span>
+<span class="sd">        asymptotic composition at each power.</span>
+<span class="sd">    quantization : {'kohn-nirenberg', 'weyl'}, default 'kohn-nirenberg'</span>
+<span class="sd">        Quantization convention for the resulting propagator.</span>
+<span class="sd">    mode_composition : {'kn', 'weyl'}, default 'kn'</span>
+<span class="sd">        Composition rule used inside `exponential_symbol`.</span>
+<span class="sd">    apply_backend : {'peetre', 'direct'}, default 'peetre'</span>
+<span class="sd">        Numerical backend attached to the propagator operator.</span>
+<span class="sd">    do_simplify : bool, default True</span>
+<span class="sd">        Whether to call sympy's `simplify()` while assembling the</span>
+<span class="sd">        propagator symbol (once when building it, and once inside every</span>
+<span class="sd">        `compose_asymptotic()` call in the asymptotic expansion loop).</span>
+<span class="sd">        This does not change the operator being applied -- `lambdify`</span>
+<span class="sd">        evaluates the same function on an unsimplified expression -- it</span>
+<span class="sd">        only affects how much symbolic cleanup happens before that.</span>
+<span class="sd">        `simplify()` is the dominant cost of `build_propagator()` for</span>
+<span class="sd">        symbols mixing trigonometric and polynomial terms, and its cost</span>
+<span class="sd">        grows with `order`; set to `False` to skip it and speed up</span>
+<span class="sd">        propagator construction, at the risk of a larger (but</span>
+<span class="sd">        numerically equivalent) unsimplified expression tree.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    prop : PseudoDifferentialOperator or MatrixPseudoDifferentialOperator</span>
+<span class="sd">        The propagator operator such that `prop.apply(u, …)` advances u</span>
+<span class="sd">        by one time step dt.</span>
+<span class="sd">    is_matrix : bool</span>
+<span class="sd">        True if the propagator is matrix-valued.</span>
+<span class="sd">    size : int or None</span>
+<span class="sd">        Matrix dimension N if `is_matrix` is True, else None.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The propagator is constructed once and reused across all time steps.</span>
+<span class="sd">    For constant-coefficient symbols the composition is exact (all</span>
+<span class="sd">    derivative corrections vanish), so the only error is the Taylor</span>
+<span class="sd">    truncation in dt.</span>
+
+<span class="sd">    This function is backed by a process-wide cache of `PropagatorFamily`</span>
+<span class="sd">    objects (see above), keyed on everything except `dt`. So calling it</span>
+<span class="sd">    repeatedly with the *same* `s_expr`/`vars_x`/`order`/`quantization`/</span>
+<span class="sd">    `mode_composition`/`apply_backend` but a *different* `dt` (e.g. a</span>
+<span class="sd">    step-size sweep, or an adaptive stepper) reuses the expensive</span>
+<span class="sd">    `exponential_symbol`/`compose_asymptotic` recursion instead of</span>
+<span class="sd">    redoing it from scratch -- only a cheap `sympy.subs` is performed per</span>
+<span class="sd">    new `dt`. The very first call for a given symbol still pays the full</span>
+<span class="sd">    cost.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; prop, is_mat, sz = build_propagator(xi**2, [x], dt=0.01, order=4)</span>
+<span class="sd">    &gt;&gt;&gt; u_next = prop.apply(u, x_grid, kx)</span>
+<span class="sd">    """</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">_propagator_family_key</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">quantization</span><span class="p">,</span>
+                                  <span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="p">)</span>
+    <span class="n">family</span> <span class="o">=</span> <span class="n">_propagator_family_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">family</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">family</span> <span class="o">=</span> <span class="n">PropagatorFamily</span><span class="p">(</span>
+            <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span>
+            <span class="n">mode_composition</span><span class="o">=</span><span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
+        <span class="p">)</span>
+        <span class="n">_propagator_family_cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">family</span>
+
+    <span class="k">return</span> <span class="n">family</span><span class="o">.</span><span class="n">propagator_for</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="solve_first_order">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.solve_first_order">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_first_order</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                      <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                      <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span>
+                      <span class="n">check_finite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Solve the first-order evolution equation</span>
+
+<span class="sd">        ∂u/∂t = Op[s](u),   u(x, 0) = f(x)</span>
+
+<span class="sd">    by repeated application of the asymptotic propagator exp(dt · Op[s]).</span>
+
+<span class="sd">    At each time step the field is advanced via</span>
+
+<span class="sd">        u^{n+1} = exp(dt · Op[s]) u^n ≈ (I + dt·P + (dt²/2!)P∘P + ⋯) u^n</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    s_expr : sympy.Expr or sympy.Matrix</span>
+<span class="sd">        Symbol of the spatial operator P. Scalar for a single-field</span>
+<span class="sd">        equation; matrix-valued for a coupled system.</span>
+<span class="sd">    vars_x : list of sympy.Symbol</span>
+<span class="sd">        Spatial variables.</span>
+<span class="sd">    f : callable</span>
+<span class="sd">        Initial condition. Must accept (X,) in 1D or (X, Y) in 2D and</span>
+<span class="sd">        return an ndarray (scalar case) or a list/tuple of ndarrays</span>
+<span class="sd">        (matrix case with N components).</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time-step size.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Total number of time steps to evolve.</span>
+<span class="sd">    order : int, default 3</span>
+<span class="sd">        Asymptotic expansion order for the propagator construction.</span>
+<span class="sd">    L : float, default 10.0</span>
+<span class="sd">        Half-length of the periodic spatial domain.</span>
+<span class="sd">    N : int, default 256</span>
+<span class="sd">        Number of grid points per spatial axis.</span>
+<span class="sd">    apply_kwargs : dict, optional</span>
+<span class="sd">        Extra keyword arguments forwarded to `prop.apply()` at every</span>
+<span class="sd">        step (e.g. `boundary_condition`, `freq_window`, `clamp`).</span>
+<span class="sd">    save_every : int, default 1</span>
+<span class="sd">        Store the solution snapshot every `save_every` steps.</span>
+<span class="sd">    quantization : str, default 'kohn-nirenberg'</span>
+<span class="sd">        Quantization convention.</span>
+<span class="sd">    apply_backend : str, default 'peetre'</span>
+<span class="sd">        Numerical application backend.</span>
+<span class="sd">    check_finite : bool, default True</span>
+<span class="sd">        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead of</span>
+<span class="sd">        silently returning a diverged trajectory.</span>
+<span class="sd">    do_simplify : bool, default True</span>
+<span class="sd">        Whether to call sympy's `simplify()` while assembling the</span>
+<span class="sd">        propagator symbol (once when building it, and once inside every</span>
+<span class="sd">        `compose_asymptotic()` call in the asymptotic expansion loop).</span>
+<span class="sd">        This does not change the operator being applied -- `lambdify`</span>
+<span class="sd">        evaluates the same function on an unsimplified expression -- it</span>
+<span class="sd">        only affects how much symbolic cleanup happens before that.</span>
+<span class="sd">        `simplify()` is the dominant cost of `build_propagator()` for</span>
+<span class="sd">        symbols mixing trigonometric and polynomial terms, and its cost</span>
+<span class="sd">        grows with `order`; set to `False` to skip it and speed up</span>
+<span class="sd">        propagator construction, at the risk of a larger (but</span>
+<span class="sd">        numerically equivalent) unsimplified expression tree.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    t : ndarray, shape (n_saved,)</span>
+<span class="sd">        Time values at which snapshots were recorded.</span>
+<span class="sd">    U : ndarray</span>
+<span class="sd">        Solution snapshots. Shape (n_saved, N) for scalar 1D,</span>
+<span class="sd">        (n_saved, N, N) for scalar 2D, or (n_saved, size, N…) for</span>
+<span class="sd">        matrix-valued systems.</span>
+<span class="sd">    grids : tuple</span>
+<span class="sd">        The spatial and frequency grids used: (x, kx) in 1D or</span>
+<span class="sd">        (x, y, kx, ky) in 2D.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If `vars_x` has length other than 1 or 2.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `f` returns the wrong number of components for a matrix system.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; t, U, (x, kx) = solve_first_order(xi**2, [x], lambda X: np.exp(-X**2),</span>
+<span class="sd">    ...                                     dt=0.01, n_steps=100, N=256)</span>
+<span class="sd">    """</span>
+    <span class="n">apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">apply_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">grids</span> <span class="o">=</span> <span class="n">_make_grids</span><span class="p">(</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+
+    <span class="n">prop</span><span class="p">,</span> <span class="n">is_matrix</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span>
+        <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+        <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
+    <span class="p">)</span>
+
+    <span class="n">f0</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">if</span> <span class="n">Y</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">f</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">is_matrix</span><span class="p">:</span>
+        <span class="n">u0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span> <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">f0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">u0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"f must return </span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2"> components, got </span><span class="si">{</span><span class="n">u0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">u0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
+        <span class="n">u_in</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="k">if</span> <span class="n">is_matrix</span> <span class="k">else</span> <span class="n">u</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">prop</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">u_in</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">is_matrix</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+    <span class="n">t_arr</span><span class="p">,</span> <span class="n">U_arr</span> <span class="o">=</span> <span class="n">_run_time_loop</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">u0</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">check_finite</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">t_arr</span><span class="p">,</span> <span class="n">U_arr</span><span class="p">,</span> <span class="n">grids</span></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_as_component_list</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">size_hint</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Evaluate a callable `h` on the grid and normalise the result into a</span>
+<span class="sd">    plain list of component arrays.</span>
+
+<span class="sd">    If `h(X)` (or `h(X, Y)` in 2D) already returns a list or tuple, it is</span>
+<span class="sd">    returned as-is. Otherwise the scalar result is wrapped in a one-element</span>
+<span class="sd">    list, ensuring downstream code always receives a uniform list interface.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    h : callable</span>
+<span class="sd">        Function of the spatial grid. Signature: h(X) in 1D, h(X, Y) in 2D.</span>
+<span class="sd">    X : ndarray</span>
+<span class="sd">        Spatial grid along x (or meshgrid in 2D).</span>
+<span class="sd">    Y : ndarray, optional</span>
+<span class="sd">        Spatial grid along y (2D only). If None, `h` is called with X alone.</span>
+<span class="sd">    size_hint : int, default 1</span>
+<span class="sd">        Informational hint about the expected number of components</span>
+<span class="sd">        (not enforced here; callers validate separately).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of ndarray</span>
+<span class="sd">        Component arrays produced by `h`.</span>
+<span class="sd">    """</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">h</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">if</span> <span class="n">Y</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">h</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">out</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_matrix_of</span><span class="p">(</span><span class="n">s_expr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Coerce a symbol expression into a sympy Matrix.</span>
+
+<span class="sd">    If `s_expr` is already a MatrixBase, list, or tuple, it is converted</span>
+<span class="sd">    via `sp.Matrix(s_expr)`. A bare scalar expression is wrapped into a</span>
+<span class="sd">    1×1 matrix so that downstream code can treat scalar and matrix-valued</span>
+<span class="sd">    operators uniformly.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    s_expr : sympy.Expr, sympy.MatrixBase, list, or tuple</span>
+<span class="sd">        The symbol or matrix of symbols.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sympy.Matrix</span>
+<span class="sd">        Square matrix of symbol expressions.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the resulting matrix is not square (checked by callers).</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([[</span><span class="n">s_expr</span><span class="p">]])</span>
+
+<div class="viewcode-block" id="block_matrix_second_order">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.block_matrix_second_order">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">block_matrix_second_order</span><span class="p">(</span><span class="n">s_expr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Convert a second-order-in-time operator symbol S into a first-order</span>
+<span class="sd">    block companion system suitable for `solve_first_order`.</span>
+
+<span class="sd">    The second-order equation</span>
+
+<span class="sd">        ∂²u/∂t² = Op[S](u)</span>
+
+<span class="sd">    is rewritten as the first-order system</span>
+
+<span class="sd">        ∂/∂t [u]   [ 0   I ] [u]</span>
+<span class="sd">             [v] = [ S   0 ] [v]</span>
+
+<span class="sd">    where v = ∂u/∂t. For a k×k matrix symbol S, the companion matrix has</span>
+<span class="sd">    dimension 2k × 2k:</span>
+
+<span class="sd">        M = [ 0_k   I_k ]</span>
+<span class="sd">            [ S     0_k ]</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    s_expr : sympy.Expr or sympy.Matrix</span>
+<span class="sd">        The operator symbol S (scalar or k×k matrix).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sympy.Matrix, shape (2k, 2k)</span>
+<span class="sd">        The block companion matrix M.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `s_expr` is a non-square matrix.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; M = block_matrix_second_order(-xi**2)</span>
+<span class="sd">    &gt;&gt;&gt; M.shape</span>
+<span class="sd">    (2, 2)</span>
+<span class="sd">    """</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="n">_matrix_of</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"matrix symbol must be square"</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">zero_k</span><span class="p">,</span> <span class="n">eye_k</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">zero_k</span><span class="o">.</span><span class="n">row_join</span><span class="p">(</span><span class="n">eye_k</span><span class="p">)</span><span class="o">.</span><span class="n">col_join</span><span class="p">(</span><span class="n">S</span><span class="o">.</span><span class="n">row_join</span><span class="p">(</span><span class="n">zero_k</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="solve_second_order">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.solve_second_order">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_second_order</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                       <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                       <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Solve the second-order-in-time evolution equation</span>
+
+<span class="sd">        ∂²u/∂t² = Op[S](u),   u(x, 0) = f(x),   ∂u/∂t(x, 0) = g(x)</span>
+
+<span class="sd">    by reduction to a first-order block companion system and time-stepping</span>
+<span class="sd">    with the asymptotic propagator.</span>
+
+<span class="sd">    The system is split into</span>
+
+<span class="sd">        ∂u/∂t = v,      ∂v/∂t = Op[S](u)</span>
+
+<span class="sd">    and solved jointly via `solve_first_order` on the 2k-dimensional</span>
+<span class="sd">    companion operator. The returned arrays contain only the physical</span>
+<span class="sd">    field u and its velocity v = ∂u/∂t, not the full state vector.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    s_expr : sympy.Expr or sympy.Matrix</span>
+<span class="sd">        Symbol of the spatial operator S.</span>
+<span class="sd">    vars_x : list of sympy.Symbol</span>
+<span class="sd">        Spatial variables.</span>
+<span class="sd">    f : callable</span>
+<span class="sd">        Initial displacement u(x, 0). Signature: f(X) in 1D, f(X, Y) in 2D.</span>
+<span class="sd">        Must return one component per row of S.</span>
+<span class="sd">    g : callable</span>
+<span class="sd">        Initial velocity ∂u/∂t(x, 0). Same signature and component</span>
+<span class="sd">        structure as `f`.</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time-step size.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of time steps.</span>
+<span class="sd">    order : int, default 3</span>
+<span class="sd">        Asymptotic order for the propagator.</span>
+<span class="sd">    L : float, default 10.0</span>
+<span class="sd">        Spatial domain half-length.</span>
+<span class="sd">    N : int, default 256</span>
+<span class="sd">        Grid points per axis.</span>
+<span class="sd">    apply_kwargs : dict, optional</span>
+<span class="sd">        Forwarded to `apply()` at each step.</span>
+<span class="sd">    save_every : int, default 1</span>
+<span class="sd">        Snapshot cadence.</span>
+<span class="sd">    quantization : str, default 'kohn-nirenberg'</span>
+<span class="sd">        Quantization convention.</span>
+<span class="sd">    apply_backend : str, default 'peetre'</span>
+<span class="sd">        Numerical backend.</span>
+<span class="sd">    do_simplify : bool, default True</span>
+<span class="sd">        Whether to call sympy's `simplify()` while assembling the</span>
+<span class="sd">        propagator symbol (once when building it, and once inside every</span>
+<span class="sd">        `compose_asymptotic()` call in the asymptotic expansion loop).</span>
+<span class="sd">        This does not change the operator being applied -- `lambdify`</span>
+<span class="sd">        evaluates the same function on an unsimplified expression -- it</span>
+<span class="sd">        only affects how much symbolic cleanup happens before that.</span>
+<span class="sd">        `simplify()` is the dominant cost of `build_propagator()` for</span>
+<span class="sd">        symbols mixing trigonometric and polynomial terms, and its cost</span>
+<span class="sd">        grows with `order`; set to `False` to skip it and speed up</span>
+<span class="sd">        propagator construction, at the risk of a larger (but</span>
+<span class="sd">        numerically equivalent) unsimplified expression tree.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    t : ndarray, shape (n_saved,)</span>
+<span class="sd">        Time values of recorded snapshots.</span>
+<span class="sd">    U : ndarray</span>
+<span class="sd">        Displacement field snapshots u(x, t).</span>
+<span class="sd">    V : ndarray</span>
+<span class="sd">        Velocity field snapshots ∂u/∂t(x, t).</span>
+<span class="sd">    grids : tuple</span>
+<span class="sd">        Spatial and frequency grids: (x, kx) or (x, y, kx, ky).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `f` or `g` produce the wrong number of components.</span>
+<span class="sd">    """</span>
+    <span class="n">is_matrix</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">_matrix_of</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">block_matrix_second_order</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">f_combined</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">f_comp</span> <span class="o">=</span> <span class="n">_as_component_list</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">size_hint</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+        <span class="n">g_comp</span> <span class="o">=</span> <span class="n">_as_component_list</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">size_hint</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">f_comp</span><span class="p">)</span> <span class="o">!=</span> <span class="n">k</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">g_comp</span><span class="p">)</span> <span class="o">!=</span> <span class="n">k</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"f and g must each provide </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> component(s)."</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">f_comp</span> <span class="o">+</span> <span class="n">g_comp</span>
+        
+    <span class="c1"># FIX: Call solve_first_order instead of sympy's algebraic solve()</span>
+    <span class="n">t</span><span class="p">,</span> <span class="n">U_full</span><span class="p">,</span> <span class="n">grids</span> <span class="o">=</span> <span class="n">solve_first_order</span><span class="p">(</span>
+        <span class="n">M</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">f_combined</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+        <span class="n">L</span><span class="o">=</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="n">apply_kwargs</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="n">save_every</span><span class="p">,</span>
+        <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
+    <span class="p">)</span>
+    
+    <span class="n">U</span> <span class="o">=</span> <span class="n">U_full</span><span class="p">[:,</span> <span class="p">:</span><span class="n">k</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">U_full</span><span class="p">[:,</span> <span class="n">k</span><span class="p">:,</span> <span class="o">...</span><span class="p">]</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_matrix</span><span class="p">:</span>
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        
+    <span class="k">return</span> <span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">grids</span></div>
+
+
+<div class="viewcode-block" id="solve_matrix_field">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.solve_matrix_field">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_matrix_field</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                        <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                        <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span>
+                        <span class="n">check_finite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Time-step the matrix-field evolution equation `∂ₜU = P U`, where `P`</span>
+<span class="sd">    is the pseudo-differential operator with N×N matrix symbol `s_expr`</span>
+<span class="sd">    and `U(x)` is itself an N×N matrix at every spatial point (e.g. a</span>
+<span class="sd">    density matrix or matrix Green's function), with `P` acting on `U`</span>
+<span class="sd">    only from the left: `(P U)_ik = Σⱼ Op[P_ij](U_jk)`. This repeatedly</span>
+<span class="sd">    applies the exponential propagator `Op(exp(dt·s))` built by</span>
+<span class="sd">    `build_propagator`, via</span>
+<span class="sd">    `MatrixPseudoDifferentialOperator.apply_matrix_field`, exactly as</span>
+<span class="sd">    `solve` does for vector fields via `apply`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    s_expr : sympy.MatrixBase or nested list of sympy.Expr</span>
+<span class="sd">        N×N matrix symbol `S(x, ξ)` of the generator `P`; must be</span>
+<span class="sd">        matrix-valued (matrix left-multiplication only makes sense at</span>
+<span class="sd">        `N &gt; 1` -- use `solve` for a scalar generator).</span>
+<span class="sd">    vars_x : list of sympy symbols</span>
+<span class="sd">        Spatial variables (length 1 or 2).</span>
+<span class="sd">    F : callable</span>
+<span class="sd">        Initial matrix field `U(·, 0)`, called as `F(X)` in 1D or</span>
+<span class="sd">        `F(X, Y)` in 2D on the meshgrid-ed spatial coordinates, and</span>
+<span class="sd">        expected to return an N×N array/nested list of grid-shaped</span>
+<span class="sd">        components (`F(...)[j][k]`, or an ndarray of shape</span>
+<span class="sd">        `(N, N, *grid_shape)`).</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time step.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of propagator applications (time steps) to take.</span>
+<span class="sd">    order : int, optional</span>
+<span class="sd">        Truncation order of the exponential symbol expansion. Default 3.</span>
+<span class="sd">    L : float, optional</span>
+<span class="sd">        Half-width of the spatial domain. Default 10.0.</span>
+<span class="sd">    N : int, optional</span>
+<span class="sd">        Number of grid points per axis. Default 256.</span>
+<span class="sd">    apply_kwargs : dict, optional</span>
+<span class="sd">        Extra keyword arguments forwarded to `apply_matrix_field`.</span>
+<span class="sd">    save_every : int, optional</span>
+<span class="sd">        Save the solution every `save_every` steps (plus the final step</span>
+<span class="sd">        and `t=0`). Default 1 (save every step).</span>
+<span class="sd">    quantization : str, optional</span>
+<span class="sd">        Quantization convention. Default 'kohn-nirenberg'.</span>
+<span class="sd">    apply_backend : str, optional</span>
+<span class="sd">        Numerical application backend. Default 'peetre'.</span>
+<span class="sd">    check_finite : bool, default True</span>
+<span class="sd">        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead of</span>
+<span class="sd">        silently returning a diverged trajectory.</span>
+<span class="sd">    do_simplify : bool, default True</span>
+<span class="sd">        Whether to call sympy's `simplify()` while assembling the</span>
+<span class="sd">        propagator symbol (once when building it, and once inside every</span>
+<span class="sd">        `compose_asymptotic()` call in the asymptotic expansion loop).</span>
+<span class="sd">        This does not change the operator being applied -- `lambdify`</span>
+<span class="sd">        evaluates the same function on an unsimplified expression -- it</span>
+<span class="sd">        only affects how much symbolic cleanup happens before that.</span>
+<span class="sd">        `simplify()` is the dominant cost of `build_propagator()` for</span>
+<span class="sd">        symbols mixing trigonometric and polynomial terms, and its cost</span>
+<span class="sd">        grows with `order`; set to `False` to skip it and speed up</span>
+<span class="sd">        propagator construction, at the risk of a larger (but</span>
+<span class="sd">        numerically equivalent) unsimplified expression tree.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    t_list : ndarray</span>
+<span class="sd">        Saved time points, starting at 0.</span>
+<span class="sd">    U_list : ndarray, shape (n_saved, N, N, *grid_shape)</span>
+<span class="sd">        Saved matrix-field snapshots `U(t)`.</span>
+<span class="sd">    grids : tuple of ndarray</span>
+<span class="sd">        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D, as returned by</span>
+<span class="sd">        `make_grid_1d`/`make_grid_2d`.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If `vars_x` has a length other than 1 or 2.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `s_expr` is not matrix-valued, or `F` does not return an</span>
+<span class="sd">        N×N field.</span>
+<span class="sd">    """</span>
+    <span class="n">apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">apply_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">grids</span> <span class="o">=</span> <span class="n">_make_grids</span><span class="p">(</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+
+    <span class="n">prop</span><span class="p">,</span> <span class="n">is_matrix</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span>
+        <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+        <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_matrix</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"solve_matrix_field requires a matrix symbol; got a scalar "</span>
+            <span class="s2">"symbol. Use solve_first_order() for scalar/vector fields instead."</span>
+        <span class="p">)</span>
+
+    <span class="n">U0</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">if</span> <span class="n">Y</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">F</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="n">U0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">size</span> <span class="ow">or</span> <span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"F must return a </span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2"> matrix field, got shape "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="n">U</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">prop</span><span class="o">.</span><span class="n">apply_matrix_field</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+
+    <span class="n">t_arr</span><span class="p">,</span> <span class="n">U_arr</span> <span class="o">=</span> <span class="n">_run_time_loop</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">U0</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">check_finite</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">t_arr</span><span class="p">,</span> <span class="n">U_arr</span><span class="p">,</span> <span class="n">grids</span></div>
+
+
+<div class="viewcode-block" id="solve_sylvester_field">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.solve_sylvester_field">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_sylvester_field</span><span class="p">(</span><span class="n">P_expr</span><span class="p">,</span> <span class="n">Q_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                           <span class="n">splitting</span><span class="o">=</span><span class="s1">'strang'</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span>
+                           <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                           <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span>
+                           <span class="n">check_finite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Time-step the Sylvester-type matrix-field evolution equation</span>
+<span class="sd">    `∂ₜU = P U − U Q`, where `P` and `Q` are pseudo-differential</span>
+<span class="sd">    operators with N×N matrix symbols and `U(x)` is an N×N matrix at</span>
+<span class="sd">    every spatial point.</span>
+
+<span class="sd">    Left-multiplication by `P` and right-multiplication by `Q` always</span>
+<span class="sd">    commute as *operations* (`(P U) Q == P (U Q)`), so when `P` and `Q`</span>
+<span class="sd">    are x-independent (Fourier multipliers), the exact solution over a</span>
+<span class="sd">    step `dt` is the closed-form</span>
+
+<span class="sd">        U(t) = exp(t P) U(0) exp(-t Q) ,</span>
+
+<span class="sd">    obtained by applying the left-propagator `Op(exp(dt·P))`</span>
+<span class="sd">    (`apply_matrix_field`) and the right-propagator `Op(exp(-dt·Q))`</span>
+<span class="sd">    (`apply_matrix_field_right`), in either order. When `P` and/or `Q`</span>
+<span class="sd">    depend on x, `Op[P_ij]` and `Op[Q_jk]` need not commute with each</span>
+<span class="sd">    other, so the two sub-steps no longer combine exactly; this function</span>
+<span class="sd">    then falls back to a standard Lie-Trotter (first-order, `O(dt)`</span>
+<span class="sd">    splitting error) or Strang (second-order, `O(dt^2)`) operator</span>
+<span class="sd">    splitting between the left and right exponential propagators.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    P_expr : sympy.MatrixBase or nested list of sympy.Expr</span>
+<span class="sd">        N×N matrix symbol `P(x, ξ)` acting on U from the left.</span>
+<span class="sd">    Q_expr : sympy.MatrixBase or nested list of sympy.Expr</span>
+<span class="sd">        N×N matrix symbol `Q(x, ξ)` acting on U from the right (with a</span>
+<span class="sd">        minus sign, as in `∂ₜU = P U − U Q`); must be the same size as</span>
+<span class="sd">        `P_expr`.</span>
+<span class="sd">    vars_x : list of sympy symbols</span>
+<span class="sd">        Spatial variables (length 1 or 2).</span>
+<span class="sd">    F : callable</span>
+<span class="sd">        Initial matrix field `U(·, 0)`, called as `F(X)` in 1D or</span>
+<span class="sd">        `F(X, Y)` in 2D, returning an N×N array/nested list of</span>
+<span class="sd">        grid-shaped components (as for `solve_matrix_field`).</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time step.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of splitting steps (each advancing `U` by `dt`).</span>
+<span class="sd">    order : int, optional</span>
+<span class="sd">        Truncation order of each exponential-symbol expansion. Default 3.</span>
+<span class="sd">    splitting : str, {'lie', 'strang'}, optional</span>
+<span class="sd">        Operator-splitting scheme between the `P` (left) and `Q` (right)</span>
+<span class="sd">        sub-steps:</span>
+
+<span class="sd">        - 'lie'    : one full left step `exp(dt·P)`, then one full right</span>
+<span class="sd">                     step `exp(-dt·Q)` -- first order accurate, `O(dt)`.</span>
+<span class="sd">        - 'strang' : half left step `exp(dt/2·P)`, full right step</span>
+<span class="sd">                     `exp(-dt·Q)`, half left step `exp(dt/2·P)` --</span>
+<span class="sd">                     second order accurate, `O(dt^2)`. Default.</span>
+<span class="sd">    L : float, optional</span>
+<span class="sd">        Half-width of the spatial domain. Default 10.0.</span>
+<span class="sd">    N : int, optional</span>
+<span class="sd">        Number of grid points per axis. Default 256.</span>
+<span class="sd">    apply_kwargs : dict, optional</span>
+<span class="sd">        Extra keyword arguments forwarded to `apply_matrix_field` and</span>
+<span class="sd">        `apply_matrix_field_right`.</span>
+<span class="sd">    save_every : int, optional</span>
+<span class="sd">        Save the solution every `save_every` steps (plus the final step</span>
+<span class="sd">        and `t=0`). Default 1.</span>
+<span class="sd">    quantization : str, optional</span>
+<span class="sd">        Quantization convention. Default 'kohn-nirenberg'.</span>
+<span class="sd">    apply_backend : str, optional</span>
+<span class="sd">        Numerical application backend. Default 'peetre'.</span>
+<span class="sd">    check_finite : bool, default True</span>
+<span class="sd">        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead</span>
+<span class="sd">        of silently returning a diverged trajectory.</span>
+<span class="sd">    do_simplify : bool, default True</span>
+<span class="sd">        Whether to call sympy's `simplify()` while assembling the</span>
+<span class="sd">        propagator symbol (once when building it, and once inside every</span>
+<span class="sd">        `compose_asymptotic()` call in the asymptotic expansion loop).</span>
+<span class="sd">        This does not change the operator being applied -- `lambdify`</span>
+<span class="sd">        evaluates the same function on an unsimplified expression -- it</span>
+<span class="sd">        only affects how much symbolic cleanup happens before that.</span>
+<span class="sd">        `simplify()` is the dominant cost of `build_propagator()` for</span>
+<span class="sd">        symbols mixing trigonometric and polynomial terms, and its cost</span>
+<span class="sd">        grows with `order`; set to `False` to skip it and speed up</span>
+<span class="sd">        propagator construction, at the risk of a larger (but</span>
+<span class="sd">        numerically equivalent) unsimplified expression tree.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    t_list : ndarray</span>
+<span class="sd">        Saved time points, starting at 0.</span>
+<span class="sd">    U_list : ndarray, shape (n_saved, N, N, *grid_shape)</span>
+<span class="sd">        Saved matrix-field snapshots `U(t)`.</span>
+<span class="sd">    grids : tuple of ndarray</span>
+<span class="sd">        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If `vars_x` has a length other than 1 or 2.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `P_expr`/`Q_expr` are not matrix-valued of matching size, if</span>
+<span class="sd">        `F` does not return an N×N field, or if `splitting` is not</span>
+<span class="sd">        'lie' or 'strang'.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">splitting</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'lie'</span><span class="p">,</span> <span class="s1">'strang'</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"splitting must be 'lie' or 'strang'."</span><span class="p">)</span>
+
+    <span class="n">apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">apply_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">grids</span> <span class="o">=</span> <span class="n">_make_grids</span><span class="p">(</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+
+    <span class="n">prop_Q_full</span><span class="p">,</span> <span class="n">is_matrix_Q</span><span class="p">,</span> <span class="n">size_Q</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span>
+        <span class="n">Q_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="o">-</span><span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+        <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">splitting</span> <span class="o">==</span> <span class="s1">'lie'</span><span class="p">:</span>
+        <span class="n">prop_P_full</span><span class="p">,</span> <span class="n">is_matrix_P</span><span class="p">,</span> <span class="n">size_P</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span>
+            <span class="n">P_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
+        <span class="p">)</span>
+        <span class="n">prop_P_half</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># 'strang'</span>
+        <span class="n">prop_P_half</span><span class="p">,</span> <span class="n">is_matrix_P</span><span class="p">,</span> <span class="n">size_P</span> <span class="o">=</span> <span class="n">build_propagator</span><span class="p">(</span>
+            <span class="n">P_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">dt</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
+        <span class="p">)</span>
+        <span class="n">prop_P_full</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">is_matrix_P</span> <span class="ow">and</span> <span class="n">is_matrix_Q</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"solve_sylvester_field requires matrix symbols for both P "</span>
+            <span class="s2">"and Q; got a scalar symbol for at least one of them."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">size_P</span> <span class="o">!=</span> <span class="n">size_Q</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"P_expr (</span><span class="si">{</span><span class="n">size_P</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">size_P</span><span class="si">}</span><span class="s2">) and Q_expr (</span><span class="si">{</span><span class="n">size_Q</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">size_Q</span><span class="si">}</span><span class="s2">) "</span>
+            <span class="s2">"must have the same size."</span>
+        <span class="p">)</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="n">size_P</span>
+
+    <span class="n">U0</span> <span class="o">=</span> <span class="n">F</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">if</span> <span class="n">Y</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">F</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="n">U0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">size</span> <span class="ow">or</span> <span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"F must return a </span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2"> matrix field, got shape "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="n">U</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">splitting</span> <span class="o">==</span> <span class="s1">'lie'</span><span class="p">:</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="n">prop_P_full</span><span class="o">.</span><span class="n">apply_matrix_field</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">)</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="n">prop_Q_full</span><span class="o">.</span><span class="n">apply_matrix_field_right</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># 'strang'</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="n">prop_P_half</span><span class="o">.</span><span class="n">apply_matrix_field</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">)</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="n">prop_Q_full</span><span class="o">.</span><span class="n">apply_matrix_field_right</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">)</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="n">prop_P_half</span><span class="o">.</span><span class="n">apply_matrix_field</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+
+    <span class="n">t_arr</span><span class="p">,</span> <span class="n">U_arr</span> <span class="o">=</span> <span class="n">_run_time_loop</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">U0</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">check_finite</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">t_arr</span><span class="p">,</span> <span class="n">U_arr</span><span class="p">,</span> <span class="n">grids</span></div>
+
+
+<div class="viewcode-block" id="solve_ricci_flow_conformal_2d">
+<a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.solve_ricci_flow_conformal_2d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">solve_ricci_flow_conformal_2d</span><span class="p">(</span><span class="n">phi0</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="mf">8.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+                                   <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span>
+                                   <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span> <span class="n">check_finite</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Integrate 2D Ricci flow in conformal gauge on a flat, doubly periodic</span>
+<span class="sd">    background.</span>
+
+<span class="sd">    Writing the metric as `g = e^{2φ}(dx² + dy²)`, the Gauss curvature is</span>
+<span class="sd">    `K = −e^{−2φ}Δφ` and, since `R_ij = K·g_ij` in two dimensions, the</span>
+<span class="sd">    tensorial flow `∂ₜg_ij = −2R_ij` collapses to the scalar quasi-linear</span>
+<span class="sd">    heat equation</span>
+
+<span class="sd">        ∂ₜφ = e^{−2φ} Δφ ,</span>
+
+<span class="sd">    with `Δ = ∂ₓ² + ∂ᵧ²` the flat Laplacian. This is NOT handled by</span>
+<span class="sd">    `psiop`'s ordinary linear/matrix machinery: the coefficient</span>
+<span class="sd">    `e^{−2φ}` depends on the evolving solution itself, so no fixed</span>
+<span class="sd">    `sympy` symbol `p(x, ξ)` describes the operator ahead of time.</span>
+
+<span class="sd">    Instead, each step uses an IMEX/Lie splitting that still reuses</span>
+<span class="sd">    `psiop`'s exact exponential propagator for the stiff part:</span>
+
+<span class="sd">    1. **Explicit correction** — using the *current* coefficient field</span>
+<span class="sd">       `c(x) = e^{−2φ(x)}`, compute `Δφ` once via a plain (x-independent)</span>
+<span class="sd">       Laplacian `PseudoDifferentialOperator`, and take one explicit</span>
+<span class="sd">       Euler sub-step with the deviation of `c` from its spatial average</span>
+<span class="sd">       `c₀`: `residual = (c − c₀) Δφ`.</span>
+<span class="sd">    2. **Stiff step** — propagate the spatially averaged, x-independent</span>
+<span class="sd">       (Fourier-multiplier) generator `c₀·Δ` applied to the</span>
+<span class="sd">       explicitly-corrected field. Since `c0 * lap_symbol` is a pure</span>
+<span class="sd">       Fourier multiplier, `exp(dt · c0 · Δ)` has the closed form</span>
+<span class="sd">       `exp(-dt · c0 · |k|^2)` on this grid -- applied directly via FFT</span>
+<span class="sd">       instead of rebuilding an asymptotic exponential-symbol propagator</span>
+<span class="sd">       through `build_propagator` on every step. This is both cheaper</span>
+<span class="sd">       (no symbolic recomputation per step) and *more* accurate (exact</span>
+<span class="sd">       exponential instead of an order-`n` Taylor truncation in dt);</span>
+<span class="sd">       `order` is kept only for backward compatibility and no longer</span>
+<span class="sd">       affects the stiff step.</span>
+
+<span class="sd">    This freezes the quasi-linear coefficient once per step (a Rothe-type</span>
+<span class="sd">    linearization), so accuracy in `dt` is limited by that freezing, not</span>
+<span class="sd">    by the stiff step itself, which is now exact for the frozen</span>
+<span class="sd">    (constant-coefficient) part at every step.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    phi0 : callable</span>
+<span class="sd">        Initial conformal factor, called as `phi0(X, Y)` on the</span>
+<span class="sd">        meshgrid-ed spatial coordinates; must return a real-valued array.</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time step.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of steps to take.</span>
+<span class="sd">    order : int, optional</span>
+<span class="sd">        Kept for backward compatibility; no longer affects the (now</span>
+<span class="sd">        closed-form) stiff step. Default 3.</span>
+<span class="sd">    L : float, optional</span>
+<span class="sd">        Half-width of the (periodic) spatial domain along each axis.</span>
+<span class="sd">        Default 8.0.</span>
+<span class="sd">    N : int, optional</span>
+<span class="sd">        Number of grid points per axis. Default 64.</span>
+<span class="sd">    save_every : int, optional</span>
+<span class="sd">        Save every `save_every` steps (plus the final step and `t=0`).</span>
+<span class="sd">        Default 1.</span>
+<span class="sd">    quantization : str, optional</span>
+<span class="sd">        Quantization convention used for the explicit Laplacian</span>
+<span class="sd">        evaluation. Default 'kohn-nirenberg'.</span>
+<span class="sd">    apply_backend : str, optional</span>
+<span class="sd">        Numerical application backend for the explicit Laplacian</span>
+<span class="sd">        evaluation. Default 'peetre'.</span>
+<span class="sd">    check_finite : bool, default True</span>
+<span class="sd">        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead</span>
+<span class="sd">        of silently returning a diverged trajectory.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    t_list : ndarray</span>
+<span class="sd">        Saved time points, starting at 0.</span>
+<span class="sd">    phi_list : ndarray, shape (n_saved, N, N)</span>
+<span class="sd">        Saved conformal-factor snapshots `φ(x, y, t)`; the metric at each</span>
+<span class="sd">        saved time is `g(t) = e^{2·phi_list[k]} (dx² + dy²)`.</span>
+<span class="sd">    grids : tuple of ndarray</span>
+<span class="sd">        `(x, y)` spatial grids, as returned by `make_grid_2d`.</span>
+<span class="sd">    """</span>
+    <span class="n">x_s</span><span class="p">,</span> <span class="n">y_s</span><span class="p">,</span> <span class="n">xi_s</span><span class="p">,</span> <span class="n">eta_s</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'x y xi eta'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">lap_symbol</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">xi_s</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">eta_s</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span> <span class="o">=</span> <span class="n">make_grid_2d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">'ij'</span><span class="p">)</span>
+    <span class="n">KX</span><span class="p">,</span> <span class="n">KY</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">'ij'</span><span class="p">)</span>
+    <span class="n">K2</span> <span class="o">=</span> <span class="n">KX</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">KY</span><span class="o">**</span><span class="mi">2</span>  <span class="c1"># |xi|^2 + |eta|^2, i.e. -lap_symbol on this grid</span>
+
+    <span class="n">lap_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+        <span class="n">lap_symbol</span><span class="p">,</span> <span class="p">[</span><span class="n">x_s</span><span class="p">,</span> <span class="n">y_s</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
+        <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># phi is real-valued by construction -- no need for complex dtype here.</span>
+    <span class="n">phi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">phi0</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">t_list</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
+    <span class="n">phi_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">phi</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">phi</span><span class="p">)</span>
+        <span class="n">c0</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">c</span><span class="p">))</span>
+
+        <span class="n">lap_phi</span> <span class="o">=</span> <span class="n">lap_op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="o">-</span> <span class="n">c0</span><span class="p">)</span> <span class="o">*</span> <span class="n">lap_phi</span>
+        <span class="n">phi_explicit</span> <span class="o">=</span> <span class="n">phi</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">residual</span>
+
+        <span class="c1"># Closed-form stiff step: exp(dt * c0 * Delta) is exactly the</span>
+        <span class="c1"># Fourier multiplier exp(-dt * c0 * |k|^2) for this x-independent</span>
+        <span class="c1"># generator -- apply it directly instead of rebuilding an</span>
+        <span class="c1"># asymptotic exponential-symbol propagator every step.</span>
+        <span class="n">phi_hat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">phi_explicit</span><span class="p">)</span>
+        <span class="n">phi_hat</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">dt</span> <span class="o">*</span> <span class="n">c0</span> <span class="o">*</span> <span class="n">K2</span><span class="p">)</span>
+        <span class="n">phi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft2</span><span class="p">(</span><span class="n">phi_hat</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
+
+        <span class="k">if</span> <span class="n">check_finite</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FloatingPointError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Non-finite values detected at step </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> (t=</span><span class="si">{</span><span class="n">t</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">dt</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2">); "</span>
+                <span class="s2">"reduce dt or the spatial resolution N."</span>
+            <span class="p">)</span>
+
+        <span class="n">t</span> <span class="o">+=</span> <span class="n">dt</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">%</span> <span class="n">save_every</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">==</span> <span class="n">n_steps</span><span class="p">:</span>
+            <span class="n">t_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">phi_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">phi</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">t_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">phi_list</span><span class="p">),</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">)</span></div>
+
+
+<span class="c1"># ======================================================================</span>
+<span class="c1"># Internal aliases used by the solvers (solve_first_order, etc. call </span>
+<span class="c1"># _make_grids and _run_time_loop, but the public functions lack the underscore)</span>
+<span class="c1"># ======================================================================</span>
+<span class="n">_make_grids</span> <span class="o">=</span> <span class="n">make_grids</span>
+<span class="n">_run_time_loop</span> <span class="o">=</span> <span class="n">run_time_loop</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Philippe Billet assisted by LLMs in free mode: chatGPT, Qwen, Deepseek, Gemini, Claude, le chat Mistral..</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
