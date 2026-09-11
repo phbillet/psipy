@@ -50,7 +50,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../misc.html">misc</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../propagator.html">propagator</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psiop.html">psiop package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../riemannian.html">riemannian</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../solver.html">solver</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../symplectic.html">symplectic</a></li>
@@ -109,6 +109,9 @@
 <span class="sd">* **WKB approximation** (re‑exported from `wkb`) – asymptotic solutions of the form `u ≈ A e^{iS/ε}`.</span>
 <span class="sd">* **Caustics and Maslov index** – detection of caustics (where rays focus) and computation of the associated Maslov phase shifts, crucial for correct semiclassical quantisation.</span>
 <span class="sd">* **Bohr–Sommerfeld quantisation** (1D) – semiclassical energy levels for bound states.</span>
+<span class="sd">* **Operator visualisation and interactive analysis** – a comprehensive suite for plotting symbol amplitude, phase, micro‑support, characteristic gradients, and launching interactive `ipywidgets` dashboards.</span>
+<span class="sd">* **Matrix-valued symbols and pseudospectra** – extraction of characteristic branches via eigenvalue computation for matrix operators, and visualisation of ε‑pseudospectra.</span>
+<span class="sd">* **PDE solution rendering** – rendering and animation tools for scalar, matrix, and wave equation fields in 1D and 2D space-time.</span>
 
 <span class="sd">All functions automatically detect the spatial dimension (1 or 2) from the input data, making the module usable for both one‑dimensional and two‑dimensional problems without changing the calling syntax.</span>
 
@@ -118,7 +121,7 @@
 
 <span class="sd">    X_p = ( ∂p/∂ξ , –∂p/∂x ).</span>
 
-<span class="sd">The **wavefront set** `WF(u)` is a closed conic subset of `T*ℝⁿ \ {0}` that records both the location `x` and the direction `ξ` of the singularity.  If `(x₀,ξ₀) ∉ WF(u)`, then `u` is smooth in a neighbourhood of `x₀` in the direction `ξ₀`.  The fundamental theorem of microlocal analysis states that `WF(Pu) ⊆ WF(u)` and that `WF(u) \ WF(Pu)` is contained in the characteristic variety and is invariant under the bicharacteristic flow.</span>
+<span class="sd">The **wavefront set** `WF(u)` is a closed conic subset of `T*ℝⁿ \\ {0}` that records both the location `x` and the direction `ξ` of the singularity.  If `(x₀,ξ₀) ∉ WF(u)`, then `u` is smooth in a neighbourhood of `x₀` in the direction `ξ₀`.  The fundamental theorem of microlocal analysis states that `WF(Pu) ⊆ WF(u)` and that `WF(u) \\ WF(Pu)` is contained in the characteristic variety and is invariant under the bicharacteristic flow.</span>
 
 <span class="sd">The **WKB method** seeks solutions of the form `u(x) = e^{iS(x)/ε} (a₀(x) + ε a₁(x) + …)`.  The phase `S` satisfies the eikonal equation `p(x,∇S)=0`, and the amplitudes `a_k` satisfy transport equations along bicharacteristics.  This construction breaks down at **caustics**, where rays focus; the Maslov index `μ` (a signed count of caustic crossings) provides a phase correction `e^{iμπ/2}` that restores uniformity.</span>
 
@@ -126,9 +129,13 @@
 
 <span class="sd">* Symbolically compute the characteristic variety.</span>
 <span class="sd">* Numerically integrate bicharacteristics with symplectic integrators.</span>
-<span class="sd">* Visualise the evolution of wavefront sets.</span>
+<span class="sd">* Visualise the evolution of wavefront sets, including 2D and 3D singularity animations.</span>
 <span class="sd">* Obtain semiclassical spectra via Bohr–Sommerfeld quantisation (1D).</span>
 <span class="sd">* Detect caustics and compute the Maslov index (using the `caustics` module).</span>
+<span class="sd">* Interactively explore symbol properties such as amplitude, phase, and micro-support.</span>
+<span class="sd">* Analyse matrix-valued symbols by computing their characteristic branches.</span>
+<span class="sd">* Plot ε-pseudospectra and overlay complex eigenvalues.</span>
+<span class="sd">* Render scalar, matrix, and wave PDE solutions in space-time.</span>
 
 <span class="sd">References</span>
 <span class="sd">----------</span>
@@ -157,9 +164,27 @@
 <span class="c1"># ----------------------------------------------------------------------</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_infer_dim</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Infer the dimension (1 or 2) from the symbol or a provided dim.</span>
-<span class="sd">    Relies on the presence of common variable names: &#39;x&#39;,&#39;xi&#39; for 1D,</span>
-<span class="sd">    and &#39;x&#39;,&#39;y&#39;,&#39;xi&#39;,&#39;eta&#39; for 2D.</span>
+<span class="sd">    Infer the spatial dimension (1 or 2) from a SymPy symbol or an explicit argument.</span>
+
+<span class="sd">    Relies on the presence of common variable names: &#39;x&#39;, &#39;xi&#39; for 1D,</span>
+<span class="sd">    and &#39;x&#39;, &#39;y&#39;, &#39;xi&#39;, &#39;eta&#39; for 2D.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : sympy.Expr</span>
+<span class="sd">        The symbolic expression representing the principal symbol.</span>
+<span class="sd">    dim : int, optional</span>
+<span class="sd">        Explicit dimension (1 or 2). If provided, overrides inference.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    int</span>
+<span class="sd">        The inferred or provided dimension (1 or 2).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `dim` is provided but is not 1 or 2.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
@@ -549,27 +574,32 @@
 <a class="viewcode-back" href="../microlocal.html#microlocal.bohr_sommerfeld_quantization">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">bohr_sommerfeld_quantization</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">n_max</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">x_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">hbar</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">E_range</span><span class="o">=</span><span class="p">(</span><span class="mf">1e-06</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">)):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Bohr–Sommerfeld quantisation for 1D bound states.</span>
+<span class="sd">    Compute Bohr-Sommerfeld quantization for 1D bound states.</span>
 
-<span class="sd">    (1/(2π)) ∮ p dx = ℏ(n + α)   with α = 1/2 (Maslov index).</span>
+<span class="sd">    Solves (1/(2π)) ∮ p dx = ℏ(n + α) with α = 1/2 (Maslov index).</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H : sympy expression</span>
-<span class="sd">        Hamiltonian H(x,p).</span>
-<span class="sd">    n_max : int</span>
-<span class="sd">        Maximum quantum number.</span>
-<span class="sd">    x_range : tuple</span>
-<span class="sd">        Spatial range for turning points.</span>
-<span class="sd">    hbar : float</span>
-<span class="sd">        Planck constant.</span>
-<span class="sd">    method : str</span>
-<span class="sd">        Ignored, kept for compatibility.</span>
+<span class="sd">    H : sympy.Expr</span>
+<span class="sd">        Hamiltonian H(x,p) as a symbolic expression.</span>
+<span class="sd">    n_max : int, optional</span>
+<span class="sd">        Maximum quantum number to compute. Default is 10.</span>
+<span class="sd">    x_range : tuple of float, optional</span>
+<span class="sd">        Spatial range for finding turning points. Default is (-10, 10).</span>
+<span class="sd">    hbar : float, optional</span>
+<span class="sd">        Reduced Planck constant. Default is 1.0.</span>
+<span class="sd">    E_range : tuple of float, optional</span>
+<span class="sd">        Energy range to scan for quantized levels. Default is (1e-6, 50.0).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    dict</span>
-<span class="sd">        Quantised energies and actions.</span>
+<span class="sd">        A dictionary containing:</span>
+<span class="sd">        - &#39;n&#39; : numpy.ndarray (Quantum numbers)</span>
+<span class="sd">        - &#39;E_n&#39; : numpy.ndarray (Quantized energy levels)</span>
+<span class="sd">        - &#39;actions&#39; : numpy.ndarray (Corresponding classical actions)</span>
+<span class="sd">        - &#39;hbar&#39; : float (The reduced Planck constant used)</span>
+<span class="sd">        - &#39;alpha&#39; : float (The Maslov index correction used, 0.5)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x p&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">E_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;E&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -628,7 +658,28 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Find caustics (envelope of bicharacteristics) in 1D.</span>
 
-<span class="sd">    Simplified condition: where d²p/dξ² ≈ 0 (turning points in frequency).</span>
+<span class="sd">    Uses a simplified condition: identifies regions where d²p/dξ² ≈ 0,</span>
+<span class="sd">    which correspond to turning points in frequency.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : sympy.Expr</span>
+<span class="sd">        The 1D principal symbol p(x, ξ).</span>
+<span class="sd">    x_range : tuple of float</span>
+<span class="sd">        The (min, max) range for the spatial variable x.</span>
+<span class="sd">    xi_range : tuple of float</span>
+<span class="sd">        The (min, max) range for the frequency variable ξ.</span>
+<span class="sd">    resolution : int, optional</span>
+<span class="sd">        Number of grid points per axis for the evaluation mesh. Default is 100.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary containing:</span>
+<span class="sd">        - &#39;x_grid&#39; : numpy.ndarray (2D meshgrid of x coordinates)</span>
+<span class="sd">        - &#39;xi_grid&#39; : numpy.ndarray (2D meshgrid of ξ coordinates)</span>
+<span class="sd">        - &#39;caustic_indicator&#39; : numpy.ndarray (Absolute value of d²p/dξ²)</span>
+<span class="sd">        - &#39;threshold&#39; : float (10th percentile of the indicator, useful for masking)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">d2p</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
@@ -645,6 +696,28 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">propagate_singularity</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_sing_support</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Propagate singular support along bicharacteristics.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : sympy.Expr</span>
+<span class="sd">        The principal symbol.</span>
+<span class="sd">    initial_sing_support : list of tuple</span>
+<span class="sd">        List of initial phase-space points (x₀, ξ₀) for 1D or </span>
+<span class="sd">        (x₀, y₀, ξ₀, η₀) for 2D.</span>
+<span class="sd">    tspan : tuple of float</span>
+<span class="sd">        The (t_start, t_end) integration interval.</span>
+<span class="sd">    dim : int, optional</span>
+<span class="sd">        Spatial dimension (1 or 2). Inferred from `symbol` if None.</span>
+<span class="sd">    n_samples : int, optional</span>
+<span class="sd">        Currently unused. Kept for API compatibility.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary containing:</span>
+<span class="sd">        - &#39;trajectories&#39; : list of dict (Bicharacteristic flow results)</span>
+<span class="sd">        - &#39;endpoints&#39; : list of tuple (Final phase-space coordinates)</span>
+<span class="sd">        - &#39;initial&#39; : list of tuple (The initial seed points provided)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">dim</span> <span class="o">=</span> <span class="n">_infer_dim</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
     <span class="n">trajectories</span> <span class="o">=</span> <span class="p">[]</span>
@@ -662,10 +735,30 @@
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_characteristic_set">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_characteristic_set</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">xi_range</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Plot the characteristic variety.</span>
+<span class="sd">    Plot the characteristic variety (zero set of the principal symbol).</span>
 
-<span class="sd">    For 1D: contour p(x,ξ)=0 in the (x,ξ) plane.</span>
-<span class="sd">    For 2D: a slice with fixed (ξ,η); you must provide xi0, eta0 as kwargs.</span>
+<span class="sd">    For 1D: plots the contour p(x,ξ)=0 in the (x,ξ) phase plane.</span>
+<span class="sd">    For 2D: plots a slice with fixed (ξ,η); you must provide `xi0` and `eta0` via kwargs.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : sympy.Expr</span>
+<span class="sd">        The principal symbol.</span>
+<span class="sd">    x_range : tuple of float</span>
+<span class="sd">        Range for the first spatial variable (x).</span>
+<span class="sd">    xi_range : tuple of float</span>
+<span class="sd">        Range for the second spatial variable (y) in 2D, or frequency (ξ) in 1D.</span>
+<span class="sd">    dim : int, optional</span>
+<span class="sd">        Dimension (1 or 2). Inferred from `symbol` if None.</span>
+<span class="sd">    resolution : int, optional</span>
+<span class="sd">        Grid resolution for plotting. Default is 200.</span>
+<span class="sd">    **kwargs : dict</span>
+<span class="sd">        Additional arguments. For 2D, expects `xi0` and `eta0` (floats).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">        Displays a matplotlib plot.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">dim</span> <span class="o">=</span> <span class="n">_infer_dim</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -716,10 +809,31 @@
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_bicharacteristics">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_bicharacteristics</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_points</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;position&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Plot bicharacteristic curves.</span>
+<span class="sd">    Plot bicharacteristic curves (Hamiltonian flow trajectories).</span>
 
-<span class="sd">    For 1D: plots in (x,ξ) plane.</span>
-<span class="sd">    For 2D: projection can be &#39;position&#39; (x-y), &#39;frequency&#39; (ξ-η) or &#39;mixed&#39; (x-ξ).</span>
+<span class="sd">    For 1D: plots trajectories in the (x,ξ) phase plane.</span>
+<span class="sd">    For 2D: projection can be &#39;position&#39; (x-y), &#39;frequency&#39; (ξ-η), or &#39;mixed&#39; (x-ξ).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : sympy.Expr</span>
+<span class="sd">        The principal symbol.</span>
+<span class="sd">    initial_points : list of tuple</span>
+<span class="sd">        List of initial conditions for the flow.</span>
+<span class="sd">    tspan : tuple of float</span>
+<span class="sd">        The (t_start, t_end) integration interval.</span>
+<span class="sd">    dim : int, optional</span>
+<span class="sd">        Dimension (1 or 2). Inferred from `initial_points` if None.</span>
+<span class="sd">    projection : str, optional</span>
+<span class="sd">        Projection plane for 2D plots. One of &#39;position&#39;, &#39;frequency&#39;, or &#39;mixed&#39;.</span>
+<span class="sd">        Default is &#39;position&#39;.</span>
+<span class="sd">    **kwargs : dict</span>
+<span class="sd">        Additional arguments passed to `bicharacteristic_flow`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">        Displays a matplotlib plot.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">dim</span> <span class="o">=</span> <span class="n">_infer_dim</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
     <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
@@ -1049,8 +1163,41 @@
     <span class="n">Z</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">xi_grid</span><span class="p">,</span> <span class="n">eta_grid</span><span class="p">,</span> <span class="s1">&#39;$</span><span class="se">\\</span><span class="s1">xi$&#39;</span><span class="p">,</span> <span class="s1">&#39;$</span><span class="se">\\</span><span class="s1">eta$&#39;</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_render_field</span><span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;pcolormesh&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">,</span> <span class="n">cbar_label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s1">&#39;$</span><span class="se">\\</span><span class="s1">xi$&#39;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">contour_color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">grid</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;One shared renderer for pcolormesh / contourf / contour panels.&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_render_field</span><span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;pcolormesh&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">,</span> <span class="n">cbar_label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+                 <span class="n">xlabel</span><span class="o">=</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s1">&#39;$</span><span class="se">\\</span><span class="s1">xi$&#39;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> 
+                 <span class="n">contour_color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">grid</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Render a 2D scalar field using pcolormesh, contourf, or contour.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ax1, ax2 : numpy.ndarray</span>
+<span class="sd">        2D coordinate arrays for the X and Y axes.</span>
+<span class="sd">    Z : numpy.ndarray</span>
+<span class="sd">        2D array of scalar values to plot.</span>
+<span class="sd">    style : str, optional</span>
+<span class="sd">        Plotting style: &#39;pcolormesh&#39;, &#39;contourf&#39;, or &#39;contour&#39;. Default is &#39;pcolormesh&#39;.</span>
+<span class="sd">    cmap : str, optional</span>
+<span class="sd">        Matplotlib colormap name. Default is &#39;viridis&#39;.</span>
+<span class="sd">    cbar_label : str, optional</span>
+<span class="sd">        Label for the colorbar.</span>
+<span class="sd">    xlabel, ylabel : str, optional</span>
+<span class="sd">        Axis labels.</span>
+<span class="sd">    title : str, optional</span>
+<span class="sd">        Plot title.</span>
+<span class="sd">    levels : int or list, optional</span>
+<span class="sd">        Number of contour levels or specific levels. Default is 50.</span>
+<span class="sd">    contour_color : str, optional</span>
+<span class="sd">        Color for contour lines if `style=&#39;contour&#39;`. Default is &#39;red&#39;.</span>
+<span class="sd">    grid : bool, optional</span>
+<span class="sd">        Whether to display a grid. Default is False.</span>
+<span class="sd">    show : bool, optional</span>
+<span class="sd">        Whether to call `plt.show()`. Default is True.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s1">&#39;pcolormesh&#39;</span><span class="p">:</span>
         <span class="n">im_</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">shading</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im_</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">cbar_label</span><span class="p">)</span>
@@ -1177,10 +1324,38 @@
 <div class="viewcode-block" id="visualize_fiber">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_fiber">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">visualize_fiber</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot the cotangent fiber structure at a fixed spatial point (x0[, y0]).</span>
-<span class="sd">    See _slice_grid/_render_field docstrings for the shared implementation.</span>
-<span class="sd">    NOTE: original signature has no eta_grid param -- 2D reuses xi_grid</span>
-<span class="sd">    for both frequency axes, matching the original behavior exactly.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot the cotangent fiber structure at a fixed spatial point (x₀[, y₀]).</span>
+
+<span class="sd">    This visualization shows how the symbol p(x, ξ) behaves on the cotangent fiber </span>
+<span class="sd">    above a fixed spatial point. In microlocal analysis, this provides insight into </span>
+<span class="sd">    the frequency content of the operator at that location.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed.</span>
+<span class="sd">        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.</span>
+<span class="sd">    x_grid : ndarray</span>
+<span class="sd">        Spatial grid values (1D) for evaluation in 1D case.</span>
+<span class="sd">    xi_grid : ndarray</span>
+<span class="sd">        Frequency grid values (1D) for evaluation in both 1D and 2D cases.</span>
+<span class="sd">    x0 : float, optional</span>
+<span class="sd">        Fixed x-coordinate of the base point in space (1D or 2D).</span>
+<span class="sd">    y0 : float, optional</span>
+<span class="sd">        Fixed y-coordinate of the base point in space (2D only).</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - In 1D: Displays |p(x, ξ)| over the (x, ξ) phase plane near the fixed point.</span>
+<span class="sd">    - In 2D: Fixes (x₀, y₀) and evaluates p(x₀, y₀, ξ, η), showing the fiber over that point.</span>
+<span class="sd">    - The color map represents the magnitude of the symbol, highlighting regions where it vanishes or becomes singular.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If called in 2D with missing or improperly formatted grids.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">Z</span> <span class="o">=</span> <span class="n">_slice_grid</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="s1">&#39;freq&#39;</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="n">xi_grid</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">)</span>
     <span class="n">title</span> <span class="o">=</span> <span class="s1">&#39;Cotangent Fiber Structure&#39;</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;Cotangent Fiber at x=</span><span class="si">{</span><span class="n">x0</span><span class="si">}</span><span class="s1">, y=</span><span class="si">{</span><span class="n">y0</span><span class="si">}</span><span class="s1">&#39;</span>
     <span class="n">_render_field</span><span class="p">(</span><span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">Z</span><span class="p">),</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;contourf&#39;</span><span class="p">,</span> <span class="n">cbar_label</span><span class="o">=</span><span class="s1">&#39;|Symbol|&#39;</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="n">l1</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="n">l2</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">)</span></div>
@@ -1189,7 +1364,32 @@
 <div class="viewcode-block" id="visualize_symbol_amplitude">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_symbol_amplitude">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">visualize_symbol_amplitude</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Display |p(x, xi)| (1D) or |p(x, y, xi0, eta0)| (2D) as a color map.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Display the modulus |p(x, ξ)| or |p(x, y, ξ₀, η₀)| as a color map.</span>
+
+<span class="sd">    This method visualizes the amplitude of the pseudodifferential operator&#39;s symbol </span>
+<span class="sd">    in either 1D or 2D spatial configuration. In 2D, the frequency variables are fixed </span>
+<span class="sd">    to specified values (ξ₀, η₀) for visualization purposes.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed.</span>
+<span class="sd">        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.</span>
+<span class="sd">    x_grid, y_grid : ndarray</span>
+<span class="sd">        Spatial grids over which to evaluate the symbol. y_grid is optional and used only in 2D.</span>
+<span class="sd">    xi_grid, eta_grid : ndarray</span>
+<span class="sd">        Frequency grids. In 2D, these define the domain over which the symbol is evaluated,</span>
+<span class="sd">        but the visualization fixes ξ = ξ₀ and η = η₀.</span>
+<span class="sd">    xi0, eta0 : float, optional</span>
+<span class="sd">        Fixed frequency values for slicing in 2D visualization. Defaults to zero.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - In 1D: Visualizes |p(x, ξ)| over the (x, ξ) grid.</span>
+<span class="sd">    - In 2D: Visualizes |p(x, y, ξ₀, η₀)| at fixed frequencies ξ₀ and η₀.</span>
+<span class="sd">    - The color intensity represents the magnitude of the symbol, highlighting regions where the symbol is large or small.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">kind</span> <span class="o">=</span> <span class="s1">&#39;freq&#39;</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="s1">&#39;space&#39;</span>
     <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">Z</span> <span class="o">=</span> <span class="n">_slice_grid</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">eta_grid</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">)</span>
     <span class="n">title</span> <span class="o">=</span> <span class="s1">&#39;Symbol Amplitude |p(x, ξ)|&#39;</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;Symbol Amplitude at ξ=</span><span class="si">{</span><span class="n">xi0</span><span class="si">}</span><span class="s1">, η=</span><span class="si">{</span><span class="n">eta0</span><span class="si">}</span><span class="s1">&#39;</span>
@@ -1199,7 +1399,39 @@
 <div class="viewcode-block" id="visualize_phase">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_phase">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">visualize_phase</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot arg(p(x, xi)) (1D) or arg(p(x, y, xi0, eta0)) (2D).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot the phase (argument) of the pseudodifferential operator&#39;s symbol p(x, ξ) or p(x, y, ξ, η).</span>
+
+<span class="sd">    This visualization helps in understanding the oscillatory behavior and regularity </span>
+<span class="sd">    properties of the operator in phase space. The phase is displayed modulo 2π using </span>
+<span class="sd">    a cyclic colormap (&#39;twilight&#39;) to emphasize its periodic nature.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed.</span>
+<span class="sd">        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.</span>
+<span class="sd">    x_grid : ndarray</span>
+<span class="sd">        1D array of spatial coordinates (x).</span>
+<span class="sd">    xi_grid : ndarray</span>
+<span class="sd">        1D array of frequency coordinates (ξ).</span>
+<span class="sd">    y_grid : ndarray, optional</span>
+<span class="sd">        2D spatial grid for y-coordinate (in 2D problems). Default is None.</span>
+<span class="sd">    eta_grid : ndarray, optional</span>
+<span class="sd">        2D frequency grid for η (in 2D problems). Not used directly but kept for API consistency.</span>
+<span class="sd">    xi0 : float, optional</span>
+<span class="sd">        Fixed value of ξ for slicing in 2D visualization. Default is 0.0.</span>
+<span class="sd">    eta0 : float, optional</span>
+<span class="sd">        Fixed value of η for slicing in 2D visualization. Default is 0.0.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">    - In 1D: Displays arg(p(x, ξ)) over the (x, ξ) phase plane.</span>
+<span class="sd">    - In 2D: Displays arg(p(x, y, ξ₀, η₀)) for fixed frequency values (ξ₀, η₀).</span>
+<span class="sd">    - Uses plt.pcolormesh with &#39;twilight&#39; colormap to represent angles from -π to π.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">    - NotImplementedError: If the spatial dimension is not 1D or 2D.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">kind</span> <span class="o">=</span> <span class="s1">&#39;freq&#39;</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="s1">&#39;space&#39;</span>
     <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">Z</span> <span class="o">=</span> <span class="n">_slice_grid</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">eta_grid</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">)</span>
     <span class="n">title</span> <span class="o">=</span> <span class="s1">&#39;Phase Portrait (arg p(x, ξ))&#39;</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;Phase Portrait at ξ=</span><span class="si">{</span><span class="n">xi0</span><span class="si">}</span><span class="s1">, η=</span><span class="si">{</span><span class="n">eta0</span><span class="si">}</span><span class="s1">&#39;</span>
@@ -1209,8 +1441,43 @@
 <div class="viewcode-block" id="visualize_characteristic_set">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_characteristic_set">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_set</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="p">[</span><span class="mf">0.1</span><span class="p">]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Visualize the characteristic set p(x, xi) ~= 0 (1D) or the (xi, eta)</span>
-<span class="sd">    slice at fixed (x0, y0) (2D).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Visualize the characteristic set of the pseudo-differential symbol, defined as the approximate zero set p(x, ξ) ≈ 0.</span>
+
+<span class="sd">    In microlocal analysis, the characteristic set is the locus of points in phase space (x, ξ) where the symbol p(x, ξ) vanishes,</span>
+<span class="sd">    playing a key role in understanding propagation of singularities.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed.</span>
+<span class="sd">        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.</span>
+<span class="sd">    x_grid : ndarray</span>
+<span class="sd">        Spatial grid values (1D array) for plotting in 1D or evaluation point in 2D.</span>
+<span class="sd">    xi_grid : ndarray</span>
+<span class="sd">        Frequency variable grid values (1D array) used to construct the frequency domain.</span>
+<span class="sd">    x0 : float, optional</span>
+<span class="sd">        Fixed spatial coordinate in 2D case for evaluating the symbol at a specific x position.</span>
+<span class="sd">    y0 : float, optional</span>
+<span class="sd">        Fixed spatial coordinate in 2D case for evaluating the symbol at a specific y position.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - For 1D, this method plots the contour of |p(x, ξ)| = ε with ε = 1e-5 over the (x, ξ) plane.</span>
+<span class="sd">    - For 2D, it evaluates the symbol at fixed (x₀, y₀) and plots the characteristic set in the (ξ, η) frequency plane.</span>
+<span class="sd">    - This visualization helps identify directions of degeneracy or hypoellipticity of the operator.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If called on a solver with dimensionality other than 1D or 2D.</span>
+
+<span class="sd">    Displays</span>
+<span class="sd">    ------</span>
+<span class="sd">    A matplotlib contour plot showing either:</span>
+<span class="sd">        - The characteristic curve in the (x, ξ) phase plane (1D),</span>
+<span class="sd">        - The characteristic surface slice in the (ξ, η) frequency plane at (x₀, y₀) (2D).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Only 1D/2D characteristic sets supported.&#39;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">eta_grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1223,9 +1490,44 @@
 <div class="viewcode-block" id="visualize_characteristic_gradient">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_characteristic_gradient">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_gradient</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Visualize |grad p| in phase space. NOTE: both the 1D and 2D</span>
-<span class="sd">    branches now consistently use abs(.)**2 in the gradient norm (the</span>
-<span class="sd">    original 1D branch omitted the abs(), inconsistently with 2D).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Visualize the norm of the gradient of the symbol in phase space.</span>
+<span class="sd">    </span>
+<span class="sd">    This method computes the magnitude of the gradient |∇p| of a pseudo-differential </span>
+<span class="sd">    symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D. The resulting colormap reveals </span>
+<span class="sd">    regions where the symbol varies rapidly or remains nearly stationary, </span>
+<span class="sd">    which is particularly useful for analyzing characteristic sets.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed.</span>
+<span class="sd">        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.</span>
+<span class="sd">    x_grid : numpy.ndarray</span>
+<span class="sd">        1D array of spatial coordinates for the x-direction.</span>
+<span class="sd">    xi_grid : numpy.ndarray</span>
+<span class="sd">        1D array of frequency coordinates (ξ).</span>
+<span class="sd">    y_grid : numpy.ndarray, optional</span>
+<span class="sd">        1D array of spatial coordinates for the y-direction (used in 2D mode). Default is None.</span>
+<span class="sd">    eta_grid : numpy.ndarray, optional</span>
+<span class="sd">        1D array of frequency coordinates (η) for the 2D case. Default is None.</span>
+<span class="sd">    x0 : float, optional</span>
+<span class="sd">        Fixed x-coordinate for evaluating the symbol in 2D. Default is 0.0.</span>
+<span class="sd">    y0 : float, optional</span>
+<span class="sd">        Fixed y-coordinate for evaluating the symbol in 2D. Default is 0.0.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">        Displays a 2D colormap of |∇p| over the relevant phase-space domain.</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - In 1D, the full gradient ∇p = (∂ₓp, ∂ξp) is computed over the (x, ξ) grid.</span>
+<span class="sd">    - In 2D, the gradient ∇p = (∂ξp, ∂ηp) is computed at a fixed spatial point (x₀, y₀) over the (ξ, η) grid.</span>
+<span class="sd">    - Numerical differentiation is performed using `np.gradient`.</span>
+<span class="sd">    - High values of |∇p| indicate rapid variation of the symbol, while low values typically suggest characteristic regions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">Z</span> <span class="o">=</span> <span class="n">_slice_grid</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="s1">&#39;freq&#39;</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">eta_grid</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">)</span>
     <span class="n">title</span> <span class="o">=</span> <span class="s1">&#39;Gradient Norm (High Near Zeros)&#39;</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;Gradient Norm at x=</span><span class="si">{</span><span class="n">x0</span><span class="si">}</span><span class="s1">, y=</span><span class="si">{</span><span class="n">y0</span><span class="si">}</span><span class="s1">&#39;</span>
     <span class="n">_render_field</span><span class="p">(</span><span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">_grad_norm</span><span class="p">(</span><span class="n">Z</span><span class="p">),</span> <span class="n">style</span><span class="o">=</span><span class="s1">&#39;pcolormesh&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;inferno&#39;</span><span class="p">,</span> <span class="n">cbar_label</span><span class="o">=</span><span class="s1">&#39;|∇p|&#39;</span><span class="p">,</span> <span class="n">xlabel</span><span class="o">=</span><span class="n">l1</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="n">l2</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">grid</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
@@ -1234,9 +1536,46 @@
 <div class="viewcode-block" id="plot_hamiltonian_flow">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_hamiltonian_flow">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_hamiltonian_flow</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">show_field</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Integrate and plot the Hamiltonian trajectories of the symbol in</span>
-<span class="sd">    phase space. Delegates to the shared `integrate_singularity` engine</span>
-<span class="sd">    instead of re-deriving the Hamiltonian vector field inline.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Integrate and plot the Hamiltonian trajectories of the symbol in phase space.</span>
+
+<span class="sd">    This method numerically integrates the Hamiltonian vector field derived from </span>
+<span class="sd">    the operator&#39;s symbol to visualize how singularities propagate under the flow. </span>
+<span class="sd">    It supports both 1D and 2D problems.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed.</span>
+<span class="sd">        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.</span>
+<span class="sd">    x0, xi0 : float</span>
+<span class="sd">        Initial position and frequency (momentum) in 1D.</span>
+<span class="sd">    y0, eta0 : float, optional</span>
+<span class="sd">        Initial position and frequency in 2D; defaults to zero.</span>
+<span class="sd">    tmax : float</span>
+<span class="sd">        Final integration time for the ODE solver.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Number of time steps used in the integration.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - The Hamiltonian vector field is obtained from the symplectic flow of the symbol.</span>
+<span class="sd">    - If the field is complex-valued, only its real part is used for integration.</span>
+<span class="sd">    - In 1D, the trajectory is plotted in (x, ξ) phase space.</span>
+<span class="sd">    - In 2D, the spatial trajectory (x(t), y(t)) is shown along with instantaneous </span>
+<span class="sd">      momentum vectors (ξ(t), η(t)) using a quiver plot.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If the spatial dimension is not 1D or 2D.</span>
+
+<span class="sd">    Displays</span>
+<span class="sd">    --------</span>
+<span class="sd">    matplotlib plot</span>
+<span class="sd">        Phase space trajectory(ies) showing the evolution of position and momentum </span>
+<span class="sd">        under the Hamiltonian dynamics.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">x0v</span> <span class="o">=</span> <span class="p">[</span><span class="n">x0</span><span class="p">]</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">[</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">]</span>
     <span class="n">xi0v</span> <span class="o">=</span> <span class="p">[</span><span class="n">xi0</span><span class="p">]</span> <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">[</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="p">]</span>
     <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">trajs</span> <span class="o">=</span> <span class="n">integrate_singularity</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0v</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0v</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="n">tmax</span><span class="p">,</span> <span class="n">n_frames</span><span class="o">=</span><span class="n">n_steps</span><span class="p">)</span>
@@ -1277,16 +1616,75 @@
 <div class="viewcode-block" id="plot_symplectic_vector_field">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_symplectic_vector_field">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_symplectic_vector_field</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Quiver plot of the symplectic vector field (dp/dxi, -dp/dx). 1D only.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Visualize the symplectic vector field (Hamiltonian vector field) associated with the operator&#39;s symbol.</span>
+
+<span class="sd">    The plotted vector field corresponds to (∂_ξ p, -∂_x p), where p(x, ξ) is the principal symbol </span>
+<span class="sd">    of the pseudo-differential operator. This field governs the bicharacteristic flow in phase space.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed.</span>
+<span class="sd">        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.</span>
+<span class="sd">    xlim : tuple of float</span>
+<span class="sd">        Range for spatial variable x, as (x_min, x_max).</span>
+<span class="sd">    klim : tuple of float</span>
+<span class="sd">        Range for frequency variable ξ, as (ξ_min, ξ_max).</span>
+<span class="sd">    density : int</span>
+<span class="sd">        Number of grid points per axis for the visualization grid.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If called on a 2D operator (currently only 1D implementation available).</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - Only supports one-dimensional operators.</span>
+<span class="sd">    - Uses symbolic differentiation to compute ∂_ξ p and ∂_x p.</span>
+<span class="sd">    - Numerical evaluation is done via lambdify with NumPy backend.</span>
+<span class="sd">    - Visualization uses matplotlib quiver plot to show vector directions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_quiver_field</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xlim</span><span class="p">,</span> <span class="n">klim</span><span class="p">,</span> <span class="n">density</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">p</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">:</span> <span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="o">-</span><span class="n">diff</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">x</span><span class="p">)),</span> <span class="s1">&#39;Symplectic Vector Field (1D)&#39;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="visualize_micro_support">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_micro_support">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">visualize_micro_support</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Visualize 1/|p(x, xi)| to highlight regions where the symbol is</span>
-<span class="sd">    near zero. NOTE: no longer restricted to 1D -- the shared grid/render</span>
-<span class="sd">    helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Visualize the micro-support of the operator by plotting the inverse of the symbol magnitude 1 / |p(x, ξ)|.</span>
+
+<span class="sd">    The micro-support provides insight into the singularities of a pseudo-differential operator </span>
+<span class="sd">    in phase space (x, ξ). Regions where |p(x, ξ)| is small correspond to large values in 1/|p(x, ξ)|,</span>
+<span class="sd">    highlighting areas of significant operator influence or singularity.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed.</span>
+<span class="sd">        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.</span>
+<span class="sd">    xlim : tuple</span>
+<span class="sd">        Spatial domain limits (x_min, x_max).</span>
+<span class="sd">    klim : tuple</span>
+<span class="sd">        Frequency domain limits (ξ_min, ξ_max).</span>
+<span class="sd">    threshold : float</span>
+<span class="sd">        Threshold below which |p(x, ξ)| is considered effectively zero; used for numerical stability.</span>
+<span class="sd">    density : int</span>
+<span class="sd">        Number of grid points along each axis for visualization resolution.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If called on a solver with dimension greater than 1 (only 1D visualization is supported).</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - This method evaluates the symbol p(x, ξ) over a grid and plots its reciprocal to emphasize </span>
+<span class="sd">      regions where the symbol is near zero.</span>
+<span class="sd">    - A small constant (1e-10) is added to the denominator to avoid division by zero.</span>
+<span class="sd">    - The resulting plot helps identify characteristic sets.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">x_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">*</span><span class="n">xlim</span><span class="p">,</span> <span class="n">density</span><span class="p">)</span>
     <span class="n">xi_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">*</span><span class="n">klim</span><span class="p">,</span> <span class="n">density</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -1300,8 +1698,113 @@
 <div class="viewcode-block" id="group_velocity_field">
 <a class="viewcode-back" href="../microlocal.html#microlocal.group_velocity_field">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">group_velocity_field</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Quiver plot of the group velocity field (1, dp/dxi). 1D only.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot the group velocity field ∇_ξ p(x, ξ) for 1D pseudo-differential operators.</span>
+
+<span class="sd">    The group velocity represents the speed at which waves of different frequencies propagate </span>
+<span class="sd">    in a dispersive medium. It is defined as the gradient of the symbol p(x, ξ) with respect </span>
+<span class="sd">    to the frequency variable ξ.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed.</span>
+<span class="sd">        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.</span>
+<span class="sd">    xlim : tuple of float</span>
+<span class="sd">        Spatial domain limits (x-axis).</span>
+<span class="sd">    klim : tuple of float</span>
+<span class="sd">        Frequency domain limits (ξ-axis).</span>
+<span class="sd">    density : int</span>
+<span class="sd">        Number of grid points per axis used for visualization.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If called on a 2D operator, since this visualization is only implemented for 1D.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - This method visualizes the vector field (∂p/∂ξ) in phase space.</span>
+<span class="sd">    - Used for analyzing wave propagation properties and dispersion relations.</span>
+<span class="sd">    - Requires symbolic expression self.expr depending on x and ξ.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_quiver_field</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xlim</span><span class="p">,</span> <span class="n">klim</span><span class="p">,</span> <span class="n">density</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">p</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">:</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">diff</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">xi</span><span class="p">)),</span> <span class="s1">&#39;Group Velocity Field (1D)&#39;</span><span class="p">)</span></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_default_wavefront_seeds</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">n_seeds</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.15</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Auto-generate seed singularities for visualize_wavefront_set.</span>
+
+<span class="sd">    1D: a fan of frequencies xi in [xi0 - spread, xi0 + spread] at the fixed</span>
+<span class="sd">    point x0 (mirrors the &quot;vertical slice&quot; seeding used for Example 11 in</span>
+<span class="sd">    the microlocal notebook).</span>
+<span class="sd">    2D: a small circle of point-source singularities of radius `radius`</span>
+<span class="sd">    around (x0, y0), with outward covectors scaled to |(xi0, eta0)| (mirrors</span>
+<span class="sd">    the point-source seeding of Example 12).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xi0</span> <span class="o">-</span> <span class="n">spread</span><span class="p">,</span> <span class="n">xi0</span> <span class="o">+</span> <span class="n">spread</span><span class="p">,</span> <span class="n">n_seeds</span><span class="p">)</span>
+        <span class="n">nonzero</span> <span class="o">=</span> <span class="n">xi_vals</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">xi_vals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-06</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nonzero</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">xi_vals</span> <span class="o">=</span> <span class="n">nonzero</span>
+        <span class="k">return</span> <span class="p">[(</span><span class="n">x0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">xi</span><span class="p">))</span> <span class="k">for</span> <span class="n">xi</span> <span class="ow">in</span> <span class="n">xi_vals</span><span class="p">]</span>
+    <span class="n">angles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">n_seeds</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">mag</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="p">))</span> <span class="ow">or</span> <span class="mf">1.0</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">radius</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">y0</span> <span class="o">+</span> <span class="n">radius</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">mag</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">mag</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">a</span><span class="p">))</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">angles</span><span class="p">]</span>
+
+<div class="viewcode-block" id="visualize_wavefront_set">
+<a class="viewcode-back" href="../microlocal.html#microlocal.visualize_wavefront_set">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_wavefront_set</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">seeds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tspan</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">),</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;cotangent&#39;</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> 
+                            <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;plasma&#39;</span><span class="p">,</span> <span class="n">show_flow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_endpoints</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> 
+                            <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">n_seeds</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.15</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Visualize the wavefront set WF(u) obtained by propagating seed singularities </span>
+<span class="sd">    along the bicharacteristics of the operator&#39;s symbol.</span>
+
+<span class="sd">    If `seeds` is not given, a default fan/point-source is built from </span>
+<span class="sd">    (x0, y0) and (xi0, eta0).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator.</span>
+<span class="sd">    seeds : list of tuple, optional</span>
+<span class="sd">        Seed points for the wavefront set. If None, auto-generated.</span>
+<span class="sd">    tspan : tuple of float, optional</span>
+<span class="sd">        Integration time interval (t_start, t_end). Default is (0, 3.0).</span>
+<span class="sd">    projection : str, optional</span>
+<span class="sd">        Subspace to visualize. 1D: &#39;cotangent&#39;, &#39;position&#39;. </span>
+<span class="sd">        2D: &#39;cotangent&#39;, &#39;position&#39;, &#39;frequency&#39;, &#39;mixed_x&#39;, &#39;mixed_y&#39;, &#39;full&#39;.</span>
+<span class="sd">    n_steps : int, optional</span>
+<span class="sd">        Number of integration steps per bicharacteristic. Default is 500.</span>
+<span class="sd">    cmap : str, optional</span>
+<span class="sd">        Matplotlib colormap. Default is &#39;plasma&#39;.</span>
+<span class="sd">    show_flow : bool, optional</span>
+<span class="sd">        Whether to draw the full bicharacteristic strip. Default is True.</span>
+<span class="sd">    show_endpoints : bool, optional</span>
+<span class="sd">        Whether to mark initial and final points. Default is True.</span>
+<span class="sd">    title : str, optional</span>
+<span class="sd">        Figure title.</span>
+<span class="sd">    x0, y0 : float, optional</span>
+<span class="sd">        Base spatial coordinates for auto-generated seeds.</span>
+<span class="sd">    xi0, eta0 : float, optional</span>
+<span class="sd">        Base frequency coordinates for auto-generated seeds.</span>
+<span class="sd">    spread : float, optional</span>
+<span class="sd">        Frequency spread for 1D auto-generated seeds.</span>
+<span class="sd">    n_seeds : int, optional</span>
+<span class="sd">        Number of seed points to generate if `seeds` is None.</span>
+<span class="sd">    radius : float, optional</span>
+<span class="sd">        Radius for 2D point-source auto-generated seeds.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fig : matplotlib.figure.Figure</span>
+<span class="sd">        The generated figure.</span>
+<span class="sd">    axes : matplotlib.axes.Axes or ndarray of Axes</span>
+<span class="sd">        The axes object(s).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">seeds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">seeds</span> <span class="o">=</span> <span class="n">_default_wavefront_seeds</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="n">spread</span><span class="p">,</span> <span class="n">n_seeds</span><span class="o">=</span><span class="n">n_seeds</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">radius</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">plot_wavefront_set</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">seeds</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">show_flow</span><span class="o">=</span><span class="n">show_flow</span><span class="p">,</span> <span class="n">show_endpoints</span><span class="o">=</span><span class="n">show_endpoints</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="animate_operator_singularity">
@@ -1322,11 +1825,49 @@
 <div class="viewcode-block" id="interactive_symbol_analysis">
 <a class="viewcode-back" href="../microlocal.html#microlocal.interactive_symbol_analysis">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">interactive_symbol_analysis</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">ylim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">xi_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">eta_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Launch an ipywidgets dashboard for symbol exploration. Same modes,</span>
-<span class="sd">    same sliders, same defaults as before -- rewritten as a mode-table</span>
-<span class="sd">    dispatcher that delegates to the visualize_*/plot_* methods above</span>
-<span class="sd">    instead of duplicating their 1D/2D branches inline (previously</span>
-<span class="sd">    ~260 lines of near-duplicated if-elif chains).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Launch an interactive dashboard for symbol exploration using ipywidgets.</span>
+
+<span class="sd">    This function provides a user-friendly interface to visualize various aspects of the pseudo-differential operator&#39;s symbol.</span>
+<span class="sd">    It supports multiple visualization modes in both 1D and 2D, including group velocity fields, micro-support estimates,</span>
+<span class="sd">    symplectic vector fields, symbol amplitude/phase, cotangent fiber structure, characteristic sets and Hamiltonian flows.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pseudo_op : PseudoDifferentialOperator</span>
+<span class="sd">        The pseudo-differential operator whose symbol is to be analyzed interactively.</span>
+<span class="sd">    xlim, ylim : tuple of float</span>
+<span class="sd">        Spatial domain limits along x and y axes respectively.</span>
+<span class="sd">    xi_range, eta_range : tuple</span>
+<span class="sd">        Frequency domain limits along ξ and η axes respectively.</span>
+<span class="sd">    density : int</span>
+<span class="sd">        Number of points per axis used to construct the evaluation grid. Controls resolution.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - In 1D mode, sliders control the fixed frequency (ξ₀) and spatial position (x₀).</span>
+<span class="sd">    - In 2D mode, additional sliders control the second frequency component (η₀) and second spatial coordinate (y₀).</span>
+<span class="sd">    - Visualization updates dynamically as parameters are adjusted via sliders or dropdown menus.</span>
+<span class="sd">    - Supported visualization modes:</span>
+<span class="sd">        - &#39;Symbol Amplitude&#39;           : |p(x,ξ)| or |p(x,y,ξ,η)|</span>
+<span class="sd">        - &#39;Symbol Phase&#39;               : arg(p(x,ξ)) or similar in 2D</span>
+<span class="sd">        - &#39;Micro-Support (1/|p|)&#39;      : Reciprocal of symbol magnitude</span>
+<span class="sd">        - &#39;Cotangent Fiber&#39;            : Structure of symbol over frequency space at fixed x</span>
+<span class="sd">        - &#39;Characteristic Set&#39;         : Zero set approximation {p ≈ 0}</span>
+<span class="sd">        - &#39;Characteristic Gradient&#39;    : |∇p(x, ξ)| or |∇p(x₀, y₀, ξ, η)|</span>
+<span class="sd">        - &#39;Group Velocity Field&#39;       : ∇_ξ p(x,ξ) or ∇_{ξ,η} p(x,y,ξ,η)</span>
+<span class="sd">        - &#39;Symplectic Vector Field&#39;    : (∇_ξ p, -∇_x p) or similar in 2D</span>
+<span class="sd">        - &#39;Hamiltonian Flow&#39;           : Trajectories generated by the Hamiltonian vector field</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NotImplementedError</span>
+<span class="sd">        If the spatial dimension is not 1D or 2D.</span>
+
+<span class="sd">    Prints</span>
+<span class="sd">    ------</span>
+<span class="sd">    Interactive matplotlib figures with dynamic updates based on widget inputs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">dim</span> <span class="o">=</span> <span class="n">pseudo_op</span><span class="o">.</span><span class="n">dim</span>
     <span class="n">x_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">*</span><span class="n">xlim</span><span class="p">,</span> <span class="n">density</span><span class="p">)</span>
     <span class="n">y_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">*</span><span class="n">ylim</span><span class="p">,</span> <span class="n">density</span><span class="p">)</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="kc">None</span>
@@ -1335,12 +1876,12 @@
     <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">modes</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Symbol Amplitude&#39;</span><span class="p">,</span> <span class="s1">&#39;Symbol Phase&#39;</span><span class="p">,</span> <span class="s1">&#39;Micro-Support (1/|p|)&#39;</span><span class="p">,</span>
                   <span class="s1">&#39;Cotangent Fiber&#39;</span><span class="p">,</span> <span class="s1">&#39;Characteristic Set&#39;</span><span class="p">,</span> <span class="s1">&#39;Characteristic Gradient&#39;</span><span class="p">,</span>
-                  <span class="s1">&#39;Group Velocity Field&#39;</span><span class="p">,</span> <span class="s1">&#39;Symplectic Vector Field&#39;</span><span class="p">,</span> <span class="s1">&#39;Hamiltonian Flow&#39;</span><span class="p">]</span>
+                  <span class="s1">&#39;Group Velocity Field&#39;</span><span class="p">,</span> <span class="s1">&#39;Symplectic Vector Field&#39;</span><span class="p">,</span> <span class="s1">&#39;Hamiltonian Flow&#39;</span><span class="p">,</span> <span class="s1">&#39;Wavefront Set&#39;</span><span class="p">]</span>
         <span class="n">needs</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s1">&#39;Symbol Amplitude&#39;</span><span class="p">:</span> <span class="p">(),</span> <span class="s1">&#39;Symbol Phase&#39;</span><span class="p">:</span> <span class="p">(),</span> <span class="s1">&#39;Micro-Support (1/|p|)&#39;</span><span class="p">:</span> <span class="p">(),</span> 
             <span class="s1">&#39;Group Velocity Field&#39;</span><span class="p">:</span> <span class="p">(),</span> <span class="s1">&#39;Symplectic Vector Field&#39;</span><span class="p">:</span> <span class="p">(),</span> 
             <span class="s1">&#39;Hamiltonian Flow&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;Cotangent Fiber&#39;</span><span class="p">:</span> <span class="p">(),</span> <span class="s1">&#39;Characteristic Set&#39;</span><span class="p">:</span> <span class="p">(),</span>
-            <span class="s1">&#39;Characteristic Gradient&#39;</span><span class="p">:</span> <span class="p">()</span>
+            <span class="s1">&#39;Characteristic Gradient&#39;</span><span class="p">:</span> <span class="p">(),</span> <span class="s1">&#39;Wavefront Set&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span>
         <span class="p">}</span>
         <span class="n">mode_selector</span> <span class="o">=</span> <span class="n">Dropdown</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="n">modes</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s1">&#39;Symbol Amplitude&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Mode:&#39;</span><span class="p">)</span>
         <span class="n">xi_slider</span> <span class="o">=</span> <span class="n">FloatSlider</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="n">xi_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">max</span><span class="o">=</span><span class="n">xi_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">step</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;ξ₀&#39;</span><span class="p">)</span>
@@ -1349,7 +1890,8 @@
 
         <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">xi0</span><span class="p">,</span> <span class="n">x0</span><span class="p">):</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">!=</span> <span class="s1">&#39;Wavefront Set&#39;</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;Symbol Amplitude&#39;</span><span class="p">:</span>
                 <span class="n">visualize_symbol_amplitude</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span> <span class="n">x_vals</span><span class="p">,</span> <span class="n">xi_lin</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;Symbol Phase&#39;</span><span class="p">:</span>
@@ -1368,18 +1910,21 @@
                 <span class="n">visualize_characteristic_gradient</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span> <span class="n">x_vals</span><span class="p">,</span> <span class="n">xi_lin</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;Hamiltonian Flow&#39;</span><span class="p">:</span>
                 <span class="n">plot_hamiltonian_flow</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;Wavefront Set&#39;</span><span class="p">:</span>
+                <span class="n">visualize_wavefront_set</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="n">xi_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">xi_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tspan</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">),</span> <span class="n">n_seeds</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
         <span class="n">interactive_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;mode&#39;</span><span class="p">:</span> <span class="n">mode_selector</span><span class="p">,</span> <span class="s1">&#39;xi0&#39;</span><span class="p">:</span> <span class="n">xi_slider</span><span class="p">,</span> <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="n">x_slider</span><span class="p">}</span>
         <span class="n">slider_order</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">modes</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Symbol Amplitude&#39;</span><span class="p">,</span> <span class="s1">&#39;Symbol Phase&#39;</span><span class="p">,</span> <span class="s1">&#39;Micro-Support (1/|p|)&#39;</span><span class="p">,</span>
                   <span class="s1">&#39;Cotangent Fiber&#39;</span><span class="p">,</span> <span class="s1">&#39;Characteristic Set&#39;</span><span class="p">,</span> <span class="s1">&#39;Characteristic Gradient&#39;</span><span class="p">,</span>
-                  <span class="s1">&#39;Symplectic Vector Field&#39;</span><span class="p">,</span> <span class="s1">&#39;Hamiltonian Flow&#39;</span><span class="p">]</span>
+                  <span class="s1">&#39;Symplectic Vector Field&#39;</span><span class="p">,</span> <span class="s1">&#39;Hamiltonian Flow&#39;</span><span class="p">,</span> <span class="s1">&#39;Wavefront Set&#39;</span><span class="p">]</span>
         <span class="n">needs</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s1">&#39;Symbol Amplitude&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">),</span> <span class="s1">&#39;Symbol Phase&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">),</span>
             <span class="s1">&#39;Micro-Support (1/|p|)&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">),</span> <span class="s1">&#39;Symplectic Vector Field&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">),</span>
             <span class="s1">&#39;Hamiltonian Flow&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">),</span>
             <span class="s1">&#39;Cotangent Fiber&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">),</span> <span class="s1">&#39;Characteristic Set&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">),</span>
-            <span class="s1">&#39;Characteristic Gradient&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">),</span>
+            <span class="s1">&#39;Characteristic Gradient&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">),</span> <span class="s1">&#39;Wavefront Set&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">)</span>
         <span class="p">}</span>
         <span class="n">mode_selector</span> <span class="o">=</span> <span class="n">Dropdown</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="n">modes</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s1">&#39;Symbol Amplitude&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Mode:&#39;</span><span class="p">)</span>
         <span class="n">xi_slider</span> <span class="o">=</span> <span class="n">FloatSlider</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="n">xi_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">max</span><span class="o">=</span><span class="n">xi_range</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">step</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;ξ₀&#39;</span><span class="p">)</span>
@@ -1390,7 +1935,8 @@
 
         <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">):</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">!=</span> <span class="s1">&#39;Wavefront Set&#39;</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;Symbol Amplitude&#39;</span><span class="p">:</span>
                 <span class="n">visualize_symbol_amplitude</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span> <span class="n">x_vals</span><span class="p">,</span> <span class="n">xi_lin</span><span class="p">,</span> <span class="n">y_vals</span><span class="p">,</span> <span class="n">eta_lin</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;Symbol Phase&#39;</span><span class="p">:</span>
@@ -1414,6 +1960,8 @@
                 <span class="n">visualize_characteristic_gradient</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span> <span class="n">x_vals</span><span class="p">,</span> <span class="n">xi_lin</span><span class="p">,</span> <span class="n">y_vals</span><span class="p">,</span> <span class="n">eta_lin</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;Hamiltonian Flow&#39;</span><span class="p">:</span>
                 <span class="n">plot_hamiltonian_flow</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;Wavefront Set&#39;</span><span class="p">:</span>
+                <span class="n">visualize_wavefront_set</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;full&#39;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;Cotangent Fiber&#39;</span><span class="p">,</span> <span class="s1">&#39;Characteristic Set&#39;</span><span class="p">,</span> <span class="s1">&#39;Characteristic Gradient&#39;</span><span class="p">,</span> <span class="s1">&#39;Hamiltonian Flow&#39;</span><span class="p">):</span>
                 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
         <span class="n">interactive_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;mode&#39;</span><span class="p">:</span> <span class="n">mode_selector</span><span class="p">,</span> <span class="s1">&#39;xi0&#39;</span><span class="p">:</span> <span class="n">xi_slider</span><span class="p">,</span> <span class="s1">&#39;eta0&#39;</span><span class="p">:</span> <span class="n">eta_slider</span><span class="p">,</span> <span class="s1">&#39;x0&#39;</span><span class="p">:</span> <span class="n">x_slider</span><span class="p">,</span> <span class="s1">&#39;y0&#39;</span><span class="p">:</span> <span class="n">y_slider</span><span class="p">}</span>
@@ -1524,7 +2072,24 @@
     <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([[</span><span class="n">s_expr</span><span class="p">]])</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_quantity_fn</span><span class="p">(</span><span class="n">quantity</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;&#39;real&#39; | &#39;imag&#39; | &#39;abs&#39; -&gt; the corresponding numpy function.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Map a string identifier to the corresponding NumPy function.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    quantity : str</span>
+<span class="sd">        One of &#39;real&#39;, &#39;imag&#39;, or &#39;abs&#39;.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    callable</span>
+<span class="sd">        The corresponding NumPy function (`np.real`, `np.imag`, or `np.abs`).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `quantity` is not one of the supported strings.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;real&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="s1">&#39;imag&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">&#39;abs&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">}[</span><span class="n">quantity</span><span class="p">]</span>
     <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
@@ -1532,8 +2097,23 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_finish_headless</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Standard ending for the &#39;returns a Figure, doesn&#39;t display it&#39;</span>
-<span class="sd">    PDE-solution plots: tight layout, optional save, close, return.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Finalize a matplotlib figure for headless rendering or saving.</span>
+
+<span class="sd">    Applies a tight layout, optionally saves the figure to disk, and closes it.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fig : matplotlib.figure.Figure</span>
+<span class="sd">        The figure to finalize.</span>
+<span class="sd">    save_path : str, optional</span>
+<span class="sd">        If provided, the path where the figure will be saved (dpi=150).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    matplotlib.figure.Figure</span>
+<span class="sd">        The closed figure object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">save_path</span><span class="p">:</span>
         <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
@@ -1816,11 +2396,36 @@
 <div class="viewcode-block" id="plot_matrix_field_2d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_matrix_field_2d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix_field_2d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">&#39;abs&#39;</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s1">&#39;trace&#39;</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Snapshot panels for a matrix-valued 2D solution, shape</span>
-<span class="sd">    (n_times, N, N, Nx, Ny) -- the output of solve_matrix_field /</span>
-<span class="sd">    solve_sylvester_field in 2D. `component` as in `plot_matrix_field_1d`,</span>
-<span class="sd">    except &#39;diag&#39; isn&#39;t supported here (pick a single scalar reduction:</span>
-<span class="sd">    &#39;trace&#39;, &#39;frobenius&#39;, or an (i, j) entry).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot snapshot panels for a matrix-valued 2D solution field.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    t : numpy.ndarray</span>
+<span class="sd">        1D array of time samples, shape (n_times,).</span>
+<span class="sd">    U : numpy.ndarray</span>
+<span class="sd">        Matrix-valued solution field, shape (n_times, N, N, Nx, Ny).</span>
+<span class="sd">    x, y : numpy.ndarray</span>
+<span class="sd">        1D arrays of spatial grid coordinates.</span>
+<span class="sd">    times : array_like of int, optional</span>
+<span class="sd">        Indices into `t` selecting which snapshots to plot. Defaults to 6 </span>
+<span class="sd">        evenly spaced indices.</span>
+<span class="sd">    quantity : {&#39;real&#39;, &#39;imag&#39;, &#39;abs&#39;}, optional</span>
+<span class="sd">        Which part of the reduced field to plot. Default is &#39;abs&#39;.</span>
+<span class="sd">    component : {&#39;trace&#39;, &#39;frobenius&#39;} or tuple of int, optional</span>
+<span class="sd">        How to reduce the matrix field to a scalar field.</span>
+<span class="sd">        &#39;trace&#39; : sum of diagonal entries.</span>
+<span class="sd">        &#39;frobenius&#39; : Frobenius norm.</span>
+<span class="sd">        (i, j) : specific matrix entry.</span>
+<span class="sd">        Default is &#39;trace&#39;.</span>
+<span class="sd">    save_path : str, optional</span>
+<span class="sd">        If provided, saves the figure to this path.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    matplotlib.figure.Figure</span>
+<span class="sd">        The completed and closed figure object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">panel_all</span><span class="p">,</span> <span class="n">field_fn</span> <span class="o">=</span> <span class="n">_matrix_field_reduce</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">quantity</span><span class="p">)</span>
     <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span> <span class="k">if</span> <span class="n">times</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">times</span>
 
@@ -1843,8 +2448,31 @@
 <div class="viewcode-block" id="plot_wave_solution_1d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_wave_solution_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot_wave_solution_1d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">&#39;real&#39;</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Side-by-side space-time heatmaps of displacement U and velocity V,</span>
-<span class="sd">    as returned by solve_second_order (scalar, 1D case).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot side-by-side space-time heatmaps of displacement and velocity.</span>
+
+<span class="sd">    Intended for the output of `solve_second_order` (scalar, 1D case).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    t : numpy.ndarray</span>
+<span class="sd">        1D array of time samples, shape (n_times,).</span>
+<span class="sd">    U : numpy.ndarray</span>
+<span class="sd">        Displacement field u(x, t), shape (n_times, Nx).</span>
+<span class="sd">    V : numpy.ndarray</span>
+<span class="sd">        Velocity field ∂_t u(x, t), shape (n_times, Nx).</span>
+<span class="sd">    x : numpy.ndarray</span>
+<span class="sd">        1D array of spatial grid coordinates, shape (Nx,).</span>
+<span class="sd">    quantity : {&#39;real&#39;, &#39;imag&#39;, &#39;abs&#39;}, optional</span>
+<span class="sd">        Which part of the fields to plot. Default is &#39;real&#39;.</span>
+<span class="sd">    save_path : str, optional</span>
+<span class="sd">        If provided, saves the figure to this path.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    matplotlib.figure.Figure</span>
+<span class="sd">        The completed and closed figure object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">field_fn</span> <span class="o">=</span> <span class="n">_quantity_fn</span><span class="p">(</span><span class="n">quantity</span><span class="p">)</span>
     <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">sharex</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sharey</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;$\partial_t u$&#39;</span><span class="p">)):</span>

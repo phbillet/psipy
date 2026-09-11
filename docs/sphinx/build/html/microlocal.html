@@ -88,12 +88,13 @@
 <li class="toctree-l2"><a class="reference internal" href="#microlocal.visualize_micro_support"><code class="docutils literal notranslate"><span class="pre">visualize_micro_support()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#microlocal.visualize_phase"><code class="docutils literal notranslate"><span class="pre">visualize_phase()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#microlocal.visualize_symbol_amplitude"><code class="docutils literal notranslate"><span class="pre">visualize_symbol_amplitude()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#microlocal.visualize_wavefront_set"><code class="docutils literal notranslate"><span class="pre">visualize_wavefront_set()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
 <li class="toctree-l1"><a class="reference internal" href="physics.html">physics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="propagator.html">propagator</a></li>
-<li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="psiop.html">psiop package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="riemannian.html">riemannian</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solver.html">solver</a></li>
 <li class="toctree-l1"><a class="reference internal" href="symplectic.html">symplectic</a></li>
@@ -138,6 +139,9 @@
 <li><p><strong>WKB approximation</strong> (re‑exported from <cite>wkb</cite>) – asymptotic solutions of the form <cite>u ≈ A e^{iS/ε}</cite>.</p></li>
 <li><p><strong>Caustics and Maslov index</strong> – detection of caustics (where rays focus) and computation of the associated Maslov phase shifts, crucial for correct semiclassical quantisation.</p></li>
 <li><p><strong>Bohr–Sommerfeld quantisation</strong> (1D) – semiclassical energy levels for bound states.</p></li>
+<li><p><strong>Operator visualisation and interactive analysis</strong> – a comprehensive suite for plotting symbol amplitude, phase, micro‑support, characteristic gradients, and launching interactive <cite>ipywidgets</cite> dashboards.</p></li>
+<li><p><strong>Matrix-valued symbols and pseudospectra</strong> – extraction of characteristic branches via eigenvalue computation for matrix operators, and visualisation of ε‑pseudospectra.</p></li>
+<li><p><strong>PDE solution rendering</strong> – rendering and animation tools for scalar, matrix, and wave equation fields in 1D and 2D space-time.</p></li>
 </ul>
 <p>All functions automatically detect the spatial dimension (1 or 2) from the input data, making the module usable for both one‑dimensional and two‑dimensional problems without changing the calling syntax.</p>
 </section>
@@ -153,9 +157,13 @@
 <ul class="simple">
 <li><p>Symbolically compute the characteristic variety.</p></li>
 <li><p>Numerically integrate bicharacteristics with symplectic integrators.</p></li>
-<li><p>Visualise the evolution of wavefront sets.</p></li>
+<li><p>Visualise the evolution of wavefront sets, including 2D and 3D singularity animations.</p></li>
 <li><p>Obtain semiclassical spectra via Bohr–Sommerfeld quantisation (1D).</p></li>
 <li><p>Detect caustics and compute the Maslov index (using the <cite>caustics</cite> module).</p></li>
+<li><p>Interactively explore symbol properties such as amplitude, phase, and micro-support.</p></li>
+<li><p>Analyse matrix-valued symbols by computing their characteristic branches.</p></li>
+<li><p>Plot ε-pseudospectra and overlay complex eigenvalues.</p></li>
+<li><p>Render scalar, matrix, and wave PDE solutions in space-time.</p></li>
 </ul>
 <p class="rubric">References</p>
 <aside class="footnote-list brackets">
@@ -323,20 +331,25 @@ plus ‘symbol_value’.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.bohr_sommerfeld_quantization">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">bohr_sommerfeld_quantization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-10,</span> <span class="pre">10)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1e-06,</span> <span class="pre">50.0)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#bohr_sommerfeld_quantization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.bohr_sommerfeld_quantization" title="Link to this definition"></a></dt>
-<dd><p>Bohr–Sommerfeld quantisation for 1D bound states.</p>
-<p>(1/(2π)) ∮ p dx = ℏ(n + α)   with α = 1/2 (Maslov index).</p>
+<dd><p>Compute Bohr-Sommerfeld quantization for 1D bound states.</p>
+<p>Solves (1/(2π)) ∮ p dx = ℏ(n + α) with α = 1/2 (Maslov index).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>H</strong> (<em>sympy expression</em>) – Hamiltonian H(x,p).</p></li>
-<li><p><strong>n_max</strong> (<em>int</em>) – Maximum quantum number.</p></li>
-<li><p><strong>x_range</strong> (<em>tuple</em>) – Spatial range for turning points.</p></li>
-<li><p><strong>hbar</strong> (<em>float</em>) – Planck constant.</p></li>
-<li><p><strong>method</strong> (<em>str</em>) – Ignored, kept for compatibility.</p></li>
+<li><p><strong>H</strong> (<em>sympy.Expr</em>) – Hamiltonian H(x,p) as a symbolic expression.</p></li>
+<li><p><strong>n_max</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum quantum number to compute. Default is 10.</p></li>
+<li><p><strong>x_range</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>optional</em>) – Spatial range for finding turning points. Default is (-10, 10).</p></li>
+<li><p><strong>hbar</strong> (<em>float</em><em>, </em><em>optional</em>) – Reduced Planck constant. Default is 1.0.</p></li>
+<li><p><strong>E_range</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>optional</em>) – Energy range to scan for quantized levels. Default is (1e-6, 50.0).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Quantised energies and actions.</p>
+<dd class="field-even"><p>A dictionary containing:
+- ‘n’ : numpy.ndarray (Quantum numbers)
+- ‘E_n’ : numpy.ndarray (Quantized energy levels)
+- ‘actions’ : numpy.ndarray (Corresponding classical actions)
+- ‘hbar’ : float (The reduced Planck constant used)
+- ‘alpha’ : float (The Maslov index correction used, 0.5)</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>dict</p>
@@ -484,13 +497,57 @@ Char(P) = { (x,y,ξ,η) in T*ℝ² : p(x,y,ξ,η)=0 }   (2D)</p>
 <dt class="sig sig-object py" id="microlocal.find_caustics_1d">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">find_caustics_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#find_caustics_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.find_caustics_1d" title="Link to this definition"></a></dt>
 <dd><p>Find caustics (envelope of bicharacteristics) in 1D.</p>
-<p>Simplified condition: where d²p/dξ² ≈ 0 (turning points in frequency).</p>
+<p>Uses a simplified condition: identifies regions where d²p/dξ² ≈ 0,
+which correspond to turning points in frequency.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>symbol</strong> (<em>sympy.Expr</em>) – The 1D principal symbol p(x, ξ).</p></li>
+<li><p><strong>x_range</strong> (<em>tuple</em><em> of </em><em>float</em>) – The (min, max) range for the spatial variable x.</p></li>
+<li><p><strong>xi_range</strong> (<em>tuple</em><em> of </em><em>float</em>) – The (min, max) range for the frequency variable ξ.</p></li>
+<li><p><strong>resolution</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of grid points per axis for the evaluation mesh. Default is 100.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary containing:
+- ‘x_grid’ : numpy.ndarray (2D meshgrid of x coordinates)
+- ‘xi_grid’ : numpy.ndarray (2D meshgrid of ξ coordinates)
+- ‘caustic_indicator’ : numpy.ndarray (Absolute value of d²p/dξ²)
+- ‘threshold’ : float (10th percentile of the indicator, useful for masking)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.group_velocity_field">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">group_velocity_field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-10,</span> <span class="pre">10)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#group_velocity_field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.group_velocity_field" title="Link to this definition"></a></dt>
-<dd><p>Quiver plot of the group velocity field (1, dp/dxi). 1D only.</p>
+<dd><p>Plot the group velocity field ∇_ξ p(x, ξ) for 1D pseudo-differential operators.</p>
+<p>The group velocity represents the speed at which waves of different frequencies propagate
+in a dispersive medium. It is defined as the gradient of the symbol p(x, ξ) with respect
+to the frequency variable ξ.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator whose symbol is to be analyzed.
+Must expose attributes: <cite>dim</cite>, <cite>p_func</cite>, <cite>vars_x</cite>, <cite>symbol</cite>, and <cite>expr</cite>.</p></li>
+<li><p><strong>xlim</strong> (<em>tuple</em><em> of </em><em>float</em>) – Spatial domain limits (x-axis).</p></li>
+<li><p><strong>klim</strong> (<em>tuple</em><em> of </em><em>float</em>) – Frequency domain limits (ξ-axis).</p></li>
+<li><p><strong>density</strong> (<em>int</em>) – Number of grid points per axis used for visualization.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NotImplementedError</strong> – If called on a 2D operator, since this visualization is only implemented for 1D.</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>This method visualizes the vector field (∂p/∂ξ) in phase space.</p></li>
+<li><p>Used for analyzing wave propagation properties and dispersion relations.</p></li>
+<li><p>Requires symbolic expression self.expr depending on x and ξ.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py function">
@@ -542,35 +599,148 @@ position components, the last dim rows are momentum components.</p></li>
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.interactive_symbol_analysis">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">interactive_symbol_analysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pseudo_op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.1,</span> <span class="pre">5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-5,</span> <span class="pre">5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#interactive_symbol_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.interactive_symbol_analysis" title="Link to this definition"></a></dt>
-<dd><p>Launch an ipywidgets dashboard for symbol exploration. Same modes,
-same sliders, same defaults as before – rewritten as a mode-table
-dispatcher that delegates to the visualize_*/plot_* methods above
-instead of duplicating their 1D/2D branches inline (previously
-~260 lines of near-duplicated if-elif chains).</p>
+<dd><p>Launch an interactive dashboard for symbol exploration using ipywidgets.</p>
+<p>This function provides a user-friendly interface to visualize various aspects of the pseudo-differential operator’s symbol.
+It supports multiple visualization modes in both 1D and 2D, including group velocity fields, micro-support estimates,
+symplectic vector fields, symbol amplitude/phase, cotangent fiber structure, characteristic sets and Hamiltonian flows.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pseudo_op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator whose symbol is to be analyzed interactively.</p></li>
+<li><p><strong>xlim</strong> (<em>tuple</em><em> of </em><em>float</em>) – Spatial domain limits along x and y axes respectively.</p></li>
+<li><p><strong>ylim</strong> (<em>tuple</em><em> of </em><em>float</em>) – Spatial domain limits along x and y axes respectively.</p></li>
+<li><p><strong>xi_range</strong> (<em>tuple</em>) – Frequency domain limits along ξ and η axes respectively.</p></li>
+<li><p><strong>eta_range</strong> (<em>tuple</em>) – Frequency domain limits along ξ and η axes respectively.</p></li>
+<li><p><strong>density</strong> (<em>int</em>) – Number of points per axis used to construct the evaluation grid. Controls resolution.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>In 1D mode, sliders control the fixed frequency (ξ₀) and spatial position (x₀).</p></li>
+<li><p>In 2D mode, additional sliders control the second frequency component (η₀) and second spatial coordinate (y₀).</p></li>
+<li><p>Visualization updates dynamically as parameters are adjusted via sliders or dropdown menus.</p></li>
+<li><dl class="simple">
+<dt>Supported visualization modes:</dt><dd><ul>
+<li><p>‘Symbol Amplitude’           : <a href="#id6"><span class="problematic" id="id7">|p(x,ξ)|</span></a> or <a href="#id8"><span class="problematic" id="id9">|p(x,y,ξ,η)|</span></a></p></li>
+<li><p>‘Symbol Phase’               : arg(p(x,ξ)) or similar in 2D</p></li>
+<li><p>‘Micro-Support (1/<a href="#id10"><span class="problematic" id="id11">|p|</span></a>)’      : Reciprocal of symbol magnitude</p></li>
+<li><p>‘Cotangent Fiber’            : Structure of symbol over frequency space at fixed x</p></li>
+<li><p>‘Characteristic Set’         : Zero set approximation {p ≈ 0}</p></li>
+<li><p>‘Characteristic Gradient’    : <a href="#id12"><span class="problematic" id="id13">|∇p(x, ξ)|</span></a> or <a href="#id14"><span class="problematic" id="id15">|∇p(x₀, y₀, ξ, η)|</span></a></p></li>
+<li><p>‘Group Velocity Field’       : ∇_ξ p(x,ξ) or ∇_{ξ,η} p(x,y,ξ,η)</p></li>
+<li><p>‘Symplectic Vector Field’    : (∇_ξ p, -∇_x p) or similar in 2D</p></li>
+<li><p>‘Hamiltonian Flow’           : Trajectories generated by the Hamiltonian vector field</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>NotImplementedError</strong> – If the spatial dimension is not 1D or 2D.</p></li>
+<li><p><strong>Prints</strong> – </p></li>
+<li><p><strong>------</strong> – </p></li>
+<li><p><strong>Interactive matplotlib figures with dynamic updates based on widget inputs.</strong> – </p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.plot_bicharacteristics">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">plot_bicharacteristics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'position'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#plot_bicharacteristics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.plot_bicharacteristics" title="Link to this definition"></a></dt>
-<dd><p>Plot bicharacteristic curves.</p>
-<p>For 1D: plots in (x,ξ) plane.
-For 2D: projection can be ‘position’ (x-y), ‘frequency’ (ξ-η) or ‘mixed’ (x-ξ).</p>
+<dd><p>Plot bicharacteristic curves (Hamiltonian flow trajectories).</p>
+<p>For 1D: plots trajectories in the (x,ξ) phase plane.
+For 2D: projection can be ‘position’ (x-y), ‘frequency’ (ξ-η), or ‘mixed’ (x-ξ).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>symbol</strong> (<em>sympy.Expr</em>) – The principal symbol.</p></li>
+<li><p><strong>initial_points</strong> (<em>list</em><em> of </em><em>tuple</em>) – List of initial conditions for the flow.</p></li>
+<li><p><strong>tspan</strong> (<em>tuple</em><em> of </em><em>float</em>) – The (t_start, t_end) integration interval.</p></li>
+<li><p><strong>dim</strong> (<em>int</em><em>, </em><em>optional</em>) – Dimension (1 or 2). Inferred from <cite>initial_points</cite> if None.</p></li>
+<li><p><strong>projection</strong> (<em>str</em><em>, </em><em>optional</em>) – Projection plane for 2D plots. One of ‘position’, ‘frequency’, or ‘mixed’.
+Default is ‘position’.</p></li>
+<li><p><strong>**kwargs</strong> (<em>dict</em>) – Additional arguments passed to <cite>bicharacteristic_flow</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Displays a matplotlib plot.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.plot_characteristic_set">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">plot_characteristic_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#plot_characteristic_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.plot_characteristic_set" title="Link to this definition"></a></dt>
-<dd><p>Plot the characteristic variety.</p>
-<p>For 1D: contour p(x,ξ)=0 in the (x,ξ) plane.
-For 2D: a slice with fixed (ξ,η); you must provide xi0, eta0 as kwargs.</p>
+<dd><p>Plot the characteristic variety (zero set of the principal symbol).</p>
+<p>For 1D: plots the contour p(x,ξ)=0 in the (x,ξ) phase plane.
+For 2D: plots a slice with fixed (ξ,η); you must provide <cite>xi0</cite> and <cite>eta0</cite> via kwargs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>symbol</strong> (<em>sympy.Expr</em>) – The principal symbol.</p></li>
+<li><p><strong>x_range</strong> (<em>tuple</em><em> of </em><em>float</em>) – Range for the first spatial variable (x).</p></li>
+<li><p><strong>xi_range</strong> (<em>tuple</em><em> of </em><em>float</em>) – Range for the second spatial variable (y) in 2D, or frequency (ξ) in 1D.</p></li>
+<li><p><strong>dim</strong> (<em>int</em><em>, </em><em>optional</em>) – Dimension (1 or 2). Inferred from <cite>symbol</cite> if None.</p></li>
+<li><p><strong>resolution</strong> (<em>int</em><em>, </em><em>optional</em>) – Grid resolution for plotting. Default is 200.</p></li>
+<li><p><strong>**kwargs</strong> (<em>dict</em>) – Additional arguments. For 2D, expects <cite>xi0</cite> and <cite>eta0</cite> (floats).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Displays a matplotlib plot.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.plot_hamiltonian_flow">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">plot_hamiltonian_flow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_field</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#plot_hamiltonian_flow"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.plot_hamiltonian_flow" title="Link to this definition"></a></dt>
-<dd><p>Integrate and plot the Hamiltonian trajectories of the symbol in
-phase space. Delegates to the shared <cite>integrate_singularity</cite> engine
-instead of re-deriving the Hamiltonian vector field inline.</p>
+<dd><p>Integrate and plot the Hamiltonian trajectories of the symbol in phase space.</p>
+<p>This method numerically integrates the Hamiltonian vector field derived from
+the operator’s symbol to visualize how singularities propagate under the flow.
+It supports both 1D and 2D problems.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator whose symbol is to be analyzed.
+Must expose attributes: <cite>dim</cite>, <cite>p_func</cite>, <cite>vars_x</cite>, <cite>symbol</cite>, and <cite>expr</cite>.</p></li>
+<li><p><strong>x0</strong> (<em>float</em>) – Initial position and frequency (momentum) in 1D.</p></li>
+<li><p><strong>xi0</strong> (<em>float</em>) – Initial position and frequency (momentum) in 1D.</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>optional</em>) – Initial position and frequency in 2D; defaults to zero.</p></li>
+<li><p><strong>eta0</strong> (<em>float</em><em>, </em><em>optional</em>) – Initial position and frequency in 2D; defaults to zero.</p></li>
+<li><p><strong>tmax</strong> (<em>float</em>) – Final integration time for the ODE solver.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em>) – Number of time steps used in the integration.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The Hamiltonian vector field is obtained from the symplectic flow of the symbol.</p></li>
+<li><p>If the field is complex-valued, only its real part is used for integration.</p></li>
+<li><p>In 1D, the trajectory is plotted in (x, ξ) phase space.</p></li>
+<li><p>In 2D, the spatial trajectory (x(t), y(t)) is shown along with instantaneous
+momentum vectors (ξ(t), η(t)) using a quiver plot.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>NotImplementedError</strong> – If the spatial dimension is not 1D or 2D.</p></li>
+<li><p><strong>Displays</strong> – </p></li>
+<li><p><strong>--------</strong> – </p></li>
+<li><p><strong>matplotlib plot</strong> – Phase space trajectory(ies) showing the evolution of position and momentum
+    under the Hamiltonian dynamics.</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -582,7 +752,7 @@ space-time heatmap.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>t</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>,</em><em>)</em>) – Time samples.</p></li>
-<li><p><strong>U</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>, </em><a class="reference internal" href="psiop.html#psiop.MatrixPseudoDifferentialOperator.size" title="psiop.MatrixPseudoDifferentialOperator.size"><em>size</em></a><em>, </em><em>Nx</em><em>)</em>) – Diagonal (or otherwise reduced) matrix solution components, one
+<li><p><strong>U</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>n_times</em><em>, </em><a class="reference internal" href="psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.size" title="psiop.matpsiop.MatrixPseudoDifferentialOperator.size"><em>size</em></a><em>, </em><em>Nx</em><em>)</em>) – Diagonal (or otherwise reduced) matrix solution components, one
 row of panels per index k = 0, …, size-1.</p></li>
 <li><p><strong>x</strong> (<em>ndarray</em><em>, </em><em>shape</em><em> (</em><em>Nx</em><em>,</em><em>)</em>) – Spatial grid.</p></li>
 <li><p><strong>labels</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – One label per component; defaults to <cite>[“u_1”, …, “u_size”]</cite>.</p></li>
@@ -632,11 +802,32 @@ row of panels per index k = 0, …, size-1.</p></li>
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.plot_matrix_field_2d">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">plot_matrix_field_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'abs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'trace'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#plot_matrix_field_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.plot_matrix_field_2d" title="Link to this definition"></a></dt>
-<dd><p>Snapshot panels for a matrix-valued 2D solution, shape
-(n_times, N, N, Nx, Ny) – the output of solve_matrix_field /
-solve_sylvester_field in 2D. <cite>component</cite> as in <cite>plot_matrix_field_1d</cite>,
-except ‘diag’ isn’t supported here (pick a single scalar reduction:
-‘trace’, ‘frobenius’, or an (i, j) entry).</p>
+<dd><p>Plot snapshot panels for a matrix-valued 2D solution field.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>numpy.ndarray</em>) – 1D array of time samples, shape (n_times,).</p></li>
+<li><p><strong>U</strong> (<em>numpy.ndarray</em>) – Matrix-valued solution field, shape (n_times, N, N, Nx, Ny).</p></li>
+<li><p><strong>x</strong> (<em>numpy.ndarray</em>) – 1D arrays of spatial grid coordinates.</p></li>
+<li><p><strong>y</strong> (<em>numpy.ndarray</em>) – 1D arrays of spatial grid coordinates.</p></li>
+<li><p><strong>times</strong> (<em>array_like</em><em> of </em><em>int</em><em>, </em><em>optional</em>) – Indices into <cite>t</cite> selecting which snapshots to plot. Defaults to 6
+evenly spaced indices.</p></li>
+<li><p><strong>quantity</strong> (<em>{'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'}</em><em>, </em><em>optional</em>) – Which part of the reduced field to plot. Default is ‘abs’.</p></li>
+<li><p><strong>component</strong> (<em>{'trace'</em><em>, </em><em>'frobenius'}</em><em> or </em><em>tuple</em><em> of </em><em>int</em><em>, </em><em>optional</em>) – How to reduce the matrix field to a scalar field.
+‘trace’ : sum of diagonal entries.
+‘frobenius’ : Frobenius norm.
+(i, j) : specific matrix entry.
+Default is ‘trace’.</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em>, </em><em>optional</em>) – If provided, saves the figure to this path.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The completed and closed figure object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -713,14 +904,55 @@ indices evenly spaced across the whole time range.</p></li>
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.plot_symplectic_vector_field">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">plot_symplectic_vector_field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-5,</span> <span class="pre">5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#plot_symplectic_vector_field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.plot_symplectic_vector_field" title="Link to this definition"></a></dt>
-<dd><p>Quiver plot of the symplectic vector field (dp/dxi, -dp/dx). 1D only.</p>
+<dd><p>Visualize the symplectic vector field (Hamiltonian vector field) associated with the operator’s symbol.</p>
+<p>The plotted vector field corresponds to (∂_ξ p, -∂_x p), where p(x, ξ) is the principal symbol
+of the pseudo-differential operator. This field governs the bicharacteristic flow in phase space.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator whose symbol is to be analyzed.
+Must expose attributes: <cite>dim</cite>, <cite>p_func</cite>, <cite>vars_x</cite>, <cite>symbol</cite>, and <cite>expr</cite>.</p></li>
+<li><p><strong>xlim</strong> (<em>tuple</em><em> of </em><em>float</em>) – Range for spatial variable x, as (x_min, x_max).</p></li>
+<li><p><strong>klim</strong> (<em>tuple</em><em> of </em><em>float</em>) – Range for frequency variable ξ, as (ξ_min, ξ_max).</p></li>
+<li><p><strong>density</strong> (<em>int</em>) – Number of grid points per axis for the visualization grid.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NotImplementedError</strong> – If called on a 2D operator (currently only 1D implementation available).</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Only supports one-dimensional operators.</p></li>
+<li><p>Uses symbolic differentiation to compute ∂_ξ p and ∂_x p.</p></li>
+<li><p>Numerical evaluation is done via lambdify with NumPy backend.</p></li>
+<li><p>Visualization uses matplotlib quiver plot to show vector directions.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.plot_wave_solution_1d">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">plot_wave_solution_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">U</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">V</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'real'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#plot_wave_solution_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.plot_wave_solution_1d" title="Link to this definition"></a></dt>
-<dd><p>Side-by-side space-time heatmaps of displacement U and velocity V,
-as returned by solve_second_order (scalar, 1D case).</p>
+<dd><p>Plot side-by-side space-time heatmaps of displacement and velocity.</p>
+<p>Intended for the output of <cite>solve_second_order</cite> (scalar, 1D case).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>numpy.ndarray</em>) – 1D array of time samples, shape (n_times,).</p></li>
+<li><p><strong>U</strong> (<em>numpy.ndarray</em>) – Displacement field u(x, t), shape (n_times, Nx).</p></li>
+<li><p><strong>V</strong> (<em>numpy.ndarray</em>) – Velocity field ∂_t u(x, t), shape (n_times, Nx).</p></li>
+<li><p><strong>x</strong> (<em>numpy.ndarray</em>) – 1D array of spatial grid coordinates, shape (Nx,).</p></li>
+<li><p><strong>quantity</strong> (<em>{'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'}</em><em>, </em><em>optional</em>) – Which part of the fields to plot. Default is ‘real’.</p></li>
+<li><p><strong>save_path</strong> (<em>str</em><em>, </em><em>optional</em>) – If provided, saves the figure to this path.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The completed and closed figure object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -803,50 +1035,266 @@ projection=’full’ (2D) pass an array of 4 Axes or leave None.</p></li>
 <dt class="sig sig-object py" id="microlocal.propagate_singularity">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">propagate_singularity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_sing_support</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#propagate_singularity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.propagate_singularity" title="Link to this definition"></a></dt>
 <dd><p>Propagate singular support along bicharacteristics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>symbol</strong> (<em>sympy.Expr</em>) – The principal symbol.</p></li>
+<li><p><strong>initial_sing_support</strong> (<em>list</em><em> of </em><em>tuple</em>) – List of initial phase-space points (x₀, ξ₀) for 1D or
+(x₀, y₀, ξ₀, η₀) for 2D.</p></li>
+<li><p><strong>tspan</strong> (<em>tuple</em><em> of </em><em>float</em>) – The (t_start, t_end) integration interval.</p></li>
+<li><p><strong>dim</strong> (<em>int</em><em>, </em><em>optional</em>) – Spatial dimension (1 or 2). Inferred from <cite>symbol</cite> if None.</p></li>
+<li><p><strong>n_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Currently unused. Kept for API compatibility.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary containing:
+- ‘trajectories’ : list of dict (Bicharacteristic flow results)
+- ‘endpoints’ : list of tuple (Final phase-space coordinates)
+- ‘initial’ : list of tuple (The initial seed points provided)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.visualize_characteristic_gradient">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">visualize_characteristic_gradient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#visualize_characteristic_gradient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.visualize_characteristic_gradient" title="Link to this definition"></a></dt>
-<dd><p>Visualize <a href="#id6"><span class="problematic" id="id7">|grad p|</span></a> in phase space. NOTE: both the 1D and 2D
-branches now consistently use abs(.)**2 in the gradient norm (the
-original 1D branch omitted the abs(), inconsistently with 2D).</p>
+<dd><p>Visualize the norm of the gradient of the symbol in phase space.</p>
+<p>This method computes the magnitude of the gradient <a href="#id16"><span class="problematic" id="id17">|∇p|</span></a> of a pseudo-differential
+symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D. The resulting colormap reveals
+regions where the symbol varies rapidly or remains nearly stationary,
+which is particularly useful for analyzing characteristic sets.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator whose symbol is to be analyzed.
+Must expose attributes: <cite>dim</cite>, <cite>p_func</cite>, <cite>vars_x</cite>, <cite>symbol</cite>, and <cite>expr</cite>.</p></li>
+<li><p><strong>x_grid</strong> (<em>numpy.ndarray</em>) – 1D array of spatial coordinates for the x-direction.</p></li>
+<li><p><strong>xi_grid</strong> (<em>numpy.ndarray</em>) – 1D array of frequency coordinates (ξ).</p></li>
+<li><p><strong>y_grid</strong> (<em>numpy.ndarray</em><em>, </em><em>optional</em>) – 1D array of spatial coordinates for the y-direction (used in 2D mode). Default is None.</p></li>
+<li><p><strong>eta_grid</strong> (<em>numpy.ndarray</em><em>, </em><em>optional</em>) – 1D array of frequency coordinates (η) for the 2D case. Default is None.</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em>, </em><em>optional</em>) – Fixed x-coordinate for evaluating the symbol in 2D. Default is 0.0.</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>optional</em>) – Fixed y-coordinate for evaluating the symbol in 2D. Default is 0.0.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Displays a 2D colormap of <a href="#id18"><span class="problematic" id="id19">|∇p|</span></a> over the relevant phase-space domain.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>In 1D, the full gradient ∇p = (∂ₓp, ∂ξp) is computed over the (x, ξ) grid.</p></li>
+<li><p>In 2D, the gradient ∇p = (∂ξp, ∂ηp) is computed at a fixed spatial point (x₀, y₀) over the (ξ, η) grid.</p></li>
+<li><p>Numerical differentiation is performed using <cite>np.gradient</cite>.</p></li>
+<li><p>High values of <a href="#id20"><span class="problematic" id="id21">|∇p|</span></a> indicate rapid variation of the symbol, while low values typically suggest characteristic regions.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.visualize_characteristic_set">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">visualize_characteristic_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">levels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0.1]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#visualize_characteristic_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.visualize_characteristic_set" title="Link to this definition"></a></dt>
-<dd><p>Visualize the characteristic set p(x, xi) ~= 0 (1D) or the (xi, eta)
-slice at fixed (x0, y0) (2D).</p>
+<dd><p>Visualize the characteristic set of the pseudo-differential symbol, defined as the approximate zero set p(x, ξ) ≈ 0.</p>
+<p>In microlocal analysis, the characteristic set is the locus of points in phase space (x, ξ) where the symbol p(x, ξ) vanishes,
+playing a key role in understanding propagation of singularities.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator whose symbol is to be analyzed.
+Must expose attributes: <cite>dim</cite>, <cite>p_func</cite>, <cite>vars_x</cite>, <cite>symbol</cite>, and <cite>expr</cite>.</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grid values (1D array) for plotting in 1D or evaluation point in 2D.</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em>) – Frequency variable grid values (1D array) used to construct the frequency domain.</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em>, </em><em>optional</em>) – Fixed spatial coordinate in 2D case for evaluating the symbol at a specific x position.</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>optional</em>) – Fixed spatial coordinate in 2D case for evaluating the symbol at a specific y position.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>For 1D, this method plots the contour of <a href="#id22"><span class="problematic" id="id23">|p(x, ξ)|</span></a> = ε with ε = 1e-5 over the (x, ξ) plane.</p></li>
+<li><p>For 2D, it evaluates the symbol at fixed (x₀, y₀) and plots the characteristic set in the (ξ, η) frequency plane.</p></li>
+<li><p>This visualization helps identify directions of degeneracy or hypoellipticity of the operator.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>NotImplementedError</strong> – If called on a solver with dimensionality other than 1D or 2D.</p></li>
+<li><p><strong>Displays</strong> – </p></li>
+<li><p><strong>------</strong> – </p></li>
+<li><p><strong>A matplotlib contour plot showing either:</strong> – <ul>
+<li><p>The characteristic curve in the (x, ξ) phase plane (1D),
+    - The characteristic surface slice in the (ξ, η) frequency plane at (x₀, y₀) (2D).</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.visualize_fiber">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">visualize_fiber</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#visualize_fiber"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.visualize_fiber" title="Link to this definition"></a></dt>
-<dd><p>Plot the cotangent fiber structure at a fixed spatial point (x0[, y0]).
-See _slice_grid/_render_field docstrings for the shared implementation.
-NOTE: original signature has no eta_grid param – 2D reuses xi_grid
-for both frequency axes, matching the original behavior exactly.</p>
+<dd><p>Plot the cotangent fiber structure at a fixed spatial point (x₀[, y₀]).</p>
+<p>This visualization shows how the symbol p(x, ξ) behaves on the cotangent fiber
+above a fixed spatial point. In microlocal analysis, this provides insight into
+the frequency content of the operator at that location.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator whose symbol is to be analyzed.
+Must expose attributes: <cite>dim</cite>, <cite>p_func</cite>, <cite>vars_x</cite>, <cite>symbol</cite>, and <cite>expr</cite>.</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grid values (1D) for evaluation in 1D case.</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em>) – Frequency grid values (1D) for evaluation in both 1D and 2D cases.</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em>, </em><em>optional</em>) – Fixed x-coordinate of the base point in space (1D or 2D).</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>optional</em>) – Fixed y-coordinate of the base point in space (2D only).</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>In 1D: Displays <a href="#id24"><span class="problematic" id="id25">|p(x, ξ)|</span></a> over the (x, ξ) phase plane near the fixed point.</p></li>
+<li><p>In 2D: Fixes (x₀, y₀) and evaluates p(x₀, y₀, ξ, η), showing the fiber over that point.</p></li>
+<li><p>The color map represents the magnitude of the symbol, highlighting regions where it vanishes or becomes singular.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>NotImplementedError</strong> – If called in 2D with missing or improperly formatted grids.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.visualize_micro_support">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">visualize_micro_support</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-10,</span> <span class="pre">10)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#visualize_micro_support"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.visualize_micro_support" title="Link to this definition"></a></dt>
-<dd><p>Visualize 1/<a href="#id8"><span class="problematic" id="id9">|p(x, xi)|</span></a> to highlight regions where the symbol is
-near zero. NOTE: no longer restricted to 1D – the shared grid/render
-helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y).</p>
+<dd><p>Visualize the micro-support of the operator by plotting the inverse of the symbol magnitude 1 / <a href="#id26"><span class="problematic" id="id27">|p(x, ξ)|</span></a>.</p>
+<p>The micro-support provides insight into the singularities of a pseudo-differential operator
+in phase space (x, ξ). Regions where <a href="#id28"><span class="problematic" id="id29">|p(x, ξ)|</span></a> is small correspond to large values in 1/<a href="#id30"><span class="problematic" id="id31">|p(x, ξ)|</span></a>,
+highlighting areas of significant operator influence or singularity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator whose symbol is to be analyzed.
+Must expose attributes: <cite>dim</cite>, <cite>p_func</cite>, <cite>vars_x</cite>, <cite>symbol</cite>, and <cite>expr</cite>.</p></li>
+<li><p><strong>xlim</strong> (<em>tuple</em>) – Spatial domain limits (x_min, x_max).</p></li>
+<li><p><strong>klim</strong> (<em>tuple</em>) – Frequency domain limits (ξ_min, ξ_max).</p></li>
+<li><p><strong>threshold</strong> (<em>float</em>) – Threshold below which <a href="#id32"><span class="problematic" id="id33">|p(x, ξ)|</span></a> is considered effectively zero; used for numerical stability.</p></li>
+<li><p><strong>density</strong> (<em>int</em>) – Number of grid points along each axis for visualization resolution.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NotImplementedError</strong> – If called on a solver with dimension greater than 1 (only 1D visualization is supported).</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>This method evaluates the symbol p(x, ξ) over a grid and plots its reciprocal to emphasize
+regions where the symbol is near zero.</p></li>
+<li><p>A small constant (1e-10) is added to the denominator to avoid division by zero.</p></li>
+<li><p>The resulting plot helps identify characteristic sets.</p></li>
+</ul>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.visualize_phase">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">visualize_phase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#visualize_phase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.visualize_phase" title="Link to this definition"></a></dt>
-<dd><p>Plot arg(p(x, xi)) (1D) or arg(p(x, y, xi0, eta0)) (2D).</p>
+<dd><p>Plot the phase (argument) of the pseudodifferential operator’s symbol p(x, ξ) or p(x, y, ξ, η).</p>
+<p>This visualization helps in understanding the oscillatory behavior and regularity
+properties of the operator in phase space. The phase is displayed modulo 2π using
+a cyclic colormap (‘twilight’) to emphasize its periodic nature.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator whose symbol is to be analyzed.
+Must expose attributes: <cite>dim</cite>, <cite>p_func</cite>, <cite>vars_x</cite>, <cite>symbol</cite>, and <cite>expr</cite>.</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – 1D array of spatial coordinates (x).</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em>) – 1D array of frequency coordinates (ξ).</p></li>
+<li><p><strong>y_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – 2D spatial grid for y-coordinate (in 2D problems). Default is None.</p></li>
+<li><p><strong>eta_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – 2D frequency grid for η (in 2D problems). Not used directly but kept for API consistency.</p></li>
+<li><p><strong>xi0</strong> (<em>float</em><em>, </em><em>optional</em>) – Fixed value of ξ for slicing in 2D visualization. Default is 0.0.</p></li>
+<li><p><strong>eta0</strong> (<em>float</em><em>, </em><em>optional</em>) – Fixed value of η for slicing in 2D visualization. Default is 0.0.</p></li>
+<li><p><strong>Notes</strong></p></li>
+<li><p><strong>1D</strong> (<em>- In</em>)</p></li>
+<li><p><strong>2D</strong> (<em>- In</em>)</p></li>
+<li><p><strong>π.</strong> (<em>- Uses plt.pcolormesh with 'twilight' colormap to represent angles from -π to</em>)</p></li>
+<li><p><strong>Raises</strong></p></li>
+<li><p><strong>NotImplementedError</strong> (<em>-</em>)</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microlocal.visualize_symbol_amplitude">
 <span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">visualize_symbol_amplitude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#visualize_symbol_amplitude"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.visualize_symbol_amplitude" title="Link to this definition"></a></dt>
-<dd><p>Display <a href="#id10"><span class="problematic" id="id11">|p(x, xi)|</span></a> (1D) or <a href="#id12"><span class="problematic" id="id13">|p(x, y, xi0, eta0)|</span></a> (2D) as a color map.</p>
+<dd><p>Display the modulus <a href="#id34"><span class="problematic" id="id35">|p(x, ξ)|</span></a> or <a href="#id36"><span class="problematic" id="id37">|p(x, y, ξ₀, η₀)|</span></a> as a color map.</p>
+<p>This method visualizes the amplitude of the pseudodifferential operator’s symbol
+in either 1D or 2D spatial configuration. In 2D, the frequency variables are fixed
+to specified values (ξ₀, η₀) for visualization purposes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator whose symbol is to be analyzed.
+Must expose attributes: <cite>dim</cite>, <cite>p_func</cite>, <cite>vars_x</cite>, <cite>symbol</cite>, and <cite>expr</cite>.</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grids over which to evaluate the symbol. y_grid is optional and used only in 2D.</p></li>
+<li><p><strong>y_grid</strong> (<em>ndarray</em>) – Spatial grids over which to evaluate the symbol. y_grid is optional and used only in 2D.</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em>) – Frequency grids. In 2D, these define the domain over which the symbol is evaluated,
+but the visualization fixes ξ = ξ₀ and η = η₀.</p></li>
+<li><p><strong>eta_grid</strong> (<em>ndarray</em>) – Frequency grids. In 2D, these define the domain over which the symbol is evaluated,
+but the visualization fixes ξ = ξ₀ and η = η₀.</p></li>
+<li><p><strong>xi0</strong> (<em>float</em><em>, </em><em>optional</em>) – Fixed frequency values for slicing in 2D visualization. Defaults to zero.</p></li>
+<li><p><strong>eta0</strong> (<em>float</em><em>, </em><em>optional</em>) – Fixed frequency values for slicing in 2D visualization. Defaults to zero.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>In 1D: Visualizes <a href="#id38"><span class="problematic" id="id39">|p(x, ξ)|</span></a> over the (x, ξ) grid.</p></li>
+<li><p>In 2D: Visualizes <a href="#id40"><span class="problematic" id="id41">|p(x, y, ξ₀, η₀)|</span></a> at fixed frequencies ξ₀ and η₀.</p></li>
+<li><p>The color intensity represents the magnitude of the symbol, highlighting regions where the symbol is large or small.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microlocal.visualize_wavefront_set">
+<span class="sig-prename descclassname"><span class="pre">microlocal.</span></span><span class="sig-name descname"><span class="pre">visualize_wavefront_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seeds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">3.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cotangent'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'plasma'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_flow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_endpoints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spread</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_seeds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.15</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/microlocal.html#visualize_wavefront_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#microlocal.visualize_wavefront_set" title="Link to this definition"></a></dt>
+<dd><p>Visualize the wavefront set WF(u) obtained by propagating seed singularities
+along the bicharacteristics of the operator’s symbol.</p>
+<p>If <cite>seeds</cite> is not given, a default fan/point-source is built from
+(x0, y0) and (xi0, eta0).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>op</strong> (<a class="reference internal" href="psiop.html#psiop.PseudoDifferentialOperator" title="psiop.PseudoDifferentialOperator"><em>PseudoDifferentialOperator</em></a>) – The pseudo-differential operator.</p></li>
+<li><p><strong>seeds</strong> (<em>list</em><em> of </em><em>tuple</em><em>, </em><em>optional</em>) – Seed points for the wavefront set. If None, auto-generated.</p></li>
+<li><p><strong>tspan</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>optional</em>) – Integration time interval (t_start, t_end). Default is (0, 3.0).</p></li>
+<li><p><strong>projection</strong> (<em>str</em><em>, </em><em>optional</em>) – Subspace to visualize. 1D: ‘cotangent’, ‘position’.
+2D: ‘cotangent’, ‘position’, ‘frequency’, ‘mixed_x’, ‘mixed_y’, ‘full’.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of integration steps per bicharacteristic. Default is 500.</p></li>
+<li><p><strong>cmap</strong> (<em>str</em><em>, </em><em>optional</em>) – Matplotlib colormap. Default is ‘plasma’.</p></li>
+<li><p><strong>show_flow</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to draw the full bicharacteristic strip. Default is True.</p></li>
+<li><p><strong>show_endpoints</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to mark initial and final points. Default is True.</p></li>
+<li><p><strong>title</strong> (<em>str</em><em>, </em><em>optional</em>) – Figure title.</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em>, </em><em>optional</em>) – Base spatial coordinates for auto-generated seeds.</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>optional</em>) – Base spatial coordinates for auto-generated seeds.</p></li>
+<li><p><strong>xi0</strong> (<em>float</em><em>, </em><em>optional</em>) – Base frequency coordinates for auto-generated seeds.</p></li>
+<li><p><strong>eta0</strong> (<em>float</em><em>, </em><em>optional</em>) – Base frequency coordinates for auto-generated seeds.</p></li>
+<li><p><strong>spread</strong> (<em>float</em><em>, </em><em>optional</em>) – Frequency spread for 1D auto-generated seeds.</p></li>
+<li><p><strong>n_seeds</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of seed points to generate if <cite>seeds</cite> is None.</p></li>
+<li><p><strong>radius</strong> (<em>float</em><em>, </em><em>optional</em>) – Radius for 2D point-source auto-generated seeds.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>fig</strong> (<em>matplotlib.figure.Figure</em>) – The generated figure.</p></li>
+<li><p><strong>axes</strong> (<em>matplotlib.axes.Axes or ndarray of Axes</em>) – The axes object(s).</p></li>
+</ul>
+</p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>

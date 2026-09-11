@@ -37,7 +37,7 @@ In microlocal analysis, a linear partial differential operator `P` is studied vi
 
     X_p = ( ∂p/∂ξ , –∂p/∂x ).
 
-The **wavefront set** `WF(u)` is a closed conic subset of `T*ℝⁿ \ {0}` that records both the location `x` and the direction `ξ` of the singularity.  If `(x₀,ξ₀) ∉ WF(u)`, then `u` is smooth in a neighbourhood of `x₀` in the direction `ξ₀`.  The fundamental theorem of microlocal analysis states that `WF(Pu) ⊆ WF(u)` and that `WF(u) \ WF(Pu)` is contained in the characteristic variety and is invariant under the bicharacteristic flow.
+The **wavefront set** `WF(u)` is a closed conic subset of `T*ℝⁿ \\ {0}` that records both the location `x` and the direction `ξ` of the singularity.  If `(x₀,ξ₀) ∉ WF(u)`, then `u` is smooth in a neighbourhood of `x₀` in the direction `ξ₀`.  The fundamental theorem of microlocal analysis states that `WF(Pu) ⊆ WF(u)` and that `WF(u) \\ WF(Pu)` is contained in the characteristic variety and is invariant under the bicharacteristic flow.
 
 The **WKB method** seeks solutions of the form `u(x) = e^{iS(x)/ε} (a₀(x) + ε a₁(x) + …)`.  The phase `S` satisfies the eikonal equation `p(x,∇S)=0`, and the amplitudes `a_k` satisfy transport equations along bicharacteristics.  This construction breaks down at **caustics**, where rays focus; the Maslov index `μ` (a signed count of caustic crossings) provides a phase correction `e^{iμπ/2}` that restores uniformity.
 
@@ -80,9 +80,27 @@ from caustics import *
 # ----------------------------------------------------------------------
 def _infer_dim(symbol, dim=None):
     """
-    Infer the dimension (1 or 2) from the symbol or a provided dim.
-    Relies on the presence of common variable names: 'x','xi' for 1D,
-    and 'x','y','xi','eta' for 2D.
+    Infer the spatial dimension (1 or 2) from a SymPy symbol or an explicit argument.
+
+    Relies on the presence of common variable names: 'x', 'xi' for 1D,
+    and 'x', 'y', 'xi', 'eta' for 2D.
+
+    Parameters
+    ----------
+    symbol : sympy.Expr
+        The symbolic expression representing the principal symbol.
+    dim : int, optional
+        Explicit dimension (1 or 2). If provided, overrides inference.
+
+    Returns
+    -------
+    int
+        The inferred or provided dimension (1 or 2).
+
+    Raises
+    ------
+    ValueError
+        If `dim` is provided but is not 1 or 2.
     """
     if dim is not None:
         if dim not in (1, 2):
@@ -464,27 +482,32 @@ def _bichar_flow_2d(symbol, z0, tspan, method, n_steps):
 # ----------------------------------------------------------------------
 def bohr_sommerfeld_quantization(H, n_max=10, x_range=(-10, 10), hbar=1.0, E_range=(1e-06, 50.0)):
     """
-    Bohr–Sommerfeld quantisation for 1D bound states.
+    Compute Bohr-Sommerfeld quantization for 1D bound states.
 
-    (1/(2π)) ∮ p dx = ℏ(n + α)   with α = 1/2 (Maslov index).
+    Solves (1/(2π)) ∮ p dx = ℏ(n + α) with α = 1/2 (Maslov index).
 
     Parameters
     ----------
-    H : sympy expression
-        Hamiltonian H(x,p).
-    n_max : int
-        Maximum quantum number.
-    x_range : tuple
-        Spatial range for turning points.
-    hbar : float
-        Planck constant.
-    method : str
-        Ignored, kept for compatibility.
+    H : sympy.Expr
+        Hamiltonian H(x,p) as a symbolic expression.
+    n_max : int, optional
+        Maximum quantum number to compute. Default is 10.
+    x_range : tuple of float, optional
+        Spatial range for finding turning points. Default is (-10, 10).
+    hbar : float, optional
+        Reduced Planck constant. Default is 1.0.
+    E_range : tuple of float, optional
+        Energy range to scan for quantized levels. Default is (1e-6, 50.0).
 
     Returns
     -------
     dict
-        Quantised energies and actions.
+        A dictionary containing:
+        - 'n' : numpy.ndarray (Quantum numbers)
+        - 'E_n' : numpy.ndarray (Quantized energy levels)
+        - 'actions' : numpy.ndarray (Corresponding classical actions)
+        - 'hbar' : float (The reduced Planck constant used)
+        - 'alpha' : float (The Maslov index correction used, 0.5)
     """
     x, p = sp.symbols('x p', real=True)
     E_sym = sp.symbols('E', real=True, positive=True)
@@ -540,7 +563,28 @@ def find_caustics_1d(symbol, x_range, xi_range, resolution=100):
     """
     Find caustics (envelope of bicharacteristics) in 1D.
 
-    Simplified condition: where d²p/dξ² ≈ 0 (turning points in frequency).
+    Uses a simplified condition: identifies regions where d²p/dξ² ≈ 0,
+    which correspond to turning points in frequency.
+
+    Parameters
+    ----------
+    symbol : sympy.Expr
+        The 1D principal symbol p(x, ξ).
+    x_range : tuple of float
+        The (min, max) range for the spatial variable x.
+    xi_range : tuple of float
+        The (min, max) range for the frequency variable ξ.
+    resolution : int, optional
+        Number of grid points per axis for the evaluation mesh. Default is 100.
+
+    Returns
+    -------
+    dict
+        A dictionary containing:
+        - 'x_grid' : numpy.ndarray (2D meshgrid of x coordinates)
+        - 'xi_grid' : numpy.ndarray (2D meshgrid of ξ coordinates)
+        - 'caustic_indicator' : numpy.ndarray (Absolute value of d²p/dξ²)
+        - 'threshold' : float (10th percentile of the indicator, useful for masking)
     """
     x, xi = sp.symbols('x xi', real=True)
     d2p = sp.diff(symbol, xi, 2)
@@ -554,6 +598,28 @@ def find_caustics_1d(symbol, x_range, xi_range, resolution=100):
 def propagate_singularity(symbol, initial_sing_support, tspan, dim=None, n_samples=None):
     """
     Propagate singular support along bicharacteristics.
+
+    Parameters
+    ----------
+    symbol : sympy.Expr
+        The principal symbol.
+    initial_sing_support : list of tuple
+        List of initial phase-space points (x₀, ξ₀) for 1D or 
+        (x₀, y₀, ξ₀, η₀) for 2D.
+    tspan : tuple of float
+        The (t_start, t_end) integration interval.
+    dim : int, optional
+        Spatial dimension (1 or 2). Inferred from `symbol` if None.
+    n_samples : int, optional
+        Currently unused. Kept for API compatibility.
+
+    Returns
+    -------
+    dict
+        A dictionary containing:
+        - 'trajectories' : list of dict (Bicharacteristic flow results)
+        - 'endpoints' : list of tuple (Final phase-space coordinates)
+        - 'initial' : list of tuple (The initial seed points provided)
     """
     dim = _infer_dim(symbol, dim)
     trajectories = []
@@ -568,10 +634,30 @@ def propagate_singularity(symbol, initial_sing_support, tspan, dim=None, n_sampl
 # ----------------------------------------------------------------------
 def plot_characteristic_set(symbol, x_range, xi_range, dim=None, resolution=200, **kwargs):
     """
-    Plot the characteristic variety.
+    Plot the characteristic variety (zero set of the principal symbol).
 
-    For 1D: contour p(x,ξ)=0 in the (x,ξ) plane.
-    For 2D: a slice with fixed (ξ,η); you must provide xi0, eta0 as kwargs.
+    For 1D: plots the contour p(x,ξ)=0 in the (x,ξ) phase plane.
+    For 2D: plots a slice with fixed (ξ,η); you must provide `xi0` and `eta0` via kwargs.
+
+    Parameters
+    ----------
+    symbol : sympy.Expr
+        The principal symbol.
+    x_range : tuple of float
+        Range for the first spatial variable (x).
+    xi_range : tuple of float
+        Range for the second spatial variable (y) in 2D, or frequency (ξ) in 1D.
+    dim : int, optional
+        Dimension (1 or 2). Inferred from `symbol` if None.
+    resolution : int, optional
+        Grid resolution for plotting. Default is 200.
+    **kwargs : dict
+        Additional arguments. For 2D, expects `xi0` and `eta0` (floats).
+
+    Returns
+    -------
+    None
+        Displays a matplotlib plot.
     """
     dim = _infer_dim(symbol, dim)
     if dim == 1:
@@ -619,10 +705,31 @@ def plot_characteristic_set(symbol, x_range, xi_range, dim=None, resolution=200,
 
 def plot_bicharacteristics(symbol, initial_points, tspan, dim=None, projection='position', **kwargs):
     """
-    Plot bicharacteristic curves.
+    Plot bicharacteristic curves (Hamiltonian flow trajectories).
 
-    For 1D: plots in (x,ξ) plane.
-    For 2D: projection can be 'position' (x-y), 'frequency' (ξ-η) or 'mixed' (x-ξ).
+    For 1D: plots trajectories in the (x,ξ) phase plane.
+    For 2D: projection can be 'position' (x-y), 'frequency' (ξ-η), or 'mixed' (x-ξ).
+
+    Parameters
+    ----------
+    symbol : sympy.Expr
+        The principal symbol.
+    initial_points : list of tuple
+        List of initial conditions for the flow.
+    tspan : tuple of float
+        The (t_start, t_end) integration interval.
+    dim : int, optional
+        Dimension (1 or 2). Inferred from `initial_points` if None.
+    projection : str, optional
+        Projection plane for 2D plots. One of 'position', 'frequency', or 'mixed'.
+        Default is 'position'.
+    **kwargs : dict
+        Additional arguments passed to `bicharacteristic_flow`.
+
+    Returns
+    -------
+    None
+        Displays a matplotlib plot.
     """
     dim = _infer_dim(symbol, dim)
     fig, ax = plt.subplots(figsize=(10, 8))
@@ -942,8 +1049,41 @@ def _slice_grid(op, kind, x_grid=None, xi_grid=None, y_grid=None, eta_grid=None,
     Z = op.p_func(x0, y0, A, B)
     return (xi_grid, eta_grid, '$\\xi$', '$\\eta$', Z)
 
-def _render_field(ax1, ax2, Z, style='pcolormesh', cmap='viridis', cbar_label=None, xlabel='x', ylabel='$\\xi$', title='', levels=50, contour_color='red', grid=False, show=True):
-    """One shared renderer for pcolormesh / contourf / contour panels."""
+def _render_field(ax1, ax2, Z, style='pcolormesh', cmap='viridis', cbar_label=None, 
+                 xlabel='x', ylabel='$\\xi$', title='', levels=50, 
+                 contour_color='red', grid=False, show=True):
+    """
+    Render a 2D scalar field using pcolormesh, contourf, or contour.
+
+    Parameters
+    ----------
+    ax1, ax2 : numpy.ndarray
+        2D coordinate arrays for the X and Y axes.
+    Z : numpy.ndarray
+        2D array of scalar values to plot.
+    style : str, optional
+        Plotting style: 'pcolormesh', 'contourf', or 'contour'. Default is 'pcolormesh'.
+    cmap : str, optional
+        Matplotlib colormap name. Default is 'viridis'.
+    cbar_label : str, optional
+        Label for the colorbar.
+    xlabel, ylabel : str, optional
+        Axis labels.
+    title : str, optional
+        Plot title.
+    levels : int or list, optional
+        Number of contour levels or specific levels. Default is 50.
+    contour_color : str, optional
+        Color for contour lines if `style='contour'`. Default is 'red'.
+    grid : bool, optional
+        Whether to display a grid. Default is False.
+    show : bool, optional
+        Whether to call `plt.show()`. Default is True.
+
+    Returns
+    -------
+    None
+    """
     if style == 'pcolormesh':
         im_ = plt.pcolormesh(ax1, ax2, Z, shading='auto', cmap=cmap)
         plt.colorbar(im_, label=cbar_label)
@@ -1068,31 +1208,151 @@ def _make_real(expr):
 #      op.expr) -------------------------------------------------------
 
 def visualize_fiber(op, x_grid, xi_grid, x0=0.0, y0=0.0):
-    """Plot the cotangent fiber structure at a fixed spatial point (x0[, y0]).
-    See _slice_grid/_render_field docstrings for the shared implementation.
-    NOTE: original signature has no eta_grid param -- 2D reuses xi_grid
-    for both frequency axes, matching the original behavior exactly."""
+    """
+    Plot the cotangent fiber structure at a fixed spatial point (x₀[, y₀]).
+
+    This visualization shows how the symbol p(x, ξ) behaves on the cotangent fiber 
+    above a fixed spatial point. In microlocal analysis, this provides insight into 
+    the frequency content of the operator at that location.
+
+    Parameters
+    ----------
+    op : PseudoDifferentialOperator
+        The pseudo-differential operator whose symbol is to be analyzed.
+        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.
+    x_grid : ndarray
+        Spatial grid values (1D) for evaluation in 1D case.
+    xi_grid : ndarray
+        Frequency grid values (1D) for evaluation in both 1D and 2D cases.
+    x0 : float, optional
+        Fixed x-coordinate of the base point in space (1D or 2D).
+    y0 : float, optional
+        Fixed y-coordinate of the base point in space (2D only).
+
+    Notes
+    -----
+    - In 1D: Displays |p(x, ξ)| over the (x, ξ) phase plane near the fixed point.
+    - In 2D: Fixes (x₀, y₀) and evaluates p(x₀, y₀, ξ, η), showing the fiber over that point.
+    - The color map represents the magnitude of the symbol, highlighting regions where it vanishes or becomes singular.
+
+    Raises
+    ------
+    NotImplementedError
+        If called in 2D with missing or improperly formatted grids.
+    """
     a1, a2, l1, l2, Z = _slice_grid(op, 'freq', x_grid, xi_grid, eta_grid=xi_grid, x0=x0, y0=y0)
     title = 'Cotangent Fiber Structure' if op.dim == 1 else f'Cotangent Fiber at x={x0}, y={y0}'
     _render_field(a1, a2, np.abs(Z), style='contourf', cbar_label='|Symbol|', xlabel=l1, ylabel=l2, title=title)
 
 def visualize_symbol_amplitude(op, x_grid, xi_grid, y_grid=None, eta_grid=None, xi0=0.0, eta0=0.0):
-    """Display |p(x, xi)| (1D) or |p(x, y, xi0, eta0)| (2D) as a color map."""
+    """
+    Display the modulus |p(x, ξ)| or |p(x, y, ξ₀, η₀)| as a color map.
+
+    This method visualizes the amplitude of the pseudodifferential operator's symbol 
+    in either 1D or 2D spatial configuration. In 2D, the frequency variables are fixed 
+    to specified values (ξ₀, η₀) for visualization purposes.
+
+    Parameters
+    ----------
+    op : PseudoDifferentialOperator
+        The pseudo-differential operator whose symbol is to be analyzed.
+        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.
+    x_grid, y_grid : ndarray
+        Spatial grids over which to evaluate the symbol. y_grid is optional and used only in 2D.
+    xi_grid, eta_grid : ndarray
+        Frequency grids. In 2D, these define the domain over which the symbol is evaluated,
+        but the visualization fixes ξ = ξ₀ and η = η₀.
+    xi0, eta0 : float, optional
+        Fixed frequency values for slicing in 2D visualization. Defaults to zero.
+
+    Notes
+    -----
+    - In 1D: Visualizes |p(x, ξ)| over the (x, ξ) grid.
+    - In 2D: Visualizes |p(x, y, ξ₀, η₀)| at fixed frequencies ξ₀ and η₀.
+    - The color intensity represents the magnitude of the symbol, highlighting regions where the symbol is large or small.
+    """
     kind = 'freq' if op.dim == 1 else 'space'
     a1, a2, l1, l2, Z = _slice_grid(op, kind, x_grid, xi_grid, y_grid, eta_grid, xi0=xi0, eta0=eta0)
     title = 'Symbol Amplitude |p(x, ξ)|' if op.dim == 1 else f'Symbol Amplitude at ξ={xi0}, η={eta0}'
     _render_field(a1, a2, np.abs(Z), style='pcolormesh', cbar_label='|Symbol|', xlabel=l1, ylabel=l2, title=title)
 
 def visualize_phase(op, x_grid, xi_grid, y_grid=None, eta_grid=None, xi0=0.0, eta0=0.0):
-    """Plot arg(p(x, xi)) (1D) or arg(p(x, y, xi0, eta0)) (2D)."""
+    """
+    Plot the phase (argument) of the pseudodifferential operator's symbol p(x, ξ) or p(x, y, ξ, η).
+
+    This visualization helps in understanding the oscillatory behavior and regularity 
+    properties of the operator in phase space. The phase is displayed modulo 2π using 
+    a cyclic colormap ('twilight') to emphasize its periodic nature.
+
+    Parameters
+    ----------
+    op : PseudoDifferentialOperator
+        The pseudo-differential operator whose symbol is to be analyzed.
+        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.
+    x_grid : ndarray
+        1D array of spatial coordinates (x).
+    xi_grid : ndarray
+        1D array of frequency coordinates (ξ).
+    y_grid : ndarray, optional
+        2D spatial grid for y-coordinate (in 2D problems). Default is None.
+    eta_grid : ndarray, optional
+        2D frequency grid for η (in 2D problems). Not used directly but kept for API consistency.
+    xi0 : float, optional
+        Fixed value of ξ for slicing in 2D visualization. Default is 0.0.
+    eta0 : float, optional
+        Fixed value of η for slicing in 2D visualization. Default is 0.0.
+
+    Notes:
+    - In 1D: Displays arg(p(x, ξ)) over the (x, ξ) phase plane.
+    - In 2D: Displays arg(p(x, y, ξ₀, η₀)) for fixed frequency values (ξ₀, η₀).
+    - Uses plt.pcolormesh with 'twilight' colormap to represent angles from -π to π.
+
+    Raises:
+    - NotImplementedError: If the spatial dimension is not 1D or 2D.
+    """
     kind = 'freq' if op.dim == 1 else 'space'
     a1, a2, l1, l2, Z = _slice_grid(op, kind, x_grid, xi_grid, y_grid, eta_grid, xi0=xi0, eta0=eta0)
     title = 'Phase Portrait (arg p(x, ξ))' if op.dim == 1 else f'Phase Portrait at ξ={xi0}, η={eta0}'
     _render_field(a1, a2, np.angle(Z), style='pcolormesh', cmap='twilight', cbar_label='arg(Symbol) [rad]', xlabel=l1, ylabel=l2, title=title)
 
 def visualize_characteristic_set(op, x_grid, xi_grid, y_grid=None, eta_grid=None, y0=0.0, x0=0.0, levels=[0.1]):
-    """Visualize the characteristic set p(x, xi) ~= 0 (1D) or the (xi, eta)
-    slice at fixed (x0, y0) (2D)."""
+    """
+    Visualize the characteristic set of the pseudo-differential symbol, defined as the approximate zero set p(x, ξ) ≈ 0.
+
+    In microlocal analysis, the characteristic set is the locus of points in phase space (x, ξ) where the symbol p(x, ξ) vanishes,
+    playing a key role in understanding propagation of singularities.
+
+    Parameters
+    ----------
+    op : PseudoDifferentialOperator
+        The pseudo-differential operator whose symbol is to be analyzed.
+        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.
+    x_grid : ndarray
+        Spatial grid values (1D array) for plotting in 1D or evaluation point in 2D.
+    xi_grid : ndarray
+        Frequency variable grid values (1D array) used to construct the frequency domain.
+    x0 : float, optional
+        Fixed spatial coordinate in 2D case for evaluating the symbol at a specific x position.
+    y0 : float, optional
+        Fixed spatial coordinate in 2D case for evaluating the symbol at a specific y position.
+
+    Notes
+    -----
+    - For 1D, this method plots the contour of |p(x, ξ)| = ε with ε = 1e-5 over the (x, ξ) plane.
+    - For 2D, it evaluates the symbol at fixed (x₀, y₀) and plots the characteristic set in the (ξ, η) frequency plane.
+    - This visualization helps identify directions of degeneracy or hypoellipticity of the operator.
+
+    Raises
+    ------
+    NotImplementedError
+        If called on a solver with dimensionality other than 1D or 2D.
+
+    Displays
+    ------
+    A matplotlib contour plot showing either:
+        - The characteristic curve in the (x, ξ) phase plane (1D),
+        - The characteristic surface slice in the (ξ, η) frequency plane at (x₀, y₀) (2D).
+    """
     if op.dim not in (1, 2):
         raise NotImplementedError('Only 1D/2D characteristic sets supported.')
     if op.dim == 2 and eta_grid is None:
@@ -1102,17 +1362,89 @@ def visualize_characteristic_set(op, x_grid, xi_grid, y_grid=None, eta_grid=None
     _render_field(a1, a2, np.abs(Z), style='contour', levels=levels, xlabel=l1, ylabel=l2, title=title, grid=True)
 
 def visualize_characteristic_gradient(op, x_grid, xi_grid, y_grid=None, eta_grid=None, y0=0.0, x0=0.0):
-    """Visualize |grad p| in phase space. NOTE: both the 1D and 2D
-    branches now consistently use abs(.)**2 in the gradient norm (the
-    original 1D branch omitted the abs(), inconsistently with 2D)."""
+    """
+    Visualize the norm of the gradient of the symbol in phase space.
+    
+    This method computes the magnitude of the gradient |∇p| of a pseudo-differential 
+    symbol p(x, ξ) in 1D or p(x, y, ξ, η) in 2D. The resulting colormap reveals 
+    regions where the symbol varies rapidly or remains nearly stationary, 
+    which is particularly useful for analyzing characteristic sets.
+    
+    Parameters
+    ----------
+    op : PseudoDifferentialOperator
+        The pseudo-differential operator whose symbol is to be analyzed.
+        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.
+    x_grid : numpy.ndarray
+        1D array of spatial coordinates for the x-direction.
+    xi_grid : numpy.ndarray
+        1D array of frequency coordinates (ξ).
+    y_grid : numpy.ndarray, optional
+        1D array of spatial coordinates for the y-direction (used in 2D mode). Default is None.
+    eta_grid : numpy.ndarray, optional
+        1D array of frequency coordinates (η) for the 2D case. Default is None.
+    x0 : float, optional
+        Fixed x-coordinate for evaluating the symbol in 2D. Default is 0.0.
+    y0 : float, optional
+        Fixed y-coordinate for evaluating the symbol in 2D. Default is 0.0.
+    
+    Returns
+    -------
+    None
+        Displays a 2D colormap of |∇p| over the relevant phase-space domain.
+    
+    Notes
+    -----
+    - In 1D, the full gradient ∇p = (∂ₓp, ∂ξp) is computed over the (x, ξ) grid.
+    - In 2D, the gradient ∇p = (∂ξp, ∂ηp) is computed at a fixed spatial point (x₀, y₀) over the (ξ, η) grid.
+    - Numerical differentiation is performed using `np.gradient`.
+    - High values of |∇p| indicate rapid variation of the symbol, while low values typically suggest characteristic regions.
+    """
     a1, a2, l1, l2, Z = _slice_grid(op, 'freq', x_grid, xi_grid, y_grid, eta_grid, x0=x0, y0=y0)
     title = 'Gradient Norm (High Near Zeros)' if op.dim == 1 else f'Gradient Norm at x={x0}, y={y0}'
     _render_field(a1, a2, _grad_norm(Z), style='pcolormesh', cmap='inferno', cbar_label='|∇p|', xlabel=l1, ylabel=l2, title=title, grid=True)
 
 def plot_hamiltonian_flow(op, x0=0.0, xi0=5.0, y0=0.0, eta0=0.0, tmax=1.0, n_steps=100, show_field=True):
-    """Integrate and plot the Hamiltonian trajectories of the symbol in
-    phase space. Delegates to the shared `integrate_singularity` engine
-    instead of re-deriving the Hamiltonian vector field inline."""
+    """
+    Integrate and plot the Hamiltonian trajectories of the symbol in phase space.
+
+    This method numerically integrates the Hamiltonian vector field derived from 
+    the operator's symbol to visualize how singularities propagate under the flow. 
+    It supports both 1D and 2D problems.
+
+    Parameters
+    ----------
+    op : PseudoDifferentialOperator
+        The pseudo-differential operator whose symbol is to be analyzed.
+        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.
+    x0, xi0 : float
+        Initial position and frequency (momentum) in 1D.
+    y0, eta0 : float, optional
+        Initial position and frequency in 2D; defaults to zero.
+    tmax : float
+        Final integration time for the ODE solver.
+    n_steps : int
+        Number of time steps used in the integration.
+
+    Notes
+    -----
+    - The Hamiltonian vector field is obtained from the symplectic flow of the symbol.
+    - If the field is complex-valued, only its real part is used for integration.
+    - In 1D, the trajectory is plotted in (x, ξ) phase space.
+    - In 2D, the spatial trajectory (x(t), y(t)) is shown along with instantaneous 
+      momentum vectors (ξ(t), η(t)) using a quiver plot.
+
+    Raises
+    ------
+    NotImplementedError
+        If the spatial dimension is not 1D or 2D.
+
+    Displays
+    --------
+    matplotlib plot
+        Phase space trajectory(ies) showing the evolution of position and momentum 
+        under the Hamiltonian dynamics.
+    """
     x0v = [x0] if op.dim == 1 else [x0, y0]
     xi0v = [xi0] if op.dim == 1 else [xi0, eta0]
     _, _, _, _, trajs = integrate_singularity(op.symbol, op.vars_x, x0=x0v, xi0=xi0v, tmax=tmax, n_frames=n_steps)
@@ -1150,13 +1482,72 @@ def plot_hamiltonian_flow(op, x0=0.0, xi0=5.0, y0=0.0, eta0=0.0, tmax=1.0, n_ste
         plt.show()
 
 def plot_symplectic_vector_field(op, xlim=(-2, 2), klim=(-5, 5), density=30):
-    """Quiver plot of the symplectic vector field (dp/dxi, -dp/dx). 1D only."""
+    """
+    Visualize the symplectic vector field (Hamiltonian vector field) associated with the operator's symbol.
+
+    The plotted vector field corresponds to (∂_ξ p, -∂_x p), where p(x, ξ) is the principal symbol 
+    of the pseudo-differential operator. This field governs the bicharacteristic flow in phase space.
+
+    Parameters
+    ----------
+    op : PseudoDifferentialOperator
+        The pseudo-differential operator whose symbol is to be analyzed.
+        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.
+    xlim : tuple of float
+        Range for spatial variable x, as (x_min, x_max).
+    klim : tuple of float
+        Range for frequency variable ξ, as (ξ_min, ξ_max).
+    density : int
+        Number of grid points per axis for the visualization grid.
+
+    Raises
+    ------
+    NotImplementedError
+        If called on a 2D operator (currently only 1D implementation available).
+
+    Notes
+    -----
+    - Only supports one-dimensional operators.
+    - Uses symbolic differentiation to compute ∂_ξ p and ∂_x p.
+    - Numerical evaluation is done via lambdify with NumPy backend.
+    - Visualization uses matplotlib quiver plot to show vector directions.
+    """
     _quiver_field(op, xlim, klim, density, lambda p, x, xi: (diff(p, xi), -diff(p, x)), 'Symplectic Vector Field (1D)')
 
 def visualize_micro_support(op, xlim=(-2, 2), klim=(-10, 10), threshold=0.001, density=300, xi0=0.0, eta0=0.0):
-    """Visualize 1/|p(x, xi)| to highlight regions where the symbol is
-    near zero. NOTE: no longer restricted to 1D -- the shared grid/render
-    helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y)."""
+    """
+    Visualize the micro-support of the operator by plotting the inverse of the symbol magnitude 1 / |p(x, ξ)|.
+
+    The micro-support provides insight into the singularities of a pseudo-differential operator 
+    in phase space (x, ξ). Regions where |p(x, ξ)| is small correspond to large values in 1/|p(x, ξ)|,
+    highlighting areas of significant operator influence or singularity.
+
+    Parameters
+    ----------
+    op : PseudoDifferentialOperator
+        The pseudo-differential operator whose symbol is to be analyzed.
+        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.
+    xlim : tuple
+        Spatial domain limits (x_min, x_max).
+    klim : tuple
+        Frequency domain limits (ξ_min, ξ_max).
+    threshold : float
+        Threshold below which |p(x, ξ)| is considered effectively zero; used for numerical stability.
+    density : int
+        Number of grid points along each axis for visualization resolution.
+
+    Raises
+    ------
+    NotImplementedError
+        If called on a solver with dimension greater than 1 (only 1D visualization is supported).
+
+    Notes
+    -----
+    - This method evaluates the symbol p(x, ξ) over a grid and plots its reciprocal to emphasize 
+      regions where the symbol is near zero.
+    - A small constant (1e-10) is added to the denominator to avoid division by zero.
+    - The resulting plot helps identify characteristic sets.
+    """
     x_grid = np.linspace(*xlim, density)
     xi_grid = np.linspace(*klim, density)
     if op.dim == 1:
@@ -1167,8 +1558,110 @@ def visualize_micro_support(op, xlim=(-2, 2), klim=(-10, 10), threshold=0.001, d
     _render_field(a1, a2, 1 / (np.abs(Z) + 1e-10), style='contourf', cmap='inferno', cbar_label='$1/|p(x,\\xi)|$', xlabel=l1, ylabel=l2, title=title)
 
 def group_velocity_field(op, xlim=(-2, 2), klim=(-10, 10), density=30):
-    """Quiver plot of the group velocity field (1, dp/dxi). 1D only."""
+    """
+    Plot the group velocity field ∇_ξ p(x, ξ) for 1D pseudo-differential operators.
+
+    The group velocity represents the speed at which waves of different frequencies propagate 
+    in a dispersive medium. It is defined as the gradient of the symbol p(x, ξ) with respect 
+    to the frequency variable ξ.
+
+    Parameters
+    ----------
+    op : PseudoDifferentialOperator
+        The pseudo-differential operator whose symbol is to be analyzed.
+        Must expose attributes: `dim`, `p_func`, `vars_x`, `symbol`, and `expr`.
+    xlim : tuple of float
+        Spatial domain limits (x-axis).
+    klim : tuple of float
+        Frequency domain limits (ξ-axis).
+    density : int
+        Number of grid points per axis used for visualization.
+
+    Raises
+    ------
+    NotImplementedError
+        If called on a 2D operator, since this visualization is only implemented for 1D.
+
+    Notes
+    -----
+    - This method visualizes the vector field (∂p/∂ξ) in phase space.
+    - Used for analyzing wave propagation properties and dispersion relations.
+    - Requires symbolic expression self.expr depending on x and ξ.
+    """
     _quiver_field(op, xlim, klim, density, lambda p, x, xi: (sp.Integer(1), diff(p, xi)), 'Group Velocity Field (1D)')
+
+def _default_wavefront_seeds(op, x0=0.0, y0=0.0, xi0=1.0, eta0=0.0, spread=2.0, n_seeds=25, radius=0.15):
+    """Auto-generate seed singularities for visualize_wavefront_set.
+
+    1D: a fan of frequencies xi in [xi0 - spread, xi0 + spread] at the fixed
+    point x0 (mirrors the "vertical slice" seeding used for Example 11 in
+    the microlocal notebook).
+    2D: a small circle of point-source singularities of radius `radius`
+    around (x0, y0), with outward covectors scaled to |(xi0, eta0)| (mirrors
+    the point-source seeding of Example 12).
+    """
+    if op.dim == 1:
+        xi_vals = np.linspace(xi0 - spread, xi0 + spread, n_seeds)
+        nonzero = xi_vals[np.abs(xi_vals) > 1e-06]
+        if len(nonzero) > 0:
+            xi_vals = nonzero
+        return [(x0, float(xi)) for xi in xi_vals]
+    angles = np.linspace(0, 2 * np.pi, n_seeds, endpoint=False)
+    mag = float(np.hypot(xi0, eta0)) or 1.0
+    return [(x0 + radius * np.cos(a), y0 + radius * np.sin(a), mag * np.cos(a), mag * np.sin(a)) for a in angles]
+
+def visualize_wavefront_set(op, seeds=None, tspan=(0, 3.0), projection='cotangent', n_steps=500, 
+                            cmap='plasma', show_flow=True, show_endpoints=True, title=None, x0=0.0, 
+                            y0=0.0, xi0=1.0, eta0=0.0, spread=2.0, n_seeds=25, radius=0.15):
+    """
+    Visualize the wavefront set WF(u) obtained by propagating seed singularities 
+    along the bicharacteristics of the operator's symbol.
+
+    If `seeds` is not given, a default fan/point-source is built from 
+    (x0, y0) and (xi0, eta0).
+
+    Parameters
+    ----------
+    op : PseudoDifferentialOperator
+        The pseudo-differential operator.
+    seeds : list of tuple, optional
+        Seed points for the wavefront set. If None, auto-generated.
+    tspan : tuple of float, optional
+        Integration time interval (t_start, t_end). Default is (0, 3.0).
+    projection : str, optional
+        Subspace to visualize. 1D: 'cotangent', 'position'. 
+        2D: 'cotangent', 'position', 'frequency', 'mixed_x', 'mixed_y', 'full'.
+    n_steps : int, optional
+        Number of integration steps per bicharacteristic. Default is 500.
+    cmap : str, optional
+        Matplotlib colormap. Default is 'plasma'.
+    show_flow : bool, optional
+        Whether to draw the full bicharacteristic strip. Default is True.
+    show_endpoints : bool, optional
+        Whether to mark initial and final points. Default is True.
+    title : str, optional
+        Figure title.
+    x0, y0 : float, optional
+        Base spatial coordinates for auto-generated seeds.
+    xi0, eta0 : float, optional
+        Base frequency coordinates for auto-generated seeds.
+    spread : float, optional
+        Frequency spread for 1D auto-generated seeds.
+    n_seeds : int, optional
+        Number of seed points to generate if `seeds` is None.
+    radius : float, optional
+        Radius for 2D point-source auto-generated seeds.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The generated figure.
+    axes : matplotlib.axes.Axes or ndarray of Axes
+        The axes object(s).
+    """
+    if seeds is None:
+        seeds = _default_wavefront_seeds(op, x0=x0, y0=y0, xi0=xi0, eta0=eta0, spread=spread, n_seeds=n_seeds, radius=radius)
+    return plot_wavefront_set(op.symbol, seeds, tspan, dim=op.dim, projection=projection, n_steps=n_steps, cmap=cmap, show_flow=show_flow, show_endpoints=show_endpoints, title=title)
 
 def animate_operator_singularity(op, xi0=5.0, eta0=0.0, x0=0.0, y0=0.0, tmax=4.0, n_frames=100, projection=None):
     """Animate the propagation of a singularity under the Hamiltonian
@@ -1183,11 +1676,49 @@ def animate_operator_singularity(op, xi0=5.0, eta0=0.0, x0=0.0, y0=0.0, tmax=4.0
     return animate_singularity(op.symbol, op.vars_x, x0=x0v, xi0=xi0v, tmax=tmax, n_frames=n_frames, projection=projection)
 
 def interactive_symbol_analysis(pseudo_op, xlim=(-2, 2), ylim=(-2, 2), xi_range=(0.1, 5), eta_range=(-5, 5), density=50):
-    """Launch an ipywidgets dashboard for symbol exploration. Same modes,
-    same sliders, same defaults as before -- rewritten as a mode-table
-    dispatcher that delegates to the visualize_*/plot_* methods above
-    instead of duplicating their 1D/2D branches inline (previously
-    ~260 lines of near-duplicated if-elif chains)."""
+    """
+    Launch an interactive dashboard for symbol exploration using ipywidgets.
+
+    This function provides a user-friendly interface to visualize various aspects of the pseudo-differential operator's symbol.
+    It supports multiple visualization modes in both 1D and 2D, including group velocity fields, micro-support estimates,
+    symplectic vector fields, symbol amplitude/phase, cotangent fiber structure, characteristic sets and Hamiltonian flows.
+
+    Parameters
+    ----------
+    pseudo_op : PseudoDifferentialOperator
+        The pseudo-differential operator whose symbol is to be analyzed interactively.
+    xlim, ylim : tuple of float
+        Spatial domain limits along x and y axes respectively.
+    xi_range, eta_range : tuple
+        Frequency domain limits along ξ and η axes respectively.
+    density : int
+        Number of points per axis used to construct the evaluation grid. Controls resolution.
+
+    Notes
+    -----
+    - In 1D mode, sliders control the fixed frequency (ξ₀) and spatial position (x₀).
+    - In 2D mode, additional sliders control the second frequency component (η₀) and second spatial coordinate (y₀).
+    - Visualization updates dynamically as parameters are adjusted via sliders or dropdown menus.
+    - Supported visualization modes:
+        - 'Symbol Amplitude'           : |p(x,ξ)| or |p(x,y,ξ,η)|
+        - 'Symbol Phase'               : arg(p(x,ξ)) or similar in 2D
+        - 'Micro-Support (1/|p|)'      : Reciprocal of symbol magnitude
+        - 'Cotangent Fiber'            : Structure of symbol over frequency space at fixed x
+        - 'Characteristic Set'         : Zero set approximation {p ≈ 0}
+        - 'Characteristic Gradient'    : |∇p(x, ξ)| or |∇p(x₀, y₀, ξ, η)|
+        - 'Group Velocity Field'       : ∇_ξ p(x,ξ) or ∇_{ξ,η} p(x,y,ξ,η)
+        - 'Symplectic Vector Field'    : (∇_ξ p, -∇_x p) or similar in 2D
+        - 'Hamiltonian Flow'           : Trajectories generated by the Hamiltonian vector field
+
+    Raises
+    ------
+    NotImplementedError
+        If the spatial dimension is not 1D or 2D.
+
+    Prints
+    ------
+    Interactive matplotlib figures with dynamic updates based on widget inputs.
+    """
     dim = pseudo_op.dim
     x_vals = np.linspace(*xlim, density)
     y_vals = np.linspace(*ylim, density) if dim == 2 else None
@@ -1196,12 +1727,12 @@ def interactive_symbol_analysis(pseudo_op, xlim=(-2, 2), ylim=(-2, 2), xi_range=
     if dim == 1:
         modes = ['Symbol Amplitude', 'Symbol Phase', 'Micro-Support (1/|p|)',
                   'Cotangent Fiber', 'Characteristic Set', 'Characteristic Gradient',
-                  'Group Velocity Field', 'Symplectic Vector Field', 'Hamiltonian Flow']
+                  'Group Velocity Field', 'Symplectic Vector Field', 'Hamiltonian Flow', 'Wavefront Set']
         needs = {
             'Symbol Amplitude': (), 'Symbol Phase': (), 'Micro-Support (1/|p|)': (), 
             'Group Velocity Field': (), 'Symplectic Vector Field': (), 
             'Hamiltonian Flow': ('xi', 'x'), 'Cotangent Fiber': (), 'Characteristic Set': (),
-            'Characteristic Gradient': ()
+            'Characteristic Gradient': (), 'Wavefront Set': ('xi', 'x')
         }
         mode_selector = Dropdown(options=modes, value='Symbol Amplitude', description='Mode:')
         xi_slider = FloatSlider(min=xi_range[0], max=xi_range[1], step=0.1, value=1.0, description='ξ₀')
@@ -1210,7 +1741,8 @@ def interactive_symbol_analysis(pseudo_op, xlim=(-2, 2), ylim=(-2, 2), xi_range=
 
         def render(mode, xi0, x0):
             plt.close('all')
-            plt.figure()
+            if mode != 'Wavefront Set':
+                plt.figure()
             if mode == 'Symbol Amplitude':
                 visualize_symbol_amplitude(pseudo_op, x_vals, xi_lin, xi0=xi0)
             elif mode == 'Symbol Phase':
@@ -1229,18 +1761,21 @@ def interactive_symbol_analysis(pseudo_op, xlim=(-2, 2), ylim=(-2, 2), xi_range=
                 visualize_characteristic_gradient(pseudo_op, x_vals, xi_lin, x0=x0)
             elif mode == 'Hamiltonian Flow':
                 plot_hamiltonian_flow(pseudo_op, x0=x0, xi0=xi0)
+            elif mode == 'Wavefront Set':
+                visualize_wavefront_set(pseudo_op, x0=x0, xi0=xi0, spread=xi_range[1] - xi_range[0], tspan=(0, 2.0), n_seeds=9, n_steps=150)
+                plt.show()
         interactive_kwargs = {'mode': mode_selector, 'xi0': xi_slider, 'x0': x_slider}
         slider_order = ['xi', 'x']
     else:
         modes = ['Symbol Amplitude', 'Symbol Phase', 'Micro-Support (1/|p|)',
                   'Cotangent Fiber', 'Characteristic Set', 'Characteristic Gradient',
-                  'Symplectic Vector Field', 'Hamiltonian Flow']
+                  'Symplectic Vector Field', 'Hamiltonian Flow', 'Wavefront Set']
         needs = {
             'Symbol Amplitude': ('xi', 'eta'), 'Symbol Phase': ('xi', 'eta'),
             'Micro-Support (1/|p|)': ('xi', 'eta'), 'Symplectic Vector Field': ('xi', 'eta'),
             'Hamiltonian Flow': ('xi', 'eta', 'x', 'y'),
             'Cotangent Fiber': ('x', 'y'), 'Characteristic Set': ('x', 'y'),
-            'Characteristic Gradient': ('x', 'y'),
+            'Characteristic Gradient': ('x', 'y'), 'Wavefront Set': ('xi', 'eta', 'x', 'y')
         }
         mode_selector = Dropdown(options=modes, value='Symbol Amplitude', description='Mode:')
         xi_slider = FloatSlider(min=xi_range[0], max=xi_range[1], step=0.1, value=1.0, description='ξ₀')
@@ -1251,7 +1786,8 @@ def interactive_symbol_analysis(pseudo_op, xlim=(-2, 2), ylim=(-2, 2), xi_range=
 
         def render(mode, xi0, eta0, x0, y0):
             plt.close('all')
-            plt.figure()
+            if mode != 'Wavefront Set':
+                plt.figure()
             if mode == 'Symbol Amplitude':
                 visualize_symbol_amplitude(pseudo_op, x_vals, xi_lin, y_vals, eta_lin, xi0=xi0, eta0=eta0)
             elif mode == 'Symbol Phase':
@@ -1275,6 +1811,8 @@ def interactive_symbol_analysis(pseudo_op, xlim=(-2, 2), ylim=(-2, 2), xi_range=
                 visualize_characteristic_gradient(pseudo_op, x_vals, xi_lin, y_vals, eta_lin, x0=x0, y0=y0)
             elif mode == 'Hamiltonian Flow':
                 plot_hamiltonian_flow(pseudo_op, x0=x0, y0=y0, xi0=xi0, eta0=eta0)
+            elif mode == 'Wavefront Set':
+                visualize_wavefront_set(pseudo_op, x0=x0, y0=y0, xi0=xi0, eta0=eta0, projection='full')
             if mode not in ('Cotangent Fiber', 'Characteristic Set', 'Characteristic Gradient', 'Hamiltonian Flow'):
                 plt.show()
         interactive_kwargs = {'mode': mode_selector, 'xi0': xi_slider, 'eta0': eta_slider, 'x0': x_slider, 'y0': y_slider}
@@ -1381,7 +1919,24 @@ def _matrix_of(s_expr):
     return sp.Matrix([[s_expr]])
 
 def _quantity_fn(quantity):
-    """'real' | 'imag' | 'abs' -> the corresponding numpy function."""
+    """
+    Map a string identifier to the corresponding NumPy function.
+
+    Parameters
+    ----------
+    quantity : str
+        One of 'real', 'imag', or 'abs'.
+
+    Returns
+    -------
+    callable
+        The corresponding NumPy function (`np.real`, `np.imag`, or `np.abs`).
+
+    Raises
+    ------
+    ValueError
+        If `quantity` is not one of the supported strings.
+    """
     try:
         return {'real': np.real, 'imag': np.imag, 'abs': np.abs}[quantity]
     except KeyError:
@@ -1389,8 +1944,23 @@ def _quantity_fn(quantity):
 
 
 def _finish_headless(fig, save_path=None):
-    """Standard ending for the 'returns a Figure, doesn't display it'
-    PDE-solution plots: tight layout, optional save, close, return."""
+    """
+    Finalize a matplotlib figure for headless rendering or saving.
+
+    Applies a tight layout, optionally saves the figure to disk, and closes it.
+
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        The figure to finalize.
+    save_path : str, optional
+        If provided, the path where the figure will be saved (dpi=150).
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The closed figure object.
+    """
     fig.tight_layout()
     if save_path:
         fig.savefig(save_path, dpi=150)
@@ -1656,11 +2226,36 @@ def plot_matrix_field_1d(t, U, x, quantity='abs', component='diag', labels=None,
 
 
 def plot_matrix_field_2d(t, U, x, y, times=None, quantity='abs', component='trace', save_path=None):
-    """Snapshot panels for a matrix-valued 2D solution, shape
-    (n_times, N, N, Nx, Ny) -- the output of solve_matrix_field /
-    solve_sylvester_field in 2D. `component` as in `plot_matrix_field_1d`,
-    except 'diag' isn't supported here (pick a single scalar reduction:
-    'trace', 'frobenius', or an (i, j) entry)."""
+    """
+    Plot snapshot panels for a matrix-valued 2D solution field.
+
+    Parameters
+    ----------
+    t : numpy.ndarray
+        1D array of time samples, shape (n_times,).
+    U : numpy.ndarray
+        Matrix-valued solution field, shape (n_times, N, N, Nx, Ny).
+    x, y : numpy.ndarray
+        1D arrays of spatial grid coordinates.
+    times : array_like of int, optional
+        Indices into `t` selecting which snapshots to plot. Defaults to 6 
+        evenly spaced indices.
+    quantity : {'real', 'imag', 'abs'}, optional
+        Which part of the reduced field to plot. Default is 'abs'.
+    component : {'trace', 'frobenius'} or tuple of int, optional
+        How to reduce the matrix field to a scalar field.
+        'trace' : sum of diagonal entries.
+        'frobenius' : Frobenius norm.
+        (i, j) : specific matrix entry.
+        Default is 'trace'.
+    save_path : str, optional
+        If provided, saves the figure to this path.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The completed and closed figure object.
+    """
     panel_all, field_fn = _matrix_field_reduce(U, component, quantity)
     times = np.linspace(0, len(t) - 1, 6).astype(int) if times is None else times
 
@@ -1680,8 +2275,31 @@ def plot_matrix_field_2d(t, U, x, y, times=None, quantity='abs', component='trac
 # view -- previously required calling plot_scalar_1d twice by hand.
 
 def plot_wave_solution_1d(t, U, V, x, quantity='real', save_path=None):
-    """Side-by-side space-time heatmaps of displacement U and velocity V,
-    as returned by solve_second_order (scalar, 1D case)."""
+    """
+    Plot side-by-side space-time heatmaps of displacement and velocity.
+
+    Intended for the output of `solve_second_order` (scalar, 1D case).
+
+    Parameters
+    ----------
+    t : numpy.ndarray
+        1D array of time samples, shape (n_times,).
+    U : numpy.ndarray
+        Displacement field u(x, t), shape (n_times, Nx).
+    V : numpy.ndarray
+        Velocity field ∂_t u(x, t), shape (n_times, Nx).
+    x : numpy.ndarray
+        1D array of spatial grid coordinates, shape (Nx,).
+    quantity : {'real', 'imag', 'abs'}, optional
+        Which part of the fields to plot. Default is 'real'.
+    save_path : str, optional
+        If provided, saves the figure to this path.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The completed and closed figure object.
+    """
     field_fn = _quantity_fn(quantity)
     fig, axes = plt.subplots(1, 2, figsize=(11, 4), sharex=True, sharey=True)
     for ax, field, label in zip(axes, (U, V), ('u', r'$\partial_t u$')):

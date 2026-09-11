@@ -4,14 +4,28 @@ import ast
 # Modules à exclure de la documentation
 EXCLUDE = {"imports", "mupsipy", "cotangent_bundle", "hpc_examples", "metric_catalogue"}
 
-modules = [
-    f[:-3] for f in os.listdir("src")
-    if f.endswith(".py") and not f.startswith("__") and f[:-3] not in EXCLUDE
-]
+# Modules that have a custom, manually written .rst file (do not auto-generate them)
+CUSTOM_RST = {"psiop"}
+
+modules = []
+for f in os.listdir("src"):
+    path = os.path.join("src", f)
+    
+    # 1. Check for standard .py files
+    if f.endswith(".py") and not f.startswith("__"):
+        mod_name = f[:-3]
+        if mod_name not in EXCLUDE and mod_name not in CUSTOM_RST:
+            modules.append(mod_name)
+            
+    # 2. Check for packages (directories containing __init__.py)
+    elif os.path.isdir(path) and os.path.exists(os.path.join(path, "__init__.py")):
+        mod_name = f
+        if mod_name not in EXCLUDE and mod_name not in CUSTOM_RST:
+            modules.append(mod_name)
 
 os.makedirs("docs/sphinx/source", exist_ok=True)
 
-# Générer les fichiers .rst pour chaque module
+# Générer les fichiers .rst pour chaque module standard
 for mod in sorted(modules):
     content = f"""{mod}
 {"=" * len(mod)}
@@ -36,7 +50,11 @@ def get_init_docstring():
 
 # Générer l'index avec la description
 description = get_init_docstring()
-toc_entries = "\n".join(f"   {mod}" for mod in sorted(modules))
+
+# Include both auto-generated modules AND custom RST modules in the sidebar
+all_toc_modules = sorted(modules + [m for m in CUSTOM_RST if m not in EXCLUDE])
+toc_entries = "\n".join(f"   {mod}" for mod in all_toc_modules)
+
 index = f"""psipy — Documentation
 =====================
 
@@ -51,4 +69,5 @@ index = f"""psipy — Documentation
 with open("docs/sphinx/source/index.rst", "w") as f:
     f.write(index)
 
-print(f"✅ {len(modules)} fichiers .rst générés + index.rst avec description.")
+print(f"✅ {len(modules)} fichiers .rst générés + {len(CUSTOM_RST)} custom RST préservés.")
+print(f"✅ index.rst mis à jour avec {len(all_toc_modules)} modules dans la barre latérale.")
