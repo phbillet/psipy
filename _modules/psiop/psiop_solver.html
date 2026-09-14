@@ -883,22 +883,53 @@
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.solve_second_order">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">solve_second_order</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
                        <span class="n">L</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-                       <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+                       <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span>
+                       <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scheme</span><span class="o">=</span><span class="s1">'propagator'</span><span class="p">,</span> <span class="n">check_finite</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Solve the second-order-in-time evolution equation</span>
 
 <span class="sd">        ∂²u/∂t² = Op[S](u),   u(x, 0) = f(x),   ∂u/∂t(x, 0) = g(x)</span>
 
-<span class="sd">    by reduction to a first-order block companion system and time-stepping</span>
-<span class="sd">    with the asymptotic propagator.</span>
+<span class="sd">    The system is split into ∂u/∂t = v, ∂v/∂t = Op[S](u), and time-stepped</span>
+<span class="sd">    according to `scheme`:</span>
 
-<span class="sd">    The system is split into</span>
+<span class="sd">    - ``'propagator'`` (default): reduce to a first-order 2k-dimensional</span>
+<span class="sd">      block companion system and time-step it via `solve_first_order`,</span>
+<span class="sd">      i.e. repeated application of the amortized asymptotic/exact</span>
+<span class="sd">      exponential propagator. For constant-coefficient `S` this is</span>
+<span class="sd">      *exact* at any `dt` (unconditionally stable, zero phase error).</span>
+<span class="sd">      For x-dependent `S` it is accurate to the asymptotic truncation</span>
+<span class="sd">      `order`, but the truncated exponential is not symplectic in</span>
+<span class="sd">      general, so very long integrations can accumulate a slow energy</span>
+<span class="sd">      drift.</span>
+<span class="sd">    - ``'leapfrog'``: explicit kick-drift-kick (Störmer-Verlet) scheme,</span>
+<span class="sd">      applying `Op[S]` directly -- no exponential/`compose_asymptotic`</span>
+<span class="sd">      machinery is built, so `order` and `do_simplify` are ignored.</span>
+<span class="sd">      It is only *conditionally* stable: writing the local frequency</span>
+<span class="sd">      symbol as `ω(x, ξ) = sqrt(-S(x, ξ))`, `dt` must roughly satisfy</span>
+<span class="sd">      `dt · max ω &lt; 2` (a violation typically shows up immediately as</span>
+<span class="sd">      the `FloatingPointError` below). In exchange, being symplectic</span>
+<span class="sd">      and time-reversible, its energy error stays bounded over</span>
+<span class="sd">      exponentially long integration times instead of drifting</span>
+<span class="sd">      secularly -- the main reason to prefer it over `'propagator'`</span>
+<span class="sd">      for long-time runs with genuinely x-dependent `S`. Plain forward</span>
+<span class="sd">      Euler is deliberately not offered as a scheme here: applied to</span>
+<span class="sd">      this companion system (purely imaginary eigenvalues for an</span>
+<span class="sd">      oscillatory `S`) its amplification factor exceeds 1 for every</span>
+<span class="sd">      `dt &gt; 0`, so it is unconditionally unstable; leapfrog is the</span>
+<span class="sd">      cheapest explicit scheme that avoids that failure mode.</span>
 
-<span class="sd">        ∂u/∂t = v,      ∂v/∂t = Op[S](u)</span>
+<span class="sd">      Per-step KDK update, from `(u^n, v^n)` to `(u^{n+1}, v^{n+1})`:</span>
 
-<span class="sd">    and solved jointly via `solve_first_order` on the 2k-dimensional</span>
-<span class="sd">    companion operator. The returned arrays contain only the physical</span>
-<span class="sd">    field u and its velocity v = ∂u/∂t, not the full state vector.</span>
+<span class="sd">          v^{n+1/2} = v^n       + (dt/2)·Op[S](u^n)      # kick</span>
+<span class="sd">          u^{n+1}   = u^n       +  dt   ·v^{n+1/2}       # drift</span>
+<span class="sd">          v^{n+1}   = v^{n+1/2} + (dt/2)·Op[S](u^{n+1})  # kick</span>
+
+<span class="sd">      equivalent to the textbook `u^{n+1} = 2u^n − u^{n−1} +</span>
+<span class="sd">      dt²·Op[S](u^n)` form but self-starting from `(u^0, v^0)` with no</span>
+<span class="sd">      separate initialization step, and it yields a velocity that is</span>
+<span class="sd">      naturally synchronized with `u` at every saved time (the average</span>
+<span class="sd">      of the two half-kicks straddling it).</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -917,7 +948,7 @@
 <span class="sd">    n_steps : int</span>
 <span class="sd">        Number of time steps.</span>
 <span class="sd">    order : int, default 3</span>
-<span class="sd">        Asymptotic order for the propagator.</span>
+<span class="sd">        Asymptotic order for the propagator. Ignored if `scheme='leapfrog'`.</span>
 <span class="sd">    L : float, default 10.0</span>
 <span class="sd">        Spatial domain half-length.</span>
 <span class="sd">    N : int, default 256</span>
@@ -941,7 +972,15 @@
 <span class="sd">        symbols mixing trigonometric and polynomial terms, and its cost</span>
 <span class="sd">        grows with `order`; set to `False` to skip it and speed up</span>
 <span class="sd">        propagator construction, at the risk of a larger (but</span>
-<span class="sd">        numerically equivalent) unsimplified expression tree.</span>
+<span class="sd">        numerically equivalent) unsimplified expression tree. Ignored</span>
+<span class="sd">        if `scheme='leapfrog'`.</span>
+<span class="sd">    scheme : {'propagator', 'leapfrog'}, default 'propagator'</span>
+<span class="sd">        Time-integration scheme; see above.</span>
+<span class="sd">    check_finite : bool, default True</span>
+<span class="sd">        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead</span>
+<span class="sd">        of silently returning a diverged trajectory. Under</span>
+<span class="sd">        `scheme='leapfrog'` this is usually how a CFL violation first</span>
+<span class="sd">        manifests.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -957,34 +996,112 @@
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
-<span class="sd">        If `f` or `g` produce the wrong number of components.</span>
+<span class="sd">        If `f` or `g` produce the wrong number of components, or if</span>
+<span class="sd">        `scheme` is not one of `'propagator'`/`'leapfrog'`.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; t, U, V, (x, kx) = solve_second_order(</span>
+<span class="sd">    ...     -xi**2, [x], lambda X: np.exp(-X**2), lambda X: 0*X,</span>
+<span class="sd">    ...     dt=0.01, n_steps=200, scheme='leapfrog')</span>
 <span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">scheme</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'propagator'</span><span class="p">,</span> <span class="s1">'leapfrog'</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"scheme must be 'propagator' or 'leapfrog', got </span><span class="si">{</span><span class="n">scheme</span><span class="si">!r}</span><span class="s2">."</span>
+        <span class="p">)</span>
+
     <span class="n">is_matrix</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span>
     <span class="n">k</span> <span class="o">=</span> <span class="n">_matrix_of</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">M</span> <span class="o">=</span> <span class="n">block_matrix_second_order</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
-    
-    <span class="k">def</span><span class="w"> </span><span class="nf">f_combined</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="n">f_comp</span> <span class="o">=</span> <span class="n">_as_component_list</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">size_hint</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
-        <span class="n">g_comp</span> <span class="o">=</span> <span class="n">_as_component_list</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">size_hint</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">f_comp</span><span class="p">)</span> <span class="o">!=</span> <span class="n">k</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">g_comp</span><span class="p">)</span> <span class="o">!=</span> <span class="n">k</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"f and g must each provide </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> component(s)."</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">f_comp</span> <span class="o">+</span> <span class="n">g_comp</span>
-        
-    <span class="c1"># FIX: Call solve_first_order instead of sympy's algebraic solve()</span>
-    <span class="n">t</span><span class="p">,</span> <span class="n">U_full</span><span class="p">,</span> <span class="n">grids</span> <span class="o">=</span> <span class="n">solve_first_order</span><span class="p">(</span>
-        <span class="n">M</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">f_combined</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
-        <span class="n">L</span><span class="o">=</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="n">apply_kwargs</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="n">save_every</span><span class="p">,</span>
-        <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
-    <span class="p">)</span>
-    
-    <span class="n">U</span> <span class="o">=</span> <span class="n">U_full</span><span class="p">[:,</span> <span class="p">:</span><span class="n">k</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-    <span class="n">V</span> <span class="o">=</span> <span class="n">U_full</span><span class="p">[:,</span> <span class="n">k</span><span class="p">:,</span> <span class="o">...</span><span class="p">]</span>
-    
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_matrix</span><span class="p">:</span>
-        <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-        <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-        
-    <span class="k">return</span> <span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">grids</span></div>
+
+    <span class="k">if</span> <span class="n">scheme</span> <span class="o">==</span> <span class="s1">'propagator'</span><span class="p">:</span>
+        <span class="n">M</span> <span class="o">=</span> <span class="n">block_matrix_second_order</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">f_combined</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="n">f_comp</span> <span class="o">=</span> <span class="n">_as_component_list</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">size_hint</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+            <span class="n">g_comp</span> <span class="o">=</span> <span class="n">_as_component_list</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">size_hint</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">f_comp</span><span class="p">)</span> <span class="o">!=</span> <span class="n">k</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">g_comp</span><span class="p">)</span> <span class="o">!=</span> <span class="n">k</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"f and g must each provide </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> component(s)."</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">f_comp</span> <span class="o">+</span> <span class="n">g_comp</span>
+
+        <span class="n">t</span><span class="p">,</span> <span class="n">U_full</span><span class="p">,</span> <span class="n">grids</span> <span class="o">=</span> <span class="n">solve_first_order</span><span class="p">(</span>
+            <span class="n">M</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">f_combined</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span>
+            <span class="n">L</span><span class="o">=</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">N</span><span class="p">,</span> <span class="n">apply_kwargs</span><span class="o">=</span><span class="n">apply_kwargs</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="n">save_every</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="n">do_simplify</span>
+        <span class="p">)</span>
+
+        <span class="n">U</span> <span class="o">=</span> <span class="n">U_full</span><span class="p">[:,</span> <span class="p">:</span><span class="n">k</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">U_full</span><span class="p">[:,</span> <span class="n">k</span><span class="p">:,</span> <span class="o">...</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_matrix</span><span class="p">:</span>
+            <span class="n">U</span> <span class="o">=</span> <span class="n">U</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+            <span class="n">V</span> <span class="o">=</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">grids</span>
+
+    <span class="c1"># -- scheme == 'leapfrog' (kick-drift-kick / Störmer-Verlet) --------</span>
+    <span class="n">apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">apply_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">grids</span> <span class="o">=</span> <span class="n">_make_grids</span><span class="p">(</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">is_matrix</span><span class="p">:</span>
+        <span class="n">S_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span>
+            <span class="n">S_mat</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span>
+            <span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">S_apply</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
+        <span class="c1"># Applies Op[S] directly -- no exponential is ever built.</span>
+        <span class="k">if</span> <span class="n">is_matrix</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+
+    <span class="n">f_comp</span> <span class="o">=</span> <span class="n">_as_component_list</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">size_hint</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+    <span class="n">g_comp</span> <span class="o">=</span> <span class="n">_as_component_list</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">size_hint</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">f_comp</span><span class="p">)</span> <span class="o">!=</span> <span class="n">k</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">g_comp</span><span class="p">)</span> <span class="o">!=</span> <span class="n">k</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"f and g must each provide </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> component(s)."</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">is_matrix</span><span class="p">:</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">f_comp</span><span class="p">])</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">g_comp</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f_comp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">g_comp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+
+    <span class="n">t_list</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
+    <span class="n">U_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">u</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
+    <span class="n">V_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="n">v_half</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">S_apply</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>  <span class="c1"># prime the first half-kick</span>
+
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v_half</span>                     <span class="c1"># drift</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">S_apply</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+        <span class="n">v_half_next</span> <span class="o">=</span> <span class="n">v_half</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">a</span>            <span class="c1"># kick</span>
+        <span class="n">v_sync</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">v_half</span> <span class="o">+</span> <span class="n">v_half_next</span><span class="p">)</span>    <span class="c1"># velocity synchronized at t_n</span>
+
+        <span class="k">if</span> <span class="n">check_finite</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">u</span><span class="p">))</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">v_sync</span><span class="p">))):</span>
+            <span class="k">raise</span> <span class="ne">FloatingPointError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Non-finite values detected at step </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> (t=</span><span class="si">{</span><span class="n">t</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">dt</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2">); "</span>
+                <span class="s2">"this usually means the leapfrog CFL condition "</span>
+                <span class="s2">"dt * max(sqrt(-S)) &lt; 2 is violated -- reduce dt or N, "</span>
+                <span class="s2">"or use scheme='propagator' instead."</span>
+            <span class="p">)</span>
+
+        <span class="n">v_half</span> <span class="o">=</span> <span class="n">v_half_next</span>
+        <span class="n">t</span> <span class="o">+=</span> <span class="n">dt</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">%</span> <span class="n">save_every</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">==</span> <span class="n">n_steps</span><span class="p">:</span>
+            <span class="n">t_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">U_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+            <span class="n">V_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v_sync</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">t_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">U_list</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">V_list</span><span class="p">),</span> <span class="n">grids</span></div>
 
 
 <div class="viewcode-block" id="solve_matrix_field">
