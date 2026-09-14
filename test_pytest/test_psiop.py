@@ -1984,6 +1984,24 @@ def test_solve_second_order_wave_1d():
     assert V.shape[0] == len(t)
     assert np.all(np.isfinite(U))
 
+def test_solve_second_order_wave_1d_LF():
+    """Second-order solver should produce bounded oscillatory solution."""
+    x, xi = symbols('x xi', real=True)
+    t, U, V, grids = solve_second_order(
+        -xi**2, [x],
+        f=lambda X: np.exp(-X**2),
+        g=lambda X: np.zeros_like(X),
+        dt=0.01, n_steps=10, order=2,
+        L=8.0, N=128,
+        scheme='leapfrog',
+        apply_kwargs={'freq_window': None, 'clamp': np.inf},
+    )
+    assert len(t) > 1
+    assert U.shape[0] == len(t)
+    assert V.shape[0] == len(t)
+    assert np.all(np.isfinite(U))
+
+
 
 # ===========================================================================
 # NEW TESTS — Standalone visualization (smoke tests)
@@ -2890,6 +2908,46 @@ def test_solve_second_order_scalar_harmonic_constant():
         order=4,
         L=1.0,
         N=N,
+    )
+
+    U = np.asarray(U)
+    V = np.asarray(V)
+
+    if U.ndim == 3 and U.shape[1] == 1:
+        U = U[:, 0, :]
+    if V.ndim == 3 and V.shape[1] == 1:
+        V = V[:, 0, :]
+
+    assert U.shape[-1] == N
+    assert V.shape[-1] == N
+
+    # u_tt = -u, u(0)=1, u_t(0)=0  =>  u(t)=cos(t), u_t(t)=-sin(t)
+    assert np.allclose(U[-1], np.cos(t[-1]), rtol=2e-2, atol=2e-2)
+    assert np.allclose(V[-1], -np.sin(t[-1]), rtol=2e-2, atol=2e-2)
+
+def test_solve_second_order_scalar_harmonic_constant_LF():
+    solve_second_order = _psiop_func('solve_second_order')
+
+    x, xi = sp.symbols('x xi', real=True)
+
+    dt = 0.01
+    n_steps = 2
+    N = 16
+
+    f = lambda X: np.ones_like(X, dtype=float)
+    g = lambda X: np.zeros_like(X, dtype=float)
+
+    t, U, V, grids = solve_second_order(
+        -1 + 0 * xi,
+        [x],
+        f,
+        g,
+        dt=dt,
+        n_steps=n_steps,
+        order=4,
+        L=1.0,
+        N=N,
+        scheme='leapfrog'
     )
 
     U = np.asarray(U)

@@ -3368,20 +3368,52 @@ saved time is <cite>g(t) = e^{2·phi_list[k]} (dx² + dy²)</cite>.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_solver.solve_second_order">
-<span class="sig-prename descclassname"><span class="pre">psiop.psiop_solver.</span></span><span class="sig-name descname"><span class="pre">solve_second_order</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kohn-nirenberg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'peetre'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">do_simplify</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_solver.html#solve_second_order"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_solver.solve_second_order" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">psiop.psiop_solver.</span></span><span class="sig-name descname"><span class="pre">solve_second_order</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vars_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_every</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kohn-nirenberg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'peetre'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">do_simplify</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheme</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'propagator'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_finite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_solver.html#solve_second_order"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_solver.solve_second_order" title="Link to this definition"></a></dt>
 <dd><p>Solve the second-order-in-time evolution equation</p>
 <blockquote>
 <div><p>∂²u/∂t² = Op[S](u),   u(x, 0) = f(x),   ∂u/∂t(x, 0) = g(x)</p>
 </div></blockquote>
-<p>by reduction to a first-order block companion system and time-stepping
-with the asymptotic propagator.</p>
-<p>The system is split into</p>
+<p>The system is split into ∂u/∂t = v, ∂v/∂t = Op[S](u), and time-stepped
+according to <cite>scheme</cite>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'propagator'</span></code> (default): reduce to a first-order 2k-dimensional
+block companion system and time-step it via <cite>solve_first_order</cite>,
+i.e. repeated application of the amortized asymptotic/exact
+exponential propagator. For constant-coefficient <cite>S</cite> this is
+<em>exact</em> at any <cite>dt</cite> (unconditionally stable, zero phase error).
+For x-dependent <cite>S</cite> it is accurate to the asymptotic truncation
+<cite>order</cite>, but the truncated exponential is not symplectic in
+general, so very long integrations can accumulate a slow energy
+drift.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'leapfrog'</span></code>: explicit kick-drift-kick (Störmer-Verlet) scheme,
+applying <cite>Op[S]</cite> directly – no exponential/<cite>compose_asymptotic</cite>
+machinery is built, so <cite>order</cite> and <cite>do_simplify</cite> are ignored.
+It is only <em>conditionally</em> stable: writing the local frequency
+symbol as <cite>ω(x, ξ) = sqrt(-S(x, ξ))</cite>, <cite>dt</cite> must roughly satisfy
+<cite>dt · max ω &lt; 2</cite> (a violation typically shows up immediately as
+the <cite>FloatingPointError</cite> below). In exchange, being symplectic
+and time-reversible, its energy error stays bounded over
+exponentially long integration times instead of drifting
+secularly – the main reason to prefer it over <cite>‘propagator’</cite>
+for long-time runs with genuinely x-dependent <cite>S</cite>. Plain forward
+Euler is deliberately not offered as a scheme here: applied to
+this companion system (purely imaginary eigenvalues for an
+oscillatory <cite>S</cite>) its amplification factor exceeds 1 for every
+<cite>dt &gt; 0</cite>, so it is unconditionally unstable; leapfrog is the
+cheapest explicit scheme that avoids that failure mode.</p>
+<p>Per-step KDK update, from <cite>(u^n, v^n)</cite> to <cite>(u^{n+1}, v^{n+1})</cite>:</p>
 <blockquote>
-<div><p>∂u/∂t = v,      ∂v/∂t = Op[S](u)</p>
+<div><p>v^{n+1/2} = v^n       + (dt/2)·Op[S](u^n)      # kick
+u^{n+1}   = u^n       +  dt   ·v^{n+1/2}       # drift
+v^{n+1}   = v^{n+1/2} + (dt/2)·Op[S](u^{n+1})  # kick</p>
 </div></blockquote>
-<p>and solved jointly via <cite>solve_first_order</cite> on the 2k-dimensional
-companion operator. The returned arrays contain only the physical
-field u and its velocity v = ∂u/∂t, not the full state vector.</p>
+<p>equivalent to the textbook <cite>u^{n+1} = 2u^n − u^{n−1} +
+dt²·Op[S](u^n)</cite> form but self-starting from <cite>(u^0, v^0)</cite> with no
+separate initialization step, and it yields a velocity that is
+naturally synchronized with <cite>u</cite> at every saved time (the average
+of the two half-kicks straddling it).</p>
+</li>
+</ul>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -3393,7 +3425,7 @@ Must return one component per row of S.</p></li>
 structure as <cite>f</cite>.</p></li>
 <li><p><strong>dt</strong> (<em>float</em>) – Time-step size.</p></li>
 <li><p><strong>n_steps</strong> (<em>int</em>) – Number of time steps.</p></li>
-<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default 3</em>) – Asymptotic order for the propagator.</p></li>
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default 3</em>) – Asymptotic order for the propagator. Ignored if <cite>scheme=’leapfrog’</cite>.</p></li>
 <li><p><strong>L</strong> (<em>float</em><em>, </em><em>default 10.0</em>) – Spatial domain half-length.</p></li>
 <li><p><strong>N</strong> (<em>int</em><em>, </em><em>default 256</em>) – Grid points per axis.</p></li>
 <li><p><strong>apply_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Forwarded to <cite>apply()</cite> at each step.</p></li>
@@ -3410,7 +3442,13 @@ only affects how much symbolic cleanup happens before that.
 symbols mixing trigonometric and polynomial terms, and its cost
 grows with <cite>order</cite>; set to <cite>False</cite> to skip it and speed up
 propagator construction, at the risk of a larger (but
-numerically equivalent) unsimplified expression tree.</p></li>
+numerically equivalent) unsimplified expression tree. Ignored
+if <cite>scheme=’leapfrog’</cite>.</p></li>
+<li><p><strong>scheme</strong> (<em>{'propagator'</em><em>, </em><em>'leapfrog'}</em><em>, </em><em>default 'propagator'</em>) – Time-integration scheme; see above.</p></li>
+<li><p><strong>check_finite</strong> (<em>bool</em><em>, </em><em>default True</em>) – Raise <cite>FloatingPointError</cite> as soon as a NaN/Inf appears, instead
+of silently returning a diverged trajectory. Under
+<cite>scheme=’leapfrog’</cite> this is usually how a CFL violation first
+manifests.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -3423,9 +3461,16 @@ numerically equivalent) unsimplified expression tree.</p></li>
 </p>
 </dd>
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ValueError</strong> – If <cite>f</cite> or <cite>g</cite> produce the wrong number of components.</p>
+<dd class="field-odd"><p><strong>ValueError</strong> – If <cite>f</cite> or <cite>g</cite> produce the wrong number of components, or if
+    <cite>scheme</cite> is not one of <cite>‘propagator’</cite>/<cite>’leapfrog’</cite>.</p>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">kx</span><span class="p">)</span> <span class="o">=</span> <span class="n">solve_second_order</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="o">-</span><span class="n">xi</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">X</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="k">lambda</span> <span class="n">X</span><span class="p">:</span> <span class="mi">0</span><span class="o">*</span><span class="n">X</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">scheme</span><span class="o">=</span><span class="s1">&#39;leapfrog&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">

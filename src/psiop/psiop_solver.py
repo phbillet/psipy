@@ -769,22 +769,53 @@ def block_matrix_second_order(s_expr):
 
 def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
                        L=10.0, N=256, apply_kwargs=None, save_every=1,
-                       quantization='kohn-nirenberg', apply_backend='peetre', do_simplify=True):
+                       quantization='kohn-nirenberg', apply_backend='peetre',
+                       do_simplify=True, scheme='propagator', check_finite=True):
     """
     Solve the second-order-in-time evolution equation
 
         ∂²u/∂t² = Op[S](u),   u(x, 0) = f(x),   ∂u/∂t(x, 0) = g(x)
 
-    by reduction to a first-order block companion system and time-stepping
-    with the asymptotic propagator.
+    The system is split into ∂u/∂t = v, ∂v/∂t = Op[S](u), and time-stepped
+    according to `scheme`:
 
-    The system is split into
+    - ``'propagator'`` (default): reduce to a first-order 2k-dimensional
+      block companion system and time-step it via `solve_first_order`,
+      i.e. repeated application of the amortized asymptotic/exact
+      exponential propagator. For constant-coefficient `S` this is
+      *exact* at any `dt` (unconditionally stable, zero phase error).
+      For x-dependent `S` it is accurate to the asymptotic truncation
+      `order`, but the truncated exponential is not symplectic in
+      general, so very long integrations can accumulate a slow energy
+      drift.
+    - ``'leapfrog'``: explicit kick-drift-kick (Störmer-Verlet) scheme,
+      applying `Op[S]` directly -- no exponential/`compose_asymptotic`
+      machinery is built, so `order` and `do_simplify` are ignored.
+      It is only *conditionally* stable: writing the local frequency
+      symbol as `ω(x, ξ) = sqrt(-S(x, ξ))`, `dt` must roughly satisfy
+      `dt · max ω < 2` (a violation typically shows up immediately as
+      the `FloatingPointError` below). In exchange, being symplectic
+      and time-reversible, its energy error stays bounded over
+      exponentially long integration times instead of drifting
+      secularly -- the main reason to prefer it over `'propagator'`
+      for long-time runs with genuinely x-dependent `S`. Plain forward
+      Euler is deliberately not offered as a scheme here: applied to
+      this companion system (purely imaginary eigenvalues for an
+      oscillatory `S`) its amplification factor exceeds 1 for every
+      `dt > 0`, so it is unconditionally unstable; leapfrog is the
+      cheapest explicit scheme that avoids that failure mode.
 
-        ∂u/∂t = v,      ∂v/∂t = Op[S](u)
+      Per-step KDK update, from `(u^n, v^n)` to `(u^{n+1}, v^{n+1})`:
 
-    and solved jointly via `solve_first_order` on the 2k-dimensional
-    companion operator. The returned arrays contain only the physical
-    field u and its velocity v = ∂u/∂t, not the full state vector.
+          v^{n+1/2} = v^n       + (dt/2)·Op[S](u^n)      # kick
+          u^{n+1}   = u^n       +  dt   ·v^{n+1/2}       # drift
+          v^{n+1}   = v^{n+1/2} + (dt/2)·Op[S](u^{n+1})  # kick
+
+      equivalent to the textbook `u^{n+1} = 2u^n − u^{n−1} +
+      dt²·Op[S](u^n)` form but self-starting from `(u^0, v^0)` with no
+      separate initialization step, and it yields a velocity that is
+      naturally synchronized with `u` at every saved time (the average
+      of the two half-kicks straddling it).
 
     Parameters
     ----------
@@ -803,7 +834,7 @@ def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
     n_steps : int
         Number of time steps.
     order : int, default 3
-        Asymptotic order for the propagator.
+        Asymptotic order for the propagator. Ignored if `scheme='leapfrog'`.
     L : float, default 10.0
         Spatial domain half-length.
     N : int, default 256
@@ -827,7 +858,15 @@ def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
         symbols mixing trigonometric and polynomial terms, and its cost
         grows with `order`; set to `False` to skip it and speed up
         propagator construction, at the risk of a larger (but
-        numerically equivalent) unsimplified expression tree.
+        numerically equivalent) unsimplified expression tree. Ignored
+        if `scheme='leapfrog'`.
+    scheme : {'propagator', 'leapfrog'}, default 'propagator'
+        Time-integration scheme; see above.
+    check_finite : bool, default True
+        Raise `FloatingPointError` as soon as a NaN/Inf appears, instead
+        of silently returning a diverged trajectory. Under
+        `scheme='leapfrog'` this is usually how a CFL violation first
+        manifests.
 
     Returns
     -------
@@ -843,34 +882,112 @@ def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
     Raises
     ------
     ValueError
-        If `f` or `g` produce the wrong number of components.
+        If `f` or `g` produce the wrong number of components, or if
+        `scheme` is not one of `'propagator'`/`'leapfrog'`.
+
+    Examples
+    --------
+    >>> t, U, V, (x, kx) = solve_second_order(
+    ...     -xi**2, [x], lambda X: np.exp(-X**2), lambda X: 0*X,
+    ...     dt=0.01, n_steps=200, scheme='leapfrog')
     """
+    if scheme not in ('propagator', 'leapfrog'):
+        raise ValueError(
+            f"scheme must be 'propagator' or 'leapfrog', got {scheme!r}."
+        )
+
     is_matrix = isinstance(s_expr, (sp.MatrixBase, list, tuple))
     k = _matrix_of(s_expr).shape[0]
-    M = block_matrix_second_order(s_expr)
-    
-    def f_combined(X, Y=None):
-        f_comp = _as_component_list(f, X, Y, size_hint=k)
-        g_comp = _as_component_list(g, X, Y, size_hint=k)
-        if len(f_comp) != k or len(g_comp) != k:
-            raise ValueError(f"f and g must each provide {k} component(s).")
-        return f_comp + g_comp
-        
-    # FIX: Call solve_first_order instead of sympy's algebraic solve()
-    t, U_full, grids = solve_first_order(
-        M, vars_x, f_combined, dt, n_steps, order=order,
-        L=L, N=N, apply_kwargs=apply_kwargs, save_every=save_every,
-        quantization=quantization, apply_backend=apply_backend, do_simplify=do_simplify
-    )
-    
-    U = U_full[:, :k, ...]
-    V = U_full[:, k:, ...]
-    
-    if not is_matrix:
-        U = U[:, 0, ...]
-        V = V[:, 0, ...]
-        
-    return t, U, V, grids
+
+    if scheme == 'propagator':
+        M = block_matrix_second_order(s_expr)
+
+        def f_combined(X, Y=None):
+            f_comp = _as_component_list(f, X, Y, size_hint=k)
+            g_comp = _as_component_list(g, X, Y, size_hint=k)
+            if len(f_comp) != k or len(g_comp) != k:
+                raise ValueError(f"f and g must each provide {k} component(s).")
+            return f_comp + g_comp
+
+        t, U_full, grids = solve_first_order(
+            M, vars_x, f_combined, dt, n_steps, order=order,
+            L=L, N=N, apply_kwargs=apply_kwargs, save_every=save_every,
+            quantization=quantization, apply_backend=apply_backend, do_simplify=do_simplify
+        )
+
+        U = U_full[:, :k, ...]
+        V = U_full[:, k:, ...]
+
+        if not is_matrix:
+            U = U[:, 0, ...]
+            V = V[:, 0, ...]
+
+        return t, U, V, grids
+
+    # -- scheme == 'leapfrog' (kick-drift-kick / Störmer-Verlet) --------
+    apply_kwargs = dict(apply_kwargs or {})
+    X, Y, x, y_grid, kx, ky, grids = _make_grids(vars_x, L, N)
+
+    if is_matrix:
+        S_mat = sp.Matrix(s_expr)
+        op = MatrixPseudoDifferentialOperator(
+            S_mat, vars_x, mode='symbol',
+            quantization=quantization, apply_backend=apply_backend,
+        )
+    else:
+        op = PseudoDifferentialOperator(
+            s_expr, vars_x, mode='symbol',
+            quantization=quantization, apply_backend=apply_backend,
+        )
+
+    def S_apply(u):
+        # Applies Op[S] directly -- no exponential is ever built.
+        if is_matrix:
+            result = op.apply(list(u), x, kx, y_grid=y_grid, ky=ky, **apply_kwargs)
+            return np.stack([np.asarray(c, dtype=complex) for c in result])
+        return np.asarray(op.apply(u, x, kx, y_grid=y_grid, ky=ky, **apply_kwargs), dtype=complex)
+
+    f_comp = _as_component_list(f, X, Y, size_hint=k)
+    g_comp = _as_component_list(g, X, Y, size_hint=k)
+    if len(f_comp) != k or len(g_comp) != k:
+        raise ValueError(f"f and g must each provide {k} component(s).")
+
+    if is_matrix:
+        u = np.stack([np.asarray(c, dtype=complex) for c in f_comp])
+        v = np.stack([np.asarray(c, dtype=complex) for c in g_comp])
+    else:
+        u = np.asarray(f_comp[0], dtype=complex)
+        v = np.asarray(g_comp[0], dtype=complex)
+
+    t_list = [0.0]
+    U_list = [u.copy()]
+    V_list = [v.copy()]
+    t = 0.0
+
+    v_half = v + 0.5 * dt * S_apply(u)  # prime the first half-kick
+
+    for n in range(1, n_steps + 1):
+        u = u + dt * v_half                     # drift
+        a = S_apply(u)
+        v_half_next = v_half + dt * a            # kick
+        v_sync = 0.5 * (v_half + v_half_next)    # velocity synchronized at t_n
+
+        if check_finite and not (np.all(np.isfinite(u)) and np.all(np.isfinite(v_sync))):
+            raise FloatingPointError(
+                f"Non-finite values detected at step {n} (t={t + dt:.6g}); "
+                "this usually means the leapfrog CFL condition "
+                "dt * max(sqrt(-S)) < 2 is violated -- reduce dt or N, "
+                "or use scheme='propagator' instead."
+            )
+
+        v_half = v_half_next
+        t += dt
+        if n % save_every == 0 or n == n_steps:
+            t_list.append(t)
+            U_list.append(u.copy())
+            V_list.append(v_sync.copy())
+
+    return np.array(t_list), np.array(U_list), np.array(V_list), grids
 
 def solve_matrix_field(s_expr, vars_x, F, dt, n_steps, order=3,
                         L=10.0, N=256, apply_kwargs=None, save_every=1,
