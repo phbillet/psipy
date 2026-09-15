@@ -81,16 +81,7 @@ References
 .. [2] Duistermaat, J.J.  "Fourier Integral Operators", Birkhäuser, 1996.
 .. [3] Zworski, M.  "Semiclassical Analysis", AMS Graduate Studies, 2012.
 """
-
-from __future__ import annotations
-
-import sys
-import os
-import warnings
-import numpy as np
-import sympy as sp
-from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Dict, Any
+from imports import *
 
 # ── local imports ──────────────────────────────────────────────────────────────
 sys.path.insert(0, os.path.dirname(__file__))
@@ -114,12 +105,12 @@ class FIOKernel:
 
     Attributes
     ----------
-    phase_sym : sp.Expr
+    phase_sym : Expr
         Phase function φ(vars_int; x_val).  Depends on the integration
         variables and on the (fixed) observation parameter x_val.
-    amp_sym : sp.Expr
+    amp_sym : Expr
         Amplitude function a(vars_int; x_val).
-    vars_int : list[sp.Symbol]
+    vars_int : list[Symbol]
         Integration variables, e.g. [y, ξ] in 1D or [y1, y2, ξ1, ξ2] in 2D.
     x_val : float | tuple[float, ...]
         Current observation point.
@@ -130,9 +121,9 @@ class FIOKernel:
     method_hint : IntegralMethod
         Suggested method (resolved by Analyzer when AUTO).
     """
-    phase_sym   : sp.Expr
-    amp_sym     : sp.Expr
-    vars_int    : List[sp.Symbol]
+    phase_sym   : Expr
+    amp_sym     : Expr
+    vars_int    : List[Symbol]
     x_val       : Any                       = 0.0
     domain      : Optional[List[Tuple]]     = None
     method_hint : IntegralMethod            = IntegralMethod.AUTO
@@ -187,15 +178,15 @@ class FourierIntegralOperator:
 
     Parameters
     ----------
-    phase_expr : sp.Expr
+    phase_expr : Expr
         Phase function φ(x, y, θ) as a SymPy expression.
-    amp_expr : sp.Expr
+    amp_expr : Expr
         Amplitude function a(x, y, θ).
-    vars_x : list[sp.Symbol]
+    vars_x : list[Symbol]
         Target (observation) spatial variables.
-    vars_y : list[sp.Symbol]
+    vars_y : list[Symbol]
         Source spatial variables (integration variables, spatial part).
-    vars_theta : list[sp.Symbol]
+    vars_theta : list[Symbol]
         Frequency / phase variables (integration variables, frequency part).
     lam : float
         Large parameter λ.
@@ -210,18 +201,18 @@ class FourierIntegralOperator:
 
     def __init__(
         self,
-        phase_expr  : sp.Expr,
-        amp_expr    : sp.Expr,
-        vars_x      : List[sp.Symbol],
-        vars_y      : List[sp.Symbol],
-        vars_theta  : List[sp.Symbol],
+        phase_expr  : Expr,
+        amp_expr    : Expr,
+        vars_x      : List[Symbol],
+        vars_y      : List[Symbol],
+        vars_theta  : List[Symbol],
         lam         : float = 50.0,
         domain      : Optional[List[Tuple]] = None,
         tol_grad    : float = 1e-6,
         verbose     : bool  = False,
     ):
-        self.phase_expr  = sp.sympify(phase_expr)
-        self.amp_expr    = sp.sympify(amp_expr)
+        self.phase_expr  = sympify(phase_expr)
+        self.amp_expr    = sympify(amp_expr)
         self.vars_x      = vars_x if isinstance(vars_x,     list) else [vars_x]
         self.vars_y      = vars_y if isinstance(vars_y,     list) else [vars_y]
         self.vars_theta  = vars_theta if isinstance(vars_theta, list) else [vars_theta]
@@ -255,13 +246,13 @@ class FourierIntegralOperator:
             C = { (x, ∇_x φ, y, −∇_y φ) | ∇_θ φ = 0 }
 
         Stores:
-            d_theta_phi : list[sp.Expr]  -- ∂φ/∂θ_i
-            d_x_phi     : list[sp.Expr]  -- ∂φ/∂x_i
-            d_y_phi     : list[sp.Expr]  -- ∂φ/∂y_i
+            d_theta_phi : list[Expr]  -- ∂φ/∂θ_i
+            d_x_phi     : list[Expr]  -- ∂φ/∂x_i
+            d_y_phi     : list[Expr]  -- ∂φ/∂y_i
         """
-        self.d_theta_phi = [sp.diff(self.phase_expr, th) for th in self.vars_theta]
-        self.d_x_phi     = [sp.diff(self.phase_expr, xv) for xv in self.vars_x]
-        self.d_y_phi     = [sp.diff(self.phase_expr, yv) for yv in self.vars_y]
+        self.d_theta_phi = [diff(self.phase_expr, th) for th in self.vars_theta]
+        self.d_x_phi     = [diff(self.phase_expr, xv) for xv in self.vars_x]
+        self.d_y_phi     = [diff(self.phase_expr, yv) for yv in self.vars_y]
 
     def is_non_degenerate(self) -> bool:
         """
@@ -278,13 +269,13 @@ class FourierIntegralOperator:
         bool
             True if the phase is non-degenerate.
         """
-        H_mixed = sp.Matrix([
-            [sp.diff(dth, xv) for xv in self.vars_x]
+        H_mixed = Matrix([
+            [diff(dth, xv) for xv in self.vars_x]
             for dth in self.d_theta_phi
         ])
         r, c = H_mixed.shape
         if r == c:
-            return sp.simplify(H_mixed.det()) != 0
+            return simplify(H_mixed.det()) != 0
         # Non-square: check rank symbolically (slow but correct)
         return H_mixed.rank() == min(r, c)
 
@@ -381,9 +372,9 @@ class FourierIntegralOperator:
 
     def apply_asymptotic(
         self,
-        u_amp_expr   : sp.Expr,
-        u_phase_expr : sp.Expr,
-        x_eval_dict  : Dict[sp.Symbol, float],
+        u_amp_expr   : Expr,
+        u_phase_expr : Expr,
+        x_eval_dict  : Dict[Symbol, float],
         initial_guesses : Optional[List[np.ndarray]] = None,
     ) -> EvalResult:
         """
@@ -398,9 +389,9 @@ class FourierIntegralOperator:
 
         Parameters
         ----------
-        u_amp_expr : sp.Expr
+        u_amp_expr : Expr
             Amplitude a_u(y) of the input WKB state.
-        u_phase_expr : sp.Expr
+        u_phase_expr : Expr
             Phase S_u(y) of the input WKB state.
         x_eval_dict : dict
             Numerical values for the observation variables x, e.g. {x: 1.5}.
@@ -469,10 +460,10 @@ class PsiOpFIOBridge(FourierIntegralOperator):
     The original bottleneck was that every call to ``evaluate_at(x_val, ...)``
     triggered a full SymPy rebuild:
 
-    - build_kernel      → sp.subs  (new x_val substituted into phase)
-    - _make_guesses     → sp.diff + sp.solve  (analytical ξ_c guess)
+    - build_kernel      → subs  (new x_val substituted into phase)
+    - _make_guesses     → diff + solve  (analytical ξ_c guess)
     - _build_analyzer   → Analyzer.__init__
-                        → _prepare_derivatives  (20+ sp.diff calls)
+                        → _prepare_derivatives  (20+ diff calls)
                         → _create_numerical_functions  (8 lambdify calls)
 
     All of that work is *identical across x_val* except for the numerical
@@ -532,21 +523,21 @@ class PsiOpFIOBridge(FourierIntegralOperator):
 
         # Integration variable symbols
         if op.dim == 1:
-            y_sym  = sp.Symbol('y',  real=True)
-            xi_sym = sp.Symbol('xi', real=True)
+            y_sym  = Symbol('y',  real=True)
+            xi_sym = Symbol('xi', real=True)
             vars_y     = [y_sym]
             vars_theta = [xi_sym]
             domain     = [y_range, xi_range]
         else:
-            y1_sym, y2_sym   = sp.symbols('y1 y2',   real=True)
-            xi1_sym, xi2_sym = sp.symbols('xi1 xi2', real=True)
+            y1_sym, y2_sym   = symbols('y1 y2',   real=True)
+            xi1_sym, xi2_sym = symbols('xi1 xi2', real=True)
             vars_y     = [y1_sym, y2_sym]
             vars_theta = [xi1_sym, xi2_sym]
             domain     = [y_range, y_range, xi_range, xi_range]
 
         super().__init__(
-            phase_expr  = sp.Integer(0),   # placeholder; real phase built in _precompute_wkb
-            amp_expr    = sp.Integer(1),
+            phase_expr  = Integer(0),   # placeholder; real phase built in _precompute_wkb
+            amp_expr    = Integer(1),
             vars_x      = op.vars_x,
             vars_y      = vars_y,
             vars_theta  = vars_theta,
@@ -614,11 +605,11 @@ class PsiOpFIOBridge(FourierIntegralOperator):
         if self.op.dim == 1:
             y_sym, xi_sym = self.vars_int
             probe_phase   = (0.0 - y_sym) * xi_sym   # x_val = 0, S_u = 0
-            probe_amp     = sp.Integer(1)
+            probe_amp     = Integer(1)
         else:
             y1, y2, xi1, xi2 = self.vars_int
             probe_phase = -y1 * xi1 - y2 * xi2
-            probe_amp   = sp.Integer(1)
+            probe_amp   = Integer(1)
 
         probe_ana    = Analyzer(probe_phase, probe_amp, list(self.vars_int),
                                 method=IntegralMethod.AUTO)
@@ -630,8 +621,8 @@ class PsiOpFIOBridge(FourierIntegralOperator):
 
     def _precompute_wkb(
         self,
-        u_phase_sym : sp.Expr,
-        u_amp_sym   : sp.Expr,
+        u_phase_sym : Expr,
+        u_amp_sym   : Expr,
     ) -> None:
         """
         Compute and cache all symbolic derivatives, then lambdify everything
@@ -641,7 +632,7 @@ class PsiOpFIOBridge(FourierIntegralOperator):
         Subsequent calls with the same (u_phase_sym, u_amp_sym) pair are
         no-ops (guarded by a hash check).
 
-        Cost: 20+ sp.diff calls + 8 lambdify calls.  O(1) relative to N.
+        Cost: 20+ diff calls + 8 lambdify calls.  O(1) relative to N.
 
         After this method returns, ``self._func_*`` are pure numpy callables
         of the form  f(y, xi, x_val)  for 1D,  f(y1, y2, xi1, xi2, x_val) for 2D.
@@ -654,7 +645,6 @@ class PsiOpFIOBridge(FourierIntegralOperator):
         _xi_guess_fn : callable(x_val_f) -> float  or  None
         _method : IntegralMethod  (re-resolved with full symbol)
         """
-        import itertools
 
         phase_key = hash(u_phase_sym)
         amp_key   = hash(u_amp_sym)
@@ -662,7 +652,7 @@ class PsiOpFIOBridge(FourierIntegralOperator):
             return   # nothing changed — skip
 
         # Symbolic observation-coordinate placeholder
-        x_p      = sp.Symbol('_xp', real=True)
+        x_p      = Symbol('_xp', real=True)
         vars_int = self.vars_int
         dim      = len(vars_int)
 
@@ -682,7 +672,7 @@ class PsiOpFIOBridge(FourierIntegralOperator):
         else:   # 2D
             y1, y2   = self.vars_y
             xi1, xi2 = self.vars_theta
-            x_p2     = sp.Symbol('_yp', real=True)   # second observation coord
+            x_p2     = Symbol('_yp', real=True)   # second observation coord
             op_x1, op_x2 = self.op.vars_x
 
             phi = ((x_p  - y1) * xi1
@@ -694,30 +684,30 @@ class PsiOpFIOBridge(FourierIntegralOperator):
             lv = (y1, y2, xi1, xi2, x_p, x_p2)
 
         # ── All symbolic derivatives, computed once ───────────────────────
-        grad_phi = [sp.diff(phi, v) for v in vars_int]
-        hess_phi = [[sp.diff(phi, u, v) for v in vars_int] for u in vars_int]
-        grad_amp = [sp.diff(amp, v)     for v in vars_int]
-        hess_amp = [[sp.diff(amp, u, v) for v in vars_int] for u in vars_int]
+        grad_phi = [diff(phi, v) for v in vars_int]
+        hess_phi = [[diff(phi, u, v) for v in vars_int] for u in vars_int]
+        grad_amp = [diff(amp, v)     for v in vars_int]
+        hess_amp = [[diff(amp, u, v) for v in vars_int] for u in vars_int]
 
         d3_idx, d3_sym = [], []
         for idx in itertools.product(range(dim), repeat=3):
             d3_idx.append(idx)
-            d3_sym.append(sp.diff(phi, *[vars_int[i] for i in idx]))
+            d3_sym.append(diff(phi, *[vars_int[i] for i in idx]))
 
         d4_idx, d4_sym = [], []
         for idx in itertools.product(range(dim), repeat=4):
             d4_idx.append(idx)
-            d4_sym.append(sp.diff(phi, *[vars_int[i] for i in idx]))
+            d4_sym.append(diff(phi, *[vars_int[i] for i in idx]))
 
         # ── Single lambdify pass — no more SymPy after this ──────────────
-        self._func_phase    = sp.lambdify(lv, phi,      'numpy')
-        self._func_amp      = sp.lambdify(lv, amp,      'numpy')
-        self._func_grad     = sp.lambdify(lv, grad_phi, 'numpy')
-        self._func_hess     = sp.lambdify(lv, hess_phi, 'numpy')
-        self._func_grad_amp = sp.lambdify(lv, grad_amp, 'numpy')
-        self._func_hess_amp = sp.lambdify(lv, hess_amp, 'numpy')
-        self._func_d3       = sp.lambdify(lv, d3_sym,   'numpy')
-        self._func_d4       = sp.lambdify(lv, d4_sym,   'numpy')
+        self._func_phase    = lambdify(lv, phi,      'numpy')
+        self._func_amp      = lambdify(lv, amp,      'numpy')
+        self._func_grad     = lambdify(lv, grad_phi, 'numpy')
+        self._func_hess     = lambdify(lv, hess_phi, 'numpy')
+        self._func_grad_amp = lambdify(lv, grad_amp, 'numpy')
+        self._func_hess_amp = lambdify(lv, hess_amp, 'numpy')
+        self._func_d3       = lambdify(lv, d3_sym,   'numpy')
+        self._func_d4       = lambdify(lv, d4_sym,   'numpy')
         self._d3_indices    = d3_idx
         self._d4_indices    = d4_idx
 
@@ -726,8 +716,8 @@ class PsiOpFIOBridge(FourierIntegralOperator):
         self._xi_guess_fn = None
         if self.op.dim == 1:
             try:
-                dSdy = sp.diff(u_phase_sym, y_sym)
-                self._xi_guess_fn = sp.lambdify(y_sym, dSdy, 'numpy')
+                dSdy = diff(u_phase_sym, y_sym)
+                self._xi_guess_fn = lambdify(y_sym, dSdy, 'numpy')
             except Exception:
                 pass
 
@@ -799,8 +789,8 @@ class PsiOpFIOBridge(FourierIntegralOperator):
     def build_kernel(
         self,
         x_val       : Any,
-        u_phase_sym : sp.Expr,
-        u_amp_sym   : sp.Expr,
+        u_phase_sym : Expr,
+        u_amp_sym   : Expr,
     ) -> FIOKernel:
         """
         Retained for API compatibility and base-class tests.
@@ -835,8 +825,8 @@ class PsiOpFIOBridge(FourierIntegralOperator):
     def evaluate_at(
         self,
         x_val       : Any,
-        u_phase_sym : sp.Expr,
-        u_amp_sym   : sp.Expr,
+        u_phase_sym : Expr,
+        u_amp_sym   : Expr,
     ) -> EvalResult:
         """
         Evaluate (Pu)(x_val) at a single observation point.
@@ -874,8 +864,8 @@ class PsiOpFIOBridge(FourierIntegralOperator):
     def evaluate_grid(
         self,
         x_grid      : np.ndarray,
-        u_phase_sym : sp.Expr,
-        u_amp_sym   : sp.Expr,
+        u_phase_sym : Expr,
+        u_amp_sym   : Expr,
         n_workers   : Optional[int] = None,
     ) -> np.ndarray:
         """
@@ -897,8 +887,8 @@ class PsiOpFIOBridge(FourierIntegralOperator):
         Parameters
         ----------
         x_grid : np.ndarray
-        u_phase_sym : sp.Expr
-        u_amp_sym   : sp.Expr
+        u_phase_sym : Expr
+        u_amp_sym   : Expr
         n_workers   : int | None
             Number of threads.  None → ``os.cpu_count()``.
 
@@ -906,7 +896,6 @@ class PsiOpFIOBridge(FourierIntegralOperator):
         -------
         np.ndarray of complex128, shape (len(x_grid),)
         """
-        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         # One-time symbolic build  (no-op on subsequent calls with same WKB)
         self._precompute_wkb(u_phase_sym, u_amp_sym)
@@ -1226,8 +1215,8 @@ class PropagatorBridge:
         self,
         t            : float,
         x_grid       : np.ndarray,
-        u0_phase_sym : sp.Expr,
-        u0_amp_sym   : sp.Expr,
+        u0_phase_sym : Expr,
+        u0_amp_sym   : Expr,
         mode         : str = 'kn',
     ) -> np.ndarray:
         """
@@ -1237,8 +1226,8 @@ class PropagatorBridge:
         ----------
         t : float           Propagation time.
         x_grid : np.ndarray Spatial evaluation grid.
-        u0_phase_sym : sp.Expr   Phase of u_0: S_0(y).
-        u0_amp_sym   : sp.Expr   Amplitude of u_0: a_0(y).
+        u0_phase_sym : Expr   Phase of u_0: S_0(y).
+        u0_amp_sym   : Expr   Amplitude of u_0: a_0(y).
         mode : str          Quantization scheme ('kn' or 'weyl').
 
         Returns
@@ -1246,7 +1235,7 @@ class PropagatorBridge:
         np.ndarray of complex
         """
         exp_sym = self.op.exponential_symbol(
-            t     = sp.I * t,
+            t     = I * t,
             order = self.exp_order,
             mode  = mode,
         )
@@ -1302,8 +1291,8 @@ class CompositionBridge:
     def evaluate_grid(
         self,
         x_grid      : np.ndarray,
-        u_phase_sym : sp.Expr,
-        u_amp_sym   : sp.Expr,
+        u_phase_sym : Expr,
+        u_amp_sym   : Expr,
     ) -> np.ndarray:
         """Evaluate ((P∘Q)u)(x) over the grid."""
         return self.bridge.evaluate_grid(x_grid, u_phase_sym, u_amp_sym)
@@ -1400,27 +1389,27 @@ class WKBState:
 
     Parameters
     ----------
-    amp_sym : sp.Expr
+    amp_sym : Expr
         Amplitude a(x) as a SymPy expression in ``var_x``.
-    phase_sym : sp.Expr
+    phase_sym : Expr
         Phase S(x) as a SymPy expression in ``var_x``.
-    var_x : sp.Symbol
+    var_x : Symbol
         The spatial variable (must match the symbol in amp_sym / phase_sym).
     lam : float
         Large parameter λ.  The full phase in the exponent is λ·S(x).
 
     Examples
     --------
-    >>> x = sp.Symbol('x', real=True)
-    >>> state = WKBState(sp.exp(-x**2/2), x, x, lam=40.0)
+    >>> x = Symbol('x', real=True)
+    >>> state = WKBState(exp(-x**2/2), x, x, lam=40.0)
     >>> solver.setup(..., initial_condition=state.as_callable())
     """
 
     def __init__(
         self,
-        amp_sym   : sp.Expr,
-        phase_sym : sp.Expr,
-        var_x     : sp.Symbol,
+        amp_sym   : Expr,
+        phase_sym : Expr,
+        var_x     : Symbol,
         lam       : float = 50.0,
     ):
         self.amp_sym   = amp_sym
@@ -1429,8 +1418,8 @@ class WKBState:
         self.lam       = lam
 
         # Pre-lambdify for fast repeated evaluation
-        self._amp_fn   = sp.lambdify(var_x, amp_sym,   'numpy')
-        self._phase_fn = sp.lambdify(var_x, phase_sym, 'numpy')
+        self._amp_fn   = lambdify(var_x, amp_sym,   'numpy')
+        self._phase_fn = lambdify(var_x, phase_sym, 'numpy')
 
     # ── Public interface ───────────────────────────────────────────────────
 
@@ -1465,8 +1454,8 @@ class WKBState:
         This is the dominant frequency of the WKB state at each point,
         useful for choosing the SpectralSplitter cut-off.
         """
-        dS = sp.diff(self.phase_sym, self.var_x)
-        dS_fn = sp.lambdify(self.var_x, dS, 'numpy')
+        dS = diff(self.phase_sym, self.var_x)
+        dS_fn = lambdify(self.var_x, dS, 'numpy')
         return self.lam * np.asarray(dS_fn(x_grid), dtype=float)
 
     def dominant_wavenumber(self, x_grid: np.ndarray) -> float:
@@ -1796,10 +1785,8 @@ class CrossValidator:
                 "Add its directory to sys.path before calling run()."
             ) from exc
 
-        import sympy as _sp
-
         x_sym  = self.op.vars_x[0]
-        t_sym, u_func = _sp.symbols('t'), _sp.Function('u')
+        t_sym, u_func = symbols('t'), Function('u')
 
         # Build  ∂ₜu = psiOp(p(ξ/lam), u)  so that when the solver evaluates
         # the symbol at physical wavenumber k = lam·k₀ it gets p(k₀), matching
@@ -1817,8 +1804,8 @@ class CrossValidator:
         psi_rescaled = self.op.symbol.subs(freq_sym, freq_sym / self.lam)
         
         # Build the equation
-        equation = sp.Eq(
-            sp.Derivative(u_func(t_sym, x_sym), t_sym),
+        equation = Eq(
+            Derivative(u_func(t_sym, x_sym), t_sym),
             psiOp(psi_rescaled, u_func(t_sym, x_sym)),
         )
 
@@ -1986,7 +1973,6 @@ class CrossValidator:
         Plot max relative error vs λ on a log-log scale, with a vertical
         line at the λ-threshold where WKB validity flips.
         """
-        import matplotlib.pyplot as plt
 
         errors   = [r.max_rel_error for r in reports]
         valid    = [r.wkb_valid for r in reports]

@@ -60,39 +60,14 @@ References
 .. [6] Connor, J. N. L.  “Practical methods for the uniform asymptotic evaluation of oscillatory integrals”, *Mol. Phys.* **31**(1), 33–55, 1976.
 """
 
-from __future__ import annotations
-
-import itertools
-import warnings
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple, Union
-
-import numpy as np
-import sympy as sp
-
-try:
-    from scipy.integrate import solve_ivp
-    from scipy.optimize import fsolve
-    from scipy.special import airy
-    _HAS_SCIPY = True
-except ImportError:
-    _HAS_SCIPY = False
-    warnings.warn("scipy not found — numeric fallbacks disabled.", ImportWarning)
-
-try:
-    import matplotlib.pyplot as _plt
-    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
-    _HAS_MPL = True
-except ImportError:
-    _HAS_MPL = False
-
+from imports import *
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SECTION 1 — Arnold classification (algebraic)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def classify_arnold_1d(f: sp.Expr,
-                       xi: sp.Symbol,
+def classify_arnold_1d(f: Expr,
+                       xi: Symbol,
                        point: float,
                        max_order: int = 8,
                        tol: float = 1e-8) -> dict:
@@ -126,7 +101,7 @@ def classify_arnold_1d(f: sp.Expr,
     subs = {xi: point}
     derivs = {}
     for k in range(1, max_order + 1):
-        val = float(sp.N(sp.diff(f, (xi, k)).subs(subs)))
+        val = float(N(diff(f, (xi, k)).subs(subs)))
         derivs[k] = val
 
     # k=1 non-zero → regular point, not a caustic
@@ -153,9 +128,9 @@ def classify_arnold_1d(f: sp.Expr,
             "order": None, "derivatives": derivs, "point": point}
 
 
-def classify_arnold_2d(H: sp.Expr,
-                       xi: sp.Symbol,
-                       eta: sp.Symbol,
+def classify_arnold_2d(H: Expr,
+                       xi: Symbol,
+                       eta: Symbol,
                        point: dict,
                        tol: float = 1e-8) -> dict:
     """
@@ -203,18 +178,18 @@ def classify_arnold_2d(H: sp.Expr,
 #    subs = {xi: float(point["xi"]), eta: float(point["eta"])}
 
     # ── Hessian ──────────────────────────────────────────────────
-    H_xx = float(sp.N(sp.diff(H, (xi, 2)).subs(subs)))
-    H_yy = float(sp.N(sp.diff(H, (eta, 2)).subs(subs)))
-    H_xy = float(sp.N(sp.diff(H, xi, eta).subs(subs)))
+    H_xx = float(N(diff(H, (xi, 2)).subs(subs)))
+    H_yy = float(N(diff(H, (eta, 2)).subs(subs)))
+    H_xy = float(N(diff(H, xi, eta).subs(subs)))
     Hess = np.array([[H_xx, H_xy], [H_xy, H_yy]], dtype=float)
     rank = int(np.linalg.matrix_rank(Hess, tol=tol))
     eigvals, eigvecs = np.linalg.eigh(Hess)   # eigh: real symmetric
 
     # ── Third-order tensor ────────────────────────────────────────
-    H_xxx = float(sp.N(sp.diff(H, (xi, 3)).subs(subs)))
-    H_xxy = float(sp.N(sp.diff(H, xi, xi, eta).subs(subs)))
-    H_xyy = float(sp.N(sp.diff(H, xi, eta, eta).subs(subs)))
-    H_yyy = float(sp.N(sp.diff(H, (eta, 3)).subs(subs)))
+    H_xxx = float(N(diff(H, (xi, 3)).subs(subs)))
+    H_xxy = float(N(diff(H, xi, xi, eta).subs(subs)))
+    H_xyy = float(N(diff(H, xi, eta, eta).subs(subs)))
+    H_yyy = float(N(diff(H, (eta, 3)).subs(subs)))
     third = {"H_xxx": H_xxx, "H_xxy": H_xxy, "H_xyy": H_xyy, "H_yyy": H_yyy}
 
     base = {"hessian": Hess.tolist(), "third_order_tensor": third}
@@ -232,7 +207,7 @@ def classify_arnold_2d(H: sp.Expr,
 
         # Directional derivative operator D
         def _D(expr):
-            return vx * sp.diff(expr, xi) + vy * sp.diff(expr, eta)
+            return vx * diff(expr, xi) + vy * diff(expr, eta)
 
         # Build D^k H symbolically up to order 6
         DH  = _D(H)
@@ -242,10 +217,10 @@ def classify_arnold_2d(H: sp.Expr,
         D5H = _D(D4H)
         D6H = _D(D5H)
 
-        D3 = float(sp.N(D3H.subs(subs)))
-        D4 = float(sp.N(D4H.subs(subs)))
-        D5 = float(sp.N(D5H.subs(subs)))
-        D6 = float(sp.N(D6H.subs(subs)))
+        D3 = float(N(D3H.subs(subs)))
+        D4 = float(N(D4H.subs(subs)))
+        D5 = float(N(D5H.subs(subs)))
+        D6 = float(N(D6H.subs(subs)))
 
         directional = {"D3": D3, "D4": D4, "D5": D5, "D6": D6,
                        "null_direction": null_dir.tolist()}
@@ -328,10 +303,6 @@ def find_critical_points_numerical(
     list of np.ndarray
         Unique critical points found within the given tolerance and domain.
     """
-    if not _HAS_SCIPY:
-        raise RuntimeError("scipy is required for find_critical_points_numerical.")
-
-    from scipy.optimize import minimize as _minimize
 
     def objective(x):
         g = np.asarray(grad_func(*x), dtype=float)
@@ -340,7 +311,7 @@ def find_critical_points_numerical(
     raw = []
     for guess in initial_guesses:
         try:
-            res = _minimize(objective, guess, tol=tolerance, method='L-BFGS-B')
+            res = minimize(objective, guess, tol=tolerance, method='L-BFGS-B')
             if res.success and res.fun < tolerance:
                 xc = res.x
                 if domain is not None:
@@ -369,21 +340,21 @@ class AdaptiveCriticalPointSolver:
 
     Strategy
     --------
-    1. Symbolic solve (sp.solve) — exact when polynomial.
+    1. Symbolic solve (solve) — exact when polynomial.
     2. Coarse grid scan — evaluate |∇H| on a grid, keep near-zero cells
        as seeds for Newton refinement.
     3. Newton / fsolve refinement — high-accuracy convergence from seeds.
     4. DBSCAN-style deduplication — merge solutions closer than `cluster_tol`.
 
-    This replaces the fragile uniform-grid + sp.nsolve approach that missed
+    This replaces the fragile uniform-grid + nsolve approach that missed
     solutions and was slow.
 
     Parameters
     ----------
-    H_expr : sp.Expr
-    xi_vars : sequence of sp.Symbol
+    H_expr : Expr
+    xi_vars : sequence of Symbol
         Frequency variables (the unknowns for ∇H = 0).
-    coords : sequence of sp.Symbol, optional
+    coords : sequence of Symbol, optional
         Additional parameter symbols (treated as unknowns too).
     bounds : dict {symbol: (lo, hi)}, optional
         Search bounds per symbol.  Defaults to (-5, 5) for all.
@@ -396,9 +367,9 @@ class AdaptiveCriticalPointSolver:
     """
 
     def __init__(self,
-                 H_expr: sp.Expr,
-                 xi_vars: Sequence[sp.Symbol],
-                 coords: Optional[Sequence[sp.Symbol]] = None,
+                 H_expr: Expr,
+                 xi_vars: Sequence[Symbol],
+                 coords: Optional[Sequence[Symbol]] = None,
                  bounds: Optional[Dict] = None,
                  coarse_n: int = 30,
                  cluster_tol: float = 1e-4,
@@ -420,9 +391,9 @@ class AdaptiveCriticalPointSolver:
             self.bounds.update(bounds)
 
         # Pre-compile gradient as numpy function
-        self._grad_exprs = [sp.diff(H_expr, v) for v in self.unknowns]
-        self._grad_func  = sp.lambdify(self.unknowns, self._grad_exprs, "numpy")
-        self._H_func     = sp.lambdify(self.unknowns, H_expr, "numpy")
+        self._grad_exprs = [diff(H_expr, v) for v in self.unknowns]
+        self._grad_func  = lambdify(self.unknowns, self._grad_exprs, "numpy")
+        self._H_func     = lambdify(self.unknowns, H_expr, "numpy")
 
     # ── Private helpers ──────────────────────────────────────────
 
@@ -460,22 +431,15 @@ class AdaptiveCriticalPointSolver:
         return seeds
 
     def _newton_refine(self, seed: np.ndarray) -> Optional[np.ndarray]:
-        """Newton refinement from a seed point.
-        Uses scipy.fsolve when available, else a simple numpy Newton loop."""
-        if _HAS_SCIPY:
-            try:
-                from scipy.optimize import fsolve
-                sol, info, ier, _ = fsolve(
-                    self._eval_grad, seed,
-                    full_output=True, xtol=1e-12, ftol=1e-12
-                )
-                if ier == 1:
-                    residual = np.max(np.abs(self._eval_grad(sol)))
-                    if residual < self.grad_tol:
-                        return sol
-            except Exception:
-                pass
-            return None
+        """Newton refinement from a seed point."""
+        sol, info, ier, _ = fsolve(
+            self._eval_grad, seed,
+            full_output=True, xtol=1e-12, ftol=1e-12
+        )
+        if ier == 1:
+            residual = np.max(np.abs(self._eval_grad(sol)))
+            if residual < self.grad_tol:
+                return sol
 
         # Pure-numpy Newton fallback (finite-difference Jacobian)
         pt = seed.copy().astype(float)
@@ -520,16 +484,16 @@ class AdaptiveCriticalPointSolver:
         return [np.mean(c, axis=0) for c in clusters]
 
     def _symbolic_solve(self) -> Optional[List[np.ndarray]]:
-        """Attempt symbolic solution with sp.solve."""
-        eqs = [sp.Eq(g, 0) for g in self._grad_exprs]
+        """Attempt symbolic solution with solve."""
+        eqs = [Eq(g, 0) for g in self._grad_exprs]
         try:
-            sol_list = sp.solve(eqs, self.unknowns, dict=True)
+            sol_list = solve(eqs, self.unknowns, dict=True)
             if not sol_list:
                 return None
             result = []
             for sol in sol_list:
                 try:
-                    pt = np.array([float(sp.N(sol.get(v, v)))
+                    pt = np.array([float(N(sol.get(v, v)))
                                    for v in self.unknowns], dtype=float)
                     if np.all(np.isfinite(pt)):
                         result.append(pt)
@@ -548,7 +512,7 @@ class AdaptiveCriticalPointSolver:
         Parameters
         ----------
         method : "symbolic" | "adaptive" | "auto"
-            - "symbolic" : sp.solve only (fast for polynomials)
+            - "symbolic" : solve only (fast for polynomials)
             - "adaptive" : coarse grid + Newton (always numerical)
             - "auto"     : try symbolic first, fall back to adaptive
 
@@ -590,9 +554,9 @@ class AdaptiveCriticalPointSolver:
                 for pt in solutions]
 
 
-def detect_catastrophes(H_expr: sp.Expr,
-                        xi_vars: Sequence[sp.Symbol],
-                        coords: Optional[Sequence[sp.Symbol]] = None,
+def detect_catastrophes(H_expr: Expr,
+                        xi_vars: Sequence[Symbol],
+                        coords: Optional[Sequence[Symbol]] = None,
                         method: str = "auto",
                         bounds: Optional[Dict] = None,
                         coarse_n: int = 30,
@@ -606,9 +570,9 @@ def detect_catastrophes(H_expr: sp.Expr,
 
     Parameters
     ----------
-    H_expr : sp.Expr
-    xi_vars : tuple of sp.Symbol   — (xi,) in 1D, (xi, eta) in 2D
-    coords : tuple of sp.Symbol, optional
+    H_expr : Expr
+    xi_vars : tuple of Symbol   — (xi,) in 1D, (xi, eta) in 2D
+    coords : tuple of Symbol, optional
         Additional parameter symbols (e.g. spatial coordinates x, y).
         When provided, catastrophes are tracked as families.
     method : "symbolic" | "adaptive" | "auto"
@@ -778,7 +742,7 @@ class RayCausticDetector:
                  ray_bundle: List[Dict],
                  dimension: int,
                  det_threshold: float = 0.05,
-                 H_expr: Optional[sp.Expr] = None,
+                 H_expr: Optional[Expr] = None,
                  xi_syms: Optional[Tuple] = None,
                  x_syms : Optional[Tuple] = None):
 
@@ -1077,24 +1041,18 @@ class CausticFunctions:
             u(x) ≈ 2√π · ε^{1/6} · |∂_s J|^{-1/2} · Ai(-ε^{-2/3} ζ(x)) · e^{iS_c/ε}
         where ζ(x) is the local coordinate measuring distance to the caustic.
         """
-        if not _HAS_SCIPY:
-            raise RuntimeError("scipy required for Airy function.")
         ai, _, _, _ = airy(z)
         return ai
 
     @staticmethod
     def airy_Ai_prime(z: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """Derivative Ai'(z) of the Airy function."""
-        if not _HAS_SCIPY:
-            raise RuntimeError("scipy required.")
         _, aip, _, _ = airy(z)
         return aip
 
     @staticmethod
     def airy_Bi(z: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """Second Airy function Bi(z) (exponentially growing branch)."""
-        if not _HAS_SCIPY:
-            raise RuntimeError("scipy required.")
         _, _, bi, _ = airy(z)
         return bi
 
@@ -1248,8 +1206,8 @@ class CausticFunctions:
 # SECTION 5 — Visualisation
 # ══════════════════════════════════════════════════════════════════════════════
 
-def plot_catastrophe(H: sp.Expr,
-                     xi_vars: Sequence[sp.Symbol],
+def plot_catastrophe(H: Expr,
+                     xi_vars: Sequence[Symbol],
                      points: List[Dict],
                      xi_bounds: Tuple[float, float] = (-3.0, 3.0),
                      eta_bounds: Tuple[float, float] = (-3.0, 3.0),
@@ -1268,8 +1226,6 @@ def plot_catastrophe(H: sp.Expr,
     n        : grid resolution
     title    : optional plot title
     """
-    if not _HAS_MPL:
-        raise RuntimeError("matplotlib not available.")
 
     dim = len(xi_vars)
     _TYPE_COLORS = {
@@ -1284,10 +1240,10 @@ def plot_catastrophe(H: sp.Expr,
     if dim == 1:
         xi = xi_vars[0]
         X  = np.linspace(xi_bounds[0], xi_bounds[1], n)
-        Hf = sp.lambdify(xi, H, "numpy")
+        Hf = lambdify(xi, H, "numpy")
         Y  = np.asarray(Hf(X), dtype=float)
 
-        fig, ax = _plt.subplots(figsize=(9, 5))
+        fig, ax = plt.subplots(figsize=(9, 5))
         ax.plot(X, Y, "k-", lw=1.5, label="H(ξ)")
 
         for p in points:
@@ -1305,18 +1261,18 @@ def plot_catastrophe(H: sp.Expr,
         ax.set_title(title or "Catastrophe plot (1D)")
         ax.grid(True, alpha=0.3)
         ax.legend()
-        _plt.tight_layout()
-        _plt.show()
+        plt.tight_layout()
+        plt.show()
 
     elif dim == 2:
         xi, eta = xi_vars
         Xv = np.linspace(xi_bounds[0],  xi_bounds[1],  n // 2)
         Yv = np.linspace(eta_bounds[0], eta_bounds[1], n // 2)
         XX, YY = np.meshgrid(Xv, Yv)
-        Hf = sp.lambdify((xi, eta), H, "numpy")
+        Hf = lambdify((xi, eta), H, "numpy")
         ZZ = np.asarray(Hf(XX, YY), dtype=float)
 
-        fig = _plt.figure(figsize=(10, 7))
+        fig = plt.figure(figsize=(10, 7))
         ax  = fig.add_subplot(111, projection="3d")
         ax.plot_surface(XX, YY, ZZ, alpha=0.55, rstride=3, cstride=3,
                         cmap="viridis")
@@ -1335,8 +1291,8 @@ def plot_catastrophe(H: sp.Expr,
         ax.set_ylabel("η")
         ax.set_zlabel("H")
         ax.set_title(title or "Catastrophe surface (2D)")
-        _plt.tight_layout()
-        _plt.show()
+        plt.tight_layout()
+        plt.show()
 
     else:
         raise NotImplementedError("plot_catastrophe supports only dim 1 or 2.")
@@ -1357,10 +1313,8 @@ def plot_caustic_events(ray_bundle: List[Dict],
     dimension  : 1 or 2
     n_rays_plot: max number of rays to draw
     """
-    if not _HAS_MPL:
-        raise RuntimeError("matplotlib not available.")
 
-    fig, ax = _plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
 
     n_total = len(ray_bundle)
     step    = max(1, n_total // n_rays_plot)
@@ -1411,6 +1365,6 @@ def plot_caustic_events(ray_bundle: List[Dict],
 
     ax.set_title(title or f"Ray bundle with caustic events (dim={dimension})")
     ax.grid(True, alpha=0.3)
-    _plt.tight_layout()
-    _plt.show()
+    plt.tight_layout()
+    plt.show()
 

@@ -214,31 +214,31 @@
 <section id="strategy">
 <h2>Strategy<a class="headerlink" href="#strategy" title="Link to this heading"></a></h2>
 <ol class="arabic simple">
-<li><p>Symbolic solve (sp.solve) — exact when polynomial.</p></li>
+<li><p>Symbolic solve (solve) — exact when polynomial.</p></li>
 <li><p>Coarse grid scan — evaluate <a href="#id29"><span class="problematic" id="id30">|∇H|</span></a> on a grid, keep near-zero cells
 as seeds for Newton refinement.</p></li>
 <li><p>Newton / fsolve refinement — high-accuracy convergence from seeds.</p></li>
 <li><p>DBSCAN-style deduplication — merge solutions closer than <cite>cluster_tol</cite>.</p></li>
 </ol>
-<p>This replaces the fragile uniform-grid + sp.nsolve approach that missed
+<p>This replaces the fragile uniform-grid + nsolve approach that missed
 solutions and was slow.</p>
 <dl class="field-list simple">
 <dt class="field-odd">param H_expr<span class="colon">:</span></dt>
 <dd class="field-odd"><p></p></dd>
 <dt class="field-even">type H_expr<span class="colon">:</span></dt>
-<dd class="field-even"><p>sp.Expr</p>
+<dd class="field-even"><p>Expr</p>
 </dd>
 <dt class="field-odd">param xi_vars<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Frequency variables (the unknowns for ∇H = 0).</p>
 </dd>
 <dt class="field-even">type xi_vars<span class="colon">:</span></dt>
-<dd class="field-even"><p>sequence of sp.Symbol</p>
+<dd class="field-even"><p>sequence of Symbol</p>
 </dd>
 <dt class="field-odd">param coords<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Additional parameter symbols (treated as unknowns too).</p>
 </dd>
 <dt class="field-even">type coords<span class="colon">:</span></dt>
-<dd class="field-even"><p>sequence of sp.Symbol, optional</p>
+<dd class="field-even"><p>sequence of Symbol, optional</p>
 </dd>
 <dt class="field-odd">param bounds<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Search bounds per symbol.  Defaults to (-5, 5) for all.</p>
@@ -272,7 +272,7 @@ solutions and was slow.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>method</strong> (<em>&quot;symbolic&quot;</em><em> | </em><em>&quot;adaptive&quot;</em><em> | </em><em>&quot;auto&quot;</em>) – <ul class="simple">
-<li><p>“symbolic” : sp.solve only (fast for polynomials)</p></li>
+<li><p>“symbolic” : solve only (fast for polynomials)</p></li>
 <li><p>”adaptive” : coarse grid + Newton (always numerical)</p></li>
 <li><p>”auto”     : try symbolic first, fall back to adaptive</p></li>
 </ul>
@@ -882,9 +882,9 @@ classify_arnold_1d / classify_arnold_2d (typing).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>H_expr</strong> (<em>sp.Expr</em>)</p></li>
-<li><p><strong>xi_vars</strong> (<em>tuple</em><em> of </em><em>sp.Symbol   —</em><em> (</em><a class="reference internal" href="geometry.html#geometry.Geodesic1D.xi" title="geometry.Geodesic1D.xi"><em>xi</em></a><em>,</em><em>) </em><em>in 1D</em><em>, </em><em>(</em><a class="reference internal" href="geometry.html#geometry.Geodesic1D.xi" title="geometry.Geodesic1D.xi"><em>xi</em></a><em>, </em><a class="reference internal" href="geometry.html#geometry.Geodesic2D.eta" title="geometry.Geodesic2D.eta"><em>eta</em></a><em>) </em><em>in 2D</em>)</p></li>
-<li><p><strong>coords</strong> (<em>tuple</em><em> of </em><em>sp.Symbol</em><em>, </em><em>optional</em>) – Additional parameter symbols (e.g. spatial coordinates x, y).
+<li><p><strong>H_expr</strong> (<em>Expr</em>)</p></li>
+<li><p><strong>xi_vars</strong> (<em>tuple</em><em> of </em><em>Symbol   —</em><em> (</em><a class="reference internal" href="geometry.html#geometry.Geodesic1D.xi" title="geometry.Geodesic1D.xi"><em>xi</em></a><em>,</em><em>) </em><em>in 1D</em><em>, </em><em>(</em><a class="reference internal" href="geometry.html#geometry.Geodesic1D.xi" title="geometry.Geodesic1D.xi"><em>xi</em></a><em>, </em><a class="reference internal" href="geometry.html#geometry.Geodesic2D.eta" title="geometry.Geodesic2D.eta"><em>eta</em></a><em>) </em><em>in 2D</em>)</p></li>
+<li><p><strong>coords</strong> (<em>tuple</em><em> of </em><em>Symbol</em><em>, </em><em>optional</em>) – Additional parameter symbols (e.g. spatial coordinates x, y).
 When provided, catastrophes are tracked as families.</p></li>
 <li><p><strong>method</strong> (<em>&quot;symbolic&quot;</em><em> | </em><em>&quot;adaptive&quot;</em><em> | </em><em>&quot;auto&quot;</em>)</p></li>
 <li><p><strong>bounds</strong> (<em>dict {symbol:</em><em> (</em><em>lo</em><em>, </em><em>hi</em><em>)</em><em>}</em><em>, </em><em>optional</em>)</p></li>

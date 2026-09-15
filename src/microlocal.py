@@ -61,17 +61,9 @@ References
 .. [4] Zworski, M.  *Semiclassical Analysis*, American Mathematical Society, 2012.  Chapter 3: Propagation of Singularities.
 .. [5] Taylor, M. E.  *Partial Differential Equations II*, Springer, 2011.  Chapter 8: Microlocal Analysis.
 """
-import numpy as np
-import sympy as sp
-from sympy import symbols, lambdify, simplify, diff
-import matplotlib.pyplot as plt
-from matplotlib import rc
-from matplotlib.animation import FuncAnimation
-from scipy.integrate import solve_ivp, odeint, quad
-from scipy.optimize import bisect
-from scipy.interpolate import griddata, interp1d
-from IPython.display import display
-from ipywidgets import Dropdown, FloatSlider, VBox, interactive_output
+
+from imports import *
+
 from wkb import *
 from caustics import *
 
@@ -147,19 +139,19 @@ def characteristic_variety(symbol, dim=None, tol=1e-08):
     """
     dim = _infer_dim(symbol, dim)
     if dim == 1:
-        x, xi = sp.symbols('x xi', real=True)
-        char_eq = sp.Eq(symbol, 0)
+        x, xi = symbols('x xi', real=True)
+        char_eq = Eq(symbol, 0)
         try:
-            xi_solutions = sp.solve(symbol, xi)
-            explicit = [sp.simplify(sol) for sol in xi_solutions]
+            xi_solutions = solve(symbol, xi)
+            explicit = [simplify(sol) for sol in xi_solutions]
         except:
             explicit = None
-        func = sp.lambdify((x, xi), symbol, 'numpy')
+        func = lambdify((x, xi), symbol, 'numpy')
         return {'implicit': symbol, 'equation': char_eq, 'explicit': explicit, 'function': func}
     else:
-        x, y, xi, eta = sp.symbols('x y xi eta', real=True)
-        char_eq = sp.Eq(symbol, 0)
-        func = sp.lambdify((x, y, xi, eta), symbol, 'numpy')
+        x, y, xi, eta = symbols('x y xi eta', real=True)
+        char_eq = Eq(symbol, 0)
+        func = lambdify((x, y, xi, eta), symbol, 'numpy')
         return {'implicit': symbol, 'equation': char_eq, 'explicit': None, 'function': func}
 
 # ----------------------------------------------------------------------
@@ -276,20 +268,20 @@ def _bichar_flow_1d(symbol, z0, tspan, method, n_steps):
     - This function is intended for internal use and is not part of the public
       API of the `microlocal` module.
     """
-    x, xi = sp.symbols('x xi', real=True)
-    dp_dxi = sp.diff(symbol, xi)
-    dp_dx = sp.diff(symbol, x)
-    f_x = sp.lambdify((x, xi), dp_dxi, 'numpy')
-    f_xi = sp.lambdify((x, xi), -dp_dx, 'numpy')
-    d2p_dx2 = sp.diff(symbol, x, x)
-    d2p_dxi2 = sp.diff(symbol, xi, xi)
-    d2p_dxdxi = sp.diff(symbol, x, xi)
-    A11 = sp.diff(symbol, xi, x)
+    x, xi = symbols('x xi', real=True)
+    dp_dxi = diff(symbol, xi)
+    dp_dx = diff(symbol, x)
+    f_x = lambdify((x, xi), dp_dxi, 'numpy')
+    f_xi = lambdify((x, xi), -dp_dx, 'numpy')
+    d2p_dx2 = diff(symbol, x, x)
+    d2p_dxi2 = diff(symbol, xi, xi)
+    d2p_dxdxi = diff(symbol, x, xi)
+    A11 = diff(symbol, xi, x)
     A12 = d2p_dxi2
     A21 = -d2p_dx2
     A22 = -d2p_dxdxi
-    A_func = sp.lambdify((x, xi), (A11, A12, A21, A22), 'numpy')
-    p_func = sp.lambdify((x, xi), symbol, 'numpy')
+    A_func = lambdify((x, xi), (A11, A12, A21, A22), 'numpy')
+    p_func = lambdify((x, xi), symbol, 'numpy')
     if method == 'rk45':
 
         def ode(t, z):
@@ -409,18 +401,18 @@ def _bichar_flow_2d(symbol, z0, tspan, method, n_steps):
     - This function is intended for internal use in pseudo‑differential
       operator construction and is not part of the public API.
     """
-    x, y, xi, eta = sp.symbols('x y xi eta', real=True)
-    dp_dxi = sp.diff(symbol, xi)
-    dp_deta = sp.diff(symbol, eta)
-    dp_dx = sp.diff(symbol, x)
-    dp_dy = sp.diff(symbol, y)
-    f_x = sp.lambdify((x, y, xi, eta), dp_dxi, 'numpy')
-    f_y = sp.lambdify((x, y, xi, eta), dp_deta, 'numpy')
-    f_xi = sp.lambdify((x, y, xi, eta), -dp_dx, 'numpy')
-    f_eta = sp.lambdify((x, y, xi, eta), -dp_dy, 'numpy')
-    p_func = sp.lambdify((x, y, xi, eta), symbol, 'numpy')
-    H_px_sym = sp.Matrix([[sp.diff(symbol, xi, x), sp.diff(symbol, xi, y)], [sp.diff(symbol, eta, x), sp.diff(symbol, eta, y)]])
-    H_px_func = sp.lambdify((x, y, xi, eta), H_px_sym, 'numpy')
+    x, y, xi, eta = symbols('x y xi eta', real=True)
+    dp_dxi = diff(symbol, xi)
+    dp_deta = diff(symbol, eta)
+    dp_dx = diff(symbol, x)
+    dp_dy = diff(symbol, y)
+    f_x = lambdify((x, y, xi, eta), dp_dxi, 'numpy')
+    f_y = lambdify((x, y, xi, eta), dp_deta, 'numpy')
+    f_xi = lambdify((x, y, xi, eta), -dp_dx, 'numpy')
+    f_eta = lambdify((x, y, xi, eta), -dp_dy, 'numpy')
+    p_func = lambdify((x, y, xi, eta), symbol, 'numpy')
+    H_px_sym = Matrix([[diff(symbol, xi, x), diff(symbol, xi, y)], [diff(symbol, eta, x), diff(symbol, eta, y)]])
+    H_px_func = lambdify((x, y, xi, eta), H_px_sym, 'numpy')
 
     def _H_px(xv, yv, xiv, etav):
         return np.asarray(H_px_func(xv, yv, xiv, etav), dtype=float).reshape(2, 2)
@@ -509,13 +501,13 @@ def bohr_sommerfeld_quantization(H, n_max=10, x_range=(-10, 10), hbar=1.0, E_ran
         - 'hbar' : float (The reduced Planck constant used)
         - 'alpha' : float (The Maslov index correction used, 0.5)
     """
-    x, p = sp.symbols('x p', real=True)
-    E_sym = sp.symbols('E', real=True, positive=True)
-    solutions = sp.solve(H - E_sym, p)
+    x, p = symbols('x p', real=True)
+    E_sym = symbols('E', real=True, positive=True)
+    solutions = solve(H - E_sym, p)
     if not solutions:
         raise ValueError('Cannot solve H=E for p(x,E)')
     p_expr = solutions[-1]
-    p_func = sp.lambdify((x, E_sym), p_expr, 'numpy')
+    p_func = lambdify((x, E_sym), p_expr, 'numpy')
     alpha = 0.5
 
     def action(E):
@@ -586,9 +578,9 @@ def find_caustics_1d(symbol, x_range, xi_range, resolution=100):
         - 'caustic_indicator' : numpy.ndarray (Absolute value of d²p/dξ²)
         - 'threshold' : float (10th percentile of the indicator, useful for masking)
     """
-    x, xi = sp.symbols('x xi', real=True)
-    d2p = sp.diff(symbol, xi, 2)
-    func = sp.lambdify((x, xi), d2p, 'numpy')
+    x, xi = symbols('x xi', real=True)
+    d2p = diff(symbol, xi, 2)
+    func = lambdify((x, xi), d2p, 'numpy')
     xv = np.linspace(x_range[0], x_range[1], resolution)
     xiv = np.linspace(xi_range[0], xi_range[1], resolution)
     X, XI = np.meshgrid(xv, xiv, indexing='ij')
@@ -661,8 +653,8 @@ def plot_characteristic_set(symbol, x_range, xi_range, dim=None, resolution=200,
     """
     dim = _infer_dim(symbol, dim)
     if dim == 1:
-        x, xi = sp.symbols('x xi', real=True)
-        p_func = sp.lambdify((x, xi), symbol, 'numpy')
+        x, xi = symbols('x xi', real=True)
+        p_func = lambdify((x, xi), symbol, 'numpy')
         xv = np.linspace(x_range[0], x_range[1], resolution)
         xiv = np.linspace(xi_range[0], xi_range[1], resolution)
         X, XI = np.meshgrid(xv, xiv, indexing='ij')
@@ -682,9 +674,9 @@ def plot_characteristic_set(symbol, x_range, xi_range, dim=None, resolution=200,
     else:
         xi0 = kwargs.get('xi0', 1.0)
         eta0 = kwargs.get('eta0', 0.0)
-        x, y, xi, eta = sp.symbols('x y xi eta', real=True)
+        x, y, xi, eta = symbols('x y xi eta', real=True)
         p_fixed = symbol.subs({xi: xi0, eta: eta0})
-        p_func = sp.lambdify((x, y), p_fixed, 'numpy')
+        p_func = lambdify((x, y), p_fixed, 'numpy')
         xv = np.linspace(x_range[0], x_range[1], resolution)
         yv = np.linspace(xi_range[0], xi_range[1], resolution)
         X, Y = np.meshgrid(xv, yv, indexing='ij')
@@ -831,7 +823,7 @@ def plot_wavefront_set(symbol, initial_sing_support, tspan, dim=None, projection
     --------
     1D example – Schrödinger-type operator, horizontal line singularity::
 
-        x, xi = sp.symbols('x xi', real=True)
+        x, xi = symbols('x xi', real=True)
         p = xi**2 - (1 - x**2)           # simple potential well symbol
         seeds = [(xi_val, float(xi_val)) for xi_val in np.linspace(-1, 1, 12)]
         fig, ax = plot_wavefront_set(p, seeds, tspan=(0, 4), dim=1)
@@ -839,7 +831,7 @@ def plot_wavefront_set(symbol, initial_sing_support, tspan, dim=None, projection
 
     2D example – wave operator, outward circular wavefront::
 
-        x, y, xi, eta = sp.symbols('x y xi eta', real=True)
+        x, y, xi, eta = symbols('x y xi eta', real=True)
         p = xi**2 + eta**2 - 1
         seeds = [(np.cos(t), np.sin(t), np.cos(t), np.sin(t))
                  for t in np.linspace(0, 2*np.pi, 24, endpoint=False)]
@@ -1200,7 +1192,7 @@ def _make_real(expr):
     """Re(expr), fully evaluated -- used when a Hamiltonian field may come
     out complex-valued from sympy but only the real part is physically
     meaningful for the flow."""
-    return simplify(sp.re(expr.doit(deep=True)))
+    return simplify(re(expr.doit(deep=True)))
 
 # ---- PseudoDifferentialOperator visualizations, as free functions
 #      taking the operator `op` as the first argument (duck-typed on
@@ -1588,7 +1580,7 @@ def group_velocity_field(op, xlim=(-2, 2), klim=(-10, 10), density=30):
     - Used for analyzing wave propagation properties and dispersion relations.
     - Requires symbolic expression self.expr depending on x and ξ.
     """
-    _quiver_field(op, xlim, klim, density, lambda p, x, xi: (sp.Integer(1), diff(p, xi)), 'Group Velocity Field (1D)')
+    _quiver_field(op, xlim, klim, density, lambda p, x, xi: (Integer(1), diff(p, xi)), 'Group Velocity Field (1D)')
 
 def _default_wavefront_seeds(op, x0=0.0, y0=0.0, xi0=1.0, eta0=0.0, spread=2.0, n_seeds=25, radius=0.15):
     """Auto-generate seed singularities for visualize_wavefront_set.
@@ -1868,7 +1860,6 @@ def plot_pseudospectrum(Lambda, resolvent_norm, sigma_min_grid, epsilon_levels, 
     plt.legend(fontsize=10)
     plt.axis('equal')
     plt.subplot(1, 2, 2)
-    from matplotlib.colors import LogNorm
     sigma_plot = np.where(np.isfinite(sigma_min_grid), sigma_min_grid, np.nan)
     vmin = np.nanmin(sigma_plot[sigma_plot > 0]) if np.any(sigma_plot > 0) else 1e-10
     vmax = np.nanmax(sigma_plot)
@@ -1895,7 +1886,7 @@ def _matrix_of(s_expr):
     Coerce a symbol expression into a sympy Matrix.
 
     If `s_expr` is already a MatrixBase, list, or tuple, it is converted
-    via `sp.Matrix(s_expr)`. A bare scalar expression is wrapped into a
+    via `Matrix(s_expr)`. A bare scalar expression is wrapped into a
     1×1 matrix so that downstream code can treat scalar and matrix-valued
     operators uniformly.
 
@@ -1914,9 +1905,9 @@ def _matrix_of(s_expr):
     ValueError
         If the resulting matrix is not square (checked by callers).
     """
-    if isinstance(s_expr, (sp.MatrixBase, list, tuple)):
-        return sp.Matrix(s_expr)
-    return sp.Matrix([[s_expr]])
+    if isinstance(s_expr, (MatrixBase, list, tuple)):
+        return Matrix(s_expr)
+    return Matrix([[s_expr]])
 
 def _quantity_fn(quantity):
     """
@@ -2402,15 +2393,15 @@ def characteristic_hamiltonians(s_expr, vars_x, vars_xi=None):
     freq = [s for s in S.free_symbols if s not in set(vars_x)]
     vars_xi = list(vars_xi) if vars_xi is not None else _order_freq_vars(freq, dim)
 
-    xs = [sp.Symbol(v.name, real=True) for v in vars_x]
-    xis = [sp.Symbol(v.name, real=True) for v in vars_xi]
+    xs = [Symbol(v.name, real=True) for v in vars_x]
+    xis = [Symbol(v.name, real=True) for v in vars_xi]
     S = S.subs(dict(zip(list(vars_x) + list(vars_xi), xs + xis)))
 
     eigen = [S[0, 0]] if S.shape == (1, 1) else list(S.eigenvals().keys())
 
     H_list = []
     for lam in eigen:
-        H_list.append(sp.simplify(sp.re(lam)))
+        H_list.append(simplify(re(lam)))
     return H_list, xs, xis
 
 def integrate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
@@ -2479,8 +2470,8 @@ def integrate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
 
     trajs = []
     for H in H_list:
-        rhs_exprs = [sp.diff(H, k) for k in xis] + [-sp.diff(H, x) for x in xs]
-        f = sp.lambdify(xs + xis, rhs_exprs, 'numpy')
+        rhs_exprs = [diff(H, k) for k in xis] + [-diff(H, x) for x in xs]
+        f = lambdify(xs + xis, rhs_exprs, 'numpy')
         sol = solve_ivp(lambda t, Y: f(*Y), (0.0, tmax), y0, t_eval=t_eval, method=method, **ivp_kwargs)
         trajs.append(sol.y)
     return H_list, xs, xis, t_eval, trajs
@@ -2608,7 +2599,6 @@ def animate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
     ValueError
         If `projection` is not one of the supported values for a 1D symbol.
     """
-    from matplotlib.animation import FuncAnimation
     dim = len(vars_x)
     H_list, xs, xis, t_eval, trajs = integrate_singularity(
         s_expr, vars_x, x0=x0, xi0=xi0, tmax=tmax, n_frames=n_frames, branches=branches)
@@ -2690,8 +2680,6 @@ def animate_singularity_3d(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
     matplotlib.animation.FuncAnimation
         The animation object.
     """
-    from matplotlib.animation import FuncAnimation
-    import mpl_toolkits.mplot3d  # noqa: F401
 
     H_list, xs, xis, t_eval, trajs = integrate_singularity(
         s_expr, vars_x, x0=x0, xi0=xi0, tmax=tmax, n_frames=n_frames, branches=branches)

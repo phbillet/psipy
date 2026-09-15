@@ -188,17 +188,7 @@
 <span class="sd">       integrals with boundaries&quot;, *Duke Mathematical Journal* 112(2),</span>
 <span class="sd">       199–264, 2002.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">airy</span><span class="p">,</span> <span class="n">gamma</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
-
-<span class="c1"># --- Types and Enums ---</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 
 <div class="viewcode-block" id="IntegralMethod">
 <a class="viewcode-back" href="../asymptotic.html#asymptotic.IntegralMethod">[docs]</a>
@@ -472,8 +462,8 @@
 <span class="sd">        Strategy</span>
 <span class="sd">        --------</span>
 <span class="sd">        1. Symbolic test (fast, exact when SymPy can simplify):</span>
-<span class="sd">           - Compute re_part = sp.re(φ)  and  im_part = sp.im(φ)  after</span>
-<span class="sd">             assuming all variables are real (sp.refine with Q.real).</span>
+<span class="sd">           - Compute re_part = re(φ)  and  im_part = im(φ)  after</span>
+<span class="sd">             assuming all variables are real (refine with Q.real).</span>
 <span class="sd">           - If re_part simplifies to zero   → LAPLACE</span>
 <span class="sd">           - If im_part simplifies to zero   → STATIONARY_PHASE</span>
 <span class="sd">           - Otherwise                       → SADDLE_POINT</span>
@@ -495,16 +485,16 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># --- Step 1: symbolic test ---</span>
         <span class="n">real_assumptions</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="kc">True</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">}</span>
-        <span class="c1"># Replace variables with real-stamped symbols for sp.re / sp.im</span>
-        <span class="n">real_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span>
+        <span class="c1"># Replace variables with real-stamped symbols for re / im</span>
+        <span class="n">real_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">Symbol</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span>
         <span class="n">expr_real</span> <span class="o">=</span> <span class="n">phase_expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">,</span> <span class="n">real_vars</span><span class="p">)))</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">re_part</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">re</span><span class="p">(</span><span class="n">expr_real</span><span class="p">))</span>
-            <span class="n">im_part</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">im</span><span class="p">(</span><span class="n">expr_real</span><span class="p">))</span>
+            <span class="n">re_part</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">re</span><span class="p">(</span><span class="n">expr_real</span><span class="p">))</span>
+            <span class="n">im_part</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">im</span><span class="p">(</span><span class="n">expr_real</span><span class="p">))</span>
 
-            <span class="n">re_is_zero</span> <span class="o">=</span> <span class="p">(</span><span class="n">re_part</span> <span class="o">==</span> <span class="n">sp</span><span class="o">.</span><span class="n">S</span><span class="o">.</span><span class="n">Zero</span><span class="p">)</span>
-            <span class="n">im_is_zero</span> <span class="o">=</span> <span class="p">(</span><span class="n">im_part</span> <span class="o">==</span> <span class="n">sp</span><span class="o">.</span><span class="n">S</span><span class="o">.</span><span class="n">Zero</span><span class="p">)</span>
+            <span class="n">re_is_zero</span> <span class="o">=</span> <span class="p">(</span><span class="n">re_part</span> <span class="o">==</span> <span class="n">S</span><span class="o">.</span><span class="n">Zero</span><span class="p">)</span>
+            <span class="n">im_is_zero</span> <span class="o">=</span> <span class="p">(</span><span class="n">im_part</span> <span class="o">==</span> <span class="n">S</span><span class="o">.</span><span class="n">Zero</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">re_is_zero</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">im_is_zero</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">IntegralMethod</span><span class="o">.</span><span class="n">LAPLACE</span>
@@ -522,7 +512,7 @@
         <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># deterministic seed for reproducibility</span>
         <span class="n">samples</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
 
-        <span class="n">func_phase_num</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">),</span> <span class="n">phase_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="n">func_phase_num</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">),</span> <span class="n">phase_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
         <span class="n">re_magnitudes</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">im_magnitudes</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
@@ -571,13 +561,13 @@
 <span class="sd">        These symbolic derivatives are later converted to numerical functions via lambdify.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># 1. Phase Gradient &amp; Hessian</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">grad_sym</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">hess_sym</span> <span class="o">=</span> <span class="p">[[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span> <span class="k">for</span> <span class="n">v2</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">grad_sym</span> <span class="o">=</span> <span class="p">[</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hess_sym</span> <span class="o">=</span> <span class="p">[[</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span> <span class="k">for</span> <span class="n">v2</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span> 
                          <span class="k">for</span> <span class="n">v1</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span>
         
         <span class="c1"># 2. Amplitude Gradient &amp; Hessian</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">grad_amp_sym</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitude_expr</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">hess_amp_sym</span> <span class="o">=</span> <span class="p">[[</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitude_expr</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span> <span class="k">for</span> <span class="n">v2</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">grad_amp_sym</span> <span class="o">=</span> <span class="p">[</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitude_expr</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hess_amp_sym</span> <span class="o">=</span> <span class="p">[[</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">amplitude_expr</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span> <span class="k">for</span> <span class="n">v2</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span> 
                              <span class="k">for</span> <span class="n">v1</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">]</span>
         
         <span class="c1"># 3. Higher order tensors for Phase</span>
@@ -588,7 +578,7 @@
         <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">d3_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
             <span class="n">var_seq</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">idx</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">d3_sym</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="o">*</span><span class="n">var_seq</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">d3_sym</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="o">*</span><span class="n">var_seq</span><span class="p">))</span>
             
         <span class="c1"># D4 Tensor (Rank 4) - Required for 2nd order Morse correction</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">d4_indices</span> <span class="o">=</span> <span class="p">[]</span>
@@ -596,7 +586,7 @@
         <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">d4_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
             <span class="n">var_seq</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">idx</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">d4_sym</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="o">*</span><span class="n">var_seq</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">d4_sym</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="o">*</span><span class="n">var_seq</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_create_numerical_functions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -611,16 +601,16 @@
 <span class="sd">        These lambdified functions are much faster than evaluating SymPy expressions directly.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">vars_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">func_phase</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">func_amp</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitude_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">func_grad</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grad_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">func_hess</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hess_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func_phase</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func_amp</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">amplitude_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func_grad</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grad_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func_hess</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hess_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
         
-        <span class="bp">self</span><span class="o">.</span><span class="n">func_grad_amp</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grad_amp_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">func_hess_amp</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hess_amp_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func_grad_amp</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grad_amp_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func_hess_amp</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hess_amp_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
         
-        <span class="bp">self</span><span class="o">.</span><span class="n">func_d3</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">d3_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">func_d4</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">d4_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func_d3</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">d3_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func_d4</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">vars_tuple</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">d4_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Analyzer.find_critical_points">
 <a class="viewcode-back" href="../asymptotic.html#asymptotic.Analyzer.find_critical_points">[docs]</a>
@@ -1718,9 +1708,6 @@
 
 
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.cm</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cm</span>
-
 <div class="viewcode-block" id="AsymptoticVisualizer">
 <a class="viewcode-back" href="../asymptotic.html#asymptotic.AsymptoticVisualizer">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">AsymptoticVisualizer</span><span class="p">:</span>
@@ -2330,9 +2317,9 @@
 
 <span class="sd">    &gt;&gt;&gt; import sympy as sp</span>
 <span class="sd">    &gt;&gt;&gt; import numpy as np</span>
-<span class="sd">    &gt;&gt;&gt; x = sp.Symbol(&#39;x&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; x = Symbol(&#39;x&#39;)</span>
 <span class="sd">    &gt;&gt;&gt; phi   = x**4 - x**2          # two minima at x = ±1/√2</span>
-<span class="sd">    &gt;&gt;&gt; amp   = sp.Integer(1)</span>
+<span class="sd">    &gt;&gt;&gt; amp   = Integer(1)</span>
 <span class="sd">    &gt;&gt;&gt; analyzer = Analyzer(phi, amp, [x],</span>
 <span class="sd">    ...                     method=IntegralMethod.STATIONARY_PHASE)</span>
 <span class="sd">    &gt;&gt;&gt; pts = analyzer.find_critical_points(</span>
@@ -2359,10 +2346,6 @@
 <span class="sd">    plot_amplitude_decomposition :  (in wkb.py)</span>
 <span class="sd">        Spatial WKB analogue — plots amplitude orders aₖ(x) on a grid.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.cm</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cm</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># 0. Validate inputs</span>
@@ -2549,7 +2532,7 @@
 <span class="c1"># --- Execution Example ---</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">)</span>
 
     <span class="c1"># =========================================================================</span>
     <span class="c1"># Helper: shared report printer (works for all three methods)</span>
@@ -2601,7 +2584,7 @@
     <span class="n">amp_real</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span>
 
     <span class="n">analyzer_sp</span> <span class="o">=</span> <span class="n">Analyzer</span><span class="p">(</span><span class="n">phi_real</span><span class="p">,</span> <span class="n">amp_real</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">])</span>
-    <span class="n">pts_sp</span> <span class="o">=</span> <span class="n">analyzer_sp</span><span class="o">.</span><span class="n">find_critical_points</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">])])</span>
+    <span class="n">pts_sp</span> <span class="o">=</span> <span class="n">analyzer_find_critical_points</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">])])</span>
     <span class="n">print_report</span><span class="p">(</span><span class="s2">&quot;Case 1 — φ real (AUTO → STATIONARY_PHASE)&quot;</span><span class="p">,</span> <span class="n">pts_sp</span><span class="p">,</span> <span class="n">analyzer_sp</span><span class="p">)</span>
 
     <span class="c1"># =========================================================================</span>
@@ -2609,8 +2592,8 @@
     <span class="c1">#    φ = i·ψ  with ψ = x²/2 + y²/2 + x³/20  (ψ real, minimum at origin)</span>
     <span class="c1">#    The integral becomes ∫∫ exp(-λ ψ(x,y)) dx dy</span>
     <span class="c1"># =========================================================================</span>
-    <span class="n">phi_imag</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">I</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">3</span><span class="o">/</span><span class="mi">20</span><span class="p">)</span>
-    <span class="n">amp_imag</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">phi_imag</span> <span class="o">=</span> <span class="n">I</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">3</span><span class="o">/</span><span class="mi">20</span><span class="p">)</span>
+    <span class="n">amp_imag</span> <span class="o">=</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="n">analyzer_lap</span> <span class="o">=</span> <span class="n">Analyzer</span><span class="p">(</span><span class="n">phi_imag</span><span class="p">,</span> <span class="n">amp_imag</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">])</span>
     <span class="n">pts_lap</span> <span class="o">=</span> <span class="n">analyzer_lap</span><span class="o">.</span><span class="n">find_critical_points</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">])])</span>
@@ -2622,8 +2605,8 @@
     <span class="c1">#      = (1/2 + i/4)(x² + y²)</span>
     <span class="c1">#    Saddle point at origin; contribution is a complex Gaussian.</span>
     <span class="c1"># =========================================================================</span>
-    <span class="n">phi_cplx</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">sp</span><span class="o">.</span><span class="n">I</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">4</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">4</span><span class="p">)</span>
-    <span class="n">amp_cplx</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">phi_cplx</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">I</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">4</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">amp_cplx</span> <span class="o">=</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="n">analyzer_sdl</span> <span class="o">=</span> <span class="n">Analyzer</span><span class="p">(</span><span class="n">phi_cplx</span><span class="p">,</span> <span class="n">amp_cplx</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">])</span>
 
@@ -2642,11 +2625,11 @@
 
     <span class="c1"># Case 1: STATIONARY_PHASE</span>
     <span class="k">if</span> <span class="n">pts_sp</span><span class="p">:</span>
-        <span class="n">cp_sp</span> <span class="o">=</span> <span class="n">analyzer_sp</span><span class="o">.</span><span class="n">analyze_point</span><span class="p">(</span><span class="n">pts_sp</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">cp_sp</span> <span class="o">=</span> <span class="n">analyzer_analyze_point</span><span class="p">(</span><span class="n">pts_sp</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">viz_sp</span> <span class="o">=</span> <span class="n">AsymptoticVisualizer</span><span class="p">(</span><span class="n">analyzer_sp</span><span class="p">)</span>
-        <span class="n">viz_sp</span><span class="o">.</span><span class="n">plot_phase_landscape</span><span class="p">([</span><span class="n">cp_sp</span><span class="p">],</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds2d</span><span class="p">)</span>
-        <span class="n">viz_sp</span><span class="o">.</span><span class="n">plot_integrand</span><span class="p">(</span><span class="n">lam_value</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds2d</span><span class="p">)</span>
-        <span class="n">viz_sp</span><span class="o">.</span><span class="n">plot_asymptotic_convergence</span><span class="p">(</span><span class="n">cp_sp</span><span class="p">)</span>
+        <span class="n">viz_plot_phase_landscape</span><span class="p">([</span><span class="n">cp_sp</span><span class="p">],</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds2d</span><span class="p">)</span>
+        <span class="n">viz_plot_integrand</span><span class="p">(</span><span class="n">lam_value</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds2d</span><span class="p">)</span>
+        <span class="n">viz_plot_asymptotic_convergence</span><span class="p">(</span><span class="n">cp_sp</span><span class="p">)</span>
 
     <span class="c1"># Case 2: LAPLACE</span>
     <span class="k">if</span> <span class="n">pts_lap</span><span class="p">:</span>

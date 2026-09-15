@@ -372,8 +372,6 @@ class PDESolver:
             bool
                 True if the term is nonlinear in u_func, False otherwise.
             """
-            from sympy import (preorder_traversal, Function, Pow, Mul,
-                               Derivative, Add)
         
             def _contains_u(expr):
                 """True if expr involves u or any Derivative of u."""
@@ -1594,7 +1592,6 @@ class PDESolver:
                 return fn(0, X, Y, u_phys, u_x, u_y, u_xx, u_yy, u_xy)
     
             if len(self.nonlinear_terms) >= 2:
-                from concurrent.futures import ThreadPoolExecutor
                 with ThreadPoolExecutor() as executor:
                     for contrib in executor.map(_eval_nl_term, self.nonlinear_terms):
                         nonlinear_term += contrib

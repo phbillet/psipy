@@ -479,8 +479,6 @@
 <span class="sd">    scipy.interpolate.griddata : 2D interpolation method</span>
 <span class="sd">    numpy.fft : For comparison with spectral methods</span>
 <span class="sd">    &quot;&quot;&quot;</span>  
-    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_ivp</span>  
-    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">griddata</span><span class="p">,</span> <span class="n">interp1d</span>
     
     <span class="c1"># ==================================================================</span>
     <span class="c1"># DETECT DIMENSION</span>
@@ -993,13 +991,12 @@
         <span class="c1"># Amplitude interpolations are independent — run in parallel with threads.</span>
         <span class="c1"># (griddata spends most time in C code for Delaunay triangulation, so</span>
         <span class="c1">#  threads get real concurrency despite the GIL.)</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span> <span class="k">as</span> <span class="n">_TPool</span>
         <span class="n">a_grids</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">_interp_order</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
             <span class="n">arr</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">a_points</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="p">(</span><span class="n">X_grid</span><span class="p">,</span> <span class="n">Y_grid</span><span class="p">),</span>
                            <span class="n">method</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">k</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
-        <span class="k">with</span> <span class="n">_TPool</span><span class="p">()</span> <span class="k">as</span> <span class="n">_pool</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">_pool</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">arr</span> <span class="ow">in</span> <span class="n">_pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_interp_order</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
                 <span class="n">a_grids</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">arr</span>
         
@@ -1091,8 +1088,7 @@
                 <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_c</span><span class="p">)</span> <span class="o">/</span> <span class="n">epsilon</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
                 
                 <span class="c1"># Airy function via scipy</span>
-                <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">airy</span> <span class="k">as</span> <span class="n">_airy</span>
-                <span class="n">Ai</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_airy</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+                <span class="n">Ai</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">airy</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
                 
                 <span class="c1"># Amplitude at caustic</span>
                 <span class="n">idx_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">x_c</span><span class="p">))</span>
@@ -1152,8 +1148,7 @@
                 <span class="n">z</span> <span class="o">=</span> <span class="n">dist</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">/</span> <span class="n">epsilon</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
                 
                 <span class="c1"># Airy correction</span>
-                <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">airy</span> <span class="k">as</span> <span class="n">_airy</span>
-                <span class="n">Ai</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_airy</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+                <span class="n">Ai</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">airy</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
                 <span class="n">Ai</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Ai</span>
                 
                 <span class="n">idx_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_c</span><span class="p">))</span>
@@ -1201,7 +1196,6 @@
 <div class="viewcode-block" id="compare_orders">
 <a class="viewcode-back" href="../wkb.html#wkb.compare_orders">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">compare_orders</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_phase</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
     <span class="n">solutions</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
@@ -1300,7 +1294,6 @@
 <span class="sd">    time_slice : float or None</span>
 <span class="sd">        Time at which to sample (None = final time)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
     
     <span class="n">dim</span> <span class="o">=</span> <span class="n">solution</span><span class="p">[</span><span class="s1">&#39;dimension&#39;</span><span class="p">]</span>
     <span class="n">rays</span> <span class="o">=</span> <span class="n">solution</span><span class="p">[</span><span class="s1">&#39;rays&#39;</span><span class="p">]</span>
@@ -1392,7 +1385,6 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Plot individual amplitude orders aₖ and their contributions.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
     
     <span class="n">dim</span> <span class="o">=</span> <span class="n">solution</span><span class="p">[</span><span class="s1">&#39;dimension&#39;</span><span class="p">]</span>
     <span class="n">order</span> <span class="o">=</span> <span class="n">solution</span><span class="p">[</span><span class="s1">&#39;order&#39;</span><span class="p">]</span>
@@ -1505,11 +1497,6 @@
 <span class="sd">    highlight_caustics : bool</span>
 <span class="sd">        Whether to mark caustic locations.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.patches</span><span class="w"> </span><span class="kn">import</span> <span class="n">Patch</span>
-
     <span class="c1"># ----------------------------------------------------------</span>
     <span class="c1"># Helper: select component to plot</span>
     <span class="c1"># ----------------------------------------------------------</span>
@@ -1680,7 +1667,6 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Detailed analysis plot of caustics.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
     
     <span class="n">caustics</span> <span class="o">=</span> <span class="n">solution</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;caustics&#39;</span><span class="p">,</span> <span class="p">[])</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">caustics</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -1780,7 +1766,6 @@
         <span class="n">ax_main</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
         
         <span class="c1"># Legend</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.patches</span><span class="w"> </span><span class="kn">import</span> <span class="n">Patch</span>
         <span class="n">legend_elements</span> <span class="o">=</span> <span class="p">[</span>
             <span class="n">Patch</span><span class="p">(</span><span class="n">facecolor</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Fold (A2): </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">fold_caustics</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">),</span>
             <span class="n">Patch</span><span class="p">(</span><span class="n">facecolor</span><span class="o">=</span><span class="s1">&#39;yellow&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Cusp (A3): </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cusp_caustics</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>

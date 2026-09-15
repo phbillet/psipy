@@ -392,8 +392,6 @@ def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
     scipy.interpolate.griddata : 2D interpolation method
     numpy.fft : For comparison with spectral methods
     """  
-    from scipy.integrate import solve_ivp  
-    from scipy.interpolate import griddata, interp1d
     
     # ==================================================================
     # DETECT DIMENSION
@@ -906,13 +904,12 @@ def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
         # Amplitude interpolations are independent — run in parallel with threads.
         # (griddata spends most time in C code for Delaunay triangulation, so
         #  threads get real concurrency despite the GIL.)
-        from concurrent.futures import ThreadPoolExecutor as _TPool
         a_grids = {}
         def _interp_order(k):
             arr = griddata(points, a_points[k], (X_grid, Y_grid),
                            method='linear', fill_value=0.0)
             return k, np.nan_to_num(arr, nan=0.0)
-        with _TPool() as _pool:
+        with ThreadPoolExecutor() as _pool:
             for k, arr in _pool.map(_interp_order, range(order + 1)):
                 a_grids[k] = arr
         
@@ -1004,8 +1001,7 @@ def _apply_1d_caustic_corrections(base_solution, caustics, epsilon, mode):
                 z = (x[mask] - x_c) / epsilon**(2/3)
                 
                 # Airy function via scipy
-                from scipy.special import airy as _airy
-                Ai, _, _, _ = _airy(z)
+                Ai, _, _, _ = airy(z)
                 
                 # Amplitude at caustic
                 idx_c = np.argmin(np.abs(x - x_c))
@@ -1065,8 +1061,7 @@ def _apply_2d_caustic_corrections(base_solution, caustics, epsilon, mode):
                 z = dist[mask] / epsilon**(2/3)
                 
                 # Airy correction
-                from scipy.special import airy as _airy
-                Ai, _, _, _ = _airy(z)
+                Ai, _, _, _ = airy(z)
                 Ai = np.pi * Ai
                 
                 idx_x = np.argmin(np.abs(X[:, 0] - x_c))
@@ -1112,7 +1107,6 @@ def _apply_2d_caustic_corrections(base_solution, caustics, epsilon, mode):
     return result
 
 def compare_orders(symbol, initial_phase, max_order=3, **kwargs):
-    import matplotlib.pyplot as plt
 
     solutions = {}
     for order in range(max_order + 1):
@@ -1208,7 +1202,6 @@ def plot_phase_space(solution, time_slice=None):
     time_slice : float or None
         Time at which to sample (None = final time)
     """
-    import matplotlib.pyplot as plt
     
     dim = solution['dimension']
     rays = solution['rays']
@@ -1297,7 +1290,6 @@ def plot_amplitude_decomposition(solution):
     """
     Plot individual amplitude orders aₖ and their contributions.
     """
-    import matplotlib.pyplot as plt
     
     dim = solution['dimension']
     order = solution['order']
@@ -1407,11 +1399,6 @@ def plot_with_caustics(solution, component='abs', highlight_caustics=True):
     highlight_caustics : bool
         Whether to mark caustic locations.
     """
-
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from matplotlib.patches import Patch
-
     # ----------------------------------------------------------
     # Helper: select component to plot
     # ----------------------------------------------------------
@@ -1579,7 +1566,6 @@ def plot_caustic_analysis(solution):
     """
     Detailed analysis plot of caustics.
     """
-    import matplotlib.pyplot as plt
     
     caustics = solution.get('caustics', [])
     if len(caustics) == 0:
@@ -1679,7 +1665,6 @@ def plot_caustic_analysis(solution):
         ax_main.set_aspect('equal')
         
         # Legend
-        from matplotlib.patches import Patch
         legend_elements = [
             Patch(facecolor='red', label=f'Fold (A2): {len(fold_caustics)}'),
             Patch(facecolor='yellow', label=f'Cusp (A3): {len(cusp_caustics)}')

@@ -176,7 +176,7 @@ Typical Usage
     from propagator import compute_wavefunction, plot_wavefunction
 
     # 1. Define the geometry via a Metric object
-    x = sp.Symbol('x', real=True)
+    x = Symbol('x', real=True)
     metric = Metric(1, (x,))          # flat 1D metric, g = 1
 
     # 2. Define the source point and a fan of initial velocities
@@ -202,13 +202,13 @@ Typical Usage
 
 For a curved metric built from a Hamiltonian H = p²/(2 m(x))::
 
-    x, p = sp.symbols('x p', real=True, positive=True)
+    x, p = symbols('x p', real=True, positive=True)
     metric = Metric.from_hamiltonian(p**2 / (2 / x**2), (x,), (p,))
     # metric.g_expr == x**2
 
 For a general Hamiltonian (e.g. harmonic oscillator)::
 
-    x, xi = sp.symbols('x xi', real=True)
+    x, xi = symbols('x xi', real=True)
     H = xi**2/2 + x**2/2
     result = compute_wavefunction(
         hamiltonian = H,
@@ -234,17 +234,7 @@ References
   mechanics". Rep. Prog. Phys. 35, 315.  (Uniform Airy approximation.)
 """
 
-from __future__ import annotations
-
-import numpy as np
-import sympy as sp
-from scipy.interpolate import griddata
-from scipy.special import airy as scipy_airy
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-from matplotlib.gridspec import GridSpec
-from dataclasses import dataclass
-from typing import List, Tuple, Optional
+from imports import *
 
 # ── psipy imports ─────────────────────────────────────────────────────────────
 from riemannian import Metric, geodesic_solver, jacobi_equation_solver
@@ -253,10 +243,6 @@ from asymptotic import (
     Analyzer, AsymptoticEvaluator,
     IntegralMethod, SingularityType,
 )
-
-import concurrent.futures
-import multiprocessing
-from scipy.special import pbdv   # parabolic cylinder functions for heat-type caustics
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -706,8 +692,8 @@ def _det_J_1d(metric: Metric, traj: dict,
     from scipy.interpolate import interp1d
 
     x_sym = metric.coords[0]
-    g_inv_prime = sp.lambdify(x_sym,
-                              sp.diff(metric.g_inv_expr, x_sym), 'numpy')
+    g_inv_prime = lambdify(x_sym,
+                              diff(metric.g_inv_expr, x_sym), 'numpy')
 
     x_interp = interp1d(traj['t'], traj['x'], kind='linear')
     v_interp = interp1d(traj['t'], traj['v'], kind='linear')
@@ -1147,7 +1133,7 @@ def _asymptotic_correction_1d(
 
     # Airy argument — physically correct pointwise mapping
     xi_arr  = _airy_argument(x_local, hbar, alpha)
-    Ai_vals, _, _, _ = scipy_airy(xi_arr)   # real Airy function
+    Ai_vals, _, _, _ = airy(xi_arr)   # real Airy function
 
     # Uniform amplitude prefactor  2π a_c ℏ^{1/6} |α|^{-1/3}
     prefactor = 2.0 * np.pi * a_caustic * (hbar ** (1.0 / 6.0)) * (abs(alpha) ** (-1.0 / 3.0))
@@ -1255,13 +1241,13 @@ def _asymptotic_correction_2d(
     # ── Cusp (Pearcey) caustic: both partial derivatives vanish ──────────────
     if grad_norm < 1e-10:
         # Use the asymptotic.Analyzer scalar approach (as documented)
-        t_sym  = sp.Symbol('t', real=True)
-        phase_sym = sp.Rational(1, 4) * t_sym**4   # quartic normal form
+        t_sym  = Symbol('t', real=True)
+        phase_sym = Rational(1, 4) * t_sym**4   # quartic normal form
 
         try:
             analyzer  = Analyzer(
                 phase_expr     = phase_sym,
-                amplitude_expr = sp.Integer(1),
+                amplitude_expr = Integer(1),
                 variables      = [t_sym],
                 method         = IntegralMethod.STATIONARY_PHASE,
             )
@@ -1290,7 +1276,7 @@ def _asymptotic_correction_2d(
     # Airy argument along the transverse direction
     alpha   = grad_norm                    # |∇det J| acts as the cubic coefficient
     xi_arr  = _airy_argument(r_perp, hbar, alpha)
-    Ai_vals, _, _, _ = scipy_airy(xi_arr)
+    Ai_vals, _, _, _ = airy(xi_arr)
 
     prefactor = (2.0 * np.pi * a_caustic
                  * (hbar ** (1.0 / 6.0))
@@ -1829,7 +1815,7 @@ def wave_sum(
 # 6 — Full pipeline
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_hamiltonian_sym(metric: Metric) -> Tuple[sp.Expr, list]:
+def _build_hamiltonian_sym(metric: Metric) -> Tuple[Expr, list]:
     """
     Construct the kinetic Hamiltonian H = ½ gⁱʲ(x) pᵢ pⱼ from a Metric.
 
@@ -1868,9 +1854,9 @@ def _build_hamiltonian_sym(metric: Metric) -> Tuple[sp.Expr, list]:
 
     Returns
     -------
-    H_expr : sp.Expr
+    H_expr : Expr
         SymPy expression for the Hamiltonian H(x, ξ) or H(x, ξ, y, η).
-    vars_phase : list of sp.Symbol
+    vars_phase : list of Symbol
         Phase-space variable list in the order expected by
         :func:`symplectic.hamiltonian_flow`:
 
@@ -1882,12 +1868,12 @@ def _build_hamiltonian_sym(metric: Metric) -> Tuple[sp.Expr, list]:
     """
     if metric.dim == 1:
         x    = metric.coords[0]
-        xi   = sp.Symbol('xi', real=True)
+        xi   = Symbol('xi', real=True)
         H    = metric.g_inv_expr * xi**2 / 2
         return H, [x, xi]
     else:
         x, y   = metric.coords
-        xi, eta = sp.symbols('xi eta', real=True)
+        xi, eta = symbols('xi eta', real=True)
         g_inv  = metric.g_inv_matrix
         H      = (g_inv[0, 0] * xi**2
                 + 2 * g_inv[0, 1] * xi * eta
@@ -1896,9 +1882,9 @@ def _build_hamiltonian_sym(metric: Metric) -> Tuple[sp.Expr, list]:
 
 
 def _build_wave_hamiltonians(
-    H_sym      : sp.Expr,
+    H_sym      : Expr,
     vars_phase : list,
-) -> Tuple[sp.Expr, sp.Expr]:
+) -> Tuple[Expr, Expr]:
     """
     Construct the two smooth dispersion branches H₊ and H₋ for the wave
     equation  ∂²u/∂t² = ψOp(p, u).
@@ -1915,7 +1901,7 @@ def _build_wave_hamiltonians(
 
     The differentiability problem
     -----------------------------
-    The naïve ``sp.sqrt(H)`` fails for the most common wave Hamiltonians.
+    The naïve ``sqrt(H)`` fails for the most common wave Hamiltonians.
     For  H = f(x)·ξ²  (1D acoustic):  √H = √f·|ξ|, which is non-differentiable
     at ξ = 0 — the symplectic integrator needs ∂H/∂ξ = √f·sign(ξ), which is
     discontinuous.  This makes every ray fail with a numerical error near p = 0.
@@ -1928,7 +1914,7 @@ def _build_wave_hamiltonians(
        ξ < 0, so both propagation directions are represented without |ξ|.
 
     2. **2D quadratic form**  H = a·ξ² + 2b·ξη + c·η²:
-       Use sp.sqrt directly — SymPy often simplifies positive-definite forms.
+       Use sqrt directly — SymPy often simplifies positive-definite forms.
 
     3. **Perfect square**  H = expr²:
        Return ±expr immediately.
@@ -1937,21 +1923,21 @@ def _build_wave_hamiltonians(
 
     Parameters
     ----------
-    H_sym : sp.Expr
+    H_sym : Expr
         Spatial Hamiltonian H(x, p) ≥ 0 on the real phase space.
-    vars_phase : list of sp.Symbol
+    vars_phase : list of Symbol
         Phase-space variables [x, ξ] (1D) or [x, ξ, y, η] (2D).
 
     Returns
     -------
-    H_plus, H_minus : sp.Expr, sp.Expr
+    H_plus, H_minus : Expr, Expr
         Smooth branch Hamiltonians for ``hamiltonian_flow``.
     """
     # Extract momentum symbols (every second entry of vars_phase)
     mom_syms = vars_phase[1::2]   # [ξ] or [ξ, η]
 
     # ── Step 1: simplify H ────────────────────────────────────────────────────
-    H_simplified = sp.powsimp(sp.expand(H_sym), force=True)
+    H_simplified = powsimp(expand(H_sym), force=True)
 
     # ── Step 2: 1D purely-quadratic case  H = a(x)·ξ²  →  H± = ±√a(x)·ξ ────
     # This is the most common wave Hamiltonian (acoustic, Schrödinger symbol).
@@ -1961,45 +1947,45 @@ def _build_wave_hamiltonians(
     if len(mom_syms) == 1:
         xi = mom_syms[0]
         try:
-            poly_H = sp.Poly(H_simplified, xi)
+            poly_H = Poly(H_simplified, xi)
             if poly_H.total_degree() == 2:
                 a = poly_H.nth(2)   # coeff of ξ²
                 b = poly_H.nth(1)   # coeff of ξ  (should be 0 for even H)
                 c = poly_H.nth(0)   # constant in ξ (should be 0)
                 if b == 0 and c == 0 and a != 0:
-                    sqrt_a  = sp.sqrt(sp.simplify(a))
+                    sqrt_a  = sqrt(simplify(a))
                     return sqrt_a * xi, -sqrt_a * xi
         except Exception:
             pass
 
-    # ── Step 3: 2D  H = a·ξ² + 2b·ξ·η + c·η²  →  use sp.sqrt(H) directly ──
+    # ── Step 3: 2D  H = a·ξ² + 2b·ξ·η + c·η²  →  use sqrt(H) directly ──
     # For the diagonal case H = a·ξ² + c·η² the branches are not linear in
-    # momenta, but sp.sqrt of a positive-definite quadratic form is smooth
+    # momenta, but sqrt of a positive-definite quadratic form is smooth
     # everywhere except the origin (which is never reached by non-trivial rays).
     # SymPy can handle this symbolically when a, c are positive.
     if len(mom_syms) == 2:
         xi, eta = mom_syms
         try:
-            poly_H = sp.Poly(H_simplified, xi, eta)
+            poly_H = Poly(H_simplified, xi, eta)
             if poly_H.total_degree() == 2:
                 # Attempt direct sqrt — SymPy may simplify to a clean expression
-                sqrt_H = sp.sqrt(H_simplified)
-                sqrt_H_s = sp.simplify(sqrt_H)
+                sqrt_H = sqrt(H_simplified)
+                sqrt_H_s = simplify(sqrt_H)
                 return sqrt_H_s, -sqrt_H_s
         except Exception:
             pass
 
     # ── Step 4: check if H is already a perfect square  (H = expr²) ─────────
-    H_factored = sp.factor(H_simplified)
+    H_factored = factor(H_simplified)
     if H_factored.is_Pow and H_factored.exp == 2:
         base = H_factored.base
         return base, -base
 
     # ── Step 5: assume momenta positive, take sqrt, restore signs ────────────
     # Replaces |p| by p in the final expression (valid since fan covers ±p).
-    pos_subs = {p: sp.Symbol(str(p), positive=True) for p in mom_syms}
+    pos_subs = {p: Symbol(str(p), positive=True) for p in mom_syms}
     H_pos    = H_simplified.subs(pos_subs)
-    sqrt_pos = sp.sqrt(H_pos)
+    sqrt_pos = sqrt(H_pos)
     inv_subs = {v: k for k, v in pos_subs.items()}
     H_plus   = sqrt_pos.subs(inv_subs)
     return H_plus, -H_plus
@@ -2007,10 +1993,10 @@ def _build_wave_hamiltonians(
 
 def _resolve_hamiltonian(
     metric        : Optional[Metric],
-    hamiltonian   : Optional[sp.Expr],
+    hamiltonian   : Optional[Expr],
     coords        : Optional[Tuple],
     momenta       : Optional[Tuple],
-) -> Tuple[sp.Expr, list, int]:
+) -> Tuple[Expr, list, int]:
     """
     Resolve the Hamiltonian and phase-space variables from either a
     ``Metric`` object or an explicit SymPy expression.
@@ -2036,7 +2022,7 @@ def _resolve_hamiltonian(
 
         Example (1D harmonic oscillator with potential)::
 
-            x, xi = sp.symbols('x xi', real=True)
+            x, xi = symbols('x xi', real=True)
             H = xi**2 / 2 + x**2 / 2          # T + V = ½p² + ½x²
             H_expr, vars_phase, dim = _resolve_hamiltonian(
                 metric=None, hamiltonian=H,
@@ -2049,21 +2035,21 @@ def _resolve_hamiltonian(
     ----------
     metric : Metric or None
         Riemannian metric.  Must be ``None`` when ``hamiltonian`` is given.
-    hamiltonian : sp.Expr or None
+    hamiltonian : Expr or None
         General SymPy Hamiltonian expression H(q, p).  Must be ``None``
         when ``metric`` is given.
-    coords : tuple of sp.Symbol or None
+    coords : tuple of Symbol or None
         Position symbols, e.g. ``(x,)`` or ``(x, y)``.  Required when
         ``hamiltonian`` is given; ignored otherwise.
-    momenta : tuple of sp.Symbol or None
+    momenta : tuple of Symbol or None
         Momentum symbols, e.g. ``(xi,)`` or ``(xi, eta)``.  Required when
         ``hamiltonian`` is given; ignored otherwise.
 
     Returns
     -------
-    H_expr : sp.Expr
+    H_expr : Expr
         Symbolic Hamiltonian ready for :func:`symplectic.hamiltonian_flow`.
-    vars_phase : list of sp.Symbol
+    vars_phase : list of Symbol
         Interleaved phase-space list ``[q₁, p₁]`` or ``[q₁, p₁, q₂, p₂]``.
     dim : int
         Spatial dimension (1 or 2).
@@ -2108,7 +2094,7 @@ def _resolve_hamiltonian(
 
 
 def _det_J_1d_general(
-    H_expr    : sp.Expr,
+    H_expr    : Expr,
     vars_phase: list,
     traj      : dict,
     tspan     : tuple,
@@ -2148,9 +2134,9 @@ def _det_J_1d_general(
 
     Parameters
     ----------
-    H_expr : sp.Expr
+    H_expr : Expr
         Symbolic Hamiltonian H(x, ξ).
-    vars_phase : list of sp.Symbol
+    vars_phase : list of Symbol
         ``[x_sym, xi_sym]`` — the coordinate and momentum symbols.
     traj : dict
         Background ray trajectory with keys ``'t'``, and the string names
@@ -2171,9 +2157,9 @@ def _det_J_1d_general(
     x_sym, xi_sym = vars_phase[0], vars_phase[1]
 
     # ── Symbolic second derivatives of H ─────────────────────────────────────
-    H_xx  = sp.lambdify((x_sym, xi_sym), sp.diff(H_expr, x_sym, 2),   'numpy')
-    H_xxi = sp.lambdify((x_sym, xi_sym), sp.diff(H_expr, x_sym, xi_sym), 'numpy')
-    H_xixi= sp.lambdify((x_sym, xi_sym), sp.diff(H_expr, xi_sym, 2),  'numpy')
+    H_xx  = lambdify((x_sym, xi_sym), diff(H_expr, x_sym, 2),   'numpy')
+    H_xxi = lambdify((x_sym, xi_sym), diff(H_expr, x_sym, xi_sym), 'numpy')
+    H_xixi= lambdify((x_sym, xi_sym), diff(H_expr, xi_sym, 2),  'numpy')
 
     x_key  = str(x_sym)
     xi_key = str(xi_sym)
@@ -2211,7 +2197,7 @@ def compute_wavefunction(
     ylim         : Optional[Tuple] = None,
     integrator   : str   = 'verlet',
     # ── general Hamiltonian interface ─────────────────────────
-    hamiltonian  : Optional[sp.Expr]  = None,
+    hamiltonian  : Optional[Expr]  = None,
     coords       : Optional[Tuple]    = None,
     momenta      : Optional[Tuple]    = None,
     p_fan        : Optional[np.ndarray] = None,
@@ -2255,8 +2241,8 @@ def compute_wavefunction(
 
         ::
 
-            x, xi = sp.symbols('x xi', real=True)
-            H = xi**2 / 2 + sp.cos(x)        # pendulum-type Hamiltonian
+            x, xi = symbols('x xi', real=True)
+            H = xi**2 / 2 + cos(x)        # pendulum-type Hamiltonian
             result = compute_wavefunction(
                 hamiltonian = H,
                 coords      = (x,),
@@ -2292,12 +2278,12 @@ def compute_wavefunction(
         y-extent of the output grid (auto-detected if ``None``, 2D only).
     integrator : str, default ``'verlet'``
         Symplectic integrator: ``'verlet'`` or ``'rk45'``.
-    hamiltonian : sp.Expr or None
+    hamiltonian : Expr or None
         General SymPy Hamiltonian H(coords, momenta) (Mode B).
         Mutually exclusive with ``metric``.
-    coords : tuple of sp.Symbol or None
+    coords : tuple of Symbol or None
         Position symbols, e.g. ``(x,)`` or ``(x, y)``.  Required in Mode B.
-    momenta : tuple of sp.Symbol or None
+    momenta : tuple of Symbol or None
         Momentum symbols, e.g. ``(xi,)`` or ``(xi, eta)``.  Required in Mode B.
     p_fan : np.ndarray or None
         Fan of initial **canonical momenta** (Mode B only).
@@ -3133,7 +3119,7 @@ def animate_wavefunction(
         from propagator import compute_wavefunction, animate_wavefunction
 
         # 1D free particle on a flat metric
-        x = sp.Symbol('x', real=True)
+        x = Symbol('x', real=True)
         metric = Metric(1, (x,))
         source = (0.0,)
         v_fan  = np.linspace(-4.0, 4.0, 100)

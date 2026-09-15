@@ -62,12 +62,8 @@ References
 .. [3] Evans, L. C.  *Partial Differential Equations*, American Mathematical Society, 2010 (2nd ed.).  §4.3: Hamilton–Jacobi Equations.
 .. [4] Folland, G. B.  *Quantum Field Theory: A Tourist Guide for Mathematicians*, American Mathematical Society, 2008.  §1: Legendre Transform and Quantisation.
 """
-
+from imports import *
 import math as _math
-import sympy as sp
-from sympy import Matrix
-import numpy as _np
-
 # Optional SciPy for numeric optimization
 try:
     from scipy import optimize as _optimize
@@ -116,7 +112,7 @@ class LagrangianHamiltonianConverter:
             if not L_expr.is_polynomial(p):
                 return False
             try:
-                deg = sp.degree(L_expr, p)
+                deg = degree(L_expr, p)
             except Exception:
                 return False
             if deg is None or deg > 2:
@@ -129,8 +125,8 @@ class LagrangianHamiltonianConverter:
         Analytic Legendre transform for quadratic L: L = 1/2 p^T A p + b^T p + c
         Returns (H_expr, sol_map) and raises ValueError if Hessian singular.
         """
-        A = Matrix([[sp.diff(sp.diff(L_expr, p_i), p_j) for p_j in p_vars] for p_i in p_vars])
-        grad = Matrix([sp.diff(L_expr, p) for p in p_vars])
+        A = Matrix([[diff(diff(L_expr, p_i), p_j) for p_j in p_vars] for p_i in p_vars])
+        grad = Matrix([diff(L_expr, p) for p in p_vars])
         try:
             A_inv = A.inv()
         except Exception:
@@ -139,9 +135,9 @@ class LagrangianHamiltonianConverter:
         b_vec = grad.subs(subs_zero)
         xi_vec = Matrix(xi_vars)
         p_solution_vec = A_inv * (xi_vec - b_vec)
-        sol = {p_vars[i]: sp.simplify(p_solution_vec[i]) for i in range(len(p_vars))}
-        H_expr = sum(xi_vars[i] * sol[p_vars[i]] for i in range(len(p_vars))) - sp.simplify(L_expr.subs(sol))
-        return sp.simplify(H_expr), sol
+        sol = {p_vars[i]: simplify(p_solution_vec[i]) for i in range(len(p_vars))}
+        H_expr = sum(xi_vars[i] * sol[p_vars[i]] for i in range(len(p_vars))) - simplify(L_expr.subs(sol))
+        return simplify(H_expr), sol
 
     # ----------------------------
     # Numeric Legendre-Fenchel helpers
@@ -157,10 +153,10 @@ class LagrangianHamiltonianConverter:
         pmin, pmax = float(p_bounds[0]), float(p_bounds[1])
 
         def _compute_by_grid(xi):
-            grid = _np.linspace(pmin, pmax, int(n_grid))
-            Lvals = _np.array([float(L_func(p)) for p in grid], dtype=float)
+            grid = np.linspace(pmin, pmax, int(n_grid))
+            Lvals = np.array([float(L_func(p)) for p in grid], dtype=float)
             S = xi * grid - Lvals
-            idx = int(_np.argmax(S))
+            idx = int(np.argmax(S))
             return float(S[idx]), float(grid[idx])
 
         def _compute_by_scipy(xi):
@@ -173,7 +169,7 @@ class LagrangianHamiltonianConverter:
 
             best_val = -_math.inf
             best_p = None
-            inits = _np.linspace(pmin, pmax, max(3, int(scipy_multistart)))
+            inits = np.linspace(pmin, pmax, max(3, int(scipy_multistart)))
             for x0 in inits:
                 try:
                     res = _optimize.minimize(negS, x0=[float(x0)], bounds=[(pmin, pmax)], method="L-BFGS-B")
@@ -192,12 +188,12 @@ class LagrangianHamiltonianConverter:
         compute = _compute_by_scipy if (_HAS_SCIPY and mode != "grid") else _compute_by_grid
 
         def H_numeric(xi_in):
-            xi_arr = _np.atleast_1d(xi_in).astype(float)
-            out = _np.empty_like(xi_arr, dtype=float)
+            xi_arr = np.atleast_1d(xi_in).astype(float)
+            out = np.empty_like(xi_arr, dtype=float)
             for i, xi in enumerate(xi_arr):
                 val, _ = compute(float(xi))
                 out[i] = val
-            if _np.isscalar(xi_in):
+            if np.isscalar(xi_in):
                 return float(out[0])
             return out
 
@@ -217,12 +213,12 @@ class LagrangianHamiltonianConverter:
 
         def compute_by_grid(xi_vec):
             import itertools
-            grids = [_np.linspace(pmin[d], pmax[d], int(n_grid_per_dim)) for d in range(dim)]
+            grids = [np.linspace(pmin[d], pmax[d], int(n_grid_per_dim)) for d in range(dim)]
             best = -_math.inf
             best_p = None
             for pt in itertools.product(*grids):
-                pt_arr = _np.array(pt, dtype=float)
-                sval = float(_np.dot(xi_vec, pt_arr) - L_func(pt_arr))
+                pt_arr = np.array(pt, dtype=float)
+                sval = float(np.dot(xi_vec, pt_arr) - L_func(pt_arr))
                 if sval > best:
                     best = sval
                     best_p = pt_arr
@@ -233,25 +229,25 @@ class LagrangianHamiltonianConverter:
                 return compute_by_grid(xi_vec)
 
             def negS(p):
-                p = _np.asarray(p, dtype=float)
-                return - (float(_np.dot(xi_vec, p)) - float(L_func(p)))
+                p = np.asarray(p, dtype=float)
+                return - (float(np.dot(xi_vec, p)) - float(L_func(p)))
 
             best_val = -_math.inf
             best_p = None
-            center = _np.array([(pmin[d] + pmax[d]) / 2.0 for d in range(dim)], dtype=float)
-            rng = _np.random.default_rng(123456)
+            center = np.array([(pmin[d] + pmax[d]) / 2.0 for d in range(dim)], dtype=float)
+            rng = np.random.default_rng(123456)
             inits = [center]
             for k in range(multistart_restarts):
                 r = rng.random(dim)
-                start = _np.array([pmin[d] + r[d] * (pmax[d] - pmin[d]) for d in range(dim)], dtype=float)
+                start = np.array([pmin[d] + r[d] * (pmax[d] - pmin[d]) for d in range(dim)], dtype=float)
                 inits.append(start)
             for x0 in inits:
                 try:
                     res = _optimize.minimize(negS, x0=x0, bounds=tuple((pmin[d], pmax[d]) for d in range(dim)),
                                              method="L-BFGS-B")
                     if res.success:
-                        pstar = _np.asarray(res.x, dtype=float)
-                        sval = float(_np.dot(xi_vec, pstar) - L_func(pstar))
+                        pstar = np.asarray(res.x, dtype=float)
+                        sval = float(np.dot(xi_vec, pstar) - L_func(pstar))
                         if sval > best_val:
                             best_val = sval
                             best_p = pstar
@@ -264,10 +260,10 @@ class LagrangianHamiltonianConverter:
         compute = compute_by_scipy if (_HAS_SCIPY and mode != "grid") else compute_by_grid
 
         def H_numeric(xi_in):
-            xi_arr = _np.atleast_2d(xi_in).astype(float)
+            xi_arr = np.atleast_2d(xi_in).astype(float)
             if xi_arr.shape[-1] != dim:
                 xi_arr = xi_arr.reshape(-1, dim)
-            out = _np.empty((xi_arr.shape[0],), dtype=float)
+            out = np.empty((xi_arr.shape[0],), dtype=float)
             for i, xivec in enumerate(xi_arr):
                 val, _ = compute(xivec)
                 out[i] = val
@@ -292,9 +288,9 @@ class LagrangianHamiltonianConverter:
         """
         dim = len(coords)
         if dim == 1:
-            xi_vars = (sp.Symbol('xi', real=True),)
+            xi_vars = (Symbol('xi', real=True),)
         elif dim == 2:
-            xi_vars = (sp.Symbol('xi', real=True), sp.Symbol('eta', real=True))
+            xi_vars = (Symbol('xi', real=True), Symbol('eta', real=True))
         else:
             raise ValueError("Only 1D and 2D dimensions are supported.")
 
@@ -313,8 +309,8 @@ class LagrangianHamiltonianConverter:
         if method == "legendre":
             H_p = None
             try:
-                H_p = sp.hessian(L_expr, p_vars)
-                det_H = sp.simplify(H_p.det())
+                H_p = hessian(L_expr, p_vars)
+                det_H = simplify(H_p.det())
             except Exception:
                 det_H = None
 
@@ -323,8 +319,8 @@ class LagrangianHamiltonianConverter:
             if det_H is None and not force:
                 raise ValueError("Unable to verify Hessian determinant symbolically. Use force=True to attempt solve().")
 
-            eqs = [sp.Eq(sp.diff(L_expr, p_vars[i]), xi_vars[i]) for i in range(dim)]
-            sol_list = sp.solve(eqs, p_vars, dict=True)
+            eqs = [Eq(diff(L_expr, p_vars[i]), xi_vars[i]) for i in range(dim)]
+            sol_list = solve(eqs, p_vars, dict=True)
             if not sol_list:
                 if not force:
                     raise ValueError("Unable to solve symbolic Legendre relations. Use force=True or Fenchel fallback.")
@@ -333,7 +329,7 @@ class LagrangianHamiltonianConverter:
                 if isinstance(sol, tuple) and len(sol) == len(p_vars):
                     sol = {p_vars[i]: sol[i] for i in range(len(p_vars))}
                 H_expr = sum(xi_vars[i]*sol[p_vars[i]] for i in range(dim)) - L_expr.subs(sol)
-                H_expr = sp.simplify(H_expr)
+                H_expr = simplify(H_expr)
                 if return_symbol_only:
                     H_expr = H_expr.subs(u, 0)
                 return H_expr, xi_vars
@@ -344,8 +340,8 @@ class LagrangianHamiltonianConverter:
         #  Prevent symbolic Fenchel when L is non-differentiable
         # -----------------------------------------------------
         if method == "fenchel_symbolic":
-            if L_expr.has(sp.Abs) or L_expr.has(sp.sign) or any(
-                sp.diff(L_expr, p).has(sp.sign, sp.Abs) for p in p_vars
+            if L_expr.has(Abs) or L_expr.has(sign) or any(
+                diff(L_expr, p).has(sign, Abs) for p in p_vars
             ):
                 raise ValueError(
                     "Symbolic Fenchel not possible for nonsmooth L (Abs, sign). "
@@ -353,16 +349,16 @@ class LagrangianHamiltonianConverter:
                 )
 
         if method == "fenchel_symbolic":
-            eqs = [sp.Eq(sp.diff(L_expr, p_vars[i]), xi_vars[i]) for i in range(dim)]
-            sol_list = sp.solve(eqs, p_vars, dict=True)
+            eqs = [Eq(diff(L_expr, p_vars[i]), xi_vars[i]) for i in range(dim)]
+            sol_list = solve(eqs, p_vars, dict=True)
             if sol_list:
                 candidates = []
                 for sol in sol_list:
                     if isinstance(sol, tuple) and len(sol) == len(p_vars):
                         sol = {p_vars[i]: sol[i] for i in range(len(p_vars))}
                     S_expr = sum(xi_vars[i] * sol[p_vars[i]] for i in range(dim)) - L_expr.subs(sol)
-                    candidates.append(sp.simplify(S_expr))
-                H_candidates = sp.simplify(sp.Max(*candidates)) if len(candidates) > 1 else candidates[0]
+                    candidates.append(simplify(S_expr))
+                H_candidates = simplify(Max(*candidates)) if len(candidates) > 1 else candidates[0]
                 if return_symbol_only:
                     H_candidates = H_candidates.subs(u, 0)
                 return H_candidates, xi_vars
@@ -380,23 +376,23 @@ class LagrangianHamiltonianConverter:
 
                 # Build numeric L_func (try lambdify)
                 try:
-                    f_lamb = sp.lambdify((p_vars[0],), L_expr, "numpy")
+                    f_lamb = lambdify((p_vars[0],), L_expr, "numpy")
                     def L_func_scalar(p):
                         return float(f_lamb(p))
                 except Exception:
                     try:
-                        f_lamb = sp.lambdify(p_vars[0], L_expr, "numpy")
+                        f_lamb = lambdify(p_vars[0], L_expr, "numpy")
                         def L_func_scalar(p):
                             return float(f_lamb(p))
                     except Exception:
                         def L_func_scalar(p):
-                            return float(sp.N(L_expr.subs({p_vars[0]: p})))
+                            return float(N(L_expr.subs({p_vars[0]: p})))
 
                 H_numeric = LagrangianHamiltonianConverter._legendre_fenchel_1d_numeric_callable(
                     L_func_scalar, p_bounds=p_bounds, n_grid=n_grid, mode=mode,
                     scipy_multistart=scipy_multistart
                 )
-                H_func = sp.Function("H_numeric")
+                H_func = Function("H_numeric")
                 H_repr = H_func(xi_vars[0])
                 LagrangianHamiltonianConverter._numeric_cache[id(H_repr)] = H_numeric
                 return H_repr, xi_vars, H_numeric
@@ -411,25 +407,25 @@ class LagrangianHamiltonianConverter:
 
                 f_lamb = None
                 try:
-                    f_lamb = sp.lambdify((p_vars[0], p_vars[1]), L_expr, "numpy")
+                    f_lamb = lambdify((p_vars[0], p_vars[1]), L_expr, "numpy")
                     def L_func_nd(p):
                         return float(f_lamb(float(p[0]), float(p[1])))
                 except Exception:
                     try:
-                        f_lamb = sp.lambdify((p_vars,), L_expr, "numpy")
+                        f_lamb = lambdify((p_vars,), L_expr, "numpy")
                         def L_func_nd(p):
                             return float(f_lamb(tuple(float(v) for v in p)))
                     except Exception:
                         def L_func_nd(p):
                             subs_map = {p_vars[i]: float(p[i]) for i in range(2)}
-                            return float(sp.N(L_expr.subs(subs_map)))
+                            return float(N(L_expr.subs(subs_map)))
 
                 H_numeric = LagrangianHamiltonianConverter._legendre_fenchel_nd_numeric_callable(
                     L_func_nd, dim=2, p_bounds=(p_bounds[0], p_bounds[1]),
                     n_grid_per_dim=n_grid_per_dim, mode=mode,
                     scipy_multistart=scipy_multistart, multistart_restarts=multistart_restarts
                 )
-                H_func = sp.Function("H_numeric")
+                H_func = Function("H_numeric")
                 H_repr = H_func(*xi_vars)
                 LagrangianHamiltonianConverter._numeric_cache[id(H_repr)] = H_numeric
                 return H_repr, xi_vars, H_numeric
@@ -443,18 +439,18 @@ class LagrangianHamiltonianConverter:
         """
         dim = len(coords)
         if dim == 1:
-            p_vars = (sp.Symbol('p', real=True),)
+            p_vars = (Symbol('p', real=True),)
         elif dim == 2:
-            p_vars = (sp.Symbol('p_x', real=True), sp.Symbol('p_y', real=True))
+            p_vars = (Symbol('p_x', real=True), Symbol('p_y', real=True))
         else:
             raise ValueError("Only 1D and 2D are supported.")
 
-        eqs = [sp.Eq(sp.diff(H_expr, xi_vars[i]), p_vars[i]) for i in range(dim)]
-        sol = sp.solve(eqs, xi_vars, dict=True)
+        eqs = [Eq(diff(H_expr, xi_vars[i]), p_vars[i]) for i in range(dim)]
+        sol = solve(eqs, xi_vars, dict=True)
         if not sol:
             if not force:
                 raise ValueError("Unable to symbolically solve p = ∂H/∂ξ for ξ. Use force=True.")
-            sol = sp.solve(eqs, xi_vars)
+            sol = solve(eqs, xi_vars)
         if not sol:
             raise ValueError("Inverse Legendre transform failed; cannot find ξ(p).")
         sol = sol[0] if isinstance(sol, list) else sol
@@ -466,7 +462,7 @@ class LagrangianHamiltonianConverter:
             else:
                 raise ValueError("Unexpected output from solve(); cannot construct ξ(p).")
         L_expr = sum(sol[xi_vars[i]] * p_vars[i] for i in range(dim)) - H_expr.subs(sol)
-        return sp.simplify(L_expr), p_vars
+        return simplify(L_expr), p_vars
 
 
 # ---------------------------------------------------------------------------
@@ -485,13 +481,13 @@ class HamiltonianSymbolicConverter:
         """
         xi = xi_vars if isinstance(xi_vars, (tuple, list)) else (xi_vars,)
         poly_terms, nonlocal_terms = 0, 0
-        H_expand = sp.expand(H_expr)
+        H_expand = expand(H_expr)
         for term in H_expand.as_ordered_terms():
             # Heuristic: treat terms containing sqrt/Abs/sign as nonlocal explicitly
             # Check if the *current* 'term' (from the outer loop) has these functions.
             # The original code had a scoping bug in the 'any' statement.
-            if any(func in term.free_symbols for func in [sp.sqrt, sp.Abs, sp.sign]) or \
-               term.has(sp.sqrt) or term.has(sp.Abs) or term.has(sp.sign):
+            if any(func in term.free_symbols for func in [sqrt, Abs, sign]) or \
+               term.has(sqrt) or term.has(Abs) or term.has(sign):
                 # Alternative and more robust check:
                 # This checks if the specific 'term' object contains the specified functions.
                 nonlocal_terms += term
@@ -499,34 +495,34 @@ class HamiltonianSymbolicConverter:
                 poly_terms += term
             else:
                 nonlocal_terms += term
-        return sp.simplify(poly_terms), sp.simplify(nonlocal_terms)
+        return simplify(poly_terms), simplify(nonlocal_terms)
 
     @classmethod
     def hamiltonian_to_symbolic_pde(cls, H_expr, coords, t, u, mode="schrodinger"):
         dim = len(coords)
         if dim == 1:
-            xi_vars = (sp.Symbol("xi", real=True),)
+            xi_vars = (Symbol("xi", real=True),)
         elif dim == 2:
-            xi_vars = (sp.Symbol("xi", real=True), sp.Symbol("eta", real=True))
+            xi_vars = (Symbol("xi", real=True), Symbol("eta", real=True))
         else:
             raise ValueError("Only 1D and 2D Hamiltonians are supported.")
 
         H_poly, H_nonlocal = cls.decompose_hamiltonian(H_expr, xi_vars)
         H_total = H_poly + H_nonlocal
-        psiOp_H_u = sp.Function("psiOp")(H_total, u)
+        psiOp_H_u = Function("psiOp")(H_total, u)
 
         if mode == "stationary":
-            E = sp.Symbol("E", real=True)
-            pde = sp.Eq(psiOp_H_u, E * u)
+            E = Symbol("E", real=True)
+            pde = Eq(psiOp_H_u, E * u)
             formal = "ψOp(H, u) = E u"
         elif mode == "heat":
-            pde = sp.Eq(sp.Derivative(u, t), -psiOp_H_u)
+            pde = Eq(Derivative(u, t), -psiOp_H_u)
             formal = "∂_t u = -ψOp(H, u)"
         elif mode == "schrodinger":
-            pde = sp.Eq(sp.I * sp.Derivative(u, t), psiOp_H_u)
+            pde = Eq(I * Derivative(u, t), psiOp_H_u)
             formal = "i ∂_t u = ψOp(H, u)"
         elif mode == "wave":
-            pde = sp.Eq(sp.Derivative(u, (t, 2)), -psiOp_H_u)
+            pde = Eq(Derivative(u, (t, 2)), -psiOp_H_u)
             formal = "∂_{tt} u + ψOp(H, u) = 0"
         else:
             raise ValueError("mode must be one of: 'stationary', 'heat', 'schrodinger' or 'wave'.")
@@ -536,7 +532,7 @@ class HamiltonianSymbolicConverter:
         formal += f"   (H = H({coord_str}; {xi_str}))"
 
         return {
-            "pde": sp.simplify(pde),
+            "pde": simplify(pde),
             "H_poly": H_poly,
             "H_nonlocal": H_nonlocal,
             "formal_string": formal,

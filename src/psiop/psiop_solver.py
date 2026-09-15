@@ -180,14 +180,10 @@ References
        *A Mathematical Introduction to Fluid Dynamics*, Springer, 1990. 
        (For IMEX and Rothe-type linearization strategies).
 """
-import numpy as np
-import sympy as sp
-
+from imports import *
 # Import operators from the parent package
 from . import PseudoDifferentialOperator
 from .matpsiop import MatrixPseudoDifferentialOperator
-
-import sympy as sp
 
 # ----------------------------------------------------------------------
 # Grids
@@ -395,13 +391,13 @@ class PropagatorFamily:
         self.quantization = quantization
         self.mode_composition = mode_composition
         self.apply_backend = apply_backend
-        self.is_matrix = isinstance(s_expr, (sp.MatrixBase, list, tuple))
+        self.is_matrix = isinstance(s_expr, (MatrixBase, list, tuple))
         self.size = None
 
-        self._dt_sym = sp.Symbol('_dt_family', positive=True)
+        self._dt_sym = Symbol('_dt_family', positive=True)
 
         if self.is_matrix:
-            s_mat = sp.Matrix(s_expr)
+            s_mat = Matrix(s_expr)
             self.size = s_mat.shape[0]
             op = MatrixPseudoDifferentialOperator(
                 s_mat, vars_x, mode='symbol',
@@ -452,10 +448,10 @@ _propagator_family_cache = {}
 
 def _propagator_family_key(s_expr, vars_x, order, quantization,
                             mode_composition, apply_backend, do_simplify=True):
-    if isinstance(s_expr, (sp.MatrixBase, list, tuple)):
-        expr_key = sp.srepr(sp.Matrix(s_expr))
+    if isinstance(s_expr, (MatrixBase, list, tuple)):
+        expr_key = srepr(Matrix(s_expr))
     else:
-        expr_key = sp.srepr(s_expr)
+        expr_key = srepr(s_expr)
     return (expr_key, tuple(str(v) for v in vars_x), order,
             quantization, mode_composition, apply_backend, do_simplify)
 
@@ -696,7 +692,7 @@ def _matrix_of(s_expr):
     Coerce a symbol expression into a sympy Matrix.
 
     If `s_expr` is already a MatrixBase, list, or tuple, it is converted
-    via `sp.Matrix(s_expr)`. A bare scalar expression is wrapped into a
+    via `Matrix(s_expr)`. A bare scalar expression is wrapped into a
     1×1 matrix so that downstream code can treat scalar and matrix-valued
     operators uniformly.
 
@@ -715,9 +711,9 @@ def _matrix_of(s_expr):
     ValueError
         If the resulting matrix is not square (checked by callers).
     """
-    if isinstance(s_expr, (sp.MatrixBase, list, tuple)):
-        return sp.Matrix(s_expr)
-    return sp.Matrix([[s_expr]])
+    if isinstance(s_expr, (MatrixBase, list, tuple)):
+        return Matrix(s_expr)
+    return Matrix([[s_expr]])
 
 def block_matrix_second_order(s_expr):
     """
@@ -764,7 +760,7 @@ def block_matrix_second_order(s_expr):
     if S.shape[0] != S.shape[1]:
         raise ValueError("matrix symbol must be square")
     k = S.shape[0]
-    zero_k, eye_k = sp.zeros(k, k), sp.eye(k)
+    zero_k, eye_k = zeros(k, k), eye(k)
     return zero_k.row_join(eye_k).col_join(S.row_join(zero_k))
 
 def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
@@ -896,7 +892,7 @@ def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
             f"scheme must be 'propagator' or 'leapfrog', got {scheme!r}."
         )
 
-    is_matrix = isinstance(s_expr, (sp.MatrixBase, list, tuple))
+    is_matrix = isinstance(s_expr, (MatrixBase, list, tuple))
     k = _matrix_of(s_expr).shape[0]
 
     if scheme == 'propagator':
@@ -929,7 +925,7 @@ def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
     X, Y, x, y_grid, kx, ky, grids = _make_grids(vars_x, L, N)
 
     if is_matrix:
-        S_mat = sp.Matrix(s_expr)
+        S_mat = Matrix(s_expr)
         op = MatrixPseudoDifferentialOperator(
             S_mat, vars_x, mode='symbol',
             quantization=quantization, apply_backend=apply_backend,
@@ -1343,7 +1339,7 @@ def solve_ricci_flow_conformal_2d(phi0, dt, n_steps, order=3, L=8.0, N=64,
     grids : tuple of ndarray
         `(x, y)` spatial grids, as returned by `make_grid_2d`.
     """
-    x_s, y_s, xi_s, eta_s = sp.symbols('x y xi eta', real=True)
+    x_s, y_s, xi_s, eta_s = symbols('x y xi eta', real=True)
     lap_symbol = -(xi_s**2 + eta_s**2)
 
     x_grid, y_grid, kx, ky = make_grid_2d(L, N)

@@ -80,28 +80,9 @@ References
 .. [5] Bohigas, O., Giannoni, M. J., & Schmit, C.  “Characterization of chaotic quantum spectra and universality of level fluctuation laws”, *Phys. Rev. Lett.* 52, 1–4, 1984.
 .. [6] Kravtsov, Yu. A. & Orlov, Yu. I.  *Caustics, Catastrophes and Wave Fields*, Springer, 1999.
 """
+from imports import *
 
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from mpl_toolkits.mplot3d import Axes3D
-import sympy as sp
-from sympy import DiracDelta, Heaviside
-from scipy.integrate import solve_ivp
-from scipy.optimize import fsolve
-from scipy.signal import find_peaks
-from scipy.cluster.hierarchy import fcluster, linkage
-from scipy.ndimage import gaussian_filter1d
-from scipy.interpolate import interp1d
-from scipy.stats import linregress
-from numpy.fft import fft, fftfreq
-from dataclasses import dataclass, field
-from typing import Tuple, List, Dict, Optional, Callable
-from abc import ABC, abstractmethod
-import warnings
-from matplotlib.gridspec import GridSpec
-import matplotlib.tri as tri
-from matplotlib.colors import LinearSegmentedColormap
+
 warnings.filterwarnings('ignore')
 
 
@@ -109,15 +90,15 @@ warnings.filterwarnings('ignore')
 # SHARED SYMBOLIC HELPER
 # ============================================================================
 
-def _sanitize(expr: sp.Expr) -> sp.Expr:
+def _sanitize(expr: Expr) -> Expr:
     """Remove DiracDelta and Heaviside terms for numeric use.
 
-    Note: ``sp.simplify`` is intentionally omitted here — it is extremely
+    Note: ``simplify`` is intentionally omitted here — it is extremely
     expensive on large symbolic expressions and the downstream lambdify call
     handles any residual algebraic simplification at negligible cost.
     """
-    expr = expr.replace(sp.DiracDelta, lambda *args: sp.Integer(0))
-    expr = expr.replace(sp.Heaviside,  lambda *args: sp.Integer(1))
+    expr = expr.replace(DiracDelta, lambda *args: Integer(0))
+    expr = expr.replace(Heaviside,  lambda *args: Integer(1))
     return expr
 
 
@@ -330,9 +311,9 @@ class SymbolGeometry(SymbolGeometryBase):
     - Semiclassical spectrum (FFT of trace)
     """
 
-    def __init__(self, symbol: sp.Expr,
-                 x_sym: sp.Symbol,
-                 xi_sym: sp.Symbol):
+    def __init__(self, symbol: Expr,
+                 x_sym: Symbol,
+                 xi_sym: Symbol):
         self.H      = symbol
         self.x_sym  = x_sym
         self.xi_sym = xi_sym
@@ -340,19 +321,19 @@ class SymbolGeometry(SymbolGeometryBase):
         self._lambdify_functions()
 
     def _compute_derivatives(self):
-        self.dH_dx     = _sanitize(sp.diff(self.H,     self.x_sym))
-        self.dH_dxi    = _sanitize(sp.diff(self.H,     self.xi_sym))
-        self.d2H_dx2   = _sanitize(sp.diff(self.dH_dx,  self.x_sym))
-        self.d2H_dxi2  = _sanitize(sp.diff(self.dH_dxi, self.xi_sym))
-        self.d2H_dxdxi = _sanitize(sp.diff(self.dH_dx,  self.xi_sym))
+        self.dH_dx     = _sanitize(diff(self.H,     self.x_sym))
+        self.dH_dxi    = _sanitize(diff(self.H,     self.xi_sym))
+        self.d2H_dx2   = _sanitize(diff(self.dH_dx,  self.x_sym))
+        self.d2H_dxi2  = _sanitize(diff(self.dH_dxi, self.xi_sym))
+        self.d2H_dxdxi = _sanitize(diff(self.dH_dx,  self.xi_sym))
 
-    def _safe_lambdify(self, args: tuple, expr: sp.Expr) -> Callable:
+    def _safe_lambdify(self, args: tuple, expr: Expr) -> Callable:
         """Lambdify with a constant-function fallback for pure-number expressions."""
-        if isinstance(expr, (int, float, sp.Integer, sp.Float, sp.Number)):
+        if isinstance(expr, (int, float, Integer, Float, Number)):
             const_val = float(expr)
             return lambda x, xi: np.full_like(np.asarray(x, dtype=float), const_val)
         try:
-            return sp.lambdify(args, expr, modules=['numpy', 'scipy'])
+            return lambdify(args, expr, modules=['numpy', 'scipy'])
         except Exception as e:
             warnings.warn(f"lambdify failed for {expr}: {e}")
             return lambda x, xi: np.full_like(np.asarray(x, dtype=float), np.nan)
@@ -531,11 +512,11 @@ class SymbolGeometry(SymbolGeometryBase):
         t_max    = 200 / hbar
         t_values = np.linspace(0, t_max, resolution)
         trace    = self.gutzwiller_trace_formula(periodic_orbits, t_values, hbar)
-        energies = fftfreq(len(t_values),
+        energies = np.fft.fftfreq(len(t_values),
                            d=t_values[1]-t_values[0]) * 2 * np.pi * hbar
         return Spectrum(
             energies=energies,
-            intensity=np.abs(fft(trace)),
+            intensity=np.abs(np.fft.fft(trace)),
             trace_t=t_values,
             trace=trace
         )
@@ -556,9 +537,9 @@ class SymbolGeometry2D(SymbolGeometryBase):
     - Monte Carlo phase space volume
     """
 
-    def __init__(self, symbol: sp.Expr,
-                 x_sym: sp.Symbol, y_sym: sp.Symbol,
-                 xi_sym: sp.Symbol, eta_sym: sp.Symbol,
+    def __init__(self, symbol: Expr,
+                 x_sym: Symbol, y_sym: Symbol,
+                 xi_sym: Symbol, eta_sym: Symbol,
                  hbar: float = 1.0):
         self.H_sym   = symbol
         self.x_sym   = x_sym
@@ -576,36 +557,36 @@ class SymbolGeometry2D(SymbolGeometryBase):
     # ------------------------------------------------------------------
     def _compute_derivatives(self):
         s = self
-        self.dH_dx_sym    = _sanitize(sp.diff(s.H_sym, s.x_sym))
-        self.dH_dy_sym    = _sanitize(sp.diff(s.H_sym, s.y_sym))
-        self.dH_dxi_sym   = _sanitize(sp.diff(s.H_sym, s.xi_sym))
-        self.dH_deta_sym  = _sanitize(sp.diff(s.H_sym, s.eta_sym))
+        self.dH_dx_sym    = _sanitize(diff(s.H_sym, s.x_sym))
+        self.dH_dy_sym    = _sanitize(diff(s.H_sym, s.y_sym))
+        self.dH_dxi_sym   = _sanitize(diff(s.H_sym, s.xi_sym))
+        self.dH_deta_sym  = _sanitize(diff(s.H_sym, s.eta_sym))
 
-        self.d2H_dx2_sym      = _sanitize(sp.diff(self.dH_dx_sym,   s.x_sym))
-        self.d2H_dy2_sym      = _sanitize(sp.diff(self.dH_dy_sym,   s.y_sym))
-        self.d2H_dxi2_sym     = _sanitize(sp.diff(self.dH_dxi_sym,  s.xi_sym))
-        self.d2H_deta2_sym    = _sanitize(sp.diff(self.dH_deta_sym, s.eta_sym))
-        self.d2H_dxdy_sym     = _sanitize(sp.diff(self.dH_dx_sym,   s.y_sym))
-        self.d2H_dxdxi_sym    = _sanitize(sp.diff(self.dH_dx_sym,   s.xi_sym))
-        self.d2H_dxdeta_sym   = _sanitize(sp.diff(self.dH_dx_sym,   s.eta_sym))
-        self.d2H_dydxi_sym    = _sanitize(sp.diff(self.dH_dy_sym,   s.xi_sym))
-        self.d2H_dyeta_sym    = _sanitize(sp.diff(self.dH_dy_sym,   s.eta_sym))
-        self.d2H_dxideta_sym  = _sanitize(sp.diff(self.dH_dxi_sym,  s.eta_sym))
+        self.d2H_dx2_sym      = _sanitize(diff(self.dH_dx_sym,   s.x_sym))
+        self.d2H_dy2_sym      = _sanitize(diff(self.dH_dy_sym,   s.y_sym))
+        self.d2H_dxi2_sym     = _sanitize(diff(self.dH_dxi_sym,  s.xi_sym))
+        self.d2H_deta2_sym    = _sanitize(diff(self.dH_deta_sym, s.eta_sym))
+        self.d2H_dxdy_sym     = _sanitize(diff(self.dH_dx_sym,   s.y_sym))
+        self.d2H_dxdxi_sym    = _sanitize(diff(self.dH_dx_sym,   s.xi_sym))
+        self.d2H_dxdeta_sym   = _sanitize(diff(self.dH_dx_sym,   s.eta_sym))
+        self.d2H_dydxi_sym    = _sanitize(diff(self.dH_dy_sym,   s.xi_sym))
+        self.d2H_dyeta_sym    = _sanitize(diff(self.dH_dy_sym,   s.eta_sym))
+        self.d2H_dxideta_sym  = _sanitize(diff(self.dH_dxi_sym,  s.eta_sym))
 
-        self.Hessian = sp.Matrix([
+        self.Hessian = Matrix([
             [self.d2H_dx2_sym,    self.d2H_dxdy_sym,    self.d2H_dxdxi_sym,   self.d2H_dxdeta_sym],
             [self.d2H_dxdy_sym,   self.d2H_dy2_sym,     self.d2H_dydxi_sym,   self.d2H_dyeta_sym],
             [self.d2H_dxdxi_sym,  self.d2H_dydxi_sym,   self.d2H_dxi2_sym,    self.d2H_dxideta_sym],
             [self.d2H_dxdeta_sym, self.d2H_dyeta_sym,   self.d2H_dxideta_sym, self.d2H_deta2_sym],
         ])
 
-    def _safe_lambdify(self, args: tuple, expr: sp.Expr) -> Callable:
-        if isinstance(expr, (int, float, sp.Integer, sp.Float)):
+    def _safe_lambdify(self, args: tuple, expr: Expr) -> Callable:
+        if isinstance(expr, (int, float, Integer, Float)):
             const_val = float(expr)
             return lambda x, y, xi, eta: np.full_like(
                 np.asarray(x, dtype=float), const_val)
         try:
-            return sp.lambdify(args, expr, modules=['numpy', 'scipy'])
+            return lambdify(args, expr, modules=['numpy', 'scipy'])
         except Exception as e:
             print(f"Warning: lambdify failed for {expr}. Error: {e}")
             return lambda x, y, xi, eta: np.full_like(
@@ -626,7 +607,7 @@ class SymbolGeometry2D(SymbolGeometryBase):
         # 3.7× faster per ODE step than the 4×4 scalar loop above.
         hess_exprs = [self.Hessian[i, j] for i in range(4) for j in range(4)]
         try:
-            self._hessian_flat_num = sp.lambdify(args, hess_exprs,
+            self._hessian_flat_num = lambdify(args, hess_exprs,
                                                   modules=['numpy', 'scipy'])
         except Exception:
             self._hessian_flat_num = None   # safe fallback to scalar loop
@@ -1901,15 +1882,15 @@ class Utilities2D:
 # PUBLIC ENTRY POINTS
 # ============================================================================
 
-def visualize_symbol(symbol: sp.Expr,
+def visualize_symbol(symbol: Expr,
                       x_range:  Tuple[float, float],
                       xi_range: Tuple[float, float],
                       geodesics_params: List[Tuple],
                       E_range:    Optional[Tuple[float, float]] = None,
                       hbar:       float = 1.0,
                       resolution: int   = 100,
-                      x_sym:  Optional[sp.Symbol] = None,
-                      xi_sym: Optional[sp.Symbol] = None) -> Tuple:
+                      x_sym:  Optional[Symbol] = None,
+                      xi_sym: Optional[Symbol] = None) -> Tuple:
     """
     1D entry point: complete visualization of H(x, ξ).
 
@@ -1927,8 +1908,8 @@ def visualize_symbol(symbol: sp.Expr,
     -------
     fig, geodesics, periodic_orbits, spectrum
     """
-    if x_sym  is None: x_sym  = sp.symbols('x',  real=True)
-    if xi_sym is None: xi_sym = sp.symbols('xi', real=True)
+    if x_sym  is None: x_sym  = symbols('x',  real=True)
+    if xi_sym is None: xi_sym = symbols('xi', real=True)
 
     geometry   = SymbolGeometry(symbol, x_sym, xi_sym)
     visualizer = SymbolVisualizer(geometry)
@@ -1957,7 +1938,7 @@ def visualize_symbol(symbol: sp.Expr,
     return fig, geodesics, periodic_orbits, spectrum
 
 
-def visualize_symbol_2d(symbol: sp.Expr,
+def visualize_symbol_2d(symbol: Expr,
                          x_range:   Tuple[float, float],
                          y_range:   Tuple[float, float],
                          xi_range:  Tuple[float, float],
@@ -1966,10 +1947,10 @@ def visualize_symbol_2d(symbol: sp.Expr,
                          E_range:    Optional[Tuple[float, float]] = None,
                          hbar:       float = 1.0,
                          resolution: int   = 50,
-                         x_sym:   Optional[sp.Symbol] = None,
-                         y_sym:   Optional[sp.Symbol] = None,
-                         xi_sym:  Optional[sp.Symbol] = None,
-                         eta_sym: Optional[sp.Symbol] = None) -> Tuple:
+                         x_sym:   Optional[Symbol] = None,
+                         y_sym:   Optional[Symbol] = None,
+                         xi_sym:  Optional[Symbol] = None,
+                         eta_sym: Optional[Symbol] = None) -> Tuple:
     """
     2D entry point: complete visualization of H(x, y, ξ, η).
 
@@ -1988,18 +1969,18 @@ def visualize_symbol_2d(symbol: sp.Expr,
 
     Example
     -------
-    >>> x, y   = sp.symbols('x y',   real=True)
-    >>> xi, eta = sp.symbols('xi eta', real=True)
+    >>> x, y   = symbols('x y',   real=True)
+    >>> xi, eta = symbols('xi eta', real=True)
     >>> H = xi**2 + eta**2 + x**2 + y**2
     >>> fig, geos, orbits, caustics = visualize_symbol_2d(
     ...     H, (-2,2), (-2,2), (-2,2), (-2,2),
     ...     [(1,0,0,1,2*np.pi,'red')], E_range=(0.5,4), hbar=0.1)
     >>> plt.show()
     """
-    if x_sym   is None: x_sym   = sp.symbols('x',   real=True)
-    if y_sym   is None: y_sym   = sp.symbols('y',   real=True)
-    if xi_sym  is None: xi_sym  = sp.symbols('xi',  real=True)
-    if eta_sym is None: eta_sym = sp.symbols('eta', real=True)
+    if x_sym   is None: x_sym   = symbols('x',   real=True)
+    if y_sym   is None: y_sym   = symbols('y',   real=True)
+    if xi_sym  is None: xi_sym  = symbols('xi',  real=True)
+    if eta_sym is None: eta_sym = symbols('eta', real=True)
 
     geometry   = SymbolGeometry2D(symbol, x_sym, y_sym, xi_sym, eta_sym, hbar)
     visualizer = SymbolVisualizer2D(geometry)
@@ -2037,7 +2018,7 @@ Usage
 ─────
     from geometry import visualize_symbol
     import sympy as sp
-    x, xi = sp.symbols('x xi', real=True)
+    x, xi = symbols('x xi', real=True)
     H = xi**2 + x**2
     fig, geos, orbits, spectrum = visualize_symbol(
         H, x_range=(-3,3), xi_range=(-3,3),
@@ -2062,8 +2043,8 @@ Usage
 ─────
     from geometry import visualize_symbol_2d
     import sympy as sp
-    x, y   = sp.symbols('x y',   real=True)
-    xi, eta = sp.symbols('xi eta', real=True)
+    x, y   = symbols('x y',   real=True)
+    xi, eta = symbols('xi eta', real=True)
     H = xi**2 + eta**2 + x**2 + y**2
     fig, geos, orbits, caustics = visualize_symbol_2d(
         H, (-2,2), (-2,2), (-2,2), (-2,2),

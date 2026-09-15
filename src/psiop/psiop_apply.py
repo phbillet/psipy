@@ -178,15 +178,7 @@ All application kernels enforce numerical stability through:
     - Spatial tapering: Optional centered Gaussian tapers in the spatial
       domain to mitigate edge boundary artifacts in non‑periodic settings.
 """
-import numpy as np
-import sympy as sp
-import warnings
-import itertools
-from typing import Callable, Dict, Tuple, Optional, Union
-from concurrent.futures import ThreadPoolExecutor
-
-# Import global constants (FFT_WORKERS is used in the chunking logic)
-from imports import FFT_WORKERS 
+from imports import *
 
 # ============================================================================
 # Standalone functions for Kohn-Nirenberg quantization
@@ -1038,9 +1030,9 @@ def _sympy_number(z, digits=5, drop_tol=0.0):
         im = 0.0
 
     if im == 0.0:
-        return sp.Float(re, digits)
+        return Float(re, digits)
 
-    return sp.Float(re, digits) + sp.I * sp.Float(im, digits)
+    return Float(re, digits) + I * Float(im, digits)
 
 
 def _chebyshev_polynomial(n, z):
@@ -1050,15 +1042,15 @@ def _chebyshev_polynomial(n, z):
     This avoids possible lambdify issues with special Chebyshev functions.
     """
     if n == 0:
-        return sp.S.One
+        return S.One
     if n == 1:
         return z
 
-    t_prev = sp.S.One
+    t_prev = S.One
     t_curr = z
 
     for _ in range(2, n + 1):
-        t_prev, t_curr = t_curr, sp.expand(2 * z * t_curr - t_prev)
+        t_prev, t_curr = t_curr, expand(2 * z * t_curr - t_prev)
 
     return t_curr
 
@@ -1118,7 +1110,7 @@ def evaluate_decomposition_quality(
         sample_dict[s] = rng.uniform(s_min, s_max, size=num_samples)
 
     # Original expression
-    f_orig = sp.lambdify(all_syms, orig_expr, modules="numpy")
+    f_orig = lambdify(all_syms, orig_expr, modules="numpy")
     args = [sample_dict[s] for s in all_syms]
     y_orig = np.asarray(f_orig(*args), dtype=np.complex128).reshape(-1)
 
@@ -1134,8 +1126,8 @@ def evaluate_decomposition_quality(
     xi_pts = [sample_dict[s] for s in xi_syms]
 
     for a_k, q_k in symbolic_pairs:
-        f_a = sp.lambdify(x_syms, a_k, modules="numpy")
-        f_q = sp.lambdify(xi_syms, q_k, modules="numpy")
+        f_a = lambdify(x_syms, a_k, modules="numpy")
+        f_q = lambdify(xi_syms, q_k, modules="numpy")
 
         try:
             val_a = np.asarray(f_a(*x_pts), dtype=np.complex128).reshape(-1)
@@ -1264,7 +1256,7 @@ def factorize_symbolic(
 
     mesh = np.meshgrid(*grid_coords, indexing="ij")
 
-    func_num = sp.lambdify(all_syms, expr, modules="numpy")
+    func_num = lambdify(all_syms, expr, modules="numpy")
     P_eval = np.asarray(func_num(*mesh), dtype=np.complex128)
 
     target_shape = mesh[0].shape
@@ -1317,20 +1309,20 @@ def factorize_symbolic(
     # ---------------------------------------------------------------
     # 6. SVD low-rank truncation
     # ---------------------------------------------------------------
-    U, S, Vt = np.linalg.svd(C_matrix, full_matrices=False)
+    U, SV, Vt = np.linalg.svd(C_matrix, full_matrices=False)
 
-    if S.size == 0 or S[0] == 0:
+    if SV.size == 0 or SV[0] == 0:
         return [], empty_metrics
 
-    keep = S > (S[0] * tol)
+    keep = SV > (SV[0] * tol)
 
     if not np.any(keep):
         keep = np.zeros_like(S, dtype=bool)
         keep[0] = True
 
-    energy_den = float(np.sum(S ** 2))
+    energy_den = float(np.sum(SV ** 2))
     svd_energy_retained = (
-        100.0 * float(np.sum(S[keep] ** 2)) / energy_den
+        100.0 * float(np.sum(SV[keep] ** 2)) / energy_den
         if energy_den > 0 else 100.0
     )
 
@@ -1349,25 +1341,25 @@ def factorize_symbolic(
 
     symbolic_pairs = []
 
-    S_keep = S[keep]
+    SV_keep = SV[keep]
     U_keep = U[:, keep]
     Vt_keep = Vt[keep, :]
 
-    for k in range(len(S_keep)):
-        sigma_k = S_keep[k]
+    for k in range(len(SV_keep)):
+        sigma_k = SV_keep[k]
         u_k = U_keep[:, k]
         v_k = Vt_keep[k, :]
 
         # a_k(x)
-        a_k_expr = sp.S.Zero
+        a_k_expr = S.Zero
         for idx, multi_idx in enumerate(spatial_multi_indices):
             coeff = np.sqrt(sigma_k) * u_k[idx]
 
             if np.abs(coeff) > tol:
                 if len(multi_idx) == 0:
-                    basis_term = sp.S.One
+                    basis_term = S.One
                 else:
-                    basis_term = sp.Mul(
+                    basis_term = Mul(
                         *[
                             _cheb(deg, x_syms[m])
                             for m, deg in enumerate(multi_idx)
@@ -1377,15 +1369,15 @@ def factorize_symbolic(
                 a_k_expr += _sympy_number(coeff, digits=digits) * basis_term
 
         # q_k(xi)
-        q_k_expr = sp.S.Zero
+        q_k_expr = S.Zero
         for idx, multi_idx in enumerate(spectral_multi_indices):
             coeff = np.sqrt(sigma_k) * v_k[idx]
 
             if np.abs(coeff) > tol:
                 if len(multi_idx) == 0:
-                    basis_term = sp.S.One
+                    basis_term = S.One
                 else:
-                    basis_term = sp.Mul(
+                    basis_term = Mul(
                         *[
                             _cheb(deg, xi_syms[n])
                             for n, deg in enumerate(multi_idx)
@@ -1395,7 +1387,7 @@ def factorize_symbolic(
                 q_k_expr += _sympy_number(coeff, digits=digits) * basis_term
 
         symbolic_pairs.append(
-            (sp.expand(a_k_expr), sp.expand(q_k_expr))
+            (expand(a_k_expr), expand(q_k_expr))
         )
 
     # ---------------------------------------------------------------
@@ -1412,7 +1404,7 @@ def factorize_symbolic(
     )
 
     metrics["svd_energy_retained_pct"] = svd_energy_retained
-    metrics["singular_values"] = S_keep
+    metrics["singular_values"] = SV_keep
 
     return symbolic_pairs, metrics
 
@@ -1460,18 +1452,18 @@ def _warn_no_finufft():
 
 def _nufft_split_real_imag_exponent(total_exponent):
     """Split an exponent into (I*phase, real_envelope) without silently
-    dropping a real residual (a naive .coeff(sp.I) does this incorrectly
+    dropping a real residual (a naive .coeff(I) does this incorrectly
     for mixed exponents like I*x*xi - x**2)."""
-    exp_terms = sp.Add.make_args(sp.expand(total_exponent))
+    exp_terms = Add.make_args(expand(total_exponent))
     imag_terms, real_terms = [], []
     for t in exp_terms:
-        c = t.coeff(sp.I)
-        if sp.expand(t - sp.I * c) == 0:
+        c = t.coeff(I)
+        if expand(t - I * c) == 0:
             imag_terms.append(c)
         else:
             real_terms.append(t)
-    phase_expr = sp.expand(sum(imag_terms)) if imag_terms else sp.Integer(0)
-    real_envelope = sp.expand(sum(real_terms)) if real_terms else sp.Integer(0)
+    phase_expr = expand(sum(imag_terms)) if imag_terms else Integer(0)
+    real_envelope = expand(sum(real_terms)) if real_terms else Integer(0)
     return phase_expr, real_envelope, bool(imag_terms)
 
 
@@ -1483,14 +1475,14 @@ def _nufft_extract_term_nd(term, phys_syms, freq_syms):
     freq_syms=(xi,eta) [2D]. Returns None if it doesn't fit this pattern
     (conservative: never returns a wrong plan).
     """
-    term_simp = sp.powsimp(term, combine="exp", deep=True)
-    factors = sp.Mul.make_args(term_simp)
+    term_simp = powsimp(term, combine="exp", deep=True)
+    factors = Mul.make_args(term_simp)
 
     exp_args, amp_factors = [], []
     for f in factors:
-        if f.is_Pow and f.base == sp.E:
+        if f.is_Pow and f.base == E:
             exp_args.append(f.exp)
-        elif isinstance(f, sp.exp):
+        elif isinstance(f, exp):
             exp_args.append(f.args[0])
         else:
             amp_factors.append(f)
@@ -1498,12 +1490,12 @@ def _nufft_extract_term_nd(term, phys_syms, freq_syms):
     if not exp_args:
         return None
 
-    total_exponent = sp.expand(sum(exp_args))
+    total_exponent = expand(sum(exp_args))
     phase_expr, real_envelope, has_osc = _nufft_split_real_imag_exponent(total_exponent)
     if not has_osc:
         return None
 
-    phase_factored = sp.factor(phase_expr)
+    phase_factored = factor(phase_expr)
     Lambda_p, M_f = phase_factored.as_independent(*freq_syms, as_Add=False)
 
     coupled_to_freq = any(Lambda_p.has(s) for s in freq_syms)
@@ -1511,34 +1503,34 @@ def _nufft_extract_term_nd(term, phys_syms, freq_syms):
     no_real_coupling = not any(phase_expr.has(s) for s in freq_syms)
     if coupled_to_freq or coupled_to_phys or no_real_coupling:
         return None
-    if sp.expand(Lambda_p * M_f - phase_expr) != 0:
+    if expand(Lambda_p * M_f - phase_expr) != 0:
         return None
 
-    amp_expr = sp.Mul(*amp_factors)
+    amp_expr = Mul(*amp_factors)
     if real_envelope != 0:
-        amp_expr = amp_expr * sp.exp(real_envelope)
-    amp_factored = sp.factor(amp_expr) if amp_expr.is_Add else amp_expr
+        amp_expr = amp_expr * exp(real_envelope)
+    amp_factored = factor(amp_expr) if amp_expr.is_Add else amp_expr
     c_p, g_f = amp_factored.as_independent(*freq_syms, as_Add=False)
     if any(c_p.has(s) for s in freq_syms) or any(g_f.has(s) for s in phys_syms):
         return None
-    if sp.expand(c_p * g_f - amp_expr) != 0:
+    if expand(c_p * g_f - amp_expr) != 0:
         return None
 
     return {
         "c_expr": c_p, "g_expr": g_f, "Lambda_expr": Lambda_p, "M_expr": M_f,
-        "c": sp.lambdify(phys_syms, c_p, "numpy"),
-        "g": sp.lambdify(freq_syms, g_f, "numpy"),
-        "Lambda": sp.lambdify(phys_syms, Lambda_p, "numpy"),
-        "M": sp.lambdify(freq_syms, M_f, "numpy"),
+        "c": lambdify(phys_syms, c_p, "numpy"),
+        "g": lambdify(freq_syms, g_f, "numpy"),
+        "Lambda": lambdify(phys_syms, Lambda_p, "numpy"),
+        "M": lambdify(freq_syms, M_f, "numpy"),
     }
 
 
 def try_nufft_decomposition_1d(joint_expr, x_sym, xi_sym):
     """1D (phase space (x,xi)) NUFFT classifier. Returns a list of term
     plans, or None if any additive term doesn't fit (falls back)."""
-    expr = sp.expand(joint_expr.rewrite(sp.exp))
+    expr = expand(joint_expr.rewrite(exp))
     plans = []
-    for term in sp.Add.make_args(expr):
+    for term in Add.make_args(expr):
         p = _nufft_extract_term_nd(term, (x_sym,), (xi_sym,))
         if p is None:
             return None
@@ -1550,12 +1542,12 @@ def _resolve_1d_piece_for_axis_sep(part_expr, phys_sym, freq_sym):
     """Used by the 2D axis-separable tier: resolve a single-variable-pair
     factor into pointwise (no freq dependence) or nufft1d pieces."""
     if not part_expr.has(freq_sym):
-        return [{"kind": "pointwise", "amp": sp.lambdify(phys_sym, part_expr, "numpy")}]
-    rewritten = sp.expand(part_expr.rewrite(sp.exp))
+        return [{"kind": "pointwise", "amp": lambdify(phys_sym, part_expr, "numpy")}]
+    rewritten = expand(part_expr.rewrite(exp))
     pieces = []
-    for sub in sp.Add.make_args(rewritten):
+    for sub in Add.make_args(rewritten):
         if not sub.has(freq_sym):
-            pieces.append({"kind": "pointwise", "amp": sp.lambdify(phys_sym, sub, "numpy")})
+            pieces.append({"kind": "pointwise", "amp": lambdify(phys_sym, sub, "numpy")})
             continue
         plan = _nufft_extract_term_nd(sub, (phys_sym,), (freq_sym,))
         if plan is None:
@@ -1578,10 +1570,10 @@ def try_nufft_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym):
     """
     # --- try axis-separable first (checked before any exp-rewrite, since
     #     rewriting collapses the very structure this tier looks for) ---
-    expr_raw = sp.expand(joint_expr)
+    expr_raw = expand(joint_expr)
     combo_plan = []
     axis_sep_ok = True
-    for term in sp.Add.make_args(expr_raw):
+    for term in Add.make_args(expr_raw):
         A_part, B_part = term.as_independent(y_sym, eta_sym, as_Add=False)
         if A_part.has(y_sym) or A_part.has(eta_sym) or B_part.has(x_sym) or B_part.has(xi_sym):
             axis_sep_ok = False
@@ -1598,9 +1590,9 @@ def try_nufft_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym):
         return ("axis_sep", combo_plan)
 
     # --- fall back to single-joint-term (3D embed) ---
-    expr = sp.expand(joint_expr.rewrite(sp.exp))
+    expr = expand(joint_expr.rewrite(exp))
     plans = []
-    for term in sp.Add.make_args(expr):
+    for term in Add.make_args(expr):
         p = _nufft_extract_term_nd(term, (x_sym, y_sym), (xi_sym, eta_sym))
         if p is None:
             return None
@@ -1759,7 +1751,7 @@ def _apply_1d_piece_rows(piece, field, axis_grid, k_axis, d_axis, dk_axis, along
 # frequency variable(s) introduces approximation error).
 #
 # KNOWN LIMITATION, BY CONSTRUCTION: this works well when the joint
-# residual's pole locations are fixed or slowly varying with x (resp.
+# residual's pole locations are fixed or slowly varying with x (re
 # x,y) -- it degrades (many poles needed, effectively no compression) when
 # the pole genuinely MOVES with the spatial variable (e.g. 1/(xi-x-i*eps),
 # a diagonal-type singularity). The quality gate below (joint_max_rel_error)
@@ -1861,7 +1853,7 @@ def try_aaa_decomposition_1d(joint_expr, x_sym, xi_sym, x_bounds, xi_bounds,
     """1D bivariate rational decomposition via vector-AAA. Returns a plan
     dict (with a fast numpy callable, see aaa_plan_to_callable_1d) or None
     if the quality gate (rel_l2_error > 10*rtol) isn't met."""
-    p_lamb = sp.lambdify((x_sym, xi_sym), joint_expr, "numpy")
+    p_lamb = lambdify((x_sym, xi_sym), joint_expr, "numpy")
     x_nodes = _aaa_chebyshev_nodes(*x_bounds, n_cheb)
     xi_samples = np.linspace(*xi_bounds, n_xi_samples).astype(complex)
     XI, X = np.meshgrid(xi_samples, x_nodes, indexing="ij")
@@ -1934,7 +1926,7 @@ def try_aaa_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym,
     Nx, Ny = len(x_nodes), len(y_nodes)
     XX, YY = np.meshgrid(x_nodes, y_nodes, indexing="ij")
     xx_flat, yy_flat = XX.ravel(), YY.ravel()
-    p_lamb = sp.lambdify((x_sym, y_sym, xi_sym, eta_sym), joint_expr, "numpy")
+    p_lamb = lambdify((x_sym, y_sym, xi_sym, eta_sym), joint_expr, "numpy")
 
     eta_repr = 0.5 * (eta_bounds[0] + eta_bounds[1])
     xi_samples = np.linspace(*xi_bounds, n_xi_samples).astype(complex)
@@ -1948,7 +1940,7 @@ def try_aaa_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym,
     eta_fits = []
     for xi_l in xi_support:
         expr_l = joint_expr.subs(xi_sym, complex(xi_l))
-        p_l_lamb = sp.lambdify((x_sym, y_sym, eta_sym), expr_l, "numpy")
+        p_l_lamb = lambdify((x_sym, y_sym, eta_sym), expr_l, "numpy")
         F2 = np.zeros((n_eta_samples, Nx*Ny), dtype=complex)
         for j, eta_v in enumerate(eta_samples):
             F2[j, :] = p_l_lamb(xx_flat, yy_flat, eta_v)

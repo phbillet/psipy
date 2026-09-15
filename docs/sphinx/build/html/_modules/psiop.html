@@ -279,9 +279,7 @@
 <span class="sd">       *Ricerche di Matematica*, 1968.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">lru_cache</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span><span class="p">,</span> <span class="n">as_completed</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">microlocal</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_mu</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">microlocal</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">plot_scalar_1d</span><span class="p">,</span> <span class="n">plot_matrix_1d</span><span class="p">,</span> <span class="n">plot_scalar_2d</span><span class="p">,</span> <span class="n">animate_scalar_1d</span><span class="p">,</span>
@@ -933,7 +931,6 @@
 <span class="sd">        kohn_nirenberg_fft, so that constant-coefficient suboperators used inside</span>
 <span class="sd">        apply_peetre are consistent with the periodic variable-coefficient path.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
         <span class="n">u_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">Nx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
@@ -1059,7 +1056,6 @@
 <span class="sd">            - is_homogeneous: True if the symbol satisfies p(λξ, λη) = λ^m * p(ξ, η)</span>
 <span class="sd">            - degree: the detected degree m if homogeneous, or None</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">expand</span><span class="p">,</span> <span class="n">Eq</span><span class="p">,</span> <span class="n">nsimplify</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span>
             <span class="n">xi</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;xi&#39;</span><span class="p">),</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
@@ -1143,7 +1139,6 @@
 <span class="sd">        NotImplementedError</span>
 <span class="sd">            If `self.dim` is not 1 or 2.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">series</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">sin</span><span class="p">,</span> <span class="n">oo</span><span class="p">,</span> <span class="n">powdenest</span><span class="p">,</span> <span class="n">radsimp</span><span class="p">,</span> <span class="n">Add</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">validate_order</span><span class="p">(</span><span class="n">power</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">tol</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">power</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1389,7 +1384,6 @@
 <span class="sd">        tuple</span>
 <span class="sd">            (xi,) in 1D or (xi, eta) in 2D.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">xi</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;xi&#39;</span><span class="p">),</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">xi</span><span class="p">,)</span>
@@ -1421,7 +1415,6 @@
 <span class="sd">        None</span>
 <span class="sd">            `dst` is mutated in place; nothing is returned.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">together</span>
         <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">src</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">dst</span><span class="p">[</span><span class="n">monom</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">together</span><span class="p">(</span><span class="n">dst</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">monom</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">))</span>
 
@@ -1449,7 +1442,6 @@
 <span class="sd">            identically zero; False otherwise, including when the test is</span>
 <span class="sd">            inconclusive.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">simplify</span>
         <span class="k">if</span> <span class="n">expr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">if</span> <span class="n">expr</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -1494,7 +1486,6 @@
 <span class="sd">        joint : list of sympy.Expr</span>
 <span class="sd">            Terms still entangled between space and frequency variables.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Poly</span><span class="p">,</span> <span class="n">expand</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">together</span>
         <span class="n">xi_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_frequency_symbols</span><span class="p">()</span>
         <span class="n">x_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span>
         <span class="n">expr</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
@@ -1546,7 +1537,6 @@
 <span class="sd">            The expanded symbol `sum_alpha coeff_alpha(x) * xi**alpha`</span>
 <span class="sd">            reconstructed from `local_coeffs`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span>
         <span class="n">xi_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_frequency_symbols</span><span class="p">()</span>
         <span class="n">expr</span> <span class="o">=</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">local_coeffs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -1575,7 +1565,6 @@
 <span class="sd">            The expanded sum `sum_k a_k(x) * q_k(xi)`, or</span>
 <span class="sd">            `sympy.Integer(0)` if `separable` is empty.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">separable</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">expand</span><span class="p">(</span><span class="n">Add</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">a</span> <span class="o">*</span> <span class="n">q</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">separable</span><span class="p">]))</span>
@@ -1586,7 +1575,6 @@
 
 <span class="sd">        This is purely cosmetic but makes the decomposition much easier to read.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">simplify</span>
         <span class="n">merged</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">ordered_keys</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">separable</span><span class="p">:</span>
@@ -1616,7 +1604,6 @@
 <span class="sd">    </span>
 <span class="sd">        Terms with the same spatial coefficient are merged.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span><span class="p">,</span> <span class="n">simplify</span>
         <span class="n">xi_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_frequency_symbols</span><span class="p">()</span>
         <span class="n">separable</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">local_coeffs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -1718,8 +1705,6 @@
 <span class="sd">        metrics : dict</span>
 <span class="sd">            Symbol-level approximation diagnostics.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">([],</span> <span class="p">{</span><span class="s1">&#39;rel_l2_error&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;max_abs_error&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;mean_abs_error&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;svd_energy_retained_pct&#39;</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">,</span> <span class="s1">&#39;singular_values&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])})</span>
         <span class="n">x_syms</span> <span class="o">=</span> <span class="p">[]</span>
@@ -2025,7 +2010,6 @@
 <span class="sd">        ndarray</span>
 <span class="sd">            The result of applying the joint residual to u.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
     
         <span class="n">common_apply_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">common_apply_kwargs</span> <span class="ow">or</span> <span class="p">{})</span>
     
@@ -2255,7 +2239,6 @@
 <span class="sd">        dict</span>
 <span class="sd">            Decomposition dictionary.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">expand</span><span class="p">,</span> <span class="n">sympify</span>
 
         <span class="n">cache</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_peetre_cache&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span>
@@ -2515,7 +2498,6 @@
 <span class="sd">        3. &#39;lowrank&#39;: For smooth, non-oscillatory, non-pole joint kernels </span>
 <span class="sd">           (e.g., Gaussians).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
         <span class="n">all_syms</span> <span class="o">=</span> <span class="n">x_syms</span> <span class="o">+</span> <span class="n">xi_syms</span>
         
         <span class="c1"># 1. NUFFT Check (Oscillatory phase)</span>
@@ -2535,7 +2517,7 @@
         <span class="c1"># like (xi**2 + 1)**(-0.5) or 1/(x**2 + xi**2)</span>
         <span class="c1"># But NOT smooth functions like exp(-x**2) or sin(x)</span>
         <span class="n">has_symbolic_denom</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">joint_symbol</span><span class="o">.</span><span class="n">atoms</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Pow</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">joint_symbol</span><span class="o">.</span><span class="n">atoms</span><span class="p">(</span><span class="n">Pow</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">arg</span><span class="o">.</span><span class="n">exp</span><span class="o">.</span><span class="n">is_negative</span> <span class="ow">and</span> <span class="n">arg</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="o">*</span><span class="n">all_syms</span><span class="p">):</span>
                 <span class="c1"># Check if base is a polynomial expression (not transcendental)</span>
                 <span class="k">if</span> <span class="n">arg</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">is_polynomial</span><span class="p">(</span><span class="o">*</span><span class="n">all_syms</span><span class="p">):</span>
@@ -2618,7 +2600,7 @@
                                     <span class="n">apply_joint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="n">joint_symbol</span> <span class="o">=</span> <span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;joint_symbol&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">sp</span><span class="o">.</span><span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)):</span>   <span class="c1"># &lt;-- the real split</span>
+            <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">expand</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)):</span>   <span class="c1"># &lt;-- the real split</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
                     <span class="k">continue</span>
                 <span class="n">sub_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
@@ -2719,8 +2701,6 @@
 <span class="sd">        ValueError</span>
 <span class="sd">            If `self.dim == 2` and `y_grid` or `ky` is not provided.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">lambdify</span>
     
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="p">(</span><span class="n">y_grid</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ky</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;y_grid and ky are required for 2D operators.&quot;</span><span class="p">)</span>
@@ -3204,11 +3184,7 @@
 <span class="sd">          Schrödinger equations, anomalous diffusion) and spectral zeta </span>
 <span class="sd">          functions.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rational</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">powdenest</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
         <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;numerical&#39;</span><span class="p">:</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.linalg</span><span class="w"> </span><span class="kn">import</span> <span class="n">fractional_matrix_power</span>
             <span class="k">if</span> <span class="n">x_grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">x_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">N</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">N</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">L</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">L</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">5.0</span>
@@ -3220,7 +3196,7 @@
         <span class="c1"># ─── SYMBOLIC PATH ───</span>
         <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
-            <span class="n">alpha</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">nsimplify</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">rational</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">alpha</span> <span class="o">=</span> <span class="n">nsimplify</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">rational</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             
         <span class="c1"># 1. Robustly check if the overall symbol is negative (e.g., -xi**2 - eta**2)</span>
         <span class="n">is_negative</span> <span class="o">=</span> <span class="kc">False</span>
@@ -3249,12 +3225,12 @@
             <span class="c1"># --- FIX: Simplify the radical first, then multiply with evaluate=False ---</span>
             <span class="n">q_sym</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">q_sym</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">is_negative</span><span class="p">:</span>
-                <span class="n">phase</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">I</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">alpha</span><span class="p">)</span>
-                <span class="n">q_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Mul</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">q_sym</span><span class="p">,</span> <span class="n">evaluate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">phase</span> <span class="o">=</span> <span class="n">I</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">alpha</span><span class="p">)</span>
+                <span class="n">q_sym</span> <span class="o">=</span> <span class="n">Mul</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">q_sym</span><span class="p">,</span> <span class="n">evaluate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">q_sym</span>
             
         <span class="c1"># 3. SLOW PATH: Spatially dependent symbols (Heterogeneous media)</span>
-        <span class="k">if</span> <span class="n">alpha</span> <span class="o">!=</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">alpha</span> <span class="o">!=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Rational</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">alpha</span> <span class="o">!=</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">alpha</span> <span class="o">!=</span> <span class="n">Rational</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Spatially dependent fractional powers only support alpha=0.5&quot;</span><span class="p">)</span>
             
         <span class="n">p_m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">principal_symbol</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
@@ -3262,15 +3238,15 @@
         
         <span class="c1"># Calculate the principal symbol square root directly (q_0)</span>
         <span class="c1"># Avoid powdenest/simplify chain which hangs on multi-variable radicals</span>
-        <span class="n">q_0</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">p_m_abs</span><span class="p">)</span>
+        <span class="n">q_0</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">p_m_abs</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">is_negative</span><span class="p">:</span>
-            <span class="n">q_0</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Mul</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">I</span><span class="p">,</span> <span class="n">q_0</span><span class="p">,</span> <span class="n">evaluate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">q_0</span> <span class="o">=</span> <span class="n">Mul</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">q_0</span><span class="p">,</span> <span class="n">evaluate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">q_0</span>
             
         <span class="c1"># --- RAPID ORDER 1 CORRECTION ---</span>
-        <span class="c1"># Instead of generic Newton-Raphson + full left-inverse + sp.series, </span>
+        <span class="c1"># Instead of generic Newton-Raphson + full left-inverse + series, </span>
         <span class="c1"># we can compute the first asymptotic correction directly from the error.</span>
         <span class="c1"># E = p - q_0^2 (which is the subprincipal part of the operator)</span>
         
@@ -3290,7 +3266,7 @@
         
         <span class="c1"># Fast, non-blocking cleanup</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">q_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">powsimp</span><span class="p">(</span><span class="n">q_sym</span><span class="p">,</span> <span class="n">combine</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">)</span>
+            <span class="n">q_sym</span> <span class="o">=</span> <span class="n">powsimp</span><span class="p">(</span><span class="n">q_sym</span><span class="p">,</span> <span class="n">combine</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">pass</span>
             
@@ -3436,8 +3412,6 @@
 <span class="sd">        - The factor (2π)^{-d} comes from the quantum normalization of </span>
 <span class="sd">          coherent states / Weyl quantization.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">integrate</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">lambdify</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">dblquad</span><span class="p">,</span> <span class="n">nquad</span>
         
         <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span>
         
@@ -3818,7 +3792,6 @@
 <span class="sd">        sigma_min_grid : ndarray</span>
 <span class="sd">            Smallest singular value σ_min(H - λI)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.linalg</span><span class="w"> </span><span class="kn">import</span> <span class="n">svdvals</span>
         
         <span class="n">N</span> <span class="o">=</span> <span class="n">H</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">lambda_re</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">*</span><span class="n">lambda_real_range</span><span class="p">,</span> <span class="n">resolution</span><span class="p">)</span>
@@ -3833,8 +3806,6 @@
         
         <span class="c1"># Convert to sparse if requested and beneficial</span>
         <span class="k">if</span> <span class="n">use_sparse</span> <span class="ow">and</span> <span class="n">N</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">csr_matrix</span><span class="p">,</span> <span class="n">eye</span> <span class="k">as</span> <span class="n">sparse_eye</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse.linalg</span><span class="w"> </span><span class="kn">import</span> <span class="n">svds</span>
             <span class="n">H_sparse</span> <span class="o">=</span> <span class="n">csr_matrix</span><span class="p">(</span><span class="n">H</span><span class="p">)</span>
             <span class="n">I_sparse</span> <span class="o">=</span> <span class="n">sparse_eye</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;csr&#39;</span><span class="p">)</span>
             <span class="n">use_sparse_svd</span> <span class="o">=</span> <span class="kc">True</span>
@@ -4006,8 +3977,6 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">use_sparse</span> <span class="ow">and</span> <span class="n">H</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
-                <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse.linalg</span><span class="w"> </span><span class="kn">import</span> <span class="n">eigs</span>
-                <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">csr_matrix</span>
                 <span class="n">H_sparse</span> <span class="o">=</span> <span class="n">csr_matrix</span><span class="p">(</span><span class="n">H</span><span class="p">)</span>
                 <span class="n">k</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="n">H</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
                 <span class="n">eigenvalues</span> <span class="o">=</span> <span class="n">eigs</span><span class="p">(</span><span class="n">H_sparse</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">return_eigenvectors</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -4350,9 +4319,6 @@
 <span class="sd">    `_apply_constant_fft` (around line 399 of psiop.py).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     
-    <span class="c1"># Dependencies (already present via `from imports import *` in psiop.py)</span>
-    <span class="c1"># from sympy import symbols, diff, simplify, Rational, I, factorial, binomial</span>
-    
     
     <span class="c1"># ===========================================================================</span>
     <span class="c1">#  Private shared helper -- core asymptotic series computation</span>
@@ -4385,7 +4351,7 @@
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        The series is **exact and finite** for symbols that are polynomial in xi</span>
-<span class="sd">        (resp. in (xi, eta) in 2D): terms vanish automatically once the</span>
+<span class="sd">        (re in (xi, eta) in 2D): terms vanish automatically once the</span>
 <span class="sd">        differentiation order exceeds the polynomial degree.  For S^m class</span>
 <span class="sd">        or WKB symbols this is an asymptotic approximation valid at the</span>
 <span class="sd">        considered order.</span>
@@ -4399,8 +4365,7 @@
 <span class="sd">        NotImplementedError</span>
 <span class="sd">            If the spatial dimension is not 1 or 2.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">diff</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">Rational</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">factorial</span><span class="p">,</span> <span class="n">binomial</span>
-    
+
         <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span>
     
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>

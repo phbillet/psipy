@@ -1,15 +1,4 @@
-import numpy as np
-from sympy import sympify
-import matplotlib.pyplot as plt
-from PIL import Image
-import librosa, librosa.display
-import soundfile as sf
-import matplotlib.animation as animation
-import subprocess
-import os
-import soundfile as sf
-from sympy.core.function import AppliedUndef
-from sympy import Function
+from imports import *
 
 # Miscellaneous functions and classes
 class Op(Function):

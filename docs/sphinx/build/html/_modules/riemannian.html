@@ -313,21 +313,6 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">symplectic</span><span class="w"> </span><span class="kn">import</span> <span class="n">hamiltonian_flow</span> <span class="k">as</span> <span class="n">symp_hamiltonian_flow</span>
 
-<span class="c1"># Consolidate all scipy imports here so they are not re-imported inside</span>
-<span class="c1"># every function call (negligible overhead, but noisy and hard to audit).</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">quad</span><span class="p">,</span> <span class="n">dblquad</span><span class="p">,</span> <span class="n">solve_ivp</span><span class="p">,</span> <span class="n">cumulative_trapezoid</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">interp1d</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span><span class="p">,</span> <span class="n">simplify</span><span class="p">,</span> <span class="n">lambdify</span><span class="p">,</span> <span class="n">diff</span><span class="p">,</span> <span class="n">sqrt</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">zeros</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">,</span> <span class="n">DiracDelta</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">lil_matrix</span><span class="p">,</span> <span class="n">diags</span><span class="p">,</span> <span class="n">coo_matrix</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse.linalg</span><span class="w"> </span><span class="kn">import</span> <span class="n">spsolve</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">diags</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-
 
 <span class="c1"># ============================================================================</span>
 <span class="c1"># Unified Metric class</span>
@@ -928,8 +913,6 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Riemann tensor is zero for 1D manifolds.&quot;</span><span class="p">)</span>
- 
-        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
  
         <span class="n">R_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">riemann_tensor</span><span class="p">()</span>
  
@@ -2856,7 +2839,6 @@
 <span class="sd">            [ Δ₀ + K·I      0      ]</span>
 <span class="sd">            [    0       Δ₀ + K·I  ]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">eye</span> <span class="k">as</span> <span class="n">sp_eye</span><span class="p">,</span> <span class="n">bmat</span> <span class="k">as</span> <span class="n">sp_bmat</span>
     
         <span class="n">K_expr</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="o">.</span><span class="n">gauss_curvature</span><span class="p">()</span>
         <span class="n">K_func</span>  <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">K_expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
@@ -2867,9 +2849,9 @@
         <span class="c1">#    K_diag must therefore be added (not subtracted), which is what</span>
         <span class="c1">#    the code does — but only works correctly once A_scalar is the</span>
         <span class="c1">#    true Δ₀ (Fix 1 above).  No change needed here beyond Fix 1.</span>
-        <span class="n">K_diag</span> <span class="o">=</span> <span class="n">sp_eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N2</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;csr&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">K_grid</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+        <span class="n">K_diag</span> <span class="o">=</span> <span class="n">sparse_eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">N2</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;csr&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">K_grid</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
         <span class="n">block</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">A_scalar</span> <span class="o">+</span> <span class="n">K_diag</span>
-        <span class="k">return</span> <span class="n">sp_bmat</span><span class="p">([[</span><span class="n">block</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="p">]],</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;csr&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">sparse_bmat</span><span class="p">([[</span><span class="n">block</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="p">]],</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;csr&#39;</span><span class="p">)</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
     <span class="c1"># Public solver</span>
@@ -3696,7 +3678,6 @@
             <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">callable</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">a</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
             <span class="c1"># Otherwise, treat as symbolic and use lambdify</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">lambdify</span><span class="p">,</span> <span class="n">sympify</span>
             <span class="n">a_sym</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
             <span class="n">b_sym</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
             <span class="n">f_a</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">_metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">a_sym</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
@@ -3710,7 +3691,6 @@
             <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">original</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">original</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
             <span class="c1"># Otherwise, treat as symbolic</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">lambdify</span><span class="p">,</span> <span class="n">sympify</span>
             <span class="n">expr</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
             <span class="n">f</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">_metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
@@ -4333,11 +4313,6 @@
 <span class="sd">    quiver_stride : int</span>
 <span class="sd">        Sub‑sampling stride for quiver arrows (1‑forms only).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">mpl_toolkits.mplot3d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Axes3D</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegularGridInterpolator</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
-
     <span class="c1"># Extract grid information</span>
     <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">Y</span>
     <span class="n">N</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">N</span>
@@ -5998,7 +5973,6 @@
 <span class="sd">    ax : matplotlib.axes.Axes3D</span>
 <span class="sd">        The 3D axes.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s1">&#39;all&#39;</span><span class="p">)</span>
     <span class="c1"># Save the current backend</span>
     <span class="n">current_backend</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">get_backend</span><span class="p">()</span>

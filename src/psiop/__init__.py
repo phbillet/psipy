@@ -195,9 +195,7 @@ References
        *Ricerche di Matematica*, 1968.
 """
 from imports import *
-from functools import lru_cache
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import warnings
+
 import microlocal as _mu
 from microlocal import (
     plot_scalar_1d, plot_matrix_1d, plot_scalar_2d, animate_scalar_1d,
@@ -838,7 +836,6 @@ class PseudoDifferentialOperator:
         kohn_nirenberg_fft, so that constant-coefficient suboperators used inside
         apply_peetre are consistent with the periodic variable-coefficient path.
         """
-        import numpy as np
         u_hat = self.fft(u)
         if self.dim == 1:
             Nx = len(x_grid)
@@ -959,7 +956,6 @@ class PseudoDifferentialOperator:
             - is_homogeneous: True if the symbol satisfies p(λξ, λη) = λ^m * p(ξ, η)
             - degree: the detected degree m if homogeneous, or None
         """
-        from sympy import symbols, simplify, expand, Eq, nsimplify
         if self.dim == 1:
             p = self.symbol
             xi = next((s for s in p.free_symbols if s.name == 'xi'), symbols('xi', real=True))
@@ -1040,7 +1036,6 @@ class PseudoDifferentialOperator:
         NotImplementedError
             If `self.dim` is not 1 or 2.
         """
-        from sympy import symbols, series, simplify, cos, sin, oo, powdenest, radsimp, Add
 
         def validate_order(power, coeff, tol):
             if power is None:
@@ -1279,7 +1274,6 @@ class PseudoDifferentialOperator:
         tuple
             (xi,) in 1D or (xi, eta) in 2D.
         """
-        from sympy import symbols
         if self.dim == 1:
             xi = next((s for s in self.symbol.free_symbols if s.name == 'xi'), symbols('xi', real=True))
             return (xi,)
@@ -1311,7 +1305,6 @@ class PseudoDifferentialOperator:
         None
             `dst` is mutated in place; nothing is returned.
         """
-        from sympy import simplify, together
         for monom, coeff in src.items():
             dst[monom] = simplify(together(dst.get(monom, 0) + coeff))
 
@@ -1339,7 +1332,6 @@ class PseudoDifferentialOperator:
             identically zero; False otherwise, including when the test is
             inconclusive.
         """
-        from sympy import simplify
         if expr is None:
             return True
         if expr == 0:
@@ -1384,7 +1376,6 @@ class PseudoDifferentialOperator:
         joint : list of sympy.Expr
             Terms still entangled between space and frequency variables.
         """
-        from sympy import Add, Poly, expand, simplify, together
         xi_vars = self._peetre_frequency_symbols()
         x_vars = self.vars_x
         expr = expand(expr)
@@ -1436,7 +1427,6 @@ class PseudoDifferentialOperator:
             The expanded symbol `sum_alpha coeff_alpha(x) * xi**alpha`
             reconstructed from `local_coeffs`.
         """
-        from sympy import Integer, expand
         xi_vars = self._peetre_frequency_symbols()
         expr = Integer(0)
         for monom, coeff in local_coeffs.items():
@@ -1465,7 +1455,6 @@ class PseudoDifferentialOperator:
             The expanded sum `sum_k a_k(x) * q_k(xi)`, or
             `sympy.Integer(0)` if `separable` is empty.
         """
-        from sympy import Add, Integer, expand
         if not separable:
             return Integer(0)
         return expand(Add(*[a * q for a, q in separable]))
@@ -1476,7 +1465,6 @@ class PseudoDifferentialOperator:
 
         This is purely cosmetic but makes the decomposition much easier to read.
         """
-        from sympy import simplify
         merged = {}
         ordered_keys = []
         for a, q in separable:
@@ -1506,7 +1494,6 @@ class PseudoDifferentialOperator:
     
         Terms with the same spatial coefficient are merged.
         """
-        from sympy import Integer, expand, simplify
         xi_vars = self._peetre_frequency_symbols()
         separable = []
         for monom, coeff in local_coeffs.items():
@@ -1608,8 +1595,6 @@ class PseudoDifferentialOperator:
         metrics : dict
             Symbol-level approximation diagnostics.
         """
-        import numpy as np
-        from sympy import symbols
         if self._peetre_is_zero(joint_symbol):
             return ([], {'rel_l2_error': 0.0, 'max_abs_error': 0.0, 'mean_abs_error': 0.0, 'svd_energy_retained_pct': 100.0, 'singular_values': np.array([])})
         x_syms = []
@@ -1915,7 +1900,6 @@ class PseudoDifferentialOperator:
         ndarray
             The result of applying the joint residual to u.
         """
-        import numpy as np
     
         common_apply_kwargs = dict(common_apply_kwargs or {})
     
@@ -2143,7 +2127,6 @@ class PseudoDifferentialOperator:
         dict
             Decomposition dictionary.
         """
-        from sympy import Add, Integer, expand, sympify
 
         cache = getattr(self, "_peetre_cache", None)
         if (
@@ -2396,7 +2379,6 @@ class PseudoDifferentialOperator:
         3. 'lowrank': For smooth, non-oscillatory, non-pole joint kernels 
            (e.g., Gaussians).
         """
-        import sympy as sp
         all_syms = x_syms + xi_syms
         
         # 1. NUFFT Check (Oscillatory phase)
@@ -2416,7 +2398,7 @@ class PseudoDifferentialOperator:
         # like (xi**2 + 1)**(-0.5) or 1/(x**2 + xi**2)
         # But NOT smooth functions like exp(-x**2) or sin(x)
         has_symbolic_denom = False
-        for arg in joint_symbol.atoms(sp.Pow):
+        for arg in joint_symbol.atoms(Pow):
             if arg.exp.is_negative and arg.base.has(*all_syms):
                 # Check if base is a polynomial expression (not transcendental)
                 if arg.base.is_polynomial(*all_syms):
@@ -2497,7 +2479,7 @@ class PseudoDifferentialOperator:
                                     apply_joint=False, **kwargs)
         joint_symbol = deco.get('joint_symbol', 0)
         if not self._peetre_is_zero(joint_symbol):
-            for term in sp.Add.make_args(sp.expand(joint_symbol)):   # <-- the real split
+            for term in Add.make_args(expand(joint_symbol)):   # <-- the real split
                 if self._peetre_is_zero(term):
                     continue
                 sub_op = PseudoDifferentialOperator(term, self.vars_x, mode='symbol',
@@ -2595,8 +2577,6 @@ class PseudoDifferentialOperator:
         ValueError
             If `self.dim == 2` and `y_grid` or `ky` is not provided.
         """
-        import numpy as np
-        from sympy import lambdify
     
         if self.dim == 2 and (y_grid is None or ky is None):
             raise ValueError("y_grid and ky are required for 2D operators.")
@@ -3062,11 +3042,7 @@ class PseudoDifferentialOperator:
           Schrödinger equations, anomalous diffusion) and spectral zeta 
           functions.
         """
-        import sympy as sp
-        from sympy import Rational, simplify, symbols, powdenest
-        import numpy as np
         if method == 'numerical':
-            from scipy.linalg import fractional_matrix_power
             if x_grid is None: x_grid = np.linspace(-5, 5, 128)
             if N is None: N = len(x_grid)
             if L is None: L = (x_grid[-1] - x_grid[0]) / 2.0 if len(x_grid) > 1 else 5.0
@@ -3078,7 +3054,7 @@ class PseudoDifferentialOperator:
         # ─── SYMBOLIC PATH ───
         p = self.symbol
         if isinstance(alpha, float):
-            alpha = sp.nsimplify(alpha, rational=True)
+            alpha = nsimplify(alpha, rational=True)
             
         # 1. Robustly check if the overall symbol is negative (e.g., -xi**2 - eta**2)
         is_negative = False
@@ -3107,12 +3083,12 @@ class PseudoDifferentialOperator:
             # --- FIX: Simplify the radical first, then multiply with evaluate=False ---
             q_sym = simplify(q_sym)
             if is_negative:
-                phase = sp.I**(2*alpha)
-                q_sym = sp.Mul(phase, q_sym, evaluate=False)
+                phase = I**(2*alpha)
+                q_sym = Mul(phase, q_sym, evaluate=False)
             return q_sym
             
         # 3. SLOW PATH: Spatially dependent symbols (Heterogeneous media)
-        if alpha != 0.5 and alpha != sp.Rational(1, 2):
+        if alpha != 0.5 and alpha != Rational(1, 2):
             raise NotImplementedError("Spatially dependent fractional powers only support alpha=0.5")
             
         p_m = self.principal_symbol(order=1)
@@ -3120,15 +3096,15 @@ class PseudoDifferentialOperator:
         
         # Calculate the principal symbol square root directly (q_0)
         # Avoid powdenest/simplify chain which hangs on multi-variable radicals
-        q_0 = sp.sqrt(p_m_abs)
+        q_0 = sqrt(p_m_abs)
         if is_negative:
-            q_0 = sp.Mul(sp.I, q_0, evaluate=False)
+            q_0 = Mul(I, q_0, evaluate=False)
 
         if order == 0:
             return q_0
             
         # --- RAPID ORDER 1 CORRECTION ---
-        # Instead of generic Newton-Raphson + full left-inverse + sp.series, 
+        # Instead of generic Newton-Raphson + full left-inverse + series, 
         # we can compute the first asymptotic correction directly from the error.
         # E = p - q_0^2 (which is the subprincipal part of the operator)
         
@@ -3148,7 +3124,7 @@ class PseudoDifferentialOperator:
         
         # Fast, non-blocking cleanup
         try:
-            q_sym = sp.powsimp(q_sym, combine='all')
+            q_sym = powsimp(q_sym, combine='all')
         except Exception:
             pass
             
@@ -3288,8 +3264,6 @@ class PseudoDifferentialOperator:
         - The factor (2π)^{-d} comes from the quantum normalization of 
           coherent states / Weyl quantization.
         """
-        from sympy import integrate, simplify, lambdify
-        from scipy.integrate import dblquad, nquad
         
         p = self.symbol
         
@@ -3666,7 +3640,6 @@ class PseudoDifferentialOperator:
         sigma_min_grid : ndarray
             Smallest singular value σ_min(H - λI)
         """
-        from scipy.linalg import svdvals
         
         N = H.shape[0]
         lambda_re = np.linspace(*lambda_real_range, resolution)
@@ -3681,8 +3654,6 @@ class PseudoDifferentialOperator:
         
         # Convert to sparse if requested and beneficial
         if use_sparse and N > 100:
-            from scipy.sparse import csr_matrix, eye as sparse_eye
-            from scipy.sparse.linalg import svds
             H_sparse = csr_matrix(H)
             I_sparse = sparse_eye(N, format='csr')
             use_sparse_svd = True
@@ -3854,8 +3825,6 @@ class PseudoDifferentialOperator:
         """
         try:
             if use_sparse and H.shape[0] > 100:
-                from scipy.sparse.linalg import eigs
-                from scipy.sparse import csr_matrix
                 H_sparse = csr_matrix(H)
                 k = min(20, H.shape[0] - 2)
                 eigenvalues = eigs(H_sparse, k=k, return_eigenvectors=False)
@@ -4189,9 +4158,6 @@ class PseudoDifferentialOperator:
     `_apply_constant_fft` (around line 399 of psiop.py).
     """
     
-    # Dependencies (already present via `from imports import *` in psiop.py)
-    # from sympy import symbols, diff, simplify, Rational, I, factorial, binomial
-    
     
     # ===========================================================================
     #  Private shared helper -- core asymptotic series computation
@@ -4224,7 +4190,7 @@ class PseudoDifferentialOperator:
         Notes
         -----
         The series is **exact and finite** for symbols that are polynomial in xi
-        (resp. in (xi, eta) in 2D): terms vanish automatically once the
+        (re in (xi, eta) in 2D): terms vanish automatically once the
         differentiation order exceeds the polynomial degree.  For S^m class
         or WKB symbols this is an asymptotic approximation valid at the
         considered order.
@@ -4238,8 +4204,7 @@ class PseudoDifferentialOperator:
         NotImplementedError
             If the spatial dimension is not 1 or 2.
         """
-        from sympy import symbols, diff, simplify, Rational, I, factorial, binomial
-    
+
         a = self.symbol
     
         if self.dim == 1:

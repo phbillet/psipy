@@ -143,9 +143,7 @@ Sylvester-type equations:
     Strang splitting schemes even when the underlying scalar operators 
     do not commute.
 """
-import sympy as sp
-import numpy as np
-
+from imports import *
 # Import core components from the parent package
 from . import PseudoDifferentialOperator
 from . import _mi_all, _mi_diff, _mi_factorial, _mi_upto
@@ -173,8 +171,6 @@ from . import _mi_all, _mi_diff, _mi_factorial, _mi_upto
 # n>=1 term in the KN expansion involves d/dx of a xi-only expression,
 # which is identically zero. That exactness is the natural correctness
 # check for `compose_asymptotic` below.
-
-import sympy as sp
 
 
 class MatrixPseudoDifferentialOperator:
@@ -218,7 +214,7 @@ class MatrixPseudoDifferentialOperator:
         compute_peetre=False,
         peetre_options=None,
     ):
-        P_expr = sp.Matrix(P_expr)
+        P_expr = Matrix(P_expr)
         n, m = P_expr.shape
         if n != m:
             raise ValueError("P_expr must be a square matrix of symbols.")
@@ -464,28 +460,28 @@ class MatrixPseudoDifferentialOperator:
         P = self.symbol_matrix(*args)
         
         # --- Symbolic Path (when no args are provided) ---
-        if isinstance(P, sp.MatrixBase):
+        if isinstance(P, MatrixBase):
             if self.size == 2:
                 a, b = P[0, 0], P[0, 1]
                 c, d = P[1, 0], P[1, 1]
                 tr = a + d
                 det = a * d - b * c
-                disc = sp.sqrt(tr ** 2 - 4 * det)
+                disc = sqrt(tr ** 2 - 4 * det)
                 lam1 = (tr + disc) / 2
                 lam2 = (tr - disc) / 2
-                eigvals = sp.Matrix([lam1, lam2])
+                eigvals = Matrix([lam1, lam2])
                 
                 def _eigvec(lam):
-                    v_row0 = sp.Matrix([b, lam - a])
-                    v_row1 = sp.Matrix([lam - d, c])
+                    v_row0 = Matrix([b, lam - a])
+                    v_row1 = Matrix([lam - d, c])
                     # Choose the row that avoids division by zero
                     v = v_row0 if b != 0 else v_row1
-                    norm = sp.sqrt(v.dot(v))
+                    norm = sqrt(v.dot(v))
                     if norm == 0:
                         return v
                     return v / norm
                 
-                eigvecs = sp.Matrix.hstack(_eigvec(lam1), _eigvec(lam2))
+                eigvecs = Matrix.hstack(_eigvec(lam1), _eigvec(lam2))
                 return eigvals, eigvecs
             else:
                 # General N x N symbolic eigenvalues
@@ -554,10 +550,10 @@ class MatrixPseudoDifferentialOperator:
 
         P, Q = self.P_expr, other.P_expr
         x_vars = self.vars_x
-        xi_vars = sp.symbols('xi eta', real=True) if dim == 2 else (sp.symbols('xi', real=True),)
+        xi_vars = symbols('xi eta', real=True) if dim == 2 else (symbols('xi', real=True),)
         sign = -1 if (sign_convention or 'standard') == 'standard' else +1
 
-        result = sp.zeros(self.size, self.size)
+        result = zeros(self.size, self.size)
         if mode == 'kn':
             for n in range(order + 1):
                 for alpha in _mi_all(n, dim):
@@ -581,7 +577,7 @@ class MatrixPseudoDifferentialOperator:
                             dQ = _mi_diff(_mi_diff(Q, x_vars, alpha), xi_vars, beta)
                             result += coeff * (dP * dQ)  # matrix mult, order preserved
 
-        return sp.simplify(result) if do_simplify else result
+        return simplify(result) if do_simplify else result
 
     def commutator_symbolic(self, other, order=1, mode='kn', sign_convention=None):
         """
@@ -598,7 +594,7 @@ class MatrixPseudoDifferentialOperator:
         """
         pq = self.compose_asymptotic(other, order=order, mode=mode, sign_convention=sign_convention)
         qp = other.compose_asymptotic(self, order=order, mode=mode, sign_convention=sign_convention)
-        return sp.simplify(pq - qp)
+        return simplify(pq - qp)
 
     def exponential_symbol(self, t=1.0, order=2, mode='kn', sign_convention=None, do_simplify=True):
         """
@@ -613,7 +609,7 @@ class MatrixPseudoDifferentialOperator:
         (n times), computed via the *matrix* `compose_asymptotic` --
         i.e. ordinary matrix multiplication `P @ P` order-corrected by
         the KN/Weyl derivative terms -- since matrix symbols do not
-        commute and `sp.Matrix.__mul__(P, P)` alone is only the 0th-order
+        commute and `Matrix.__mul__(P, P)` alone is only the 0th-order
         (frozen-coefficient) approximation to that composition. Works
         for both `dim == 1` and `dim == 2` -- `compose_asymptotic`
         already branches on dimension internally.
@@ -660,7 +656,7 @@ class MatrixPseudoDifferentialOperator:
           so ordering is moot, but see `commutator_symbolic` for the
           general two-operator case.
         """
-        result = sp.eye(self.size) + t * self.P_expr
+        result = eye(self.size) + t * self.P_expr
 
         current_power = self.P_expr
         for n in range(2, order + 1):
@@ -671,10 +667,10 @@ class MatrixPseudoDifferentialOperator:
             current_power = temp_op.compose_asymptotic(
                 self, order=order, mode=mode, sign_convention=sign_convention, do_simplify=do_simplify
             )
-            coeff = t**n / sp.factorial(n)
+            coeff = t**n / factorial(n)
             result += coeff * current_power
 
-        return sp.simplify(result) if do_simplify else result
+        return simplify(result) if do_simplify else result
 
     def _asymptotic_matrix_inverse(self, order, side):
         """Matrix analogue of PseudoDifferentialOperator._asymptotic_inverse.
@@ -688,7 +684,7 @@ class MatrixPseudoDifferentialOperator:
             raise NotImplementedError("dim must be 1 or 2")
         P = self.P_expr
         x_vars = self.vars_x
-        xi_vars = sp.symbols('xi eta', real=True) if dim == 2 else (sp.symbols('xi', real=True),)
+        xi_vars = symbols('xi eta', real=True) if dim == 2 else (symbols('xi', real=True),)
 
         try:
             R0 = P.inv()
@@ -702,7 +698,7 @@ class MatrixPseudoDifferentialOperator:
 
         R = R0
         for n in range(1, order + 1):
-            term = sp.zeros(self.size, self.size)
+            term = zeros(self.size, self.size)
             for alpha in _mi_upto(n, dim):
                 coeff = (1j) ** (-sum(alpha)) / _mi_factorial(alpha)
                 if side == 'right':
@@ -714,7 +710,7 @@ class MatrixPseudoDifferentialOperator:
                     dP = _mi_diff(P, x_vars, alpha)
                     term += coeff * (dR * dP)
             R = R - (R0 * term if side == 'right' else term * R0)
-        return sp.simplify(R)
+        return simplify(R)
 
     def right_inverse_asymptotic(self, order=1):
         """Formal right inverse R such that Op[self] . Op[R] ~ Id up to
@@ -743,12 +739,12 @@ class MatrixPseudoDifferentialOperator:
         row/column roles of the symbol, same as for a plain matrix adjoint.
         """
         dim = self.dim
-        xi_vars = sp.symbols('xi eta', real=True) if dim == 2 else (sp.symbols('xi', real=True),)
-        expansion_var = xi_vars[0] if dim == 1 else sp.sqrt(sum(v**2 for v in xi_vars))
+        xi_vars = symbols('xi eta', real=True) if dim == 2 else (symbols('xi', real=True),)
+        expansion_var = xi_vars[0] if dim == 1 else sqrt(sum(v**2 for v in xi_vars))
 
         P_star = self.P_expr.applyfunc(
-            lambda p_ij: sp.simplify(
-                sp.series(sp.conjugate(p_ij), expansion_var, sp.oo, n=n_terms).removeO()
+            lambda p_ij: simplify(
+                series(conjugate(p_ij), expansion_var, oo, n=n_terms).removeO()
             )
         )
         return P_star.T

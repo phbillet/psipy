@@ -381,7 +381,6 @@ def hamiltonian_flow(H, z0, tspan, vars_phase=None, integrator='symplectic',
     geometric structure of phase space.  Use 'rk45' for short-time
     high-accuracy requirements.
     """
-    from scipy.integrate import solve_ivp
 
     # ── 1. Variables and DOF ──────────────────────────────────────────────────
     if vars_phase is None:
@@ -724,8 +723,6 @@ def find_fixed_points(H, vars_phase=None, domain=None, tol=1e-6, numerical=False
         except Exception as e:
             print(f"Symbolic solve failed: {e}")
 
-    # Numerical root‑finding
-    from scipy.optimize import fsolve
 
     # Create lambdified functions for the gradient
     grad_funcs = [lambdify(vars_phase, eq, 'numpy') for eq in eqs]
@@ -908,7 +905,6 @@ def action_integral(H, E, vars_phase=None, method='numerical', x_bounds=None):
             E = E_numeric
 
     if method == 'numerical':
-        from scipy.integrate import quad
         if E_numeric is None:
             raise ValueError("numerical method requires numeric energy")
         # Determine bounds
@@ -1329,7 +1325,6 @@ def frequency(H, I_val, method='derivative'):
     elif method == 'period':
         # H must be a sympy expression in phase-space variables, I_val is the energy E
         # Infer variables and compute T = 2 ∫ dx / (∂H/∂p) along the orbit
-        from scipy.integrate import quad
         vars_phase = _infer_variables(H)
         _check_ndof(vars_phase, 1)
         x, p = vars_phase
@@ -1396,7 +1391,6 @@ def _poincare_worker(args):
     real=True to match the calling convention.
     """
     H, Sigma_def, z0, tmax, vars_phase_str, n_returns, integrator = args
-    from sympy import symbols
     vars_phase = [symbols(v, real=True) for v in vars_phase_str]
     return poincare_section(H, Sigma_def, z0, tmax,
                             vars_phase=vars_phase,
@@ -1734,7 +1728,6 @@ def lyapunov_exponents(trajectory, dt, H=None, vars_phase=None, n_vectors=None,
     ValueError
         If ndof cannot be determined.
     """
-    import warnings
 
     if H is not None and vars_phase is not None:
         # ------------------------------------------------------------------
@@ -1936,8 +1929,6 @@ def visualize_poincare_section(H, z0_list, Sigma_def, vars_phase=None,
         vars_phase = [symbols('x1 p1 x2 p2', real=True)]
     _check_ndof(vars_phase, 2)
 
-    from concurrent.futures import ProcessPoolExecutor
-
     vars_str     = [str(v) for v in vars_phase]
     task_args    = [
         (H, Sigma_def, list(z0), tmax, vars_str, n_returns, 'symplectic')
@@ -2121,7 +2112,6 @@ def evolve_phase_space_region(H, initial_region, t_eval, vars_phase=None,
     phase_portrait : Plot energy contours and vector fields.
     hamiltonian_flow : Underlying numerical integration routine.
     """
-    import warnings
     # ----------------------------------------------------------------------
     # Preliminary checks and variable inference
     # ----------------------------------------------------------------------
@@ -2482,13 +2472,11 @@ class IntegrabilityAnalysis:
     @staticmethod
     def _ks_poisson(s_norm: np.ndarray) -> float:
         """One-sample KS p-value against Poisson CDF F(s) = 1 - exp(-s)."""
-        from scipy.stats import kstest
         return float(kstest(s_norm, lambda x: 1.0 - np.exp(-x)).pvalue)
 
     @staticmethod
     def _ks_wigner(s_norm: np.ndarray) -> float:
         """One-sample KS p-value against Wigner CDF F(s) = 1 - exp(-π s²/4)."""
-        from scipy.stats import kstest
         return float(kstest(s_norm, lambda x: 1.0 - np.exp(-np.pi * x**2 / 4)).pvalue)
 
     # ------------------------------------------------------------------
@@ -2706,7 +2694,6 @@ class IntegrabilityAnalysis:
         >>> r['verdict']
         'Integrable'
         """
-        from scipy.stats import kstest
 
         warnings_list = []
         channels      = {}
@@ -2751,7 +2738,6 @@ class IntegrabilityAnalysis:
             bracket_results = []
             for L_cand in candidates:
                 try:
-                    from sympy import simplify as sp_simplify, diff as sp_diff
                     pb = poisson_bracket(H, L_cand, vars_phase)
                     is_zero = bool(pb == 0)
 
@@ -2759,10 +2745,9 @@ class IntegrabilityAnalysis:
                     # at a generic point — proxy: L is not a function of H alone
                     independent = True
                     try:
-                        from sympy import symbols as sp_syms
-                        ratio_test = sp_simplify(
-                            sp_diff(L_cand, vars_phase[0]) * sp_diff(H, vars_phase[1])
-                            - sp_diff(L_cand, vars_phase[1]) * sp_diff(H, vars_phase[0])
+                        ratio_test = simplify(
+                            diff(L_cand, vars_phase[0]) * diff(H, vars_phase[1])
+                            - diff(L_cand, vars_phase[1]) * diff(H, vars_phase[0])
                         )
                         if ratio_test == 0:
                             # Could be parallel — warn but don't discard
@@ -2947,7 +2932,6 @@ class IntegrabilityAnalysis:
                     is_rational = False
                     ratio_frac  = None
                     if np.isfinite(ratio_freq):
-                        from fractions import Fraction
                         frac = Fraction(ratio_freq).limit_denominator(50)
                         tol  = 2.0 / (frac.denominator**2 * max(n_osc_1, n_osc_2))
                         tol  = max(tol, 1e-3)     # floor tolerance
@@ -3225,7 +3209,6 @@ class IntegrabilityAnalysis:
         At least two orbits are required for clustering; a single orbit is
         returned as a degenerate torus.
         """
-        from scipy.cluster.hierarchy import fcluster, linkage
 
         def _get(o, *keys):
             for k in keys:
@@ -3403,8 +3386,6 @@ class IntegrabilityAnalysis:
         .. [Br73] Brody, T. A., "A statistical measure for the repulsion of
                   energy levels", *Lett. Nuovo Cimento* 7, 482–484 (1973).
         """
-        from scipy.optimize import minimize_scalar
-        from scipy.special import gamma
     
         spacings = np.asarray(spacings, dtype=float)
         s = spacings / spacings.mean()   # normalise to unit mean
@@ -3546,7 +3527,6 @@ class IntegrabilityAnalysis:
         .. [Cu97] Cushman, R. H. & Bates, L. M., *Global Aspects of Classical
                   Integrable Systems*, Birkhäuser, 1997.
         """
-        from sympy import solve as sym_solve, diff as sym_diff, symbols as sym_sym
     
         _check_ndof(vars_phase, 2)
         x1, p1, x2, p2 = vars_phase
@@ -3571,7 +3551,7 @@ class IntegrabilityAnalysis:
             try:
                 # Solve L = ell_k for x2 at p2=0 (turning point of DOF 2)
                 L_at_p2_0 = L.subs(p2, 0)
-                x2_sols = sym_solve(L_at_p2_0 - ell_k, x2)
+                x2_sols = solve(L_at_p2_0 - ell_k, x2)
                 x2_eq = float(x2_sols[0]) if x2_sols else 0.0
     
                 # Substitute x2=x2_eq, p2=0 into H to get effective H1

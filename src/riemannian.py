@@ -229,21 +229,6 @@ References
 from imports import *
 from symplectic import hamiltonian_flow as symp_hamiltonian_flow
 
-# Consolidate all scipy imports here so they are not re-imported inside
-# every function call (negligible overhead, but noisy and hard to audit).
-from scipy.integrate import (
-    quad, dblquad, solve_ivp, cumulative_trapezoid,
-)
-from scipy.interpolate import interp1d
-from scipy.optimize import minimize
-
-from sympy import symbols, simplify, lambdify, diff, sqrt, log, zeros, Matrix, DiracDelta
-import numpy as np
-from scipy.sparse import lil_matrix, diags, coo_matrix
-from scipy.sparse.linalg import spsolve
-from scipy.sparse import diags
-import matplotlib.pyplot as plt
-
 
 # ============================================================================
 # Unified Metric class
@@ -828,8 +813,6 @@ class Metric:
         """
         if self.dim == 1:
             raise NotImplementedError("Riemann tensor is zero for 1D manifolds.")
- 
-        import numpy as np
  
         R_dict = self.riemann_tensor()
  
@@ -2695,7 +2678,6 @@ class RiemannianGrid:
             [ Δ₀ + K·I      0      ]
             [    0       Δ₀ + K·I  ]
         """
-        from scipy.sparse import eye as sp_eye, bmat as sp_bmat
     
         K_expr  = self._metric.gauss_curvature()
         K_func  = lambdify(self._metric.coords, K_expr, 'numpy')
@@ -2706,9 +2688,9 @@ class RiemannianGrid:
         #    K_diag must therefore be added (not subtracted), which is what
         #    the code does — but only works correctly once A_scalar is the
         #    true Δ₀ (Fix 1 above).  No change needed here beyond Fix 1.
-        K_diag = sp_eye(self.N2, format='csr').multiply(K_grid.ravel())
+        K_diag = sparse_eye(self.N2, format='csr').multiply(K_grid.ravel())
         block  = self.A_scalar + K_diag
-        return sp_bmat([[block, None], [None, block]], format='csr')
+        return sparse_bmat([[block, None], [None, block]], format='csr')
 
     # ------------------------------------------------------------------
     # Public solver
@@ -3508,7 +3490,6 @@ def analyze_hodge_decomposition(decomp, original=None, print_report=True, show_p
             if callable(a) and callable(b):
                 return a(X, Y), b(X, Y)
             # Otherwise, treat as symbolic and use lambdify
-            from sympy import lambdify, sympify
             a_sym = sympify(a)
             b_sym = sympify(b)
             f_a = lambdify(grid._metric.coords, a_sym, 'numpy')
@@ -3522,7 +3503,6 @@ def analyze_hodge_decomposition(decomp, original=None, print_report=True, show_p
             if callable(original):
                 return original(X, Y)
             # Otherwise, treat as symbolic
-            from sympy import lambdify, sympify
             expr = sympify(original)
             f = lambdify(grid._metric.coords, expr, 'numpy')
             return f(X, Y)
@@ -4141,11 +4121,6 @@ def _visualize_hodge_decomposition_3d(decomp, grid, form_degree,
     quiver_stride : int
         Sub‑sampling stride for quiver arrows (1‑forms only).
     """
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d import Axes3D
-    from scipy.interpolate import RegularGridInterpolator
-    import warnings
-
     # Extract grid information
     X, Y = grid.X, grid.Y
     N = grid.N
@@ -5777,7 +5752,6 @@ def plot_embedding(R, title="", colormap='plasma', dark=True, backend='widget'):
     ax : matplotlib.axes.Axes3D
         The 3D axes.
     """
-    import matplotlib.pyplot as plt
     plt.close('all')
     # Save the current backend
     current_backend = plt.get_backend()

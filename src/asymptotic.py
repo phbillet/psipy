@@ -104,17 +104,7 @@ References
        integrals with boundaries", *Duke Mathematical Journal* 112(2),
        199–264, 2002.
 """
-
-import numpy as np
-import sympy as sp
-from scipy.special import airy, gamma
-from scipy.optimize import minimize
-from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Tuple
-from enum import Enum
-import warnings
-
-# --- Types and Enums ---
+from imports import *
 
 class IntegralMethod(Enum):
     """
@@ -374,8 +364,8 @@ class Analyzer:
         Strategy
         --------
         1. Symbolic test (fast, exact when SymPy can simplify):
-           - Compute re_part = sp.re(φ)  and  im_part = sp.im(φ)  after
-             assuming all variables are real (sp.refine with Q.real).
+           - Compute re_part = re(φ)  and  im_part = im(φ)  after
+             assuming all variables are real (refine with Q.real).
            - If re_part simplifies to zero   → LAPLACE
            - If im_part simplifies to zero   → STATIONARY_PHASE
            - Otherwise                       → SADDLE_POINT
@@ -397,16 +387,16 @@ class Analyzer:
         """
         # --- Step 1: symbolic test ---
         real_assumptions = {v: True for v in self.variables}
-        # Replace variables with real-stamped symbols for sp.re / sp.im
-        real_vars = [sp.Symbol(str(v), real=True) for v in self.variables]
+        # Replace variables with real-stamped symbols for re / im
+        real_vars = [Symbol(str(v), real=True) for v in self.variables]
         expr_real = phase_expr.subs(dict(zip(self.variables, real_vars)))
 
         try:
-            re_part = sp.simplify(sp.re(expr_real))
-            im_part = sp.simplify(sp.im(expr_real))
+            re_part = simplify(re(expr_real))
+            im_part = simplify(im(expr_real))
 
-            re_is_zero = (re_part == sp.S.Zero)
-            im_is_zero = (im_part == sp.S.Zero)
+            re_is_zero = (re_part == S.Zero)
+            im_is_zero = (im_part == S.Zero)
 
             if re_is_zero and not im_is_zero:
                 return IntegralMethod.LAPLACE
@@ -424,7 +414,7 @@ class Analyzer:
         rng = np.random.default_rng(seed=0)  # deterministic seed for reproducibility
         samples = rng.uniform(-2.0, 2.0, size=(n_samples, self.dim))
 
-        func_phase_num = sp.lambdify(tuple(self.variables), phase_expr, 'numpy')
+        func_phase_num = lambdify(tuple(self.variables), phase_expr, 'numpy')
         re_magnitudes = []
         im_magnitudes = []
         for pt in samples:
@@ -473,13 +463,13 @@ class Analyzer:
         These symbolic derivatives are later converted to numerical functions via lambdify.
         """
         # 1. Phase Gradient & Hessian
-        self.grad_sym = [sp.diff(self.phase_expr, v) for v in self.variables]
-        self.hess_sym = [[sp.diff(self.phase_expr, v1, v2) for v2 in self.variables] 
+        self.grad_sym = [diff(self.phase_expr, v) for v in self.variables]
+        self.hess_sym = [[diff(self.phase_expr, v1, v2) for v2 in self.variables] 
                          for v1 in self.variables]
         
         # 2. Amplitude Gradient & Hessian
-        self.grad_amp_sym = [sp.diff(self.amplitude_expr, v) for v in self.variables]
-        self.hess_amp_sym = [[sp.diff(self.amplitude_expr, v1, v2) for v2 in self.variables] 
+        self.grad_amp_sym = [diff(self.amplitude_expr, v) for v in self.variables]
+        self.hess_amp_sym = [[diff(self.amplitude_expr, v1, v2) for v2 in self.variables] 
                              for v1 in self.variables]
         
         # 3. Higher order tensors for Phase
@@ -490,7 +480,7 @@ class Analyzer:
         for idx in itertools.product(range(self.dim), repeat=3):
             self.d3_indices.append(idx)
             var_seq = [self.variables[i] for i in idx]
-            self.d3_sym.append(sp.diff(self.phase_expr, *var_seq))
+            self.d3_sym.append(diff(self.phase_expr, *var_seq))
             
         # D4 Tensor (Rank 4) - Required for 2nd order Morse correction
         self.d4_indices = []
@@ -498,7 +488,7 @@ class Analyzer:
         for idx in itertools.product(range(self.dim), repeat=4):
             self.d4_indices.append(idx)
             var_seq = [self.variables[i] for i in idx]
-            self.d4_sym.append(sp.diff(self.phase_expr, *var_seq))
+            self.d4_sym.append(diff(self.phase_expr, *var_seq))
 
     def _create_numerical_functions(self):
         """
@@ -513,16 +503,16 @@ class Analyzer:
         These lambdified functions are much faster than evaluating SymPy expressions directly.
         """
         vars_tuple = tuple(self.variables)
-        self.func_phase = sp.lambdify(vars_tuple, self.phase_expr, 'numpy')
-        self.func_amp = sp.lambdify(vars_tuple, self.amplitude_expr, 'numpy')
-        self.func_grad = sp.lambdify(vars_tuple, self.grad_sym, 'numpy')
-        self.func_hess = sp.lambdify(vars_tuple, self.hess_sym, 'numpy')
+        self.func_phase = lambdify(vars_tuple, self.phase_expr, 'numpy')
+        self.func_amp = lambdify(vars_tuple, self.amplitude_expr, 'numpy')
+        self.func_grad = lambdify(vars_tuple, self.grad_sym, 'numpy')
+        self.func_hess = lambdify(vars_tuple, self.hess_sym, 'numpy')
         
-        self.func_grad_amp = sp.lambdify(vars_tuple, self.grad_amp_sym, 'numpy')
-        self.func_hess_amp = sp.lambdify(vars_tuple, self.hess_amp_sym, 'numpy')
+        self.func_grad_amp = lambdify(vars_tuple, self.grad_amp_sym, 'numpy')
+        self.func_hess_amp = lambdify(vars_tuple, self.hess_amp_sym, 'numpy')
         
-        self.func_d3 = sp.lambdify(vars_tuple, self.d3_sym, 'numpy')
-        self.func_d4 = sp.lambdify(vars_tuple, self.d4_sym, 'numpy')
+        self.func_d3 = lambdify(vars_tuple, self.d3_sym, 'numpy')
+        self.func_d4 = lambdify(vars_tuple, self.d4_sym, 'numpy')
 
     def find_critical_points(self, initial_guesses=None) -> List[np.ndarray]:
         """
@@ -1586,9 +1576,6 @@ class AsymptoticEvaluator:
             raise ValueError(f"Unknown IntegralMethod: {cp.method!r}")
 
 
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-
 class AsymptoticVisualizer:
     """
     Visualization toolkit for asymptotic analysis — supports all three integration
@@ -2184,9 +2171,9 @@ def plot_contribution_decomposition(
 
     >>> import sympy as sp
     >>> import numpy as np
-    >>> x = sp.Symbol('x')
+    >>> x = Symbol('x')
     >>> phi   = x**4 - x**2          # two minima at x = ±1/√2
-    >>> amp   = sp.Integer(1)
+    >>> amp   = Integer(1)
     >>> analyzer = Analyzer(phi, amp, [x],
     ...                     method=IntegralMethod.STATIONARY_PHASE)
     >>> pts = analyzer.find_critical_points(
@@ -2213,10 +2200,6 @@ def plot_contribution_decomposition(
     plot_amplitude_decomposition :  (in wkb.py)
         Spatial WKB analogue — plots amplitude orders aₖ(x) on a grid.
     """
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import matplotlib.cm as cm
-    import warnings
 
     # ------------------------------------------------------------------
     # 0. Validate inputs
@@ -2402,7 +2385,7 @@ StationaryPhaseVisualizer = AsymptoticVisualizer
 # --- Execution Example ---
 
 if __name__ == "__main__":
-    x, y = sp.symbols('x y')
+    x, y = symbols('x y')
 
     # =========================================================================
     # Helper: shared report printer (works for all three methods)
@@ -2454,7 +2437,7 @@ if __name__ == "__main__":
     amp_real = 1 + x**2
 
     analyzer_sp = Analyzer(phi_real, amp_real, [x, y])
-    pts_sp = analyzer_sp.find_critical_points([np.array([0., 0.])])
+    pts_sp = analyzer_find_critical_points([np.array([0., 0.])])
     print_report("Case 1 — φ real (AUTO → STATIONARY_PHASE)", pts_sp, analyzer_sp)
 
     # =========================================================================
@@ -2462,8 +2445,8 @@ if __name__ == "__main__":
     #    φ = i·ψ  with ψ = x²/2 + y²/2 + x³/20  (ψ real, minimum at origin)
     #    The integral becomes ∫∫ exp(-λ ψ(x,y)) dx dy
     # =========================================================================
-    phi_imag = sp.I * (x**2/2 + y**2/2 + x**3/20)
-    amp_imag = sp.Integer(1)
+    phi_imag = I * (x**2/2 + y**2/2 + x**3/20)
+    amp_imag = Integer(1)
 
     analyzer_lap = Analyzer(phi_imag, amp_imag, [x, y])
     pts_lap = analyzer_lap.find_critical_points([np.array([0., 0.])])
@@ -2475,8 +2458,8 @@ if __name__ == "__main__":
     #      = (1/2 + i/4)(x² + y²)
     #    Saddle point at origin; contribution is a complex Gaussian.
     # =========================================================================
-    phi_cplx = (x**2/2 + y**2/2) + sp.I*(x**2/4 + y**2/4)
-    amp_cplx = sp.Integer(1)
+    phi_cplx = (x**2/2 + y**2/2) + I*(x**2/4 + y**2/4)
+    amp_cplx = Integer(1)
 
     analyzer_sdl = Analyzer(phi_cplx, amp_cplx, [x, y])
 
@@ -2495,11 +2478,11 @@ if __name__ == "__main__":
 
     # Case 1: STATIONARY_PHASE
     if pts_sp:
-        cp_sp = analyzer_sp.analyze_point(pts_sp[0])
+        cp_sp = analyzer_analyze_point(pts_sp[0])
         viz_sp = AsymptoticVisualizer(analyzer_sp)
-        viz_sp.plot_phase_landscape([cp_sp], bounds=bounds2d)
-        viz_sp.plot_integrand(lam_value=50, bounds=bounds2d)
-        viz_sp.plot_asymptotic_convergence(cp_sp)
+        viz_plot_phase_landscape([cp_sp], bounds=bounds2d)
+        viz_plot_integrand(lam_value=50, bounds=bounds2d)
+        viz_plot_asymptotic_convergence(cp_sp)
 
     # Case 2: LAPLACE
     if pts_lap:
