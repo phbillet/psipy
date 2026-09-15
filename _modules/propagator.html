@@ -260,7 +260,7 @@
 <span class="sd">    from propagator import compute_wavefunction, plot_wavefunction</span>
 
 <span class="sd">    # 1. Define the geometry via a Metric object</span>
-<span class="sd">    x = sp.Symbol('x', real=True)</span>
+<span class="sd">    x = Symbol('x', real=True)</span>
 <span class="sd">    metric = Metric(1, (x,))          # flat 1D metric, g = 1</span>
 
 <span class="sd">    # 2. Define the source point and a fan of initial velocities</span>
@@ -286,13 +286,13 @@
 
 <span class="sd">For a curved metric built from a Hamiltonian H = p²/(2 m(x))::</span>
 
-<span class="sd">    x, p = sp.symbols('x p', real=True, positive=True)</span>
+<span class="sd">    x, p = symbols('x p', real=True, positive=True)</span>
 <span class="sd">    metric = Metric.from_hamiltonian(p**2 / (2 / x**2), (x,), (p,))</span>
 <span class="sd">    # metric.g_expr == x**2</span>
 
 <span class="sd">For a general Hamiltonian (e.g. harmonic oscillator)::</span>
 
-<span class="sd">    x, xi = sp.symbols('x xi', real=True)</span>
+<span class="sd">    x, xi = symbols('x xi', real=True)</span>
 <span class="sd">    H = xi**2/2 + x**2/2</span>
 <span class="sd">    result = compute_wavefunction(</span>
 <span class="sd">        hamiltonian = H,</span>
@@ -318,17 +318,7 @@
 <span class="sd">  mechanics". Rep. Prog. Phys. 35, 315.  (Uniform Airy approximation.)</span>
 <span class="sd">"""</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">griddata</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">airy</span> <span class="k">as</span> <span class="n">scipy_airy</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.colors</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mcolors</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.gridspec</span><span class="w"> </span><span class="kn">import</span> <span class="n">GridSpec</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 
 <span class="c1"># ── psipy imports ─────────────────────────────────────────────────────────────</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">riemannian</span><span class="w"> </span><span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">geodesic_solver</span><span class="p">,</span> <span class="n">jacobi_equation_solver</span>
@@ -337,10 +327,6 @@
     <span class="n">Analyzer</span><span class="p">,</span> <span class="n">AsymptoticEvaluator</span><span class="p">,</span>
     <span class="n">IntegralMethod</span><span class="p">,</span> <span class="n">SingularityType</span><span class="p">,</span>
 <span class="p">)</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">pbdv</span>   <span class="c1"># parabolic cylinder functions for heat-type caustics</span>
 
 
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
@@ -799,8 +785,8 @@
     <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">interp1d</span>
 
     <span class="n">x_sym</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">g_inv_prime</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">(</span><span class="n">x_sym</span><span class="p">,</span>
-                              <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_inv_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">),</span> <span class="s1">'numpy'</span><span class="p">)</span>
+    <span class="n">g_inv_prime</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">x_sym</span><span class="p">,</span>
+                              <span class="n">diff</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">g_inv_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">),</span> <span class="s1">'numpy'</span><span class="p">)</span>
 
     <span class="n">x_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">'t'</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">'x'</span><span class="p">],</span> <span class="n">kind</span><span class="o">=</span><span class="s1">'linear'</span><span class="p">)</span>
     <span class="n">v_interp</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="s1">'t'</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="s1">'v'</span><span class="p">],</span> <span class="n">kind</span><span class="o">=</span><span class="s1">'linear'</span><span class="p">)</span>
@@ -1240,7 +1226,7 @@
 
     <span class="c1"># Airy argument — physically correct pointwise mapping</span>
     <span class="n">xi_arr</span>  <span class="o">=</span> <span class="n">_airy_argument</span><span class="p">(</span><span class="n">x_local</span><span class="p">,</span> <span class="n">hbar</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
-    <span class="n">Ai_vals</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">scipy_airy</span><span class="p">(</span><span class="n">xi_arr</span><span class="p">)</span>   <span class="c1"># real Airy function</span>
+    <span class="n">Ai_vals</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">airy</span><span class="p">(</span><span class="n">xi_arr</span><span class="p">)</span>   <span class="c1"># real Airy function</span>
 
     <span class="c1"># Uniform amplitude prefactor  2π a_c ℏ^{1/6} |α|^{-1/3}</span>
     <span class="n">prefactor</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">a_caustic</span> <span class="o">*</span> <span class="p">(</span><span class="n">hbar</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">))</span>
@@ -1348,13 +1334,13 @@
     <span class="c1"># ── Cusp (Pearcey) caustic: both partial derivatives vanish ──────────────</span>
     <span class="k">if</span> <span class="n">grad_norm</span> <span class="o">&lt;</span> <span class="mf">1e-10</span><span class="p">:</span>
         <span class="c1"># Use the asymptotic.Analyzer scalar approach (as documented)</span>
-        <span class="n">t_sym</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'t'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">phase_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Rational</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="o">*</span> <span class="n">t_sym</span><span class="o">**</span><span class="mi">4</span>   <span class="c1"># quartic normal form</span>
+        <span class="n">t_sym</span>  <span class="o">=</span> <span class="n">Symbol</span><span class="p">(</span><span class="s1">'t'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">phase_sym</span> <span class="o">=</span> <span class="n">Rational</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="o">*</span> <span class="n">t_sym</span><span class="o">**</span><span class="mi">4</span>   <span class="c1"># quartic normal form</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">analyzer</span>  <span class="o">=</span> <span class="n">Analyzer</span><span class="p">(</span>
                 <span class="n">phase_expr</span>     <span class="o">=</span> <span class="n">phase_sym</span><span class="p">,</span>
-                <span class="n">amplitude_expr</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+                <span class="n">amplitude_expr</span> <span class="o">=</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
                 <span class="n">variables</span>      <span class="o">=</span> <span class="p">[</span><span class="n">t_sym</span><span class="p">],</span>
                 <span class="n">method</span>         <span class="o">=</span> <span class="n">IntegralMethod</span><span class="o">.</span><span class="n">STATIONARY_PHASE</span><span class="p">,</span>
             <span class="p">)</span>
@@ -1383,7 +1369,7 @@
     <span class="c1"># Airy argument along the transverse direction</span>
     <span class="n">alpha</span>   <span class="o">=</span> <span class="n">grad_norm</span>                    <span class="c1"># |∇det J| acts as the cubic coefficient</span>
     <span class="n">xi_arr</span>  <span class="o">=</span> <span class="n">_airy_argument</span><span class="p">(</span><span class="n">r_perp</span><span class="p">,</span> <span class="n">hbar</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
-    <span class="n">Ai_vals</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">scipy_airy</span><span class="p">(</span><span class="n">xi_arr</span><span class="p">)</span>
+    <span class="n">Ai_vals</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">airy</span><span class="p">(</span><span class="n">xi_arr</span><span class="p">)</span>
 
     <span class="n">prefactor</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">a_caustic</span>
                  <span class="o">*</span> <span class="p">(</span><span class="n">hbar</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">))</span>
@@ -1931,7 +1917,7 @@
 <span class="c1"># 6 — Full pipeline</span>
 <span class="c1"># ─────────────────────────────────────────────────────────────────────────────</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_build_hamiltonian_sym</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span> <span class="nb">list</span><span class="p">]:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_hamiltonian_sym</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="nb">list</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Construct the kinetic Hamiltonian H = ½ gⁱʲ(x) pᵢ pⱼ from a Metric.</span>
 
@@ -1970,9 +1956,9 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    H_expr : sp.Expr</span>
+<span class="sd">    H_expr : Expr</span>
 <span class="sd">        SymPy expression for the Hamiltonian H(x, ξ) or H(x, ξ, y, η).</span>
-<span class="sd">    vars_phase : list of sp.Symbol</span>
+<span class="sd">    vars_phase : list of Symbol</span>
 <span class="sd">        Phase-space variable list in the order expected by</span>
 <span class="sd">        :func:`symplectic.hamiltonian_flow`:</span>
 
@@ -1984,12 +1970,12 @@
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">x</span>    <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">xi</span>   <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">xi</span>   <span class="o">=</span> <span class="n">Symbol</span><span class="p">(</span><span class="s1">'xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">H</span>    <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_expr</span> <span class="o">*</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span>
         <span class="k">return</span> <span class="n">H</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">x</span><span class="p">,</span> <span class="n">y</span>   <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span>
-        <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'xi eta'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">'xi eta'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">g_inv</span>  <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_matrix</span>
         <span class="n">H</span>      <span class="o">=</span> <span class="p">(</span><span class="n">g_inv</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span>
                 <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">g_inv</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">xi</span> <span class="o">*</span> <span class="n">eta</span>
@@ -1998,9 +1984,9 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_build_wave_hamiltonians</span><span class="p">(</span>
-    <span class="n">H_sym</span>      <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
+    <span class="n">H_sym</span>      <span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
     <span class="n">vars_phase</span> <span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Construct the two smooth dispersion branches H₊ and H₋ for the wave</span>
 <span class="sd">    equation  ∂²u/∂t² = ψOp(p, u).</span>
@@ -2017,7 +2003,7 @@
 
 <span class="sd">    The differentiability problem</span>
 <span class="sd">    -----------------------------</span>
-<span class="sd">    The naïve ``sp.sqrt(H)`` fails for the most common wave Hamiltonians.</span>
+<span class="sd">    The naïve ``sqrt(H)`` fails for the most common wave Hamiltonians.</span>
 <span class="sd">    For  H = f(x)·ξ²  (1D acoustic):  √H = √f·|ξ|, which is non-differentiable</span>
 <span class="sd">    at ξ = 0 — the symplectic integrator needs ∂H/∂ξ = √f·sign(ξ), which is</span>
 <span class="sd">    discontinuous.  This makes every ray fail with a numerical error near p = 0.</span>
@@ -2030,7 +2016,7 @@
 <span class="sd">       ξ &lt; 0, so both propagation directions are represented without |ξ|.</span>
 
 <span class="sd">    2. **2D quadratic form**  H = a·ξ² + 2b·ξη + c·η²:</span>
-<span class="sd">       Use sp.sqrt directly — SymPy often simplifies positive-definite forms.</span>
+<span class="sd">       Use sqrt directly — SymPy often simplifies positive-definite forms.</span>
 
 <span class="sd">    3. **Perfect square**  H = expr²:</span>
 <span class="sd">       Return ±expr immediately.</span>
@@ -2039,21 +2025,21 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H_sym : sp.Expr</span>
+<span class="sd">    H_sym : Expr</span>
 <span class="sd">        Spatial Hamiltonian H(x, p) ≥ 0 on the real phase space.</span>
-<span class="sd">    vars_phase : list of sp.Symbol</span>
+<span class="sd">    vars_phase : list of Symbol</span>
 <span class="sd">        Phase-space variables [x, ξ] (1D) or [x, ξ, y, η] (2D).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    H_plus, H_minus : sp.Expr, sp.Expr</span>
+<span class="sd">    H_plus, H_minus : Expr, Expr</span>
 <span class="sd">        Smooth branch Hamiltonians for ``hamiltonian_flow``.</span>
 <span class="sd">    """</span>
     <span class="c1"># Extract momentum symbols (every second entry of vars_phase)</span>
     <span class="n">mom_syms</span> <span class="o">=</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span>   <span class="c1"># [ξ] or [ξ, η]</span>
 
     <span class="c1"># ── Step 1: simplify H ────────────────────────────────────────────────────</span>
-    <span class="n">H_simplified</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">powsimp</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">H_sym</span><span class="p">),</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">H_simplified</span> <span class="o">=</span> <span class="n">powsimp</span><span class="p">(</span><span class="n">expand</span><span class="p">(</span><span class="n">H_sym</span><span class="p">),</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># ── Step 2: 1D purely-quadratic case  H = a(x)·ξ²  →  H± = ±√a(x)·ξ ────</span>
     <span class="c1"># This is the most common wave Hamiltonian (acoustic, Schrödinger symbol).</span>
@@ -2063,45 +2049,45 @@
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mom_syms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">xi</span> <span class="o">=</span> <span class="n">mom_syms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">poly_H</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Poly</span><span class="p">(</span><span class="n">H_simplified</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
+            <span class="n">poly_H</span> <span class="o">=</span> <span class="n">Poly</span><span class="p">(</span><span class="n">H_simplified</span><span class="p">,</span> <span class="n">xi</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">poly_H</span><span class="o">.</span><span class="n">total_degree</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="n">a</span> <span class="o">=</span> <span class="n">poly_H</span><span class="o">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>   <span class="c1"># coeff of ξ²</span>
                 <span class="n">b</span> <span class="o">=</span> <span class="n">poly_H</span><span class="o">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="c1"># coeff of ξ  (should be 0 for even H)</span>
                 <span class="n">c</span> <span class="o">=</span> <span class="n">poly_H</span><span class="o">.</span><span class="n">nth</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>   <span class="c1"># constant in ξ (should be 0)</span>
                 <span class="k">if</span> <span class="n">b</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">c</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">a</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">sqrt_a</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+                    <span class="n">sqrt_a</span>  <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
                     <span class="k">return</span> <span class="n">sqrt_a</span> <span class="o">*</span> <span class="n">xi</span><span class="p">,</span> <span class="o">-</span><span class="n">sqrt_a</span> <span class="o">*</span> <span class="n">xi</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">pass</span>
 
-    <span class="c1"># ── Step 3: 2D  H = a·ξ² + 2b·ξ·η + c·η²  →  use sp.sqrt(H) directly ──</span>
+    <span class="c1"># ── Step 3: 2D  H = a·ξ² + 2b·ξ·η + c·η²  →  use sqrt(H) directly ──</span>
     <span class="c1"># For the diagonal case H = a·ξ² + c·η² the branches are not linear in</span>
-    <span class="c1"># momenta, but sp.sqrt of a positive-definite quadratic form is smooth</span>
+    <span class="c1"># momenta, but sqrt of a positive-definite quadratic form is smooth</span>
     <span class="c1"># everywhere except the origin (which is never reached by non-trivial rays).</span>
     <span class="c1"># SymPy can handle this symbolically when a, c are positive.</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mom_syms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
         <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="n">mom_syms</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">poly_H</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Poly</span><span class="p">(</span><span class="n">H_simplified</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
+            <span class="n">poly_H</span> <span class="o">=</span> <span class="n">Poly</span><span class="p">(</span><span class="n">H_simplified</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">poly_H</span><span class="o">.</span><span class="n">total_degree</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
                 <span class="c1"># Attempt direct sqrt — SymPy may simplify to a clean expression</span>
-                <span class="n">sqrt_H</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">H_simplified</span><span class="p">)</span>
-                <span class="n">sqrt_H_s</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="n">sqrt_H</span><span class="p">)</span>
+                <span class="n">sqrt_H</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">H_simplified</span><span class="p">)</span>
+                <span class="n">sqrt_H_s</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">sqrt_H</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">sqrt_H_s</span><span class="p">,</span> <span class="o">-</span><span class="n">sqrt_H_s</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">pass</span>
 
     <span class="c1"># ── Step 4: check if H is already a perfect square  (H = expr²) ─────────</span>
-    <span class="n">H_factored</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">factor</span><span class="p">(</span><span class="n">H_simplified</span><span class="p">)</span>
+    <span class="n">H_factored</span> <span class="o">=</span> <span class="n">factor</span><span class="p">(</span><span class="n">H_simplified</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">H_factored</span><span class="o">.</span><span class="n">is_Pow</span> <span class="ow">and</span> <span class="n">H_factored</span><span class="o">.</span><span class="n">exp</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
         <span class="n">base</span> <span class="o">=</span> <span class="n">H_factored</span><span class="o">.</span><span class="n">base</span>
         <span class="k">return</span> <span class="n">base</span><span class="p">,</span> <span class="o">-</span><span class="n">base</span>
 
     <span class="c1"># ── Step 5: assume momenta positive, take sqrt, restore signs ────────────</span>
     <span class="c1"># Replaces |p| by p in the final expression (valid since fan covers ±p).</span>
-    <span class="n">pos_subs</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">mom_syms</span><span class="p">}</span>
+    <span class="n">pos_subs</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">Symbol</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">mom_syms</span><span class="p">}</span>
     <span class="n">H_pos</span>    <span class="o">=</span> <span class="n">H_simplified</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">pos_subs</span><span class="p">)</span>
-    <span class="n">sqrt_pos</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">H_pos</span><span class="p">)</span>
+    <span class="n">sqrt_pos</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">H_pos</span><span class="p">)</span>
     <span class="n">inv_subs</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">pos_subs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
     <span class="n">H_plus</span>   <span class="o">=</span> <span class="n">sqrt_pos</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">inv_subs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">H_plus</span><span class="p">,</span> <span class="o">-</span><span class="n">H_plus</span>
@@ -2109,10 +2095,10 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_hamiltonian</span><span class="p">(</span>
     <span class="n">metric</span>        <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
-    <span class="n">hamiltonian</span>   <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">],</span>
+    <span class="n">hamiltonian</span>   <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Expr</span><span class="p">],</span>
     <span class="n">coords</span>        <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">],</span>
     <span class="n">momenta</span>       <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Resolve the Hamiltonian and phase-space variables from either a</span>
 <span class="sd">    ``Metric`` object or an explicit SymPy expression.</span>
@@ -2138,7 +2124,7 @@
 
 <span class="sd">        Example (1D harmonic oscillator with potential)::</span>
 
-<span class="sd">            x, xi = sp.symbols('x xi', real=True)</span>
+<span class="sd">            x, xi = symbols('x xi', real=True)</span>
 <span class="sd">            H = xi**2 / 2 + x**2 / 2          # T + V = ½p² + ½x²</span>
 <span class="sd">            H_expr, vars_phase, dim = _resolve_hamiltonian(</span>
 <span class="sd">                metric=None, hamiltonian=H,</span>
@@ -2151,21 +2137,21 @@
 <span class="sd">    ----------</span>
 <span class="sd">    metric : Metric or None</span>
 <span class="sd">        Riemannian metric.  Must be ``None`` when ``hamiltonian`` is given.</span>
-<span class="sd">    hamiltonian : sp.Expr or None</span>
+<span class="sd">    hamiltonian : Expr or None</span>
 <span class="sd">        General SymPy Hamiltonian expression H(q, p).  Must be ``None``</span>
 <span class="sd">        when ``metric`` is given.</span>
-<span class="sd">    coords : tuple of sp.Symbol or None</span>
+<span class="sd">    coords : tuple of Symbol or None</span>
 <span class="sd">        Position symbols, e.g. ``(x,)`` or ``(x, y)``.  Required when</span>
 <span class="sd">        ``hamiltonian`` is given; ignored otherwise.</span>
-<span class="sd">    momenta : tuple of sp.Symbol or None</span>
+<span class="sd">    momenta : tuple of Symbol or None</span>
 <span class="sd">        Momentum symbols, e.g. ``(xi,)`` or ``(xi, eta)``.  Required when</span>
 <span class="sd">        ``hamiltonian`` is given; ignored otherwise.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    H_expr : sp.Expr</span>
+<span class="sd">    H_expr : Expr</span>
 <span class="sd">        Symbolic Hamiltonian ready for :func:`symplectic.hamiltonian_flow`.</span>
-<span class="sd">    vars_phase : list of sp.Symbol</span>
+<span class="sd">    vars_phase : list of Symbol</span>
 <span class="sd">        Interleaved phase-space list ``[q₁, p₁]`` or ``[q₁, p₁, q₂, p₂]``.</span>
 <span class="sd">    dim : int</span>
 <span class="sd">        Spatial dimension (1 or 2).</span>
@@ -2210,7 +2196,7 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_det_J_1d_general</span><span class="p">(</span>
-    <span class="n">H_expr</span>    <span class="p">:</span> <span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
+    <span class="n">H_expr</span>    <span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
     <span class="n">vars_phase</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
     <span class="n">traj</span>      <span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">tspan</span>     <span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span>
@@ -2250,9 +2236,9 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H_expr : sp.Expr</span>
+<span class="sd">    H_expr : Expr</span>
 <span class="sd">        Symbolic Hamiltonian H(x, ξ).</span>
-<span class="sd">    vars_phase : list of sp.Symbol</span>
+<span class="sd">    vars_phase : list of Symbol</span>
 <span class="sd">        ``[x_sym, xi_sym]`` — the coordinate and momentum symbols.</span>
 <span class="sd">    traj : dict</span>
 <span class="sd">        Background ray trajectory with keys ``'t'``, and the string names</span>
@@ -2273,9 +2259,9 @@
     <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span> <span class="o">=</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
     <span class="c1"># ── Symbolic second derivatives of H ─────────────────────────────────────</span>
-    <span class="n">H_xx</span>  <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>   <span class="s1">'numpy'</span><span class="p">)</span>
-    <span class="n">H_xxi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="s1">'numpy'</span><span class="p">)</span>
-    <span class="n">H_xixi</span><span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>  <span class="s1">'numpy'</span><span class="p">)</span>
+    <span class="n">H_xx</span>  <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>   <span class="s1">'numpy'</span><span class="p">)</span>
+    <span class="n">H_xxi</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="s1">'numpy'</span><span class="p">)</span>
+    <span class="n">H_xixi</span><span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="n">diff</span><span class="p">(</span><span class="n">H_expr</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>  <span class="s1">'numpy'</span><span class="p">)</span>
 
     <span class="n">x_key</span>  <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">x_sym</span><span class="p">)</span>
     <span class="n">xi_key</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">xi_sym</span><span class="p">)</span>
@@ -2315,7 +2301,7 @@
     <span class="n">ylim</span>         <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">integrator</span>   <span class="p">:</span> <span class="nb">str</span>   <span class="o">=</span> <span class="s1">'verlet'</span><span class="p">,</span>
     <span class="c1"># ── general Hamiltonian interface ─────────────────────────</span>
-    <span class="n">hamiltonian</span>  <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">sp</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span>  <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">hamiltonian</span>  <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Expr</span><span class="p">]</span>  <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">coords</span>       <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span>    <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">momenta</span>      <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span>    <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">p_fan</span>        <span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -2359,8 +2345,8 @@
 
 <span class="sd">        ::</span>
 
-<span class="sd">            x, xi = sp.symbols('x xi', real=True)</span>
-<span class="sd">            H = xi**2 / 2 + sp.cos(x)        # pendulum-type Hamiltonian</span>
+<span class="sd">            x, xi = symbols('x xi', real=True)</span>
+<span class="sd">            H = xi**2 / 2 + cos(x)        # pendulum-type Hamiltonian</span>
 <span class="sd">            result = compute_wavefunction(</span>
 <span class="sd">                hamiltonian = H,</span>
 <span class="sd">                coords      = (x,),</span>
@@ -2396,12 +2382,12 @@
 <span class="sd">        y-extent of the output grid (auto-detected if ``None``, 2D only).</span>
 <span class="sd">    integrator : str, default ``'verlet'``</span>
 <span class="sd">        Symplectic integrator: ``'verlet'`` or ``'rk45'``.</span>
-<span class="sd">    hamiltonian : sp.Expr or None</span>
+<span class="sd">    hamiltonian : Expr or None</span>
 <span class="sd">        General SymPy Hamiltonian H(coords, momenta) (Mode B).</span>
 <span class="sd">        Mutually exclusive with ``metric``.</span>
-<span class="sd">    coords : tuple of sp.Symbol or None</span>
+<span class="sd">    coords : tuple of Symbol or None</span>
 <span class="sd">        Position symbols, e.g. ``(x,)`` or ``(x, y)``.  Required in Mode B.</span>
-<span class="sd">    momenta : tuple of sp.Symbol or None</span>
+<span class="sd">    momenta : tuple of Symbol or None</span>
 <span class="sd">        Momentum symbols, e.g. ``(xi,)`` or ``(xi, eta)``.  Required in Mode B.</span>
 <span class="sd">    p_fan : np.ndarray or None</span>
 <span class="sd">        Fan of initial **canonical momenta** (Mode B only).</span>
@@ -3249,7 +3235,7 @@
 <span class="sd">        from propagator import compute_wavefunction, animate_wavefunction</span>
 
 <span class="sd">        # 1D free particle on a flat metric</span>
-<span class="sd">        x = sp.Symbol('x', real=True)</span>
+<span class="sd">        x = Symbol('x', real=True)</span>
 <span class="sd">        metric = Metric(1, (x,))</span>
 <span class="sd">        source = (0.0,)</span>
 <span class="sd">        v_fan  = np.linspace(-4.0, 4.0, 100)</span>

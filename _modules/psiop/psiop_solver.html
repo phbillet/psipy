@@ -265,14 +265,10 @@
 <span class="sd">       *A Mathematical Introduction to Fluid Dynamics*, Springer, 1990. </span>
 <span class="sd">       (For IMEX and Rothe-type linearization strategies).</span>
 <span class="sd">"""</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
-
+<span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="c1"># Import operators from the parent package</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">PseudoDifferentialOperator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.matpsiop</span><span class="w"> </span><span class="kn">import</span> <span class="n">MatrixPseudoDifferentialOperator</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
 
 <span class="c1"># ----------------------------------------------------------------------</span>
 <span class="c1"># Grids</span>
@@ -494,13 +490,13 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">quantization</span> <span class="o">=</span> <span class="n">quantization</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mode_composition</span> <span class="o">=</span> <span class="n">mode_composition</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">apply_backend</span> <span class="o">=</span> <span class="n">apply_backend</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_dt_sym</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Symbol</span><span class="p">(</span><span class="s1">'_dt_family'</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dt_sym</span> <span class="o">=</span> <span class="n">Symbol</span><span class="p">(</span><span class="s1">'_dt_family'</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_matrix</span><span class="p">:</span>
-            <span class="n">s_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+            <span class="n">s_mat</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">s_mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">op</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span>
                 <span class="n">s_mat</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
@@ -555,10 +551,10 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_propagator_family_key</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">quantization</span><span class="p">,</span>
                             <span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
-        <span class="n">expr_key</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">srepr</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">))</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">expr_key</span> <span class="o">=</span> <span class="n">srepr</span><span class="p">(</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">expr_key</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">srepr</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+        <span class="n">expr_key</span> <span class="o">=</span> <span class="n">srepr</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">expr_key</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vars_x</span><span class="p">),</span> <span class="n">order</span><span class="p">,</span>
             <span class="n">quantization</span><span class="p">,</span> <span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="p">)</span>
 
@@ -805,7 +801,7 @@
 <span class="sd">    Coerce a symbol expression into a sympy Matrix.</span>
 
 <span class="sd">    If `s_expr` is already a MatrixBase, list, or tuple, it is converted</span>
-<span class="sd">    via `sp.Matrix(s_expr)`. A bare scalar expression is wrapped into a</span>
+<span class="sd">    via `Matrix(s_expr)`. A bare scalar expression is wrapped into a</span>
 <span class="sd">    1×1 matrix so that downstream code can treat scalar and matrix-valued</span>
 <span class="sd">    operators uniformly.</span>
 
@@ -824,9 +820,9 @@
 <span class="sd">    ValueError</span>
 <span class="sd">        If the resulting matrix is not square (checked by callers).</span>
 <span class="sd">    """</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
-        <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([[</span><span class="n">s_expr</span><span class="p">]])</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Matrix</span><span class="p">([[</span><span class="n">s_expr</span><span class="p">]])</span>
 
 <div class="viewcode-block" id="block_matrix_second_order">
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.block_matrix_second_order">[docs]</a>
@@ -875,7 +871,7 @@
     <span class="k">if</span> <span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"matrix symbol must be square"</span><span class="p">)</span>
     <span class="n">k</span> <span class="o">=</span> <span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">zero_k</span><span class="p">,</span> <span class="n">eye_k</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+    <span class="n">zero_k</span><span class="p">,</span> <span class="n">eye_k</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="n">eye</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">zero_k</span><span class="o">.</span><span class="n">row_join</span><span class="p">(</span><span class="n">eye_k</span><span class="p">)</span><span class="o">.</span><span class="n">col_join</span><span class="p">(</span><span class="n">S</span><span class="o">.</span><span class="n">row_join</span><span class="p">(</span><span class="n">zero_k</span><span class="p">))</span></div>
 
 
@@ -1010,7 +1006,7 @@
             <span class="sa">f</span><span class="s2">"scheme must be 'propagator' or 'leapfrog', got </span><span class="si">{</span><span class="n">scheme</span><span class="si">!r}</span><span class="s2">."</span>
         <span class="p">)</span>
 
-    <span class="n">is_matrix</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span>
+    <span class="n">is_matrix</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span>
     <span class="n">k</span> <span class="o">=</span> <span class="n">_matrix_of</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="k">if</span> <span class="n">scheme</span> <span class="o">==</span> <span class="s1">'propagator'</span><span class="p">:</span>
@@ -1043,7 +1039,7 @@
     <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">grids</span> <span class="o">=</span> <span class="n">_make_grids</span><span class="p">(</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">is_matrix</span><span class="p">:</span>
-        <span class="n">S_mat</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
+        <span class="n">S_mat</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
         <span class="n">op</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span>
             <span class="n">S_mat</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span>
             <span class="n">quantization</span><span class="o">=</span><span class="n">quantization</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="n">apply_backend</span><span class="p">,</span>
@@ -1466,7 +1462,7 @@
 <span class="sd">    grids : tuple of ndarray</span>
 <span class="sd">        `(x, y)` spatial grids, as returned by `make_grid_2d`.</span>
 <span class="sd">    """</span>
-    <span class="n">x_s</span><span class="p">,</span> <span class="n">y_s</span><span class="p">,</span> <span class="n">xi_s</span><span class="p">,</span> <span class="n">eta_s</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'x y xi eta'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">x_s</span><span class="p">,</span> <span class="n">y_s</span><span class="p">,</span> <span class="n">xi_s</span><span class="p">,</span> <span class="n">eta_s</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">'x y xi eta'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">lap_symbol</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">xi_s</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">eta_s</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
 
     <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span> <span class="o">=</span> <span class="n">make_grid_2d</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>

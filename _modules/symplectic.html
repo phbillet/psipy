@@ -473,7 +473,6 @@
 <span class="sd">    geometric structure of phase space.  Use 'rk45' for short-time</span>
 <span class="sd">    high-accuracy requirements.</span>
 <span class="sd">    """</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_ivp</span>
 
     <span class="c1"># ── 1. Variables and DOF ──────────────────────────────────────────────────</span>
     <span class="k">if</span> <span class="n">vars_phase</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -825,8 +824,6 @@
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Symbolic solve failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
-    <span class="c1"># Numerical root‑finding</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">fsolve</span>
 
     <span class="c1"># Create lambdified functions for the gradient</span>
     <span class="n">grad_funcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">lambdify</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="n">eq</span><span class="p">,</span> <span class="s1">'numpy'</span><span class="p">)</span> <span class="k">for</span> <span class="n">eq</span> <span class="ow">in</span> <span class="n">eqs</span><span class="p">]</span>
@@ -1015,7 +1012,6 @@
             <span class="n">E</span> <span class="o">=</span> <span class="n">E_numeric</span>
 
     <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">'numerical'</span><span class="p">:</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">quad</span>
         <span class="k">if</span> <span class="n">E_numeric</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"numerical method requires numeric energy"</span><span class="p">)</span>
         <span class="c1"># Determine bounds</span>
@@ -1451,7 +1447,6 @@
     <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">'period'</span><span class="p">:</span>
         <span class="c1"># H must be a sympy expression in phase-space variables, I_val is the energy E</span>
         <span class="c1"># Infer variables and compute T = 2 ∫ dx / (∂H/∂p) along the orbit</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">quad</span>
         <span class="n">vars_phase</span> <span class="o">=</span> <span class="n">_infer_variables</span><span class="p">(</span><span class="n">H</span><span class="p">)</span>
         <span class="n">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
         <span class="n">x</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">vars_phase</span>
@@ -1522,7 +1517,6 @@
 <span class="sd">    real=True to match the calling convention.</span>
 <span class="sd">    """</span>
     <span class="n">H</span><span class="p">,</span> <span class="n">Sigma_def</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tmax</span><span class="p">,</span> <span class="n">vars_phase_str</span><span class="p">,</span> <span class="n">n_returns</span><span class="p">,</span> <span class="n">integrator</span> <span class="o">=</span> <span class="n">args</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span>
     <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">symbols</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vars_phase_str</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">poincare_section</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">Sigma_def</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tmax</span><span class="p">,</span>
                             <span class="n">vars_phase</span><span class="o">=</span><span class="n">vars_phase</span><span class="p">,</span>
@@ -1871,7 +1865,6 @@
 <span class="sd">    ValueError</span>
 <span class="sd">        If ndof cannot be determined.</span>
 <span class="sd">    """</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
     <span class="k">if</span> <span class="n">H</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">vars_phase</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># ------------------------------------------------------------------</span>
@@ -2079,8 +2072,6 @@
         <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'x1 p1 x2 p2'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
     <span class="n">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
 
-    <span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessPoolExecutor</span>
-
     <span class="n">vars_str</span>     <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vars_phase</span><span class="p">]</span>
     <span class="n">task_args</span>    <span class="o">=</span> <span class="p">[</span>
         <span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">Sigma_def</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">z0</span><span class="p">),</span> <span class="n">tmax</span><span class="p">,</span> <span class="n">vars_str</span><span class="p">,</span> <span class="n">n_returns</span><span class="p">,</span> <span class="s1">'symplectic'</span><span class="p">)</span>
@@ -2270,7 +2261,6 @@
 <span class="sd">    phase_portrait : Plot energy contours and vector fields.</span>
 <span class="sd">    hamiltonian_flow : Underlying numerical integration routine.</span>
 <span class="sd">    """</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
     <span class="c1"># ----------------------------------------------------------------------</span>
     <span class="c1"># Preliminary checks and variable inference</span>
     <span class="c1"># ----------------------------------------------------------------------</span>
@@ -2640,13 +2630,11 @@
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_ks_poisson</span><span class="p">(</span><span class="n">s_norm</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""One-sample KS p-value against Poisson CDF F(s) = 1 - exp(-s)."""</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">kstest</span>
         <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">kstest</span><span class="p">(</span><span class="n">s_norm</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">))</span><span class="o">.</span><span class="n">pvalue</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_ks_wigner</span><span class="p">(</span><span class="n">s_norm</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""One-sample KS p-value against Wigner CDF F(s) = 1 - exp(-π s²/4)."""</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">kstest</span>
         <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">kstest</span><span class="p">(</span><span class="n">s_norm</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">4</span><span class="p">))</span><span class="o">.</span><span class="n">pvalue</span><span class="p">)</span>
 
     <span class="c1"># ------------------------------------------------------------------</span>
@@ -2866,7 +2854,6 @@
 <span class="sd">        &gt;&gt;&gt; r['verdict']</span>
 <span class="sd">        'Integrable'</span>
 <span class="sd">        """</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">kstest</span>
 
         <span class="n">warnings_list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">channels</span>      <span class="o">=</span> <span class="p">{}</span>
@@ -2911,7 +2898,6 @@
             <span class="n">bracket_results</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">L_cand</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">simplify</span> <span class="k">as</span> <span class="n">sp_simplify</span><span class="p">,</span> <span class="n">diff</span> <span class="k">as</span> <span class="n">sp_diff</span>
                     <span class="n">pb</span> <span class="o">=</span> <span class="n">poisson_bracket</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">L_cand</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">)</span>
                     <span class="n">is_zero</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">pb</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
 
@@ -2919,10 +2905,9 @@
                     <span class="c1"># at a generic point — proxy: L is not a function of H alone</span>
                     <span class="n">independent</span> <span class="o">=</span> <span class="kc">True</span>
                     <span class="k">try</span><span class="p">:</span>
-                        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span> <span class="k">as</span> <span class="n">sp_syms</span>
-                        <span class="n">ratio_test</span> <span class="o">=</span> <span class="n">sp_simplify</span><span class="p">(</span>
-                            <span class="n">sp_diff</span><span class="p">(</span><span class="n">L_cand</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">sp_diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-                            <span class="o">-</span> <span class="n">sp_diff</span><span class="p">(</span><span class="n">L_cand</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="n">sp_diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                        <span class="n">ratio_test</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span>
+                            <span class="n">diff</span><span class="p">(</span><span class="n">L_cand</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                            <span class="o">-</span> <span class="n">diff</span><span class="p">(</span><span class="n">L_cand</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">vars_phase</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
                         <span class="p">)</span>
                         <span class="k">if</span> <span class="n">ratio_test</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                             <span class="c1"># Could be parallel — warn but don't discard</span>
@@ -3107,7 +3092,6 @@
                     <span class="n">is_rational</span> <span class="o">=</span> <span class="kc">False</span>
                     <span class="n">ratio_frac</span>  <span class="o">=</span> <span class="kc">None</span>
                     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">ratio_freq</span><span class="p">):</span>
-                        <span class="kn">from</span><span class="w"> </span><span class="nn">fractions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fraction</span>
                         <span class="n">frac</span> <span class="o">=</span> <span class="n">Fraction</span><span class="p">(</span><span class="n">ratio_freq</span><span class="p">)</span><span class="o">.</span><span class="n">limit_denominator</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
                         <span class="n">tol</span>  <span class="o">=</span> <span class="mf">2.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">frac</span><span class="o">.</span><span class="n">denominator</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">n_osc_1</span><span class="p">,</span> <span class="n">n_osc_2</span><span class="p">))</span>
                         <span class="n">tol</span>  <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">tol</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">)</span>     <span class="c1"># floor tolerance</span>
@@ -3391,7 +3375,6 @@
 <span class="sd">        At least two orbits are required for clustering; a single orbit is</span>
 <span class="sd">        returned as a degenerate torus.</span>
 <span class="sd">        """</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.cluster.hierarchy</span><span class="w"> </span><span class="kn">import</span> <span class="n">fcluster</span><span class="p">,</span> <span class="n">linkage</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">_get</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">keys</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
@@ -3578,8 +3561,6 @@
 <span class="sd">        .. [Br73] Brody, T. A., "A statistical measure for the repulsion of</span>
 <span class="sd">                  energy levels", *Lett. Nuovo Cimento* 7, 482–484 (1973).</span>
 <span class="sd">        """</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize_scalar</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">gamma</span>
     
         <span class="n">spacings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">spacings</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
         <span class="n">s</span> <span class="o">=</span> <span class="n">spacings</span> <span class="o">/</span> <span class="n">spacings</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>   <span class="c1"># normalise to unit mean</span>
@@ -3724,7 +3705,6 @@
 <span class="sd">        .. [Cu97] Cushman, R. H. &amp; Bates, L. M., *Global Aspects of Classical</span>
 <span class="sd">                  Integrable Systems*, Birkhäuser, 1997.</span>
 <span class="sd">        """</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve</span> <span class="k">as</span> <span class="n">sym_solve</span><span class="p">,</span> <span class="n">diff</span> <span class="k">as</span> <span class="n">sym_diff</span><span class="p">,</span> <span class="n">symbols</span> <span class="k">as</span> <span class="n">sym_sym</span>
     
         <span class="n">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="n">x1</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">p2</span> <span class="o">=</span> <span class="n">vars_phase</span>
@@ -3749,7 +3729,7 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="c1"># Solve L = ell_k for x2 at p2=0 (turning point of DOF 2)</span>
                 <span class="n">L_at_p2_0</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">p2</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-                <span class="n">x2_sols</span> <span class="o">=</span> <span class="n">sym_solve</span><span class="p">(</span><span class="n">L_at_p2_0</span> <span class="o">-</span> <span class="n">ell_k</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
+                <span class="n">x2_sols</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="n">L_at_p2_0</span> <span class="o">-</span> <span class="n">ell_k</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
                 <span class="n">x2_eq</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">x2_sols</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">x2_sols</span> <span class="k">else</span> <span class="mf">0.0</span>
     
                 <span class="c1"># Substitute x2=x2_eq, p2=0 into H to get effective H1</span>
