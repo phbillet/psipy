@@ -212,6 +212,92 @@ from .psiop_apply import (
     aaa_plan_to_callable_1d, aaa_plan_to_callable_2d, _clip_complex_magnitude
 )
 
+from functools import lru_cache
+import random
+
+
+@lru_cache(maxsize=8192)
+def _peetre_is_zero_impl(expr):
+    """
+    Conservative, memoized symbolic zero test for Peetre-pipeline coefficients.
+
+    Decides whether `expr` is identically zero, trying strategies of
+    increasing cost and stopping at the first one that gives a definite
+    answer. Used throughout term classification and application
+    (`_peetre_classify_terms`, `peetre_decomposition`, `apply_peetre`,
+    `apply_hybrid`, ...) to decide whether a coefficient or additive term
+    can be safely dropped.
+
+    Strategy, in order:
+
+    1. Trivial checks: `expr is None` or `expr == 0`.
+    2. `expr.is_zero`, sympy's own assumption-based check, when it returns
+       a definite `True`/`False` rather than `None`.
+    3. A fast numeric reject: `expr` is evaluated at one pseudo-random point
+       (fixed seed, so results are reproducible across calls). If the
+       magnitude there is well above float noise, `expr` cannot be
+       identically zero, and the (expensive) symbolic path below is
+       skipped entirely. This is a one-sided test — a large value proves
+       non-zero, but a near-zero value only means the point was
+       inconclusive (e.g. an accidental root), so it falls through rather
+       than concluding zero.
+    4. `sympy.simplify(expr) == 0`, and finally `expr.equals(0)`, as a
+       last-resort symbolic proof for whatever the numeric probe couldn't
+       rule out (in particular anything trig-heavy, where step 3 usually
+       already avoided the cost of `trigsimp`/`futrig`).
+
+    Results are memoized (`functools.lru_cache`, `maxsize=8192`, keyed on
+    `expr` itself) because the *same* sub-expressions recur identically
+    across repeated calls to `apply_hybrid`/`apply_peetre` on the same
+    operator; without memoization here, this function dominates wall time
+    (profiled at ~68% of a single `apply_hybrid` call before this fix,
+    almost entirely inside `simplify`/`trigsimp`).
+
+    Note this must stay a module-level function (not redefined inside a
+    method) for the cache to persist across calls — a `@lru_cache`-decorated
+    closure rebuilt on every invocation caches nothing.
+
+    Parameters
+    ----------
+    expr : sympy.Expr or None
+        Expression to test. `None` is treated as zero.
+
+    Returns
+    -------
+    bool
+        True only if `expr` could be established to be identically zero;
+        False otherwise, including when every strategy above is
+        inconclusive (conservative: never silently drops a genuine term).
+    """
+    if expr is None:
+        return True
+    if expr == 0:
+        return True
+    try:
+        if expr.is_zero is True:
+            return True
+        if expr.is_zero is False:
+            return False
+    except Exception:
+        pass
+    try:
+        free = sorted(expr.free_symbols, key=str)
+        if free:
+            rng = random.Random(0)
+            pts = {s: rng.uniform(0.3, 2.7) * rng.choice([-1, 1]) for s in free}
+            val = complex(expr.subs(pts).evalf(15))
+            if abs(val) > 1e-6:
+                return False
+    except Exception:
+        pass
+    try:
+        return bool(simplify(expr) == 0)
+    except Exception:
+        try:
+            return bool(expr.equals(0))
+        except Exception:
+            return False
+
 # ============================================================================
 # Multi-index helpers -- shared, dimension-generic building blocks for the
 # asymptotic symbolic calculus (composition, formal inverses, exponential
@@ -1308,48 +1394,13 @@ class PseudoDifferentialOperator:
         for monom, coeff in src.items():
             dst[monom] = simplify(together(dst.get(monom, 0) + coeff))
 
+
     @staticmethod
     def _peetre_is_zero(expr):
-        """
-        Conservative symbolic zero test used throughout the Peetre
-        pipeline to decide whether a coefficient or term can be safely
-        dropped.
-
-        Several increasingly expensive strategies are tried in turn
-        (identity check, the `is_zero` attribute, `simplify`, `equals`);
-        if none of them can prove the expression is zero, it is treated
-        as non-zero rather than risk silently discarding a genuine term.
-
-        Parameters
-        ----------
-        expr : sympy.Expr or None
-            Expression to test. `None` is treated as zero.
-
-        Returns
-        -------
-        bool
-            True only if the expression could be established to be
-            identically zero; False otherwise, including when the test is
-            inconclusive.
-        """
-        if expr is None:
-            return True
-        if expr == 0:
-            return True
-        try:
-            if expr.is_zero is True:
-                return True
-            if expr.is_zero is False:
-                return False
-        except Exception:
-            pass
-        try:
-            return bool(simplify(expr) == 0)
-        except Exception:
-            try:
-                return bool(expr.equals(0))
-            except Exception:
-                return False
+        """Memoized wrapper around `_peetre_is_zero_impl` (module-level, so
+        the cache persists across all instances and calls). See
+        `_peetre_is_zero_impl` for the actual zero-test strategy."""
+        return _peetre_is_zero_impl(expr)   
 
     def _peetre_classify_terms(self, expr):
         """
@@ -2421,7 +2472,7 @@ class PseudoDifferentialOperator:
     def apply_hybrid(self, u, x_grid, kx, y_grid=None, ky=None, **kwargs):
         """
         Apply the operator via Peetre decomposition with per-term backend routing.
-    
+
         The symbol is split with `peetre_decomposition` into a separable part and a
         joint (non-separable) residual. The separable part is applied directly
         through `apply_peetre` (`apply_joint=False`). The joint residual is then
@@ -2432,11 +2483,31 @@ class PseudoDifferentialOperator:
         independently for *that term* — NUFFT if a decomposition exists for it,
         AAA if it's a rational function (or has a symbolic polynomial denominator),
         otherwise low-rank.
-    
+
         Splitting before routing means terms that individually admit a fast
         decomposition get one, instead of the whole joint residual being treated as
-        a single mixed term and falling back to O(N\u00b2) direct quadrature.
-    
+        a single mixed term and falling back to O(N^2) (1D) / O(N^4) (2D) direct
+        quadrature.
+
+        Per-term sub-operators are cached on `self` and reused across repeated
+        calls, keyed by the expanded term (a hashable `sympy.Expr`) and
+        invalidated whenever `self.symbol` changes identity. This matters
+        because each sub-operator carries its own backend-resolution caches
+        (`_joint_nufft_cache`, `_joint_lowrank_cache`, `_joint_aaa_cache`,
+        `_peetre_cache`); without reuse, every call to `apply_hybrid` would
+        silently re-run backend classification and re-fit NUFFT/AAA/low-rank
+        plans from scratch, even though none of that depends on `u`. Reuse
+        only skips *plan-building*, not the actual numeric application (e.g.
+        `finufft.execute()`, or evaluating a low-rank pair's `(a_k, q_k)` on
+        the grid), which necessarily reruns every call since it depends on
+        `u`. In practice, once `_peetre_is_zero` (see its own docstring) and
+        this cache are both in place, plan-building is a small fraction of
+        total cost for problem sizes where the numeric transform itself is
+        cheap (e.g. a few percent here at N=256, 1D) — the benefit grows
+        for larger/more expensive terms (e.g. AAA fits, which are
+        expensive to build but cheap to apply) and for operators reused
+        across many calls (e.g. per-timestep in a PDE solve).
+
         Parameters
         ----------
         u : array_like
@@ -2456,13 +2527,13 @@ class PseudoDifferentialOperator:
             Do not pass `apply_joint` or `joint_backend` here: both are fixed
             internally by this method, and supplying them will raise
             `TypeError: apply_peetre() got multiple values for keyword argument`.
-    
+
         Returns
         -------
         numpy.ndarray
             Complex128 array, same shape as `u`: the separable contribution plus
             the sum of the per-term joint contributions.
-    
+
         Notes
         -----
         Backend selection happens per additive term of the joint symbol, not once
@@ -2471,19 +2542,33 @@ class PseudoDifferentialOperator:
         that individually favor different backends. Compare with `apply_hybrid_old`,
         which instead loops over `peetre_decomposition`'s own `joint_residual` list
         without expanding it into additive terms.
+
+        The per-term cache is keyed on the *expanded term itself*, so it is safe
+        across calls with different `x_grid`/`kx`/`joint_bounds`/`u` as long as
+        `self.symbol` is unchanged — those are all forwarded fresh to each
+        sub-operator's `apply_peetre` call on every invocation, not baked into
+        the cache.
         """
-        import numpy as np, sympy as sp
+        import numpy as np
         deco = self.peetre_decomposition()
         result = np.zeros(np.shape(u), dtype=np.complex128)
         result += self.apply_peetre(u, x_grid, kx, y_grid=y_grid, ky=ky,
                                     apply_joint=False, **kwargs)
         joint_symbol = deco.get('joint_symbol', 0)
         if not self._peetre_is_zero(joint_symbol):
+            cache = getattr(self, '_hybrid_term_ops', None)
+            if cache is None or cache.get('symbol') is not self.symbol:
+                cache = {'symbol': self.symbol, 'ops': {}}
+                self._hybrid_term_ops = cache
             for term in Add.make_args(expand(joint_symbol)):   # <-- the real split
                 if self._peetre_is_zero(term):
                     continue
-                sub_op = PseudoDifferentialOperator(term, self.vars_x, mode='symbol',
-                                                    quantization=self.quantization)
+                sub_op = cache['ops'].get(term)
+                if sub_op is None:
+                    sub_op = PseudoDifferentialOperator(term, self.vars_x, mode='symbol',
+                                                        quantization=self.quantization,
+                                                        compute_peetre=True)
+                    cache['ops'][term] = sub_op
                 result += sub_op.apply_peetre(u, x_grid, kx, y_grid=y_grid, ky=ky,
                                               joint_backend='auto', **kwargs)
         return result
