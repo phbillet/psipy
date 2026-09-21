@@ -642,7 +642,26 @@ AAA if it’s a rational function (or has a symbolic polynomial denominator),
 otherwise low-rank.</p>
 <p>Splitting before routing means terms that individually admit a fast
 decomposition get one, instead of the whole joint residual being treated as
-a single mixed term and falling back to O(N²) direct quadrature.</p>
+a single mixed term and falling back to O(N^2) (1D) / O(N^4) (2D) direct
+quadrature.</p>
+<p>Per-term sub-operators are cached on <cite>self</cite> and reused across repeated
+calls, keyed by the expanded term (a hashable <cite>sympy.Expr</cite>) and
+invalidated whenever <cite>self.symbol</cite> changes identity. This matters
+because each sub-operator carries its own backend-resolution caches
+(<cite>_joint_nufft_cache</cite>, <cite>_joint_lowrank_cache</cite>, <cite>_joint_aaa_cache</cite>,
+<cite>_peetre_cache</cite>); without reuse, every call to <cite>apply_hybrid</cite> would
+silently re-run backend classification and re-fit NUFFT/AAA/low-rank
+plans from scratch, even though none of that depends on <cite>u</cite>. Reuse
+only skips <em>plan-building</em>, not the actual numeric application (e.g.
+<cite>finufft.execute()</cite>, or evaluating a low-rank pair’s <cite>(a_k, q_k)</cite> on
+the grid), which necessarily reruns every call since it depends on
+<cite>u</cite>. In practice, once <cite>_peetre_is_zero</cite> (see its own docstring) and
+this cache are both in place, plan-building is a small fraction of
+total cost for problem sizes where the numeric transform itself is
+cheap (e.g. a few percent here at N=256, 1D) — the benefit grows
+for larger/more expensive terms (e.g. AAA fits, which are
+expensive to build but cheap to apply) and for operators reused
+across many calls (e.g. per-timestep in a PDE solve).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -679,6 +698,11 @@ directly with <cite>joint_backend=’auto’</cite> whenever the joint part mixe
 that individually favor different backends. Compare with <cite>apply_hybrid_old</cite>,
 which instead loops over <cite>peetre_decomposition</cite>’s own <cite>joint_residual</cite> list
 without expanding it into additive terms.</p>
+<p>The per-term cache is keyed on the <em>expanded term itself</em>, so it is safe
+across calls with different <cite>x_grid</cite>/<cite>kx</cite>/<cite>joint_bounds</cite>/<cite>u</cite> as long as
+<cite>self.symbol</cite> is unchanged — those are all forwarded fresh to each
+sub-operator’s <cite>apply_peetre</cite> call on every invocation, not baked into
+the cache.</p>
 </dd></dl>
 
 <dl class="py method">
