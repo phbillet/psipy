@@ -101,9 +101,9 @@
 
 <span class="sd">Overview</span>
 <span class="sd">--------</span>
-<span class="sd">The ``psiop`` package provides a unified framework for constructing,</span>
+<span class="sd">The `psiop` package provides a unified framework for constructing,</span>
 <span class="sd">manipulating, and numerically applying pseudo‑differential operators</span>
-<span class="sd">(ΨDOs) in one and two spatial dimensions.  It combines symbolic symbol</span>
+<span class="sd">(ΨDOs) in one and two spatial dimensions. It combines symbolic symbol</span>
 <span class="sd">calculus (SymPy) with numerical evaluation, quantization, diagnostics,</span>
 <span class="sd">and visualization (NumPy / SciPy / Matplotlib).</span>
 
@@ -111,154 +111,149 @@
 <span class="sd">microlocal analysis, spectral theory, semiclassical analysis,</span>
 <span class="sd">Hamiltonian / geometric optics, and the numerical analysis of PDEs.</span>
 
+<span class="sd">Quick Start</span>
+<span class="sd">-----------</span>
+<span class="sd">&gt;&gt;&gt; import numpy as np</span>
+<span class="sd">&gt;&gt;&gt; from sympy import symbols</span>
+<span class="sd">&gt;&gt;&gt; from psiop import PseudoDifferentialOperator</span>
+<span class="sd">&gt;&gt;&gt; </span>
+<span class="sd">&gt;&gt;&gt; # Define the symbol for the 1D harmonic oscillator: p(x, ξ) = x² + ξ²</span>
+<span class="sd">&gt;&gt;&gt; x, xi = symbols(&#39;x xi&#39;, real=True)</span>
+<span class="sd">&gt;&gt;&gt; op = PseudoDifferentialOperator(x**2 + xi**2, vars_x=[x], mode=&#39;symbol&#39;)</span>
+<span class="sd">&gt;&gt;&gt; </span>
+<span class="sd">&gt;&gt;&gt; # Apply it to a Gaussian wave packet on a spatial grid</span>
+<span class="sd">&gt;&gt;&gt; x_grid = np.linspace(-5, 5, 256)</span>
+<span class="sd">&gt;&gt;&gt; kx = np.fft.fftfreq(256, d=x_grid[1]-x_grid[0]) * 2 * np.pi</span>
+<span class="sd">&gt;&gt;&gt; u = np.exp(-x_grid**2)</span>
+<span class="sd">&gt;&gt;&gt; </span>
+<span class="sd">&gt;&gt;&gt; result = op.apply(u, x_grid, kx)</span>
+
 <span class="sd">Subpackage layout</span>
 <span class="sd">-----------------</span>
-<span class="sd">``psiop`` (this module)</span>
-<span class="sd">    Core scalar ``PseudoDifferentialOperator``, Peetre decomposition,</span>
+<span class="sd">`psiop` (this module)</span>
+<span class="sd">    Core scalar `PseudoDifferentialOperator`, Peetre decomposition,</span>
 <span class="sd">    asymptotic symbolic calculus, quantization conversion, operator</span>
 <span class="sd">    diagnostics, and Hamiltonian-flow / visualization wrappers.</span>
 
-<span class="sd">``psiop.matpsiop``</span>
-<span class="sd">    ``MatrixPseudoDifferentialOperator`` — N × N matrix-valued symbols</span>
+<span class="sd">`psiop.matpsiop`</span>
+<span class="sd">    `MatrixPseudoDifferentialOperator` — N × N matrix-valued symbols</span>
 <span class="sd">    acting on vector fields and matrix-valued fields, with noncommutative</span>
 <span class="sd">    asymptotic composition, matrix commutators, and matrix exponential</span>
 <span class="sd">    symbols.</span>
 
-<span class="sd">``psiop.psiop_apply``</span>
+<span class="sd">`psiop.psiop_apply`</span>
 <span class="sd">    Standalone numerical kernels: Kohn–Nirenberg FFT / non-periodic</span>
 <span class="sd">    quadrature, NUFFT joint-residual backend, AAA rational approximation,</span>
 <span class="sd">    and Chebyshev / SVD low-rank factorization.</span>
 
-<span class="sd">``psiop.psiop_solver``</span>
-<span class="sd">    Time-stepping solvers and propagators: ``build_propagator``,</span>
-<span class="sd">    ``PropagatorFamily``, ``solve_first_order``, ``solve_second_order``,</span>
-<span class="sd">    ``solve_matrix_field``, ``solve_sylvester_field``,</span>
-<span class="sd">    ``solve_ricci_flow_conformal_2d``, and grid-generation utilities.</span>
+<span class="sd">`psiop.psiop_solver`</span>
+<span class="sd">    Time-stepping solvers and propagators: `build_propagator`,</span>
+<span class="sd">    `PropagatorFamily`, `solve_first_order`, `solve_second_order`,</span>
+<span class="sd">    `solve_matrix_field`, `solve_sylvester_field`,</span>
+<span class="sd">    `solve_ricci_flow_conformal_2d`, and grid-generation utilities.</span>
 
 <span class="sd">Main object</span>
 <span class="sd">-----------</span>
-<span class="sd">``PseudoDifferentialOperator``</span>
-<span class="sd">    Scalar pseudo‑differential operator in 1D or 2D.  The symbol may be</span>
-<span class="sd">    given explicitly (``mode=&#39;symbol&#39;``) or extracted automatically from</span>
-<span class="sd">    a differential expression acting on a test function (``mode=&#39;auto&#39;``).</span>
+<span class="sd">`PseudoDifferentialOperator`</span>
+<span class="sd">    Scalar pseudo‑differential operator in 1D or 2D. The symbol may be</span>
+<span class="sd">    given explicitly (`mode=&#39;symbol&#39;`) or extracted automatically from</span>
+<span class="sd">    a differential expression acting on a test function (`mode=&#39;auto&#39;`).</span>
 
 <span class="sd">Key features</span>
 <span class="sd">------------</span>
-<span class="sd">Symbol creation (1D and 2D):</span>
-<span class="sd">    explicit symbol mode p(x, ξ) or p(x, y, ξ, η);</span>
-<span class="sd">    automatic extraction from differential operators via plane‑wave testing.</span>
+<span class="sd">- **Symbol creation (1D and 2D):** explicit symbol mode p(x, ξ) or </span>
+<span class="sd">  p(x, y, ξ, η); automatic extraction from differential operators via </span>
+<span class="sd">  plane‑wave testing.</span>
+<span class="sd">- **Quantization conventions:** Kohn–Nirenberg (default) and Weyl </span>
+<span class="sd">  quantization; asymptotic conversion between the two via the exponential </span>
+<span class="sd">  cross-derivative series (exact and finite for polynomial symbols).</span>
+<span class="sd">- **High‑frequency symbolic analysis:** principal symbol extraction; </span>
+<span class="sd">  asymptotic expansion as |ξ| → ∞; homogeneity detection; symbolic / </span>
+<span class="sd">  numerical order estimation.</span>
+<span class="sd">- **Asymptotic symbolic calculus:** operator composition p ∘ q (KN and </span>
+<span class="sd">  Weyl / Moyal); commutators [P, Q]; formal left and right inverses; </span>
+<span class="sd">  formal adjoint P*; fractional powers P^α; exponential symbols exp(tP).</span>
+<span class="sd">- **Peetre‑style symbolic decomposition:** local polynomial part in the </span>
+<span class="sd">  frequency variables; separable terms a(x)q(ξ); genuinely joint, </span>
+<span class="sd">  non‑separable residual; automatic backend selection for the joint </span>
+<span class="sd">  residual (NUFFT, AAA, or low-rank).</span>
+<span class="sd">- **Operator diagnostics:** symbolic and numerical ellipticity tests; </span>
+<span class="sd">  formal self‑adjointness checks; semiclassical trace formula; </span>
+<span class="sd">  pseudospectrum computation with resolvent-norm contours and eigenvalue </span>
+<span class="sd">  overlays.</span>
+<span class="sd">- **Hamiltonian and microlocal dynamics:** Hamiltonian vector field of </span>
+<span class="sd">  the principal symbol; symplectic flow visualization; bicharacteristic </span>
+<span class="sd">  integration; singularity propagation animation; characteristic set and </span>
+<span class="sd">  gradient visualization.</span>
+<span class="sd">- **Visualization:** Symbol amplitude / phase plots, cotangent fibers, </span>
+<span class="sd">  micro-support, wavefront set, group velocity fields, and interactive </span>
+<span class="sd">  ipywidgets dashboards.</span>
 
-<span class="sd">Quantization conventions:</span>
-<span class="sd">    Kohn–Nirenberg (default) and Weyl quantization;</span>
-<span class="sd">    asymptotic conversion between the two via the exponential cross-derivative</span>
-<span class="sd">    series (exact and finite for polynomial symbols).</span>
-
-<span class="sd">High‑frequency symbolic analysis:</span>
-<span class="sd">    principal symbol extraction; asymptotic expansion as |ξ| → ∞;</span>
-<span class="sd">    homogeneity detection; symbolic / numerical order estimation.</span>
-
-<span class="sd">Asymptotic symbolic calculus:</span>
-<span class="sd">    operator composition p ∘ q (KN and Weyl / Moyal);</span>
-<span class="sd">    commutators [P, Q]; formal left and right inverses;</span>
-<span class="sd">    formal adjoint P*; fractional powers P^α;</span>
-<span class="sd">    exponential symbols exp(tP).</span>
-
-<span class="sd">Peetre‑style symbolic decomposition:</span>
-<span class="sd">    local polynomial part in the frequency variables;</span>
-<span class="sd">    separable terms a(x) q(ξ);</span>
-<span class="sd">    genuinely joint, non‑separable residual;</span>
-<span class="sd">    automatic backend selection for the joint residual (NUFFT, AAA,</span>
-<span class="sd">    or low-rank) — see ``psiop.psiop_apply`` for the numerical kernels.</span>
-
-<span class="sd">Operator diagnostics:</span>
-<span class="sd">    symbolic and numerical ellipticity tests;</span>
-<span class="sd">    formal self‑adjointness checks;</span>
-<span class="sd">    semiclassical trace formula (symbolic or numerical);</span>
-<span class="sd">    pseudospectrum computation with resolvent-norm contours, eigenvalue</span>
-<span class="sd">    overlays, sparse / dense solvers, and optional adaptive refinement.</span>
-
-<span class="sd">Hamiltonian and microlocal dynamics:</span>
-<span class="sd">    Hamiltonian vector field of the principal symbol;</span>
-<span class="sd">    symplectic flow visualization; bicharacteristic integration;</span>
-<span class="sd">    singularity propagation animation (2D / 3D phase-space projections);</span>
-<span class="sd">    characteristic set and gradient visualization.</span>
-
-<span class="sd">Visualization:</span>
-<span class="sd">    Symbol amplitude / phase plots, cotangent fibers, micro-support,</span>
-<span class="sd">    wavefront set, group velocity fields, and interactive ipywidgets</span>
-<span class="sd">    dashboards — all delegated to the ``microlocal`` plotting module.</span>
+<span class="sd">Dependencies</span>
+<span class="sd">------------</span>
+<span class="sd">- `sympy` (Symbolic calculus)</span>
+<span class="sd">- `numpy`, `scipy` (Numerical evaluation, FFT, SVD, quadrature)</span>
+<span class="sd">- `matplotlib` (Visualization)</span>
+<span class="sd">- `finufft` or `pynufft` (Optional, for NUFFT joint-residual backend)</span>
+<span class="sd">- `aaa` (Optional, for rational approximation backend)</span>
 
 <span class="sd">Mathematical background</span>
 <span class="sd">-----------------------</span>
 <span class="sd">Symbols and quantization</span>
 <span class="sd">    A pseudo‑differential operator P acting on functions of</span>
 <span class="sd">    x ∈ ℝⁿ (n = 1 or 2) is defined by its symbol p(x, ξ) on</span>
-<span class="sd">    phase space T*ℝⁿ = ℝⁿ_x × ℝⁿ_ξ.  Symbols are classified by</span>
+<span class="sd">    phase space T*ℝⁿ = ℝⁿ_x × ℝⁿ_ξ. Symbols are classified by</span>
 <span class="sd">    their growth in ξ: p ∈ S^m_{1,0} if</span>
-
 <span class="sd">        |∂_x^β ∂_ξ^α p(x, ξ)| ≤ C_{α,β} (1 + |ξ|)^(m - |α|)</span>
-
-<span class="sd">    for all multi‑indices α, β.  The integer / real number m is the</span>
+<span class="sd">    for all multi‑indices α, β. The integer / real number m is the</span>
 <span class="sd">    *order* of the operator.</span>
 
-<span class="sd">Quantization maps</span>
+<span class="sd">    Quantization maps:</span>
 <span class="sd">    Kohn–Nirenberg (left / standard, default):</span>
-
 <span class="sd">        (P u)(x) = Op^KN(p) u(x) = (2π)⁻ⁿ ∫_{ℝⁿ} exp(i x·ξ) p(x, ξ) û(ξ) dξ</span>
-
 <span class="sd">    Weyl (symmetric):</span>
-
 <span class="sd">        Op^w(a) u(x) = (2π)⁻ⁿ ∫∫ exp(i(x-y)·ξ) a((x+y)/2, ξ) u(y) dy dξ</span>
 
 <span class="sd">    Conversion between the two is realized as an asymptotic series in</span>
 <span class="sd">    mixed x–ξ derivatives:</span>
-
 <span class="sd">        a_KN(x, ξ) = exp(−i/2 · ∂_x ∂_ξ) a_Weyl(x, ξ)</span>
 <span class="sd">                   ∼ Σ_{k≥0} (−i/2)^k / k! · (∂_x ∂_ξ)^k a_Weyl(x, ξ)</span>
-
 <span class="sd">    In 2D the cross-derivative operator sums both coordinate pairs:</span>
-<span class="sd">    ∂_x ∂_ξ → ∂_x ∂_ξ + ∂_y ∂_η.  For polynomial symbols the</span>
+<span class="sd">    ∂_x ∂_ξ → ∂_x ∂_ξ + ∂_y ∂_η. For polynomial symbols the</span>
 <span class="sd">    series is exact and finite; for general S^m_{1,0} symbols it is</span>
 <span class="sd">    interpreted asymptotically.</span>
 
 <span class="sd">Asymptotic composition</span>
 <span class="sd">    For two symbols p and q, the Kohn–Nirenberg expansion is</span>
-
 <span class="sd">        (p ∘ q)(x, ξ) ∼ Σ_α i^(-|α|) / α! · ∂_ξ^α p · ∂_x^α q</span>
-
-<span class="sd">    A Weyl / Moyal star product is also available.  The same machinery</span>
+<span class="sd">    A Weyl / Moyal star product is also available. The same machinery</span>
 <span class="sd">    underlies commutators, formal inverses, adjoints, fractional powers,</span>
 <span class="sd">    and exponential symbols.</span>
 
 <span class="sd">Principal symbol and order</span>
 <span class="sd">    The principal symbol is the leading homogeneous component as</span>
-<span class="sd">    |ξ| → ∞.  If p is homogeneous of degree m,</span>
+<span class="sd">    |ξ| → ∞. If p is homogeneous of degree m,</span>
 <span class="sd">    p(x, λξ) = λ^m p(x, ξ) for λ &gt; 0.</span>
 
 <span class="sd">Peetre decomposition</span>
 <span class="sd">    For numerical application the symbol is split into</span>
-
 <span class="sd">        p(x, ξ) = p_local(x, ξ) + p_sep(x, ξ) + p_joint(x, ξ)</span>
-
 <span class="sd">    where p_local is polynomial in ξ (differential part),</span>
 <span class="sd">    p_sep = Σ_k a_k(x) q_k(ξ) is a sum of separable Fourier</span>
 <span class="sd">    multipliers, and p_joint contains the genuinely entangled</span>
 <span class="sd">    space–frequency residual — routed automatically to NUFFT, AAA, or</span>
-<span class="sd">    low-rank backends (see ``psiop.psiop_apply``).</span>
+<span class="sd">    low-rank backends.</span>
 
 <span class="sd">Hamiltonian flow</span>
 <span class="sd">    The Hamiltonian vector field of the principal symbol governs</span>
 <span class="sd">    singularity propagation along bicharacteristics:</span>
-
 <span class="sd">        dx/dt = ∂_ξ p,    dξ/dt = −∂_x p      (1D)</span>
 <span class="sd">        dx/dt = ∂_ξ p,    dy/dt = ∂_η p,</span>
 <span class="sd">        dξ/dt = −∂_x p,   dη/dt = −∂_y p      (2D)</span>
 
 <span class="sd">Pseudospectrum</span>
 <span class="sd">    The ε-pseudospectrum of P is</span>
-
 <span class="sd">        σ_ε(P) = { λ ∈ ℂ : ‖(P − λI)⁻¹‖ ≥ ε⁻¹ }</span>
-
 <span class="sd">    determined by the smallest singular value of the shifted matrix</span>
 <span class="sd">    discretization: ‖(P − λI)⁻¹‖ = 1 / σ_min(P − λI).</span>
 <span class="sd">    Particularly informative for non-normal operators.</span>
@@ -266,10 +261,10 @@
 <span class="sd">References</span>
 <span class="sd">----------</span>
 <span class="sd">.. [1] Hörmander, L. *The Analysis of Linear Partial Differential</span>
-<span class="sd">       Operators III*, Springer, 1985.  Chapter 18.</span>
+<span class="sd">       Operators III*, Springer, 1985. Chapter 18.</span>
 <span class="sd">.. [2] Taylor, M. E. *Pseudo Differential Operators*,</span>
 <span class="sd">       Princeton University Press, 1981.</span>
-<span class="sd">.. [3] Zworski, M. *Semiclassical Analysis*, AMS, 2012.  Chapter 4.</span>
+<span class="sd">.. [3] Zworski, M. *Semiclassical Analysis*, AMS, 2012. Chapter 4.</span>
 <span class="sd">.. [4] Martinez, A. *An Introduction to Semiclassical and Microlocal</span>
 <span class="sd">       Analysis*, Springer, 2002.</span>
 <span class="sd">.. [5] Trefethen, L. N. and Embree, M. *Spectra and Pseudospectra*,</span>
@@ -296,6 +291,92 @@
     <span class="n">aaa_plan_to_callable_1d</span><span class="p">,</span> <span class="n">aaa_plan_to_callable_2d</span><span class="p">,</span> <span class="n">_clip_complex_magnitude</span>
 <span class="p">)</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">lru_cache</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+
+
+<span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">8192</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_peetre_is_zero_impl</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Conservative, memoized symbolic zero test for Peetre-pipeline coefficients.</span>
+
+<span class="sd">    Decides whether `expr` is identically zero, trying strategies of</span>
+<span class="sd">    increasing cost and stopping at the first one that gives a definite</span>
+<span class="sd">    answer. Used throughout term classification and application</span>
+<span class="sd">    (`_peetre_classify_terms`, `peetre_decomposition`, `apply_peetre`,</span>
+<span class="sd">    `apply_hybrid`, ...) to decide whether a coefficient or additive term</span>
+<span class="sd">    can be safely dropped.</span>
+
+<span class="sd">    Strategy, in order:</span>
+
+<span class="sd">    1. Trivial checks: `expr is None` or `expr == 0`.</span>
+<span class="sd">    2. `expr.is_zero`, sympy&#39;s own assumption-based check, when it returns</span>
+<span class="sd">       a definite `True`/`False` rather than `None`.</span>
+<span class="sd">    3. A fast numeric reject: `expr` is evaluated at one pseudo-random point</span>
+<span class="sd">       (fixed seed, so results are reproducible across calls). If the</span>
+<span class="sd">       magnitude there is well above float noise, `expr` cannot be</span>
+<span class="sd">       identically zero, and the (expensive) symbolic path below is</span>
+<span class="sd">       skipped entirely. This is a one-sided test — a large value proves</span>
+<span class="sd">       non-zero, but a near-zero value only means the point was</span>
+<span class="sd">       inconclusive (e.g. an accidental root), so it falls through rather</span>
+<span class="sd">       than concluding zero.</span>
+<span class="sd">    4. `sympy.simplify(expr) == 0`, and finally `expr.equals(0)`, as a</span>
+<span class="sd">       last-resort symbolic proof for whatever the numeric probe couldn&#39;t</span>
+<span class="sd">       rule out (in particular anything trig-heavy, where step 3 usually</span>
+<span class="sd">       already avoided the cost of `trigsimp`/`futrig`).</span>
+
+<span class="sd">    Results are memoized (`functools.lru_cache`, `maxsize=8192`, keyed on</span>
+<span class="sd">    `expr` itself) because the *same* sub-expressions recur identically</span>
+<span class="sd">    across repeated calls to `apply_hybrid`/`apply_peetre` on the same</span>
+<span class="sd">    operator; without memoization here, this function dominates wall time</span>
+<span class="sd">    (profiled at ~68% of a single `apply_hybrid` call before this fix,</span>
+<span class="sd">    almost entirely inside `simplify`/`trigsimp`).</span>
+
+<span class="sd">    Note this must stay a module-level function (not redefined inside a</span>
+<span class="sd">    method) for the cache to persist across calls — a `@lru_cache`-decorated</span>
+<span class="sd">    closure rebuilt on every invocation caches nothing.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    expr : sympy.Expr or None</span>
+<span class="sd">        Expression to test. `None` is treated as zero.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">        True only if `expr` could be established to be identically zero;</span>
+<span class="sd">        False otherwise, including when every strategy above is</span>
+<span class="sd">        inconclusive (conservative: never silently drops a genuine term).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">expr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">expr</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">is_zero</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">is_zero</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">free</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">free_symbols</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">free</span><span class="p">:</span>
+            <span class="n">rng</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">pts</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span><span class="p">:</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">2.7</span><span class="p">)</span> <span class="o">*</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">free</span><span class="p">}</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="nb">complex</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span><span class="o">.</span><span class="n">evalf</span><span class="p">(</span><span class="mi">15</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
 <span class="c1"># ============================================================================</span>
 <span class="c1"># Multi-index helpers -- shared, dimension-generic building blocks for the</span>
 <span class="c1"># asymptotic symbolic calculus (composition, formal inverses, exponential</span>
@@ -304,7 +385,24 @@
 <span class="c1"># separate hand-unrolled 1D/2D code paths in each of those methods.</span>
 <span class="c1"># ============================================================================</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_mi_all</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Yield all `dim`-tuples of non-negative ints summing to exactly n.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Yield all `dim`-tuples of non-negative integers summing to exactly `n`.</span>
+<span class="sd">    </span>
+<span class="sd">    Used for generating multi-indices in the asymptotic symbolic calculus </span>
+<span class="sd">    (e.g., Leibniz rule expansions and Moyal star products).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n : int</span>
+<span class="sd">        The exact sum of the tuple elements.</span>
+<span class="sd">    dim : int</span>
+<span class="sd">        The dimensionality (length) of the tuples.</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    ------</span>
+<span class="sd">    tuple of int</span>
+<span class="sd">        A multi-index tuple (α₁, ..., α_dim) such that Σ α_i = n.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">yield</span> <span class="p">(</span><span class="n">n</span><span class="p">,)</span>
         <span class="k">return</span>
@@ -313,19 +411,67 @@
             <span class="k">yield</span> <span class="p">((</span><span class="n">i</span><span class="p">,)</span> <span class="o">+</span> <span class="n">rest</span><span class="p">)</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_mi_upto</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Yield all `dim`-tuples of non-negative ints with 1 &lt;= sum &lt;= n.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Yield all `dim`-tuples of non-negative integers with 1 ≤ sum ≤ `n`.</span>
+<span class="sd">    </span>
+<span class="sd">    Used for generating multi-indices up to a given total order in </span>
+<span class="sd">    asymptotic expansions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n : int</span>
+<span class="sd">        The maximum sum of the tuple elements.</span>
+<span class="sd">    dim : int</span>
+<span class="sd">        The dimensionality (length) of the tuples.</span>
+
+<span class="sd">    Yields</span>
+<span class="sd">    ------</span>
+<span class="sd">    tuple of int</span>
+<span class="sd">        A multi-index tuple (α₁, ..., α_dim) such that 1 ≤ Σ α_i ≤ n.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
         <span class="k">yield from</span> <span class="n">_mi_all</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_mi_diff</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">mvars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;d^|alpha| expr / prod(mvars_i ** alpha_i), entrywise for sympy</span>
-<span class="sd">    Matrix `expr` (via .diff) as well as scalar sympy expressions.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the mixed partial derivative ∂^|α| expr / ∏(mvars_i^α_i).</span>
+<span class="sd">    </span>
+<span class="sd">    Applies entrywise for SymPy Matrix `expr` (via `.diff`) as well as </span>
+<span class="sd">    scalar SymPy expressions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    expr : sympy.Expr or sympy.Matrix</span>
+<span class="sd">        The symbolic expression or matrix to differentiate.</span>
+<span class="sd">    mvars : list of sympy.Symbol</span>
+<span class="sd">        The variables with respect to which to differentiate.</span>
+<span class="sd">    alpha : tuple of int</span>
+<span class="sd">        The multi-index specifying the order of differentiation for each variable.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sympy.Expr or sympy.Matrix</span>
+<span class="sd">        The differentiated expression.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mvars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">a</span><span class="p">:</span>
             <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">expr</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_mi_factorial</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the factorial of a multi-index.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    alpha : tuple of int</span>
+<span class="sd">        The multi-index tuple (α₁, ..., α_dim).</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    int</span>
+<span class="sd">        The product α! = α₁! × α₂! × ... × α_dim!.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">fact</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">alpha</span><span class="p">:</span>
         <span class="n">fact</span> <span class="o">*=</span> <span class="n">factorial</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
@@ -601,7 +747,10 @@
 <div class="viewcode-block" id="PseudoDifferentialOperator.clear_cache">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.clear_cache">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clear cached symbol evaluations and Peetre decompositions.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Clear all cached symbol evaluations, Peetre decompositions, and </span>
+<span class="sd">        joint backend plans (low-rank, NUFFT, AAA).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">symbol_cached</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_peetre_cache&#39;</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_cache</span> <span class="o">=</span> <span class="kc">None</span>
@@ -618,9 +767,14 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_peetre_decomposition</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the Peetre decomposition stored in the instance.</span>
+<span class="sd">        </span>
+<span class="sd">        If the decomposition was not computed in `__init__`, it is computed </span>
+<span class="sd">        lazily on first use and cached.</span>
 <span class="sd">    </span>
-<span class="sd">        If the decomposition was not computed in __init__, it is computed</span>
-<span class="sd">        lazily on first use.</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            The Peetre decomposition dictionary.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_peetre_decomposition&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">opts</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_peetre_options&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
@@ -842,7 +996,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        bool</span>
-<span class="sd">            True if symbol depends on x (or x, y)</span>
+<span class="sd">            True if the symbol depends on x (in 1D) or x, y (in 2D).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
@@ -854,12 +1008,12 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get a lambdified version of the symbol.</span>
+<span class="sd">        Get a lambdified NumPy-callable version of the raw symbol.</span>
 <span class="sd">        </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        callable</span>
-<span class="sd">            Lambdified symbol function</span>
+<span class="sd">            A function with signature f(x, ξ) for 1D or f(x, y, ξ, η) for 2D.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -1378,11 +1532,11 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_frequency_symbols</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the frequency symbols actually used in the symbol.</span>
-
+<span class="sd">        </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        tuple</span>
-<span class="sd">            (xi,) in 1D or (xi, eta) in 2D.</span>
+<span class="sd">        tuple of sympy.Symbol</span>
+<span class="sd">            (ξ,) in 1D or (ξ, η) in 2D.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">xi</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;xi&#39;</span><span class="p">),</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
@@ -1418,48 +1572,26 @@
         <span class="k">for</span> <span class="n">monom</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="n">src</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">dst</span><span class="p">[</span><span class="n">monom</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">together</span><span class="p">(</span><span class="n">dst</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">monom</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">))</span>
 
+
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_is_zero</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Conservative symbolic zero test used throughout the Peetre</span>
-<span class="sd">        pipeline to decide whether a coefficient or term can be safely</span>
-<span class="sd">        dropped.</span>
-
-<span class="sd">        Several increasingly expensive strategies are tried in turn</span>
-<span class="sd">        (identity check, the `is_zero` attribute, `simplify`, `equals`);</span>
-<span class="sd">        if none of them can prove the expression is zero, it is treated</span>
-<span class="sd">        as non-zero rather than risk silently discarding a genuine term.</span>
-
+<span class="sd">        Memoized wrapper around the conservative symbolic zero test.</span>
+<span class="sd">        </span>
+<span class="sd">        Delegates to the module-level `_peetre_is_zero_impl` to ensure the </span>
+<span class="sd">        LRU cache persists across all instances and calls.</span>
+<span class="sd">    </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        expr : sympy.Expr or None</span>
-<span class="sd">            Expression to test. `None` is treated as zero.</span>
-
+<span class="sd">            Expression to test.</span>
+<span class="sd">    </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        bool</span>
-<span class="sd">            True only if the expression could be established to be</span>
-<span class="sd">            identically zero; False otherwise, including when the test is</span>
-<span class="sd">            inconclusive.</span>
+<span class="sd">            True if `expr` is established to be identically zero.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">expr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">if</span> <span class="n">expr</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">is_zero</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
-                <span class="k">return</span> <span class="kc">True</span>
-            <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">is_zero</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
-                <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="k">pass</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="n">_peetre_is_zero_impl</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>   
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_classify_terms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1571,9 +1703,22 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_merge_separable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">separable</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Merge separable terms having the same frequency factor q.</span>
-
-<span class="sd">        This is purely cosmetic but makes the decomposition much easier to read.</span>
+<span class="sd">        Merge separable terms having the same frequency factor q(ξ).</span>
+<span class="sd">        </span>
+<span class="sd">        This is a cosmetic optimization that groups terms of the form </span>
+<span class="sd">        a_k(x)q(ξ) + a_j(x)q(ξ) into (a_k(x) + a_j(x))q(ξ), making the </span>
+<span class="sd">        Peetre decomposition much easier to read and apply.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        separable : list of tuple</span>
+<span class="sd">            List of pairs (a_expr, q_expr) where a_expr depends only on space </span>
+<span class="sd">            and q_expr depends only on frequency.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of tuple</span>
+<span class="sd">            The merged list of (a_expr, q_expr) pairs.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">merged</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">ordered_keys</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1592,17 +1737,22 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_to_separable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_coeffs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Convert local polynomial coefficients into separable terms.</span>
-<span class="sd">    </span>
-<span class="sd">        A local term</span>
-<span class="sd">    </span>
-<span class="sd">            coeff(x) * xi^alpha</span>
-<span class="sd">    </span>
-<span class="sd">        is converted into</span>
-<span class="sd">    </span>
-<span class="sd">            (coeff(x), xi^alpha)</span>
-<span class="sd">    </span>
+<span class="sd">        Convert local polynomial coefficients into separable terms a(x)q(ξ).</span>
+<span class="sd">        </span>
+<span class="sd">        A local term coeff(x) × ξ^α is converted into the pair (coeff(x), ξ^α).</span>
 <span class="sd">        Terms with the same spatial coefficient are merged.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        local_coeffs : dict</span>
+<span class="sd">            Mapping from frequency multi-index tuples to their x-dependent </span>
+<span class="sd">            symbolic coefficients.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of tuple</span>
+<span class="sd">            List of pairs (a_expr, q_expr) representing the local terms in </span>
+<span class="sd">            separable operational form.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">xi_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_frequency_symbols</span><span class="p">()</span>
         <span class="n">separable</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1649,8 +1799,25 @@
     
     <span class="k">def</span><span class="w"> </span><span class="nf">_infer_joint_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Infer physical bounds for low-rank joint decomposition from</span>
-<span class="sd">        the spatial and frequency grids.</span>
+<span class="sd">        Infer physical bounds for low-rank joint decomposition from the </span>
+<span class="sd">        spatial and frequency grids.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x_grid : ndarray</span>
+<span class="sd">            Spatial grid in the x direction.</span>
+<span class="sd">        kx : ndarray</span>
+<span class="sd">            Frequency grid in the x direction.</span>
+<span class="sd">        y_grid : ndarray, optional</span>
+<span class="sd">            Spatial grid in the y direction (required for 2D).</span>
+<span class="sd">        ky : ndarray, optional</span>
+<span class="sd">            Frequency grid in the y direction (required for 2D).</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            Dictionary mapping each SymPy spatial/frequency symbol to a </span>
+<span class="sd">            (min, max) tuple of its physical bounds.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -1676,8 +1843,22 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_remap_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">syms</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Ensure bounds keys match the exact SymPy symbols used in the</span>
-<span class="sd">        expression. If necessary, match by symbol name.</span>
+<span class="sd">        Ensure bounds keys match the exact SymPy symbols used in the expression.</span>
+<span class="sd">        </span>
+<span class="sd">        If necessary, matches symbols by name rather than object identity to </span>
+<span class="sd">        prevent key-mismatch errors during joint residual factorization.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        bounds : dict</span>
+<span class="sd">            Dictionary mapping symbols to (min, max) tuples.</span>
+<span class="sd">        syms : list of sympy.Symbol</span>
+<span class="sd">            The exact symbols present in the joint expression.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            A new bounds dictionary keyed by the exact symbol objects in `syms`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">syms</span><span class="p">:</span>
@@ -1696,14 +1877,32 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_low_rank_joint_pairs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-05</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Factorize the joint residual into separable pairs.</span>
-
+<span class="sd">        Factorize the joint residual into separable pairs a_k(x)q_k(ξ) via </span>
+<span class="sd">        Chebyshev/SVD low-rank approximation.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        joint_symbol : sympy.Expr</span>
+<span class="sd">            The irreducible joint residual symbol.</span>
+<span class="sd">        bounds : dict</span>
+<span class="sd">            Symbol to (min, max) mapping defining the approximation domain.</span>
+<span class="sd">        degree : int, default=6</span>
+<span class="sd">            Polynomial/Chebyshev degree for the approximation.</span>
+<span class="sd">        tol : float, default=1e-5</span>
+<span class="sd">            Tolerance controlling the accuracy of the approximation.</span>
+<span class="sd">        num_samples : int, default=10000</span>
+<span class="sd">            Number of random samples used to build the approximation matrix.</span>
+<span class="sd">        seed : int, default=42</span>
+<span class="sd">            Random seed for reproducible sampling.</span>
+<span class="sd">        use_cache : bool, default=True</span>
+<span class="sd">            Whether to cache the factorization result.</span>
+<span class="sd">    </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        pairs : list</span>
-<span class="sd">            List of `(a_k(x), q_k(xi))`.</span>
+<span class="sd">        pairs : list of tuple</span>
+<span class="sd">            List of (a_k(x), q_k(ξ)) separable pairs.</span>
 <span class="sd">        metrics : dict</span>
-<span class="sd">            Symbol-level approximation diagnostics.</span>
+<span class="sd">            Symbol-level approximation diagnostics (e.g., relative L2 error).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">([],</span> <span class="p">{</span><span class="s1">&#39;rel_l2_error&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;max_abs_error&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;mean_abs_error&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s1">&#39;svd_energy_retained_pct&#39;</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">,</span> <span class="s1">&#39;singular_values&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])})</span>
@@ -1727,8 +1926,23 @@
         <span class="k">return</span> <span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="n">metrics</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_joint_symbols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Shared symbol-resolution logic (matches _low_rank_joint_pairs):</span>
-<span class="sd">        find the actual x/xi symbols present in joint_symbol by name.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Find the actual spatial and frequency symbols present in the joint symbol.</span>
+<span class="sd">        </span>
+<span class="sd">        Matches symbols by name to ensure consistency between the operator&#39;s </span>
+<span class="sd">        defined variables and the free symbols in the joint expression.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        joint_symbol : sympy.Expr</span>
+<span class="sd">            The joint residual expression.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of list</span>
+<span class="sd">            A tuple (x_syms, xi_syms) containing the matched spatial and </span>
+<span class="sd">            frequency SymPy symbols.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">x_syms</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">:</span>
             <span class="n">s</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">fs</span> <span class="k">for</span> <span class="n">fs</span> <span class="ow">in</span> <span class="n">joint_symbol</span><span class="o">.</span><span class="n">free_symbols</span> <span class="k">if</span> <span class="n">fs</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">v</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">v</span><span class="p">)</span>
@@ -1743,11 +1957,21 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_nufft_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Resolve the NUFFT plan for a joint residual symbol (symbolic, grid-free).</span>
+<span class="sd">        </span>
+<span class="sd">        Checks if the symbol admits an oscillatory phase decomposition of the </span>
+<span class="sd">        form exp(iΛ(x)M(ξ)) suitable for Non-Uniform FFTs.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        joint_symbol : sympy.Expr</span>
+<span class="sd">            The joint residual expression.</span>
+<span class="sd">        use_cache : bool, default=True</span>
+<span class="sd">            Whether to cache the NUFFT plan resolution.</span>
 <span class="sd">    </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        plan_info : tuple or None</span>
-<span class="sd">            (&quot;1d&quot;, plan) or (&quot;2d&quot;, plan) if the symbol is NUFFT-representable,</span>
+<span class="sd">        tuple or None</span>
+<span class="sd">            (&quot;1d&quot;, plan) or (&quot;2d&quot;, plan) if the symbol is NUFFT-representable, </span>
 <span class="sd">            None otherwise.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_joint_symbols</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)</span>
@@ -1768,10 +1992,35 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_nufft_joint_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="s1">&#39;gaussian&#39;</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Try the NUFFT joint-residual backend. Returns the applied numeric</span>
-<span class="sd">        array on success, or None if the symbol doesn&#39;t classify as</span>
-<span class="sd">        NUFFT-representable (caller should fall back to direct application).</span>
-<span class="sd">        PERIODIC BOUNDARY CONDITIONS ONLY.</span>
+<span class="sd">        Apply the NUFFT joint-residual backend to the field u.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns the applied numeric array on success, or None if the symbol </span>
+<span class="sd">        doesn&#39;t classify as NUFFT-representable (caller should fall back to </span>
+<span class="sd">        direct application). Supports PERIODIC BOUNDARY CONDITIONS ONLY.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        joint_symbol : sympy.Expr</span>
+<span class="sd">            The joint residual expression.</span>
+<span class="sd">        u : ndarray</span>
+<span class="sd">            Input field values.</span>
+<span class="sd">        x_grid : ndarray</span>
+<span class="sd">            Spatial grid in x.</span>
+<span class="sd">        kx : ndarray</span>
+<span class="sd">            Frequency grid in x.</span>
+<span class="sd">        y_grid : ndarray, optional</span>
+<span class="sd">            Spatial grid in y (2D only).</span>
+<span class="sd">        ky : ndarray, optional</span>
+<span class="sd">            Frequency grid in y (2D only).</span>
+<span class="sd">        use_cache : bool, default=True</span>
+<span class="sd">            Whether to use cached NUFFT plans.</span>
+<span class="sd">        freq_window : str, default=&#39;gaussian&#39;</span>
+<span class="sd">            Frequency-domain smoothing window to apply.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray or None</span>
+<span class="sd">            The result of applying the NUFFT operator, or None if inapplicable.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">plan_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_nufft_plan</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="n">use_cache</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">plan_info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1904,17 +2153,32 @@
                 <span class="sa">f</span><span class="s2">&quot;got &#39;</span><span class="si">{</span><span class="n">resolved</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
             <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_aaa_joint_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span>
-                                <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_aaa_joint_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Try the AAA joint-residual backend. Returns (symbol_func, metrics)</span>
-<span class="sd">        on success, where symbol_func is a fast numpy callable suitable for</span>
-<span class="sd">        kohn_nirenberg_fft/nonperiodic&#39;s `symbol_func` argument, or</span>
-<span class="sd">        (None, None) if the quality gate isn&#39;t met (caller should fall back</span>
-<span class="sd">        to direct application).</span>
-
-<span class="sd">        bounds : dict mapping each space/frequency symbol to (min, max),</span>
-<span class="sd">        same format as joint_bounds elsewhere (see _infer_joint_bounds).</span>
+<span class="sd">        Try the AAA rational approximation joint-residual backend.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns a fast NumPy callable suitable for Kohn-Nirenberg quadrature </span>
+<span class="sd">        on success, or (None, None) if the quality gate isn&#39;t met.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        joint_symbol : sympy.Expr</span>
+<span class="sd">            The joint residual expression.</span>
+<span class="sd">        bounds : dict</span>
+<span class="sd">            Dictionary mapping each space/frequency symbol to (min, max) bounds.</span>
+<span class="sd">        degree : int, optional</span>
+<span class="sd">            Maximum degree for the rational approximation (handled internally by AAA).</span>
+<span class="sd">        tol : float, default=1e-8</span>
+<span class="sd">            Relative tolerance for the AAA rational fit.</span>
+<span class="sd">        use_cache : bool, default=True</span>
+<span class="sd">            Whether to cache the AAA plan.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple</span>
+<span class="sd">            (symbol_func, metrics) on success, where `symbol_func` is a NumPy </span>
+<span class="sd">            callable and `metrics` contains diagnostic info. Returns (None, None) </span>
+<span class="sd">            if the fit fails the quality gate.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_joint_symbols</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)</span>
         <span class="n">all_syms</span> <span class="o">=</span> <span class="n">x_syms</span> <span class="o">+</span> <span class="n">xi_syms</span>
@@ -2344,8 +2608,18 @@
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.decompose_symbol_peetre">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">decompose_symbol_peetre</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Alias for peetre_decomposition(), for compatibility with the</span>
-<span class="sd">        standalone symbolic_decompose.py naming style.</span>
+<span class="sd">        Alias for `peetre_decomposition()`, maintained for backward compatibility </span>
+<span class="sd">        with the standalone `symbolic_decompose.py` naming style.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *args, **kwargs</span>
+<span class="sd">            Forwarded directly to `peetre_decomposition()`.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            The Peetre decomposition dictionary.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">peetre_decomposition</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
@@ -2487,16 +2761,27 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_auto_select_joint_backend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Intelligently analyze the joint residual symbol and select the </span>
-<span class="sd">        most efficient numerical backend (&#39;nufft&#39;, &#39;aaa&#39;, or &#39;lowrank&#39;).</span>
+<span class="sd">        Intelligently analyze the joint residual symbol and select the most </span>
+<span class="sd">        efficient numerical backend (&#39;nufft&#39;, &#39;aaa&#39;, or &#39;lowrank&#39;).</span>
 <span class="sd">        </span>
 <span class="sd">        Logic:</span>
-<span class="sd">        1. &#39;nufft&#39;: If the symbol contains an oscillatory phase of the </span>
-<span class="sd">           form exp(i * Lambda(x) * M(xi)).</span>
-<span class="sd">        2. &#39;aaa&#39;: If the symbol is rational or has explicit denominators </span>
-<span class="sd">           / negative powers (poles / algebraic decay).</span>
-<span class="sd">        3. &#39;lowrank&#39;: For smooth, non-oscillatory, non-pole joint kernels </span>
-<span class="sd">           (e.g., Gaussians).</span>
+<span class="sd">        1. &#39;nufft&#39;: If the symbol contains an oscillatory phase exp(iΛ(x)M(ξ)).</span>
+<span class="sd">        2. &#39;aaa&#39;: If the symbol is rational or has explicit polynomial denominators.</span>
+<span class="sd">        3. &#39;lowrank&#39;: For smooth, non-oscillatory, non-pole joint kernels (e.g., Gaussians).</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        joint_symbol : sympy.Expr</span>
+<span class="sd">            The joint residual expression.</span>
+<span class="sd">        x_syms : list of sympy.Symbol</span>
+<span class="sd">            Spatial variables.</span>
+<span class="sd">        xi_syms : list of sympy.Symbol</span>
+<span class="sd">            Frequency variables.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            The selected backend name: &#39;nufft&#39;, &#39;aaa&#39;, or &#39;lowrank&#39;.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">all_syms</span> <span class="o">=</span> <span class="n">x_syms</span> <span class="o">+</span> <span class="n">xi_syms</span>
         
@@ -2542,7 +2827,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">apply_hybrid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Apply the operator via Peetre decomposition with per-term backend routing.</span>
-<span class="sd">    </span>
+
 <span class="sd">        The symbol is split with `peetre_decomposition` into a separable part and a</span>
 <span class="sd">        joint (non-separable) residual. The separable part is applied directly</span>
 <span class="sd">        through `apply_peetre` (`apply_joint=False`). The joint residual is then</span>
@@ -2553,11 +2838,31 @@
 <span class="sd">        independently for *that term* — NUFFT if a decomposition exists for it,</span>
 <span class="sd">        AAA if it&#39;s a rational function (or has a symbolic polynomial denominator),</span>
 <span class="sd">        otherwise low-rank.</span>
-<span class="sd">    </span>
+
 <span class="sd">        Splitting before routing means terms that individually admit a fast</span>
 <span class="sd">        decomposition get one, instead of the whole joint residual being treated as</span>
-<span class="sd">        a single mixed term and falling back to O(N\u00b2) direct quadrature.</span>
-<span class="sd">    </span>
+<span class="sd">        a single mixed term and falling back to O(N^2) (1D) / O(N^4) (2D) direct</span>
+<span class="sd">        quadrature.</span>
+
+<span class="sd">        Per-term sub-operators are cached on `self` and reused across repeated</span>
+<span class="sd">        calls, keyed by the expanded term (a hashable `sympy.Expr`) and</span>
+<span class="sd">        invalidated whenever `self.symbol` changes identity. This matters</span>
+<span class="sd">        because each sub-operator carries its own backend-resolution caches</span>
+<span class="sd">        (`_joint_nufft_cache`, `_joint_lowrank_cache`, `_joint_aaa_cache`,</span>
+<span class="sd">        `_peetre_cache`); without reuse, every call to `apply_hybrid` would</span>
+<span class="sd">        silently re-run backend classification and re-fit NUFFT/AAA/low-rank</span>
+<span class="sd">        plans from scratch, even though none of that depends on `u`. Reuse</span>
+<span class="sd">        only skips *plan-building*, not the actual numeric application (e.g.</span>
+<span class="sd">        `finufft.execute()`, or evaluating a low-rank pair&#39;s `(a_k, q_k)` on</span>
+<span class="sd">        the grid), which necessarily reruns every call since it depends on</span>
+<span class="sd">        `u`. In practice, once `_peetre_is_zero` (see its own docstring) and</span>
+<span class="sd">        this cache are both in place, plan-building is a small fraction of</span>
+<span class="sd">        total cost for problem sizes where the numeric transform itself is</span>
+<span class="sd">        cheap (e.g. a few percent here at N=256, 1D) — the benefit grows</span>
+<span class="sd">        for larger/more expensive terms (e.g. AAA fits, which are</span>
+<span class="sd">        expensive to build but cheap to apply) and for operators reused</span>
+<span class="sd">        across many calls (e.g. per-timestep in a PDE solve).</span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        u : array_like</span>
@@ -2577,13 +2882,13 @@
 <span class="sd">            Do not pass `apply_joint` or `joint_backend` here: both are fixed</span>
 <span class="sd">            internally by this method, and supplying them will raise</span>
 <span class="sd">            `TypeError: apply_peetre() got multiple values for keyword argument`.</span>
-<span class="sd">    </span>
+
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        numpy.ndarray</span>
 <span class="sd">            Complex128 array, same shape as `u`: the separable contribution plus</span>
 <span class="sd">            the sum of the per-term joint contributions.</span>
-<span class="sd">    </span>
+
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        Backend selection happens per additive term of the joint symbol, not once</span>
@@ -2592,19 +2897,33 @@
 <span class="sd">        that individually favor different backends. Compare with `apply_hybrid_old`,</span>
 <span class="sd">        which instead loops over `peetre_decomposition`&#39;s own `joint_residual` list</span>
 <span class="sd">        without expanding it into additive terms.</span>
+
+<span class="sd">        The per-term cache is keyed on the *expanded term itself*, so it is safe</span>
+<span class="sd">        across calls with different `x_grid`/`kx`/`joint_bounds`/`u` as long as</span>
+<span class="sd">        `self.symbol` is unchanged — those are all forwarded fresh to each</span>
+<span class="sd">        sub-operator&#39;s `apply_peetre` call on every invocation, not baked into</span>
+<span class="sd">        the cache.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span><span class="o">,</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
         <span class="n">deco</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peetre_decomposition</span><span class="p">()</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
         <span class="n">result</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_peetre</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
                                     <span class="n">apply_joint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="n">joint_symbol</span> <span class="o">=</span> <span class="n">deco</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;joint_symbol&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">):</span>
+            <span class="n">cache</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_hybrid_term_ops&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">cache</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;symbol&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="p">:</span>
+                <span class="n">cache</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;symbol&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="s1">&#39;ops&#39;</span><span class="p">:</span> <span class="p">{}}</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_hybrid_term_ops</span> <span class="o">=</span> <span class="n">cache</span>
             <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">expand</span><span class="p">(</span><span class="n">joint_symbol</span><span class="p">)):</span>   <span class="c1"># &lt;-- the real split</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">term</span><span class="p">):</span>
                     <span class="k">continue</span>
-                <span class="n">sub_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
-                                                    <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">)</span>
+                <span class="n">sub_op</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="s1">&#39;ops&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">sub_op</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">sub_op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
+                                                        <span class="n">quantization</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">quantization</span><span class="p">,</span>
+                                                        <span class="n">compute_peetre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="n">cache</span><span class="p">[</span><span class="s1">&#39;ops&#39;</span><span class="p">][</span><span class="n">term</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub_op</span>
                 <span class="n">result</span> <span class="o">+=</span> <span class="n">sub_op</span><span class="o">.</span><span class="n">apply_peetre</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="n">ky</span><span class="p">,</span>
                                               <span class="n">joint_backend</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">result</span></div>
@@ -2926,7 +3245,17 @@
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.peetre_apply">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">peetre_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Alias for apply_peetre().</span>
+<span class="sd">        Alias for `apply_peetre()`.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *args, **kwargs</span>
+<span class="sd">            Forwarded directly to `apply_peetre()`.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray</span>
+<span class="sd">            The result of applying the operator.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_peetre</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
@@ -3013,10 +3342,25 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_asymptotic_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">side</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Shared recursion behind right_inverse_asymptotic and</span>
-<span class="sd">        left_inverse_asymptotic (dimension-generic multi-index Leibniz</span>
-<span class="sd">        recursion; the two sides only differ in which symbol gets which</span>
-<span class="sd">        derivative and the multiplication order).&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Shared recursion for formal left and right asymptotic inverses.</span>
+<span class="sd">        </span>
+<span class="sd">        Implements the dimension-generic multi-index Leibniz recursion. The </span>
+<span class="sd">        two sides only differ in which symbol gets which derivative and the </span>
+<span class="sd">        multiplication order.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        order : int</span>
+<span class="sd">            Number of terms to include in the asymptotic expansion.</span>
+<span class="sd">        side : {&#39;left&#39;, &#39;right&#39;}</span>
+<span class="sd">            Whether to compute the left inverse (L ∘ P = I) or right inverse (P ∘ R = I).</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The symbolic expression representing the formal inverse.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
         <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Only 1D and 2D cases are implemented&quot;</span><span class="p">)</span>
@@ -3961,19 +4305,19 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compute_eigenvalues</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">use_sparse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Compute eigenvalues of operator matrix.</span>
+<span class="sd">        Compute eigenvalues of the discretized operator matrix.</span>
 <span class="sd">        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        H : ndarray</span>
-<span class="sd">            Operator matrix</span>
-<span class="sd">        use_sparse : bool</span>
-<span class="sd">            Use sparse eigenvalue solver</span>
-<span class="sd">            </span>
+<span class="sd">        H : ndarray or scipy.sparse matrix</span>
+<span class="sd">            The operator matrix.</span>
+<span class="sd">        use_sparse : bool, default=False</span>
+<span class="sd">            Whether to use a sparse eigenvalue solver (e.g., ARPACK).</span>
+<span class="sd">    </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        eigenvalues : ndarray or None</span>
-<span class="sd">            Eigenvalues of H</span>
+<span class="sd">        ndarray or None</span>
+<span class="sd">            The computed eigenvalues, or None if the computation fails.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">use_sparse</span> <span class="ow">and</span> <span class="n">H</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
@@ -3994,20 +4338,28 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_plot_pseudospectrum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Lambda</span><span class="p">,</span> <span class="n">resolvent_norm</span><span class="p">,</span> <span class="n">sigma_min_grid</span><span class="p">,</span> <span class="n">epsilon_levels</span><span class="p">,</span> <span class="n">eigenvalues</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Plot pseudospectrum results.</span>
+<span class="sd">        Plot pseudospectrum results, including resolvent norm contours and </span>
+<span class="sd">        eigenvalue overlays.</span>
 <span class="sd">        </span>
+<span class="sd">        Delegates to the `microlocal` plotting module.</span>
+<span class="sd">    </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        Lambda : ndarray</span>
-<span class="sd">            Complex λ grid</span>
+<span class="sd">            Complex λ grid.</span>
 <span class="sd">        resolvent_norm : ndarray</span>
-<span class="sd">            Resolvent norms</span>
+<span class="sd">            Grid of resolvent norms ‖(H - λI)⁻¹‖.</span>
 <span class="sd">        sigma_min_grid : ndarray</span>
-<span class="sd">            Smallest singular values</span>
-<span class="sd">        epsilon_levels : list</span>
-<span class="sd">            Contour levels</span>
+<span class="sd">            Grid of smallest singular values σ_min(H - λI).</span>
+<span class="sd">        epsilon_levels : list of float</span>
+<span class="sd">            Contour levels for the ε-pseudospectrum.</span>
 <span class="sd">        eigenvalues : ndarray or None</span>
-<span class="sd">            Eigenvalues to overlay</span>
+<span class="sd">            Eigenvalues to overlay on the plot.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">plot_pseudospectrum</span><span class="p">(</span><span class="n">Lambda</span><span class="p">,</span> <span class="n">resolvent_norm</span><span class="p">,</span> <span class="n">sigma_min_grid</span><span class="p">,</span> <span class="n">epsilon_levels</span><span class="p">,</span> <span class="n">eigenvalues</span><span class="p">)</span>
 
@@ -4564,118 +4916,373 @@
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_fiber">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_fiber">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_fiber</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Plot the cotangent fiber structure at a fixed spatial point (x0[, y0]).</span>
-<span class="sd">        See _slice_grid/_render_field docstrings for the shared implementation.</span>
-<span class="sd">        NOTE: original signature has no eta_grid param -- 2D reuses xi_grid</span>
-<span class="sd">        for both frequency axes, matching the original behavior exactly.</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot the cotangent fiber structure at a fixed spatial point (x₀, y₀).</span>
+<span class="sd">        </span>
+<span class="sd">        In 1D, plots the fiber over x₀. In 2D, plots the fiber over (x₀, y₀), </span>
+<span class="sd">        reusing `xi_grid` for both frequency axes.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x_grid : ndarray</span>
+<span class="sd">            Spatial grid coordinates.</span>
+<span class="sd">        xi_grid : ndarray</span>
+<span class="sd">            Frequency grid coordinates.</span>
+<span class="sd">        x0 : float, default=0.0</span>
+<span class="sd">            The spatial x-coordinate at which to evaluate the fiber.</span>
+<span class="sd">        y0 : float, default=0.0</span>
+<span class="sd">            The spatial y-coordinate at which to evaluate the fiber (2D only).</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">visualize_fiber</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_symbol_amplitude">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_symbol_amplitude">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_symbol_amplitude</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Display |p(x, xi)| (1D) or |p(x, y, xi0, eta0)| (2D) as a color map.</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Display the symbol amplitude |p(x, ξ)| (1D) or |p(x, y, ξ₀, η₀)| (2D) </span>
+<span class="sd">        as a color map.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x_grid : ndarray</span>
+<span class="sd">            Spatial grid in x.</span>
+<span class="sd">        xi_grid : ndarray</span>
+<span class="sd">            Frequency grid in ξ.</span>
+<span class="sd">        y_grid : ndarray, optional</span>
+<span class="sd">            Spatial grid in y (2D only).</span>
+<span class="sd">        eta_grid : ndarray, optional</span>
+<span class="sd">            Frequency grid in η (2D only).</span>
+<span class="sd">        xi0 : float, default=0.0</span>
+<span class="sd">            Fixed frequency ξ for 2D slicing.</span>
+<span class="sd">        eta0 : float, default=0.0</span>
+<span class="sd">            Fixed frequency η for 2D slicing.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">visualize_symbol_amplitude</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">eta_grid</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_phase">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_phase">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Plot arg(p(x, xi)) (1D) or arg(p(x, y, xi0, eta0)) (2D).</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot the symbol phase arg(p(x, ξ)) (1D) or arg(p(x, y, ξ₀, η₀)) (2D).</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x_grid : ndarray</span>
+<span class="sd">            Spatial grid in x.</span>
+<span class="sd">        xi_grid : ndarray</span>
+<span class="sd">            Frequency grid in ξ.</span>
+<span class="sd">        y_grid : ndarray, optional</span>
+<span class="sd">            Spatial grid in y (2D only).</span>
+<span class="sd">        eta_grid : ndarray, optional</span>
+<span class="sd">            Frequency grid in η (2D only).</span>
+<span class="sd">        xi0 : float, default=0.0</span>
+<span class="sd">            Fixed frequency ξ for 2D slicing.</span>
+<span class="sd">        eta0 : float, default=0.0</span>
+<span class="sd">            Fixed frequency η for 2D slicing.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">visualize_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">eta_grid</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_characteristic_set">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_characteristic_set">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="p">[</span><span class="mf">0.1</span><span class="p">]):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Visualize the characteristic set p(x, xi) ~= 0 (1D) or the (xi, eta)</span>
-<span class="sd">        slice at fixed (x0, y0) (2D).</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Visualize the characteristic set p(x, ξ) ≈ 0 (1D) or the (ξ, η) slice </span>
+<span class="sd">        at fixed (x₀, y₀) (2D).</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x_grid : ndarray</span>
+<span class="sd">            Spatial grid in x.</span>
+<span class="sd">        xi_grid : ndarray</span>
+<span class="sd">            Frequency grid in ξ.</span>
+<span class="sd">        y_grid : ndarray, optional</span>
+<span class="sd">            Spatial grid in y (2D only).</span>
+<span class="sd">        eta_grid : ndarray, optional</span>
+<span class="sd">            Frequency grid in η (2D only).</span>
+<span class="sd">        y0 : float, default=0.0</span>
+<span class="sd">            Fixed spatial y for 2D slicing.</span>
+<span class="sd">        x0 : float, default=0.0</span>
+<span class="sd">            Fixed spatial x for 2D slicing.</span>
+<span class="sd">        levels : list of float, default=[0.1]</span>
+<span class="sd">            Contour levels defining the characteristic set.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">visualize_characteristic_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">eta_grid</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="n">levels</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_characteristic_gradient">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_characteristic_gradient">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Visualize |grad p| in phase space. NOTE: both the 1D and 2D</span>
-<span class="sd">        branches now consistently use abs(.)**2 in the gradient norm (the</span>
-<span class="sd">        original 1D branch omitted the abs(), inconsistently with 2D).</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Visualize the characteristic gradient |∇p| in phase space.</span>
+<span class="sd">        </span>
+<span class="sd">        Uses |∂p/∂ξ|² + |∂p/∂x|² (and y/η in 2D) consistently across dimensions.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x_grid : ndarray</span>
+<span class="sd">            Spatial grid in x.</span>
+<span class="sd">        xi_grid : ndarray</span>
+<span class="sd">            Frequency grid in ξ.</span>
+<span class="sd">        y_grid : ndarray, optional</span>
+<span class="sd">            Spatial grid in y (2D only).</span>
+<span class="sd">        eta_grid : ndarray, optional</span>
+<span class="sd">            Frequency grid in η (2D only).</span>
+<span class="sd">        y0 : float, default=0.0</span>
+<span class="sd">            Fixed spatial y for 2D slicing.</span>
+<span class="sd">        x0 : float, default=0.0</span>
+<span class="sd">            Fixed spatial x for 2D slicing.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">visualize_characteristic_gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">eta_grid</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.plot_hamiltonian_flow">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.plot_hamiltonian_flow">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_hamiltonian_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">show_field</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Integrate and plot the Hamiltonian trajectories of the symbol in</span>
-<span class="sd">        phase space. Delegates to the shared `integrate_singularity` engine</span>
-<span class="sd">        instead of re-deriving the Hamiltonian vector field inline.</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Integrate and plot the Hamiltonian trajectories of the symbol in phase space.</span>
+<span class="sd">        </span>
+<span class="sd">        Delegates to the shared `integrate_singularity` engine.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x0 : float, default=0.0</span>
+<span class="sd">            Initial spatial x position.</span>
+<span class="sd">        xi0 : float, default=5.0</span>
+<span class="sd">            Initial frequency ξ.</span>
+<span class="sd">        y0 : float, default=0.0</span>
+<span class="sd">            Initial spatial y position (2D only).</span>
+<span class="sd">        eta0 : float, default=0.0</span>
+<span class="sd">            Initial frequency η (2D only).</span>
+<span class="sd">        tmax : float, default=1.0</span>
+<span class="sd">            Maximum integration time.</span>
+<span class="sd">        n_steps : int, default=100</span>
+<span class="sd">            Number of integration steps.</span>
+<span class="sd">        show_field : bool, default=True</span>
+<span class="sd">            Whether to overlay the background vector field.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">plot_hamiltonian_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="n">tmax</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">,</span> <span class="n">show_field</span><span class="o">=</span><span class="n">show_field</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.plot_symplectic_vector_field">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.plot_symplectic_vector_field">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">plot_symplectic_vector_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Quiver plot of the symplectic vector field (dp/dxi, -dp/dx). 1D only.</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Quiver plot of the symplectic vector field (∂p/∂ξ, -∂p/∂x). </span>
+<span class="sd">        1D only.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        xlim : tuple of float, default=(-2, 2)</span>
+<span class="sd">            Spatial limits (x_min, x_max).</span>
+<span class="sd">        klim : tuple of float, default=(-5, 5)</span>
+<span class="sd">            Frequency limits (ξ_min, ξ_max).</span>
+<span class="sd">        density : int, default=30</span>
+<span class="sd">            Grid density for the quiver plot.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">plot_symplectic_vector_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="n">xlim</span><span class="p">,</span> <span class="n">klim</span><span class="o">=</span><span class="n">klim</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="n">density</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_micro_support">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_micro_support">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_micro_support</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Visualize 1/|p(x, xi)| to highlight regions where the symbol is</span>
-<span class="sd">        near zero. NOTE: no longer restricted to 1D -- the shared grid/render</span>
-<span class="sd">        helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y).</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Visualize the micro-support by highlighting regions where the symbol </span>
+<span class="sd">        amplitude |p(x, ξ)| is near zero (plots 1/|p(x, ξ)|).</span>
+<span class="sd">        </span>
+<span class="sd">        Handles both 1D and 2D cases.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        xlim : tuple of float, default=(-2, 2)</span>
+<span class="sd">            Spatial limits.</span>
+<span class="sd">        klim : tuple of float, default=(-10, 10)</span>
+<span class="sd">            Frequency limits.</span>
+<span class="sd">        threshold : float, default=0.001</span>
+<span class="sd">            Threshold below which the symbol is considered &quot;near zero&quot;.</span>
+<span class="sd">        density : int, default=300</span>
+<span class="sd">            Grid resolution.</span>
+<span class="sd">        xi0 : float, default=0.0</span>
+<span class="sd">            Fixed frequency ξ for 2D slicing.</span>
+<span class="sd">        eta0 : float, default=0.0</span>
+<span class="sd">            Fixed frequency η for 2D slicing.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">visualize_micro_support</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="n">xlim</span><span class="p">,</span> <span class="n">klim</span><span class="o">=</span><span class="n">klim</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="n">threshold</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="n">density</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.visualize_wavefront_set">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.visualize_wavefront_set">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">visualize_wavefront_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seeds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tspan</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">),</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;cotangent&#39;</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;plasma&#39;</span><span class="p">,</span> <span class="n">show_flow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_endpoints</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">n_seeds</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.15</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wavefront set WF(u) obtained by propagating seed singularities along</span>
-<span class="sd">        the bicharacteristics of `op.symbol`. If `seeds` is not given, a default</span>
-<span class="sd">        fan/point-source is built from (x0, y0) and (xi0, eta0) -- see</span>
-<span class="sd">        _default_wavefront_seeds. `projection` follows plot_wavefront_set:</span>
-<span class="sd">        1D -&gt; &#39;cotangent&#39; or &#39;position&#39;; 2D -&gt; &#39;cotangent&#39;, &#39;position&#39;,</span>
-<span class="sd">        &#39;frequency&#39;, &#39;mixed_x&#39;, &#39;mixed_y&#39;, or &#39;full&#39; (2x2 cotangent-bundle grid).</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Visualize the wavefront set WF(u) by propagating seed singularities </span>
+<span class="sd">        along the bicharacteristics of the symbol.</span>
+<span class="sd">        </span>
+<span class="sd">        If `seeds` is not given, a default fan/point-source is built from the </span>
+<span class="sd">        provided initial coordinates.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        seeds : list of tuple, optional</span>
+<span class="sd">            Custom initial seeds (x, ξ) or (x, y, ξ, η).</span>
+<span class="sd">        tspan : tuple of float, default=(0, 3.0)</span>
+<span class="sd">            Time integration span.</span>
+<span class="sd">        projection : str, default=&#39;cotangent&#39;</span>
+<span class="sd">            Projection type (&#39;cotangent&#39;, &#39;position&#39;, &#39;frequency&#39;, etc.).</span>
+<span class="sd">        n_steps : int, default=500</span>
+<span class="sd">            Number of integration steps per trajectory.</span>
+<span class="sd">        cmap : str, default=&#39;plasma&#39;</span>
+<span class="sd">            Matplotlib colormap for the trajectories.</span>
+<span class="sd">        show_flow : bool, default=True</span>
+<span class="sd">            Whether to show the background Hamiltonian flow.</span>
+<span class="sd">        show_endpoints : bool, default=True</span>
+<span class="sd">            Whether to mark the endpoints of the trajectories.</span>
+<span class="sd">        title : str, optional</span>
+<span class="sd">            Custom plot title.</span>
+<span class="sd">        x0, y0 : float, default=0.0</span>
+<span class="sd">            Initial spatial coordinates.</span>
+<span class="sd">        xi0, eta0 : float, default=1.0, 0.0</span>
+<span class="sd">            Initial frequency coordinates.</span>
+<span class="sd">        spread : float, default=2.0</span>
+<span class="sd">            Spread factor for the default seed fan.</span>
+<span class="sd">        n_seeds : int, default=25</span>
+<span class="sd">            Number of seeds in the default fan.</span>
+<span class="sd">        radius : float, default=0.15</span>
+<span class="sd">            Radius for circular seed distributions.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">visualize_wavefront_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seeds</span><span class="o">=</span><span class="n">seeds</span><span class="p">,</span> <span class="n">tspan</span><span class="o">=</span><span class="n">tspan</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="n">n_steps</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">show_flow</span><span class="o">=</span><span class="n">show_flow</span><span class="p">,</span> <span class="n">show_endpoints</span><span class="o">=</span><span class="n">show_endpoints</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="n">spread</span><span class="p">,</span> <span class="n">n_seeds</span><span class="o">=</span><span class="n">n_seeds</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="n">radius</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.group_velocity_field">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.group_velocity_field">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">group_velocity_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Quiver plot of the group velocity field (1, dp/dxi). 1D only.</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Quiver plot of the group velocity field (1, ∂p/∂ξ). </span>
+<span class="sd">        1D only.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        xlim : tuple of float, default=(-2, 2)</span>
+<span class="sd">            Spatial limits.</span>
+<span class="sd">        klim : tuple of float, default=(-10, 10)</span>
+<span class="sd">            Frequency limits.</span>
+<span class="sd">        density : int, default=30</span>
+<span class="sd">            Grid density for the quiver plot.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.figure.Figure</span>
+<span class="sd">            The generated plot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">group_velocity_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="n">xlim</span><span class="p">,</span> <span class="n">klim</span><span class="o">=</span><span class="n">klim</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="n">density</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.animate_singularity">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.animate_singularity">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">animate_singularity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">n_frames</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Animate the propagation of a singularity under the Hamiltonian</span>
-<span class="sd">        flow. Thin delegate to the module-level `animate_singularity`</span>
-<span class="sd">        engine (previously ~130 lines of duplicated Hamiltonian/ODE setup</span>
-<span class="sd">        here, plus a near-identical copy further down the module).</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Animate the propagation of a singularity under the Hamiltonian flow.</span>
+<span class="sd">        </span>
+<span class="sd">        Delegates to the module-level `animate_operator_singularity` engine.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        xi0 : float, default=5.0</span>
+<span class="sd">            Initial frequency ξ.</span>
+<span class="sd">        eta0 : float, default=0.0</span>
+<span class="sd">            Initial frequency η (2D only).</span>
+<span class="sd">        x0 : float, default=0.0</span>
+<span class="sd">            Initial spatial x.</span>
+<span class="sd">        y0 : float, default=0.0</span>
+<span class="sd">            Initial spatial y (2D only).</span>
+<span class="sd">        tmax : float, default=4.0</span>
+<span class="sd">            Maximum animation time.</span>
+<span class="sd">        n_frames : int, default=100</span>
+<span class="sd">            Number of frames in the animation.</span>
+<span class="sd">        projection : str, optional</span>
+<span class="sd">            Phase-space projection type.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        matplotlib.animation.FuncAnimation</span>
+<span class="sd">            The generated animation object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">animate_operator_singularity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="n">xi0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="n">eta0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="n">y0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="n">tmax</span><span class="p">,</span> <span class="n">n_frames</span><span class="o">=</span><span class="n">n_frames</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.interactive_symbol_analysis">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.interactive_symbol_analysis">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">interactive_symbol_analysis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">ylim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">xi_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">eta_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Launch an ipywidgets dashboard for symbol exploration. Same modes,</span>
-<span class="sd">        same sliders, same defaults as before -- rewritten as a mode-table</span>
-<span class="sd">        dispatcher that delegates to the visualize_*/plot_* methods above</span>
-<span class="sd">        instead of duplicating their 1D/2D branches inline (previously</span>
-<span class="sd">        ~260 lines of near-duplicated if-elif chains).</span>
-<span class="sd">        cf. package microlocal.py.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Launch an interactive ipywidgets dashboard for symbol exploration.</span>
+<span class="sd">        </span>
+<span class="sd">        Provides sliders and mode-selection to dynamically visualize amplitude, </span>
+<span class="sd">        phase, characteristics, and flows.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        xlim : tuple of float, default=(-2, 2)</span>
+<span class="sd">            Spatial x limits.</span>
+<span class="sd">        ylim : tuple of float, default=(-2, 2)</span>
+<span class="sd">            Spatial y limits (2D only).</span>
+<span class="sd">        xi_range : tuple of float, default=(0.1, 5)</span>
+<span class="sd">            Frequency ξ range for the dashboard.</span>
+<span class="sd">        eta_range : tuple of float, default=(-5, 5)</span>
+<span class="sd">            Frequency η range for the dashboard (2D only).</span>
+<span class="sd">        density : int, default=50</span>
+<span class="sd">            Base grid density for the visualizations.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ipywidgets.VBox</span>
+<span class="sd">            The interactive dashboard widget.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_mu</span><span class="o">.</span><span class="n">interactive_symbol_analysis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="n">xlim</span><span class="p">,</span> <span class="n">ylim</span><span class="o">=</span><span class="n">ylim</span><span class="p">,</span> <span class="n">xi_range</span><span class="o">=</span><span class="n">xi_range</span><span class="p">,</span> <span class="n">eta_range</span><span class="o">=</span><span class="n">eta_range</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="n">density</span><span class="p">)</span></div>
 </div>
 

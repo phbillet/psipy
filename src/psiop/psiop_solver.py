@@ -117,11 +117,13 @@ Amortized propagator families
     entirely. This is cached process-wide by `build_propagator`.
 
 Second-order block companion reduction
-    The equation ``∂²ₜu = Op(S)(u)`` is rewritten as a first-order system 
-    for the state vector ``[u, v]ᵀ`` where ``v = ∂ₜu``:
-        ∂ₜ [u]   [ 0   I ] [u]
-           [v] = [ S   0 ] [v]
-    For a ``k × k`` matrix symbol ``S``, the companion matrix is ``2k × 2k``. 
+    The equation `∂²ₜu = Op[S](u)` is rewritten as a first-order system 
+    for the state vector `[u, v]ᵀ` where `v = ∂ₜu`:
+
+        ∂ₜ ⎡u⎤   ⎡0   I⎤ ⎡u⎤
+           ⎣v⎦ = ⎣S   0⎦ ⎣v⎦
+
+    For a `k × k` matrix symbol `S`, the companion matrix is `2k × 2k`. 
     This allows the full machinery of `solve_first_order` to be reused 
     without deriving a separate second-order integrator.
 
@@ -133,8 +135,8 @@ Sylvester-type operator splitting
     exact solution over a step ``dt`` is ``U(t) = exp(tP) U(0) exp(-tQ)``. 
     If they depend on ``x``, the underlying scalar operators ``Op[P_ij]`` 
     and ``Op[Q_jk]`` may not commute. The solver then falls back to:
-    - Lie-Trotter: ``U^{n+1} = exp(dt·P) exp(-dt·Q) U^n``  (``𝒪(dt)`` error)
-    - Strang: ``U^{n+1} = exp(dt/2·P) exp(-dt·Q) exp(dt/2·P) U^n`` (``𝒪(dt²)``)
+    - Lie-Trotter:  `Uⁿ⁺¹ = exp(dt·P) exp(-dt·Q) Uⁿ`   ( `𝒪(dt)`  error)
+    - Strang:  `Uⁿ⁺¹ = exp(dt/2·P) exp(-dt·Q) exp(dt/2·P) Uⁿ`  ( `𝒪(dt²)` )
 
 Quasi-linear IMEX for conformal Ricci flow
     The 2D Ricci flow in conformal gauge ``g = e²ᵠ(dx² + dy²)`` reduces to 
@@ -268,21 +270,38 @@ def make_grid_2d(L=10.0, N=128):
 # ----------------------------------------------------------------------
 
 def make_grids(vars_x, L, N):
-    """Build spatial + frequency grids and the meshgrid-ed spatial
-    coordinates used to evaluate initial conditions -- factors out the
-    grid-setup boilerplate that used to be copy-pasted verbatim in every
-    solve_* function below.
+    """
+    Build spatial + frequency grids and the meshgrid-ed spatial
+    coordinates used to evaluate initial conditions.
+    
+    Factors out the grid-setup boilerplate that used to be copy-pasted 
+    verbatim in every solve_* function below.
+
+    Parameters
+    ----------
+    vars_x : list of sympy.Symbol
+        Spatial variables (length 1 for 1D, length 2 for 2D).
+    L : float
+        Half-length of the spatial domain.
+    N : int
+        Number of grid points per spatial axis.
 
     Returns
     -------
-    X, Y : ndarray, ndarray or None
-        Meshgrid-ed spatial coordinates ('ij' indexing). Y is None in 1D.
-    x_grid, y_grid : ndarray, ndarray or None
-        1D spatial axes (y_grid is None in 1D).
-    kx, ky : ndarray, ndarray or None
-        Frequency axes (ky is None in 1D).
+    X : ndarray or None
+        Meshgrid-ed spatial coordinates along x ('ij' indexing). None in 1D.
+    Y : ndarray or None
+        Meshgrid-ed spatial coordinates along y ('ij' indexing). None in 1D.
+    x_grid : ndarray
+        1D spatial axis along x.
+    y_grid : ndarray or None
+        1D spatial axis along y. None in 1D.
+    kx : ndarray
+        Frequency axis along x.
+    ky : ndarray or None
+        Frequency axis along y. None in 1D.
     grids : tuple
-        (x, kx) in 1D or (x, y, kx, ky) in 2D -- what callers return.
+        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D.
     """
     dim = len(vars_x)
     if dim == 1:
@@ -297,16 +316,39 @@ def make_grids(vars_x, L, N):
 
 
 def run_time_loop(step_fn, U0, dt, n_steps, save_every, check_finite=True):
-    """Repeatedly apply `step_fn(U) -> U_next`, saving a snapshot every
-    `save_every` steps (plus the final step and t=0) -- factors out the
-    save-cadence bookkeeping that used to be copy-pasted verbatim in every
-    solve_* function below.
+    """
+    Repeatedly apply `step_fn(U) → U_next`, saving a snapshot every
+    `save_every` steps (plus the final step and t=0).
+    
+    Factors out the save-cadence bookkeeping that used to be copy-pasted 
+    verbatim in every solve_* function below.
+
+    Parameters
+    ----------
+    step_fn : callable
+        Function that takes the current state `U` and returns the next state `U_next`.
+    U0 : ndarray
+        Initial state array.
+    dt : float
+        Time-step size.
+    n_steps : int
+        Total number of time steps to evolve.
+    save_every : int
+        Store the solution snapshot every `save_every` steps.
+    check_finite : bool, default True
+        If True, raise `FloatingPointError` if a non-finite value is detected.
+
+    Returns
+    -------
+    t_list : ndarray
+        Array of saved time points.
+    U_list : ndarray
+        Array of saved state snapshots.
 
     Raises
     ------
     FloatingPointError
-        If `check_finite` is True and a non-finite value shows up -- avoids
-        silently returning a diverged/garbage trajectory.
+        If `check_finite` is True and a non-finite value shows up.
     """
     t_list = [0.0]
     U_list = [np.asarray(U0).copy()]
@@ -448,6 +490,35 @@ _propagator_family_cache = {}
 
 def _propagator_family_key(s_expr, vars_x, order, quantization,
                             mode_composition, apply_backend, do_simplify=True):
+    """
+    Generate a hashable cache key for a `PropagatorFamily`.
+    
+    The key is based on all parameters that determine the symbolic 
+    composition, excluding the time-step `dt` (which is handled dynamically 
+    via `sympy.subs` inside the family).
+
+    Parameters
+    ----------
+    s_expr : sympy.Expr, sympy.MatrixBase, list, or tuple
+        The symbol or matrix of symbols.
+    vars_x : list of sympy.Symbol
+        Spatial variables.
+    order : int
+        Truncation order for the asymptotic expansion.
+    quantization : str
+        Quantization convention.
+    mode_composition : str
+        Composition rule.
+    apply_backend : str
+        Numerical application backend.
+    do_simplify : bool, default True
+        Whether to simplify the symbol during construction.
+
+    Returns
+    -------
+    tuple
+        A hashable tuple representing the cache key.
+    """
     if isinstance(s_expr, (MatrixBase, list, tuple)):
         expr_key = srepr(Matrix(s_expr))
     else:
@@ -560,7 +631,7 @@ def solve_first_order(s_expr, vars_x, f, dt, n_steps, order=3,
 
     At each time step the field is advanced via
 
-        u^{n+1} = exp(dt · Op[s]) u^n ≈ (I + dt·P + (dt²/2!)P∘P + ⋯) u^n
+        uⁿ⁺¹ = exp(dt · Op[s]) uⁿ ≈ (I + dt·P + (dt²/2!)P∘P + ⋯) uⁿ
 
     Parameters
     ----------
@@ -801,14 +872,16 @@ def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
       `dt > 0`, so it is unconditionally unstable; leapfrog is the
       cheapest explicit scheme that avoids that failure mode.
 
-      Per-step KDK update, from `(u^n, v^n)` to `(u^{n+1}, v^{n+1})`:
+      Per-step KDK update, from `(uⁿ, vⁿ)` to `(uⁿ⁺¹, vⁿ⁺¹)`:
 
-          v^{n+1/2} = v^n       + (dt/2)·Op[S](u^n)      # kick
-          u^{n+1}   = u^n       +  dt   ·v^{n+1/2}       # drift
-          v^{n+1}   = v^{n+1/2} + (dt/2)·Op[S](u^{n+1})  # kick
+       vⁿ⁺¹/² = vⁿ       + (dt/2)·Op[S](uⁿ)      # kick
+       uⁿ⁺¹   = uⁿ       +  dt   ·vⁿ⁺¹/²         # drift
+       vⁿ⁺¹   = vⁿ⁺¹/²   + (dt/2)·Op[S](uⁿ⁺¹)    # kick
+       equivalent to the textbook `uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ +
+       dt²·Op[S](uⁿ)` form
 
-      equivalent to the textbook `u^{n+1} = 2u^n − u^{n−1} +
-      dt²·Op[S](u^n)` form but self-starting from `(u^0, v^0)` with no
+      equivalent to the textbook `uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ +
+      dt²·Op[S](uⁿ)` form but self-starting from `(u^0, v^0)` with no
       separate initialization step, and it yields a velocity that is
       naturally synchronized with `u` at every saved time (the average
       of the two half-kicks straddling it).
@@ -1146,11 +1219,11 @@ def solve_sylvester_field(P_expr, Q_expr, vars_x, F, dt, n_steps, order=3,
         Operator-splitting scheme between the `P` (left) and `Q` (right)
         sub-steps:
 
-        - 'lie'    : one full left step `exp(dt·P)`, then one full right
-                     step `exp(-dt·Q)` -- first order accurate, `O(dt)`.
-        - 'strang' : half left step `exp(dt/2·P)`, full right step
-                     `exp(-dt·Q)`, half left step `exp(dt/2·P)` --
-                     second order accurate, `O(dt^2)`. Default.
+         - 'lie'    : one full left step `exp(dt·P)`, then one full right
+                      step `exp(-dt·Q)` -- first order accurate, `𝒪(dt)`.
+         - 'strang' : half left step `exp(dt/2·P)`, full right step
+                      `exp(-dt·Q)`, half left step `exp(dt/2·P)` --
+                      second order accurate, `𝒪(dt²)`. Default.
     L : float, optional
         Half-width of the spatial domain. Default 10.0.
     N : int, optional

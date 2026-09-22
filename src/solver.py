@@ -109,11 +109,18 @@ class PDESolver:
 
     Example Usage:
     --------------
-    >>> from PDESolver import *
-    >>> u = Function('u')
-    >>> t, x = symbols('t x')
-    >>> eq = Eq(diff(u(t, x), t), diff(u(t, x), x, 2) + u(t, x)**2)
-    >>> def _initial(x): return np.sin(x)
+    >>> import numpy as np
+    >>> import sympy as sp
+    >>> from IPython.display import HTML
+    >>> from solver import PDESolver
+    >>> 
+    >>> u = sp.Function('u')
+    >>> t, x = sp.symbols('t x')
+    >>> eq = sp.Eq(sp.diff(u(t, x), t), sp.diff(u(t, x), x, 2) + u(t, x)**2)
+    >>> 
+    >>> def initial(x): 
+    ...     return np.sin(x)
+    >>> 
     >>> solver = PDESolver(eq)
     >>> solver.setup(Lx=2*np.pi, Nx=128, Lt=1.0, Nt=1000, initial_condition=initial)
     >>> solver.solve()
@@ -1608,7 +1615,26 @@ class PDESolver:
     def _prepare_symbol_tables(self):
         """
         Precompute and store evaluated pseudo-differential operator symbols for spectral methods.
-        ...
+        
+        This method evaluates the symbolic pseudo-differential operators (ψOp) on the 
+        spatial and frequency grids. It performs a fast vectorized conversion to complex128 
+        arrays, bypassing per-element SymPy `N()` evaluation, and prepares the combined 
+        symbol for the Peetre backend or direct application.
+        
+        Attributes Set
+        --------------
+        self.precomputed_symbols : list of tuple
+            List of tuples containing the scalar coefficient and the evaluated complex128 
+            array for each pseudo-differential operator.
+        self.combined_symbol : np.ndarray
+            The accumulated sum of all coefficient-weighted evaluated symbols, representing 
+            the total pseudo-differential operator on the grid.
+            
+        Notes
+        -----
+        - This method is automatically called during `_setup_1D` or `_setup_2D` when 
+          pseudo-differential operators are present.
+        - The vectorized accumulation is performed directly in NumPy memory for efficiency.
         """
         self.precomputed_symbols = []
         combined = None
@@ -1647,18 +1673,20 @@ class PDESolver:
     def _total_symbol_expr(self):
         """
         Compute the total pseudo-differential symbol expression from all pseudo_terms.
-
-        This method constructs the full symbol of the pseudo-differential operator
-        by summing up all coefficient-weighted symbolic expressions.
-
-        The result is cached in self.symbol_expr to avoid recomputation.
-
-        Returns:
-            sympy.Expr: The combined symbol expression, representing the full
-                        pseudo-differential operator in symbolic form.
-
-        Example:
-            Given pseudo_terms = [(2, ξ²), (1, x·ξ)], this returns 2·ξ² + x·ξ.
+        
+        Constructs the full symbol of the pseudo-differential operator by summing up 
+        all coefficient-weighted symbolic expressions. The result is cached in 
+        `self.symbol_expr` to avoid recomputation.
+        
+        Returns
+        -------
+        sympy.Expr
+            The combined symbol expression, representing the full pseudo-differential 
+            operator in symbolic form.
+            
+        Examples
+        --------
+        Given `pseudo_terms = [(2, ξ²), (1, x·ξ)]`, this returns `2·ξ² + x·ξ`.
         """
         if not hasattr(self, '_symbol_expr'):
             self.symbol_expr = sum(coeff * expr for coeff, expr in self.pseudo_terms)
@@ -1667,28 +1695,28 @@ class PDESolver:
     def _build_symbol_func(self, expr):
         """
         Build a numerical evaluation function from a symbolic pseudo-differential operator expression.
-    
-        This method converts a symbolic expression representing a pseudo-differential operator into
-        a callable NumPy-compatible function. The function accepts spatial and frequency variables
-        depending on the dimensionality of the problem.
-    
+        
+        Converts a symbolic expression representing a pseudo-differential operator into
+        a callable NumPy-compatible function.
+        
         Parameters
         ----------
-        expr : sympy expression
-            A SymPy expression representing the symbol of the pseudo-differential operator. It may depend on spatial variables (x, y) and frequency variables (xi, eta).
-    
-        Returns:
-            function : A lambdified function that takes:
+        expr : sympy.Expr
+            A SymPy expression representing the symbol of the pseudo-differential operator. 
+            It may depend on spatial variables (x, y) and frequency variables (ξ, η).
             
-                - In 1D: `(x, xi)` — spatial coordinate and frequency.
-                - In 2D: `(x, y, xi, eta)` — spatial coordinates and frequencies.
-                
-              Returns a NumPy array of evaluated symbol values over input grids.
-    
-        Notes:
-            - Uses `lambdify` from SymPy with the `'numpy'` backend for efficient vectorized evaluation.
-            - Real variable assumptions are enforced to ensure proper behavior in numerical contexts.
-            - Used internally by methods like `apply_psiOp`, `evaluate`, and visualization tools.
+        Returns
+        -------
+        callable
+            A lambdified function that takes:
+            - In 1D: `(x, ξ)` — spatial coordinate and frequency.
+            - In 2D: `(x, y, ξ, η)` — spatial coordinates and frequencies.
+            Returns a NumPy array of evaluated symbol values over input grids.
+            
+        Notes
+        -----
+        - Uses `lambdify` from SymPy with the `'numpy'` backend for efficient vectorized evaluation.
+        - Real variable assumptions are enforced to ensure proper behavior in numerical contexts.
         """
         if self.dim == 1:
             x, xi = symbols('x xi', real=True)
@@ -1756,60 +1784,28 @@ class PDESolver:
         """
         Perform one time step of a first-order evolution using a pseudo-differential operator.
         
-        This method updates the solution field using an exponential integrator scheme,
-        depending on boundary conditions and the structure of the pseudo-differential symbol.
-        It supports:
-        - Linear dynamics via pseudo-differential operator L (possibly nonlocal, Kohn-Nirenberg quantization)
-        - Nonlinear terms computed via spectral differentiation
-        - External source contributions
-        
-        The update follows **three distinct computational paths**:
-        
-        1. **Periodic boundaries + diagonalizable symbol**
-           Symbol is spatially constant → exact Fourier-based exponential integrator:
-               uₙ₊₁ = e⁻ᴸΔᵗ ⋅ uₙ + Δt ⋅ (N(uₙ) + F)
-        
-        2. **Non-periodic boundaries + spatially uniform symbol**
-           General ETD1 scheme in Fourier space:
-               uₙ₊₁ = e⁻ᴸΔᵗ ⋅ uₙ + Δt ⋅ φ₁(−LΔt) ⋅ (N(uₙ) + F)
-        
-        3. **Spatially varying symbol (Kohn-Nirenberg regime)**
-           Full diagonalization is unavailable. A single call to _apply_psiOp yields
-           the exact operator action L(uₙ); the pointwise symbol σ(x,ξ) then serves
-           as a local integrating factor. The update decomposes as:
-        
-               uₙ₊₁ = e⁻σΔᵗ ⋅ uₙ + Δt ⋅ φ₁(−σΔt) ⋅ (N(uₙ) + F + R(uₙ))
-        
-           where the residual correction:
-        
-               R(uₙ) = L(uₙ) + σ ⋅ uₙ
-        
-           accounts for the difference between the full nonlocal operator and its
-           pointwise-diagonal approximation. This correction vanishes when σ is
-           spatially uniform (recovering exact ETD1), and remains small under the
-           Kohn-Nirenberg slow-variation assumption on the symbol.
-           A spectral filter is applied after the update to control aliasing.
-           This path requires exactly one call to _apply_psiOp per time step.
-        
-        where:
-            L(uₙ)    = full linear action via Kohn-Nirenberg pseudo-differential operator
-            σ(x,ξ)  = pointwise symbol evaluated on the spatial grid (diagonal approximation of L)
-            R(uₙ)   = L(uₙ) + σ·uₙ, residual between true operator and diagonal approximation
-            N(uₙ)   = nonlinear contribution at current time step
-            F        = external source term
-            Δt       = time step size
-            φ₁(z)   = (eᶻ − 1)/z (analytically continued at z=0 as φ₁(0) = 1)
-        
-        Boundary conditions are applied after each update to ensure consistency.
+        Updates the solution field using an exponential integrator scheme, depending on 
+        boundary conditions and the structure of the pseudo-differential symbol.
         
         Parameters
-            source_contribution (np.ndarray): Array representing the external source term at the
-                                              current time step. Pass a scalar 0 to indicate no source;
-                                              it will be broadcast to a zero array internally.
-                                              Must match the spatial dimensions of self.u_prev.
-        
-        Returns:
-            np.ndarray: Updated solution array after one time step.
+        ----------
+        source_contribution : np.ndarray or scalar
+            Array representing the external source term at the current time step. 
+            Pass a scalar 0 to indicate no source; it will be broadcast to a zero array 
+            internally. Must match the spatial dimensions of `self.u_prev`.
+            
+        Returns
+        -------
+        np.ndarray
+            Updated solution array after one time step.
+            
+        Notes
+        -----
+        The update follows three distinct computational paths:
+        1. Periodic boundaries + diagonalizable symbol: Exact Fourier-based exponential integrator.
+        2. Non-periodic boundaries + spatially uniform symbol: General ETD1 scheme in Fourier space.
+        3. Spatially varying symbol (Kohn-Nirenberg regime): Uses pointwise symbol as an 
+           approximate integrating factor, with a residual correction `R(uₙ) = L(uₙ) + σ·uₙ`.
         """
         # Handling null source
         if np.isscalar(source_contribution):
@@ -1896,31 +1892,21 @@ class PDESolver:
     def _step_order2_with_psi(self, source_contribution):
         """
         Perform one time step of a second-order time evolution using a pseudo-differential operator.
-    
-        This method updates the solution field using a second-order accurate scheme suitable for wave-like equations.
-        The update includes contributions from:
-        - Linear dynamics via a pseudo-differential operator (e.g., dispersion or stiffness)
-        - Nonlinear terms computed via spectral differentiation
-        - External source contributions
-    
-        Discretization follows a leapfrog-style finite difference in time:
         
-            uₙ₊₁ = 2uₙ − uₙ₋₁ + Δt² ⋅ (L(uₙ) + N(uₙ) + F)
-    
-        where:
-            L(uₙ) = linear part evaluated via pseudo-differential operator
-            N(uₙ) = nonlinear contribution at current time step
-            F     = external source term at current time step
-            Δt    = time step size
-    
-        Boundary conditions are applied after each update to ensure consistency.
-    
+        Updates the solution field using a second-order accurate leapfrog-style finite 
+        difference in time:
+            uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ + Δt² ⋅ (L(uⁿ) + N(uⁿ) + F)
+            
         Parameters
-            source_contribution (np.ndarray): Array representing the external source term at current time step.
-                                              Must match the spatial dimensions of self.u_prev.
-    
-        Returns:
-            np.ndarray: Updated solution array after one time step.
+        ----------
+        source_contribution : np.ndarray
+            Array representing the external source term at current time step.
+            Must match the spatial dimensions of `self.u_prev`.
+            
+        Returns
+        -------
+        np.ndarray
+            Updated solution array after one time step.
         """
         Lu_prev = -self._apply_psiOp(self.u_prev)
         rhs_nl = self._apply_nonlinear(self.u_prev, is_v=False)
@@ -1935,40 +1921,30 @@ class PDESolver:
         """
         Solve the partial differential equation numerically using spectral methods.
         
-        This method evolves the solution in time using a combination of:
-        - Fourier-based linear evolution (with dealiasing)
-        - Nonlinear term handling via pseudo-spectral evaluation
-        - Support for pseudo-differential operators (psiOp)
-        - Source terms and boundary conditions
+        This method evolves the solution in time using a combination of Fourier-based 
+        linear evolution, nonlinear term handling via pseudo-spectral evaluation, and 
+        support for pseudo-differential operators (ψOp), source terms, and boundary conditions.
         
-        The solver supports:
-        - 1D and 2D spatial domains
-        - First and second-order time evolution
-        - Periodic and Dirichlet boundary conditions
-        - Time-stepping schemes: default, ETD-RK4
-        
-        Returns:
-            list[np.ndarray]: A list of solution arrays at each saved time frame.
-        
-        Side Effects:
-            - Updates self.frames: stores solution snapshots
-            - Updates self.energy_history: records total energy if enabled
+        Returns
+        -------
+        list of np.ndarray
+            A list of solution arrays at each saved time frame.
             
-        Algorithm Overview:
-            For each time step:
-                1. Evaluate source contributions (if any)
-                2. Apply time evolution:
-                    - Order 1:
-                        - With psiOp: uses step_order1_with_psi
-                        - With ETD-RK4: exponential time differencing
-                        - Default: linear + nonlinear update
-                    - Order 2:
-                        - With psiOp: uses step_order2_with_psi
-                        - With ETD-RK4: second-order exponential scheme
-                        - Default: second-order leapfrog-style update
-                3. Enforce boundary conditions
-                4. Save solution snapshot periodically
-                5. Record energy (for second-order systems, with or without psiOp)
+        Notes
+        -----
+        - Updates `self.frames` to store solution snapshots.
+        - Updates `self.energy_history` to record total energy if enabled.
+        
+        Algorithm Overview
+        ------------------
+        For each time step:
+            1. Evaluate source contributions (if any).
+            2. Apply time evolution:
+                - Order 1: Uses `_step_order1_with_psi`, ETD-RK4, or default linear+nonlinear update.
+                - Order 2: Uses `_step_order2_with_psi`, ETD-RK4, or default leapfrog-style update.
+            3. Enforce boundary conditions.
+            4. Save solution snapshot periodically.
+            5. Record energy (for second-order systems).
         """
         print('\n*******************')
         print('* Solving the PDE *')
@@ -2212,18 +2188,22 @@ class PDESolver:
     def _eval_source(self, t_val):
         """
         Evaluate the total source term f(x,t) (or f(x,y,t)) at a given time `t_val`.
-
+        
         This factors out the source-evaluation logic used in the main time-stepping
-        loop so that sub-step schemes (e.g. ETD-RK4) can sample the source at the
-        intermediate stage times they require (t, t+dt/2, t+dt, ...) instead of
+        loop so that sub-step schemes (e.g., ETD-RK4) can sample the source at the
+        intermediate stage times they require (t, t+Δt/2, t+Δt, ...) instead of
         reusing a single value computed at the start of the step.
-
+        
         Parameters
-            t_val (float): Time at which to evaluate the source term(s).
-
+        ----------
+        t_val : float
+            Time at which to evaluate the source term(s).
+            
         Returns
-            np.ndarray or float: Source contribution on the spatial grid, or 0.0
-            if no source terms are registered.
+        -------
+        np.ndarray or float
+            Source contribution on the spatial grid, or 0.0 if no source terms 
+            are registered.
         """
         if hasattr(self, '_compiled_source_funcs') and self._compiled_source_funcs:
             source = np.zeros_like(self.X, dtype=np.complex128)
@@ -2241,45 +2221,44 @@ class PDESolver:
 
     def _step_ETD_RK4_order1(self, u, t=0.0):
         """
-        Perform one Exponential Time Differencing Runge-Kutta of 4th order (ETD-RK4) time step 
-        for first-order in time PDEs of the form:
+        Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step 
+        for first-order in time PDEs.
         
+        Solves equations of the form:
             ∂ₜu = L u + N(u) + f(x,t)
-        
         where L is a linear operator (possibly nonlocal or pseudo-differential), and N is a 
-        nonlinear term treated via pseudo-spectral methods. This method evaluates the 
-        exponential integrator up to fourth-order accuracy in time.
-    
-        The ETD-RK4 scheme uses four stages to approximate the integral of the variation-of-constants formula:
+        nonlinear term treated via pseudo-spectral methods.
         
+        The ETD-RK4 scheme uses four stages to approximate the integral of the 
+        variation-of-constants formula:
             uⁿ⁺¹ = e^(L Δt) uⁿ + Δt ∫₀¹ e^(L Δt (1 - τ)) φ(N(u(τ))) dτ
-        
-        where φ denotes the nonlinear contributions evaluated at intermediate stages.
-    
+            
         Parameters
-            u (np.ndarray): Current solution in real space (physical grid values).
-    
-        Returns:
-            np.ndarray: Updated solution in real space after one ETD-RK4 time step.
-    
-        Notes:
-        - The linear part L is diagonal in Fourier space and precomputed as self.L(k).
+        ----------
+        u : np.ndarray
+            Current solution in real space (physical grid values).
+        t : float, optional
+            Current time. Default is 0.0.
+            
+        Returns
+        -------
+        np.ndarray
+            Updated solution in real space after one ETD-RK4 time step.
+            
+        Notes
+        -----
+        - The linear part L is diagonal in Fourier space and precomputed as `self.L(k)`.
         - Nonlinear terms are evaluated in physical space and transformed via FFT.
         - The functions φ₁(z) and φ₂(z) are entire functions arising from the ETD scheme:
-          
-              φ₁(z) = (eᶻ - 1)/z   if z ≠ 0
-                     = 1            if z = 0
-    
-              φ₂(z) = (eᶻ - 1 - z)/z²   if z ≠ 0
-                     = ½              if z = 0
-    
-        - This implementation assumes periodic boundary conditions and uses spectral differentiation via FFT.
-        - See Hochbruck & Ostermann (2010) for theoretical background on exponential integrators.
-    
-        See Also:
-            step_ETD_RK4_order2 : For second-order in time equations.
-            psiOp_apply           : For applying pseudo-differential operators.
-            apply_nonlinear      : For handling nonlinear terms in the PDE.
+              φ₁(z) = (eᶻ - 1)/z   if z ≠ 0, else 1
+              φ₂(z) = (eᶻ - 1 - z)/z²   if z ≠ 0, else ½
+        - Assumes periodic boundary conditions and uses spectral differentiation via FFT.
+        
+        See Also
+        --------
+        _step_ETD_RK4_order2 : For second-order in time equations.
+        _apply_psiOp : For applying pseudo-differential operators.
+        _apply_nonlinear : For handling nonlinear terms in the PDE.
         """
         dt = self.dt
         L_fft = self.L(self.KX) if self.dim == 1 else self.L(self.KX, self.KY)
@@ -2325,30 +2304,32 @@ class PDESolver:
 
     def _step_ETD_RK4_order2(self, u, v, t=0.0):
         """
-        Perform one time step of the Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) scheme for second-order PDEs.
-    
-        This method evolves the solution u and its time derivative v forward in time by one step using the ETD-RK4 integrator. 
-        It is designed for systems of the form:
+        Perform one time step of the ETD-RK4 scheme for second-order PDEs.
         
+        Evolves the solution u and its time derivative v forward in time by one step 
+        using the ETD-RK4 integrator. Designed for systems of the form:
             ∂ₜ²u = L u + N(u) + f(x,t)
-            
-        where L is a linear operator and N is a nonlinear term computed via self._apply_nonlinear.
+        where L is a linear operator and N is a nonlinear term.
         
-        The exponential integrator handles the linear part exactly in Fourier space, while the nonlinear terms are integrated 
-        using a fourth-order Runge-Kutta-like approach. This ensures high accuracy and stability for stiff systems.
-    
-        Parameters:
-            u (np.ndarray): Current solution array in real space.
-            v (np.ndarray): Current time derivative of the solution (∂ₜu) in real space.
-    
-        Returns:
-            tuple: (u_new, v_new), updated solution and its time derivative after one time step.
-    
-        Notes:
-            - Assumes periodic boundary conditions and uses FFT-based spectral methods.
-            - Handles both 1D and 2D problems seamlessly.
-            - Uses phi functions to compute exponential integrators efficiently.
-            - Suitable for wave equations and other second-order evolution equations with stiffness.
+        Parameters
+        ----------
+        u : np.ndarray
+            Current solution array in real space.
+        v : np.ndarray
+            Current time derivative of the solution (∂ₜu) in real space.
+        t : float, optional
+            Current time. Default is 0.0.
+            
+        Returns
+        -------
+        tuple of np.ndarray
+            `(u_new, v_new)`: Updated solution and its time derivative after one time step.
+            
+        Notes
+        -----
+        - Assumes periodic boundary conditions and uses FFT-based spectral methods.
+        - Handles both 1D and 2D problems seamlessly.
+        - Uses phi functions to compute exponential integrators efficiently.
         """
         dt = self.dt
     
@@ -2387,31 +2368,24 @@ class PDESolver:
 
     def _check_cfl_condition(self):
         """
-        Check the CFL (Courant–Friedrichs–Lewymann) condition based on group velocity 
+        Check the CFL (Courant–Friedrichs–Lewy) condition based on group velocity 
         for second-order time-dependent PDEs.
-    
-        This method verifies whether the chosen time step dt satisfies the numerical stability 
-        condition derived from the maximum wave propagation speed in the system. It supports both 
-        1D and 2D problems, with or without a symbolic dispersion relation ω(k).
-    
-        The CFL condition ensures that information does not propagate further than one grid cell 
-        per time step. A safety factor of 0.5 is applied by default to ensure robustness.
-    
-        Notes:
         
+        Verifies whether the chosen time step Δt satisfies the numerical stability 
+        condition derived from the maximum wave propagation speed in the system.
+        
+        Notes
+        -----
         - In 1D, the group velocity v₉(k) = dω/dk is used to compute the maximum wave speed.
         - In 2D, the x- and y-directional group velocities are evaluated independently.
         - If no dispersion relation is available, the imaginary part of the linear operator L(k) 
           is used as an approximation for wave speed.
-    
-        Raises:
-        -------
-        NotImplementedError: 
+        - Prints a warning message if the current time step Δt exceeds the CFL-stable limit.
+        
+        Raises
+        ------
+        NotImplementedError
             If the spatial dimension is not 1D or 2D.
-    
-        Prints:
-        -------
-        Warning message if the current time step dt exceeds the CFL-stable limit.
         """
         print("\n*****************")
         print("* CFL condition *")
@@ -2461,49 +2435,36 @@ class PDESolver:
 
     def _check_symbol_conditions(self, k_range=None, verbose=True):
         """
-        Check strict analytic conditions on the linear symbol self.L_symbolic:
-            This method evaluates three key properties of the Fourier multiplier 
-            symbol a(k) = self.L(k), which are crucial for well-posedness, stability,
-            and numerical efficiency. The checks apply to both 1D and 2D cases.
+        Check strict analytic conditions on the linear symbol `self.L_symbolic`.
         
-        Conditions checked:
-        ------------------
-        1. **Stability condition**: Re(a(k)) ≤ 0 for all k ≠ 0
-           Ensures that the system does not exhibit exponential growth in time.
-    
-        2. **Dissipation condition**: Re(a(k)) ≤ -δ |k|² for large |k|
-           Ensures sufficient damping at high frequencies to avoid oscillatory instability.
-    
-        3. **Growth condition**: |a(k)| ≤ C (1 + |k|)^m with m ≤ 4
-           Ensures that the symbol does not grow too rapidly with frequency, 
-           which would otherwise cause numerical instability or unphysical amplification.
-    
+        Evaluates three key properties of the Fourier multiplier symbol a(k) = self.L(k), 
+        which are crucial for well-posedness, stability, and numerical efficiency.
+        
         Parameters
         ----------
         k_range : tuple or None, optional
-            Specifies the range of frequencies to test in the form (k_min, k_max, N).
-            If None, defaults are used: [-10, 10] with 500 points in 1D, or [-10, 10] 
+            Specifies the range of frequencies to test in the form `(k_min, k_max, N)`.
+            If None, defaults are used: `[-10, 10]` with 500 points in 1D, or `[-10, 10]` 
             with 100 points per axis in 2D.
-    
         verbose : bool, default=True
             If True, prints detailed results of each condition check.
-    
-        Returns:
-        --------
+            
+        Returns
+        -------
         None
             Output is printed directly to the console for interpretability.
-    
-        Notes:
-        ------
+            
+        Notes
+        -----
+        - **Stability condition**: Re(a(k)) ≤ 0 for all k ≠ 0.
+        - **Dissipation condition**: Re(a(k)) ≤ -δ |k|² for large |k|.
+        - **Growth condition**: |a(k)| ≤ C (1 + |k|)^m with m ≤ 4.
         - In 2D, the radial frequency |k| = √(kx² + ky²) is used for comparisons.
-        - The dissipation threshold assumes δ = 0.01 and p = 2 by default.
-        - The growth ratio is compared against |k|⁴; values above 100 indicate rapid growth.
-        - This function is typically called during solver setup or analysis phase.
-    
-        See Also:
-        ---------
-        analyze_wave_propagation : For further symbolic and numerical analysis of dispersion.
-        plot_symbol : Visualizes the symbol's behavior over the frequency domain.
+        
+        See Also
+        --------
+        _analyze_wave_propagation : For further symbolic and numerical analysis of dispersion.
+        _plot_symbol : Visualizes the symbol's behavior over the frequency domain.
         """
         print("\n********************")
         print("* Symbol condition *")
@@ -2575,28 +2536,23 @@ class PDESolver:
     def _analyze_wave_propagation(self):
         """
         Perform a detailed analysis of wave propagation characteristics based on the dispersion relation ω(k).
-    
-        This method visualizes key wave properties in both 1D and 2D settings:
         
+        Visualizes key wave properties in both 1D and 2D settings:
         - Dispersion relation: ω(k)
-        - Phase velocity: v_p(k) = ω(k)/|k|
-        - Group velocity: v_g(k) = ∇ₖ ω(k)
-        - Anisotropy in 2D (via magnitude of group velocity)
-    
-        The symbolic dispersion relation 'omega_symbolic' must be defined beforehand.
-        This is typically available only for second-order-in-time equations.
-    
-        In 1D:
-            Plots ω(k), v_p(k), and v_g(k) over a range of k values.
-    
-        In 2D:
-            Displays heatmaps of ω(kx, ky), v_p(kx, ky), and |v_g(kx, ky)| over a 2D wavenumber grid.
-    
-        Raises:
-            AttributeError: If 'omega_symbolic' is not defined, the method exits gracefully with a message.
-    
-        Side Effects:
-            Generates and displays matplotlib plots.
+        - Phase velocity: vₚ(k) = ω(k)/|k|
+        - Group velocity: v₉(k) = ∇ₖ ω(k)
+        
+        Notes
+        -----
+        - The symbolic dispersion relation `omega_symbolic` must be defined beforehand.
+        - In 1D: Plots ω(k), vₚ(k), and v₉(k) over a range of k values.
+        - In 2D: Displays heatmaps of ω(kx, ky), vₚ(kx, ky), and |v₉(kx, ky)|.
+        - Generates and displays matplotlib plots as a side effect.
+        
+        Raises
+        ------
+        AttributeError
+            If `omega_symbolic` is not defined, the method exits gracefully with a message.
         """
         print("\n*****************************")
         print("* Wave propagation analysis *")
@@ -2676,40 +2632,31 @@ class PDESolver:
     def _plot_symbol(self, component="abs", k_range=None, cmap="viridis"):
         """
         Visualize the spectral symbol L(k) or L(kx, ky) in 1D or 2D.
-    
-        This method plots the linear operator's symbolic Fourier representation 
-        either as a function of a single wavenumber k (1D), or two wavenumbers 
-        kx and ky (2D). The user can choose to display the real part, imaginary part, 
-        or absolute value of the symbol.
-    
+        
+        Plots the linear operator's symbolic Fourier representation either as a function 
+        of a single wavenumber k (1D), or two wavenumbers kx and ky (2D).
+        
         Parameters
         ----------
         component : str {'abs', 're', 'im'}
             Component of the symbol to visualize:
-            
-                - 'abs' : absolute value |a(k)|
-                - 're'  : real part Re[a(k)]
-                - 'im'  : imaginary part Im[a(k)]
-                
+            - 'abs' : absolute value |a(k)|
+            - 're'  : real part Re[a(k)]
+            - 'im'  : imaginary part Im[a(k)]
         k_range : tuple (kmin, kmax, N), optional
-            Wavenumber range for evaluation:
-            
-                - kmin: minimum wavenumber
-                - kmax: maximum wavenumber
-                - N: number of sampling points
-                
-            If None, defaults to [-10, 10] with high resolution.
+            Wavenumber range for evaluation. If None, defaults to `[-10, 10]` with high resolution.
         cmap : str, optional
             Colormap used for 2D surface plots. Default is 'viridis'.
-    
+            
         Raises
         ------
-            ValueError: If the spatial dimension is not 1D or 2D.
-    
-        Notes:
-            - In 1D, the symbol is plotted using a standard 2D line plot.
-            - In 2D, a 3D surface plot is generated with color-mapped height.
-            - Symbol evaluation uses self.L(k), which must be defined and callable.
+        ValueError
+            If the spatial dimension is not 1D or 2D.
+            
+        Notes
+        -----
+        - In 1D, the symbol is plotted using a standard 2D line plot.
+        - In 2D, a 3D surface plot is generated with color-mapped height.
         """
         print("\n*******************")
         print("* Symbol plotting *")
@@ -3328,45 +3275,35 @@ class PDESolver:
     def test(self, u_exact, t_eval=None, norm='relative', threshold=1e-2, component='real'):
         """
         Test the solver against an exact solution.
-
-        This method quantitatively compares the numerical solution with a provided exact solution 
-        at a specified time using either relative or absolute error norms. It supports both 
-        stationary and time-dependent problems in 1D and 2D. If enabled, it also generates plots 
-        of the solution, exact solution, and pointwise error.
-
+        
+        Quantitatively compares the numerical solution with a provided exact solution 
+        at a specified time using either relative or absolute error norms.
+        
         Parameters
         ----------
         u_exact : callable
             Exact solution function taking spatial coordinates and optionally time as arguments.
         t_eval : float, optional
             Time at which to compare solutions. For non-stationary problems, defaults to final time Lt.
-            Ignored for stationary problems.
         norm : str {'relative', 'absolute'}
             Type of error norm used in comparison.
         threshold : float
             Acceptable error threshold; raises an assertion if exceeded.
-        plot : bool
-            Whether to display visual comparison plots (default: True).
         component : str {'real', 'imag', 'abs'}
             Component of the solution to compare and visualize.
-
+            
         Raises
         ------
         ValueError
             If unsupported dimension is encountered or requested evaluation time exceeds simulation duration.
         AssertionError
             If computed error exceeds the given threshold.
-
-        Prints
-        ------
-        - Information about the closest available frame to the requested evaluation time.
-        - Computed error value and comparison to threshold.
-
+            
         Notes
         -----
         - For time-dependent problems, the solution is extracted from precomputed frames.
         - Plots are adapted to spatial dimension: line plots for 1D, image plots for 2D.
-        - The method ensures consistent handling of real, imaginary, and magnitude components.
+        - Prints information about the closest available frame and the computed error value.
         """
         if self.is_stationary:
             print("Testing a stationary solution.")

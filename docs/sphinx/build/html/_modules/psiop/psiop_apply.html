@@ -97,171 +97,164 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">psiop_apply.py — Numerical backends for pseudo‑differential operator application</span>
+<span class="sd">psiop_apply.py — Numerical backends for pseudo-differential operator application</span>
 <span class="sd">================================================================================</span>
 
 <span class="sd">Overview</span>
 <span class="sd">--------</span>
-<span class="sd">The ``psiop_apply`` module provides the heavy‑lifting numerical kernels for</span>
-<span class="sd">applying pseudo‑differential operators (ΨDOs) to spatial fields. While the</span>
-<span class="sd">core ``psiop`` module handles symbolic calculus, asymptotic expansions, and</span>
+<span class="sd">The `psiop_apply` module provides the heavy-lifting numerical kernels for</span>
+<span class="sd">applying pseudo-differential operators (ΨDOs) to spatial fields. While the</span>
+<span class="sd">core `psiop` module handles symbolic calculus, asymptotic expansions, and</span>
 <span class="sd">the Peetre decomposition, this module is responsible for the actual</span>
 <span class="sd">evaluation of the resulting integrals on discrete spatial and frequency</span>
 <span class="sd">grids.</span>
 
-<span class="sd">It implements both periodic (FFT‑based) and non‑periodic (direct</span>
+<span class="sd">It implements both periodic (FFT-based) and non-periodic (direct</span>
 <span class="sd">quadrature) Kohn–Nirenberg quantization, alongside specialized</span>
 <span class="sd">factorization and approximation backends for the genuinely joint</span>
-<span class="sd">space‑frequency residuals that arise in the Peetre decomposition.</span>
+<span class="sd">space-frequency residuals that arise in the Peetre decomposition.</span>
 
 <span class="sd">Main objects and workflows</span>
 <span class="sd">--------------------------</span>
-<span class="sd">Periodic and Non‑Periodic Kohn–Nirenberg Application</span>
-<span class="sd">    ``kohn_nirenberg_fft``: Applies the operator on a periodic domain using</span>
-<span class="sd">    FFTs. Features an automatic fast‑path for spatially independent symbols</span>
-<span class="sd">    (pure Fourier multipliers) and a memory‑bounded, multi‑threaded slow</span>
-<span class="sd">    path for spatially dependent symbols.</span>
+<span class="sd">**Periodic and Non-Periodic Kohn–Nirenberg Application**</span>
+<span class="sd">    * `kohn_nirenberg_fft`: Applies the operator on a periodic domain using</span>
+<span class="sd">      FFTs. Features an automatic fast-path for spatially independent symbols</span>
+<span class="sd">      (pure Fourier multipliers) and a memory-bounded, multi-threaded slow</span>
+<span class="sd">      path for spatially dependent symbols.</span>
+<span class="sd">    * `kohn_nirenberg_nonperiodic`: Applies the operator on a non-periodic</span>
+<span class="sd">      (Dirichlet-type) domain via direct discrete Fourier quadrature.</span>
+<span class="sd">      Utilizes aggressive caching of phase matrices and windowing arrays to</span>
+<span class="sd">      minimize redundant computations across repeated calls.</span>
 
-<span class="sd">    ``kohn_nirenberg_nonperiodic``: Applies the operator on a non‑periodic</span>
-<span class="sd">    (Dirichlet‑type) domain via direct discrete Fourier quadrature.</span>
-<span class="sd">    Utilizes aggressive caching of phase matrices and windowing arrays to</span>
-<span class="sd">    minimize redundant computations across repeated calls.</span>
+<span class="sd">**Low-Rank Chebyshev/SVD Factorization**</span>
+<span class="sd">    * `factorize_symbolic`: Approximates a joint space-frequency symbol</span>
+<span class="sd">      `p(x, ξ)` as a sum of separable terms `∑ₖ aₖ(x) qₖ(ξ)` using</span>
+<span class="sd">      Chebyshev interpolation followed by Singular Value Decomposition (SVD)</span>
+<span class="sd">      truncation. Includes Monte-Carlo quality diagnostics.</span>
 
-<span class="sd">Low‑Rank Chebyshev/SVD Factorization</span>
-<span class="sd">    ``factorize_symbolic``: Approximates a joint space‑frequency symbol</span>
-<span class="sd">    ``p(x, ξ)`` as a sum of separable terms ``∑ₖ aₖ(x) qₖ(ξ)`` using</span>
-<span class="sd">    Chebyshev interpolation followed by Singular Value Decomposition (SVD)</span>
-<span class="sd">    truncation. Includes Monte‑Carlo quality diagnostics.</span>
+<span class="sd">**NUFFT-Based Joint-Residual Backend**</span>
+<span class="sd">    * `try_nufft_decomposition_*` / `apply_nufft_*`: Targets joint</span>
+<span class="sd">      residuals with genuinely oscillatory phases of the form</span>
+<span class="sd">      `exp(i·Λ(x)·M(ξ))`. Extracts the phase and amplitude, and</span>
+<span class="sd">      evaluates the resulting non-uniform FFT (Type 3) via the optional</span>
+<span class="sd">      `finufft` library, with a pure-NumPy O(N·M) direct-sum fallback.</span>
 
-<span class="sd">NUFFT‑Based Joint‑Residual Backend</span>
-<span class="sd">    ``try_nufft_decomposition_*`` / ``apply_nufft_*``: Targets joint</span>
-<span class="sd">    residuals with genuinely oscillatory phases of the form</span>
-<span class="sd">    ``exp(i · Λ(x) · M(ξ))``. Extracts the phase and amplitude, and</span>
-<span class="sd">    evaluates the resulting non‑uniform FFT (Type 3) via the optional</span>
-<span class="sd">    ``finufft`` library, with a pure‑NumPy O(N·M) direct‑sum fallback.</span>
-
-<span class="sd">AAA Rational Approximation Backend</span>
-<span class="sd">    ``try_aaa_decomposition_*`` / ``aaa_plan_to_callable_*``: Targets joint</span>
-<span class="sd">    residuals that are rational functions or exhibit explicit poles /</span>
-<span class="sd">    algebraic decay. Uses a vector‑valued Adaptive Antoulas‑Algorithm (AAA)</span>
-<span class="sd">    barycentric rational interpolation to build a compact, fast‑evaluating</span>
-<span class="sd">    surrogate for the symbol.</span>
+<span class="sd">**AAA Rational Approximation Backend**</span>
+<span class="sd">    * `try_aaa_decomposition_*` / `aaa_plan_to_callable_*`: Targets joint</span>
+<span class="sd">      residuals that are rational functions or exhibit explicit poles /</span>
+<span class="sd">      algebraic decay. Uses a vector-valued Adaptive Antoulas-Algorithm (AAA)</span>
+<span class="sd">      barycentric rational interpolation to build a compact, fast-evaluating</span>
+<span class="sd">      surrogate for the symbol.</span>
 
 <span class="sd">Key features</span>
 <span class="sd">------------</span>
-<span class="sd">Memory‑bounded execution:</span>
-<span class="sd">    The 1D and 2D slow paths avoid O(N²ᵈ) RAM allocation by evaluating the</span>
-<span class="sd">    symbol on chunked space‑frequency sub‑grids (~256 MB max per block) and</span>
-<span class="sd">    accumulating via optimized Einstein summation (``np.einsum``).</span>
-
-<span class="sd">Multi‑threaded row‑blocking:</span>
-<span class="sd">    The 2D slow path distributes spatial row‑blocks across a</span>
-<span class="sd">    ``ThreadPoolExecutor``, achieving near‑linear speedup on multi‑core</span>
-<span class="sd">    machines for spatially dependent symbols.</span>
-
-<span class="sd">Automatic fast‑path detection:</span>
-<span class="sd">    Before executing the expensive quadrature, the periodic and</span>
-<span class="sd">    non‑periodic kernels probe the symbol at a few test frequencies. If the</span>
-<span class="sd">    symbol is spatially independent, the code bypasses the quadrature</span>
-<span class="sd">    entirely and applies the symbol as a pure Fourier multiplier, reducing</span>
-<span class="sd">    complexity from O(N²) to O(N log N) in 1D, and O(N⁴) to O(N² log N) in 2D.</span>
-
-<span class="sd">Phase‑matrix caching:</span>
-<span class="sd">    Non‑periodic transforms precalculate and cache discrete Fourier</span>
-<span class="sd">    transform phases, reconstruction phases, and window arrays. The cache</span>
-<span class="sd">    keys are derived from grid shapes and endpoints, ensuring automatic</span>
-<span class="sd">    invalidation when grid resolution changes.</span>
-
-<span class="sd">Quality‑gated approximations:</span>
-<span class="sd">    The low‑rank, NUFFT, and AAA backends all compute relative L2 errors</span>
-<span class="sd">    against the exact symbol. If the approximation error exceeds the</span>
-<span class="sd">    requested tolerance, the backend gracefully falls back to the exact</span>
-<span class="sd">    (but slower) direct Kohn–Nirenberg quadrature.</span>
+<span class="sd">* **Memory-bounded execution:** The 1D and 2D slow paths avoid O(N²ᵈ) RAM </span>
+<span class="sd">  allocation by evaluating the symbol on chunked space-frequency sub-grids </span>
+<span class="sd">  (~256 MB max per block) and accumulating via optimized Einstein summation </span>
+<span class="sd">  (`np.einsum`).</span>
+<span class="sd">* **Multi-threaded row-blocking:** The 2D slow path distributes spatial </span>
+<span class="sd">  row-blocks across a `ThreadPoolExecutor`, achieving near-linear speedup </span>
+<span class="sd">  on multi-core machines for spatially dependent symbols.</span>
+<span class="sd">* **Automatic fast-path detection:** Before executing the expensive </span>
+<span class="sd">  quadrature, the periodic and non-periodic kernels probe the symbol at a </span>
+<span class="sd">  few test frequencies. If the symbol is spatially independent, the code </span>
+<span class="sd">  bypasses the quadrature entirely and applies the symbol as a pure Fourier </span>
+<span class="sd">  multiplier, reducing complexity from O(N²) to O(N log N) in 1D, and </span>
+<span class="sd">  O(N⁴) to O(N² log N) in 2D.</span>
+<span class="sd">* **Phase-matrix caching:** Non-periodic transforms precalculate and cache </span>
+<span class="sd">  discrete Fourier transform phases, reconstruction phases, and window </span>
+<span class="sd">  arrays. The cache keys are derived from grid shapes and endpoints, </span>
+<span class="sd">  ensuring automatic invalidation when grid resolution changes.</span>
+<span class="sd">* **Quality-gated approximations:** The low-rank, NUFFT, and AAA backends </span>
+<span class="sd">  all compute relative L2 errors against the exact symbol. If the </span>
+<span class="sd">  approximation error exceeds the requested tolerance, the backend </span>
+<span class="sd">  gracefully falls back to the exact (but slower) direct Kohn–Nirenberg </span>
+<span class="sd">  quadrature.</span>
 
 <span class="sd">Mathematical background and numerical design</span>
 <span class="sd">--------------------------------------------</span>
-<span class="sd">Kohn–Nirenberg quantization (Periodic)</span>
-<span class="sd">    The operator ``Op(p)`` is applied to a periodic function ``u`` via:</span>
+<span class="sd">**Kohn–Nirenberg quantization (Periodic)**</span>
+<span class="sd">The operator `Op(p)` is applied to a periodic function `u` via:</span>
 
-<span class="sd">        [Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) e^{i x·ξ} ℱ[u](ξ) dξ</span>
+<span class="sd">    [Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) exp(i·x·ξ) ℱ[u](ξ) dξ</span>
 
-<span class="sd">    where ``ℱ[u]`` is the discrete Fourier transform. </span>
-<span class="sd">    Fast‑path: If ``p(x, ξ) = p(ξ)``, the ``x``‑dependence drops out, and</span>
-<span class="sd">    the integral collapses to the pure multiplier:</span>
+<span class="sd">where ℱ[u] is the discrete Fourier transform. </span>
+<span class="sd">*Fast-path:* If p(x, ξ) = p(ξ), the x-dependence drops out, and</span>
+<span class="sd">the integral collapses to the pure multiplier:</span>
 
-<span class="sd">        [Op(p) u](x) = ℱ⁻¹[ p(ξ) · ℱ[u](ξ) ]</span>
+<span class="sd">    [Op(p) u](x) = ℱ⁻¹[ p(ξ) · ℱ[u](ξ) ]</span>
 
-<span class="sd">    Slow‑path: For space‑dependent ``p(x, ξ)``, the integral is evaluated</span>
-<span class="sd">    directly. To prevent memory exhaustion, the spatial domain is split</span>
-<span class="sd">    into blocks of size ``B``, and the frequency domain into chunks of size</span>
-<span class="sd">    ``C``. The quadrature is accumulated block‑by‑block:</span>
+<span class="sd">*Slow-path:* For space-dependent p(x, ξ), the integral is evaluated</span>
+<span class="sd">directly. To prevent memory exhaustion, the spatial domain is split</span>
+<span class="sd">into blocks of size B, and the frequency domain into chunks of size</span>
+<span class="sd">C. The quadrature is accumulated block-by-block:</span>
 
-<span class="sd">        result[i₀:i₁] = (Δξ / 2π) ∑_{k‑chunk} P_{blk} · ℱ[u]_{chunk} · e^{i x_{blk} · ξ_{chunk}}</span>
+<span class="sd">    result[i₀:i₁] = (Δξ / 2π) ∑_{k-chunk} P_blk · ℱ[u]_chunk · exp(i·x_blk·ξ_chunk)</span>
 
-<span class="sd">Kohn–Nirenberg quantization (Non‑Periodic)</span>
-<span class="sd">    On a non‑periodic domain, the continuous Fourier transform is replaced</span>
-<span class="sd">    by a direct discrete quadrature:</span>
+<span class="sd">**Kohn–Nirenberg quantization (Non-Periodic)**</span>
+<span class="sd">On a non-periodic domain, the continuous Fourier transform is replaced</span>
+<span class="sd">by a direct discrete quadrature:</span>
 
-<span class="sd">        [Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) e^{i x·ξ} [ ∫ e^{-i y·ξ} u(y) dy ] dξ</span>
+<span class="sd">    [Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) exp(i·x·ξ) [ ∫ exp(-i·y·ξ) u(y) dy ] dξ</span>
 
-<span class="sd">    The inner integral (forward transform) and outer integral (reconstruction)</span>
-<span class="sd">    are represented as dense matrix‑vector products using precomputed phase</span>
-<span class="sd">    matrices ``Φ_{ft} = e^{-i ξ xᵀ}`` and ``Φ_{rec} = e^{i x ξᵀ}``. These</span>
-<span class="sd">    matrices are cached globally. The fast‑path logic is identical to the</span>
-<span class="sd">    periodic case, bypassing the matrix multiplications when ``p`` is</span>
-<span class="sd">    independent of ``x``.</span>
+<span class="sd">The inner integral (forward transform) and outer integral (reconstruction)</span>
+<span class="sd">are represented as dense matrix-vector products using precomputed phase</span>
+<span class="sd">matrices `Φ_ft = exp(-i·ξ·xᵀ)` and `Φ_rec = exp(i·x·ξᵀ)`. These</span>
+<span class="sd">matrices are cached globally. The fast-path logic is identical to the</span>
+<span class="sd">periodic case, bypassing the matrix multiplications when p is</span>
+<span class="sd">independent of x.</span>
 
-<span class="sd">Peetre Joint Residual Factorization</span>
-<span class="sd">    When the Peetre decomposition yields a genuinely joint residual</span>
-<span class="sd">    ``p_joint(x, ξ)`` that cannot be written as ``a(x)q(ξ)``, it is routed</span>
-<span class="sd">    to one of three specialized backends based on its algebraic structure:</span>
+<span class="sd">**Peetre Joint Residual Factorization**</span>
+<span class="sd">When the Peetre decomposition yields a genuinely joint residual</span>
+<span class="sd">`p_joint(x, ξ)` that cannot be written as `a(x)q(ξ)`, it is routed</span>
+<span class="sd">to one of three specialized backends based on its algebraic structure:</span>
 
-<span class="sd">    1. Low‑Rank (Chebyshev/SVD):</span>
-<span class="sd">       For smooth, non‑oscillatory kernels. The symbol is interpolated on</span>
-<span class="sd">       a tensor‑product Chebyshev grid, reshaped into a matrix</span>
-<span class="sd">       ``C ∈ ℂ^{N_x × N_ξ}``, and truncated via SVD:</span>
+<span class="sd">1. **Low-Rank (Chebyshev/SVD):**</span>
+<span class="sd">   For smooth, non-oscillatory kernels. The symbol is interpolated on</span>
+<span class="sd">   a tensor-product Chebyshev grid, reshaped into a matrix</span>
+<span class="sd">   `C ∈ ℂ^(Nx × Nξ)`, and truncated via SVD:</span>
 
-<span class="sd">           C ≈ U_r Σ_r V_r^H   ⇒   p_joint(x, ξ) ≈ ∑_{k=1}^r aₖ(x) qₖ(ξ)</span>
+<span class="sd">       C ≈ U_r · Σ_r · V_rᴴ   ⇒   p_joint(x, ξ) ≈ ∑ₖ₌₁ʳ aₖ(x) qₖ(ξ)</span>
 
-<span class="sd">       The basis functions are explicit Chebyshev polynomials mapped to the</span>
-<span class="sd">       physical bounding box.</span>
+<span class="sd">   The basis functions are explicit Chebyshev polynomials mapped to the</span>
+<span class="sd">   physical bounding box.</span>
 
-<span class="sd">    2. NUFFT (Oscillatory):</span>
-<span class="sd">       For residuals containing a bilinear phase ``exp(i Λ(x) M(ξ))``.</span>
-<span class="sd">       The symbol is factored as:</span>
+<span class="sd">2. **NUFFT (Oscillatory):**</span>
+<span class="sd">   For residuals containing a bilinear phase `exp(i·Λ(x)·M(ξ))`.</span>
+<span class="sd">   The symbol is factored as:</span>
 
-<span class="sd">           p_joint(x, ξ) = c(x) g(ξ) exp(i Λ(x) M(ξ))</span>
+<span class="sd">       p_joint(x, ξ) = c(x) g(ξ) exp(i·Λ(x)·M(ξ))</span>
 
-<span class="sd">       The application is reformulated as a Type 3 Non‑Uniform FFT,</span>
-<span class="sd">       evaluating the sum:</span>
+<span class="sd">   The application is reformulated as a Type 3 Non-Uniform FFT,</span>
+<span class="sd">   evaluating the sum:</span>
 
-<span class="sd">           f(x) = ∑_{j} w_j exp(i (x · Λ(x) + μ_j · M(ξ_j)))</span>
+<span class="sd">       f(x) = ∑ⱼ wⱼ exp(i·(x·Λ(x) + μⱼ·M(ξⱼ)))</span>
 
-<span class="sd">       where ``w_j`` are the weighted Fourier coefficients of ``u``. This</span>
-<span class="sd">       achieves O(N log N) complexity via ``finufft``, avoiding the</span>
-<span class="sd">       polynomial basis convergence issues of the low‑rank method.</span>
+<span class="sd">   where `wⱼ` are the weighted Fourier coefficients of `u`. This</span>
+<span class="sd">   achieves O(N log N) complexity via `finufft`, avoiding the</span>
+<span class="sd">   polynomial basis convergence issues of the low-rank method.</span>
 
-<span class="sd">    3. AAA (Rational / Poles):</span>
-<span class="sd">       For residuals with explicit poles or algebraic decay (e.g.,</span>
-<span class="sd">       resolvent‑like structures). A vector‑valued AAA barycentric rational</span>
-<span class="sd">       interpolant is constructed:</span>
+<span class="sd">3. **AAA (Rational / Poles):**</span>
+<span class="sd">   For residuals with explicit poles or algebraic decay (e.g.,</span>
+<span class="sd">   resolvent-like structures). A vector-valued AAA barycentric rational</span>
+<span class="sd">   interpolant is constructed:</span>
 
-<span class="sd">           r(ξ) = ∑_{k} wₖ fₖ / (ξ - zₖ)  /  ∑_{k} wₖ / (ξ - zₖ)</span>
+<span class="sd">       r(ξ) = [∑ₖ wₖ fₖ / (ξ - zₖ)] / [∑ₖ wₖ / (ξ - zₖ)]</span>
 
-<span class="sd">       where the support points ``zₖ`` and weights ``wₖ`` are selected</span>
-<span class="sd">       adaptively to minimize the residual. The spatial dependence is</span>
-<span class="sd">       handled by building a separate AAA fit for each Chebyshev node in</span>
-<span class="sd">       ``x``, followed by barycentric Lagrange interpolation in ``x``.</span>
+<span class="sd">   where the support points `zₖ` and weights `wₖ` are selected</span>
+<span class="sd">   adaptively to minimize the residual. The spatial dependence is</span>
+<span class="sd">   handled by building a separate AAA fit for each Chebyshev node in</span>
+<span class="sd">   `x`, followed by barycentric Lagrange interpolation in `x`.</span>
 
 <span class="sd">Numerical stability</span>
 <span class="sd">-------------------</span>
 <span class="sd">All application kernels enforce numerical stability through:</span>
-<span class="sd">    - Magnitude clamping: Symbol values exceeding ``clamp`` (default 10⁶)</span>
-<span class="sd">      are scaled down while preserving their complex phase.</span>
-<span class="sd">    - Frequency windowing: Optional Gaussian or Hann tapers in the</span>
-<span class="sd">      frequency domain to attenuate high‑frequency numerical artifacts.</span>
-<span class="sd">    - Spatial tapering: Optional centered Gaussian tapers in the spatial</span>
-<span class="sd">      domain to mitigate edge boundary artifacts in non‑periodic settings.</span>
+<span class="sd">* **Magnitude clamping:** Symbol values exceeding `clamp` (default 10⁶)</span>
+<span class="sd">  are scaled down while preserving their complex phase.</span>
+<span class="sd">* **Frequency windowing:** Optional Gaussian or Hann tapers in the</span>
+<span class="sd">  frequency domain to attenuate high-frequency numerical artifacts.</span>
+<span class="sd">* **Spatial tapering:** Optional centered Gaussian tapers in the spatial</span>
+<span class="sd">  domain to mitigate edge boundary artifacts in non-periodic settings.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 
@@ -280,7 +273,22 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_clip_complex_magnitude</span><span class="p">(</span><span class="n">P</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">clamp</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Clip a complex array by magnitude, preserving phase.</span>
-<span class="sd">    Modifies the array in-place to minimize memory allocation.</span>
+
+<span class="sd">    Modifies the array in-place to minimize memory allocation. Any element</span>
+<span class="sd">    with an absolute value exceeding `clamp` is scaled down to exactly</span>
+<span class="sd">    `clamp` while retaining its original complex phase.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    P : ndarray</span>
+<span class="sd">        Input complex array to be clipped.</span>
+<span class="sd">    clamp : float</span>
+<span class="sd">        Maximum allowed magnitude for the array entries.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The clipped complex array (same shape and type as `P`).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">P</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">:</span>
         <span class="n">P</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
@@ -324,7 +332,18 @@
 <div class="viewcode-block" id="invalidate_kn_cache">
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_apply.invalidate_kn_cache">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">invalidate_kn_cache</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Clear the phase-matrix cache for non-periodic 1D operations.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Clear the phase-matrix and windowing cache for non-periodic operations.</span>
+
+<span class="sd">    This function empties the global `_KN_CACHE` dictionary, forcing the</span>
+<span class="sd">    non-periodic Kohn-Nirenberg quantization to recompute and cache the</span>
+<span class="sd">    discrete Fourier transform phase matrices and window arrays on the</span>
+<span class="sd">    next execution.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_KN_CACHE</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
 
 
@@ -1131,9 +1150,23 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_chebyshev_polynomial</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Return T_n(z) as an explicit expanded SymPy polynomial.</span>
+<span class="sd">    Return the Chebyshev polynomial Tₙ(z) as an explicit expanded SymPy expression.</span>
 
-<span class="sd">    This avoids possible lambdify issues with special Chebyshev functions.</span>
+<span class="sd">    This avoids potential `lambdify` issues with special Chebyshev functions</span>
+<span class="sd">    by constructing the polynomial recursively using the relation:</span>
+<span class="sd">    Tₙ₊₁(z) = 2·z·Tₙ(z) - Tₙ₋₁(z).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n : int</span>
+<span class="sd">        Degree of the Chebyshev polynomial (n ≥ 0).</span>
+<span class="sd">    z : sympy.Expr or sympy.Symbol</span>
+<span class="sd">        The symbolic variable.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sympy.Expr</span>
+<span class="sd">        The expanded Chebyshev polynomial of degree `n`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">S</span><span class="o">.</span><span class="n">One</span>
@@ -1531,14 +1564,27 @@
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">finufft</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_finufft</span>
     <span class="n">_HAVE_FINUFFT</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">_HAVE_FINUFFT_PLAN</span> <span class="o">=</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">_finufft</span><span class="p">,</span> <span class="s2">&quot;Plan&quot;</span><span class="p">)</span>
 <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
     <span class="n">_finufft</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">_HAVE_FINUFFT</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">_HAVE_FINUFFT_PLAN</span> <span class="o">=</span> <span class="kc">False</span>
 
 <span class="n">_finufft_warned</span> <span class="o">=</span> <span class="kc">False</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_warn_no_finufft</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Issue a one-time warning if the optional `finufft` library is missing.</span>
+
+<span class="sd">    Ensures that the warning regarding the O(N·M) direct-sum fallback </span>
+<span class="sd">    is only printed once per session, avoiding console spam when multiple </span>
+<span class="sd">    NUFFT operations are executed without the accelerated backend.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">_finufft_warned</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">_finufft_warned</span><span class="p">:</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
@@ -1551,9 +1597,27 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_nufft_split_real_imag_exponent</span><span class="p">(</span><span class="n">total_exponent</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split an exponent into (I*phase, real_envelope) without silently</span>
-<span class="sd">    dropping a real residual (a naive .coeff(I) does this incorrectly</span>
-<span class="sd">    for mixed exponents like I*x*xi - x**2).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Split a symbolic exponent into its imaginary (phase) and real (envelope) parts.</span>
+
+<span class="sd">    Separates an exponent into (i·phase, real_envelope) without silently </span>
+<span class="sd">    dropping a real residual. A naive `.coeff(I)` does this incorrectly </span>
+<span class="sd">    for mixed exponents like `i·x·ξ - x²`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    total_exponent : sympy.Expr</span>
+<span class="sd">        The expanded symbolic exponent to be split.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    phase_expr : sympy.Expr</span>
+<span class="sd">        The purely imaginary part (without the `i` factor).</span>
+<span class="sd">    real_envelope : sympy.Expr</span>
+<span class="sd">        The purely real part of the exponent.</span>
+<span class="sd">    has_osc : bool</span>
+<span class="sd">        True if the exponent contained at least one imaginary term.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">exp_terms</span> <span class="o">=</span> <span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">expand</span><span class="p">(</span><span class="n">total_exponent</span><span class="p">))</span>
     <span class="n">imag_terms</span><span class="p">,</span> <span class="n">real_terms</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">exp_terms</span><span class="p">:</span>
@@ -1628,8 +1692,28 @@
 <div class="viewcode-block" id="try_nufft_decomposition_1d">
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_apply.try_nufft_decomposition_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">try_nufft_decomposition_1d</span><span class="p">(</span><span class="n">joint_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;1D (phase space (x,xi)) NUFFT classifier. Returns a list of term</span>
-<span class="sd">    plans, or None if any additive term doesn&#39;t fit (falls back).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    1D (phase space (x, ξ)) NUFFT classifier.</span>
+
+<span class="sd">    Attempts to factor the joint residual into terms of the form </span>
+<span class="sd">    c(x)·g(ξ)·exp(i·Λ(x)·M(ξ)). </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    joint_expr : sympy.Expr</span>
+<span class="sd">        The joint symbolic expression to classify.</span>
+<span class="sd">    x_sym : sympy.Symbol</span>
+<span class="sd">        The spatial variable.</span>
+<span class="sd">    xi_sym : sympy.Symbol</span>
+<span class="sd">        The frequency variable.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of dict or None</span>
+<span class="sd">        A list of term plans if all additive terms fit the oscillatory </span>
+<span class="sd">        pattern. Returns `None` if any term fails to match, triggering </span>
+<span class="sd">        a fallback to the direct backend.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">expr</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">joint_expr</span><span class="o">.</span><span class="n">rewrite</span><span class="p">(</span><span class="n">exp</span><span class="p">))</span>
     <span class="n">plans</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">Add</span><span class="o">.</span><span class="n">make_args</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
@@ -1642,8 +1726,28 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_1d_piece_for_axis_sep</span><span class="p">(</span><span class="n">part_expr</span><span class="p">,</span> <span class="n">phys_sym</span><span class="p">,</span> <span class="n">freq_sym</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Used by the 2D axis-separable tier: resolve a single-variable-pair</span>
-<span class="sd">    factor into pointwise (no freq dependence) or nufft1d pieces.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Resolve a single-variable-pair factor for the 2D axis-separable tier.</span>
+
+<span class="sd">    Determines if a sub-expression is purely pointwise (no frequency </span>
+<span class="sd">    dependence) or if it requires a 1D NUFFT plan.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    part_expr : sympy.Expr</span>
+<span class="sd">        The symbolic sub-expression to resolve.</span>
+<span class="sd">    phys_sym : sympy.Symbol</span>
+<span class="sd">        The physical/spatial variable.</span>
+<span class="sd">    freq_sym : sympy.Symbol</span>
+<span class="sd">        The frequency variable.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of dict or None</span>
+<span class="sd">        A list of dictionaries with keys `&#39;kind&#39;` (&#39;pointwise&#39; or &#39;nufft1d&#39;) </span>
+<span class="sd">        and their respective evaluators/plans. Returns `None` if the </span>
+<span class="sd">        expression cannot be resolved.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">part_expr</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">freq_sym</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">[{</span><span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="s2">&quot;pointwise&quot;</span><span class="p">,</span> <span class="s2">&quot;amp&quot;</span><span class="p">:</span> <span class="n">lambdify</span><span class="p">(</span><span class="n">phys_sym</span><span class="p">,</span> <span class="n">part_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)}]</span>
     <span class="n">rewritten</span> <span class="o">=</span> <span class="n">expand</span><span class="p">(</span><span class="n">part_expr</span><span class="o">.</span><span class="n">rewrite</span><span class="p">(</span><span class="n">exp</span><span class="p">))</span>
@@ -1707,31 +1811,218 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_nufft_uhat_1d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">kx</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Continuous-FT approx of u, correcting for a grid not starting at 0</span>
-<span class="sd">    (e.g. x_grid = linspace(-L, L, N, endpoint=False), used throughout this</span>
-<span class="sd">    module&#39;s make_grid_1d/2d) -- see module docstring above for why this</span>
-<span class="sd">    matters: without it, results are internally self-consistent but not</span>
-<span class="sd">    the true KN operator action.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the continuous Fourier transform approximation of `u`.</span>
+
+<span class="sd">    Corrects for a spatial grid that does not start at 0 (e.g., </span>
+<span class="sd">    `x_grid = linspace(-L, L, N, endpoint=False)`). Without this phase </span>
+<span class="sd">    correction, results are internally self-consistent but do not </span>
+<span class="sd">    represent the true Kohn-Nirenberg operator action.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    u : ndarray</span>
+<span class="sd">        Spatial samples of the input field.</span>
+<span class="sd">    x_grid : ndarray</span>
+<span class="sd">        Spatial coordinate grid.</span>
+<span class="sd">    dx : float</span>
+<span class="sd">        Spatial grid spacing.</span>
+<span class="sd">    kx : ndarray</span>
+<span class="sd">        Frequency grid.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The phase-corrected discrete Fourier transform of `u`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">x0</span> <span class="o">=</span> <span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">x0</span> <span class="o">*</span> <span class="n">kx</span><span class="p">)</span>
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_grid_fingerprint</span><span class="p">(</span><span class="o">*</span><span class="n">arrays</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute a cheap, order-sensitive fingerprint of a set of point arrays.</span>
+
+<span class="sd">    Used to decide whether a cached `finufft.Plan`&#39;s fixed source/target </span>
+<span class="sd">    points are still valid without an O(N) elementwise comparison. The </span>
+<span class="sd">    fingerprint combines the shape, the first/last elements, and the sum </span>
+<span class="sd">    of each array. While not a cryptographic guarantee, it is sufficient </span>
+<span class="sd">    to catch changed grids in practice.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    *arrays : ndarray</span>
+<span class="sd">        Variable number of 1D or ND point arrays to fingerprint.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple</span>
+<span class="sd">        A hashable tuple containing the shape, endpoints, and sum of </span>
+<span class="sd">        each input array.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arrays</span><span class="p">:</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="mi">0</span><span class="p">,))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="nb">complex</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">complex</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">complex</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">a</span><span class="p">))))</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_or_build_finufft_plan_2d</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">src_x</span><span class="p">,</span> <span class="n">src_y</span><span class="p">,</span> <span class="n">tgt_x</span><span class="p">,</span> <span class="n">tgt_y</span><span class="p">,</span> <span class="n">isign</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieve or build a cached 2D `finufft.Plan` (Type 3, 2D).</span>
+
+<span class="sd">    Stashes the plan directly on the `term` dictionary to persist across </span>
+<span class="sd">    `apply_hybrid` calls. Only `.setpts()` is paid for once per distinct </span>
+<span class="sd">    grid; `.execute()` is cheap and reruns every call with fresh weights.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    term : dict</span>
+<span class="sd">        The NUFFT term dictionary where the plan will be cached.</span>
+<span class="sd">    key : tuple</span>
+<span class="sd">        The grid fingerprint used to validate the cache.</span>
+<span class="sd">    eps : float</span>
+<span class="sd">        Requested precision for the NUFFT.</span>
+<span class="sd">    src_x, src_y : ndarray</span>
+<span class="sd">        Source point coordinates.</span>
+<span class="sd">    tgt_x, tgt_y : ndarray</span>
+<span class="sd">        Target point coordinates.</span>
+<span class="sd">    isign : int, default=1</span>
+<span class="sd">        Sign of the exponent.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    finufft.Plan</span>
+<span class="sd">        The configured 2D NUFFT plan object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cached</span> <span class="o">=</span> <span class="n">term</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;_finufft_plan_cache&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cached</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">key</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cached</span><span class="p">[</span><span class="s1">&#39;plan&#39;</span><span class="p">]</span>
+    <span class="n">plan_obj</span> <span class="o">=</span> <span class="n">_finufft</span><span class="o">.</span><span class="n">Plan</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="n">eps</span><span class="p">,</span> <span class="n">isign</span><span class="o">=</span><span class="n">isign</span><span class="p">)</span>
+    <span class="n">plan_obj</span><span class="o">.</span><span class="n">setpts</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">src_x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">src_y</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">tgt_x</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="n">tgt_y</span><span class="p">)</span>
+    <span class="n">term</span><span class="p">[</span><span class="s1">&#39;_finufft_plan_cache&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">key</span><span class="p">,</span> <span class="s1">&#39;plan&#39;</span><span class="p">:</span> <span class="n">plan_obj</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">plan_obj</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_or_build_finufft_plan_3d</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">src_x</span><span class="p">,</span> <span class="n">src_y</span><span class="p">,</span> <span class="n">src_z</span><span class="p">,</span> <span class="n">tgt_x</span><span class="p">,</span> <span class="n">tgt_y</span><span class="p">,</span> <span class="n">tgt_z</span><span class="p">,</span> <span class="n">isign</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieve or build a cached 3D `finufft.Plan` (Type 3, 3D).</span>
+
+<span class="sd">    3D counterpart of `_get_or_build_finufft_plan_2d`, used for the 2D </span>
+<span class="sd">    &quot;joint3d&quot; NUFFT case (which requires a genuine 3D type-3 transform: </span>
+<span class="sd">    2 spatial dimensions + the combined-phase axis).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    term : dict</span>
+<span class="sd">        The NUFFT term dictionary where the plan will be cached.</span>
+<span class="sd">    key : tuple</span>
+<span class="sd">        The grid fingerprint used to validate the cache.</span>
+<span class="sd">    eps : float</span>
+<span class="sd">        Requested precision for the NUFFT.</span>
+<span class="sd">    src_x, src_y, src_z : ndarray</span>
+<span class="sd">        Source point coordinates.</span>
+<span class="sd">    tgt_x, tgt_y, tgt_z : ndarray</span>
+<span class="sd">        Target point coordinates.</span>
+<span class="sd">    isign : int, default=1</span>
+<span class="sd">        Sign of the exponent.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    finufft.Plan</span>
+<span class="sd">        The configured 3D NUFFT plan object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cached</span> <span class="o">=</span> <span class="n">term</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;_finufft_plan_cache&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cached</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">key</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cached</span><span class="p">[</span><span class="s1">&#39;plan&#39;</span><span class="p">]</span>
+    <span class="n">plan_obj</span> <span class="o">=</span> <span class="n">_finufft</span><span class="o">.</span><span class="n">Plan</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="n">eps</span><span class="p">,</span> <span class="n">isign</span><span class="o">=</span><span class="n">isign</span><span class="p">)</span>
+    <span class="n">plan_obj</span><span class="o">.</span><span class="n">setpts</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">src_x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">src_y</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="n">src_z</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">tgt_x</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="n">tgt_y</span><span class="p">,</span> <span class="n">u</span><span class="o">=</span><span class="n">tgt_z</span><span class="p">)</span>
+    <span class="n">term</span><span class="p">[</span><span class="s1">&#39;_finufft_plan_cache&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;key&#39;</span><span class="p">:</span> <span class="n">key</span><span class="p">,</span> <span class="s1">&#39;plan&#39;</span><span class="p">:</span> <span class="n">plan_obj</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">plan_obj</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_nufft_direct_2d_type3</span><span class="p">(</span><span class="n">sx</span><span class="p">,</span> <span class="n">sy</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">tx</span><span class="p">,</span> <span class="n">ty</span><span class="p">,</span> <span class="n">isign</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Fallback 2D NUFFT direct sum using pure NumPy.</span>
+
+<span class="sd">    Computes the Type 3 Non-Uniform Fast Fourier Transform via direct </span>
+<span class="sd">    evaluation when the `finufft` library is unavailable. The complexity </span>
+<span class="sd">    is O(N·M) instead of O(N log N).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sx : ndarray</span>
+<span class="sd">        Source coordinates along the first dimension.</span>
+<span class="sd">    sy : ndarray</span>
+<span class="sd">        Source coordinates along the second dimension.</span>
+<span class="sd">    weights : ndarray</span>
+<span class="sd">        Complex weights associated with each source point.</span>
+<span class="sd">    tx : ndarray</span>
+<span class="sd">        Target coordinates along the first dimension.</span>
+<span class="sd">    ty : ndarray</span>
+<span class="sd">        Target coordinates along the second dimension.</span>
+<span class="sd">    isign : int, default=1</span>
+<span class="sd">        Sign of the exponent in the Fourier kernel (1 or -1).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The evaluated transform at the target points.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">phase</span> <span class="o">=</span> <span class="n">isign</span> <span class="o">*</span> <span class="p">(</span><span class="n">tx</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">sx</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">ty</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">sy</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">weights</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">phase</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_nufft_direct_3d_type3</span><span class="p">(</span><span class="n">sx</span><span class="p">,</span> <span class="n">sy</span><span class="p">,</span> <span class="n">sz</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">tx</span><span class="p">,</span> <span class="n">ty</span><span class="p">,</span> <span class="n">tz</span><span class="p">,</span> <span class="n">isign</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Fallback 3D NUFFT direct sum using pure NumPy.</span>
+
+<span class="sd">    Computes the 3D Type 3 Non-Uniform FFT via direct evaluation. Used </span>
+<span class="sd">    as a fallback when `finufft` is not installed.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sx, sy, sz : ndarray</span>
+<span class="sd">        Source coordinates along the three dimensions.</span>
+<span class="sd">    weights : ndarray</span>
+<span class="sd">        Complex weights associated with each source point.</span>
+<span class="sd">    tx, ty, tz : ndarray</span>
+<span class="sd">        Target coordinates along the three dimensions.</span>
+<span class="sd">    isign : int, default=1</span>
+<span class="sd">        Sign of the exponent in the Fourier kernel (1 or -1).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The evaluated transform at the target points.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">phase</span> <span class="o">=</span> <span class="n">isign</span> <span class="o">*</span> <span class="p">(</span><span class="n">tx</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">sx</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">ty</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">sy</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
                       <span class="o">+</span> <span class="n">tz</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">sz</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">weights</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">phase</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_nufft_freq_window</span><span class="p">(</span><span class="n">kvals</span><span class="p">,</span> <span class="n">freq_window</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Match kohn_nirenberg_fft&#39;s exact windowing formula (see slow-path</span>
-<span class="sd">    P_blk *= win_k), applied elementwise on a raw (unshifted) frequency</span>
-<span class="sd">    array -- the formula only depends on |k|/sigma pointwise, so it&#39;s</span>
-<span class="sd">    correct regardless of fftshift ordering.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply a frequency-domain window/taper to a raw frequency array.</span>
+
+<span class="sd">    Matches `kohn_nirenberg_fft`&#39;s exact windowing formula, applied </span>
+<span class="sd">    elementwise on an unshifted frequency array. The formula depends </span>
+<span class="sd">    only on |k|/σ pointwise, so it is correct regardless of `fftshift` </span>
+<span class="sd">    ordering.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    kvals : ndarray</span>
+<span class="sd">        Raw (unshifted) frequency coordinates.</span>
+<span class="sd">    freq_window : {&#39;gaussian&#39;, &#39;hann&#39;, None}</span>
+<span class="sd">        Type of window to apply.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The windowing weights corresponding to `kvals`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">freq_window</span> <span class="o">==</span> <span class="s2">&quot;gaussian&quot;</span><span class="p">:</span>
         <span class="n">sigma</span> <span class="o">=</span> <span class="mf">0.8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">kvals</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">kvals</span> <span class="o">/</span> <span class="n">sigma</span><span class="p">)</span> <span class="o">**</span> <span class="mi">4</span><span class="p">)</span>
@@ -1744,14 +2035,37 @@
 <div class="viewcode-block" id="apply_nufft_1d">
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_apply.apply_nufft_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">apply_nufft_1d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="s2">&quot;gaussian&quot;</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply Op(p_joint) via the NUFFT tier, 1D case. `plan` is the output</span>
-<span class="sd">    of try_nufft_decomposition_1d (a list of term dicts).</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply the pseudo-differential operator Op(p_joint) via the 1D NUFFT tier.</span>
 
-<span class="sd">    freq_window matches kohn_nirenberg_fft&#39;s default -- without applying</span>
-<span class="sd">    it here too, results silently diverge from joint_backend=&#39;direct&#39;</span>
-<span class="sd">    even at freq_window=&#39;gaussian&#39; defaults (found via end-to-end testing</span>
-<span class="sd">    against the real dispatcher, not from the isolated unit tests, which</span>
-<span class="sd">    never exercised the default windowing at all).&quot;&quot;&quot;</span>
+<span class="sd">    Each term&#39;s `finufft.Plan` is cached on the term dictionary itself and </span>
+<span class="sd">    reused across calls as long as the source/target points haven&#39;t changed. </span>
+<span class="sd">    Only the weights (which depend on `u`) are rebuilt every call.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    u : ndarray</span>
+<span class="sd">        Spatial samples of the input field.</span>
+<span class="sd">    plan : list of dict</span>
+<span class="sd">        Output of `try_nufft_decomposition_1d`.</span>
+<span class="sd">    x_grid : ndarray</span>
+<span class="sd">        Spatial coordinate grid.</span>
+<span class="sd">    kx : ndarray</span>
+<span class="sd">        Frequency grid.</span>
+<span class="sd">    dx : float</span>
+<span class="sd">        Spatial grid spacing.</span>
+<span class="sd">    dxi : float</span>
+<span class="sd">        Frequency grid spacing.</span>
+<span class="sd">    eps : float, default=1e-12</span>
+<span class="sd">        Requested precision for the NUFFT.</span>
+<span class="sd">    freq_window : {&#39;gaussian&#39;, &#39;hann&#39;, None}, default=&#39;gaussian&#39;</span>
+<span class="sd">        Frequency-domain window to match the direct path&#39;s defaults.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The resulting field after applying the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
     <span class="n">uhat</span> <span class="o">=</span> <span class="n">_nufft_uhat_1d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">kx</span><span class="p">)</span>
     <span class="n">win</span> <span class="o">=</span> <span class="n">_nufft_freq_window</span><span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">freq_window</span><span class="p">)</span>
@@ -1764,7 +2078,11 @@
         <span class="n">weights</span> <span class="o">=</span> <span class="p">(</span><span class="n">g_xi</span> <span class="o">*</span> <span class="n">uhat</span> <span class="o">*</span> <span class="n">dxi</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">complex</span><span class="p">)</span>
         <span class="n">src_x</span><span class="p">,</span> <span class="n">src_y</span> <span class="o">=</span> <span class="n">kx</span><span class="p">,</span> <span class="n">mu_xi</span>
         <span class="n">tgt_x</span><span class="p">,</span> <span class="n">tgt_y</span> <span class="o">=</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">lam_x</span>
-        <span class="k">if</span> <span class="n">_HAVE_FINUFFT</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">_HAVE_FINUFFT_PLAN</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="n">_grid_fingerprint</span><span class="p">(</span><span class="n">src_x</span><span class="p">,</span> <span class="n">src_y</span><span class="p">,</span> <span class="n">tgt_x</span><span class="p">,</span> <span class="n">tgt_y</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">eps</span><span class="p">,)</span>
+            <span class="n">plan_obj</span> <span class="o">=</span> <span class="n">_get_or_build_finufft_plan_2d</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">src_x</span><span class="p">,</span> <span class="n">src_y</span><span class="p">,</span> <span class="n">tgt_x</span><span class="p">,</span> <span class="n">tgt_y</span><span class="p">)</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">plan_obj</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">_HAVE_FINUFFT</span><span class="p">:</span>
             <span class="n">f</span> <span class="o">=</span> <span class="n">_finufft</span><span class="o">.</span><span class="n">nufft2d3</span><span class="p">(</span><span class="n">src_x</span><span class="p">,</span> <span class="n">src_y</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">tgt_x</span><span class="p">,</span> <span class="n">tgt_y</span><span class="p">,</span> <span class="n">isign</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="n">eps</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">_warn_no_finufft</span><span class="p">()</span>
@@ -1778,9 +2096,38 @@
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_apply.apply_nufft_2d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">apply_nufft_2d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">deta</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span>
                     <span class="n">freq_window</span><span class="o">=</span><span class="s2">&quot;gaussian&quot;</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply Op(p_joint) via the NUFFT tier, 2D case. `kind`/`plan` are the</span>
-<span class="sd">    output of try_nufft_decomposition_2d. See apply_nufft_1d docstring on</span>
-<span class="sd">    why freq_window must be matched to the direct path&#39;s default.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply the pseudo-differential operator Op(p_joint) via the 2D NUFFT tier.</span>
+
+<span class="sd">    Handles both &#39;axis_sep&#39; (two independent 1D passes) and &#39;joint3d&#39; </span>
+<span class="sd">    (a genuine 3D type-3 transform) decomposition kinds.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    u : ndarray</span>
+<span class="sd">        Spatial samples of the 2D input field.</span>
+<span class="sd">    kind : {&#39;axis_sep&#39;, &#39;joint3d&#39;}</span>
+<span class="sd">        The type of NUFFT decomposition plan.</span>
+<span class="sd">    plan : list of dict or dict</span>
+<span class="sd">        Output of `try_nufft_decomposition_2d`.</span>
+<span class="sd">    x_grid, y_grid : ndarray</span>
+<span class="sd">        Spatial coordinate grids.</span>
+<span class="sd">    kx, ky : ndarray</span>
+<span class="sd">        Frequency grids.</span>
+<span class="sd">    dx, dy : float</span>
+<span class="sd">        Spatial grid spacings.</span>
+<span class="sd">    dxi, deta : float</span>
+<span class="sd">        Frequency grid spacings.</span>
+<span class="sd">    eps : float, default=1e-12</span>
+<span class="sd">        Requested precision for the NUFFT.</span>
+<span class="sd">    freq_window : {&#39;gaussian&#39;, &#39;hann&#39;, None}, default=&#39;gaussian&#39;</span>
+<span class="sd">        Frequency-domain window.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The resulting 2D field after applying the operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;joint3d&quot;</span><span class="p">:</span>
@@ -1789,10 +2136,6 @@
         <span class="n">uhat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="p">(</span><span class="n">x0</span> <span class="o">*</span> <span class="n">XI0</span> <span class="o">+</span> <span class="n">y0</span> <span class="o">*</span> <span class="n">ETA0</span><span class="p">))</span>
         <span class="n">XI</span><span class="p">,</span> <span class="n">ETA</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span><span class="p">)</span>
         <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s2">&quot;ij&quot;</span><span class="p">)</span>
-        <span class="c1"># 2D window: kohn_nirenberg_fft applies the SAME 1D-style formula</span>
-        <span class="c1"># to the combined radial-like |k| via kx/ky separately multiplied;</span>
-        <span class="c1"># match by applying to each axis and taking the product (matches</span>
-        <span class="c1"># the 2D fast-path convention used elsewhere in this module).</span>
         <span class="n">win_x</span> <span class="o">=</span> <span class="n">_nufft_freq_window</span><span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">freq_window</span><span class="p">)</span>
         <span class="n">win_y</span> <span class="o">=</span> <span class="n">_nufft_freq_window</span><span class="p">(</span><span class="n">ky</span><span class="p">,</span> <span class="n">freq_window</span><span class="p">)</span>
         <span class="n">WIN</span> <span class="o">=</span> <span class="n">win_x</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">win_y</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
@@ -1809,7 +2152,12 @@
                        <span class="o">*</span> <span class="n">dxi</span> <span class="o">*</span> <span class="n">deta</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">complex</span><span class="p">)</span>
             <span class="n">tgt_x</span><span class="p">,</span> <span class="n">tgt_y</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">Y</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
             <span class="n">tgt_L</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">Lambda_xy</span><span class="p">,</span> <span class="p">(</span><span class="n">Nx</span><span class="p">,</span> <span class="n">Ny</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">_HAVE_FINUFFT</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">_HAVE_FINUFFT_PLAN</span><span class="p">:</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="n">_grid_fingerprint</span><span class="p">(</span><span class="n">src_xi</span><span class="p">,</span> <span class="n">src_eta</span><span class="p">,</span> <span class="n">src_M</span><span class="p">,</span> <span class="n">tgt_x</span><span class="p">,</span> <span class="n">tgt_y</span><span class="p">,</span> <span class="n">tgt_L</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">eps</span><span class="p">,)</span>
+                <span class="n">plan_obj</span> <span class="o">=</span> <span class="n">_get_or_build_finufft_plan_3d</span><span class="p">(</span>
+                    <span class="n">term</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">eps</span><span class="p">,</span> <span class="n">src_xi</span><span class="p">,</span> <span class="n">src_eta</span><span class="p">,</span> <span class="n">src_M</span><span class="p">,</span> <span class="n">tgt_x</span><span class="p">,</span> <span class="n">tgt_y</span><span class="p">,</span> <span class="n">tgt_L</span><span class="p">)</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">plan_obj</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">_HAVE_FINUFFT</span><span class="p">:</span>
                 <span class="n">f</span> <span class="o">=</span> <span class="n">_finufft</span><span class="o">.</span><span class="n">nufft3d3</span><span class="p">(</span><span class="n">src_xi</span><span class="p">,</span> <span class="n">src_eta</span><span class="p">,</span> <span class="n">src_M</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">tgt_x</span><span class="p">,</span> <span class="n">tgt_y</span><span class="p">,</span> <span class="n">tgt_L</span><span class="p">,</span>
                                        <span class="n">isign</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="n">eps</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
@@ -1821,7 +2169,6 @@
     <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;axis_sep&quot;</span><span class="p">:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">combo</span> <span class="ow">in</span> <span class="n">plan</span><span class="p">:</span>
-            <span class="c1"># Step 1: apply B (y,eta) row-wise; Step 2: apply A (x,xi) column-wise</span>
             <span class="n">w</span> <span class="o">=</span> <span class="n">_apply_1d_piece_rows</span><span class="p">(</span><span class="n">combo</span><span class="p">[</span><span class="s2">&quot;B&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">deta</span><span class="p">,</span> <span class="n">along_axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
                                       <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">)</span>
             <span class="n">contrib</span> <span class="o">=</span> <span class="n">_apply_1d_piece_rows</span><span class="p">(</span><span class="n">combo</span><span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">],</span> <span class="n">w</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">along_axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
@@ -1835,6 +2182,36 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_apply_1d_piece_rows</span><span class="p">(</span><span class="n">piece</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">axis_grid</span><span class="p">,</span> <span class="n">k_axis</span><span class="p">,</span> <span class="n">d_axis</span><span class="p">,</span> <span class="n">dk_axis</span><span class="p">,</span> <span class="n">along_axis</span><span class="p">,</span>
                           <span class="n">freq_window</span><span class="o">=</span><span class="s2">&quot;gaussian&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply 1D NUFFT pieces row-by-row for the 2D axis-separable tier.</span>
+
+<span class="sd">    Helper function that iterates over the orthogonal axis to apply </span>
+<span class="sd">    a 1D NUFFT or pointwise multiplication along the specified axis.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    piece : dict</span>
+<span class="sd">        The 1D plan piece (either &#39;pointwise&#39; or &#39;nufft1d&#39;).</span>
+<span class="sd">    field : ndarray</span>
+<span class="sd">        The 2D input field.</span>
+<span class="sd">    axis_grid : ndarray</span>
+<span class="sd">        The coordinate grid along the application axis.</span>
+<span class="sd">    k_axis : ndarray</span>
+<span class="sd">        The frequency grid along the application axis.</span>
+<span class="sd">    d_axis : float</span>
+<span class="sd">        Spatial grid spacing along the application axis.</span>
+<span class="sd">    dk_axis : float</span>
+<span class="sd">        Frequency grid spacing along the application axis.</span>
+<span class="sd">    along_axis : int</span>
+<span class="sd">        The axis index (0 or 1) along which to apply the operator.</span>
+<span class="sd">    freq_window : {&#39;gaussian&#39;, &#39;hann&#39;, None}, default=&#39;gaussian&#39;</span>
+<span class="sd">        Frequency-domain window.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The 2D field after applying the 1D piece.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">piece</span><span class="p">[</span><span class="s2">&quot;kind&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;pointwise&quot;</span><span class="p">:</span>
         <span class="n">amp_vals</span> <span class="o">=</span> <span class="n">piece</span><span class="p">[</span><span class="s2">&quot;amp&quot;</span><span class="p">](</span><span class="n">axis_grid</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">field</span> <span class="o">*</span> <span class="p">(</span><span class="n">amp_vals</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="k">if</span> <span class="n">along_axis</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">amp_vals</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span>
@@ -1881,14 +2258,55 @@
 <span class="c1"># numerics -- it does not reimplement the KN quadrature itself.</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_VectorAAA</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Barycentric rational fit r(z) in C^m, shared poles across m</span>
-<span class="sd">    &#39;vector components&#39; (e.g. one component per Chebyshev x-node).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Barycentric rational fit r(z) in ℂᵐ with shared poles across m vector components.</span>
+
+<span class="sd">    This class represents the output of the vector-valued AAA algorithm, </span>
+<span class="sd">    providing fast evaluation of rational interpolants. The spatial </span>
+<span class="sd">    dependence is handled by treating each Chebyshev node in `x` as a </span>
+<span class="sd">    separate &#39;vector component&#39; sharing the same frequency poles `zₖ`.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    z_support : ndarray</span>
+<span class="sd">        The selected support points (poles) in the frequency domain.</span>
+<span class="sd">    w : ndarray</span>
+<span class="sd">        The barycentric weights associated with each support point.</span>
+<span class="sd">    f_support : ndarray</span>
+<span class="sd">        The function values at the support points, shape `(k, m)` where </span>
+<span class="sd">        `k` is the number of poles and `m` is the number of spatial nodes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z_support</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">f_support</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the vector-valued AAA rational fit.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        z_support : ndarray</span>
+<span class="sd">            Complex support points (poles).</span>
+<span class="sd">        w : ndarray</span>
+<span class="sd">            Complex barycentric weights.</span>
+<span class="sd">        f_support : ndarray</span>
+<span class="sd">            Function values at the support points.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">z_support</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z_support</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">f_support</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">f_support</span><span class="p">)</span>  <span class="c1"># (k, m)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate the rational fit at arbitrary points `z`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        z : ndarray</span>
+<span class="sd">            Points at which to evaluate the rational interpolant.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ndarray</span>
+<span class="sd">            The evaluated rational fit, shape `(len(z), m)`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">))</span>
         <span class="n">diffs</span> <span class="o">=</span> <span class="n">z</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">z_support</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
         <span class="n">exact_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">diffs</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
@@ -1905,6 +2323,29 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_vector_aaa</span><span class="p">(</span><span class="n">z_samples</span><span class="p">,</span> <span class="n">F_samples</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">max_terms</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Core implementation of the vector-valued Adaptive Antoulas-Algorithm (AAA).</span>
+
+<span class="sd">    Constructs a compact rational approximation of a vector-valued function </span>
+<span class="sd">    by adaptively selecting support points and computing barycentric weights </span>
+<span class="sd">    via SVD.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    z_samples : ndarray</span>
+<span class="sd">        Sample points in the complex plane.</span>
+<span class="sd">    F_samples : ndarray</span>
+<span class="sd">        Function values at `z_samples`, shape `(N, m)`.</span>
+<span class="sd">    rtol : float, default=1e-8</span>
+<span class="sd">        Relative tolerance for the stopping criterion.</span>
+<span class="sd">    max_terms : int, default=50</span>
+<span class="sd">        Maximum number of support points (poles) to select.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    _VectorAAA</span>
+<span class="sd">        The fitted rational interpolant object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">z_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z_samples</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
     <span class="n">F_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">F_samples</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">F_samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">z_samples</span><span class="p">):</span>
@@ -1949,12 +2390,42 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_aaa_chebyshev_nodes</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate Chebyshev nodes of the first kind mapped to the interval [a, b].</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    a : float</span>
+<span class="sd">        Lower bound of the interval.</span>
+<span class="sd">    b : float</span>
+<span class="sd">        Upper bound of the interval.</span>
+<span class="sd">    n : int</span>
+<span class="sd">        Number of nodes to generate.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        Array of `n` Chebyshev nodes scaled to `[a, b]`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">((</span><span class="mi">2</span><span class="o">*</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
     <span class="k">return</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">b</span><span class="o">-</span><span class="n">a</span><span class="p">)</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">b</span><span class="o">+</span><span class="n">a</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_aaa_bary_weights_1st_kind</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute barycentric weights for Chebyshev nodes of the first kind.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n : int</span>
+<span class="sd">        Number of nodes (and thus the number of weights to compute).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        Array of `n` barycentric weights.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
     <span class="n">theta</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">n</span><span class="p">)</span>
     <span class="k">return</span> <span class="p">((</span><span class="o">-</span><span class="mf">1.0</span><span class="p">)</span><span class="o">**</span><span class="n">k</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
@@ -1964,9 +2435,34 @@
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_apply.try_aaa_decomposition_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">try_aaa_decomposition_1d</span><span class="p">(</span><span class="n">joint_expr</span><span class="p">,</span> <span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">,</span> <span class="n">x_bounds</span><span class="p">,</span> <span class="n">xi_bounds</span><span class="p">,</span>
                               <span class="n">n_cheb</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">n_xi_samples</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;1D bivariate rational decomposition via vector-AAA. Returns a plan</span>
-<span class="sd">    dict (with a fast numpy callable, see aaa_plan_to_callable_1d) or None</span>
-<span class="sd">    if the quality gate (rel_l2_error &gt; 10*rtol) isn&#39;t met.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    1D bivariate rational decomposition via vector-valued AAA.</span>
+
+<span class="sd">    Builds a rational approximation of the symbol where the spatial </span>
+<span class="sd">    dependence is handled by building a separate AAA fit for each </span>
+<span class="sd">    Chebyshev node in `x`, followed by barycentric Lagrange interpolation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    joint_expr : sympy.Expr</span>
+<span class="sd">        The joint symbolic expression to approximate.</span>
+<span class="sd">    x_sym, xi_sym : sympy.Symbol</span>
+<span class="sd">        Spatial and frequency variables.</span>
+<span class="sd">    x_bounds, xi_bounds : tuple of float</span>
+<span class="sd">        `(min, max)` bounds for the spatial and frequency variables.</span>
+<span class="sd">    n_cheb : int, default=24</span>
+<span class="sd">        Number of Chebyshev nodes in the spatial domain.</span>
+<span class="sd">    n_xi_samples : int, default=100</span>
+<span class="sd">        Number of sampling points in the frequency domain.</span>
+<span class="sd">    rtol : float, default=1e-8</span>
+<span class="sd">        Relative tolerance for the AAA algorithm and quality gate.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict or None</span>
+<span class="sd">        A plan dictionary containing the fit and metadata if the quality </span>
+<span class="sd">        gate (relative L2 error ≤ 10·rtol) is met. Returns `None` otherwise.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">p_lamb</span> <span class="o">=</span> <span class="n">lambdify</span><span class="p">((</span><span class="n">x_sym</span><span class="p">,</span> <span class="n">xi_sym</span><span class="p">),</span> <span class="n">joint_expr</span><span class="p">,</span> <span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
     <span class="n">x_nodes</span> <span class="o">=</span> <span class="n">_aaa_chebyshev_nodes</span><span class="p">(</span><span class="o">*</span><span class="n">x_bounds</span><span class="p">,</span> <span class="n">n_cheb</span><span class="p">)</span>
     <span class="n">xi_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">*</span><span class="n">xi_bounds</span><span class="p">,</span> <span class="n">n_xi_samples</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">complex</span><span class="p">)</span>
@@ -1988,9 +2484,26 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_aaa_eval_1d</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">x_eval</span><span class="p">,</span> <span class="n">xi_eval</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Evaluate the AAA-fitted p(x,xi) at arbitrary points (barycentric</span>
-<span class="sd">    Lagrange interp in x from the exact Chebyshev-node slices, composed</span>
-<span class="sd">    with the AAA barycentric form in xi).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Evaluate the 1D AAA-fitted symbol p(x, ξ) at arbitrary points.</span>
+
+<span class="sd">    Composes barycentric Lagrange interpolation in `x` (from the exact </span>
+<span class="sd">    Chebyshev-node slices) with the AAA barycentric form in `ξ`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    plan : dict</span>
+<span class="sd">        The 1D AAA plan dictionary generated by `try_aaa_decomposition_1d`.</span>
+<span class="sd">    x_eval : ndarray</span>
+<span class="sd">        Spatial evaluation points.</span>
+<span class="sd">    xi_eval : ndarray</span>
+<span class="sd">        Frequency evaluation points.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The evaluated symbol, shape `(len(xi_eval), len(x_eval))`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">fit</span><span class="p">,</span> <span class="n">x_nodes</span> <span class="o">=</span> <span class="n">plan</span><span class="p">[</span><span class="s2">&quot;fit&quot;</span><span class="p">],</span> <span class="n">plan</span><span class="p">[</span><span class="s2">&quot;x_nodes&quot;</span><span class="p">]</span>
     <span class="n">xi_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">xi_eval</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">))</span>
     <span class="n">x_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x_eval</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
@@ -2012,8 +2525,22 @@
 <div class="viewcode-block" id="aaa_plan_to_callable_1d">
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_apply.aaa_plan_to_callable_1d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">aaa_plan_to_callable_1d</span><span class="p">(</span><span class="n">plan</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap an aaa_decomposition_1d plan as p(x, xi) -&gt; ndarray, matching</span>
-<span class="sd">    the symbol_func signature kohn_nirenberg_fft/nonperiodic expect.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrap a 1D AAA decomposition plan into a fast NumPy callable.</span>
+
+<span class="sd">    Creates a function `p(x, ξ) → ndarray` that matches the `symbol_func` </span>
+<span class="sd">    signature expected by `kohn_nirenberg_fft` and `kohn_nirenberg_nonperiodic`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    plan : dict</span>
+<span class="sd">        The 1D AAA plan dictionary.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    callable</span>
+<span class="sd">        A function that evaluates the rational approximation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">p_approx</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
         <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
@@ -2037,10 +2564,33 @@
                               <span class="n">x_bounds</span><span class="p">,</span> <span class="n">y_bounds</span><span class="p">,</span> <span class="n">xi_bounds</span><span class="p">,</span> <span class="n">eta_bounds</span><span class="p">,</span>
                               <span class="n">n_cheb_x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">n_cheb_y</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
                               <span class="n">n_xi_samples</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">n_eta_samples</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;2D decomposition via sequential vector-AAA (xi support points chosen</span>
-<span class="sd">    at a representative eta slice -- see module docstring caveat above;</span>
-<span class="sd">    stage 2 compresses eta from the EXACT symbolic slice at each xi</span>
-<span class="sd">    support point). Returns a plan dict or None if the quality gate fails.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    2D decomposition via sequential vector-valued AAA.</span>
+
+<span class="sd">    Stage 1 compresses `ξ` using a representative `η` slice. Stage 2 </span>
+<span class="sd">    compresses `η` from the exact symbolic slice at each `ξ` support point.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    joint_expr : sympy.Expr</span>
+<span class="sd">        The 2D joint symbolic expression.</span>
+<span class="sd">    x_sym, y_sym, xi_sym, eta_sym : sympy.Symbol</span>
+<span class="sd">        Spatial and frequency variables.</span>
+<span class="sd">    x_bounds, y_bounds, xi_bounds, eta_bounds : tuple of float</span>
+<span class="sd">        `(min, max)` bounds for each variable.</span>
+<span class="sd">    n_cheb_x, n_cheb_y : int, default=10</span>
+<span class="sd">        Number of Chebyshev nodes in the spatial domains.</span>
+<span class="sd">    n_xi_samples, n_eta_samples : int, default=30</span>
+<span class="sd">        Number of sampling points in the frequency domains.</span>
+<span class="sd">    rtol : float, default=1e-8</span>
+<span class="sd">        Relative tolerance for the AAA algorithm and quality gate.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict or None</span>
+<span class="sd">        A plan dictionary containing the 2D fit if the quality gate </span>
+<span class="sd">        (relative error ≤ 20·rtol) is met. Returns `None` otherwise.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">x_nodes</span> <span class="o">=</span> <span class="n">_aaa_chebyshev_nodes</span><span class="p">(</span><span class="o">*</span><span class="n">x_bounds</span><span class="p">,</span> <span class="n">n_cheb_x</span><span class="p">)</span>
     <span class="n">y_nodes</span> <span class="o">=</span> <span class="n">_aaa_chebyshev_nodes</span><span class="p">(</span><span class="o">*</span><span class="n">y_bounds</span><span class="p">,</span> <span class="n">n_cheb_y</span><span class="p">)</span>
     <span class="n">Nx</span><span class="p">,</span> <span class="n">Ny</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_nodes</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_nodes</span><span class="p">)</span>
@@ -2085,6 +2635,26 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_interp_2d_tensor_chebyshev</span><span class="p">(</span><span class="n">vals_grid</span><span class="p">,</span> <span class="n">x_nodes</span><span class="p">,</span> <span class="n">y_nodes</span><span class="p">,</span> <span class="n">x_eval</span><span class="p">,</span> <span class="n">y_eval</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    2D tensor-product barycentric Lagrange interpolation.</span>
+
+<span class="sd">    Interpolates a 2D grid of values evaluated at Chebyshev nodes to </span>
+<span class="sd">    arbitrary evaluation points using barycentric weights.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    vals_grid : ndarray</span>
+<span class="sd">        The 2D array of values at the Chebyshev nodes.</span>
+<span class="sd">    x_nodes, y_nodes : ndarray</span>
+<span class="sd">        The 1D Chebyshev node coordinates for each axis.</span>
+<span class="sd">    x_eval, y_eval : ndarray</span>
+<span class="sd">        The arbitrary points at which to evaluate the interpolation.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The interpolated 2D array.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">bwx</span> <span class="o">=</span> <span class="n">_aaa_bary_weights_1st_kind</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x_nodes</span><span class="p">))</span>
     <span class="n">bwy</span> <span class="o">=</span> <span class="n">_aaa_bary_weights_1st_kind</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_nodes</span><span class="p">))</span>
 
@@ -2113,6 +2683,26 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_aaa_eval_2d</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">x_eval</span><span class="p">,</span> <span class="n">y_eval</span><span class="p">,</span> <span class="n">xi_eval</span><span class="p">,</span> <span class="n">eta_eval</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Evaluate the 2D AAA-fitted symbol p(x, y, ξ, η) at arbitrary points.</span>
+
+<span class="sd">    Combines the sequential vector-AAA fits in the frequency domain with </span>
+<span class="sd">    2D tensor-product barycentric Lagrange interpolation in the spatial domain.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    plan : dict</span>
+<span class="sd">        The 2D AAA plan dictionary generated by `try_aaa_decomposition_2d`.</span>
+<span class="sd">    x_eval, y_eval : ndarray</span>
+<span class="sd">        Spatial evaluation points.</span>
+<span class="sd">    xi_eval, eta_eval : ndarray</span>
+<span class="sd">        Frequency evaluation points.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        The evaluated symbol, shape `(len(xi_eval), len(eta_eval), len(x_eval), len(y_eval))`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">x_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x_eval</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
     <span class="n">y_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_eval</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
     <span class="n">xi_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">xi_eval</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">))</span>
@@ -2141,9 +2731,22 @@
 <div class="viewcode-block" id="aaa_plan_to_callable_2d">
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_apply.aaa_plan_to_callable_2d">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">aaa_plan_to_callable_2d</span><span class="p">(</span><span class="n">plan</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap an aaa_decomposition_2d plan as p(x, y, xi, eta) -&gt; ndarray,</span>
-<span class="sd">    matching the symbol_func signature kohn_nirenberg_fft/nonperiodic</span>
-<span class="sd">    expect for dim=2.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrap a 2D AAA decomposition plan into a fast NumPy callable.</span>
+
+<span class="sd">    Creates a function `p(x, y, ξ, η) → ndarray` that matches the `symbol_func` </span>
+<span class="sd">    signature expected by the 2D Kohn-Nirenberg quantization routines.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    plan : dict</span>
+<span class="sd">        The 2D AAA plan dictionary.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    callable</span>
+<span class="sd">        A function that evaluates the 2D rational approximation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">p_approx</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">);</span> <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
         <span class="n">xi_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">);</span> <span class="n">eta_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>

@@ -3305,7 +3305,11 @@ def test_apply_hybrid_mixed_1d():
 def test_apply_hybrid_equivalence_to_direct():
     """apply_hybrid should closely match the exact 'direct' backend for mixed symbols."""
     x, xi = symbols('x xi', real=True)
-    p_mixed = sp.sin(x * xi) + 1 / (1 + (x - xi)**2) + sp.exp(-((x - xi)**2) / 8)
+    p_mixed = (
+        sp.sin(x * xi)                          # joint -> NUFFT
+        + sp.cos(x * xi / 3)                    # joint -> NUFFT
+        + sp.exp(-(x - xi)**2 / (2 * 60**2))    # joint -> low-rank
+)
     op = PseudoDifferentialOperator(p_mixed, [x], mode='symbol')
     
     x_grid, kx = _make_1d_grid(L=5.0, N=128)

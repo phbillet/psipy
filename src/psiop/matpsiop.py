@@ -17,59 +17,59 @@ matpsiop — N × N matrix-valued pseudo-differential operators
 
 Overview
 --------
-The ``matpsiop`` submodule extends the scalar pseudo-differential 
-framework to systems of coupled partial differential equations, 
-Dirac-type equations, and matrix-valued fields (such as density 
-matrices or matrix Green's functions). 
+The `matpsiop` submodule extends the scalar pseudo-differential
+framework to systems of coupled partial differential equations,
+Dirac-type equations, and matrix-valued fields (such as density
+matrices or matrix Green's functions).
 
-It provides the ``MatrixPseudoDifferentialOperator`` class, which 
-wraps an N × N matrix of scalar symbols Pᵢⱼ(x, ξ) 
-and orchestrates their numerical application and symbolic calculus. 
-Because matrix multiplication is inherently non-commutative, this 
-module implements specialized asymptotic expansions for composition, 
+It provides the :class:`MatrixPseudoDifferentialOperator` class, which
+wraps an N × N matrix of scalar symbols Pᵢⱼ(x, ξ)
+and orchestrates their numerical application and symbolic calculus.
+Because matrix multiplication is inherently non-commutative, this
+module implements specialized asymptotic expansions for composition,
 commutators, and exponentials that preserve matrix ordering.
 
 Main object
 -----------
-``MatrixPseudoDifferentialOperator``
-    N × N matrix-valued pseudo-differential operator. Each entry 
-    Pᵢⱼ is internally wrapped as its own scalar 
-    ``PseudoDifferentialOperator``. This design allows the matrix 
-    operator to seamlessly inherit all scalar numerical backends 
-    (FFT, Peetre decomposition, NUFFT, AAA, low-rank) entrywise, 
+:class:`MatrixPseudoDifferentialOperator`
+    N × N matrix-valued pseudo-differential operator. Each entry
+    Pᵢⱼ is internally wrapped as its own scalar
+    :class:`PseudoDifferentialOperator`. This design allows the matrix
+    operator to seamlessly inherit all scalar numerical backends
+    (FFT, Peetre decomposition, NUFFT, AAA, low-rank) entrywise,
     without requiring separate matrix-specific numerical kernels.
 
 Key features
 ------------
 Vector and matrix field application:
     Entrywise application to vector fields u = (u₁, …, uₙ);
-    left and right matrix-multiplication actions on N × N 
-    matrix-valued fields (essential for Sylvester-type equations 
+    left and right matrix-multiplication actions on N × N
+    matrix-valued fields (essential for Sylvester-type equations
     ∂ₜU = P U - U Q).
 
 Symbol matrix evaluation and spectral analysis:
-    Pointwise numerical evaluation of the full (…, N, N) symbol 
+    Pointwise numerical evaluation of the full (…, N, N) symbol
     on spatial/frequency grids;
-    pointwise eigenvalues and eigenvectors of the symbol matrix 
-    (closed-form for N=2, used to build per-branch Hamiltonians 
+    pointwise eigenvalues and eigenvectors of the symbol matrix
+    (closed-form for N=2, used to build per-branch Hamiltonians
     for coupled systems).
 
 Non-commutative asymptotic symbolic calculus:
-    Matrix composition P ∘ Q (exact for constant-coefficient 
+    Matrix composition P ∘ Q (exact for constant-coefficient
     entries, non-commutative even at 0th order);
     matrix commutators [P, Q];
-    formal left and right asymptotic inverses (requiring an 
+    formal left and right asymptotic inverses (requiring an
     invertible principal symbol);
     formal Hermitian adjoint P*;
-    matrix exponential symbols exp(t · Op[P]) for 
+    matrix exponential symbols exp(t · Op[P]) for
     propagators of coupled/vector-valued PDE systems.
 
 Mathematical background
 -----------------------
 Matrix-valued symbols and quantization
-    A matrix pseudo-differential operator P acting on a 
-    vector field u(x) = (u₁(x), …, uₙ(x))ᵀ is defined by 
-    an N × N matrix of scalar symbols P(x, ξ). The 
+    A matrix pseudo-differential operator P acting on a
+    vector field u(x) = (u₁(x), …, uₙ(x))ᵀ is defined by
+    an N × N matrix of scalar symbols P(x, ξ). The
     Kohn–Nirenberg quantization is applied entrywise:
 
         (P u)ᵢ(x) = (2π)⁻ᵈ Σⱼ ∫ exp(i x·ξ) Pᵢⱼ(x, ξ) ûⱼ(ξ) dξ
@@ -80,7 +80,7 @@ Matrix-valued symbols and quantization
     column-wise application of the scalar entries.
 
 Asymptotic matrix composition
-    The symbol of the composition P ∘ Q 
+    The symbol of the composition P ∘ Q
     admits the Kohn–Nirenberg asymptotic expansion:
 
         (P ∘ Q)ᵢₖ(x, ξ) ∼ Σⱼ Σ_α [ i^(-|α|) / α! ] ∂_ξ^α Pᵢⱼ(x, ξ) · ∂_x^α Qⱼₖ(x, ξ)
@@ -93,8 +93,8 @@ Asymptotic matrix composition
     0th-order matrix product the *exact* composition symbol.
 
 Matrix exponential and propagators
-    The symbol of the exponential operator exp(t P) is 
-    computed via a truncated Taylor series using the matrix 
+    The symbol of the exponential operator exp(t P) is
+    computed via a truncated Taylor series using the matrix
     composition rule:
 
         exp(t P) ∼ I + t P + (t²/2!) (P ∘ P) + …
@@ -106,11 +106,11 @@ Matrix exponential and propagators
     exp(t P(ξ)).
 
 Formal adjoints and inverses
-    The formal Hermitian adjoint P* is obtained by taking 
-    the formal adjoint of each scalar entry (complex conjugation + 
-    asymptotic expansion in |ξ| → ∞), and then 
-    transposing the resulting matrix. 
-    
+    The formal Hermitian adjoint P* is obtained by taking
+    the formal adjoint of each scalar entry (complex conjugation +
+    asymptotic expansion in |ξ| → ∞), and then
+    transposing the resulting matrix.
+
     Formal asymptotic inverses R (such that 
     P ∘ R ∼ I) require the principal 
     symbol matrix to be invertible (det P ≠ 0). The recursion 
@@ -120,28 +120,56 @@ Formal adjoints and inverses
 Numerical design notes
 ----------------------
 Entrywise numerical orchestration:
-    ``MatrixPseudoDifferentialOperator`` introduces *no new numerical 
-    kernels* for application. The ``apply()`` method simply orchestrates 
-    N² independent calls to the scalar ``PseudoDifferentialOperator.apply()``. 
-    Consequently, it automatically inherits the Peetre decomposition, 
+    :class:`MatrixPseudoDifferentialOperator` introduces no new numerical
+    kernels for application. The `apply()` method simply orchestrates
+    N² independent calls to the scalar :meth:`PseudoDifferentialOperator.apply`.
+    Consequently, it automatically inherits the Peetre decomposition,
     NUFFT, AAA, and low-rank backends for each entry.
 
 Memory and performance:
-    Because each of the N² scalar operators is constructed and 
-    cached independently, memory usage scales linearly with N². 
-    For large systems, constant-coefficient entries benefit from the 
-    scalar fast-path FFT multiplier, making matrix application highly 
+    Because each of the N² scalar operators is constructed and
+    cached independently, memory usage scales linearly with N².
+    For large systems, constant-coefficient entries benefit from the
+    scalar fast-path FFT multiplier, making matrix application highly
     efficient.
 
 Sylvester-type equations:
-    The ``apply_matrix_field`` (left action) and 
-    ``apply_matrix_field_right`` (right action) methods are designed 
-    to support operator splitting for equations of the form 
-    ∂ₜU = P U - U Q. Left and right 
-    actions commute as *operations* ((P U) Q = 
-    P (U Q)), enabling efficient Lie-Trotter or 
-    Strang splitting schemes even when the underlying scalar operators 
+    The `apply_matrix_field` (left action) and
+    `apply_matrix_field_right` (right action) methods are designed
+    to support operator splitting for equations of the form
+    ∂ₜU = P U - U Q. Left and right
+    actions commute as operations ((P U) Q =
+    P (U Q)), enabling efficient Lie-Trotter or
+    Strang splitting schemes even when the underlying scalar operators
     do not commute.
+
+Examples
+--------
+Define a 2×2 constant-coefficient system (e.g., a simplified Dirac 
+or coupled wave system) and apply it to a vector field:
+
+>>> import sympy as sp
+>>> import numpy as np
+>>> from matpsiop import MatrixPseudoDifferentialOperator
+>>> 
+>>> # Define symbols
+>>> x, xi = sp.symbols('x xi', real=True)
+>>> 
+>>> # Define a 2x2 symbol matrix P(xi)
+>>> P_expr = sp.Matrix([[0, 1j*xi], 
+...                     [1j*xi, 0]])
+>>> 
+>>> # Create the operator
+>>> P = MatrixPseudoDifferentialOperator(P_expr, vars_x=[x])
+>>> 
+>>> # Apply to a vector field u = [u1, u2] on a grid
+>>> x_grid = np.linspace(0, 2*np.pi, 64, endpoint=False)
+>>> kx = np.fft.fftfreq(64, d=2*np.pi/64) * 2 * np.pi
+>>> u1 = np.sin(x_grid)
+>>> u2 = np.cos(x_grid)
+>>> 
+>>> # Compute P(u)
+>>> v1, v2 = P.apply([u1, u2], x_grid, kx)
 """
 from imports import *
 # Import core components from the parent package
@@ -453,9 +481,36 @@ class MatrixPseudoDifferentialOperator:
 
     def eigen_symbol(self, *args):
         """
-        Pointwise eigenvalues/eigenvectors of the symbol matrix
-        P(x[, y], xi[, eta]) at given point(s).
-        If called without arguments, computes symbolic eigenvalues/eigenvectors.
+        Compute pointwise eigenvalues and eigenvectors of the symbol matrix.
+
+        Evaluates the eigenvalues and eigenvectors of the N×N symbol matrix
+        P(x, ξ) at given spatial/frequency points. If called without arguments,
+        computes the exact symbolic eigenvalues and eigenvectors using SymPy.
+
+        Parameters
+        ----------
+        *args : tuple of float or numpy.ndarray
+            The point(s) to evaluate at, in the order each entry's `p_func`
+            expects: `(x, ξ)` for 1D, `(x, y, ξ, η)` for 2D. Arguments may be
+            broadcastable ndarrays. If omitted, returns symbolic expressions.
+
+        Returns
+        -------
+        eigvals : numpy.ndarray or sympy.Matrix
+            If `*args` is provided, an ndarray of shape `(..., N)` containing
+            the eigenvalues at each point. If omitted, a `sympy.Matrix` of
+            shape `(N, 1)` (for N=2) or a dictionary of eigenvalues (for N>2).
+        eigvecs : numpy.ndarray or sympy.Matrix or None
+            If `*args` is provided, an ndarray of shape `(..., N, N)` containing
+            the normalized eigenvectors as columns. If omitted and N=2, a
+            `sympy.Matrix` of shape `(N, N)`. If omitted and N>2, returns `None`.
+
+        Notes
+        -----
+        For N=2, closed-form analytical expressions are used for both the
+        symbolic and numerical paths to avoid the overhead of general eigenvalue
+        solvers. For N>2, the numerical path falls back to `numpy.linalg.eig`,
+        and the symbolic path returns `sympy.Matrix.eigenvals()`.
         """
         P = self.symbol_matrix(*args)
         
@@ -579,21 +634,40 @@ class MatrixPseudoDifferentialOperator:
 
         return simplify(result) if do_simplify else result
 
+
     def commutator_symbolic(self, other, order=1, mode='kn', sign_convention=None):
         """
-        Symbol of the commutator `[Op[self], Op[other]]`, generalizing
-        `PseudoDifferentialOperator.commutator_symbolic` to matrices.
+        Compute the symbol of the commutator [Op[self], Op[other]].
 
-        Unlike the scalar case (whose 0th-order term always vanishes,
-        since scalars commute), the matrix commutator is generally
-        nonzero already at 0th order: it's the ordinary matrix commutator
-        `P(x,xi) Q(x,xi) - Q(x,xi) P(x,xi)`. Higher orders add the
-        noncommutative analogue of the Poisson-bracket correction. For
-        constant-coefficient `self`/`other` this is exact, and reduces
-        exactly to the plain matrix commutator (see `compose_asymptotic`).
+        Generalizes the scalar commutator to matrix-valued pseudo-differential
+        operators. Unlike the scalar case, the matrix commutator is generally
+        nonzero at 0th order, reducing to the ordinary matrix commutator
+        P(x, ξ)Q(x, ξ) - Q(x, ξ)P(x, ξ). Higher orders add the noncommutative
+        analogue of the Poisson-bracket correction.
+
+        Parameters
+        ----------
+        other : MatrixPseudoDifferentialOperator
+            The right-hand operator. Must have the same `size` and `dim` as `self`.
+        order : int, default=1
+            Truncation order for the asymptotic expansion.
+        mode : {'kn', 'weyl'}, default='kn'
+            Quantization convention ('kohn-nirenberg' or 'weyl').
+        sign_convention : str, optional
+            Sign convention for the Fourier transform / quantization.
+            Forwarded to `compose_asymptotic`.
+
+        Returns
+        -------
+        sympy.Matrix
+            The symbolic matrix representing the commutator [P, Q].
         """
-        pq = self.compose_asymptotic(other, order=order, mode=mode, sign_convention=sign_convention)
-        qp = other.compose_asymptotic(self, order=order, mode=mode, sign_convention=sign_convention)
+        pq = self.compose_asymptotic(
+            other, order=order, mode=mode, sign_convention=sign_convention
+        )
+        qp = other.compose_asymptotic(
+            self, order=order, mode=mode, sign_convention=sign_convention
+        )
         return simplify(pq - qp)
 
     def exponential_symbol(self, t=1.0, order=2, mode='kn', sign_convention=None, do_simplify=True):
@@ -673,11 +747,32 @@ class MatrixPseudoDifferentialOperator:
         return simplify(result) if do_simplify else result
 
     def _asymptotic_matrix_inverse(self, order, side):
-        """Matrix analogue of PseudoDifferentialOperator._asymptotic_inverse.
-        Requires P(x, xi) to be invertible as a matrix (det P != 0
-        symbolically); P.inv() is used as the 0th-order term. Matrix
-        multiplication order is preserved: the inverse factor stays on
-        the side that actually cancels P in `P . R ~ I` / `L . P ~ I`.
+        """
+        Internal engine for computing left or right asymptotic matrix inverses.
+
+        Requires the symbol P(x, ξ) to be invertible as a matrix (det P ≠ 0
+        symbolically); P⁻¹ is used as the 0th-order term. Matrix multiplication
+        order is preserved: the inverse factor stays on the side that actually
+        cancels P in P ∘ R ∼ I (right) or L ∘ P ∼ I (left).
+
+        Parameters
+        ----------
+        order : int
+            The truncation order for the asymptotic expansion.
+        side : {'left', 'right'}
+            Specifies whether to compute the left or right inverse.
+
+        Returns
+        -------
+        sympy.Matrix
+            The symbolic matrix representing the asymptotic inverse.
+
+        Raises
+        ------
+        ValueError
+            If the symbol is not invertible (det P = 0).
+        NotImplementedError
+            If the spatial dimension `dim` is not 1 or 2.
         """
         dim = self.dim
         if dim not in (1, 2):
@@ -713,30 +808,76 @@ class MatrixPseudoDifferentialOperator:
         return simplify(R)
 
     def right_inverse_asymptotic(self, order=1):
-        """Formal right inverse R such that Op[self] . Op[R] ~ Id up to
-        O(<xi>^-order), matrix analogue of
-        PseudoDifferentialOperator.right_inverse_asymptotic. Requires
-        the symbol P(x, xi) to be invertible as a matrix.
+        """
+        Compute the formal right asymptotic inverse R.
+
+        Finds a formal right inverse R such that Op[self] ∘ Op[R] ∼ Id up to
+        O(⟨ξ⟩⁻ᵒʳᵈᵉʳ). This is the matrix analogue of the scalar asymptotic
+        inverse. Matrix multiplication order is strictly preserved.
+
+        Parameters
+        ----------
+        order : int, default=1
+            The truncation order for the asymptotic expansion.
+
+        Returns
+        -------
+        sympy.Matrix
+            The symbolic matrix representing the right inverse R.
+
+        Raises
+        ------
+        ValueError
+            If the principal symbol matrix P(x, ξ) is not invertible
+            (i.e., det P = 0 or SymPy cannot confirm invertibility).
         """
         return self._asymptotic_matrix_inverse(order, side='right')
 
     def left_inverse_asymptotic(self, order=1):
-        """Formal left inverse L such that Op[L] . Op[self] ~ Id up to
-        O(<xi>^-order), matrix analogue of
-        PseudoDifferentialOperator.left_inverse_asymptotic. Requires
-        the symbol P(x, xi) to be invertible as a matrix.
+        """
+        Compute the formal left asymptotic inverse L.
+
+        Finds a formal left inverse L such that Op[L] ∘ Op[self] ∼ Id up to
+        O(⟨ξ⟩⁻ᵒʳᵈᵉʳ). This is the matrix analogue of the scalar asymptotic
+        inverse. Matrix multiplication order is strictly preserved.
+
+        Parameters
+        ----------
+        order : int, default=1
+            The truncation order for the asymptotic expansion.
+
+        Returns
+        -------
+        sympy.Matrix
+            The symbolic matrix representing the left inverse L.
+
+        Raises
+        ------
+        ValueError
+            If the principal symbol matrix P(x, ξ) is not invertible
+            (i.e., det P = 0 or SymPy cannot confirm invertibility).
         """
         return self._asymptotic_matrix_inverse(order, side='left')
 
     def formal_adjoint(self, n_terms=6):
-        """Formal Hermitian adjoint symbol P* of the matrix operator.
+        """
+        Compute the formal Hermitian adjoint symbol P*.
 
-        Each entry gets the same scalar treatment as
-        `PseudoDifferentialOperator.formal_adjoint` (conjugate + asymptotic
-        expansion at infinity in |xi|); the resulting matrix is then
-        transposed (not conjugate-transposed again -- conjugation already
-        happened entrywise) because (Op[P]u, v) = (u, Op[P]* v) swaps the
-        row/column roles of the symbol, same as for a plain matrix adjoint.
+        Each entry Pᵢⱼ receives the same scalar treatment as
+        `PseudoDifferentialOperator.formal_adjoint` (complex conjugation +
+        asymptotic expansion as |ξ| → ∞). The resulting matrix is then
+        transposed (P* = (Pᵢⱼ*)ᵀ) because the adjoint operation swaps the
+        row and column roles of the symbol, analogous to a plain matrix adjoint.
+
+        Parameters
+        ----------
+        n_terms : int, default=6
+            Number of terms to include in the asymptotic expansion at infinity.
+
+        Returns
+        -------
+        sympy.Matrix
+            The symbolic matrix representing the formal adjoint P*.
         """
         dim = self.dim
         xi_vars = symbols('xi eta', real=True) if dim == 2 else (symbols('xi', real=True),)

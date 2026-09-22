@@ -56,9 +56,11 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">psiop package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#psiop-symbolicnumerical-toolkit-for-pseudodifferential-operators-in-1d-2d">psiop — Symbolic–numerical toolkit for pseudo‑differential operators in 1D/2D</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#quick-start">Quick Start</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#subpackage-layout">Subpackage layout</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#main-object">Main object</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#key-features">Key features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#dependencies">Dependencies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#mathematical-background">Mathematical background</a></li>
 </ul>
 </li>
@@ -113,7 +115,7 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#psiop-psiop-apply-module">psiop.psiop_apply module</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#psiop-apply-py-numerical-backends-for-pseudodifferential-operator-application">psiop_apply.py — Numerical backends for pseudo‑differential operator application</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#psiop-apply-py-numerical-backends-for-pseudo-differential-operator-application">psiop_apply.py — Numerical backends for pseudo-differential operator application</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#psiop.psiop_apply.aaa_plan_to_callable_1d"><code class="docutils literal notranslate"><span class="pre">aaa_plan_to_callable_1d()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#psiop.psiop_apply.aaa_plan_to_callable_2d"><code class="docutils literal notranslate"><span class="pre">aaa_plan_to_callable_2d()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#psiop.psiop_apply.apply_nufft_1d"><code class="docutils literal notranslate"><span class="pre">apply_nufft_1d()</span></code></a></li>
@@ -186,109 +188,129 @@
 <span id="module-psiop"></span><h2>psiop — Symbolic–numerical toolkit for pseudo‑differential operators in 1D/2D<a class="headerlink" href="#psiop-symbolicnumerical-toolkit-for-pseudodifferential-operators-in-1d-2d" title="Link to this heading"></a></h2>
 <section id="overview">
 <h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
-<p>The <code class="docutils literal notranslate"><span class="pre">psiop</span></code> package provides a unified framework for constructing,
+<p>The <cite>psiop</cite> package provides a unified framework for constructing,
 manipulating, and numerically applying pseudo‑differential operators
-(ΨDOs) in one and two spatial dimensions.  It combines symbolic symbol
+(ΨDOs) in one and two spatial dimensions. It combines symbolic symbol
 calculus (SymPy) with numerical evaluation, quantization, diagnostics,
 and visualization (NumPy / SciPy / Matplotlib).</p>
 <p>The package is intended for researchers and students working in
 microlocal analysis, spectral theory, semiclassical analysis,
 Hamiltonian / geometric optics, and the numerical analysis of PDEs.</p>
 </section>
+<section id="quick-start">
+<h3>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h3>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">psiop</span><span class="w"> </span><span class="kn">import</span> <span class="n">PseudoDifferentialOperator</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Define the symbol for the 1D harmonic oscillator: p(x, ξ) = x² + ξ²</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">op</span> <span class="o">=</span> <span class="n">PseudoDifferentialOperator</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">vars_x</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Apply it to a Gaussian wave packet on a spatial grid</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">kx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">x_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">x_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x_grid</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 <section id="subpackage-layout">
 <h3>Subpackage layout<a class="headerlink" href="#subpackage-layout" title="Link to this heading"></a></h3>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">psiop</span></code> (this module)</dt><dd><p>Core scalar <code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator</span></code>, Peetre decomposition,
+<dt><cite>psiop</cite> (this module)</dt><dd><p>Core scalar <cite>PseudoDifferentialOperator</cite>, Peetre decomposition,
 asymptotic symbolic calculus, quantization conversion, operator
 diagnostics, and Hamiltonian-flow / visualization wrappers.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">psiop.matpsiop</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator</span></code> — N × N matrix-valued symbols
+<dt><cite>psiop.matpsiop</cite></dt><dd><p><cite>MatrixPseudoDifferentialOperator</cite> — N × N matrix-valued symbols
 acting on vector fields and matrix-valued fields, with noncommutative
 asymptotic composition, matrix commutators, and matrix exponential
 symbols.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">psiop.psiop_apply</span></code></dt><dd><p>Standalone numerical kernels: Kohn–Nirenberg FFT / non-periodic
+<dt><cite>psiop.psiop_apply</cite></dt><dd><p>Standalone numerical kernels: Kohn–Nirenberg FFT / non-periodic
 quadrature, NUFFT joint-residual backend, AAA rational approximation,
 and Chebyshev / SVD low-rank factorization.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">psiop.psiop_solver</span></code></dt><dd><p>Time-stepping solvers and propagators: <code class="docutils literal notranslate"><span class="pre">build_propagator</span></code>,
-<code class="docutils literal notranslate"><span class="pre">PropagatorFamily</span></code>, <code class="docutils literal notranslate"><span class="pre">solve_first_order</span></code>, <code class="docutils literal notranslate"><span class="pre">solve_second_order</span></code>,
-<code class="docutils literal notranslate"><span class="pre">solve_matrix_field</span></code>, <code class="docutils literal notranslate"><span class="pre">solve_sylvester_field</span></code>,
-<code class="docutils literal notranslate"><span class="pre">solve_ricci_flow_conformal_2d</span></code>, and grid-generation utilities.</p>
+<dt><cite>psiop.psiop_solver</cite></dt><dd><p>Time-stepping solvers and propagators: <cite>build_propagator</cite>,
+<cite>PropagatorFamily</cite>, <cite>solve_first_order</cite>, <cite>solve_second_order</cite>,
+<cite>solve_matrix_field</cite>, <cite>solve_sylvester_field</cite>,
+<cite>solve_ricci_flow_conformal_2d</cite>, and grid-generation utilities.</p>
 </dd>
 </dl>
 </section>
 <section id="main-object">
 <h3>Main object<a class="headerlink" href="#main-object" title="Link to this heading"></a></h3>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator</span></code></dt><dd><p>Scalar pseudo‑differential operator in 1D or 2D.  The symbol may be
-given explicitly (<code class="docutils literal notranslate"><span class="pre">mode='symbol'</span></code>) or extracted automatically from
-a differential expression acting on a test function (<code class="docutils literal notranslate"><span class="pre">mode='auto'</span></code>).</p>
+<dt><cite>PseudoDifferentialOperator</cite></dt><dd><p>Scalar pseudo‑differential operator in 1D or 2D. The symbol may be
+given explicitly (<cite>mode=’symbol’</cite>) or extracted automatically from
+a differential expression acting on a test function (<cite>mode=’auto’</cite>).</p>
 </dd>
 </dl>
 </section>
 <section id="key-features">
 <h3>Key features<a class="headerlink" href="#key-features" title="Link to this heading"></a></h3>
-<dl class="simple">
-<dt>Symbol creation (1D and 2D):</dt><dd><p>explicit symbol mode p(x, ξ) or p(x, y, ξ, η);
-automatic extraction from differential operators via plane‑wave testing.</p>
-</dd>
-<dt>Quantization conventions:</dt><dd><p>Kohn–Nirenberg (default) and Weyl quantization;
-asymptotic conversion between the two via the exponential cross-derivative
-series (exact and finite for polynomial symbols).</p>
-</dd>
-<dt>High‑frequency symbolic analysis:</dt><dd><p>principal symbol extraction; asymptotic expansion as <a href="#id27"><span class="problematic" id="id28">|ξ|</span></a> → ∞;
-homogeneity detection; symbolic / numerical order estimation.</p>
-</dd>
-<dt>Asymptotic symbolic calculus:</dt><dd><p>operator composition p ∘ q (KN and Weyl / Moyal);
-commutators [P, Q]; formal left and right inverses;
-formal adjoint P*; fractional powers P^α;
-exponential symbols exp(tP).</p>
-</dd>
-<dt>Peetre‑style symbolic decomposition:</dt><dd><p>local polynomial part in the frequency variables;
-separable terms a(x) q(ξ);
-genuinely joint, non‑separable residual;
-automatic backend selection for the joint residual (NUFFT, AAA,
-or low-rank) — see <code class="docutils literal notranslate"><span class="pre">psiop.psiop_apply</span></code> for the numerical kernels.</p>
-</dd>
-<dt>Operator diagnostics:</dt><dd><p>symbolic and numerical ellipticity tests;
-formal self‑adjointness checks;
-semiclassical trace formula (symbolic or numerical);
-pseudospectrum computation with resolvent-norm contours, eigenvalue
-overlays, sparse / dense solvers, and optional adaptive refinement.</p>
-</dd>
-<dt>Hamiltonian and microlocal dynamics:</dt><dd><p>Hamiltonian vector field of the principal symbol;
-symplectic flow visualization; bicharacteristic integration;
-singularity propagation animation (2D / 3D phase-space projections);
-characteristic set and gradient visualization.</p>
-</dd>
-<dt>Visualization:</dt><dd><p>Symbol amplitude / phase plots, cotangent fibers, micro-support,
-wavefront set, group velocity fields, and interactive ipywidgets
-dashboards — all delegated to the <code class="docutils literal notranslate"><span class="pre">microlocal</span></code> plotting module.</p>
-</dd>
-</dl>
+<ul class="simple">
+<li><p><strong>Symbol creation (1D and 2D):</strong> explicit symbol mode p(x, ξ) or
+p(x, y, ξ, η); automatic extraction from differential operators via
+plane‑wave testing.</p></li>
+<li><p><strong>Quantization conventions:</strong> Kohn–Nirenberg (default) and Weyl
+quantization; asymptotic conversion between the two via the exponential
+cross-derivative series (exact and finite for polynomial symbols).</p></li>
+<li><p><strong>High‑frequency symbolic analysis:</strong> principal symbol extraction;
+asymptotic expansion as <a href="#id31"><span class="problematic" id="id32">|ξ|</span></a> → ∞; homogeneity detection; symbolic /
+numerical order estimation.</p></li>
+<li><p><strong>Asymptotic symbolic calculus:</strong> operator composition p ∘ q (KN and
+Weyl / Moyal); commutators [P, Q]; formal left and right inverses;
+formal adjoint P*; fractional powers P^α; exponential symbols exp(tP).</p></li>
+<li><p><strong>Peetre‑style symbolic decomposition:</strong> local polynomial part in the
+frequency variables; separable terms a(x)q(ξ); genuinely joint,
+non‑separable residual; automatic backend selection for the joint
+residual (NUFFT, AAA, or low-rank).</p></li>
+<li><p><strong>Operator diagnostics:</strong> symbolic and numerical ellipticity tests;
+formal self‑adjointness checks; semiclassical trace formula;
+pseudospectrum computation with resolvent-norm contours and eigenvalue
+overlays.</p></li>
+<li><p><strong>Hamiltonian and microlocal dynamics:</strong> Hamiltonian vector field of
+the principal symbol; symplectic flow visualization; bicharacteristic
+integration; singularity propagation animation; characteristic set and
+gradient visualization.</p></li>
+<li><p><strong>Visualization:</strong> Symbol amplitude / phase plots, cotangent fibers,
+micro-support, wavefront set, group velocity fields, and interactive
+ipywidgets dashboards.</p></li>
+</ul>
+</section>
+<section id="dependencies">
+<h3>Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><cite>sympy</cite> (Symbolic calculus)</p></li>
+<li><p><cite>numpy</cite>, <cite>scipy</cite> (Numerical evaluation, FFT, SVD, quadrature)</p></li>
+<li><p><cite>matplotlib</cite> (Visualization)</p></li>
+<li><p><cite>finufft</cite> or <cite>pynufft</cite> (Optional, for NUFFT joint-residual backend)</p></li>
+<li><p><cite>aaa</cite> (Optional, for rational approximation backend)</p></li>
+</ul>
 </section>
 <section id="mathematical-background">
 <h3>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h3>
 <dl>
 <dt>Symbols and quantization</dt><dd><p>A pseudo‑differential operator P acting on functions of
 x ∈ ℝⁿ (n = 1 or 2) is defined by its symbol p(x, ξ) on
-phase space T*ℝⁿ = ℝⁿ_x × ℝⁿ_ξ.  Symbols are classified by
+phase space T*ℝⁿ = ℝⁿ_x × ℝⁿ_ξ. Symbols are classified by
 their growth in ξ: p ∈ S^m_{1,0} if</p>
 <blockquote>
-<div><p><a href="#id29"><span class="problematic" id="id30">|∂_x^β ∂_ξ^α p(x, ξ)|</span></a> ≤ C_{α,β} (1 + <a href="#id31"><span class="problematic" id="id32">|ξ|</span></a>)^(m - <a href="#id33"><span class="problematic" id="id34">|α|</span></a>)</p>
+<div><p><a href="#id33"><span class="problematic" id="id34">|∂_x^β ∂_ξ^α p(x, ξ)|</span></a> ≤ C_{α,β} (1 + <a href="#id35"><span class="problematic" id="id36">|ξ|</span></a>)^(m - <a href="#id37"><span class="problematic" id="id38">|α|</span></a>)</p>
 </div></blockquote>
-<p>for all multi‑indices α, β.  The integer / real number m is the
+<p>for all multi‑indices α, β. The integer / real number m is the
 <em>order</em> of the operator.</p>
-</dd>
-<dt>Quantization maps</dt><dd><p>Kohn–Nirenberg (left / standard, default):</p>
+<p>Quantization maps:
+Kohn–Nirenberg (left / standard, default):</p>
 <blockquote>
 <div><p>(P u)(x) = Op^KN(p) u(x) = (2π)⁻ⁿ ∫_{ℝⁿ} exp(i x·ξ) p(x, ξ) û(ξ) dξ</p>
 </div></blockquote>
-<p>Weyl (symmetric):</p>
-<blockquote>
-<div><p>Op^w(a) u(x) = (2π)⁻ⁿ ∫∫ exp(i(x-y)·ξ) a((x+y)/2, ξ) u(y) dy dξ</p>
-</div></blockquote>
+<dl class="simple">
+<dt>Weyl (symmetric):</dt><dd><p>Op^w(a) u(x) = (2π)⁻ⁿ ∫∫ exp(i(x-y)·ξ) a((x+y)/2, ξ) u(y) dy dξ</p>
+</dd>
+</dl>
 <p>Conversion between the two is realized as an asymptotic series in
 mixed x–ξ derivatives:</p>
 <blockquote>
@@ -298,31 +320,31 @@ mixed x–ξ derivatives:</p>
 </dl>
 </div></blockquote>
 <p>In 2D the cross-derivative operator sums both coordinate pairs:
-∂_x ∂_ξ → ∂_x ∂_ξ + ∂_y ∂_η.  For polynomial symbols the
+∂_x ∂_ξ → ∂_x ∂_ξ + ∂_y ∂_η. For polynomial symbols the
 series is exact and finite; for general S^m_{1,0} symbols it is
 interpreted asymptotically.</p>
 </dd>
-<dt>Asymptotic composition</dt><dd><p>For two symbols p and q, the Kohn–Nirenberg expansion is</p>
-<blockquote>
-<div><p>(p ∘ q)(x, ξ) ∼ Σ_α i^(-<a href="#id35"><span class="problematic" id="id36">|α|</span></a>) / α! · ∂_ξ^α p · ∂_x^α q</p>
-</div></blockquote>
-<p>A Weyl / Moyal star product is also available.  The same machinery
+<dt>Asymptotic composition</dt><dd><dl class="simple">
+<dt>For two symbols p and q, the Kohn–Nirenberg expansion is</dt><dd><p>(p ∘ q)(x, ξ) ∼ Σ_α i^(-<a href="#id39"><span class="problematic" id="id40">|α|</span></a>) / α! · ∂_ξ^α p · ∂_x^α q</p>
+</dd>
+</dl>
+<p>A Weyl / Moyal star product is also available. The same machinery
 underlies commutators, formal inverses, adjoints, fractional powers,
 and exponential symbols.</p>
 </dd>
 <dt>Principal symbol and order</dt><dd><p>The principal symbol is the leading homogeneous component as
-<a href="#id37"><span class="problematic" id="id38">|ξ|</span></a> → ∞.  If p is homogeneous of degree m,
+<a href="#id41"><span class="problematic" id="id42">|ξ|</span></a> → ∞. If p is homogeneous of degree m,
 p(x, λξ) = λ^m p(x, ξ) for λ &gt; 0.</p>
 </dd>
-<dt>Peetre decomposition</dt><dd><p>For numerical application the symbol is split into</p>
-<blockquote>
-<div><p>p(x, ξ) = p_local(x, ξ) + p_sep(x, ξ) + p_joint(x, ξ)</p>
-</div></blockquote>
+<dt>Peetre decomposition</dt><dd><dl class="simple">
+<dt>For numerical application the symbol is split into</dt><dd><p>p(x, ξ) = p_local(x, ξ) + p_sep(x, ξ) + p_joint(x, ξ)</p>
+</dd>
+</dl>
 <p>where p_local is polynomial in ξ (differential part),
 p_sep = Σ_k a_k(x) q_k(ξ) is a sum of separable Fourier
 multipliers, and p_joint contains the genuinely entangled
 space–frequency residual — routed automatically to NUFFT, AAA, or
-low-rank backends (see <code class="docutils literal notranslate"><span class="pre">psiop.psiop_apply</span></code>).</p>
+low-rank backends.</p>
 </dd>
 <dt>Hamiltonian flow</dt><dd><p>The Hamiltonian vector field of the principal symbol governs
 singularity propagation along bicharacteristics:</p>
@@ -332,10 +354,10 @@ dx/dt = ∂_ξ p,    dy/dt = ∂_η p,
 dξ/dt = −∂_x p,   dη/dt = −∂_y p      (2D)</p>
 </div></blockquote>
 </dd>
-<dt>Pseudospectrum</dt><dd><p>The ε-pseudospectrum of P is</p>
-<blockquote>
-<div><p>σ_ε(P) = { λ ∈ ℂ : ‖(P − λI)⁻¹‖ ≥ ε⁻¹ }</p>
-</div></blockquote>
+<dt>Pseudospectrum</dt><dd><dl class="simple">
+<dt>The ε-pseudospectrum of P is</dt><dd><p>σ_ε(P) = { λ ∈ ℂ : ‖(P − λI)⁻¹‖ ≥ ε⁻¹ }</p>
+</dd>
+</dl>
 <p>determined by the smallest singular value of the shifted matrix
 discretization: ‖(P − λI)⁻¹‖ = 1 / σ_min(P − λI).
 Particularly informative for non-normal operators.</p>
@@ -346,7 +368,7 @@ Particularly informative for non-normal operators.</p>
 <aside class="footnote brackets" id="id1" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
 <p>Hörmander, L. <em>The Analysis of Linear Partial Differential
-Operators III</em>, Springer, 1985.  Chapter 18.</p>
+Operators III</em>, Springer, 1985. Chapter 18.</p>
 </aside>
 <aside class="footnote brackets" id="id2" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
@@ -355,7 +377,7 @@ Princeton University Press, 1981.</p>
 </aside>
 <aside class="footnote brackets" id="id3" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
-<p>Zworski, M. <em>Semiclassical Analysis</em>, AMS, 2012.  Chapter 4.</p>
+<p>Zworski, M. <em>Semiclassical Analysis</em>, AMS, 2012. Chapter 4.</p>
 </aside>
 <aside class="footnote brackets" id="id4" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
@@ -454,11 +476,27 @@ or extracted automatically from symbolic equations (auto mode).</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.animate_singularity">
 <span class="sig-name descname"><span class="pre">animate_singularity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_frames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.animate_singularity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.animate_singularity" title="Link to this definition"></a></dt>
-<dd><p>Animate the propagation of a singularity under the Hamiltonian
-flow. Thin delegate to the module-level <cite>animate_singularity</cite>
-engine (previously ~130 lines of duplicated Hamiltonian/ODE setup
-here, plus a near-identical copy further down the module).
-cf. package microlocal.py.</p>
+<dd><p>Animate the propagation of a singularity under the Hamiltonian flow.</p>
+<p>Delegates to the module-level <cite>animate_operator_singularity</cite> engine.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xi0</strong> (<em>float</em><em>, </em><em>default=5.0</em>) – Initial frequency ξ.</p></li>
+<li><p><strong>eta0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Initial frequency η (2D only).</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Initial spatial x.</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Initial spatial y (2D only).</p></li>
+<li><p><strong>tmax</strong> (<em>float</em><em>, </em><em>default=4.0</em>) – Maximum animation time.</p></li>
+<li><p><strong>n_frames</strong> (<em>int</em><em>, </em><em>default=100</em>) – Number of frames in the animation.</p></li>
+<li><p><strong>projection</strong> (<em>str</em><em>, </em><em>optional</em>) – Phase-space projection type.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated animation object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.animation.FuncAnimation</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -642,7 +680,26 @@ AAA if it’s a rational function (or has a symbolic polynomial denominator),
 otherwise low-rank.</p>
 <p>Splitting before routing means terms that individually admit a fast
 decomposition get one, instead of the whole joint residual being treated as
-a single mixed term and falling back to O(N²) direct quadrature.</p>
+a single mixed term and falling back to O(N^2) (1D) / O(N^4) (2D) direct
+quadrature.</p>
+<p>Per-term sub-operators are cached on <cite>self</cite> and reused across repeated
+calls, keyed by the expanded term (a hashable <cite>sympy.Expr</cite>) and
+invalidated whenever <cite>self.symbol</cite> changes identity. This matters
+because each sub-operator carries its own backend-resolution caches
+(<cite>_joint_nufft_cache</cite>, <cite>_joint_lowrank_cache</cite>, <cite>_joint_aaa_cache</cite>,
+<cite>_peetre_cache</cite>); without reuse, every call to <cite>apply_hybrid</cite> would
+silently re-run backend classification and re-fit NUFFT/AAA/low-rank
+plans from scratch, even though none of that depends on <cite>u</cite>. Reuse
+only skips <em>plan-building</em>, not the actual numeric application (e.g.
+<cite>finufft.execute()</cite>, or evaluating a low-rank pair’s <cite>(a_k, q_k)</cite> on
+the grid), which necessarily reruns every call since it depends on
+<cite>u</cite>. In practice, once <cite>_peetre_is_zero</cite> (see its own docstring) and
+this cache are both in place, plan-building is a small fraction of
+total cost for problem sizes where the numeric transform itself is
+cheap (e.g. a few percent here at N=256, 1D) — the benefit grows
+for larger/more expensive terms (e.g. AAA fits, which are
+expensive to build but cheap to apply) and for operators reused
+across many calls (e.g. per-timestep in a PDE solve).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -679,6 +736,11 @@ directly with <cite>joint_backend=’auto’</cite> whenever the joint part mixe
 that individually favor different backends. Compare with <cite>apply_hybrid_old</cite>,
 which instead loops over <cite>peetre_decomposition</cite>’s own <cite>joint_residual</cite> list
 without expanding it into additive terms.</p>
+<p>The per-term cache is keyed on the <em>expanded term itself</em>, so it is safe
+across calls with different <cite>x_grid</cite>/<cite>kx</cite>/<cite>joint_bounds</cite>/<cite>u</cite> as long as
+<cite>self.symbol</cite> is unchanged — those are all forwarded fresh to each
+sub-operator’s <cite>apply_peetre</cite> call on every invocation, not baked into
+the cache.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -752,10 +814,10 @@ separable, and (if <cite>apply_joint</cite>) joint contributions.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.asymptotic_expansion">
 <span class="sig-name descname"><span class="pre">asymptotic_expansion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.asymptotic_expansion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.asymptotic_expansion" title="Link to this definition"></a></dt>
-<dd><p>Compute the asymptotic expansion of the symbol as <a href="#id39"><span class="problematic" id="id40">|ξ|</span></a> → ∞ (high-frequency regime).</p>
+<dd><p>Compute the asymptotic expansion of the symbol as <a href="#id43"><span class="problematic" id="id44">|ξ|</span></a> → ∞ (high-frequency regime).</p>
 <p>This method expands the pseudo-differential symbol in inverse powers of the
 frequency variable(s), either in 1D or 2D. It handles both polynomial and
-exponential symbols by performing a series expansion in 1/<a href="#id41"><span class="problematic" id="id42">|ξ|</span></a> up to the specified order.</p>
+exponential symbols by performing a series expansion in 1/<a href="#id45"><span class="problematic" id="id46">|ξ|</span></a> up to the specified order.</p>
 <p>The expansion is performed directly in Cartesian coordinates for 1D symbols.
 For 2D symbols, the method uses polar coordinates (ρ, θ) to perform the expansion
 at infinity in ρ, then converts the result back to Cartesian coordinates.</p>
@@ -789,7 +851,8 @@ If expansion fails, returns the original unexpanded symbol.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.clear_cache">
 <span class="sig-name descname"><span class="pre">clear_cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.clear_cache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.clear_cache" title="Link to this definition"></a></dt>
-<dd><p>Clear cached symbol evaluations and Peetre decompositions.</p>
+<dd><p>Clear all cached symbol evaluations, Peetre decompositions, and
+joint backend plans (low-rank, NUFFT, AAA).</p>
 </dd></dl>
 
 <dl class="py method">
@@ -881,8 +944,22 @@ truncated at given order.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.decompose_symbol_peetre">
 <span class="sig-name descname"><span class="pre">decompose_symbol_peetre</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.decompose_symbol_peetre"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.decompose_symbol_peetre" title="Link to this definition"></a></dt>
-<dd><p>Alias for peetre_decomposition(), for compatibility with the
-standalone symbolic_decompose.py naming style.</p>
+<dd><p>Alias for <cite>peetre_decomposition()</cite>, maintained for backward compatibility
+with the standalone <cite>symbolic_decompose.py</cite> naming style.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>*args</strong> – Forwarded directly to <cite>peetre_decomposition()</cite>.</p></li>
+<li><p><strong>**kwargs</strong> – Forwarded directly to <cite>peetre_decomposition()</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The Peetre decomposition dictionary.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -965,7 +1042,7 @@ expansion via iterated composition:
 exp(tP) ~ I + tP + (t²/2!)P∘P + (t³/3!)P∘P∘P + …</p></li>
 <li><p>Each power P^n is computed via compose_asymptotic, which accounts
 for the non-commutativity through derivative terms.</p></li>
-<li><p>The expansion is valid for <a href="#id43"><span class="problematic" id="id44">|t|</span></a> small enough or when the symbol has
+<li><p>The expansion is valid for <a href="#id47"><span class="problematic" id="id48">|t|</span></a> small enough or when the symbol has
 appropriate decay/growth properties.</p></li>
 <li><p>In quantum mechanics (Schrödinger): U(t) = exp(-itH/ℏ) represents
 the time evolution operator.</p></li>
@@ -1087,19 +1164,48 @@ functions.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.group_velocity_field">
 <span class="sig-name descname"><span class="pre">group_velocity_field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-10,</span> <span class="pre">10)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.group_velocity_field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.group_velocity_field" title="Link to this definition"></a></dt>
-<dd><p>Quiver plot of the group velocity field (1, dp/dxi). 1D only.
-cf. package microlocal.py.</p>
+<dd><p>Quiver plot of the group velocity field (1, ∂p/∂ξ).
+1D only.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xlim</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>-2</em><em>, </em><em>2</em><em>)</em>) – Spatial limits.</p></li>
+<li><p><strong>klim</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>-10</em><em>, </em><em>10</em><em>)</em>) – Frequency limits.</p></li>
+<li><p><strong>density</strong> (<em>int</em><em>, </em><em>default=30</em>) – Grid density for the quiver plot.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated plot object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.interactive_symbol_analysis">
 <span class="sig-name descname"><span class="pre">interactive_symbol_analysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.1,</span> <span class="pre">5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-5,</span> <span class="pre">5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.interactive_symbol_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.interactive_symbol_analysis" title="Link to this definition"></a></dt>
-<dd><p>Launch an ipywidgets dashboard for symbol exploration. Same modes,
-same sliders, same defaults as before – rewritten as a mode-table
-dispatcher that delegates to the visualize_*/plot_* methods above
-instead of duplicating their 1D/2D branches inline (previously
-~260 lines of near-duplicated if-elif chains).
-cf. package microlocal.py.</p>
+<dd><p>Launch an interactive ipywidgets dashboard for symbol exploration.</p>
+<p>Provides sliders and mode-selection to dynamically visualize amplitude,
+phase, characteristics, and flows.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xlim</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>-2</em><em>, </em><em>2</em><em>)</em>) – Spatial x limits.</p></li>
+<li><p><strong>ylim</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>-2</em><em>, </em><em>2</em><em>)</em>) – Spatial y limits (2D only).</p></li>
+<li><p><strong>xi_range</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>0.1</em><em>, </em><em>5</em><em>)</em>) – Frequency ξ range for the dashboard.</p></li>
+<li><p><strong>eta_range</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>-5</em><em>, </em><em>5</em><em>)</em>) – Frequency η range for the dashboard (2D only).</p></li>
+<li><p><strong>density</strong> (<em>int</em><em>, </em><em>default=50</em>) – Base grid density for the visualizations.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The interactive dashboard widget.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ipywidgets.VBox</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -1110,13 +1216,13 @@ cf. package microlocal.py.</p>
 R &gt; 0 such that</p>
 <blockquote>
 <div><dl class="simple">
-<dt><a href="#id45"><span class="problematic" id="id46">|p(x, ξ)|</span></a> ≥ C · (1 + <a href="#id47"><span class="problematic" id="id48">|ξ|²)^(m/2)     for all |ξ|</span></a> ≥ R (and x in the</dt><dd><p>region of interest).</p>
+<dt><a href="#id49"><span class="problematic" id="id50">|p(x, ξ)|</span></a> ≥ C · (1 + <a href="#id51"><span class="problematic" id="id52">|ξ|²)^(m/2)     for all |ξ|</span></a> ≥ R (and x in the</dt><dd><p>region of interest).</p>
 </dd>
 </dl>
 </div></blockquote>
 <p>Ellipticity is a <em>high-frequency</em> condition: it makes no requirement on the
-symbol near ξ = 0, so this method only probes the region <a href="#id49"><span class="problematic" id="id50">|ξ|</span></a> ≥ R, where R
-is taken as a fraction (<cite>xi_frac</cite>) of the largest <a href="#id51"><span class="problematic" id="id52">|ξ|</span></a> present in <cite>xi_grid</cite>.
+symbol near ξ = 0, so this method only probes the region <a href="#id53"><span class="problematic" id="id54">|ξ|</span></a> ≥ R, where R
+is taken as a fraction (<cite>xi_frac</cite>) of the largest <a href="#id55"><span class="problematic" id="id56">|ξ|</span></a> present in <cite>xi_grid</cite>.
 This intentionally excludes the low-frequency region, so a symbol like the
 harmonic oscillator x² + ξ² — which has an isolated zero at (0, 0) but is
 the textbook example of a globally elliptic symbol — is correctly detected
@@ -1133,15 +1239,15 @@ For 2D: a tuple (ξ, η) of two 1D arrays.</p></li>
 If None (default), it is auto-detected via <cite>self.symbol_order()</cite>. Raises
 ValueError if auto-detection fails and no <cite>order</cite> was supplied.</p></li>
 <li><p><strong>threshold</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum acceptable value of the <em>normalized</em> symbol
-<a href="#id53"><span class="problematic" id="id54">|p(x,ξ)|</span></a> / (1 + <a href="#id9"><span class="problematic" id="id10">|</span></a>ξ|²)^(m/2), i.e. the constant C in the ellipticity
+<a href="#id57"><span class="problematic" id="id58">|p(x,ξ)|</span></a> / (1 + <a href="#id9"><span class="problematic" id="id10">|</span></a>ξ|²)^(m/2), i.e. the constant C in the ellipticity
 definition above. Default is 1e-6.</p></li>
-<li><p><strong>xi_frac</strong> (<em>float</em><em>, </em><em>optional</em>) – Fraction (in (0, 1)) of the largest <a href="#id55"><span class="problematic" id="id56">|ξ|</span></a> available in <cite>xi_grid</cite> used as
-the high-frequency cutoff R. Only points with <a href="#id57"><span class="problematic" id="id58">|ξ|</span></a> ≥ R are tested.
+<li><p><strong>xi_frac</strong> (<em>float</em><em>, </em><em>optional</em>) – Fraction (in (0, 1)) of the largest <a href="#id59"><span class="problematic" id="id60">|ξ|</span></a> available in <cite>xi_grid</cite> used as
+the high-frequency cutoff R. Only points with <a href="#id61"><span class="problematic" id="id62">|ξ|</span></a> ≥ R are tested.
 Default is 0.5.</p></li>
 <li><p><strong>n_random</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of random points sampled in the high-frequency region. Default
 100_000.</p></li>
 <li><p><strong>n_edge</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of spatial points per dimension used in the deterministic check
-performed at the largest available <a href="#id59"><span class="problematic" id="id60">|ξ|</span></a> (the edge of the supplied grid).
+performed at the largest available <a href="#id63"><span class="problematic" id="id64">|ξ|</span></a> (the edge of the supplied grid).
 Default 32.</p></li>
 <li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Seed for the random sampling, for reproducible results. Default None
 (non-deterministic across calls).</p></li>
@@ -1158,10 +1264,10 @@ point in the high-frequency region, otherwise False.</p>
 <p class="rubric">Notes</p>
 <dl class="simple">
 <dt>This method combines two checks:</dt><dd><ol class="arabic simple">
-<li><p><strong>Random sampling</strong> in the shell <a href="#id61"><span class="problematic" id="id62">|ξ|</span></a> ≥ R (rejection-sampled from the
+<li><p><strong>Random sampling</strong> in the shell <a href="#id65"><span class="problematic" id="id66">|ξ|</span></a> ≥ R (rejection-sampled from the
 hyperrectangle defined by <cite>xi_grid</cite>’s extremes).</p></li>
 <li><p><strong>Deterministic edge sampling</strong> — the symbol is evaluated at the
-largest available <a href="#id63"><span class="problematic" id="id64">|ξ|</span></a> (the corners/extremes of <cite>xi_grid</cite>) over a
+largest available <a href="#id67"><span class="problematic" id="id68">|ξ|</span></a> (the corners/extremes of <cite>xi_grid</cite>) over a
 spatial grid of <cite>n_edge</cite> points per dimension, to guarantee the most
 informative high-frequency points are always checked, not just
 randomly sampled ones.</p></li>
@@ -1303,7 +1409,21 @@ previously computed terms of the inverse.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.peetre_apply">
 <span class="sig-name descname"><span class="pre">peetre_apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.peetre_apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.peetre_apply" title="Link to this definition"></a></dt>
-<dd><p>Alias for apply_peetre().</p>
+<dd><p>Alias for <cite>apply_peetre()</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>*args</strong> – Forwarded directly to <cite>apply_peetre()</cite>.</p></li>
+<li><p><strong>**kwargs</strong> – Forwarded directly to <cite>apply_peetre()</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The result of applying the operator.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -1333,17 +1453,49 @@ needed) and cheap.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.plot_hamiltonian_flow">
 <span class="sig-name descname"><span class="pre">plot_hamiltonian_flow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_field</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.plot_hamiltonian_flow"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.plot_hamiltonian_flow" title="Link to this definition"></a></dt>
-<dd><p>Integrate and plot the Hamiltonian trajectories of the symbol in
-phase space. Delegates to the shared <cite>integrate_singularity</cite> engine
-instead of re-deriving the Hamiltonian vector field inline.
-cf. package microlocal.py.</p>
+<dd><p>Integrate and plot the Hamiltonian trajectories of the symbol in phase space.</p>
+<p>Delegates to the shared <cite>integrate_singularity</cite> engine.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Initial spatial x position.</p></li>
+<li><p><strong>xi0</strong> (<em>float</em><em>, </em><em>default=5.0</em>) – Initial frequency ξ.</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Initial spatial y position (2D only).</p></li>
+<li><p><strong>eta0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Initial frequency η (2D only).</p></li>
+<li><p><strong>tmax</strong> (<em>float</em><em>, </em><em>default=1.0</em>) – Maximum integration time.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em><em>, </em><em>default=100</em>) – Number of integration steps.</p></li>
+<li><p><strong>show_field</strong> (<em>bool</em><em>, </em><em>default=True</em>) – Whether to overlay the background vector field.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated plot object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.plot_symplectic_vector_field">
 <span class="sig-name descname"><span class="pre">plot_symplectic_vector_field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-5,</span> <span class="pre">5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.plot_symplectic_vector_field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.plot_symplectic_vector_field" title="Link to this definition"></a></dt>
-<dd><p>Quiver plot of the symplectic vector field (dp/dxi, -dp/dx). 1D only.
-cf. package microlocal.py.</p>
+<dd><p>Quiver plot of the symplectic vector field (∂p/∂ξ, -∂p/∂x).
+1D only.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xlim</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>-2</em><em>, </em><em>2</em><em>)</em>) – Spatial limits (x_min, x_max).</p></li>
+<li><p><strong>klim</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>-5</em><em>, </em><em>5</em><em>)</em>) – Frequency limits (ξ_min, ξ_max).</p></li>
+<li><p><strong>density</strong> (<em>int</em><em>, </em><em>default=30</em>) – Grid density for the quiver plot.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated plot object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -1351,12 +1503,12 @@ cf. package microlocal.py.</p>
 <span class="sig-name descname"><span class="pre">principal_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.principal_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.principal_symbol" title="Link to this definition"></a></dt>
 <dd><p>Compute the leading homogeneous component of the pseudo-differential symbol.</p>
 <p>This method extracts the principal part of the symbol, which is the dominant
-term under high-frequency asymptotics (<a href="#id65"><span class="problematic" id="id66">|ξ|</span></a> → ∞). The expansion is performed
+term under high-frequency asymptotics (<a href="#id69"><span class="problematic" id="id70">|ξ|</span></a> → ∞). The expansion is performed
 in polar coordinates for 2D symbols to maintain rotational symmetry, then
 converted back to Cartesian form.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>order</strong> (<em>int</em>) – Order of the asymptotic expansion in powers of 1/ρ, where ρ = <a href="#id67"><span class="problematic" id="id68">|ξ|</span></a> in 1D
+<dd class="field-odd"><p><strong>order</strong> (<em>int</em>) – Order of the asymptotic expansion in powers of 1/ρ, where ρ = <a href="#id71"><span class="problematic" id="id72">|ξ|</span></a> in 1D
 or ρ = sqrt(ξ² + η²) in 2D. Only the leading-order term is returned.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -1481,7 +1633,7 @@ between the operator P and the current approximation of R.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.symbol_order">
 <span class="sig-name descname"><span class="pre">symbol_order</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.symbol_order"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.symbol_order" title="Link to this definition"></a></dt>
-<dd><p>Estimate the asymptotic homogeneity order of the symbol as <a href="#id69"><span class="problematic" id="id70">|ξ|</span></a> → ∞.</p>
+<dd><p>Estimate the asymptotic homogeneity order of the symbol as <a href="#id73"><span class="problematic" id="id74">|ξ|</span></a> → ∞.</p>
 <p>If the symbol has no frequency dependence at all, returns 0
 immediately. If the symbol is exactly homogeneous (as determined by
 <cite>is_homogeneous</cite>), returns that degree directly. Otherwise, the
@@ -1605,63 +1757,187 @@ coherent states / Weyl quantization.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_characteristic_gradient">
 <span class="sig-name descname"><span class="pre">visualize_characteristic_gradient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_characteristic_gradient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_characteristic_gradient" title="Link to this definition"></a></dt>
-<dd><p>Visualize <a href="#id71"><span class="problematic" id="id72">|grad p|</span></a> in phase space. NOTE: both the 1D and 2D
-branches now consistently use abs(.)**2 in the gradient norm (the
-original 1D branch omitted the abs(), inconsistently with 2D).
-cf. package microlocal.py.</p>
+<dd><p>Visualize the characteristic gradient <a href="#id75"><span class="problematic" id="id76">|∇p|</span></a> in phase space.</p>
+<p>Uses <a href="#id13"><span class="problematic" id="id14">|</span></a>∂p/∂ξ|² + <a href="#id15"><span class="problematic" id="id16">|</span></a>∂p/∂x|² (and y/η in 2D) consistently across dimensions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grid in x.</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em>) – Frequency grid in ξ.</p></li>
+<li><p><strong>y_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Spatial grid in y (2D only).</p></li>
+<li><p><strong>eta_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Frequency grid in η (2D only).</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Fixed spatial y for 2D slicing.</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Fixed spatial x for 2D slicing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated plot object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_characteristic_set">
 <span class="sig-name descname"><span class="pre">visualize_characteristic_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">levels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0.1]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_characteristic_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_characteristic_set" title="Link to this definition"></a></dt>
-<dd><p>Visualize the characteristic set p(x, xi) ~= 0 (1D) or the (xi, eta)
-slice at fixed (x0, y0) (2D).
-cf. package microlocal.py.</p>
+<dd><p>Visualize the characteristic set p(x, ξ) ≈ 0 (1D) or the (ξ, η) slice
+at fixed (x₀, y₀) (2D).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grid in x.</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em>) – Frequency grid in ξ.</p></li>
+<li><p><strong>y_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Spatial grid in y (2D only).</p></li>
+<li><p><strong>eta_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Frequency grid in η (2D only).</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Fixed spatial y for 2D slicing.</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Fixed spatial x for 2D slicing.</p></li>
+<li><p><strong>levels</strong> (<em>list</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>[</em><em>0.1</em><em>]</em>) – Contour levels defining the characteristic set.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated plot object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_fiber">
 <span class="sig-name descname"><span class="pre">visualize_fiber</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_fiber"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_fiber" title="Link to this definition"></a></dt>
-<dd><p>Plot the cotangent fiber structure at a fixed spatial point (x0[, y0]).
-See _slice_grid/_render_field docstrings for the shared implementation.
-NOTE: original signature has no eta_grid param – 2D reuses xi_grid
-for both frequency axes, matching the original behavior exactly.
-cf. package microlocal.py.</p>
+<dd><p>Plot the cotangent fiber structure at a fixed spatial point (x₀, y₀).</p>
+<p>In 1D, plots the fiber over x₀. In 2D, plots the fiber over (x₀, y₀),
+reusing <cite>xi_grid</cite> for both frequency axes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grid coordinates.</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em>) – Frequency grid coordinates.</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – The spatial x-coordinate at which to evaluate the fiber.</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – The spatial y-coordinate at which to evaluate the fiber (2D only).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated plot object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_micro_support">
 <span class="sig-name descname"><span class="pre">visualize_micro_support</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-2,</span> <span class="pre">2)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">klim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(-10,</span> <span class="pre">10)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_micro_support"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_micro_support" title="Link to this definition"></a></dt>
-<dd><p>Visualize 1/<a href="#id73"><span class="problematic" id="id74">|p(x, xi)|</span></a> to highlight regions where the symbol is
-near zero. NOTE: no longer restricted to 1D – the shared grid/render
-helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y).
-cf. package microlocal.py.</p>
+<dd><p>Visualize the micro-support by highlighting regions where the symbol
+amplitude <a href="#id77"><span class="problematic" id="id78">|p(x, ξ)|</span></a> is near zero (plots 1/<a href="#id79"><span class="problematic" id="id80">|p(x, ξ)|</span></a>).</p>
+<p>Handles both 1D and 2D cases.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xlim</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>-2</em><em>, </em><em>2</em><em>)</em>) – Spatial limits.</p></li>
+<li><p><strong>klim</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>-10</em><em>, </em><em>10</em><em>)</em>) – Frequency limits.</p></li>
+<li><p><strong>threshold</strong> (<em>float</em><em>, </em><em>default=0.001</em>) – Threshold below which the symbol is considered “near zero”.</p></li>
+<li><p><strong>density</strong> (<em>int</em><em>, </em><em>default=300</em>) – Grid resolution.</p></li>
+<li><p><strong>xi0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Fixed frequency ξ for 2D slicing.</p></li>
+<li><p><strong>eta0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Fixed frequency η for 2D slicing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated plot object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_phase">
 <span class="sig-name descname"><span class="pre">visualize_phase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_phase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_phase" title="Link to this definition"></a></dt>
-<dd><p>Plot arg(p(x, xi)) (1D) or arg(p(x, y, xi0, eta0)) (2D).
-cf. package microlocal.py.</p>
+<dd><p>Plot the symbol phase arg(p(x, ξ)) (1D) or arg(p(x, y, ξ₀, η₀)) (2D).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grid in x.</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em>) – Frequency grid in ξ.</p></li>
+<li><p><strong>y_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Spatial grid in y (2D only).</p></li>
+<li><p><strong>eta_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Frequency grid in η (2D only).</p></li>
+<li><p><strong>xi0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Fixed frequency ξ for 2D slicing.</p></li>
+<li><p><strong>eta0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Fixed frequency η for 2D slicing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated plot object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_symbol_amplitude">
 <span class="sig-name descname"><span class="pre">visualize_symbol_amplitude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_symbol_amplitude"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_symbol_amplitude" title="Link to this definition"></a></dt>
-<dd><p>Display <a href="#id75"><span class="problematic" id="id76">|p(x, xi)|</span></a> (1D) or <a href="#id77"><span class="problematic" id="id78">|p(x, y, xi0, eta0)|</span></a> (2D) as a color map.
-cf. package microlocal.py.</p>
+<dd><p>Display the symbol amplitude <a href="#id81"><span class="problematic" id="id82">|p(x, ξ)|</span></a> (1D) or <a href="#id83"><span class="problematic" id="id84">|p(x, y, ξ₀, η₀)|</span></a> (2D)
+as a color map.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial grid in x.</p></li>
+<li><p><strong>xi_grid</strong> (<em>ndarray</em>) – Frequency grid in ξ.</p></li>
+<li><p><strong>y_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Spatial grid in y (2D only).</p></li>
+<li><p><strong>eta_grid</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Frequency grid in η (2D only).</p></li>
+<li><p><strong>xi0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Fixed frequency ξ for 2D slicing.</p></li>
+<li><p><strong>eta0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Fixed frequency η for 2D slicing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated plot object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.PseudoDifferentialOperator.visualize_wavefront_set">
 <span class="sig-name descname"><span class="pre">visualize_wavefront_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seeds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">3.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cotangent'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'plasma'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_flow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_endpoints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spread</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_seeds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.15</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop.html#PseudoDifferentialOperator.visualize_wavefront_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.PseudoDifferentialOperator.visualize_wavefront_set" title="Link to this definition"></a></dt>
-<dd><p>Wavefront set WF(u) obtained by propagating seed singularities along
-the bicharacteristics of <cite>op.symbol</cite>. If <cite>seeds</cite> is not given, a default
-fan/point-source is built from (x0, y0) and (xi0, eta0) – see
-_default_wavefront_seeds. <cite>projection</cite> follows plot_wavefront_set:
-1D -&gt; ‘cotangent’ or ‘position’; 2D -&gt; ‘cotangent’, ‘position’,
-‘frequency’, ‘mixed_x’, ‘mixed_y’, or ‘full’ (2x2 cotangent-bundle grid).
-cf. package microlocal.py.</p>
+<dd><p>Visualize the wavefront set WF(u) by propagating seed singularities
+along the bicharacteristics of the symbol.</p>
+<p>If <cite>seeds</cite> is not given, a default fan/point-source is built from the
+provided initial coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>seeds</strong> (<em>list</em><em> of </em><em>tuple</em><em>, </em><em>optional</em>) – Custom initial seeds (x, ξ) or (x, y, ξ, η).</p></li>
+<li><p><strong>tspan</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>default=</em><em>(</em><em>0</em><em>, </em><em>3.0</em><em>)</em>) – Time integration span.</p></li>
+<li><p><strong>projection</strong> (<em>str</em><em>, </em><em>default='cotangent'</em>) – Projection type (‘cotangent’, ‘position’, ‘frequency’, etc.).</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em><em>, </em><em>default=500</em>) – Number of integration steps per trajectory.</p></li>
+<li><p><strong>cmap</strong> (<em>str</em><em>, </em><em>default='plasma'</em>) – Matplotlib colormap for the trajectories.</p></li>
+<li><p><strong>show_flow</strong> (<em>bool</em><em>, </em><em>default=True</em>) – Whether to show the background Hamiltonian flow.</p></li>
+<li><p><strong>show_endpoints</strong> (<em>bool</em><em>, </em><em>default=True</em>) – Whether to mark the endpoints of the trajectories.</p></li>
+<li><p><strong>title</strong> (<em>str</em><em>, </em><em>optional</em>) – Custom plot title.</p></li>
+<li><p><strong>x0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Initial spatial coordinates.</p></li>
+<li><p><strong>y0</strong> (<em>float</em><em>, </em><em>default=0.0</em>) – Initial spatial coordinates.</p></li>
+<li><p><strong>xi0</strong> (<em>float</em><em>, </em><em>default=1.0</em><em>, </em><em>0.0</em>) – Initial frequency coordinates.</p></li>
+<li><p><strong>eta0</strong> (<em>float</em><em>, </em><em>default=1.0</em><em>, </em><em>0.0</em>) – Initial frequency coordinates.</p></li>
+<li><p><strong>spread</strong> (<em>float</em><em>, </em><em>default=2.0</em>) – Spread factor for the default seed fan.</p></li>
+<li><p><strong>n_seeds</strong> (<em>int</em><em>, </em><em>default=25</em>) – Number of seeds in the default fan.</p></li>
+<li><p><strong>radius</strong> (<em>float</em><em>, </em><em>default=0.15</em>) – Radius for circular seed distributions.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated plot object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.figure.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -1743,33 +2019,33 @@ integral.</p>
 <p>N x N matrix-valued pseudo-differential operators and coupled systems.</p>
 <section id="matpsiop-n-n-matrix-valued-pseudo-differential-operators">
 <span id="module-psiop.matpsiop"></span><h4>matpsiop — N × N matrix-valued pseudo-differential operators<a class="headerlink" href="#matpsiop-n-n-matrix-valued-pseudo-differential-operators" title="Link to this heading"></a></h4>
-<section id="id13">
-<h5>Overview<a class="headerlink" href="#id13" title="Link to this heading"></a></h5>
-<p>The <code class="docutils literal notranslate"><span class="pre">matpsiop</span></code> submodule extends the scalar pseudo-differential
+<section id="id17">
+<h5>Overview<a class="headerlink" href="#id17" title="Link to this heading"></a></h5>
+<p>The <cite>matpsiop</cite> submodule extends the scalar pseudo-differential
 framework to systems of coupled partial differential equations,
 Dirac-type equations, and matrix-valued fields (such as density
 matrices or matrix Green’s functions).</p>
-<p>It provides the <code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator</span></code> class, which
+<p>It provides the <a class="reference internal" href="#psiop.matpsiop.MatrixPseudoDifferentialOperator" title="psiop.matpsiop.MatrixPseudoDifferentialOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator</span></code></a> class, which
 wraps an N × N matrix of scalar symbols Pᵢⱼ(x, ξ)
 and orchestrates their numerical application and symbolic calculus.
 Because matrix multiplication is inherently non-commutative, this
 module implements specialized asymptotic expansions for composition,
 commutators, and exponentials that preserve matrix ordering.</p>
 </section>
-<section id="id14">
-<h5>Main object<a class="headerlink" href="#id14" title="Link to this heading"></a></h5>
+<section id="id18">
+<h5>Main object<a class="headerlink" href="#id18" title="Link to this heading"></a></h5>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator</span></code></dt><dd><p>N × N matrix-valued pseudo-differential operator. Each entry
+<dt><a class="reference internal" href="#psiop.matpsiop.MatrixPseudoDifferentialOperator" title="psiop.matpsiop.MatrixPseudoDifferentialOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator</span></code></a></dt><dd><p>N × N matrix-valued pseudo-differential operator. Each entry
 Pᵢⱼ is internally wrapped as its own scalar
-<code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator</span></code>. This design allows the matrix
+<code class="xref py py-class docutils literal notranslate"><span class="pre">PseudoDifferentialOperator</span></code>. This design allows the matrix
 operator to seamlessly inherit all scalar numerical backends
 (FFT, Peetre decomposition, NUFFT, AAA, low-rank) entrywise,
 without requiring separate matrix-specific numerical kernels.</p>
 </dd>
 </dl>
 </section>
-<section id="id15">
-<h5>Key features<a class="headerlink" href="#id15" title="Link to this heading"></a></h5>
+<section id="id19">
+<h5>Key features<a class="headerlink" href="#id19" title="Link to this heading"></a></h5>
 <dl class="simple">
 <dt>Vector and matrix field application:</dt><dd><p>Entrywise application to vector fields u = (u₁, …, uₙ);
 left and right matrix-multiplication actions on N × N
@@ -1793,8 +2069,8 @@ propagators of coupled/vector-valued PDE systems.</p>
 </dd>
 </dl>
 </section>
-<section id="id16">
-<h5>Mathematical background<a class="headerlink" href="#id16" title="Link to this heading"></a></h5>
+<section id="id20">
+<h5>Mathematical background<a class="headerlink" href="#id20" title="Link to this heading"></a></h5>
 <dl>
 <dt>Matrix-valued symbols and quantization</dt><dd><p>A matrix pseudo-differential operator P acting on a
 vector field u(x) = (u₁(x), …, uₙ(x))ᵀ is defined by
@@ -1811,7 +2087,7 @@ column-wise application of the scalar entries.</p>
 <dt>Asymptotic matrix composition</dt><dd><p>The symbol of the composition P ∘ Q
 admits the Kohn–Nirenberg asymptotic expansion:</p>
 <blockquote>
-<div><p>(P ∘ Q)ᵢₖ(x, ξ) ∼ Σⱼ Σ_α [ i^(-<a href="#id79"><span class="problematic" id="id80">|α|</span></a>) / α! ] ∂_ξ^α Pᵢⱼ(x, ξ) · ∂_x^α Qⱼₖ(x, ξ)</p>
+<div><p>(P ∘ Q)ᵢₖ(x, ξ) ∼ Σⱼ Σ_α [ i^(-<a href="#id85"><span class="problematic" id="id86">|α|</span></a>) / α! ] ∂_ξ^α Pᵢⱼ(x, ξ) · ∂_x^α Qⱼₖ(x, ξ)</p>
 </div></blockquote>
 <p>Unlike the scalar case, matrices do not commute. Therefore, the
 0th-order term of the composition is the standard matrix product
@@ -1834,7 +2110,7 @@ exp(t P(ξ)).</p>
 </dd>
 <dt>Formal adjoints and inverses</dt><dd><p>The formal Hermitian adjoint P* is obtained by taking
 the formal adjoint of each scalar entry (complex conjugation +
-asymptotic expansion in <a href="#id81"><span class="problematic" id="id82">|ξ|</span></a> → ∞), and then
+asymptotic expansion in <a href="#id87"><span class="problematic" id="id88">|ξ|</span></a> → ∞), and then
 transposing the resulting matrix.</p>
 <p>Formal asymptotic inverses R (such that
 P ∘ R ∼ I) require the principal
@@ -1847,9 +2123,9 @@ remains on the correct side to cancel P.</p>
 <section id="numerical-design-notes">
 <h5>Numerical design notes<a class="headerlink" href="#numerical-design-notes" title="Link to this heading"></a></h5>
 <dl class="simple">
-<dt>Entrywise numerical orchestration:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator</span></code> introduces <em>no new numerical
-kernels</em> for application. The <code class="docutils literal notranslate"><span class="pre">apply()</span></code> method simply orchestrates
-N² independent calls to the scalar <code class="docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply()</span></code>.
+<dt>Entrywise numerical orchestration:</dt><dd><p><a class="reference internal" href="#psiop.matpsiop.MatrixPseudoDifferentialOperator" title="psiop.matpsiop.MatrixPseudoDifferentialOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">MatrixPseudoDifferentialOperator</span></code></a> introduces no new numerical
+kernels for application. The <cite>apply()</cite> method simply orchestrates
+N² independent calls to the scalar <code class="xref py py-meth docutils literal notranslate"><span class="pre">PseudoDifferentialOperator.apply()</span></code>.
 Consequently, it automatically inherits the Peetre decomposition,
 NUFFT, AAA, and low-rank backends for each entry.</p>
 </dd>
@@ -1859,16 +2135,43 @@ For large systems, constant-coefficient entries benefit from the
 scalar fast-path FFT multiplier, making matrix application highly
 efficient.</p>
 </dd>
-<dt>Sylvester-type equations:</dt><dd><p>The <code class="docutils literal notranslate"><span class="pre">apply_matrix_field</span></code> (left action) and
-<code class="docutils literal notranslate"><span class="pre">apply_matrix_field_right</span></code> (right action) methods are designed
+<dt>Sylvester-type equations:</dt><dd><p>The <cite>apply_matrix_field</cite> (left action) and
+<cite>apply_matrix_field_right</cite> (right action) methods are designed
 to support operator splitting for equations of the form
 ∂ₜU = P U - U Q. Left and right
-actions commute as <em>operations</em> ((P U) Q =
+actions commute as operations ((P U) Q =
 P (U Q)), enabling efficient Lie-Trotter or
 Strang splitting schemes even when the underlying scalar operators
 do not commute.</p>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<p>Define a 2×2 constant-coefficient system (e.g., a simplified Dirac
+or coupled wave system) and apply it to a vector field:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">matpsiop</span><span class="w"> </span><span class="kn">import</span> <span class="n">MatrixPseudoDifferentialOperator</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Define symbols</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x xi&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Define a 2x2 symbol matrix P(xi)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">P_expr</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">xi</span><span class="p">],</span>
+<span class="gp">... </span>                    <span class="p">[</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">xi</span><span class="p">,</span> <span class="mi">0</span><span class="p">]])</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create the operator</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">P</span> <span class="o">=</span> <span class="n">MatrixPseudoDifferentialOperator</span><span class="p">(</span><span class="n">P_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Apply to a vector field u = [u1, u2] on a grid</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">kx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x_grid</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Compute P(u)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span> <span class="o">=</span> <span class="n">P</span><span class="o">.</span><span class="n">apply</span><span class="p">([</span><span class="n">u1</span><span class="p">,</span> <span class="n">u2</span><span class="p">],</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">)</span>
+</pre></div>
+</div>
 </section>
 </section>
 <dl class="py class">
@@ -2038,15 +2341,29 @@ grid.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.matpsiop.MatrixPseudoDifferentialOperator.commutator_symbolic">
 <span class="sig-name descname"><span class="pre">commutator_symbolic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'kn'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sign_convention</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/matpsiop.html#MatrixPseudoDifferentialOperator.commutator_symbolic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.matpsiop.MatrixPseudoDifferentialOperator.commutator_symbolic" title="Link to this definition"></a></dt>
-<dd><p>Symbol of the commutator <cite>[Op[self], Op[other]]</cite>, generalizing
-<cite>PseudoDifferentialOperator.commutator_symbolic</cite> to matrices.</p>
-<p>Unlike the scalar case (whose 0th-order term always vanishes,
-since scalars commute), the matrix commutator is generally
-nonzero already at 0th order: it’s the ordinary matrix commutator
-<cite>P(x,xi) Q(x,xi) - Q(x,xi) P(x,xi)</cite>. Higher orders add the
-noncommutative analogue of the Poisson-bracket correction. For
-constant-coefficient <cite>self</cite>/<cite>other</cite> this is exact, and reduces
-exactly to the plain matrix commutator (see <cite>compose_asymptotic</cite>).</p>
+<dd><p>Compute the symbol of the commutator [Op[self], Op[other]].</p>
+<p>Generalizes the scalar commutator to matrix-valued pseudo-differential
+operators. Unlike the scalar case, the matrix commutator is generally
+nonzero at 0th order, reducing to the ordinary matrix commutator
+P(x, ξ)Q(x, ξ) - Q(x, ξ)P(x, ξ). Higher orders add the noncommutative
+analogue of the Poisson-bracket correction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>other</strong> (<a class="reference internal" href="#psiop.matpsiop.MatrixPseudoDifferentialOperator" title="psiop.matpsiop.MatrixPseudoDifferentialOperator"><em>MatrixPseudoDifferentialOperator</em></a>) – The right-hand operator. Must have the same <cite>size</cite> and <cite>dim</cite> as <cite>self</cite>.</p></li>
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>default=1</em>) – Truncation order for the asymptotic expansion.</p></li>
+<li><p><strong>mode</strong> (<em>{'kn'</em><em>, </em><em>'weyl'}</em><em>, </em><em>default='kn'</em>) – Quantization convention (‘kohn-nirenberg’ or ‘weyl’).</p></li>
+<li><p><strong>sign_convention</strong> (<em>str</em><em>, </em><em>optional</em>) – Sign convention for the Fourier transform / quantization.
+Forwarded to <cite>compose_asymptotic</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The symbolic matrix representing the commutator [P, Q].</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sympy.Matrix</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -2085,9 +2402,33 @@ the result reduces to the ordinary matrix product <cite>P(xi) Q(xi)</cite>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.matpsiop.MatrixPseudoDifferentialOperator.eigen_symbol">
 <span class="sig-name descname"><span class="pre">eigen_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/matpsiop.html#MatrixPseudoDifferentialOperator.eigen_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.matpsiop.MatrixPseudoDifferentialOperator.eigen_symbol" title="Link to this definition"></a></dt>
-<dd><p>Pointwise eigenvalues/eigenvectors of the symbol matrix
-P(x[, y], xi[, eta]) at given point(s).
-If called without arguments, computes symbolic eigenvalues/eigenvectors.</p>
+<dd><p>Compute pointwise eigenvalues and eigenvectors of the symbol matrix.</p>
+<p>Evaluates the eigenvalues and eigenvectors of the N×N symbol matrix
+P(x, ξ) at given spatial/frequency points. If called without arguments,
+computes the exact symbolic eigenvalues and eigenvectors using SymPy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>*args</strong> (<em>tuple</em><em> of </em><em>float</em><em> or </em><em>numpy.ndarray</em>) – The point(s) to evaluate at, in the order each entry’s <cite>p_func</cite>
+expects: <cite>(x, ξ)</cite> for 1D, <cite>(x, y, ξ, η)</cite> for 2D. Arguments may be
+broadcastable ndarrays. If omitted, returns symbolic expressions.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>eigvals</strong> (<em>numpy.ndarray or sympy.Matrix</em>) – If <cite>*args</cite> is provided, an ndarray of shape <cite>(…, N)</cite> containing
+the eigenvalues at each point. If omitted, a <cite>sympy.Matrix</cite> of
+shape <cite>(N, 1)</cite> (for N=2) or a dictionary of eigenvalues (for N&gt;2).</p></li>
+<li><p><strong>eigvecs</strong> (<em>numpy.ndarray or sympy.Matrix or None</em>) – If <cite>*args</cite> is provided, an ndarray of shape <cite>(…, N, N)</cite> containing
+the normalized eigenvectors as columns. If omitted and N=2, a
+<cite>sympy.Matrix</cite> of shape <cite>(N, N)</cite>. If omitted and N&gt;2, returns <cite>None</cite>.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>For N=2, closed-form analytical expressions are used for both the
+symbolic and numerical paths to avoid the overhead of general eigenvalue
+solvers. For N&gt;2, the numerical path falls back to <cite>numpy.linalg.eig</cite>,
+and the symbolic path returns <cite>sympy.Matrix.eigenvals()</cite>.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -2153,31 +2494,71 @@ general two-operator case.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.matpsiop.MatrixPseudoDifferentialOperator.formal_adjoint">
 <span class="sig-name descname"><span class="pre">formal_adjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_terms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/matpsiop.html#MatrixPseudoDifferentialOperator.formal_adjoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.matpsiop.MatrixPseudoDifferentialOperator.formal_adjoint" title="Link to this definition"></a></dt>
-<dd><p>Formal Hermitian adjoint symbol P* of the matrix operator.</p>
-<p>Each entry gets the same scalar treatment as
-<cite>PseudoDifferentialOperator.formal_adjoint</cite> (conjugate + asymptotic
-expansion at infinity in <a href="#id83"><span class="problematic" id="id84">|xi|</span></a>); the resulting matrix is then
-transposed (not conjugate-transposed again – conjugation already
-happened entrywise) because (Op[P]u, v) = (u, Op[P]* v) swaps the
-row/column roles of the symbol, same as for a plain matrix adjoint.</p>
+<dd><p>Compute the formal Hermitian adjoint symbol P*.</p>
+<p>Each entry Pᵢⱼ receives the same scalar treatment as
+<cite>PseudoDifferentialOperator.formal_adjoint</cite> (complex conjugation +
+asymptotic expansion as <a href="#id89"><span class="problematic" id="id90">|ξ|</span></a> → ∞). The resulting matrix is then
+transposed (P* = (Pᵢⱼ*)ᵀ) because the adjoint operation swaps the
+row and column roles of the symbol, analogous to a plain matrix adjoint.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>n_terms</strong> (<em>int</em><em>, </em><em>default=6</em>) – Number of terms to include in the asymptotic expansion at infinity.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The symbolic matrix representing the formal adjoint P*.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sympy.Matrix</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.matpsiop.MatrixPseudoDifferentialOperator.left_inverse_asymptotic">
 <span class="sig-name descname"><span class="pre">left_inverse_asymptotic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/matpsiop.html#MatrixPseudoDifferentialOperator.left_inverse_asymptotic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.matpsiop.MatrixPseudoDifferentialOperator.left_inverse_asymptotic" title="Link to this definition"></a></dt>
-<dd><p>Formal left inverse L such that Op[L] . Op[self] ~ Id up to
-O(&lt;xi&gt;^-order), matrix analogue of
-PseudoDifferentialOperator.left_inverse_asymptotic. Requires
-the symbol P(x, xi) to be invertible as a matrix.</p>
+<dd><p>Compute the formal left asymptotic inverse L.</p>
+<p>Finds a formal left inverse L such that Op[L] ∘ Op[self] ∼ Id up to
+O(⟨ξ⟩⁻ᵒʳᵈᵉʳ). This is the matrix analogue of the scalar asymptotic
+inverse. Matrix multiplication order is strictly preserved.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>order</strong> (<em>int</em><em>, </em><em>default=1</em>) – The truncation order for the asymptotic expansion.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The symbolic matrix representing the left inverse L.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sympy.Matrix</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If the principal symbol matrix P(x, ξ) is not invertible
+    (i.e., det P = 0 or SymPy cannot confirm invertibility).</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="psiop.matpsiop.MatrixPseudoDifferentialOperator.right_inverse_asymptotic">
 <span class="sig-name descname"><span class="pre">right_inverse_asymptotic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/matpsiop.html#MatrixPseudoDifferentialOperator.right_inverse_asymptotic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.matpsiop.MatrixPseudoDifferentialOperator.right_inverse_asymptotic" title="Link to this definition"></a></dt>
-<dd><p>Formal right inverse R such that Op[self] . Op[R] ~ Id up to
-O(&lt;xi&gt;^-order), matrix analogue of
-PseudoDifferentialOperator.right_inverse_asymptotic. Requires
-the symbol P(x, xi) to be invertible as a matrix.</p>
+<dd><p>Compute the formal right asymptotic inverse R.</p>
+<p>Finds a formal right inverse R such that Op[self] ∘ Op[R] ∼ Id up to
+O(⟨ξ⟩⁻ᵒʳᵈᵉʳ). This is the matrix analogue of the scalar asymptotic
+inverse. Matrix multiplication order is strictly preserved.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>order</strong> (<em>int</em><em>, </em><em>default=1</em>) – The truncation order for the asymptotic expansion.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The symbolic matrix representing the right inverse R.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>sympy.Matrix</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If the principal symbol matrix P(x, ξ) is not invertible
+    (i.e., det P = 0 or SymPy cannot confirm invertibility).</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -2206,207 +2587,276 @@ broadcast shape.</p>
 <section id="psiop-psiop-apply-module">
 <h3>psiop.psiop_apply module<a class="headerlink" href="#psiop-psiop-apply-module" title="Link to this heading"></a></h3>
 <p>Standalone numerical kernels for Kohn-Nirenberg quantization, NUFFT, AAA rational approximation, and Low-Rank SVD factorization.</p>
-<section id="psiop-apply-py-numerical-backends-for-pseudodifferential-operator-application">
-<span id="module-psiop.psiop_apply"></span><h4>psiop_apply.py — Numerical backends for pseudo‑differential operator application<a class="headerlink" href="#psiop-apply-py-numerical-backends-for-pseudodifferential-operator-application" title="Link to this heading"></a></h4>
-<section id="id17">
-<h5>Overview<a class="headerlink" href="#id17" title="Link to this heading"></a></h5>
-<p>The <code class="docutils literal notranslate"><span class="pre">psiop_apply</span></code> module provides the heavy‑lifting numerical kernels for
-applying pseudo‑differential operators (ΨDOs) to spatial fields. While the
-core <code class="docutils literal notranslate"><span class="pre">psiop</span></code> module handles symbolic calculus, asymptotic expansions, and
+<section id="psiop-apply-py-numerical-backends-for-pseudo-differential-operator-application">
+<span id="module-psiop.psiop_apply"></span><h4>psiop_apply.py — Numerical backends for pseudo-differential operator application<a class="headerlink" href="#psiop-apply-py-numerical-backends-for-pseudo-differential-operator-application" title="Link to this heading"></a></h4>
+<section id="id21">
+<h5>Overview<a class="headerlink" href="#id21" title="Link to this heading"></a></h5>
+<p>The <cite>psiop_apply</cite> module provides the heavy-lifting numerical kernels for
+applying pseudo-differential operators (ΨDOs) to spatial fields. While the
+core <cite>psiop</cite> module handles symbolic calculus, asymptotic expansions, and
 the Peetre decomposition, this module is responsible for the actual
 evaluation of the resulting integrals on discrete spatial and frequency
 grids.</p>
-<p>It implements both periodic (FFT‑based) and non‑periodic (direct
+<p>It implements both periodic (FFT-based) and non-periodic (direct
 quadrature) Kohn–Nirenberg quantization, alongside specialized
 factorization and approximation backends for the genuinely joint
-space‑frequency residuals that arise in the Peetre decomposition.</p>
+space-frequency residuals that arise in the Peetre decomposition.</p>
 </section>
 <section id="main-objects-and-workflows">
 <h5>Main objects and workflows<a class="headerlink" href="#main-objects-and-workflows" title="Link to this heading"></a></h5>
-<dl>
-<dt>Periodic and Non‑Periodic Kohn–Nirenberg Application</dt><dd><p><code class="docutils literal notranslate"><span class="pre">kohn_nirenberg_fft</span></code>: Applies the operator on a periodic domain using
-FFTs. Features an automatic fast‑path for spatially independent symbols
-(pure Fourier multipliers) and a memory‑bounded, multi‑threaded slow
-path for spatially dependent symbols.</p>
-<p><code class="docutils literal notranslate"><span class="pre">kohn_nirenberg_nonperiodic</span></code>: Applies the operator on a non‑periodic
-(Dirichlet‑type) domain via direct discrete Fourier quadrature.
+<dl class="simple">
+<dt><strong>Periodic and Non-Periodic Kohn–Nirenberg Application</strong></dt><dd><ul class="simple">
+<li><p><cite>kohn_nirenberg_fft</cite>: Applies the operator on a periodic domain using
+FFTs. Features an automatic fast-path for spatially independent symbols
+(pure Fourier multipliers) and a memory-bounded, multi-threaded slow
+path for spatially dependent symbols.</p></li>
+<li><p><cite>kohn_nirenberg_nonperiodic</cite>: Applies the operator on a non-periodic
+(Dirichlet-type) domain via direct discrete Fourier quadrature.
 Utilizes aggressive caching of phase matrices and windowing arrays to
-minimize redundant computations across repeated calls.</p>
+minimize redundant computations across repeated calls.</p></li>
+</ul>
 </dd>
-<dt>Low‑Rank Chebyshev/SVD Factorization</dt><dd><p><code class="docutils literal notranslate"><span class="pre">factorize_symbolic</span></code>: Approximates a joint space‑frequency symbol
-<code class="docutils literal notranslate"><span class="pre">p(x,</span> <span class="pre">ξ)</span></code> as a sum of separable terms <code class="docutils literal notranslate"><span class="pre">∑ₖ</span> <span class="pre">aₖ(x)</span> <span class="pre">qₖ(ξ)</span></code> using
+<dt><strong>Low-Rank Chebyshev/SVD Factorization</strong></dt><dd><ul class="simple">
+<li><p><cite>factorize_symbolic</cite>: Approximates a joint space-frequency symbol
+<cite>p(x, ξ)</cite> as a sum of separable terms <cite>∑ₖ aₖ(x) qₖ(ξ)</cite> using
 Chebyshev interpolation followed by Singular Value Decomposition (SVD)
-truncation. Includes Monte‑Carlo quality diagnostics.</p>
+truncation. Includes Monte-Carlo quality diagnostics.</p></li>
+</ul>
 </dd>
-<dt>NUFFT‑Based Joint‑Residual Backend</dt><dd><p><code class="docutils literal notranslate"><span class="pre">try_nufft_decomposition_*</span></code> / <code class="docutils literal notranslate"><span class="pre">apply_nufft_*</span></code>: Targets joint
+<dt><strong>NUFFT-Based Joint-Residual Backend</strong></dt><dd><ul class="simple">
+<li><p><cite>try_nufft_decomposition_*</cite> / <cite>apply_nufft_*</cite>: Targets joint
 residuals with genuinely oscillatory phases of the form
-<code class="docutils literal notranslate"><span class="pre">exp(i</span> <span class="pre">·</span> <span class="pre">Λ(x)</span> <span class="pre">·</span> <span class="pre">M(ξ))</span></code>. Extracts the phase and amplitude, and
-evaluates the resulting non‑uniform FFT (Type 3) via the optional
-<code class="docutils literal notranslate"><span class="pre">finufft</span></code> library, with a pure‑NumPy O(N·M) direct‑sum fallback.</p>
+<cite>exp(i·Λ(x)·M(ξ))</cite>. Extracts the phase and amplitude, and
+evaluates the resulting non-uniform FFT (Type 3) via the optional
+<cite>finufft</cite> library, with a pure-NumPy O(N·M) direct-sum fallback.</p></li>
+</ul>
 </dd>
-<dt>AAA Rational Approximation Backend</dt><dd><p><code class="docutils literal notranslate"><span class="pre">try_aaa_decomposition_*</span></code> / <code class="docutils literal notranslate"><span class="pre">aaa_plan_to_callable_*</span></code>: Targets joint
+<dt><strong>AAA Rational Approximation Backend</strong></dt><dd><ul class="simple">
+<li><p><cite>try_aaa_decomposition_*</cite> / <cite>aaa_plan_to_callable_*</cite>: Targets joint
 residuals that are rational functions or exhibit explicit poles /
-algebraic decay. Uses a vector‑valued Adaptive Antoulas‑Algorithm (AAA)
-barycentric rational interpolation to build a compact, fast‑evaluating
-surrogate for the symbol.</p>
+algebraic decay. Uses a vector-valued Adaptive Antoulas-Algorithm (AAA)
+barycentric rational interpolation to build a compact, fast-evaluating
+surrogate for the symbol.</p></li>
+</ul>
 </dd>
 </dl>
 </section>
-<section id="id18">
-<h5>Key features<a class="headerlink" href="#id18" title="Link to this heading"></a></h5>
-<dl class="simple">
-<dt>Memory‑bounded execution:</dt><dd><p>The 1D and 2D slow paths avoid O(N²ᵈ) RAM allocation by evaluating the
-symbol on chunked space‑frequency sub‑grids (~256 MB max per block) and
-accumulating via optimized Einstein summation (<code class="docutils literal notranslate"><span class="pre">np.einsum</span></code>).</p>
-</dd>
-<dt>Multi‑threaded row‑blocking:</dt><dd><p>The 2D slow path distributes spatial row‑blocks across a
-<code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code>, achieving near‑linear speedup on multi‑core
-machines for spatially dependent symbols.</p>
-</dd>
-<dt>Automatic fast‑path detection:</dt><dd><p>Before executing the expensive quadrature, the periodic and
-non‑periodic kernels probe the symbol at a few test frequencies. If the
-symbol is spatially independent, the code bypasses the quadrature
-entirely and applies the symbol as a pure Fourier multiplier, reducing
-complexity from O(N²) to O(N log N) in 1D, and O(N⁴) to O(N² log N) in 2D.</p>
-</dd>
-<dt>Phase‑matrix caching:</dt><dd><p>Non‑periodic transforms precalculate and cache discrete Fourier
-transform phases, reconstruction phases, and window arrays. The cache
-keys are derived from grid shapes and endpoints, ensuring automatic
-invalidation when grid resolution changes.</p>
-</dd>
-<dt>Quality‑gated approximations:</dt><dd><p>The low‑rank, NUFFT, and AAA backends all compute relative L2 errors
-against the exact symbol. If the approximation error exceeds the
-requested tolerance, the backend gracefully falls back to the exact
-(but slower) direct Kohn–Nirenberg quadrature.</p>
-</dd>
-</dl>
+<section id="id22">
+<h5>Key features<a class="headerlink" href="#id22" title="Link to this heading"></a></h5>
+<ul class="simple">
+<li><p><strong>Memory-bounded execution:</strong> The 1D and 2D slow paths avoid O(N²ᵈ) RAM
+allocation by evaluating the symbol on chunked space-frequency sub-grids
+(~256 MB max per block) and accumulating via optimized Einstein summation
+(<cite>np.einsum</cite>).</p></li>
+<li><p><strong>Multi-threaded row-blocking:</strong> The 2D slow path distributes spatial
+row-blocks across a <cite>ThreadPoolExecutor</cite>, achieving near-linear speedup
+on multi-core machines for spatially dependent symbols.</p></li>
+<li><p><strong>Automatic fast-path detection:</strong> Before executing the expensive
+quadrature, the periodic and non-periodic kernels probe the symbol at a
+few test frequencies. If the symbol is spatially independent, the code
+bypasses the quadrature entirely and applies the symbol as a pure Fourier
+multiplier, reducing complexity from O(N²) to O(N log N) in 1D, and
+O(N⁴) to O(N² log N) in 2D.</p></li>
+<li><p><strong>Phase-matrix caching:</strong> Non-periodic transforms precalculate and cache
+discrete Fourier transform phases, reconstruction phases, and window
+arrays. The cache keys are derived from grid shapes and endpoints,
+ensuring automatic invalidation when grid resolution changes.</p></li>
+<li><p><strong>Quality-gated approximations:</strong> The low-rank, NUFFT, and AAA backends
+all compute relative L2 errors against the exact symbol. If the
+approximation error exceeds the requested tolerance, the backend
+gracefully falls back to the exact (but slower) direct Kohn–Nirenberg
+quadrature.</p></li>
+</ul>
 </section>
 <section id="mathematical-background-and-numerical-design">
 <h5>Mathematical background and numerical design<a class="headerlink" href="#mathematical-background-and-numerical-design" title="Link to this heading"></a></h5>
-<dl>
-<dt>Kohn–Nirenberg quantization (Periodic)</dt><dd><p>The operator <code class="docutils literal notranslate"><span class="pre">Op(p)</span></code> is applied to a periodic function <code class="docutils literal notranslate"><span class="pre">u</span></code> via:</p>
+<p><strong>Kohn–Nirenberg quantization (Periodic)</strong>
+The operator <cite>Op(p)</cite> is applied to a periodic function <cite>u</cite> via:</p>
 <blockquote>
-<div><p>[Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) e^{i x·ξ} ℱ[u](ξ) dξ</p>
+<div><p>[Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) exp(i·x·ξ) ℱ[u](ξ) dξ</p>
 </div></blockquote>
-<p>where <code class="docutils literal notranslate"><span class="pre">ℱ[u]</span></code> is the discrete Fourier transform.
-Fast‑path: If <code class="docutils literal notranslate"><span class="pre">p(x,</span> <span class="pre">ξ)</span> <span class="pre">=</span> <span class="pre">p(ξ)</span></code>, the <code class="docutils literal notranslate"><span class="pre">x</span></code>‑dependence drops out, and
+<p>where ℱ[u] is the discrete Fourier transform.
+<em>Fast-path:</em> If p(x, ξ) = p(ξ), the x-dependence drops out, and
 the integral collapses to the pure multiplier:</p>
 <blockquote>
 <div><p>[Op(p) u](x) = ℱ⁻¹[ p(ξ) · ℱ[u](ξ) ]</p>
 </div></blockquote>
-<p>Slow‑path: For space‑dependent <code class="docutils literal notranslate"><span class="pre">p(x,</span> <span class="pre">ξ)</span></code>, the integral is evaluated
+<p><em>Slow-path:</em> For space-dependent p(x, ξ), the integral is evaluated
 directly. To prevent memory exhaustion, the spatial domain is split
-into blocks of size <code class="docutils literal notranslate"><span class="pre">B</span></code>, and the frequency domain into chunks of size
-<code class="docutils literal notranslate"><span class="pre">C</span></code>. The quadrature is accumulated block‑by‑block:</p>
+into blocks of size B, and the frequency domain into chunks of size
+C. The quadrature is accumulated block-by-block:</p>
 <blockquote>
-<div><p>result[i₀:i₁] = (Δξ / 2π) ∑_{k‑chunk} P_{blk} · ℱ[u]_{chunk} · e^{i x_{blk} · ξ_{chunk}}</p>
+<div><p>result[i₀:i₁] = (Δξ / 2π) ∑_{k-chunk} P_blk · ℱ[u]_chunk · exp(i·x_blk·ξ_chunk)</p>
 </div></blockquote>
-</dd>
-<dt>Kohn–Nirenberg quantization (Non‑Periodic)</dt><dd><p>On a non‑periodic domain, the continuous Fourier transform is replaced
+<p><strong>Kohn–Nirenberg quantization (Non-Periodic)</strong>
+On a non-periodic domain, the continuous Fourier transform is replaced
 by a direct discrete quadrature:</p>
 <blockquote>
-<div><p>[Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) e^{i x·ξ} [ ∫ e^{-i y·ξ} u(y) dy ] dξ</p>
+<div><p>[Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) exp(i·x·ξ) [ ∫ exp(-i·y·ξ) u(y) dy ] dξ</p>
 </div></blockquote>
 <p>The inner integral (forward transform) and outer integral (reconstruction)
-are represented as dense matrix‑vector products using precomputed phase
-matrices <code class="docutils literal notranslate"><span class="pre">Φ_{ft}</span> <span class="pre">=</span> <span class="pre">e^{-i</span> <span class="pre">ξ</span> <span class="pre">xᵀ}</span></code> and <code class="docutils literal notranslate"><span class="pre">Φ_{rec}</span> <span class="pre">=</span> <span class="pre">e^{i</span> <span class="pre">x</span> <span class="pre">ξᵀ}</span></code>. These
-matrices are cached globally. The fast‑path logic is identical to the
-periodic case, bypassing the matrix multiplications when <code class="docutils literal notranslate"><span class="pre">p</span></code> is
-independent of <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
-</dd>
-<dt>Peetre Joint Residual Factorization</dt><dd><p>When the Peetre decomposition yields a genuinely joint residual
-<code class="docutils literal notranslate"><span class="pre">p_joint(x,</span> <span class="pre">ξ)</span></code> that cannot be written as <code class="docutils literal notranslate"><span class="pre">a(x)q(ξ)</span></code>, it is routed
+are represented as dense matrix-vector products using precomputed phase
+matrices <cite>Φ_ft = exp(-i·ξ·xᵀ)</cite> and <cite>Φ_rec = exp(i·x·ξᵀ)</cite>. These
+matrices are cached globally. The fast-path logic is identical to the
+periodic case, bypassing the matrix multiplications when p is
+independent of x.</p>
+<p><strong>Peetre Joint Residual Factorization</strong>
+When the Peetre decomposition yields a genuinely joint residual
+<cite>p_joint(x, ξ)</cite> that cannot be written as <cite>a(x)q(ξ)</cite>, it is routed
 to one of three specialized backends based on its algebraic structure:</p>
 <ol class="arabic">
-<li><p>Low‑Rank (Chebyshev/SVD):
-For smooth, non‑oscillatory kernels. The symbol is interpolated on
-a tensor‑product Chebyshev grid, reshaped into a matrix
-<code class="docutils literal notranslate"><span class="pre">C</span> <span class="pre">∈</span> <span class="pre">ℂ^{N_x</span> <span class="pre">×</span> <span class="pre">N_ξ}</span></code>, and truncated via SVD:</p>
+<li><p><strong>Low-Rank (Chebyshev/SVD):</strong>
+For smooth, non-oscillatory kernels. The symbol is interpolated on
+a tensor-product Chebyshev grid, reshaped into a matrix
+<cite>C ∈ ℂ^(Nx × Nξ)</cite>, and truncated via SVD:</p>
 <blockquote>
-<div><p>C ≈ U_r Σ_r V_r^H   ⇒   p_joint(x, ξ) ≈ ∑_{k=1}^r aₖ(x) qₖ(ξ)</p>
+<div><p>C ≈ U_r · Σ_r · V_rᴴ   ⇒   p_joint(x, ξ) ≈ ∑ₖ₌₁ʳ aₖ(x) qₖ(ξ)</p>
 </div></blockquote>
 <p>The basis functions are explicit Chebyshev polynomials mapped to the
 physical bounding box.</p>
 </li>
-<li><p>NUFFT (Oscillatory):
-For residuals containing a bilinear phase <code class="docutils literal notranslate"><span class="pre">exp(i</span> <span class="pre">Λ(x)</span> <span class="pre">M(ξ))</span></code>.
+<li><p><strong>NUFFT (Oscillatory):</strong>
+For residuals containing a bilinear phase <cite>exp(i·Λ(x)·M(ξ))</cite>.
 The symbol is factored as:</p>
 <blockquote>
-<div><p>p_joint(x, ξ) = c(x) g(ξ) exp(i Λ(x) M(ξ))</p>
+<div><p>p_joint(x, ξ) = c(x) g(ξ) exp(i·Λ(x)·M(ξ))</p>
 </div></blockquote>
-<p>The application is reformulated as a Type 3 Non‑Uniform FFT,
+<p>The application is reformulated as a Type 3 Non-Uniform FFT,
 evaluating the sum:</p>
 <blockquote>
-<div><p>f(x) = ∑_{j} w_j exp(i (x · Λ(x) + μ_j · M(ξ_j)))</p>
+<div><p>f(x) = ∑ⱼ wⱼ exp(i·(x·Λ(x) + μⱼ·M(ξⱼ)))</p>
 </div></blockquote>
-<p>where <code class="docutils literal notranslate"><span class="pre">w_j</span></code> are the weighted Fourier coefficients of <code class="docutils literal notranslate"><span class="pre">u</span></code>. This
-achieves O(N log N) complexity via <code class="docutils literal notranslate"><span class="pre">finufft</span></code>, avoiding the
-polynomial basis convergence issues of the low‑rank method.</p>
+<p>where <cite>wⱼ</cite> are the weighted Fourier coefficients of <cite>u</cite>. This
+achieves O(N log N) complexity via <cite>finufft</cite>, avoiding the
+polynomial basis convergence issues of the low-rank method.</p>
 </li>
-<li><p>AAA (Rational / Poles):
+<li><p><strong>AAA (Rational / Poles):</strong>
 For residuals with explicit poles or algebraic decay (e.g.,
-resolvent‑like structures). A vector‑valued AAA barycentric rational
+resolvent-like structures). A vector-valued AAA barycentric rational
 interpolant is constructed:</p>
 <blockquote>
-<div><p>r(ξ) = ∑_{k} wₖ fₖ / (ξ - zₖ)  /  ∑_{k} wₖ / (ξ - zₖ)</p>
+<div><p>r(ξ) = [∑ₖ wₖ fₖ / (ξ - zₖ)] / [∑ₖ wₖ / (ξ - zₖ)]</p>
 </div></blockquote>
-<p>where the support points <code class="docutils literal notranslate"><span class="pre">zₖ</span></code> and weights <code class="docutils literal notranslate"><span class="pre">wₖ</span></code> are selected
+<p>where the support points <cite>zₖ</cite> and weights <cite>wₖ</cite> are selected
 adaptively to minimize the residual. The spatial dependence is
 handled by building a separate AAA fit for each Chebyshev node in
-<code class="docutils literal notranslate"><span class="pre">x</span></code>, followed by barycentric Lagrange interpolation in <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+<cite>x</cite>, followed by barycentric Lagrange interpolation in <cite>x</cite>.</p>
 </li>
 </ol>
-</dd>
-</dl>
 </section>
 <section id="numerical-stability">
 <h5>Numerical stability<a class="headerlink" href="#numerical-stability" title="Link to this heading"></a></h5>
-<dl class="simple">
-<dt>All application kernels enforce numerical stability through:</dt><dd><ul class="simple">
-<li><p>Magnitude clamping: Symbol values exceeding <code class="docutils literal notranslate"><span class="pre">clamp</span></code> (default 10⁶)
-are scaled down while preserving their complex phase.</p></li>
-<li><p>Frequency windowing: Optional Gaussian or Hann tapers in the
-frequency domain to attenuate high‑frequency numerical artifacts.</p></li>
-<li><p>Spatial tapering: Optional centered Gaussian tapers in the spatial
-domain to mitigate edge boundary artifacts in non‑periodic settings.</p></li>
+<p>All application kernels enforce numerical stability through:
+* <strong>Magnitude clamping:</strong> Symbol values exceeding <cite>clamp</cite> (default 10⁶)</p>
+<blockquote>
+<div><p>are scaled down while preserving their complex phase.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p><strong>Frequency windowing:</strong> Optional Gaussian or Hann tapers in the
+frequency domain to attenuate high-frequency numerical artifacts.</p></li>
+<li><p><strong>Spatial tapering:</strong> Optional centered Gaussian tapers in the spatial
+domain to mitigate edge boundary artifacts in non-periodic settings.</p></li>
 </ul>
-</dd>
-</dl>
 </section>
 </section>
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_apply.aaa_plan_to_callable_1d">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_apply.</span></span><span class="sig-name descname"><span class="pre">aaa_plan_to_callable_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plan</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_apply.html#aaa_plan_to_callable_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_apply.aaa_plan_to_callable_1d" title="Link to this definition"></a></dt>
-<dd><p>Wrap an aaa_decomposition_1d plan as p(x, xi) -&gt; ndarray, matching
-the symbol_func signature kohn_nirenberg_fft/nonperiodic expect.</p>
+<dd><p>Wrap a 1D AAA decomposition plan into a fast NumPy callable.</p>
+<p>Creates a function <cite>p(x, ξ) → ndarray</cite> that matches the <cite>symbol_func</cite>
+signature expected by <cite>kohn_nirenberg_fft</cite> and <cite>kohn_nirenberg_nonperiodic</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>plan</strong> (<em>dict</em>) – The 1D AAA plan dictionary.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A function that evaluates the rational approximation.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>callable</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_apply.aaa_plan_to_callable_2d">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_apply.</span></span><span class="sig-name descname"><span class="pre">aaa_plan_to_callable_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plan</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_apply.html#aaa_plan_to_callable_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_apply.aaa_plan_to_callable_2d" title="Link to this definition"></a></dt>
-<dd><p>Wrap an aaa_decomposition_2d plan as p(x, y, xi, eta) -&gt; ndarray,
-matching the symbol_func signature kohn_nirenberg_fft/nonperiodic
-expect for dim=2.</p>
+<dd><p>Wrap a 2D AAA decomposition plan into a fast NumPy callable.</p>
+<p>Creates a function <cite>p(x, y, ξ, η) → ndarray</cite> that matches the <cite>symbol_func</cite>
+signature expected by the 2D Kohn-Nirenberg quantization routines.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>plan</strong> (<em>dict</em>) – The 2D AAA plan dictionary.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A function that evaluates the 2D rational approximation.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>callable</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_apply.apply_nufft_1d">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_apply.</span></span><span class="sig-name descname"><span class="pre">apply_nufft_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dxi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'gaussian'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_apply.html#apply_nufft_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_apply.apply_nufft_1d" title="Link to this definition"></a></dt>
-<dd><p>Apply Op(p_joint) via the NUFFT tier, 1D case. <cite>plan</cite> is the output
-of try_nufft_decomposition_1d (a list of term dicts).</p>
-<p>freq_window matches kohn_nirenberg_fft’s default – without applying
-it here too, results silently diverge from joint_backend=’direct’
-even at freq_window=’gaussian’ defaults (found via end-to-end testing
-against the real dispatcher, not from the isolated unit tests, which
-never exercised the default windowing at all).</p>
+<dd><p>Apply the pseudo-differential operator Op(p_joint) via the 1D NUFFT tier.</p>
+<p>Each term’s <cite>finufft.Plan</cite> is cached on the term dictionary itself and
+reused across calls as long as the source/target points haven’t changed.
+Only the weights (which depend on <cite>u</cite>) are rebuilt every call.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>u</strong> (<em>ndarray</em>) – Spatial samples of the input field.</p></li>
+<li><p><strong>plan</strong> (<em>list</em><em> of </em><em>dict</em>) – Output of <cite>try_nufft_decomposition_1d</cite>.</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial coordinate grid.</p></li>
+<li><p><strong>kx</strong> (<em>ndarray</em>) – Frequency grid.</p></li>
+<li><p><strong>dx</strong> (<em>float</em>) – Spatial grid spacing.</p></li>
+<li><p><strong>dxi</strong> (<em>float</em>) – Frequency grid spacing.</p></li>
+<li><p><strong>eps</strong> (<em>float</em><em>, </em><em>default=1e-12</em>) – Requested precision for the NUFFT.</p></li>
+<li><p><strong>freq_window</strong> (<em>{'gaussian'</em><em>, </em><em>'hann'</em><em>, </em><em>None}</em><em>, </em><em>default='gaussian'</em>) – Frequency-domain window to match the direct path’s defaults.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The resulting field after applying the operator.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_apply.apply_nufft_2d">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_apply.</span></span><span class="sig-name descname"><span class="pre">apply_nufft_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ky</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dxi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'gaussian'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_apply.html#apply_nufft_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_apply.apply_nufft_2d" title="Link to this definition"></a></dt>
-<dd><p>Apply Op(p_joint) via the NUFFT tier, 2D case. <cite>kind</cite>/<cite>plan</cite> are the
-output of try_nufft_decomposition_2d. See apply_nufft_1d docstring on
-why freq_window must be matched to the direct path’s default.</p>
+<dd><p>Apply the pseudo-differential operator Op(p_joint) via the 2D NUFFT tier.</p>
+<p>Handles both ‘axis_sep’ (two independent 1D passes) and ‘joint3d’
+(a genuine 3D type-3 transform) decomposition kinds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>u</strong> (<em>ndarray</em>) – Spatial samples of the 2D input field.</p></li>
+<li><p><strong>kind</strong> (<em>{'axis_sep'</em><em>, </em><em>'joint3d'}</em>) – The type of NUFFT decomposition plan.</p></li>
+<li><p><strong>plan</strong> (<em>list</em><em> of </em><em>dict</em><em> or </em><em>dict</em>) – Output of <cite>try_nufft_decomposition_2d</cite>.</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – Spatial coordinate grids.</p></li>
+<li><p><strong>y_grid</strong> (<em>ndarray</em>) – Spatial coordinate grids.</p></li>
+<li><p><strong>kx</strong> (<em>ndarray</em>) – Frequency grids.</p></li>
+<li><p><strong>ky</strong> (<em>ndarray</em>) – Frequency grids.</p></li>
+<li><p><strong>dx</strong> (<em>float</em>) – Spatial grid spacings.</p></li>
+<li><p><strong>dy</strong> (<em>float</em>) – Spatial grid spacings.</p></li>
+<li><p><strong>dxi</strong> (<em>float</em>) – Frequency grid spacings.</p></li>
+<li><p><strong>deta</strong> (<em>float</em>) – Frequency grid spacings.</p></li>
+<li><p><strong>eps</strong> (<em>float</em><em>, </em><em>default=1e-12</em>) – Requested precision for the NUFFT.</p></li>
+<li><p><strong>freq_window</strong> (<em>{'gaussian'</em><em>, </em><em>'hann'</em><em>, </em><em>None}</em><em>, </em><em>default='gaussian'</em>) – Frequency-domain window.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The resulting 2D field after applying the operator.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -2480,7 +2930,16 @@ sampled points), <cite>‘max_abs_error’</cite> and <cite>‘mean_abs_error’
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_apply.invalidate_kn_cache">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_apply.</span></span><span class="sig-name descname"><span class="pre">invalidate_kn_cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/psiop/psiop_apply.html#invalidate_kn_cache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_apply.invalidate_kn_cache" title="Link to this definition"></a></dt>
-<dd><p>Clear the phase-matrix cache for non-periodic 1D operations.</p>
+<dd><p>Clear the phase-matrix and windowing cache for non-periodic operations.</p>
+<p>This function empties the global <cite>_KN_CACHE</cite> dictionary, forcing the
+non-periodic Kohn-Nirenberg quantization to recompute and cache the
+discrete Fourier transform phase matrices and window arrays on the
+next execution.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -2641,25 +3100,91 @@ as <cite>u_vals</cite> after applying the non-periodic pseudo-differential opera
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_apply.try_aaa_decomposition_1d">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_apply.</span></span><span class="sig-name descname"><span class="pre">try_aaa_decomposition_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">joint_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_sym</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_sym</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_bounds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_bounds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_cheb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">24</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_xi_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_apply.html#try_aaa_decomposition_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_apply.try_aaa_decomposition_1d" title="Link to this definition"></a></dt>
-<dd><p>1D bivariate rational decomposition via vector-AAA. Returns a plan
-dict (with a fast numpy callable, see aaa_plan_to_callable_1d) or None
-if the quality gate (rel_l2_error &gt; 10*rtol) isn’t met.</p>
+<dd><p>1D bivariate rational decomposition via vector-valued AAA.</p>
+<p>Builds a rational approximation of the symbol where the spatial
+dependence is handled by building a separate AAA fit for each
+Chebyshev node in <cite>x</cite>, followed by barycentric Lagrange interpolation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>joint_expr</strong> (<em>sympy.Expr</em>) – The joint symbolic expression to approximate.</p></li>
+<li><p><strong>x_sym</strong> (<em>sympy.Symbol</em>) – Spatial and frequency variables.</p></li>
+<li><p><strong>xi_sym</strong> (<em>sympy.Symbol</em>) – Spatial and frequency variables.</p></li>
+<li><p><strong>x_bounds</strong> (<em>tuple</em><em> of </em><em>float</em>) – <cite>(min, max)</cite> bounds for the spatial and frequency variables.</p></li>
+<li><p><strong>xi_bounds</strong> (<em>tuple</em><em> of </em><em>float</em>) – <cite>(min, max)</cite> bounds for the spatial and frequency variables.</p></li>
+<li><p><strong>n_cheb</strong> (<em>int</em><em>, </em><em>default=24</em>) – Number of Chebyshev nodes in the spatial domain.</p></li>
+<li><p><strong>n_xi_samples</strong> (<em>int</em><em>, </em><em>default=100</em>) – Number of sampling points in the frequency domain.</p></li>
+<li><p><strong>rtol</strong> (<em>float</em><em>, </em><em>default=1e-8</em>) – Relative tolerance for the AAA algorithm and quality gate.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A plan dictionary containing the fit and metadata if the quality
+gate (relative L2 error ≤ 10·rtol) is met. Returns <cite>None</cite> otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict or None</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_apply.try_aaa_decomposition_2d">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_apply.</span></span><span class="sig-name descname"><span class="pre">try_aaa_decomposition_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">joint_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_sym</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_sym</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_sym</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_sym</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_bounds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_bounds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_bounds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta_bounds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_cheb_x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_cheb_y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_xi_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_eta_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_apply.html#try_aaa_decomposition_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_apply.try_aaa_decomposition_2d" title="Link to this definition"></a></dt>
-<dd><p>2D decomposition via sequential vector-AAA (xi support points chosen
-at a representative eta slice – see module docstring caveat above;
-stage 2 compresses eta from the EXACT symbolic slice at each xi
-support point). Returns a plan dict or None if the quality gate fails.</p>
+<dd><p>2D decomposition via sequential vector-valued AAA.</p>
+<p>Stage 1 compresses <cite>ξ</cite> using a representative <cite>η</cite> slice. Stage 2
+compresses <cite>η</cite> from the exact symbolic slice at each <cite>ξ</cite> support point.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>joint_expr</strong> (<em>sympy.Expr</em>) – The 2D joint symbolic expression.</p></li>
+<li><p><strong>x_sym</strong> (<em>sympy.Symbol</em>) – Spatial and frequency variables.</p></li>
+<li><p><strong>y_sym</strong> (<em>sympy.Symbol</em>) – Spatial and frequency variables.</p></li>
+<li><p><strong>xi_sym</strong> (<em>sympy.Symbol</em>) – Spatial and frequency variables.</p></li>
+<li><p><strong>eta_sym</strong> (<em>sympy.Symbol</em>) – Spatial and frequency variables.</p></li>
+<li><p><strong>x_bounds</strong> (<em>tuple</em><em> of </em><em>float</em>) – <cite>(min, max)</cite> bounds for each variable.</p></li>
+<li><p><strong>y_bounds</strong> (<em>tuple</em><em> of </em><em>float</em>) – <cite>(min, max)</cite> bounds for each variable.</p></li>
+<li><p><strong>xi_bounds</strong> (<em>tuple</em><em> of </em><em>float</em>) – <cite>(min, max)</cite> bounds for each variable.</p></li>
+<li><p><strong>eta_bounds</strong> (<em>tuple</em><em> of </em><em>float</em>) – <cite>(min, max)</cite> bounds for each variable.</p></li>
+<li><p><strong>n_cheb_x</strong> (<em>int</em><em>, </em><em>default=10</em>) – Number of Chebyshev nodes in the spatial domains.</p></li>
+<li><p><strong>n_cheb_y</strong> (<em>int</em><em>, </em><em>default=10</em>) – Number of Chebyshev nodes in the spatial domains.</p></li>
+<li><p><strong>n_xi_samples</strong> (<em>int</em><em>, </em><em>default=30</em>) – Number of sampling points in the frequency domains.</p></li>
+<li><p><strong>n_eta_samples</strong> (<em>int</em><em>, </em><em>default=30</em>) – Number of sampling points in the frequency domains.</p></li>
+<li><p><strong>rtol</strong> (<em>float</em><em>, </em><em>default=1e-8</em>) – Relative tolerance for the AAA algorithm and quality gate.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A plan dictionary containing the 2D fit if the quality gate
+(relative error ≤ 20·rtol) is met. Returns <cite>None</cite> otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict or None</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_apply.try_nufft_decomposition_1d">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_apply.</span></span><span class="sig-name descname"><span class="pre">try_nufft_decomposition_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">joint_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_sym</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_sym</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_apply.html#try_nufft_decomposition_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_apply.try_nufft_decomposition_1d" title="Link to this definition"></a></dt>
-<dd><p>1D (phase space (x,xi)) NUFFT classifier. Returns a list of term
-plans, or None if any additive term doesn’t fit (falls back).</p>
+<dd><p>1D (phase space (x, ξ)) NUFFT classifier.</p>
+<p>Attempts to factor the joint residual into terms of the form
+c(x)·g(ξ)·exp(i·Λ(x)·M(ξ)).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>joint_expr</strong> (<em>sympy.Expr</em>) – The joint symbolic expression to classify.</p></li>
+<li><p><strong>x_sym</strong> (<em>sympy.Symbol</em>) – The spatial variable.</p></li>
+<li><p><strong>xi_sym</strong> (<em>sympy.Symbol</em>) – The frequency variable.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of term plans if all additive terms fit the oscillatory
+pattern. Returns <cite>None</cite> if any term fails to match, triggering
+a fallback to the direct backend.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of dict or None</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -2686,8 +3211,8 @@ Returns (‘axis_sep’, combo_plan) or (‘joint3d’, plans) or None.</p>
 <p>Time-stepping solvers, exponential propagators, and grid generation utilities.</p>
 <section id="psiop-solver-time-stepping-solvers-propagators-and-grid-utilities">
 <span id="module-psiop.psiop_solver"></span><h4>psiop_solver — Time-stepping solvers, propagators, and grid utilities<a class="headerlink" href="#psiop-solver-time-stepping-solvers-propagators-and-grid-utilities" title="Link to this heading"></a></h4>
-<section id="id19">
-<h5>Overview<a class="headerlink" href="#id19" title="Link to this heading"></a></h5>
+<section id="id23">
+<h5>Overview<a class="headerlink" href="#id23" title="Link to this heading"></a></h5>
 <p>The <code class="docutils literal notranslate"><span class="pre">psiop_solver</span></code> submodule orchestrates the numerical application of
 scalar and matrix-valued pseudo-differential operators (from <code class="docutils literal notranslate"><span class="pre">psiop</span></code> and
 <code class="docutils literal notranslate"><span class="pre">psiop.matpsiop</span></code>) to evolve fields in time. It provides high-level
@@ -2699,8 +3224,8 @@ calculus of <code class="docutils literal notranslate"><span class="pre">psiop</
 handling both simple linear evolution and complex non-commutative or
 quasi-linear systems.</p>
 </section>
-<section id="id20">
-<h5>Main objects and workflows<a class="headerlink" href="#id20" title="Link to this heading"></a></h5>
+<section id="id24">
+<h5>Main objects and workflows<a class="headerlink" href="#id24" title="Link to this heading"></a></h5>
 <dl class="simple">
 <dt><cite>PropagatorFamily</cite> and <cite>build_propagator</cite></dt><dd><p>Construct the one-step approximate propagator <code class="docutils literal notranslate"><span class="pre">exp(dt</span> <span class="pre">·</span> <span class="pre">Op[s])</span></code> for a
 given symbol <code class="docutils literal notranslate"><span class="pre">s</span></code>. <code class="docutils literal notranslate"><span class="pre">PropagatorFamily</span></code> amortizes the cost by building
@@ -2736,8 +3261,8 @@ grids and their associated FFT-ordered angular frequency grids.</p>
 </dd>
 </dl>
 </section>
-<section id="id21">
-<h5>Key features<a class="headerlink" href="#id21" title="Link to this heading"></a></h5>
+<section id="id25">
+<h5>Key features<a class="headerlink" href="#id25" title="Link to this heading"></a></h5>
 <dl class="simple">
 <dt>Amortized propagator construction:</dt><dd><p><cite>PropagatorFamily</cite> computes the symbolic <code class="docutils literal notranslate"><span class="pre">exp(t</span> <span class="pre">·</span> <span class="pre">Op[s])</span></code> once;
 <cite>build_propagator</cite> caches these families process-wide, making parameter
@@ -2760,8 +3285,8 @@ initial conditions.</p>
 </dd>
 </dl>
 </section>
-<section id="id22">
-<h5>Mathematical background and numerical design<a class="headerlink" href="#id22" title="Link to this heading"></a></h5>
+<section id="id26">
+<h5>Mathematical background and numerical design<a class="headerlink" href="#id26" title="Link to this heading"></a></h5>
 <dl>
 <dt>Asymptotic exponential symbol</dt><dd><p>The propagator <code class="docutils literal notranslate"><span class="pre">exp(dt</span> <span class="pre">·</span> <span class="pre">P)</span></code> is constructed via the truncated
 asymptotic series:</p>
@@ -2781,15 +3306,15 @@ Requesting a propagator for a specific numeric <code class="docutils literal not
 only a single <code class="docutils literal notranslate"><span class="pre">sympy.subs</span></code> operation, bypassing the recursion
 entirely. This is cached process-wide by <cite>build_propagator</cite>.</p>
 </dd>
-<dt>Second-order block companion reduction</dt><dd><p>The equation <code class="docutils literal notranslate"><span class="pre">∂²ₜu</span> <span class="pre">=</span> <span class="pre">Op(S)(u)</span></code> is rewritten as a first-order system
-for the state vector <code class="docutils literal notranslate"><span class="pre">[u,</span> <span class="pre">v]ᵀ</span></code> where <code class="docutils literal notranslate"><span class="pre">v</span> <span class="pre">=</span> <span class="pre">∂ₜu</span></code>:</p>
+<dt>Second-order block companion reduction</dt><dd><p>The equation <cite>∂²ₜu = Op[S](u)</cite> is rewritten as a first-order system
+for the state vector <cite>[u, v]ᵀ</cite> where <cite>v = ∂ₜu</cite>:</p>
 <blockquote>
 <div><dl class="simple">
-<dt>∂ₜ [u]   [ 0   I ] [u]</dt><dd><p>[v] = [ S   0 ] [v]</p>
+<dt>∂ₜ ⎡u⎤   ⎡0   I⎤ ⎡u⎤</dt><dd><p>⎣v⎦ = ⎣S   0⎦ ⎣v⎦</p>
 </dd>
 </dl>
 </div></blockquote>
-<p>For a <code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">×</span> <span class="pre">k</span></code> matrix symbol <code class="docutils literal notranslate"><span class="pre">S</span></code>, the companion matrix is <code class="docutils literal notranslate"><span class="pre">2k</span> <span class="pre">×</span> <span class="pre">2k</span></code>.
+<p>For a <cite>k × k</cite> matrix symbol <cite>S</cite>, the companion matrix is <cite>2k × 2k</cite>.
 This allows the full machinery of <cite>solve_first_order</cite> to be reused
 without deriving a separate second-order integrator.</p>
 </dd>
@@ -2800,8 +3325,8 @@ If <code class="docutils literal notranslate"><span class="pre">P</span></code> 
 exact solution over a step <code class="docutils literal notranslate"><span class="pre">dt</span></code> is <code class="docutils literal notranslate"><span class="pre">U(t)</span> <span class="pre">=</span> <span class="pre">exp(tP)</span> <span class="pre">U(0)</span> <span class="pre">exp(-tQ)</span></code>.
 If they depend on <code class="docutils literal notranslate"><span class="pre">x</span></code>, the underlying scalar operators <code class="docutils literal notranslate"><span class="pre">Op[P_ij]</span></code>
 and <code class="docutils literal notranslate"><span class="pre">Op[Q_jk]</span></code> may not commute. The solver then falls back to:
-- Lie-Trotter: <code class="docutils literal notranslate"><span class="pre">U^{n+1}</span> <span class="pre">=</span> <span class="pre">exp(dt·P)</span> <span class="pre">exp(-dt·Q)</span> <span class="pre">U^n</span></code>  (<code class="docutils literal notranslate"><span class="pre">𝒪(dt)</span></code> error)
-- Strang: <code class="docutils literal notranslate"><span class="pre">U^{n+1}</span> <span class="pre">=</span> <span class="pre">exp(dt/2·P)</span> <span class="pre">exp(-dt·Q)</span> <span class="pre">exp(dt/2·P)</span> <span class="pre">U^n</span></code> (<code class="docutils literal notranslate"><span class="pre">𝒪(dt²)</span></code>)</p>
+- Lie-Trotter:  <cite>Uⁿ⁺¹ = exp(dt·P) exp(-dt·Q) Uⁿ</cite>   ( <cite>𝒪(dt)</cite>  error)
+- Strang:  <cite>Uⁿ⁺¹ = exp(dt/2·P) exp(-dt·Q) exp(dt/2·P) Uⁿ</cite>  ( <cite>𝒪(dt²)</cite> )</p>
 </dd>
 <dt>Quasi-linear IMEX for conformal Ricci flow</dt><dd><p>The 2D Ricci flow in conformal gauge <code class="docutils literal notranslate"><span class="pre">g</span> <span class="pre">=</span> <span class="pre">e²ᵠ(dx²</span> <span class="pre">+</span> <span class="pre">dy²)</span></code> reduces to
 the scalar quasi-linear heat equation <code class="docutils literal notranslate"><span class="pre">∂ₜφ</span> <span class="pre">=</span> <span class="pre">e⁻²ᵠΔφ</span></code>.
@@ -2825,8 +3350,8 @@ significantly cheaper.</p></li>
 </dd>
 </dl>
 </section>
-<section id="id23">
-<h5>Numerical design notes<a class="headerlink" href="#id23" title="Link to this heading"></a></h5>
+<section id="id27">
+<h5>Numerical design notes<a class="headerlink" href="#id27" title="Link to this heading"></a></h5>
 <ul class="simple">
 <li><p>Grid generation strictly follows FFT ordering (<code class="docutils literal notranslate"><span class="pre">np.fft.fftfreq</span></code>) to
 ensure compatibility with the fast-path FFT multipliers in <code class="docutils literal notranslate"><span class="pre">psiop_apply</span></code>.</p></li>
@@ -2842,20 +3367,20 @@ ensuring correct index contraction for density matrices and Green’s functions.
 </ul>
 <p class="rubric">References</p>
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id24" role="doc-footnote">
+<aside class="footnote brackets" id="id28" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
 <p>Hairer, E., Lubich, C., and Wanner, G.
 <em>Geometric Numerical Integration: Structure-Preserving Algorithms
 for Ordinary Differential Equations</em>, Springer, 2006.
 (For Lie-Trotter and Strang operator splitting).</p>
 </aside>
-<aside class="footnote brackets" id="id25" role="doc-footnote">
+<aside class="footnote brackets" id="id29" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
 <p>Trefethen, L. N.
 <em>Spectral Methods in MATLAB</em>, SIAM, 2000.
 (For FFT-based grid generation and Fourier multiplier application).</p>
 </aside>
-<aside class="footnote brackets" id="id26" role="doc-footnote">
+<aside class="footnote brackets" id="id30" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
 <p>Chorin, A. J., and Marsden, J. E.
 <em>A Mathematical Introduction to Fluid Dynamics</em>, Springer, 1990.
@@ -3122,16 +3647,26 @@ kx_m = 2π · fftfreq(N, Δx),  ky_n = 2π · fftfreq(N, Δy)</p>
 <dt class="sig sig-object py" id="psiop.psiop_solver.make_grids">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_solver.</span></span><span class="sig-name descname"><span class="pre">make_grids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vars_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">L</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_solver.html#make_grids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_solver.make_grids" title="Link to this definition"></a></dt>
 <dd><p>Build spatial + frequency grids and the meshgrid-ed spatial
-coordinates used to evaluate initial conditions – factors out the
-grid-setup boilerplate that used to be copy-pasted verbatim in every
-solve_* function below.</p>
+coordinates used to evaluate initial conditions.</p>
+<p>Factors out the grid-setup boilerplate that used to be copy-pasted
+verbatim in every solve_* function below.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p><ul class="simple">
-<li><p><strong>X, Y</strong> (<em>ndarray, ndarray or None</em>) – Meshgrid-ed spatial coordinates (‘ij’ indexing). Y is None in 1D.</p></li>
-<li><p><strong>x_grid, y_grid</strong> (<em>ndarray, ndarray or None</em>) – 1D spatial axes (y_grid is None in 1D).</p></li>
-<li><p><strong>kx, ky</strong> (<em>ndarray, ndarray or None</em>) – Frequency axes (ky is None in 1D).</p></li>
-<li><p><strong>grids</strong> (<em>tuple</em>) – (x, kx) in 1D or (x, y, kx, ky) in 2D – what callers return.</p></li>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vars_x</strong> (<em>list</em><em> of </em><em>sympy.Symbol</em>) – Spatial variables (length 1 for 1D, length 2 for 2D).</p></li>
+<li><p><strong>L</strong> (<em>float</em>) – Half-length of the spatial domain.</p></li>
+<li><p><strong>N</strong> (<em>int</em>) – Number of grid points per spatial axis.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>X</strong> (<em>ndarray or None</em>) – Meshgrid-ed spatial coordinates along x (‘ij’ indexing). None in 1D.</p></li>
+<li><p><strong>Y</strong> (<em>ndarray or None</em>) – Meshgrid-ed spatial coordinates along y (‘ij’ indexing). None in 1D.</p></li>
+<li><p><strong>x_grid</strong> (<em>ndarray</em>) – 1D spatial axis along x.</p></li>
+<li><p><strong>y_grid</strong> (<em>ndarray or None</em>) – 1D spatial axis along y. None in 1D.</p></li>
+<li><p><strong>kx</strong> (<em>ndarray</em>) – Frequency axis along x.</p></li>
+<li><p><strong>ky</strong> (<em>ndarray or None</em>) – Frequency axis along y. None in 1D.</p></li>
+<li><p><strong>grids</strong> (<em>tuple</em>) – <cite>(x, kx)</cite> in 1D or <cite>(x, y, kx, ky)</cite> in 2D.</p></li>
 </ul>
 </p>
 </dd>
@@ -3141,14 +3676,30 @@ solve_* function below.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="psiop.psiop_solver.run_time_loop">
 <span class="sig-prename descclassname"><span class="pre">psiop.psiop_solver.</span></span><span class="sig-name descname"><span class="pre">run_time_loop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_fn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">U0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_every</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_finite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/psiop/psiop_solver.html#run_time_loop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#psiop.psiop_solver.run_time_loop" title="Link to this definition"></a></dt>
-<dd><p>Repeatedly apply <cite>step_fn(U) -&gt; U_next</cite>, saving a snapshot every
-<cite>save_every</cite> steps (plus the final step and t=0) – factors out the
-save-cadence bookkeeping that used to be copy-pasted verbatim in every
-solve_* function below.</p>
+<dd><p>Repeatedly apply <cite>step_fn(U) → U_next</cite>, saving a snapshot every
+<cite>save_every</cite> steps (plus the final step and t=0).</p>
+<p>Factors out the save-cadence bookkeeping that used to be copy-pasted
+verbatim in every solve_* function below.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>step_fn</strong> (<em>callable</em>) – Function that takes the current state <cite>U</cite> and returns the next state <cite>U_next</cite>.</p></li>
+<li><p><strong>U0</strong> (<em>ndarray</em>) – Initial state array.</p></li>
+<li><p><strong>dt</strong> (<em>float</em>) – Time-step size.</p></li>
+<li><p><strong>n_steps</strong> (<em>int</em>) – Total number of time steps to evolve.</p></li>
+<li><p><strong>save_every</strong> (<em>int</em>) – Store the solution snapshot every <cite>save_every</cite> steps.</p></li>
+<li><p><strong>check_finite</strong> (<em>bool</em><em>, </em><em>default True</em>) – If True, raise <cite>FloatingPointError</cite> if a non-finite value is detected.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>t_list</strong> (<em>ndarray</em>) – Array of saved time points.</p></li>
+<li><p><strong>U_list</strong> (<em>ndarray</em>) – Array of saved state snapshots.</p></li>
+</ul>
+</p>
+</dd>
 <dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>FloatingPointError</strong> – If <cite>check_finite</cite> is True and a non-finite value shows up – avoids
-    silently returning a diverged/garbage trajectory.</p>
+<dd class="field-odd"><p><strong>FloatingPointError</strong> – If <cite>check_finite</cite> is True and a non-finite value shows up.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -3163,7 +3714,7 @@ solve_* function below.</p>
 <p>by repeated application of the asymptotic propagator exp(dt · Op[s]).</p>
 <p>At each time step the field is advanced via</p>
 <blockquote>
-<div><p>u^{n+1} = exp(dt · Op[s]) u^n ≈ (I + dt·P + (dt²/2!)P∘P + ⋯) u^n</p>
+<div><p>uⁿ⁺¹ = exp(dt · Op[s]) uⁿ ≈ (I + dt·P + (dt²/2!)P∘P + ⋯) uⁿ</p>
 </div></blockquote>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -3401,14 +3952,16 @@ this companion system (purely imaginary eigenvalues for an
 oscillatory <cite>S</cite>) its amplification factor exceeds 1 for every
 <cite>dt &gt; 0</cite>, so it is unconditionally unstable; leapfrog is the
 cheapest explicit scheme that avoids that failure mode.</p>
-<p>Per-step KDK update, from <cite>(u^n, v^n)</cite> to <cite>(u^{n+1}, v^{n+1})</cite>:</p>
+<p>Per-step KDK update, from <cite>(uⁿ, vⁿ)</cite> to <cite>(uⁿ⁺¹, vⁿ⁺¹)</cite>:</p>
 <blockquote>
-<div><p>v^{n+1/2} = v^n       + (dt/2)·Op[S](u^n)      # kick
-u^{n+1}   = u^n       +  dt   ·v^{n+1/2}       # drift
-v^{n+1}   = v^{n+1/2} + (dt/2)·Op[S](u^{n+1})  # kick</p>
+<div><p>vⁿ⁺¹/² = vⁿ       + (dt/2)·Op[S](uⁿ)      # kick
+uⁿ⁺¹   = uⁿ       +  dt   ·vⁿ⁺¹/²         # drift
+vⁿ⁺¹   = vⁿ⁺¹/²   + (dt/2)·Op[S](uⁿ⁺¹)    # kick
+equivalent to the textbook <cite>uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ +
+dt²·Op[S](uⁿ)</cite> form</p>
 </div></blockquote>
-<p>equivalent to the textbook <cite>u^{n+1} = 2u^n − u^{n−1} +
-dt²·Op[S](u^n)</cite> form but self-starting from <cite>(u^0, v^0)</cite> with no
+<p>equivalent to the textbook <cite>uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ +
+dt²·Op[S](uⁿ)</cite> form but self-starting from <cite>(u^0, v^0)</cite> with no
 separate initialization step, and it yields a velocity that is
 naturally synchronized with <cite>u</cite> at every saved time (the average
 of the two half-kicks straddling it).</p>
@@ -3511,19 +4064,21 @@ grid-shaped components (as for <cite>solve_matrix_field</cite>).</p></li>
 <li><p><strong>order</strong> (<em>int</em><em>, </em><em>optional</em>) – Truncation order of each exponential-symbol expansion. Default 3.</p></li>
 <li><p><strong>splitting</strong> (<em>str</em><em>, </em><em>{'lie'</em><em>, </em><em>'strang'}</em><em>, </em><em>optional</em>) – <p>Operator-splitting scheme between the <cite>P</cite> (left) and <cite>Q</cite> (right)
 sub-steps:</p>
-<ul>
+<blockquote>
+<div><ul>
 <li><dl>
-<dt>’lie’<span class="classifier">one full left step <cite>exp(dt·P)</cite>, then one full right</span></dt><dd><p>step <cite>exp(-dt·Q)</cite> – first order accurate, <cite>O(dt)</cite>.</p>
+<dt>’lie’<span class="classifier">one full left step <cite>exp(dt·P)</cite>, then one full right</span></dt><dd><p>step <cite>exp(-dt·Q)</cite> – first order accurate, <cite>𝒪(dt)</cite>.</p>
 </dd>
 </dl>
 </li>
 <li><dl>
 <dt>’strang’<span class="classifier">half left step <cite>exp(dt/2·P)</cite>, full right step</span></dt><dd><p><cite>exp(-dt·Q)</cite>, half left step <cite>exp(dt/2·P)</cite> –
-second order accurate, <cite>O(dt^2)</cite>. Default.</p>
+second order accurate, <cite>𝒪(dt²)</cite>. Default.</p>
 </dd>
 </dl>
 </li>
 </ul>
+</div></blockquote>
 </p></li>
 <li><p><strong>L</strong> (<em>float</em><em>, </em><em>optional</em>) – Half-width of the spatial domain. Default 10.0.</p></li>
 <li><p><strong>N</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of grid points per axis. Default 256.</p></li>

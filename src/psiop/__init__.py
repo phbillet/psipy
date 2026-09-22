@@ -17,9 +17,9 @@ psiop — Symbolic–numerical toolkit for pseudo‑differential operators in 1D
 
 Overview
 --------
-The ``psiop`` package provides a unified framework for constructing,
+The `psiop` package provides a unified framework for constructing,
 manipulating, and numerically applying pseudo‑differential operators
-(ΨDOs) in one and two spatial dimensions.  It combines symbolic symbol
+(ΨDOs) in one and two spatial dimensions. It combines symbolic symbol
 calculus (SymPy) with numerical evaluation, quantization, diagnostics,
 and visualization (NumPy / SciPy / Matplotlib).
 
@@ -27,154 +27,149 @@ The package is intended for researchers and students working in
 microlocal analysis, spectral theory, semiclassical analysis,
 Hamiltonian / geometric optics, and the numerical analysis of PDEs.
 
+Quick Start
+-----------
+>>> import numpy as np
+>>> from sympy import symbols
+>>> from psiop import PseudoDifferentialOperator
+>>> 
+>>> # Define the symbol for the 1D harmonic oscillator: p(x, ξ) = x² + ξ²
+>>> x, xi = symbols('x xi', real=True)
+>>> op = PseudoDifferentialOperator(x**2 + xi**2, vars_x=[x], mode='symbol')
+>>> 
+>>> # Apply it to a Gaussian wave packet on a spatial grid
+>>> x_grid = np.linspace(-5, 5, 256)
+>>> kx = np.fft.fftfreq(256, d=x_grid[1]-x_grid[0]) * 2 * np.pi
+>>> u = np.exp(-x_grid**2)
+>>> 
+>>> result = op.apply(u, x_grid, kx)
+
 Subpackage layout
 -----------------
-``psiop`` (this module)
-    Core scalar ``PseudoDifferentialOperator``, Peetre decomposition,
+`psiop` (this module)
+    Core scalar `PseudoDifferentialOperator`, Peetre decomposition,
     asymptotic symbolic calculus, quantization conversion, operator
     diagnostics, and Hamiltonian-flow / visualization wrappers.
 
-``psiop.matpsiop``
-    ``MatrixPseudoDifferentialOperator`` — N × N matrix-valued symbols
+`psiop.matpsiop`
+    `MatrixPseudoDifferentialOperator` — N × N matrix-valued symbols
     acting on vector fields and matrix-valued fields, with noncommutative
     asymptotic composition, matrix commutators, and matrix exponential
     symbols.
 
-``psiop.psiop_apply``
+`psiop.psiop_apply`
     Standalone numerical kernels: Kohn–Nirenberg FFT / non-periodic
     quadrature, NUFFT joint-residual backend, AAA rational approximation,
     and Chebyshev / SVD low-rank factorization.
 
-``psiop.psiop_solver``
-    Time-stepping solvers and propagators: ``build_propagator``,
-    ``PropagatorFamily``, ``solve_first_order``, ``solve_second_order``,
-    ``solve_matrix_field``, ``solve_sylvester_field``,
-    ``solve_ricci_flow_conformal_2d``, and grid-generation utilities.
+`psiop.psiop_solver`
+    Time-stepping solvers and propagators: `build_propagator`,
+    `PropagatorFamily`, `solve_first_order`, `solve_second_order`,
+    `solve_matrix_field`, `solve_sylvester_field`,
+    `solve_ricci_flow_conformal_2d`, and grid-generation utilities.
 
 Main object
 -----------
-``PseudoDifferentialOperator``
-    Scalar pseudo‑differential operator in 1D or 2D.  The symbol may be
-    given explicitly (``mode='symbol'``) or extracted automatically from
-    a differential expression acting on a test function (``mode='auto'``).
+`PseudoDifferentialOperator`
+    Scalar pseudo‑differential operator in 1D or 2D. The symbol may be
+    given explicitly (`mode='symbol'`) or extracted automatically from
+    a differential expression acting on a test function (`mode='auto'`).
 
 Key features
 ------------
-Symbol creation (1D and 2D):
-    explicit symbol mode p(x, ξ) or p(x, y, ξ, η);
-    automatic extraction from differential operators via plane‑wave testing.
+- **Symbol creation (1D and 2D):** explicit symbol mode p(x, ξ) or 
+  p(x, y, ξ, η); automatic extraction from differential operators via 
+  plane‑wave testing.
+- **Quantization conventions:** Kohn–Nirenberg (default) and Weyl 
+  quantization; asymptotic conversion between the two via the exponential 
+  cross-derivative series (exact and finite for polynomial symbols).
+- **High‑frequency symbolic analysis:** principal symbol extraction; 
+  asymptotic expansion as |ξ| → ∞; homogeneity detection; symbolic / 
+  numerical order estimation.
+- **Asymptotic symbolic calculus:** operator composition p ∘ q (KN and 
+  Weyl / Moyal); commutators [P, Q]; formal left and right inverses; 
+  formal adjoint P*; fractional powers P^α; exponential symbols exp(tP).
+- **Peetre‑style symbolic decomposition:** local polynomial part in the 
+  frequency variables; separable terms a(x)q(ξ); genuinely joint, 
+  non‑separable residual; automatic backend selection for the joint 
+  residual (NUFFT, AAA, or low-rank).
+- **Operator diagnostics:** symbolic and numerical ellipticity tests; 
+  formal self‑adjointness checks; semiclassical trace formula; 
+  pseudospectrum computation with resolvent-norm contours and eigenvalue 
+  overlays.
+- **Hamiltonian and microlocal dynamics:** Hamiltonian vector field of 
+  the principal symbol; symplectic flow visualization; bicharacteristic 
+  integration; singularity propagation animation; characteristic set and 
+  gradient visualization.
+- **Visualization:** Symbol amplitude / phase plots, cotangent fibers, 
+  micro-support, wavefront set, group velocity fields, and interactive 
+  ipywidgets dashboards.
 
-Quantization conventions:
-    Kohn–Nirenberg (default) and Weyl quantization;
-    asymptotic conversion between the two via the exponential cross-derivative
-    series (exact and finite for polynomial symbols).
-
-High‑frequency symbolic analysis:
-    principal symbol extraction; asymptotic expansion as |ξ| → ∞;
-    homogeneity detection; symbolic / numerical order estimation.
-
-Asymptotic symbolic calculus:
-    operator composition p ∘ q (KN and Weyl / Moyal);
-    commutators [P, Q]; formal left and right inverses;
-    formal adjoint P*; fractional powers P^α;
-    exponential symbols exp(tP).
-
-Peetre‑style symbolic decomposition:
-    local polynomial part in the frequency variables;
-    separable terms a(x) q(ξ);
-    genuinely joint, non‑separable residual;
-    automatic backend selection for the joint residual (NUFFT, AAA,
-    or low-rank) — see ``psiop.psiop_apply`` for the numerical kernels.
-
-Operator diagnostics:
-    symbolic and numerical ellipticity tests;
-    formal self‑adjointness checks;
-    semiclassical trace formula (symbolic or numerical);
-    pseudospectrum computation with resolvent-norm contours, eigenvalue
-    overlays, sparse / dense solvers, and optional adaptive refinement.
-
-Hamiltonian and microlocal dynamics:
-    Hamiltonian vector field of the principal symbol;
-    symplectic flow visualization; bicharacteristic integration;
-    singularity propagation animation (2D / 3D phase-space projections);
-    characteristic set and gradient visualization.
-
-Visualization:
-    Symbol amplitude / phase plots, cotangent fibers, micro-support,
-    wavefront set, group velocity fields, and interactive ipywidgets
-    dashboards — all delegated to the ``microlocal`` plotting module.
+Dependencies
+------------
+- `sympy` (Symbolic calculus)
+- `numpy`, `scipy` (Numerical evaluation, FFT, SVD, quadrature)
+- `matplotlib` (Visualization)
+- `finufft` or `pynufft` (Optional, for NUFFT joint-residual backend)
+- `aaa` (Optional, for rational approximation backend)
 
 Mathematical background
 -----------------------
 Symbols and quantization
     A pseudo‑differential operator P acting on functions of
     x ∈ ℝⁿ (n = 1 or 2) is defined by its symbol p(x, ξ) on
-    phase space T*ℝⁿ = ℝⁿ_x × ℝⁿ_ξ.  Symbols are classified by
+    phase space T*ℝⁿ = ℝⁿ_x × ℝⁿ_ξ. Symbols are classified by
     their growth in ξ: p ∈ S^m_{1,0} if
-
         |∂_x^β ∂_ξ^α p(x, ξ)| ≤ C_{α,β} (1 + |ξ|)^(m - |α|)
-
-    for all multi‑indices α, β.  The integer / real number m is the
+    for all multi‑indices α, β. The integer / real number m is the
     *order* of the operator.
 
-Quantization maps
+    Quantization maps:
     Kohn–Nirenberg (left / standard, default):
-
         (P u)(x) = Op^KN(p) u(x) = (2π)⁻ⁿ ∫_{ℝⁿ} exp(i x·ξ) p(x, ξ) û(ξ) dξ
-
     Weyl (symmetric):
-
         Op^w(a) u(x) = (2π)⁻ⁿ ∫∫ exp(i(x-y)·ξ) a((x+y)/2, ξ) u(y) dy dξ
 
     Conversion between the two is realized as an asymptotic series in
     mixed x–ξ derivatives:
-
         a_KN(x, ξ) = exp(−i/2 · ∂_x ∂_ξ) a_Weyl(x, ξ)
                    ∼ Σ_{k≥0} (−i/2)^k / k! · (∂_x ∂_ξ)^k a_Weyl(x, ξ)
-
     In 2D the cross-derivative operator sums both coordinate pairs:
-    ∂_x ∂_ξ → ∂_x ∂_ξ + ∂_y ∂_η.  For polynomial symbols the
+    ∂_x ∂_ξ → ∂_x ∂_ξ + ∂_y ∂_η. For polynomial symbols the
     series is exact and finite; for general S^m_{1,0} symbols it is
     interpreted asymptotically.
 
 Asymptotic composition
     For two symbols p and q, the Kohn–Nirenberg expansion is
-
         (p ∘ q)(x, ξ) ∼ Σ_α i^(-|α|) / α! · ∂_ξ^α p · ∂_x^α q
-
-    A Weyl / Moyal star product is also available.  The same machinery
+    A Weyl / Moyal star product is also available. The same machinery
     underlies commutators, formal inverses, adjoints, fractional powers,
     and exponential symbols.
 
 Principal symbol and order
     The principal symbol is the leading homogeneous component as
-    |ξ| → ∞.  If p is homogeneous of degree m,
+    |ξ| → ∞. If p is homogeneous of degree m,
     p(x, λξ) = λ^m p(x, ξ) for λ > 0.
 
 Peetre decomposition
     For numerical application the symbol is split into
-
         p(x, ξ) = p_local(x, ξ) + p_sep(x, ξ) + p_joint(x, ξ)
-
     where p_local is polynomial in ξ (differential part),
     p_sep = Σ_k a_k(x) q_k(ξ) is a sum of separable Fourier
     multipliers, and p_joint contains the genuinely entangled
     space–frequency residual — routed automatically to NUFFT, AAA, or
-    low-rank backends (see ``psiop.psiop_apply``).
+    low-rank backends.
 
 Hamiltonian flow
     The Hamiltonian vector field of the principal symbol governs
     singularity propagation along bicharacteristics:
-
         dx/dt = ∂_ξ p,    dξ/dt = −∂_x p      (1D)
         dx/dt = ∂_ξ p,    dy/dt = ∂_η p,
         dξ/dt = −∂_x p,   dη/dt = −∂_y p      (2D)
 
 Pseudospectrum
     The ε-pseudospectrum of P is
-
         σ_ε(P) = { λ ∈ ℂ : ‖(P − λI)⁻¹‖ ≥ ε⁻¹ }
-
     determined by the smallest singular value of the shifted matrix
     discretization: ‖(P − λI)⁻¹‖ = 1 / σ_min(P − λI).
     Particularly informative for non-normal operators.
@@ -182,10 +177,10 @@ Pseudospectrum
 References
 ----------
 .. [1] Hörmander, L. *The Analysis of Linear Partial Differential
-       Operators III*, Springer, 1985.  Chapter 18.
+       Operators III*, Springer, 1985. Chapter 18.
 .. [2] Taylor, M. E. *Pseudo Differential Operators*,
        Princeton University Press, 1981.
-.. [3] Zworski, M. *Semiclassical Analysis*, AMS, 2012.  Chapter 4.
+.. [3] Zworski, M. *Semiclassical Analysis*, AMS, 2012. Chapter 4.
 .. [4] Martinez, A. *An Introduction to Semiclassical and Microlocal
        Analysis*, Springer, 2002.
 .. [5] Trefethen, L. N. and Embree, M. *Spectra and Pseudospectra*,
@@ -306,7 +301,24 @@ def _peetre_is_zero_impl(expr):
 # separate hand-unrolled 1D/2D code paths in each of those methods.
 # ============================================================================
 def _mi_all(n, dim):
-    """Yield all `dim`-tuples of non-negative ints summing to exactly n."""
+    """
+    Yield all `dim`-tuples of non-negative integers summing to exactly `n`.
+    
+    Used for generating multi-indices in the asymptotic symbolic calculus 
+    (e.g., Leibniz rule expansions and Moyal star products).
+
+    Parameters
+    ----------
+    n : int
+        The exact sum of the tuple elements.
+    dim : int
+        The dimensionality (length) of the tuples.
+
+    Yields
+    ------
+    tuple of int
+        A multi-index tuple (α₁, ..., α_dim) such that Σ α_i = n.
+    """
     if dim == 1:
         yield (n,)
         return
@@ -315,19 +327,67 @@ def _mi_all(n, dim):
             yield ((i,) + rest)
 
 def _mi_upto(n, dim):
-    """Yield all `dim`-tuples of non-negative ints with 1 <= sum <= n."""
+    """
+    Yield all `dim`-tuples of non-negative integers with 1 ≤ sum ≤ `n`.
+    
+    Used for generating multi-indices up to a given total order in 
+    asymptotic expansions.
+
+    Parameters
+    ----------
+    n : int
+        The maximum sum of the tuple elements.
+    dim : int
+        The dimensionality (length) of the tuples.
+
+    Yields
+    ------
+    tuple of int
+        A multi-index tuple (α₁, ..., α_dim) such that 1 ≤ Σ α_i ≤ n.
+    """
     for m in range(1, n + 1):
         yield from _mi_all(m, dim)
 
 def _mi_diff(expr, mvars, alpha):
-    """d^|alpha| expr / prod(mvars_i ** alpha_i), entrywise for sympy
-    Matrix `expr` (via .diff) as well as scalar sympy expressions."""
+    """
+    Compute the mixed partial derivative ∂^|α| expr / ∏(mvars_i^α_i).
+    
+    Applies entrywise for SymPy Matrix `expr` (via `.diff`) as well as 
+    scalar SymPy expressions.
+
+    Parameters
+    ----------
+    expr : sympy.Expr or sympy.Matrix
+        The symbolic expression or matrix to differentiate.
+    mvars : list of sympy.Symbol
+        The variables with respect to which to differentiate.
+    alpha : tuple of int
+        The multi-index specifying the order of differentiation for each variable.
+
+    Returns
+    -------
+    sympy.Expr or sympy.Matrix
+        The differentiated expression.
+    """
     for v, a in zip(mvars, alpha):
         if a:
             expr = expr.diff(v, a)
     return expr
 
 def _mi_factorial(alpha):
+    """
+    Compute the factorial of a multi-index.
+    
+    Parameters
+    ----------
+    alpha : tuple of int
+        The multi-index tuple (α₁, ..., α_dim).
+        
+    Returns
+    -------
+    int
+        The product α! = α₁! × α₂! × ... × α_dim!.
+    """
     fact = 1
     for a in alpha:
         fact *= factorial(a)
@@ -596,7 +656,10 @@ class PseudoDifferentialOperator:
         return symbol
 
     def clear_cache(self):
-        """Clear cached symbol evaluations and Peetre decompositions."""
+        """
+        Clear all cached symbol evaluations, Peetre decompositions, and 
+        joint backend plans (low-rank, NUFFT, AAA).
+        """
         self.symbol_cached = None
         if hasattr(self, '_peetre_cache'):
             self._peetre_cache = None
@@ -612,9 +675,14 @@ class PseudoDifferentialOperator:
     def _get_peetre_decomposition(self):
         """
         Return the Peetre decomposition stored in the instance.
+        
+        If the decomposition was not computed in `__init__`, it is computed 
+        lazily on first use and cached.
     
-        If the decomposition was not computed in __init__, it is computed
-        lazily on first use.
+        Returns
+        -------
+        dict
+            The Peetre decomposition dictionary.
         """
         if getattr(self, '_peetre_decomposition', None) is None:
             opts = getattr(self, '_peetre_options', None) or {}
@@ -833,7 +901,7 @@ class PseudoDifferentialOperator:
         Returns
         -------
         bool
-            True if symbol depends on x (or x, y)
+            True if the symbol depends on x (in 1D) or x, y (in 2D).
         """
         if self.dim == 1:
             return self.symbol.has(self.vars_x[0])
@@ -845,12 +913,12 @@ class PseudoDifferentialOperator:
 
     def _get_symbol_func(self):
         """
-        Get a lambdified version of the symbol.
+        Get a lambdified NumPy-callable version of the raw symbol.
         
         Returns
         -------
         callable
-            Lambdified symbol function
+            A function with signature f(x, ξ) for 1D or f(x, y, ξ, η) for 2D.
         """
         if self.dim == 1:
             x = self.vars_x[0]
@@ -1354,11 +1422,11 @@ class PseudoDifferentialOperator:
     def _peetre_frequency_symbols(self):
         """
         Return the frequency symbols actually used in the symbol.
-
+        
         Returns
         -------
-        tuple
-            (xi,) in 1D or (xi, eta) in 2D.
+        tuple of sympy.Symbol
+            (ξ,) in 1D or (ξ, η) in 2D.
         """
         if self.dim == 1:
             xi = next((s for s in self.symbol.free_symbols if s.name == 'xi'), symbols('xi', real=True))
@@ -1397,9 +1465,22 @@ class PseudoDifferentialOperator:
 
     @staticmethod
     def _peetre_is_zero(expr):
-        """Memoized wrapper around `_peetre_is_zero_impl` (module-level, so
-        the cache persists across all instances and calls). See
-        `_peetre_is_zero_impl` for the actual zero-test strategy."""
+        """
+        Memoized wrapper around the conservative symbolic zero test.
+        
+        Delegates to the module-level `_peetre_is_zero_impl` to ensure the 
+        LRU cache persists across all instances and calls.
+    
+        Parameters
+        ----------
+        expr : sympy.Expr or None
+            Expression to test.
+    
+        Returns
+        -------
+        bool
+            True if `expr` is established to be identically zero.
+        """
         return _peetre_is_zero_impl(expr)   
 
     def _peetre_classify_terms(self, expr):
@@ -1512,9 +1593,22 @@ class PseudoDifferentialOperator:
 
     def _peetre_merge_separable(self, separable):
         """
-        Merge separable terms having the same frequency factor q.
-
-        This is purely cosmetic but makes the decomposition much easier to read.
+        Merge separable terms having the same frequency factor q(ξ).
+        
+        This is a cosmetic optimization that groups terms of the form 
+        a_k(x)q(ξ) + a_j(x)q(ξ) into (a_k(x) + a_j(x))q(ξ), making the 
+        Peetre decomposition much easier to read and apply.
+    
+        Parameters
+        ----------
+        separable : list of tuple
+            List of pairs (a_expr, q_expr) where a_expr depends only on space 
+            and q_expr depends only on frequency.
+    
+        Returns
+        -------
+        list of tuple
+            The merged list of (a_expr, q_expr) pairs.
         """
         merged = {}
         ordered_keys = []
@@ -1533,17 +1627,22 @@ class PseudoDifferentialOperator:
 
     def _peetre_local_to_separable(self, local_coeffs):
         """
-        Convert local polynomial coefficients into separable terms.
-    
-        A local term
-    
-            coeff(x) * xi^alpha
-    
-        is converted into
-    
-            (coeff(x), xi^alpha)
-    
+        Convert local polynomial coefficients into separable terms a(x)q(ξ).
+        
+        A local term coeff(x) × ξ^α is converted into the pair (coeff(x), ξ^α).
         Terms with the same spatial coefficient are merged.
+    
+        Parameters
+        ----------
+        local_coeffs : dict
+            Mapping from frequency multi-index tuples to their x-dependent 
+            symbolic coefficients.
+    
+        Returns
+        -------
+        list of tuple
+            List of pairs (a_expr, q_expr) representing the local terms in 
+            separable operational form.
         """
         xi_vars = self._peetre_frequency_symbols()
         separable = []
@@ -1590,8 +1689,25 @@ class PseudoDifferentialOperator:
     
     def _infer_joint_bounds(self, x_grid, kx, y_grid=None, ky=None):
         """
-        Infer physical bounds for low-rank joint decomposition from
-        the spatial and frequency grids.
+        Infer physical bounds for low-rank joint decomposition from the 
+        spatial and frequency grids.
+        
+        Parameters
+        ----------
+        x_grid : ndarray
+            Spatial grid in the x direction.
+        kx : ndarray
+            Frequency grid in the x direction.
+        y_grid : ndarray, optional
+            Spatial grid in the y direction (required for 2D).
+        ky : ndarray, optional
+            Frequency grid in the y direction (required for 2D).
+    
+        Returns
+        -------
+        dict
+            Dictionary mapping each SymPy spatial/frequency symbol to a 
+            (min, max) tuple of its physical bounds.
         """
         import numpy as np
 
@@ -1617,8 +1733,22 @@ class PseudoDifferentialOperator:
 
     def _remap_bounds(self, bounds, syms):
         """
-        Ensure bounds keys match the exact SymPy symbols used in the
-        expression. If necessary, match by symbol name.
+        Ensure bounds keys match the exact SymPy symbols used in the expression.
+        
+        If necessary, matches symbols by name rather than object identity to 
+        prevent key-mismatch errors during joint residual factorization.
+    
+        Parameters
+        ----------
+        bounds : dict
+            Dictionary mapping symbols to (min, max) tuples.
+        syms : list of sympy.Symbol
+            The exact symbols present in the joint expression.
+    
+        Returns
+        -------
+        dict
+            A new bounds dictionary keyed by the exact symbol objects in `syms`.
         """
         out = {}
         for s in syms:
@@ -1637,14 +1767,32 @@ class PseudoDifferentialOperator:
 
     def _low_rank_joint_pairs(self, joint_symbol, bounds, degree=6, tol=1e-05, num_samples=10000, seed=42, use_cache=True):
         """
-        Factorize the joint residual into separable pairs.
-
+        Factorize the joint residual into separable pairs a_k(x)q_k(ξ) via 
+        Chebyshev/SVD low-rank approximation.
+        
+        Parameters
+        ----------
+        joint_symbol : sympy.Expr
+            The irreducible joint residual symbol.
+        bounds : dict
+            Symbol to (min, max) mapping defining the approximation domain.
+        degree : int, default=6
+            Polynomial/Chebyshev degree for the approximation.
+        tol : float, default=1e-5
+            Tolerance controlling the accuracy of the approximation.
+        num_samples : int, default=10000
+            Number of random samples used to build the approximation matrix.
+        seed : int, default=42
+            Random seed for reproducible sampling.
+        use_cache : bool, default=True
+            Whether to cache the factorization result.
+    
         Returns
         -------
-        pairs : list
-            List of `(a_k(x), q_k(xi))`.
+        pairs : list of tuple
+            List of (a_k(x), q_k(ξ)) separable pairs.
         metrics : dict
-            Symbol-level approximation diagnostics.
+            Symbol-level approximation diagnostics (e.g., relative L2 error).
         """
         if self._peetre_is_zero(joint_symbol):
             return ([], {'rel_l2_error': 0.0, 'max_abs_error': 0.0, 'mean_abs_error': 0.0, 'svd_energy_retained_pct': 100.0, 'singular_values': np.array([])})
@@ -1668,8 +1816,23 @@ class PseudoDifferentialOperator:
         return (pairs, metrics)
 
     def _resolve_joint_symbols(self, joint_symbol):
-        """Shared symbol-resolution logic (matches _low_rank_joint_pairs):
-        find the actual x/xi symbols present in joint_symbol by name."""
+        """
+        Find the actual spatial and frequency symbols present in the joint symbol.
+        
+        Matches symbols by name to ensure consistency between the operator's 
+        defined variables and the free symbols in the joint expression.
+    
+        Parameters
+        ----------
+        joint_symbol : sympy.Expr
+            The joint residual expression.
+    
+        Returns
+        -------
+        tuple of list
+            A tuple (x_syms, xi_syms) containing the matched spatial and 
+            frequency SymPy symbols.
+        """
         x_syms = []
         for v in self.vars_x:
             s = next((fs for fs in joint_symbol.free_symbols if fs.name == v.name), v)
@@ -1684,11 +1847,21 @@ class PseudoDifferentialOperator:
     def _resolve_nufft_plan(self, joint_symbol, use_cache=True):
         """
         Resolve the NUFFT plan for a joint residual symbol (symbolic, grid-free).
+        
+        Checks if the symbol admits an oscillatory phase decomposition of the 
+        form exp(iΛ(x)M(ξ)) suitable for Non-Uniform FFTs.
+    
+        Parameters
+        ----------
+        joint_symbol : sympy.Expr
+            The joint residual expression.
+        use_cache : bool, default=True
+            Whether to cache the NUFFT plan resolution.
     
         Returns
         -------
-        plan_info : tuple or None
-            ("1d", plan) or ("2d", plan) if the symbol is NUFFT-representable,
+        tuple or None
+            ("1d", plan) or ("2d", plan) if the symbol is NUFFT-representable, 
             None otherwise.
         """
         x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
@@ -1709,10 +1882,35 @@ class PseudoDifferentialOperator:
 
     def _nufft_joint_apply(self, joint_symbol, u, x_grid, kx, y_grid=None, ky=None, use_cache=True, freq_window='gaussian'):
         """
-        Try the NUFFT joint-residual backend. Returns the applied numeric
-        array on success, or None if the symbol doesn't classify as
-        NUFFT-representable (caller should fall back to direct application).
-        PERIODIC BOUNDARY CONDITIONS ONLY.
+        Apply the NUFFT joint-residual backend to the field u.
+        
+        Returns the applied numeric array on success, or None if the symbol 
+        doesn't classify as NUFFT-representable (caller should fall back to 
+        direct application). Supports PERIODIC BOUNDARY CONDITIONS ONLY.
+    
+        Parameters
+        ----------
+        joint_symbol : sympy.Expr
+            The joint residual expression.
+        u : ndarray
+            Input field values.
+        x_grid : ndarray
+            Spatial grid in x.
+        kx : ndarray
+            Frequency grid in x.
+        y_grid : ndarray, optional
+            Spatial grid in y (2D only).
+        ky : ndarray, optional
+            Frequency grid in y (2D only).
+        use_cache : bool, default=True
+            Whether to use cached NUFFT plans.
+        freq_window : str, default='gaussian'
+            Frequency-domain smoothing window to apply.
+    
+        Returns
+        -------
+        ndarray or None
+            The result of applying the NUFFT operator, or None if inapplicable.
         """
         plan_info = self._resolve_nufft_plan(joint_symbol, use_cache=use_cache)
         if plan_info is None:
@@ -1845,17 +2043,32 @@ class PseudoDifferentialOperator:
                 f"got '{resolved}'."
             )
 
-    def _aaa_joint_symbol_func(self, joint_symbol, bounds, degree=None, tol=1e-8,
-                                use_cache=True):
+    def _aaa_joint_symbol_func(self, joint_symbol, bounds, degree=None, tol=1e-8, use_cache=True):
         """
-        Try the AAA joint-residual backend. Returns (symbol_func, metrics)
-        on success, where symbol_func is a fast numpy callable suitable for
-        kohn_nirenberg_fft/nonperiodic's `symbol_func` argument, or
-        (None, None) if the quality gate isn't met (caller should fall back
-        to direct application).
-
-        bounds : dict mapping each space/frequency symbol to (min, max),
-        same format as joint_bounds elsewhere (see _infer_joint_bounds).
+        Try the AAA rational approximation joint-residual backend.
+        
+        Returns a fast NumPy callable suitable for Kohn-Nirenberg quadrature 
+        on success, or (None, None) if the quality gate isn't met.
+    
+        Parameters
+        ----------
+        joint_symbol : sympy.Expr
+            The joint residual expression.
+        bounds : dict
+            Dictionary mapping each space/frequency symbol to (min, max) bounds.
+        degree : int, optional
+            Maximum degree for the rational approximation (handled internally by AAA).
+        tol : float, default=1e-8
+            Relative tolerance for the AAA rational fit.
+        use_cache : bool, default=True
+            Whether to cache the AAA plan.
+    
+        Returns
+        -------
+        tuple
+            (symbol_func, metrics) on success, where `symbol_func` is a NumPy 
+            callable and `metrics` contains diagnostic info. Returns (None, None) 
+            if the fit fails the quality gate.
         """
         x_syms, xi_syms = self._resolve_joint_symbols(joint_symbol)
         all_syms = x_syms + xi_syms
@@ -2280,8 +2493,18 @@ class PseudoDifferentialOperator:
 
     def decompose_symbol_peetre(self, *args, **kwargs):
         """
-        Alias for peetre_decomposition(), for compatibility with the
-        standalone symbolic_decompose.py naming style.
+        Alias for `peetre_decomposition()`, maintained for backward compatibility 
+        with the standalone `symbolic_decompose.py` naming style.
+        
+        Parameters
+        ----------
+        *args, **kwargs
+            Forwarded directly to `peetre_decomposition()`.
+    
+        Returns
+        -------
+        dict
+            The Peetre decomposition dictionary.
         """
         return self.peetre_decomposition(*args, **kwargs)
 
@@ -2419,16 +2642,27 @@ class PseudoDifferentialOperator:
 
     def _auto_select_joint_backend(self, joint_symbol, x_syms, xi_syms):
         """
-        Intelligently analyze the joint residual symbol and select the 
-        most efficient numerical backend ('nufft', 'aaa', or 'lowrank').
+        Intelligently analyze the joint residual symbol and select the most 
+        efficient numerical backend ('nufft', 'aaa', or 'lowrank').
         
         Logic:
-        1. 'nufft': If the symbol contains an oscillatory phase of the 
-           form exp(i * Lambda(x) * M(xi)).
-        2. 'aaa': If the symbol is rational or has explicit denominators 
-           / negative powers (poles / algebraic decay).
-        3. 'lowrank': For smooth, non-oscillatory, non-pole joint kernels 
-           (e.g., Gaussians).
+        1. 'nufft': If the symbol contains an oscillatory phase exp(iΛ(x)M(ξ)).
+        2. 'aaa': If the symbol is rational or has explicit polynomial denominators.
+        3. 'lowrank': For smooth, non-oscillatory, non-pole joint kernels (e.g., Gaussians).
+    
+        Parameters
+        ----------
+        joint_symbol : sympy.Expr
+            The joint residual expression.
+        x_syms : list of sympy.Symbol
+            Spatial variables.
+        xi_syms : list of sympy.Symbol
+            Frequency variables.
+    
+        Returns
+        -------
+        str
+            The selected backend name: 'nufft', 'aaa', or 'lowrank'.
         """
         all_syms = x_syms + xi_syms
         
@@ -2884,7 +3118,17 @@ class PseudoDifferentialOperator:
         
     def peetre_apply(self, *args, **kwargs):
         """
-        Alias for apply_peetre().
+        Alias for `apply_peetre()`.
+        
+        Parameters
+        ----------
+        *args, **kwargs
+            Forwarded directly to `apply_peetre()`.
+    
+        Returns
+        -------
+        ndarray
+            The result of applying the operator.
         """
         return self.apply_peetre(*args, **kwargs)
 
@@ -2964,10 +3208,25 @@ class PseudoDifferentialOperator:
         return self._asymptotic_inverse(order, side='right')
 
     def _asymptotic_inverse(self, order, side):
-        """Shared recursion behind right_inverse_asymptotic and
-        left_inverse_asymptotic (dimension-generic multi-index Leibniz
-        recursion; the two sides only differ in which symbol gets which
-        derivative and the multiplication order)."""
+        """
+        Shared recursion for formal left and right asymptotic inverses.
+        
+        Implements the dimension-generic multi-index Leibniz recursion. The 
+        two sides only differ in which symbol gets which derivative and the 
+        multiplication order.
+    
+        Parameters
+        ----------
+        order : int
+            Number of terms to include in the asymptotic expansion.
+        side : {'left', 'right'}
+            Whether to compute the left inverse (L ∘ P = I) or right inverse (P ∘ R = I).
+    
+        Returns
+        -------
+        sympy.Expr
+            The symbolic expression representing the formal inverse.
+        """
         dim = self.dim
         if dim not in (1, 2):
             raise NotImplementedError("Only 1D and 2D cases are implemented")
@@ -3894,19 +4153,19 @@ class PseudoDifferentialOperator:
 
     def _compute_eigenvalues(self, H, use_sparse=False):
         """
-        Compute eigenvalues of operator matrix.
+        Compute eigenvalues of the discretized operator matrix.
         
         Parameters
         ----------
-        H : ndarray
-            Operator matrix
-        use_sparse : bool
-            Use sparse eigenvalue solver
-            
+        H : ndarray or scipy.sparse matrix
+            The operator matrix.
+        use_sparse : bool, default=False
+            Whether to use a sparse eigenvalue solver (e.g., ARPACK).
+    
         Returns
         -------
-        eigenvalues : ndarray or None
-            Eigenvalues of H
+        ndarray or None
+            The computed eigenvalues, or None if the computation fails.
         """
         try:
             if use_sparse and H.shape[0] > 100:
@@ -3927,20 +4186,28 @@ class PseudoDifferentialOperator:
 
     def _plot_pseudospectrum(self, Lambda, resolvent_norm, sigma_min_grid, epsilon_levels, eigenvalues):
         """
-        Plot pseudospectrum results.
+        Plot pseudospectrum results, including resolvent norm contours and 
+        eigenvalue overlays.
         
+        Delegates to the `microlocal` plotting module.
+    
         Parameters
         ----------
         Lambda : ndarray
-            Complex λ grid
+            Complex λ grid.
         resolvent_norm : ndarray
-            Resolvent norms
+            Grid of resolvent norms ‖(H - λI)⁻¹‖.
         sigma_min_grid : ndarray
-            Smallest singular values
-        epsilon_levels : list
-            Contour levels
+            Grid of smallest singular values σ_min(H - λI).
+        epsilon_levels : list of float
+            Contour levels for the ε-pseudospectrum.
         eigenvalues : ndarray or None
-            Eigenvalues to overlay
+            Eigenvalues to overlay on the plot.
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
         """
         return _mu.plot_pseudospectrum(Lambda, resolvent_norm, sigma_min_grid, epsilon_levels, eigenvalues)
 
@@ -4480,85 +4747,340 @@ class PseudoDifferentialOperator:
     # familiar op.visualize_...(...) call sites working unchanged.
 
     def visualize_fiber(self, x_grid, xi_grid, x0=0.0, y0=0.0):
-        """Plot the cotangent fiber structure at a fixed spatial point (x0[, y0]).
-        See _slice_grid/_render_field docstrings for the shared implementation.
-        NOTE: original signature has no eta_grid param -- 2D reuses xi_grid
-        for both frequency axes, matching the original behavior exactly.
-        cf. package microlocal.py."""
+        """
+        Plot the cotangent fiber structure at a fixed spatial point (x₀, y₀).
+        
+        In 1D, plots the fiber over x₀. In 2D, plots the fiber over (x₀, y₀), 
+        reusing `xi_grid` for both frequency axes.
+    
+        Parameters
+        ----------
+        x_grid : ndarray
+            Spatial grid coordinates.
+        xi_grid : ndarray
+            Frequency grid coordinates.
+        x0 : float, default=0.0
+            The spatial x-coordinate at which to evaluate the fiber.
+        y0 : float, default=0.0
+            The spatial y-coordinate at which to evaluate the fiber (2D only).
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
+        """
         return _mu.visualize_fiber(self, x_grid, xi_grid, x0=x0, y0=y0)
 
     def visualize_symbol_amplitude(self, x_grid, xi_grid, y_grid=None, eta_grid=None, xi0=0.0, eta0=0.0):
-        """Display |p(x, xi)| (1D) or |p(x, y, xi0, eta0)| (2D) as a color map.
-        cf. package microlocal.py."""
+        """
+        Display the symbol amplitude |p(x, ξ)| (1D) or |p(x, y, ξ₀, η₀)| (2D) 
+        as a color map.
+    
+        Parameters
+        ----------
+        x_grid : ndarray
+            Spatial grid in x.
+        xi_grid : ndarray
+            Frequency grid in ξ.
+        y_grid : ndarray, optional
+            Spatial grid in y (2D only).
+        eta_grid : ndarray, optional
+            Frequency grid in η (2D only).
+        xi0 : float, default=0.0
+            Fixed frequency ξ for 2D slicing.
+        eta0 : float, default=0.0
+            Fixed frequency η for 2D slicing.
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
+        """
         return _mu.visualize_symbol_amplitude(self, x_grid, xi_grid, y_grid, eta_grid, xi0=xi0, eta0=eta0)
 
     def visualize_phase(self, x_grid, xi_grid, y_grid=None, eta_grid=None, xi0=0.0, eta0=0.0):
-        """Plot arg(p(x, xi)) (1D) or arg(p(x, y, xi0, eta0)) (2D).
-        cf. package microlocal.py."""
+        """
+        Plot the symbol phase arg(p(x, ξ)) (1D) or arg(p(x, y, ξ₀, η₀)) (2D).
+    
+        Parameters
+        ----------
+        x_grid : ndarray
+            Spatial grid in x.
+        xi_grid : ndarray
+            Frequency grid in ξ.
+        y_grid : ndarray, optional
+            Spatial grid in y (2D only).
+        eta_grid : ndarray, optional
+            Frequency grid in η (2D only).
+        xi0 : float, default=0.0
+            Fixed frequency ξ for 2D slicing.
+        eta0 : float, default=0.0
+            Fixed frequency η for 2D slicing.
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
+        """
         return _mu.visualize_phase(self, x_grid, xi_grid, y_grid, eta_grid, xi0=xi0, eta0=eta0)
 
     def visualize_characteristic_set(self, x_grid, xi_grid, y_grid=None, eta_grid=None, y0=0.0, x0=0.0, levels=[0.1]):
-        """Visualize the characteristic set p(x, xi) ~= 0 (1D) or the (xi, eta)
-        slice at fixed (x0, y0) (2D).
-        cf. package microlocal.py."""
+        """
+        Visualize the characteristic set p(x, ξ) ≈ 0 (1D) or the (ξ, η) slice 
+        at fixed (x₀, y₀) (2D).
+    
+        Parameters
+        ----------
+        x_grid : ndarray
+            Spatial grid in x.
+        xi_grid : ndarray
+            Frequency grid in ξ.
+        y_grid : ndarray, optional
+            Spatial grid in y (2D only).
+        eta_grid : ndarray, optional
+            Frequency grid in η (2D only).
+        y0 : float, default=0.0
+            Fixed spatial y for 2D slicing.
+        x0 : float, default=0.0
+            Fixed spatial x for 2D slicing.
+        levels : list of float, default=[0.1]
+            Contour levels defining the characteristic set.
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
+        """
         return _mu.visualize_characteristic_set(self, x_grid, xi_grid, y_grid, eta_grid, y0=y0, x0=x0, levels=levels)
 
     def visualize_characteristic_gradient(self, x_grid, xi_grid, y_grid=None, eta_grid=None, y0=0.0, x0=0.0):
-        """Visualize |grad p| in phase space. NOTE: both the 1D and 2D
-        branches now consistently use abs(.)**2 in the gradient norm (the
-        original 1D branch omitted the abs(), inconsistently with 2D).
-        cf. package microlocal.py."""
+        """
+        Visualize the characteristic gradient |∇p| in phase space.
+        
+        Uses |∂p/∂ξ|² + |∂p/∂x|² (and y/η in 2D) consistently across dimensions.
+    
+        Parameters
+        ----------
+        x_grid : ndarray
+            Spatial grid in x.
+        xi_grid : ndarray
+            Frequency grid in ξ.
+        y_grid : ndarray, optional
+            Spatial grid in y (2D only).
+        eta_grid : ndarray, optional
+            Frequency grid in η (2D only).
+        y0 : float, default=0.0
+            Fixed spatial y for 2D slicing.
+        x0 : float, default=0.0
+            Fixed spatial x for 2D slicing.
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
+        """
         return _mu.visualize_characteristic_gradient(self, x_grid, xi_grid, y_grid, eta_grid, y0=y0, x0=x0)
 
     def plot_hamiltonian_flow(self, x0=0.0, xi0=5.0, y0=0.0, eta0=0.0, tmax=1.0, n_steps=100, show_field=True):
-        """Integrate and plot the Hamiltonian trajectories of the symbol in
-        phase space. Delegates to the shared `integrate_singularity` engine
-        instead of re-deriving the Hamiltonian vector field inline.
-        cf. package microlocal.py."""
+        """
+        Integrate and plot the Hamiltonian trajectories of the symbol in phase space.
+        
+        Delegates to the shared `integrate_singularity` engine.
+    
+        Parameters
+        ----------
+        x0 : float, default=0.0
+            Initial spatial x position.
+        xi0 : float, default=5.0
+            Initial frequency ξ.
+        y0 : float, default=0.0
+            Initial spatial y position (2D only).
+        eta0 : float, default=0.0
+            Initial frequency η (2D only).
+        tmax : float, default=1.0
+            Maximum integration time.
+        n_steps : int, default=100
+            Number of integration steps.
+        show_field : bool, default=True
+            Whether to overlay the background vector field.
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
+        """
         return _mu.plot_hamiltonian_flow(self, x0=x0, xi0=xi0, y0=y0, eta0=eta0, tmax=tmax, n_steps=n_steps, show_field=show_field)
 
     def plot_symplectic_vector_field(self, xlim=(-2, 2), klim=(-5, 5), density=30):
-        """Quiver plot of the symplectic vector field (dp/dxi, -dp/dx). 1D only.
-        cf. package microlocal.py."""
+        """
+        Quiver plot of the symplectic vector field (∂p/∂ξ, -∂p/∂x). 
+        1D only.
+    
+        Parameters
+        ----------
+        xlim : tuple of float, default=(-2, 2)
+            Spatial limits (x_min, x_max).
+        klim : tuple of float, default=(-5, 5)
+            Frequency limits (ξ_min, ξ_max).
+        density : int, default=30
+            Grid density for the quiver plot.
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
+        """
         return _mu.plot_symplectic_vector_field(self, xlim=xlim, klim=klim, density=density)
 
     def visualize_micro_support(self, xlim=(-2, 2), klim=(-10, 10), threshold=0.001, density=300, xi0=0.0, eta0=0.0):
-        """Visualize 1/|p(x, xi)| to highlight regions where the symbol is
-        near zero. NOTE: no longer restricted to 1D -- the shared grid/render
-        helpers already handle the 2D case (fixed xi0=eta0=0, scan x, y).
-        cf. package microlocal.py."""
+        """
+        Visualize the micro-support by highlighting regions where the symbol 
+        amplitude |p(x, ξ)| is near zero (plots 1/|p(x, ξ)|).
+        
+        Handles both 1D and 2D cases.
+    
+        Parameters
+        ----------
+        xlim : tuple of float, default=(-2, 2)
+            Spatial limits.
+        klim : tuple of float, default=(-10, 10)
+            Frequency limits.
+        threshold : float, default=0.001
+            Threshold below which the symbol is considered "near zero".
+        density : int, default=300
+            Grid resolution.
+        xi0 : float, default=0.0
+            Fixed frequency ξ for 2D slicing.
+        eta0 : float, default=0.0
+            Fixed frequency η for 2D slicing.
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
+        """
         return _mu.visualize_micro_support(self, xlim=xlim, klim=klim, threshold=threshold, density=density, xi0=xi0, eta0=eta0)
 
     def visualize_wavefront_set(self, seeds=None, tspan=(0, 3.0), projection='cotangent', n_steps=500, cmap='plasma', show_flow=True, show_endpoints=True, title=None, x0=0.0, y0=0.0, xi0=1.0, eta0=0.0, spread=2.0, n_seeds=25, radius=0.15):
-        """Wavefront set WF(u) obtained by propagating seed singularities along
-        the bicharacteristics of `op.symbol`. If `seeds` is not given, a default
-        fan/point-source is built from (x0, y0) and (xi0, eta0) -- see
-        _default_wavefront_seeds. `projection` follows plot_wavefront_set:
-        1D -> 'cotangent' or 'position'; 2D -> 'cotangent', 'position',
-        'frequency', 'mixed_x', 'mixed_y', or 'full' (2x2 cotangent-bundle grid).
-        cf. package microlocal.py."""
+        """
+        Visualize the wavefront set WF(u) by propagating seed singularities 
+        along the bicharacteristics of the symbol.
+        
+        If `seeds` is not given, a default fan/point-source is built from the 
+        provided initial coordinates.
+    
+        Parameters
+        ----------
+        seeds : list of tuple, optional
+            Custom initial seeds (x, ξ) or (x, y, ξ, η).
+        tspan : tuple of float, default=(0, 3.0)
+            Time integration span.
+        projection : str, default='cotangent'
+            Projection type ('cotangent', 'position', 'frequency', etc.).
+        n_steps : int, default=500
+            Number of integration steps per trajectory.
+        cmap : str, default='plasma'
+            Matplotlib colormap for the trajectories.
+        show_flow : bool, default=True
+            Whether to show the background Hamiltonian flow.
+        show_endpoints : bool, default=True
+            Whether to mark the endpoints of the trajectories.
+        title : str, optional
+            Custom plot title.
+        x0, y0 : float, default=0.0
+            Initial spatial coordinates.
+        xi0, eta0 : float, default=1.0, 0.0
+            Initial frequency coordinates.
+        spread : float, default=2.0
+            Spread factor for the default seed fan.
+        n_seeds : int, default=25
+            Number of seeds in the default fan.
+        radius : float, default=0.15
+            Radius for circular seed distributions.
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
+        """
         return _mu.visualize_wavefront_set(self, seeds=seeds, tspan=tspan, projection=projection, n_steps=n_steps, cmap=cmap, show_flow=show_flow, show_endpoints=show_endpoints, title=title, x0=x0, y0=y0, xi0=xi0, eta0=eta0, spread=spread, n_seeds=n_seeds, radius=radius)
 
     def group_velocity_field(self, xlim=(-2, 2), klim=(-10, 10), density=30):
-        """Quiver plot of the group velocity field (1, dp/dxi). 1D only.
-        cf. package microlocal.py."""
+        """
+        Quiver plot of the group velocity field (1, ∂p/∂ξ). 
+        1D only.
+    
+        Parameters
+        ----------
+        xlim : tuple of float, default=(-2, 2)
+            Spatial limits.
+        klim : tuple of float, default=(-10, 10)
+            Frequency limits.
+        density : int, default=30
+            Grid density for the quiver plot.
+    
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot object.
+        """
         return _mu.group_velocity_field(self, xlim=xlim, klim=klim, density=density)
 
     def animate_singularity(self, xi0=5.0, eta0=0.0, x0=0.0, y0=0.0, tmax=4.0, n_frames=100, projection=None):
-        """Animate the propagation of a singularity under the Hamiltonian
-        flow. Thin delegate to the module-level `animate_singularity`
-        engine (previously ~130 lines of duplicated Hamiltonian/ODE setup
-        here, plus a near-identical copy further down the module).
-        cf. package microlocal.py."""
+        """
+        Animate the propagation of a singularity under the Hamiltonian flow.
+        
+        Delegates to the module-level `animate_operator_singularity` engine.
+    
+        Parameters
+        ----------
+        xi0 : float, default=5.0
+            Initial frequency ξ.
+        eta0 : float, default=0.0
+            Initial frequency η (2D only).
+        x0 : float, default=0.0
+            Initial spatial x.
+        y0 : float, default=0.0
+            Initial spatial y (2D only).
+        tmax : float, default=4.0
+            Maximum animation time.
+        n_frames : int, default=100
+            Number of frames in the animation.
+        projection : str, optional
+            Phase-space projection type.
+    
+        Returns
+        -------
+        matplotlib.animation.FuncAnimation
+            The generated animation object.
+        """
         return _mu.animate_operator_singularity(self, xi0=xi0, eta0=eta0, x0=x0, y0=y0, tmax=tmax, n_frames=n_frames, projection=projection)
 
     def interactive_symbol_analysis(self, xlim=(-2, 2), ylim=(-2, 2), xi_range=(0.1, 5), eta_range=(-5, 5), density=50):
-        """Launch an ipywidgets dashboard for symbol exploration. Same modes,
-        same sliders, same defaults as before -- rewritten as a mode-table
-        dispatcher that delegates to the visualize_*/plot_* methods above
-        instead of duplicating their 1D/2D branches inline (previously
-        ~260 lines of near-duplicated if-elif chains).
-        cf. package microlocal.py."""
+        """
+        Launch an interactive ipywidgets dashboard for symbol exploration.
+        
+        Provides sliders and mode-selection to dynamically visualize amplitude, 
+        phase, characteristics, and flows.
+    
+        Parameters
+        ----------
+        xlim : tuple of float, default=(-2, 2)
+            Spatial x limits.
+        ylim : tuple of float, default=(-2, 2)
+            Spatial y limits (2D only).
+        xi_range : tuple of float, default=(0.1, 5)
+            Frequency ξ range for the dashboard.
+        eta_range : tuple of float, default=(-5, 5)
+            Frequency η range for the dashboard (2D only).
+        density : int, default=50
+            Base grid density for the visualizations.
+    
+        Returns
+        -------
+        ipywidgets.VBox
+            The interactive dashboard widget.
+        """
         return _mu.interactive_symbol_analysis(self, xlim=xlim, ylim=ylim, xi_range=xi_range, eta_range=eta_range, density=density)
 
 # --- Expose submodules and maintain backward compatibility for tests/scripts ---

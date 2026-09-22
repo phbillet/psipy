@@ -12,171 +12,164 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-psiop_apply.py — Numerical backends for pseudo‑differential operator application
+psiop_apply.py — Numerical backends for pseudo-differential operator application
 ================================================================================
 
 Overview
 --------
-The ``psiop_apply`` module provides the heavy‑lifting numerical kernels for
-applying pseudo‑differential operators (ΨDOs) to spatial fields. While the
-core ``psiop`` module handles symbolic calculus, asymptotic expansions, and
+The `psiop_apply` module provides the heavy-lifting numerical kernels for
+applying pseudo-differential operators (ΨDOs) to spatial fields. While the
+core `psiop` module handles symbolic calculus, asymptotic expansions, and
 the Peetre decomposition, this module is responsible for the actual
 evaluation of the resulting integrals on discrete spatial and frequency
 grids.
 
-It implements both periodic (FFT‑based) and non‑periodic (direct
+It implements both periodic (FFT-based) and non-periodic (direct
 quadrature) Kohn–Nirenberg quantization, alongside specialized
 factorization and approximation backends for the genuinely joint
-space‑frequency residuals that arise in the Peetre decomposition.
+space-frequency residuals that arise in the Peetre decomposition.
 
 Main objects and workflows
 --------------------------
-Periodic and Non‑Periodic Kohn–Nirenberg Application
-    ``kohn_nirenberg_fft``: Applies the operator on a periodic domain using
-    FFTs. Features an automatic fast‑path for spatially independent symbols
-    (pure Fourier multipliers) and a memory‑bounded, multi‑threaded slow
-    path for spatially dependent symbols.
+**Periodic and Non-Periodic Kohn–Nirenberg Application**
+    * `kohn_nirenberg_fft`: Applies the operator on a periodic domain using
+      FFTs. Features an automatic fast-path for spatially independent symbols
+      (pure Fourier multipliers) and a memory-bounded, multi-threaded slow
+      path for spatially dependent symbols.
+    * `kohn_nirenberg_nonperiodic`: Applies the operator on a non-periodic
+      (Dirichlet-type) domain via direct discrete Fourier quadrature.
+      Utilizes aggressive caching of phase matrices and windowing arrays to
+      minimize redundant computations across repeated calls.
 
-    ``kohn_nirenberg_nonperiodic``: Applies the operator on a non‑periodic
-    (Dirichlet‑type) domain via direct discrete Fourier quadrature.
-    Utilizes aggressive caching of phase matrices and windowing arrays to
-    minimize redundant computations across repeated calls.
+**Low-Rank Chebyshev/SVD Factorization**
+    * `factorize_symbolic`: Approximates a joint space-frequency symbol
+      `p(x, ξ)` as a sum of separable terms `∑ₖ aₖ(x) qₖ(ξ)` using
+      Chebyshev interpolation followed by Singular Value Decomposition (SVD)
+      truncation. Includes Monte-Carlo quality diagnostics.
 
-Low‑Rank Chebyshev/SVD Factorization
-    ``factorize_symbolic``: Approximates a joint space‑frequency symbol
-    ``p(x, ξ)`` as a sum of separable terms ``∑ₖ aₖ(x) qₖ(ξ)`` using
-    Chebyshev interpolation followed by Singular Value Decomposition (SVD)
-    truncation. Includes Monte‑Carlo quality diagnostics.
+**NUFFT-Based Joint-Residual Backend**
+    * `try_nufft_decomposition_*` / `apply_nufft_*`: Targets joint
+      residuals with genuinely oscillatory phases of the form
+      `exp(i·Λ(x)·M(ξ))`. Extracts the phase and amplitude, and
+      evaluates the resulting non-uniform FFT (Type 3) via the optional
+      `finufft` library, with a pure-NumPy O(N·M) direct-sum fallback.
 
-NUFFT‑Based Joint‑Residual Backend
-    ``try_nufft_decomposition_*`` / ``apply_nufft_*``: Targets joint
-    residuals with genuinely oscillatory phases of the form
-    ``exp(i · Λ(x) · M(ξ))``. Extracts the phase and amplitude, and
-    evaluates the resulting non‑uniform FFT (Type 3) via the optional
-    ``finufft`` library, with a pure‑NumPy O(N·M) direct‑sum fallback.
-
-AAA Rational Approximation Backend
-    ``try_aaa_decomposition_*`` / ``aaa_plan_to_callable_*``: Targets joint
-    residuals that are rational functions or exhibit explicit poles /
-    algebraic decay. Uses a vector‑valued Adaptive Antoulas‑Algorithm (AAA)
-    barycentric rational interpolation to build a compact, fast‑evaluating
-    surrogate for the symbol.
+**AAA Rational Approximation Backend**
+    * `try_aaa_decomposition_*` / `aaa_plan_to_callable_*`: Targets joint
+      residuals that are rational functions or exhibit explicit poles /
+      algebraic decay. Uses a vector-valued Adaptive Antoulas-Algorithm (AAA)
+      barycentric rational interpolation to build a compact, fast-evaluating
+      surrogate for the symbol.
 
 Key features
 ------------
-Memory‑bounded execution:
-    The 1D and 2D slow paths avoid O(N²ᵈ) RAM allocation by evaluating the
-    symbol on chunked space‑frequency sub‑grids (~256 MB max per block) and
-    accumulating via optimized Einstein summation (``np.einsum``).
-
-Multi‑threaded row‑blocking:
-    The 2D slow path distributes spatial row‑blocks across a
-    ``ThreadPoolExecutor``, achieving near‑linear speedup on multi‑core
-    machines for spatially dependent symbols.
-
-Automatic fast‑path detection:
-    Before executing the expensive quadrature, the periodic and
-    non‑periodic kernels probe the symbol at a few test frequencies. If the
-    symbol is spatially independent, the code bypasses the quadrature
-    entirely and applies the symbol as a pure Fourier multiplier, reducing
-    complexity from O(N²) to O(N log N) in 1D, and O(N⁴) to O(N² log N) in 2D.
-
-Phase‑matrix caching:
-    Non‑periodic transforms precalculate and cache discrete Fourier
-    transform phases, reconstruction phases, and window arrays. The cache
-    keys are derived from grid shapes and endpoints, ensuring automatic
-    invalidation when grid resolution changes.
-
-Quality‑gated approximations:
-    The low‑rank, NUFFT, and AAA backends all compute relative L2 errors
-    against the exact symbol. If the approximation error exceeds the
-    requested tolerance, the backend gracefully falls back to the exact
-    (but slower) direct Kohn–Nirenberg quadrature.
+* **Memory-bounded execution:** The 1D and 2D slow paths avoid O(N²ᵈ) RAM 
+  allocation by evaluating the symbol on chunked space-frequency sub-grids 
+  (~256 MB max per block) and accumulating via optimized Einstein summation 
+  (`np.einsum`).
+* **Multi-threaded row-blocking:** The 2D slow path distributes spatial 
+  row-blocks across a `ThreadPoolExecutor`, achieving near-linear speedup 
+  on multi-core machines for spatially dependent symbols.
+* **Automatic fast-path detection:** Before executing the expensive 
+  quadrature, the periodic and non-periodic kernels probe the symbol at a 
+  few test frequencies. If the symbol is spatially independent, the code 
+  bypasses the quadrature entirely and applies the symbol as a pure Fourier 
+  multiplier, reducing complexity from O(N²) to O(N log N) in 1D, and 
+  O(N⁴) to O(N² log N) in 2D.
+* **Phase-matrix caching:** Non-periodic transforms precalculate and cache 
+  discrete Fourier transform phases, reconstruction phases, and window 
+  arrays. The cache keys are derived from grid shapes and endpoints, 
+  ensuring automatic invalidation when grid resolution changes.
+* **Quality-gated approximations:** The low-rank, NUFFT, and AAA backends 
+  all compute relative L2 errors against the exact symbol. If the 
+  approximation error exceeds the requested tolerance, the backend 
+  gracefully falls back to the exact (but slower) direct Kohn–Nirenberg 
+  quadrature.
 
 Mathematical background and numerical design
 --------------------------------------------
-Kohn–Nirenberg quantization (Periodic)
-    The operator ``Op(p)`` is applied to a periodic function ``u`` via:
+**Kohn–Nirenberg quantization (Periodic)**
+The operator `Op(p)` is applied to a periodic function `u` via:
 
-        [Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) e^{i x·ξ} ℱ[u](ξ) dξ
+    [Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) exp(i·x·ξ) ℱ[u](ξ) dξ
 
-    where ``ℱ[u]`` is the discrete Fourier transform. 
-    Fast‑path: If ``p(x, ξ) = p(ξ)``, the ``x``‑dependence drops out, and
-    the integral collapses to the pure multiplier:
+where ℱ[u] is the discrete Fourier transform. 
+*Fast-path:* If p(x, ξ) = p(ξ), the x-dependence drops out, and
+the integral collapses to the pure multiplier:
 
-        [Op(p) u](x) = ℱ⁻¹[ p(ξ) · ℱ[u](ξ) ]
+    [Op(p) u](x) = ℱ⁻¹[ p(ξ) · ℱ[u](ξ) ]
 
-    Slow‑path: For space‑dependent ``p(x, ξ)``, the integral is evaluated
-    directly. To prevent memory exhaustion, the spatial domain is split
-    into blocks of size ``B``, and the frequency domain into chunks of size
-    ``C``. The quadrature is accumulated block‑by‑block:
+*Slow-path:* For space-dependent p(x, ξ), the integral is evaluated
+directly. To prevent memory exhaustion, the spatial domain is split
+into blocks of size B, and the frequency domain into chunks of size
+C. The quadrature is accumulated block-by-block:
 
-        result[i₀:i₁] = (Δξ / 2π) ∑_{k‑chunk} P_{blk} · ℱ[u]_{chunk} · e^{i x_{blk} · ξ_{chunk}}
+    result[i₀:i₁] = (Δξ / 2π) ∑_{k-chunk} P_blk · ℱ[u]_chunk · exp(i·x_blk·ξ_chunk)
 
-Kohn–Nirenberg quantization (Non‑Periodic)
-    On a non‑periodic domain, the continuous Fourier transform is replaced
-    by a direct discrete quadrature:
+**Kohn–Nirenberg quantization (Non-Periodic)**
+On a non-periodic domain, the continuous Fourier transform is replaced
+by a direct discrete quadrature:
 
-        [Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) e^{i x·ξ} [ ∫ e^{-i y·ξ} u(y) dy ] dξ
+    [Op(p) u](x) = (2π)⁻ᵈ ∫ p(x, ξ) exp(i·x·ξ) [ ∫ exp(-i·y·ξ) u(y) dy ] dξ
 
-    The inner integral (forward transform) and outer integral (reconstruction)
-    are represented as dense matrix‑vector products using precomputed phase
-    matrices ``Φ_{ft} = e^{-i ξ xᵀ}`` and ``Φ_{rec} = e^{i x ξᵀ}``. These
-    matrices are cached globally. The fast‑path logic is identical to the
-    periodic case, bypassing the matrix multiplications when ``p`` is
-    independent of ``x``.
+The inner integral (forward transform) and outer integral (reconstruction)
+are represented as dense matrix-vector products using precomputed phase
+matrices `Φ_ft = exp(-i·ξ·xᵀ)` and `Φ_rec = exp(i·x·ξᵀ)`. These
+matrices are cached globally. The fast-path logic is identical to the
+periodic case, bypassing the matrix multiplications when p is
+independent of x.
 
-Peetre Joint Residual Factorization
-    When the Peetre decomposition yields a genuinely joint residual
-    ``p_joint(x, ξ)`` that cannot be written as ``a(x)q(ξ)``, it is routed
-    to one of three specialized backends based on its algebraic structure:
+**Peetre Joint Residual Factorization**
+When the Peetre decomposition yields a genuinely joint residual
+`p_joint(x, ξ)` that cannot be written as `a(x)q(ξ)`, it is routed
+to one of three specialized backends based on its algebraic structure:
 
-    1. Low‑Rank (Chebyshev/SVD):
-       For smooth, non‑oscillatory kernels. The symbol is interpolated on
-       a tensor‑product Chebyshev grid, reshaped into a matrix
-       ``C ∈ ℂ^{N_x × N_ξ}``, and truncated via SVD:
+1. **Low-Rank (Chebyshev/SVD):**
+   For smooth, non-oscillatory kernels. The symbol is interpolated on
+   a tensor-product Chebyshev grid, reshaped into a matrix
+   `C ∈ ℂ^(Nx × Nξ)`, and truncated via SVD:
 
-           C ≈ U_r Σ_r V_r^H   ⇒   p_joint(x, ξ) ≈ ∑_{k=1}^r aₖ(x) qₖ(ξ)
+       C ≈ U_r · Σ_r · V_rᴴ   ⇒   p_joint(x, ξ) ≈ ∑ₖ₌₁ʳ aₖ(x) qₖ(ξ)
 
-       The basis functions are explicit Chebyshev polynomials mapped to the
-       physical bounding box.
+   The basis functions are explicit Chebyshev polynomials mapped to the
+   physical bounding box.
 
-    2. NUFFT (Oscillatory):
-       For residuals containing a bilinear phase ``exp(i Λ(x) M(ξ))``.
-       The symbol is factored as:
+2. **NUFFT (Oscillatory):**
+   For residuals containing a bilinear phase `exp(i·Λ(x)·M(ξ))`.
+   The symbol is factored as:
 
-           p_joint(x, ξ) = c(x) g(ξ) exp(i Λ(x) M(ξ))
+       p_joint(x, ξ) = c(x) g(ξ) exp(i·Λ(x)·M(ξ))
 
-       The application is reformulated as a Type 3 Non‑Uniform FFT,
-       evaluating the sum:
+   The application is reformulated as a Type 3 Non-Uniform FFT,
+   evaluating the sum:
 
-           f(x) = ∑_{j} w_j exp(i (x · Λ(x) + μ_j · M(ξ_j)))
+       f(x) = ∑ⱼ wⱼ exp(i·(x·Λ(x) + μⱼ·M(ξⱼ)))
 
-       where ``w_j`` are the weighted Fourier coefficients of ``u``. This
-       achieves O(N log N) complexity via ``finufft``, avoiding the
-       polynomial basis convergence issues of the low‑rank method.
+   where `wⱼ` are the weighted Fourier coefficients of `u`. This
+   achieves O(N log N) complexity via `finufft`, avoiding the
+   polynomial basis convergence issues of the low-rank method.
 
-    3. AAA (Rational / Poles):
-       For residuals with explicit poles or algebraic decay (e.g.,
-       resolvent‑like structures). A vector‑valued AAA barycentric rational
-       interpolant is constructed:
+3. **AAA (Rational / Poles):**
+   For residuals with explicit poles or algebraic decay (e.g.,
+   resolvent-like structures). A vector-valued AAA barycentric rational
+   interpolant is constructed:
 
-           r(ξ) = ∑_{k} wₖ fₖ / (ξ - zₖ)  /  ∑_{k} wₖ / (ξ - zₖ)
+       r(ξ) = [∑ₖ wₖ fₖ / (ξ - zₖ)] / [∑ₖ wₖ / (ξ - zₖ)]
 
-       where the support points ``zₖ`` and weights ``wₖ`` are selected
-       adaptively to minimize the residual. The spatial dependence is
-       handled by building a separate AAA fit for each Chebyshev node in
-       ``x``, followed by barycentric Lagrange interpolation in ``x``.
+   where the support points `zₖ` and weights `wₖ` are selected
+   adaptively to minimize the residual. The spatial dependence is
+   handled by building a separate AAA fit for each Chebyshev node in
+   `x`, followed by barycentric Lagrange interpolation in `x`.
 
 Numerical stability
 -------------------
 All application kernels enforce numerical stability through:
-    - Magnitude clamping: Symbol values exceeding ``clamp`` (default 10⁶)
-      are scaled down while preserving their complex phase.
-    - Frequency windowing: Optional Gaussian or Hann tapers in the
-      frequency domain to attenuate high‑frequency numerical artifacts.
-    - Spatial tapering: Optional centered Gaussian tapers in the spatial
-      domain to mitigate edge boundary artifacts in non‑periodic settings.
+* **Magnitude clamping:** Symbol values exceeding `clamp` (default 10⁶)
+  are scaled down while preserving their complex phase.
+* **Frequency windowing:** Optional Gaussian or Hann tapers in the
+  frequency domain to attenuate high-frequency numerical artifacts.
+* **Spatial tapering:** Optional centered Gaussian tapers in the spatial
+  domain to mitigate edge boundary artifacts in non-periodic settings.
 """
 from imports import *
 
@@ -195,7 +188,22 @@ _KN_CACHE: Dict[Tuple, Dict[str, np.ndarray]] = {}
 def _clip_complex_magnitude(P: np.ndarray, clamp: float) -> np.ndarray:
     """
     Clip a complex array by magnitude, preserving phase.
-    Modifies the array in-place to minimize memory allocation.
+
+    Modifies the array in-place to minimize memory allocation. Any element
+    with an absolute value exceeding `clamp` is scaled down to exactly
+    `clamp` while retaining its original complex phase.
+
+    Parameters
+    ----------
+    P : ndarray
+        Input complex array to be clipped.
+    clamp : float
+        Maximum allowed magnitude for the array entries.
+
+    Returns
+    -------
+    ndarray
+        The clipped complex array (same shape and type as `P`).
     """
     if P.dtype != np.complex128:
         P = np.asarray(P, dtype=np.complex128)
@@ -237,7 +245,18 @@ def _cache_key_1d(x: np.ndarray, xi: np.ndarray) -> Tuple:
 
 
 def invalidate_kn_cache() -> None:
-    """Clear the phase-matrix cache for non-periodic 1D operations."""
+    """
+    Clear the phase-matrix and windowing cache for non-periodic operations.
+
+    This function empties the global `_KN_CACHE` dictionary, forcing the
+    non-periodic Kohn-Nirenberg quantization to recompute and cache the
+    discrete Fourier transform phase matrices and window arrays on the
+    next execution.
+
+    Returns
+    -------
+    None
+    """
     _KN_CACHE.clear()
 
 
@@ -1037,9 +1056,23 @@ def _sympy_number(z, digits=5, drop_tol=0.0):
 
 def _chebyshev_polynomial(n, z):
     """
-    Return T_n(z) as an explicit expanded SymPy polynomial.
+    Return the Chebyshev polynomial Tₙ(z) as an explicit expanded SymPy expression.
 
-    This avoids possible lambdify issues with special Chebyshev functions.
+    This avoids potential `lambdify` issues with special Chebyshev functions
+    by constructing the polynomial recursively using the relation:
+    Tₙ₊₁(z) = 2·z·Tₙ(z) - Tₙ₋₁(z).
+
+    Parameters
+    ----------
+    n : int
+        Degree of the Chebyshev polynomial (n ≥ 0).
+    z : sympy.Expr or sympy.Symbol
+        The symbolic variable.
+
+    Returns
+    -------
+    sympy.Expr
+        The expanded Chebyshev polynomial of degree `n`.
     """
     if n == 0:
         return S.One
@@ -1431,14 +1464,27 @@ def factorize_symbolic(
 try:
     import finufft as _finufft
     _HAVE_FINUFFT = True
+    _HAVE_FINUFFT_PLAN = hasattr(_finufft, "Plan")
 except ImportError:
     _finufft = None
     _HAVE_FINUFFT = False
+    _HAVE_FINUFFT_PLAN = False
 
 _finufft_warned = False
 
 
 def _warn_no_finufft():
+    """
+    Issue a one-time warning if the optional `finufft` library is missing.
+
+    Ensures that the warning regarding the O(N·M) direct-sum fallback 
+    is only printed once per session, avoiding console spam when multiple 
+    NUFFT operations are executed without the accelerated backend.
+
+    Returns
+    -------
+    None
+    """
     global _finufft_warned
     if not _finufft_warned:
         warnings.warn(
@@ -1451,9 +1497,27 @@ def _warn_no_finufft():
 
 
 def _nufft_split_real_imag_exponent(total_exponent):
-    """Split an exponent into (I*phase, real_envelope) without silently
-    dropping a real residual (a naive .coeff(I) does this incorrectly
-    for mixed exponents like I*x*xi - x**2)."""
+    """
+    Split a symbolic exponent into its imaginary (phase) and real (envelope) parts.
+
+    Separates an exponent into (i·phase, real_envelope) without silently 
+    dropping a real residual. A naive `.coeff(I)` does this incorrectly 
+    for mixed exponents like `i·x·ξ - x²`.
+
+    Parameters
+    ----------
+    total_exponent : sympy.Expr
+        The expanded symbolic exponent to be split.
+
+    Returns
+    -------
+    phase_expr : sympy.Expr
+        The purely imaginary part (without the `i` factor).
+    real_envelope : sympy.Expr
+        The purely real part of the exponent.
+    has_osc : bool
+        True if the exponent contained at least one imaginary term.
+    """
     exp_terms = Add.make_args(expand(total_exponent))
     imag_terms, real_terms = [], []
     for t in exp_terms:
@@ -1526,8 +1590,28 @@ def _nufft_extract_term_nd(term, phys_syms, freq_syms):
 
 
 def try_nufft_decomposition_1d(joint_expr, x_sym, xi_sym):
-    """1D (phase space (x,xi)) NUFFT classifier. Returns a list of term
-    plans, or None if any additive term doesn't fit (falls back)."""
+    """
+    1D (phase space (x, ξ)) NUFFT classifier.
+
+    Attempts to factor the joint residual into terms of the form 
+    c(x)·g(ξ)·exp(i·Λ(x)·M(ξ)). 
+
+    Parameters
+    ----------
+    joint_expr : sympy.Expr
+        The joint symbolic expression to classify.
+    x_sym : sympy.Symbol
+        The spatial variable.
+    xi_sym : sympy.Symbol
+        The frequency variable.
+
+    Returns
+    -------
+    list of dict or None
+        A list of term plans if all additive terms fit the oscillatory 
+        pattern. Returns `None` if any term fails to match, triggering 
+        a fallback to the direct backend.
+    """
     expr = expand(joint_expr.rewrite(exp))
     plans = []
     for term in Add.make_args(expr):
@@ -1539,8 +1623,28 @@ def try_nufft_decomposition_1d(joint_expr, x_sym, xi_sym):
 
 
 def _resolve_1d_piece_for_axis_sep(part_expr, phys_sym, freq_sym):
-    """Used by the 2D axis-separable tier: resolve a single-variable-pair
-    factor into pointwise (no freq dependence) or nufft1d pieces."""
+    """
+    Resolve a single-variable-pair factor for the 2D axis-separable tier.
+
+    Determines if a sub-expression is purely pointwise (no frequency 
+    dependence) or if it requires a 1D NUFFT plan.
+
+    Parameters
+    ----------
+    part_expr : sympy.Expr
+        The symbolic sub-expression to resolve.
+    phys_sym : sympy.Symbol
+        The physical/spatial variable.
+    freq_sym : sympy.Symbol
+        The frequency variable.
+
+    Returns
+    -------
+    list of dict or None
+        A list of dictionaries with keys `'kind'` ('pointwise' or 'nufft1d') 
+        and their respective evaluators/plans. Returns `None` if the 
+        expression cannot be resolved.
+    """
     if not part_expr.has(freq_sym):
         return [{"kind": "pointwise", "amp": lambdify(phys_sym, part_expr, "numpy")}]
     rewritten = expand(part_expr.rewrite(exp))
@@ -1601,31 +1705,218 @@ def try_nufft_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym):
 
 
 def _nufft_uhat_1d(u, x_grid, dx, kx):
-    """Continuous-FT approx of u, correcting for a grid not starting at 0
-    (e.g. x_grid = linspace(-L, L, N, endpoint=False), used throughout this
-    module's make_grid_1d/2d) -- see module docstring above for why this
-    matters: without it, results are internally self-consistent but not
-    the true KN operator action."""
+    """
+    Compute the continuous Fourier transform approximation of `u`.
+
+    Corrects for a spatial grid that does not start at 0 (e.g., 
+    `x_grid = linspace(-L, L, N, endpoint=False)`). Without this phase 
+    correction, results are internally self-consistent but do not 
+    represent the true Kohn-Nirenberg operator action.
+
+    Parameters
+    ----------
+    u : ndarray
+        Spatial samples of the input field.
+    x_grid : ndarray
+        Spatial coordinate grid.
+    dx : float
+        Spatial grid spacing.
+    kx : ndarray
+        Frequency grid.
+
+    Returns
+    -------
+    ndarray
+        The phase-corrected discrete Fourier transform of `u`.
+    """
     x0 = x_grid[0]
     return np.fft.fft(u) * dx * np.exp(-1j * x0 * kx)
 
+def _grid_fingerprint(*arrays):
+    """
+    Compute a cheap, order-sensitive fingerprint of a set of point arrays.
+
+    Used to decide whether a cached `finufft.Plan`'s fixed source/target 
+    points are still valid without an O(N) elementwise comparison. The 
+    fingerprint combines the shape, the first/last elements, and the sum 
+    of each array. While not a cryptographic guarantee, it is sufficient 
+    to catch changed grids in practice.
+
+    Parameters
+    ----------
+    *arrays : ndarray
+        Variable number of 1D or ND point arrays to fingerprint.
+
+    Returns
+    -------
+    tuple
+        A hashable tuple containing the shape, endpoints, and sum of 
+        each input array.
+    """
+    parts = []
+    for a in arrays:
+        a = np.asarray(a)
+        if a.size == 0:
+            parts.append((0,))
+        else:
+            parts.append((a.shape, complex(a.flat[0]), complex(a.flat[-1]), complex(np.sum(a))))
+    return tuple(parts)
+
+
+def _get_or_build_finufft_plan_2d(term, key, eps, src_x, src_y, tgt_x, tgt_y, isign=1):
+    """
+    Retrieve or build a cached 2D `finufft.Plan` (Type 3, 2D).
+
+    Stashes the plan directly on the `term` dictionary to persist across 
+    `apply_hybrid` calls. Only `.setpts()` is paid for once per distinct 
+    grid; `.execute()` is cheap and reruns every call with fresh weights.
+
+    Parameters
+    ----------
+    term : dict
+        The NUFFT term dictionary where the plan will be cached.
+    key : tuple
+        The grid fingerprint used to validate the cache.
+    eps : float
+        Requested precision for the NUFFT.
+    src_x, src_y : ndarray
+        Source point coordinates.
+    tgt_x, tgt_y : ndarray
+        Target point coordinates.
+    isign : int, default=1
+        Sign of the exponent.
+
+    Returns
+    -------
+    finufft.Plan
+        The configured 2D NUFFT plan object.
+    """
+    cached = term.get('_finufft_plan_cache')
+    if cached is not None and cached['key'] == key:
+        return cached['plan']
+    plan_obj = _finufft.Plan(3, 2, eps=eps, isign=isign)
+    plan_obj.setpts(x=src_x, y=src_y, s=tgt_x, t=tgt_y)
+    term['_finufft_plan_cache'] = {'key': key, 'plan': plan_obj}
+    return plan_obj
+
+
+def _get_or_build_finufft_plan_3d(term, key, eps, src_x, src_y, src_z, tgt_x, tgt_y, tgt_z, isign=1):
+    """
+    Retrieve or build a cached 3D `finufft.Plan` (Type 3, 3D).
+
+    3D counterpart of `_get_or_build_finufft_plan_2d`, used for the 2D 
+    "joint3d" NUFFT case (which requires a genuine 3D type-3 transform: 
+    2 spatial dimensions + the combined-phase axis).
+
+    Parameters
+    ----------
+    term : dict
+        The NUFFT term dictionary where the plan will be cached.
+    key : tuple
+        The grid fingerprint used to validate the cache.
+    eps : float
+        Requested precision for the NUFFT.
+    src_x, src_y, src_z : ndarray
+        Source point coordinates.
+    tgt_x, tgt_y, tgt_z : ndarray
+        Target point coordinates.
+    isign : int, default=1
+        Sign of the exponent.
+
+    Returns
+    -------
+    finufft.Plan
+        The configured 3D NUFFT plan object.
+    """
+    cached = term.get('_finufft_plan_cache')
+    if cached is not None and cached['key'] == key:
+        return cached['plan']
+    plan_obj = _finufft.Plan(3, 3, eps=eps, isign=isign)
+    plan_obj.setpts(x=src_x, y=src_y, z=src_z, s=tgt_x, t=tgt_y, u=tgt_z)
+    term['_finufft_plan_cache'] = {'key': key, 'plan': plan_obj}
+    return plan_obj
 
 def _nufft_direct_2d_type3(sx, sy, weights, tx, ty, isign=1):
+    """
+    Fallback 2D NUFFT direct sum using pure NumPy.
+
+    Computes the Type 3 Non-Uniform Fast Fourier Transform via direct 
+    evaluation when the `finufft` library is unavailable. The complexity 
+    is O(N·M) instead of O(N log N).
+
+    Parameters
+    ----------
+    sx : ndarray
+        Source coordinates along the first dimension.
+    sy : ndarray
+        Source coordinates along the second dimension.
+    weights : ndarray
+        Complex weights associated with each source point.
+    tx : ndarray
+        Target coordinates along the first dimension.
+    ty : ndarray
+        Target coordinates along the second dimension.
+    isign : int, default=1
+        Sign of the exponent in the Fourier kernel (1 or -1).
+
+    Returns
+    -------
+    ndarray
+        The evaluated transform at the target points.
+    """
     phase = isign * (tx[:, None] * sx[None, :] + ty[:, None] * sy[None, :])
     return (weights[None, :] * np.exp(1j * phase)).sum(axis=1)
 
 
 def _nufft_direct_3d_type3(sx, sy, sz, weights, tx, ty, tz, isign=1):
+    """
+    Fallback 3D NUFFT direct sum using pure NumPy.
+
+    Computes the 3D Type 3 Non-Uniform FFT via direct evaluation. Used 
+    as a fallback when `finufft` is not installed.
+
+    Parameters
+    ----------
+    sx, sy, sz : ndarray
+        Source coordinates along the three dimensions.
+    weights : ndarray
+        Complex weights associated with each source point.
+    tx, ty, tz : ndarray
+        Target coordinates along the three dimensions.
+    isign : int, default=1
+        Sign of the exponent in the Fourier kernel (1 or -1).
+
+    Returns
+    -------
+    ndarray
+        The evaluated transform at the target points.
+    """
     phase = isign * (tx[:, None] * sx[None, :] + ty[:, None] * sy[None, :]
                       + tz[:, None] * sz[None, :])
     return (weights[None, :] * np.exp(1j * phase)).sum(axis=1)
 
 
 def _nufft_freq_window(kvals, freq_window):
-    """Match kohn_nirenberg_fft's exact windowing formula (see slow-path
-    P_blk *= win_k), applied elementwise on a raw (unshifted) frequency
-    array -- the formula only depends on |k|/sigma pointwise, so it's
-    correct regardless of fftshift ordering."""
+    """
+    Apply a frequency-domain window/taper to a raw frequency array.
+
+    Matches `kohn_nirenberg_fft`'s exact windowing formula, applied 
+    elementwise on an unshifted frequency array. The formula depends 
+    only on |k|/σ pointwise, so it is correct regardless of `fftshift` 
+    ordering.
+
+    Parameters
+    ----------
+    kvals : ndarray
+        Raw (unshifted) frequency coordinates.
+    freq_window : {'gaussian', 'hann', None}
+        Type of window to apply.
+
+    Returns
+    -------
+    ndarray
+        The windowing weights corresponding to `kvals`.
+    """
     if freq_window == "gaussian":
         sigma = 0.8 * np.max(np.abs(kvals))
         return np.exp(-(kvals / sigma) ** 4)
@@ -1636,14 +1927,37 @@ def _nufft_freq_window(kvals, freq_window):
 
 
 def apply_nufft_1d(u, plan, x_grid, kx, dx, dxi, eps=1e-12, freq_window="gaussian"):
-    """Apply Op(p_joint) via the NUFFT tier, 1D case. `plan` is the output
-    of try_nufft_decomposition_1d (a list of term dicts).
+    """
+    Apply the pseudo-differential operator Op(p_joint) via the 1D NUFFT tier.
 
-    freq_window matches kohn_nirenberg_fft's default -- without applying
-    it here too, results silently diverge from joint_backend='direct'
-    even at freq_window='gaussian' defaults (found via end-to-end testing
-    against the real dispatcher, not from the isolated unit tests, which
-    never exercised the default windowing at all)."""
+    Each term's `finufft.Plan` is cached on the term dictionary itself and 
+    reused across calls as long as the source/target points haven't changed. 
+    Only the weights (which depend on `u`) are rebuilt every call.
+
+    Parameters
+    ----------
+    u : ndarray
+        Spatial samples of the input field.
+    plan : list of dict
+        Output of `try_nufft_decomposition_1d`.
+    x_grid : ndarray
+        Spatial coordinate grid.
+    kx : ndarray
+        Frequency grid.
+    dx : float
+        Spatial grid spacing.
+    dxi : float
+        Frequency grid spacing.
+    eps : float, default=1e-12
+        Requested precision for the NUFFT.
+    freq_window : {'gaussian', 'hann', None}, default='gaussian'
+        Frequency-domain window to match the direct path's defaults.
+
+    Returns
+    -------
+    ndarray
+        The resulting field after applying the operator.
+    """
     u = np.asarray(u, dtype=complex)
     uhat = _nufft_uhat_1d(u, x_grid, dx, kx)
     win = _nufft_freq_window(kx, freq_window)
@@ -1656,7 +1970,11 @@ def apply_nufft_1d(u, plan, x_grid, kx, dx, dxi, eps=1e-12, freq_window="gaussia
         weights = (g_xi * uhat * dxi / (2 * np.pi)).astype(complex)
         src_x, src_y = kx, mu_xi
         tgt_x, tgt_y = x_grid, lam_x
-        if _HAVE_FINUFFT:
+        if _HAVE_FINUFFT_PLAN:
+            key = _grid_fingerprint(src_x, src_y, tgt_x, tgt_y) + (eps,)
+            plan_obj = _get_or_build_finufft_plan_2d(term, key, eps, src_x, src_y, tgt_x, tgt_y)
+            f = plan_obj.execute(weights)
+        elif _HAVE_FINUFFT:
             f = _finufft.nufft2d3(src_x, src_y, weights, tgt_x, tgt_y, isign=1, eps=eps)
         else:
             _warn_no_finufft()
@@ -1667,9 +1985,38 @@ def apply_nufft_1d(u, plan, x_grid, kx, dx, dxi, eps=1e-12, freq_window="gaussia
 
 def apply_nufft_2d(u, kind, plan, x_grid, y_grid, kx, ky, dx, dy, dxi, deta, eps=1e-12,
                     freq_window="gaussian"):
-    """Apply Op(p_joint) via the NUFFT tier, 2D case. `kind`/`plan` are the
-    output of try_nufft_decomposition_2d. See apply_nufft_1d docstring on
-    why freq_window must be matched to the direct path's default."""
+    """
+    Apply the pseudo-differential operator Op(p_joint) via the 2D NUFFT tier.
+
+    Handles both 'axis_sep' (two independent 1D passes) and 'joint3d' 
+    (a genuine 3D type-3 transform) decomposition kinds.
+
+    Parameters
+    ----------
+    u : ndarray
+        Spatial samples of the 2D input field.
+    kind : {'axis_sep', 'joint3d'}
+        The type of NUFFT decomposition plan.
+    plan : list of dict or dict
+        Output of `try_nufft_decomposition_2d`.
+    x_grid, y_grid : ndarray
+        Spatial coordinate grids.
+    kx, ky : ndarray
+        Frequency grids.
+    dx, dy : float
+        Spatial grid spacings.
+    dxi, deta : float
+        Frequency grid spacings.
+    eps : float, default=1e-12
+        Requested precision for the NUFFT.
+    freq_window : {'gaussian', 'hann', None}, default='gaussian'
+        Frequency-domain window.
+
+    Returns
+    -------
+    ndarray
+        The resulting 2D field after applying the operator.
+    """
     u = np.asarray(u, dtype=complex)
 
     if kind == "joint3d":
@@ -1678,10 +2025,6 @@ def apply_nufft_2d(u, kind, plan, x_grid, y_grid, kx, ky, dx, dy, dxi, deta, eps
         uhat = np.fft.fft2(u) * dx * dy * np.exp(-1j * (x0 * XI0 + y0 * ETA0))
         XI, ETA = np.meshgrid(kx, ky, indexing="ij")
         X, Y = np.meshgrid(x_grid, y_grid, indexing="ij")
-        # 2D window: kohn_nirenberg_fft applies the SAME 1D-style formula
-        # to the combined radial-like |k| via kx/ky separately multiplied;
-        # match by applying to each axis and taking the product (matches
-        # the 2D fast-path convention used elsewhere in this module).
         win_x = _nufft_freq_window(kx, freq_window)
         win_y = _nufft_freq_window(ky, freq_window)
         WIN = win_x[:, None] * win_y[None, :]
@@ -1698,7 +2041,12 @@ def apply_nufft_2d(u, kind, plan, x_grid, y_grid, kx, ky, dx, dy, dxi, deta, eps
                        * dxi * deta / (2 * np.pi) ** 2).ravel().astype(complex)
             tgt_x, tgt_y = X.ravel(), Y.ravel()
             tgt_L = np.broadcast_to(Lambda_xy, (Nx, Ny)).ravel()
-            if _HAVE_FINUFFT:
+            if _HAVE_FINUFFT_PLAN:
+                key = _grid_fingerprint(src_xi, src_eta, src_M, tgt_x, tgt_y, tgt_L) + (eps,)
+                plan_obj = _get_or_build_finufft_plan_3d(
+                    term, key, eps, src_xi, src_eta, src_M, tgt_x, tgt_y, tgt_L)
+                f = plan_obj.execute(weights)
+            elif _HAVE_FINUFFT:
                 f = _finufft.nufft3d3(src_xi, src_eta, src_M, weights, tgt_x, tgt_y, tgt_L,
                                        isign=1, eps=eps)
             else:
@@ -1710,7 +2058,6 @@ def apply_nufft_2d(u, kind, plan, x_grid, y_grid, kx, ky, dx, dy, dxi, deta, eps
     elif kind == "axis_sep":
         result = np.zeros_like(u, dtype=complex)
         for combo in plan:
-            # Step 1: apply B (y,eta) row-wise; Step 2: apply A (x,xi) column-wise
             w = _apply_1d_piece_rows(combo["B"], u, y_grid, ky, dy, deta, along_axis=1,
                                       freq_window=freq_window)
             contrib = _apply_1d_piece_rows(combo["A"], w, x_grid, kx, dx, dxi, along_axis=0,
@@ -1723,6 +2070,36 @@ def apply_nufft_2d(u, kind, plan, x_grid, y_grid, kx, ky, dx, dy, dxi, deta, eps
 
 def _apply_1d_piece_rows(piece, field, axis_grid, k_axis, d_axis, dk_axis, along_axis,
                           freq_window="gaussian"):
+    """
+    Apply 1D NUFFT pieces row-by-row for the 2D axis-separable tier.
+
+    Helper function that iterates over the orthogonal axis to apply 
+    a 1D NUFFT or pointwise multiplication along the specified axis.
+
+    Parameters
+    ----------
+    piece : dict
+        The 1D plan piece (either 'pointwise' or 'nufft1d').
+    field : ndarray
+        The 2D input field.
+    axis_grid : ndarray
+        The coordinate grid along the application axis.
+    k_axis : ndarray
+        The frequency grid along the application axis.
+    d_axis : float
+        Spatial grid spacing along the application axis.
+    dk_axis : float
+        Frequency grid spacing along the application axis.
+    along_axis : int
+        The axis index (0 or 1) along which to apply the operator.
+    freq_window : {'gaussian', 'hann', None}, default='gaussian'
+        Frequency-domain window.
+
+    Returns
+    -------
+    ndarray
+        The 2D field after applying the 1D piece.
+    """
     if piece["kind"] == "pointwise":
         amp_vals = piece["amp"](axis_grid)
         return field * (amp_vals[None, :] if along_axis == 1 else amp_vals[:, None])
@@ -1769,14 +2146,55 @@ def _apply_1d_piece_rows(piece, field, axis_grid, k_axis, d_axis, dk_axis, along
 # numerics -- it does not reimplement the KN quadrature itself.
 
 class _VectorAAA:
-    """Barycentric rational fit r(z) in C^m, shared poles across m
-    'vector components' (e.g. one component per Chebyshev x-node)."""
+    """
+    Barycentric rational fit r(z) in ℂᵐ with shared poles across m vector components.
+
+    This class represents the output of the vector-valued AAA algorithm, 
+    providing fast evaluation of rational interpolants. The spatial 
+    dependence is handled by treating each Chebyshev node in `x` as a 
+    separate 'vector component' sharing the same frequency poles `zₖ`.
+
+    Attributes
+    ----------
+    z_support : ndarray
+        The selected support points (poles) in the frequency domain.
+    w : ndarray
+        The barycentric weights associated with each support point.
+    f_support : ndarray
+        The function values at the support points, shape `(k, m)` where 
+        `k` is the number of poles and `m` is the number of spatial nodes.
+    """
     def __init__(self, z_support, w, f_support):
+        """
+        Initialize the vector-valued AAA rational fit.
+
+        Parameters
+        ----------
+        z_support : ndarray
+            Complex support points (poles).
+        w : ndarray
+            Complex barycentric weights.
+        f_support : ndarray
+            Function values at the support points.
+        """
         self.z_support = np.asarray(z_support)
         self.w = np.asarray(w)
         self.f_support = np.asarray(f_support)  # (k, m)
 
     def __call__(self, z):
+        """
+        Evaluate the rational fit at arbitrary points `z`.
+
+        Parameters
+        ----------
+        z : ndarray
+            Points at which to evaluate the rational interpolant.
+
+        Returns
+        -------
+        ndarray
+            The evaluated rational fit, shape `(len(z), m)`.
+        """
         z = np.atleast_1d(np.asarray(z, dtype=complex))
         diffs = z[:, None] - self.z_support[None, :]
         exact_mask = np.isclose(diffs, 0.0)
@@ -1793,6 +2211,29 @@ class _VectorAAA:
 
 
 def _vector_aaa(z_samples, F_samples, rtol=1e-8, max_terms=50):
+    """
+    Core implementation of the vector-valued Adaptive Antoulas-Algorithm (AAA).
+
+    Constructs a compact rational approximation of a vector-valued function 
+    by adaptively selecting support points and computing barycentric weights 
+    via SVD.
+
+    Parameters
+    ----------
+    z_samples : ndarray
+        Sample points in the complex plane.
+    F_samples : ndarray
+        Function values at `z_samples`, shape `(N, m)`.
+    rtol : float, default=1e-8
+        Relative tolerance for the stopping criterion.
+    max_terms : int, default=50
+        Maximum number of support points (poles) to select.
+
+    Returns
+    -------
+    _VectorAAA
+        The fitted rational interpolant object.
+    """
     z_samples = np.asarray(z_samples, dtype=complex)
     F_samples = np.atleast_2d(np.asarray(F_samples, dtype=complex))
     if F_samples.shape[0] != len(z_samples):
@@ -1837,12 +2278,42 @@ def _vector_aaa(z_samples, F_samples, rtol=1e-8, max_terms=50):
 
 
 def _aaa_chebyshev_nodes(a, b, n):
+    """
+    Generate Chebyshev nodes of the first kind mapped to the interval [a, b].
+
+    Parameters
+    ----------
+    a : float
+        Lower bound of the interval.
+    b : float
+        Upper bound of the interval.
+    n : int
+        Number of nodes to generate.
+
+    Returns
+    -------
+    ndarray
+        Array of `n` Chebyshev nodes scaled to `[a, b]`.
+    """
     k = np.arange(n)
     x = np.cos((2*k + 1) / (2*n) * np.pi)
     return 0.5*(b-a)*x + 0.5*(b+a)
 
 
 def _aaa_bary_weights_1st_kind(n):
+    """
+    Compute barycentric weights for Chebyshev nodes of the first kind.
+
+    Parameters
+    ----------
+    n : int
+        Number of nodes (and thus the number of weights to compute).
+
+    Returns
+    -------
+    ndarray
+        Array of `n` barycentric weights.
+    """
     k = np.arange(n)
     theta = (2*k + 1) * np.pi / (2*n)
     return ((-1.0)**k) * np.sin(theta)
@@ -1850,9 +2321,34 @@ def _aaa_bary_weights_1st_kind(n):
 
 def try_aaa_decomposition_1d(joint_expr, x_sym, xi_sym, x_bounds, xi_bounds,
                               n_cheb=24, n_xi_samples=100, rtol=1e-8):
-    """1D bivariate rational decomposition via vector-AAA. Returns a plan
-    dict (with a fast numpy callable, see aaa_plan_to_callable_1d) or None
-    if the quality gate (rel_l2_error > 10*rtol) isn't met."""
+    """
+    1D bivariate rational decomposition via vector-valued AAA.
+
+    Builds a rational approximation of the symbol where the spatial 
+    dependence is handled by building a separate AAA fit for each 
+    Chebyshev node in `x`, followed by barycentric Lagrange interpolation.
+
+    Parameters
+    ----------
+    joint_expr : sympy.Expr
+        The joint symbolic expression to approximate.
+    x_sym, xi_sym : sympy.Symbol
+        Spatial and frequency variables.
+    x_bounds, xi_bounds : tuple of float
+        `(min, max)` bounds for the spatial and frequency variables.
+    n_cheb : int, default=24
+        Number of Chebyshev nodes in the spatial domain.
+    n_xi_samples : int, default=100
+        Number of sampling points in the frequency domain.
+    rtol : float, default=1e-8
+        Relative tolerance for the AAA algorithm and quality gate.
+
+    Returns
+    -------
+    dict or None
+        A plan dictionary containing the fit and metadata if the quality 
+        gate (relative L2 error ≤ 10·rtol) is met. Returns `None` otherwise.
+    """
     p_lamb = lambdify((x_sym, xi_sym), joint_expr, "numpy")
     x_nodes = _aaa_chebyshev_nodes(*x_bounds, n_cheb)
     xi_samples = np.linspace(*xi_bounds, n_xi_samples).astype(complex)
@@ -1873,9 +2369,26 @@ def try_aaa_decomposition_1d(joint_expr, x_sym, xi_sym, x_bounds, xi_bounds,
 
 
 def _aaa_eval_1d(plan, x_eval, xi_eval):
-    """Evaluate the AAA-fitted p(x,xi) at arbitrary points (barycentric
-    Lagrange interp in x from the exact Chebyshev-node slices, composed
-    with the AAA barycentric form in xi)."""
+    """
+    Evaluate the 1D AAA-fitted symbol p(x, ξ) at arbitrary points.
+
+    Composes barycentric Lagrange interpolation in `x` (from the exact 
+    Chebyshev-node slices) with the AAA barycentric form in `ξ`.
+
+    Parameters
+    ----------
+    plan : dict
+        The 1D AAA plan dictionary generated by `try_aaa_decomposition_1d`.
+    x_eval : ndarray
+        Spatial evaluation points.
+    xi_eval : ndarray
+        Frequency evaluation points.
+
+    Returns
+    -------
+    ndarray
+        The evaluated symbol, shape `(len(xi_eval), len(x_eval))`.
+    """
     fit, x_nodes = plan["fit"], plan["x_nodes"]
     xi_eval = np.atleast_1d(np.asarray(xi_eval, dtype=complex))
     x_eval = np.atleast_1d(np.asarray(x_eval, dtype=float))
@@ -1895,8 +2408,22 @@ def _aaa_eval_1d(plan, x_eval, xi_eval):
 
 
 def aaa_plan_to_callable_1d(plan):
-    """Wrap an aaa_decomposition_1d plan as p(x, xi) -> ndarray, matching
-    the symbol_func signature kohn_nirenberg_fft/nonperiodic expect."""
+    """
+    Wrap a 1D AAA decomposition plan into a fast NumPy callable.
+
+    Creates a function `p(x, ξ) → ndarray` that matches the `symbol_func` 
+    signature expected by `kohn_nirenberg_fft` and `kohn_nirenberg_nonperiodic`.
+
+    Parameters
+    ----------
+    plan : dict
+        The 1D AAA plan dictionary.
+
+    Returns
+    -------
+    callable
+        A function that evaluates the rational approximation.
+    """
     def p_approx(x, xi):
         x = np.asarray(x, dtype=float)
         xi_arr = np.asarray(xi, dtype=complex)
@@ -1917,10 +2444,33 @@ def try_aaa_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym,
                               x_bounds, y_bounds, xi_bounds, eta_bounds,
                               n_cheb_x=10, n_cheb_y=10,
                               n_xi_samples=30, n_eta_samples=30, rtol=1e-8):
-    """2D decomposition via sequential vector-AAA (xi support points chosen
-    at a representative eta slice -- see module docstring caveat above;
-    stage 2 compresses eta from the EXACT symbolic slice at each xi
-    support point). Returns a plan dict or None if the quality gate fails."""
+    """
+    2D decomposition via sequential vector-valued AAA.
+
+    Stage 1 compresses `ξ` using a representative `η` slice. Stage 2 
+    compresses `η` from the exact symbolic slice at each `ξ` support point.
+
+    Parameters
+    ----------
+    joint_expr : sympy.Expr
+        The 2D joint symbolic expression.
+    x_sym, y_sym, xi_sym, eta_sym : sympy.Symbol
+        Spatial and frequency variables.
+    x_bounds, y_bounds, xi_bounds, eta_bounds : tuple of float
+        `(min, max)` bounds for each variable.
+    n_cheb_x, n_cheb_y : int, default=10
+        Number of Chebyshev nodes in the spatial domains.
+    n_xi_samples, n_eta_samples : int, default=30
+        Number of sampling points in the frequency domains.
+    rtol : float, default=1e-8
+        Relative tolerance for the AAA algorithm and quality gate.
+
+    Returns
+    -------
+    dict or None
+        A plan dictionary containing the 2D fit if the quality gate 
+        (relative error ≤ 20·rtol) is met. Returns `None` otherwise.
+    """
     x_nodes = _aaa_chebyshev_nodes(*x_bounds, n_cheb_x)
     y_nodes = _aaa_chebyshev_nodes(*y_bounds, n_cheb_y)
     Nx, Ny = len(x_nodes), len(y_nodes)
@@ -1964,6 +2514,26 @@ def try_aaa_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym,
 
 
 def _interp_2d_tensor_chebyshev(vals_grid, x_nodes, y_nodes, x_eval, y_eval):
+    """
+    2D tensor-product barycentric Lagrange interpolation.
+
+    Interpolates a 2D grid of values evaluated at Chebyshev nodes to 
+    arbitrary evaluation points using barycentric weights.
+
+    Parameters
+    ----------
+    vals_grid : ndarray
+        The 2D array of values at the Chebyshev nodes.
+    x_nodes, y_nodes : ndarray
+        The 1D Chebyshev node coordinates for each axis.
+    x_eval, y_eval : ndarray
+        The arbitrary points at which to evaluate the interpolation.
+
+    Returns
+    -------
+    ndarray
+        The interpolated 2D array.
+    """
     bwx = _aaa_bary_weights_1st_kind(len(x_nodes))
     bwy = _aaa_bary_weights_1st_kind(len(y_nodes))
 
@@ -1992,6 +2562,26 @@ def _interp_2d_tensor_chebyshev(vals_grid, x_nodes, y_nodes, x_eval, y_eval):
 
 
 def _aaa_eval_2d(plan, x_eval, y_eval, xi_eval, eta_eval):
+    """
+    Evaluate the 2D AAA-fitted symbol p(x, y, ξ, η) at arbitrary points.
+
+    Combines the sequential vector-AAA fits in the frequency domain with 
+    2D tensor-product barycentric Lagrange interpolation in the spatial domain.
+
+    Parameters
+    ----------
+    plan : dict
+        The 2D AAA plan dictionary generated by `try_aaa_decomposition_2d`.
+    x_eval, y_eval : ndarray
+        Spatial evaluation points.
+    xi_eval, eta_eval : ndarray
+        Frequency evaluation points.
+
+    Returns
+    -------
+    ndarray
+        The evaluated symbol, shape `(len(xi_eval), len(eta_eval), len(x_eval), len(y_eval))`.
+    """
     x_eval = np.atleast_1d(np.asarray(x_eval, dtype=float))
     y_eval = np.atleast_1d(np.asarray(y_eval, dtype=float))
     xi_eval = np.atleast_1d(np.asarray(xi_eval, dtype=complex))
@@ -2018,9 +2608,22 @@ def _aaa_eval_2d(plan, x_eval, y_eval, xi_eval, eta_eval):
 
 
 def aaa_plan_to_callable_2d(plan):
-    """Wrap an aaa_decomposition_2d plan as p(x, y, xi, eta) -> ndarray,
-    matching the symbol_func signature kohn_nirenberg_fft/nonperiodic
-    expect for dim=2."""
+    """
+    Wrap a 2D AAA decomposition plan into a fast NumPy callable.
+
+    Creates a function `p(x, y, ξ, η) → ndarray` that matches the `symbol_func` 
+    signature expected by the 2D Kohn-Nirenberg quantization routines.
+
+    Parameters
+    ----------
+    plan : dict
+        The 2D AAA plan dictionary.
+
+    Returns
+    -------
+    callable
+        A function that evaluates the 2D rational approximation.
+    """
     def p_approx(x, y, xi, eta):
         x = np.asarray(x, dtype=float); y = np.asarray(y, dtype=float)
         xi_arr = np.asarray(xi, dtype=complex); eta_arr = np.asarray(eta, dtype=complex)
