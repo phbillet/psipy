@@ -1334,6 +1334,449 @@ class Metric:
                     H[i,j] = term
             return simplify(H) if do_simplify else H
 
+# ==========================================================================
+    # Tensor Algebra & Index Manipulation
+    # ==========================================================================
+
+    def inner_product(self, A, B, form_type='vector'):
+        """
+        Compute the inner product of two vector fields or two covector fields.
+
+        For vector fields A and B:
+            ⟨A, B⟩_g = g_ij A^i B^j
+
+        For covector fields (1-forms) A and B:
+            ⟨A, B⟩_g⁻¹ = g^ij A_i B_j
+
+        Parameters
+        ----------
+        A : tuple, list, or sympy.Expr
+            First vector field (A^1, A^2) or covector field (A_1, A_2).
+            For 1D metrics, a single sympy.Expr is expected.
+        B : tuple, list, or sympy.Expr
+            Second vector field (B^1, B^2) or covector field (B_1, B_2).
+            For 1D metrics, a single sympy.Expr is expected.
+        form_type : {'vector', 'covector'}, default 'vector'
+            Specifies whether A and B represent vector fields (contravariant)
+            or covector fields (covariant 1-forms).
+
+        Returns
+        -------
+        sympy.Expr
+            The simplified scalar inner product expression.
+        """
+        if self.dim == 1:
+            g = self.g_expr if form_type == 'vector' else self.g_inv_expr
+            return simplify(g * A * B)
+        
+        g = self.g_matrix if form_type == 'vector' else self.g_inv_matrix
+        res = sum(g[i, j] * A[i] * B[j] for i in range(2) for j in range(2))
+        return simplify(res)
+
+    def tensor_product(self, A, B):
+        """
+        Compute the outer (tensor) product of two vector or covector fields.
+
+        Computes T_ij = A_i B_j or T^ij = A^i B^j depending on input rank.
+
+        Parameters
+        ----------
+        A : tuple, list, or sympy.Expr
+            First vector or covector field components.
+        B : tuple, list, or sympy.Expr
+            Second vector or covector field components.
+
+        Returns
+        -------
+        sympy.Matrix or sympy.Expr
+            A 2×2 SymPy Matrix for 2D metrics representing the rank-2 tensor,
+            or a simplified SymPy expression for 1D metrics.
+        """
+        if self.dim == 1:
+            return simplify(A * B)
+        
+        return Matrix([[simplify(A[i] * B[j]) for j in range(2)] for i in range(2)])
+
+    def flat(self, V):
+        """
+        Apply the Flat (♭) musical isomorphism to lower tensor indices.
+
+        Converts a contravariant vector field V into its dual covariant 1-form V^♭:
+            V^♭_i = g_ij V^j
+
+        Parameters
+        ----------
+        V : tuple, list, or sympy.Expr
+            Contravariant vector field components (V^1, V^2) in 2D, or a scalar
+            component V^1 in 1D.
+
+        Returns
+        -------
+        tuple of sympy.Expr or sympy.Expr
+            A 2-tuple of 1-form components (V^♭_1, V^♭_2) for 2D metrics, or a
+            single SymPy expression for 1D metrics.
+        """
+        if self.dim == 1:
+            return simplify(self.g_expr * V)
+        
+        return tuple(simplify(sum(self.g_matrix[i, j] * V[j] for j in range(2))) for i in range(2))
+
+    def sharp(self, omega):
+        """
+        Apply the Sharp (♯) musical isomorphism to raise tensor indices.
+
+        Converts a covariant 1-form omega into its dual contravariant vector field ω^♯:
+            ω^♯^i = g^ij ω_j
+
+        Parameters
+        ----------
+        omega : tuple, list, or sympy.Expr
+            Covariant 1-form components (ω_1, ω_2) in 2D, or a scalar
+            component ω_1 in 1D.
+
+        Returns
+        -------
+        tuple of sympy.Expr or sympy.Expr
+            A 2-tuple of vector components (ω^♯^1, ω^♯^2) for 2D metrics, or a
+            single SymPy expression for 1D metrics.
+        """
+        if self.dim == 1:
+            return simplify(self.g_inv_expr * omega)
+        
+        return tuple(simplify(sum(self.g_inv_matrix[i, j] * omega[j] for j in range(2))) for i in range(2))
+
+    def trace(self, T, is_covariant=False):
+        """
+        Compute the metric trace of a rank-2 tensor field T.
+
+        If is_covariant=False (default), T is assumed to be a mixed (1,1)-tensor T^i_j,
+        and the trace is computed via standard diagonal summation:
+            Tr(T) = T^i_i = T^0_0 + T^1_1
+
+        If is_covariant=True, T is assumed to be a fully covariant (0,2)-tensor T_ij,
+        and the trace is computed via contraction with the inverse metric:
+            Tr_g(T) = g^ij T_ij
+
+        Parameters
+        ----------
+        T : sympy.Matrix or sympy.Expr
+            A 2×2 SymPy Matrix representing the rank-2 tensor for 2D metrics,
+            or a single expression for 1D metrics.
+        is_covariant : bool, default False
+            Whether T is a fully covariant tensor T_ij (True) or a mixed
+            tensor T^i_j (False).
+
+        Returns
+        -------
+        sympy.Expr
+            The simplified scalar trace.
+        """
+        if self.dim == 1:
+            if is_covariant:
+                return simplify(self.g_inv_expr * T)
+            return T  # Trace of a 1x1 mixed tensor is just the element itself
+        
+        if is_covariant:
+            res = sum(self.g_inv_matrix[i, j] * T[i, j] for i in range(2) for j in range(2))
+            return simplify(res)
+        else:
+            return simplify(T[0, 0] + T[1, 1])
+
+    # ==========================================================================
+    # Vector Calculus & Differential Operators
+    # ==========================================================================
+
+    def divergence(self, V):
+        """
+        Compute the Riemannian divergence of a contravariant vector field V.
+
+        Calculated using the coordinate formula involving the metric determinant:
+            div(V) = ∇_i V^i = (1 / √|g|) * ∂_i ( √|g| V^i )
+
+        Parameters
+        ----------
+        V : tuple, list, or sympy.Expr
+            Vector field components (V^1, V^2) for 2D metrics, or a single
+            expression V^1 for 1D metrics.
+
+        Returns
+        -------
+        sympy.Expr
+            The simplified scalar divergence expression.
+        """
+        if self.dim == 1:
+            x = self.coords[0]
+            return simplify(diff(self.sqrt_det_expr * V, x) / self.sqrt_det_expr)
+        
+        x, y = self.coords
+        V1, V2 = V
+        sqrt_g = self.sqrt_det_g
+        term = diff(sqrt_g * V1, x) + diff(sqrt_g * V2, y)
+        return simplify(term / sqrt_g)
+
+    def curl(self, V):
+        """
+        Compute the 2D scalar curl of a contravariant vector field V.
+
+        In 2D Riemannian geometry, the scalar curl represents the exterior derivative
+        of the flat 1-form V^♭ scaled by the volume element:
+            curl(V) = (1 / √|g|) * ( ∂_x(√|g| V^y) - ∂_y(√|g| V^x) )
+
+        For 1D metrics, the curl is identically zero.
+
+        Parameters
+        ----------
+        V : tuple, list, or sympy.Expr
+            Vector field components (V^1, V^2) for 2D metrics.
+
+        Returns
+        -------
+        sympy.Expr
+            The scalar curl expression for 2D metrics, or sympify(0) for 1D metrics.
+        """
+        if self.dim == 1:
+            return sympify(0)
+        
+        x, y = self.coords
+        V1, V2 = V
+        
+        # 1. Lower indices: V^♭
+        alpha = self.flat(V)
+        
+        # 2. Exterior derivative: d(α) = (∂_x α_y - ∂_y α_x) dx∧dy
+        d_alpha = diff(alpha[1], x) - diff(alpha[0], y)
+        
+        # 3. Hodge star: *d(α) = d_alpha / √|g|
+        return simplify(d_alpha / self.sqrt_det_g)
+
+    def lie_bracket(self, X, Y):
+        """
+        Compute the Lie bracket (commutator) [X, Y] of two vector fields.
+
+        In local coordinates:
+            [X, Y]^i = X^j ∂_j Y^i - Y^j ∂_j X^i
+
+        Parameters
+        ----------
+        X : tuple, list, or sympy.Expr
+            First vector field components (X^1, X^2) or scalar X^1 in 1D.
+        Y : tuple, list, or sympy.Expr
+            Second vector field components (Y^1, Y^2) or scalar Y^1 in 1D.
+
+        Returns
+        -------
+        tuple of sympy.Expr or sympy.Expr
+            A 2-tuple of vector field components ([X, Y]^1, [X, Y]^2) for 2D metrics,
+            or a single SymPy expression for 1D metrics.
+        """
+        if self.dim == 1:
+            x = self.coords[0]
+            return simplify(X * diff(Y, x) - Y * diff(X, x))
+        
+        x, y = self.coords
+        X1, X2 = X
+        Y1, Y2 = Y
+        
+        b1 = X1*diff(Y1, x) + X2*diff(Y1, y) - (Y1*diff(X1, x) + Y2*diff(X1, y))
+        b2 = X1*diff(Y2, x) + X2*diff(Y2, y) - (Y1*diff(X2, x) + Y2*diff(X2, y))
+        
+        return (simplify(b1), simplify(b2))
+
+    def lie_derivative(self, X, T, obj_type='vector'):
+        """
+        Compute the Lie derivative ℒ_X T of a tensor field T along a vector field X.
+
+        Formulas by object type:
+        - Vector field ('vector'):
+            ℒ_X V = [X, V]
+        - Covector 1-form ('1form'):
+            (ℒ_X ω)_i = X^j ∂_j ω_i + ω_j ∂_i X^j
+        - Metric tensor ('metric'):
+            ℒ_X g_ij = X^k ∂_k g_ij + g_kj ∂_i X^k + g_ik ∂_j X^k
+
+        Parameters
+        ----------
+        X : tuple, list, or sympy.Expr
+            Directional vector field components X^i.
+        T : tuple, list, sympy.Matrix, or sympy.Expr
+            Tensor field to differentiate (vector field, 1-form, or metric).
+        obj_type : {'vector', '1form', 'metric'}, default 'vector'
+            Type of tensor field represented by T.
+
+        Returns
+        -------
+        tuple, sympy.Matrix, or sympy.Expr
+            The resulting Lie-differentiated tensor in the matching representation.
+
+        Raises
+        ------
+        ValueError
+            If obj_type is not 'vector', '1form', or 'metric'.
+        """
+        if obj_type == 'vector':
+            return self.lie_bracket(X, T)
+        
+        elif obj_type == '1form':
+            if self.dim == 1:
+                x = self.coords[0]
+                return simplify(X * diff(T, x) + T * diff(X, x))
+            
+            x, y = self.coords
+            X1, X2 = X
+            T1, T2 = T
+            # (L_X T)_i = X^j ∂_j T_i + T_j ∂_i X^j
+            # For i=x (u): 
+            L1 = X1*diff(T1, x) + X2*diff(T1, y) + T1*diff(X1, x) + T2*diff(X2, x)
+            # For i=y (v): 
+            L2 = X1*diff(T2, x) + X2*diff(T2, y) + T1*diff(X1, y) + T2*diff(X2, y)
+            
+            return (simplify(L1), simplify(L2))
+        
+        elif obj_type == 'metric':
+            # L_X g_ij = X^k ∂_k g_ij + g_kj ∂_i X^k + g_ik ∂_j X^k
+            if self.dim == 1:
+                x = self.coords[0]
+                return simplify(X * diff(self.g_expr, x) + 2 * self.g_expr * diff(X, x))
+            
+            x, y = self.coords
+            X1, X2 = X
+            g = self.g_matrix
+            L = zeros(2, 2)
+            for i in range(2):
+                for j in range(2):
+                    term = X1*diff(g[i, j], x) + X2*diff(g[i, j], y)
+                    for k in range(2):
+                        Xk = X1 if k == 0 else X2
+                        term += g[k, j]*diff(Xk, [x, y][i]) + g[i, k]*diff(Xk, [x, y][j])
+                    L[i, j] = simplify(term)
+            return L
+        else:
+            raise ValueError("obj_type must be 'vector', '1form', or 'metric'.")
+
+    # ==========================================================================
+    # Geometric Measurements
+    # ==========================================================================
+
+    def norm(self, V):
+        """
+        Compute the Riemannian norm (length) ||V||_g of a vector field V.
+
+        Calculated via:
+            ||V||_g = √( g_ij V^i V^j )
+
+        Parameters
+        ----------
+        V : tuple, list, or sympy.Expr
+            Contravariant vector field components.
+
+        Returns
+        -------
+        sympy.Expr
+            The simplified Riemannian magnitude expression.
+        """
+        return simplify(sqrt(self.inner_product(V, V, form_type='vector')))
+
+    def angle(self, X, Y):
+        """
+        Compute the pointwise angle θ between two vector fields X and Y.
+
+        Defined by:
+            θ = arccos( ⟨X, Y⟩_g / ( ||X||_g * ||Y||_g ) )
+
+        Parameters
+        ----------
+        X : tuple, list, or sympy.Expr
+            First vector field components.
+        Y : tuple, list, or sympy.Expr
+            Second vector field components.
+
+        Returns
+        -------
+        sympy.Expr
+            The angle in radians as a SymPy expression involving acos.
+        """
+        ip = self.inner_product(X, Y, form_type='vector')
+        nX = self.norm(X)
+        nY = self.norm(Y)
+        from sympy import acos
+        return simplify(acos(ip / (nX * nY)))
+
+    def cross_product_2d(self, X, Y):
+        """
+        Compute the 2D Riemannian pseudo-cross product (oriented area element).
+
+        Yields the signed area of the parallelogram formed by vectors X and Y:
+            X ×_g Y = √|g| * ( X^1 Y^2 - X^2 Y^1 )
+
+        For 1D metrics, returns sympify(0).
+
+        Parameters
+        ----------
+        X : tuple or list
+            First vector field components (X^1, X^2).
+        Y : tuple or list
+            Second vector field components (Y^1, Y^2).
+
+        Returns
+        -------
+        sympy.Expr
+            The signed area scalar expression for 2D metrics, or sympify(0) for 1D.
+        """
+        if self.dim == 1:
+            return sympify(0)
+        return simplify(self.sqrt_det_g * (X[0] * Y[1] - X[1] * Y[0]))
+
+    # ==========================================================================
+    # Pullback
+    # ==========================================================================
+
+    def pullback_1form(self, phi, omega, new_coords):
+        """
+        Compute the pullback ϕ*ω of a 1-form ω under a smooth map ϕ.
+
+        Given a coordinate transformation or map ϕ: N -> M where M has coordinates x^i
+        and N has coordinates y^j:
+            (ϕ*ω)_j(y) = ∑_i ω_i(ϕ(y)) * (∂ϕ^i / ∂y^j)
+
+        Parameters
+        ----------
+        phi : tuple of sympy.Expr
+            The mapping functions expressing old coordinates in terms of new_coords.
+            E.g., for (u, v) -> (x, y), phi = (x(u, v), y(u, v)).
+        omega : tuple of sympy.Expr
+            Components (ω_1, ω_2) of the 1-form in the target manifold coordinates.
+        new_coords : tuple of sympy.Symbol
+            The coordinate symbols of the domain manifold.
+
+        Returns
+        -------
+        tuple of sympy.Expr
+            Components of the pulled-back 1-form expressed in new_coords.
+        """
+        # 1. Substitute old coordinates in omega with the map phi
+        omega_sub = []
+        for w in omega:
+            w_sub = w
+            for old_c, new_c_expr in zip(self.coords, phi):
+                w_sub = w_sub.subs(old_c, new_c_expr)
+            omega_sub.append(w_sub)
+
+        # 2. Compute the Jacobian matrix of the map phi
+        J = []
+        for i in range(self.dim):
+            row = []
+            for j in range(len(new_coords)):
+                row.append(diff(phi[i], new_coords[j]))
+            J.append(row)
+
+        # 3. Apply pullback formula: alpha_new_j = sum_i omega_sub_i * (d phi_i / d new_coord_j)
+        alpha_new = []
+        for j in range(len(new_coords)):
+            term = sum(omega_sub[i] * J[i][j] for i in range(self.dim))
+            alpha_new.append(simplify(term))
+
+        return tuple(alpha_new)
+
 # ============================================================================
 # Stand-alone helper functions (dimension-dispatching)
 # ============================================================================
