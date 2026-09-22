@@ -1460,6 +1460,488 @@
                         <span class="n">term</span> <span class="o">-=</span> <span class="n">Gamma</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">f1</span> <span class="k">if</span> <span class="n">k</span><span class="o">==</span><span class="mi">0</span> <span class="k">else</span> <span class="n">f2</span><span class="p">)</span>
                     <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">term</span>
             <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">H</span><span class="p">)</span> <span class="k">if</span> <span class="n">do_simplify</span> <span class="k">else</span> <span class="n">H</span></div>
+
+
+<span class="c1"># ==========================================================================</span>
+    <span class="c1"># Tensor Algebra &amp; Index Manipulation</span>
+    <span class="c1"># ==========================================================================</span>
+
+<div class="viewcode-block" id="Metric.inner_product">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.inner_product">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">inner_product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">form_type</span><span class="o">=</span><span class="s1">'vector'</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the inner product of two vector fields or two covector fields.</span>
+
+<span class="sd">        For vector fields A and B:</span>
+<span class="sd">            ⟨A, B⟩_g = g_ij A^i B^j</span>
+
+<span class="sd">        For covector fields (1-forms) A and B:</span>
+<span class="sd">            ⟨A, B⟩_g⁻¹ = g^ij A_i B_j</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        A : tuple, list, or sympy.Expr</span>
+<span class="sd">            First vector field (A^1, A^2) or covector field (A_1, A_2).</span>
+<span class="sd">            For 1D metrics, a single sympy.Expr is expected.</span>
+<span class="sd">        B : tuple, list, or sympy.Expr</span>
+<span class="sd">            Second vector field (B^1, B^2) or covector field (B_1, B_2).</span>
+<span class="sd">            For 1D metrics, a single sympy.Expr is expected.</span>
+<span class="sd">        form_type : {'vector', 'covector'}, default 'vector'</span>
+<span class="sd">            Specifies whether A and B represent vector fields (contravariant)</span>
+<span class="sd">            or covector fields (covariant 1-forms).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The simplified scalar inner product expression.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_expr</span> <span class="k">if</span> <span class="n">form_type</span> <span class="o">==</span> <span class="s1">'vector'</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_inv_expr</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">g</span> <span class="o">*</span> <span class="n">A</span> <span class="o">*</span> <span class="n">B</span><span class="p">)</span>
+        
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_matrix</span> <span class="k">if</span> <span class="n">form_type</span> <span class="o">==</span> <span class="s1">'vector'</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_inv_matrix</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">B</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">res</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Metric.tensor_product">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.tensor_product">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tensor_product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the outer (tensor) product of two vector or covector fields.</span>
+
+<span class="sd">        Computes T_ij = A_i B_j or T^ij = A^i B^j depending on input rank.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        A : tuple, list, or sympy.Expr</span>
+<span class="sd">            First vector or covector field components.</span>
+<span class="sd">        B : tuple, list, or sympy.Expr</span>
+<span class="sd">            Second vector or covector field components.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Matrix or sympy.Expr</span>
+<span class="sd">            A 2×2 SymPy Matrix for 2D metrics representing the rank-2 tensor,</span>
+<span class="sd">            or a simplified SymPy expression for 1D metrics.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">A</span> <span class="o">*</span> <span class="n">B</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">Matrix</span><span class="p">([[</span><span class="n">simplify</span><span class="p">(</span><span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">B</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)])</span></div>
+
+
+<div class="viewcode-block" id="Metric.flat">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.flat">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Apply the Flat (♭) musical isomorphism to lower tensor indices.</span>
+
+<span class="sd">        Converts a contravariant vector field V into its dual covariant 1-form V^♭:</span>
+<span class="sd">            V^♭_i = g_ij V^j</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        V : tuple, list, or sympy.Expr</span>
+<span class="sd">            Contravariant vector field components (V^1, V^2) in 2D, or a scalar</span>
+<span class="sd">            component V^1 in 1D.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of sympy.Expr or sympy.Expr</span>
+<span class="sd">            A 2-tuple of 1-form components (V^♭_1, V^♭_2) for 2D metrics, or a</span>
+<span class="sd">            single SymPy expression for 1D metrics.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g_expr</span> <span class="o">*</span> <span class="n">V</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">V</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Metric.sharp">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.sharp">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sharp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">omega</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Apply the Sharp (♯) musical isomorphism to raise tensor indices.</span>
+
+<span class="sd">        Converts a covariant 1-form omega into its dual contravariant vector field ω^♯:</span>
+<span class="sd">            ω^♯^i = g^ij ω_j</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        omega : tuple, list, or sympy.Expr</span>
+<span class="sd">            Covariant 1-form components (ω_1, ω_2) in 2D, or a scalar</span>
+<span class="sd">            component ω_1 in 1D.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of sympy.Expr or sympy.Expr</span>
+<span class="sd">            A 2-tuple of vector components (ω^♯^1, ω^♯^2) for 2D metrics, or a</span>
+<span class="sd">            single SymPy expression for 1D metrics.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g_inv_expr</span> <span class="o">*</span> <span class="n">omega</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g_inv_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">omega</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Metric.trace">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.trace">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">is_covariant</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the metric trace of a rank-2 tensor field T.</span>
+
+<span class="sd">        If is_covariant=False (default), T is assumed to be a mixed (1,1)-tensor T^i_j,</span>
+<span class="sd">        and the trace is computed via standard diagonal summation:</span>
+<span class="sd">            Tr(T) = T^i_i = T^0_0 + T^1_1</span>
+
+<span class="sd">        If is_covariant=True, T is assumed to be a fully covariant (0,2)-tensor T_ij,</span>
+<span class="sd">        and the trace is computed via contraction with the inverse metric:</span>
+<span class="sd">            Tr_g(T) = g^ij T_ij</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        T : sympy.Matrix or sympy.Expr</span>
+<span class="sd">            A 2×2 SymPy Matrix representing the rank-2 tensor for 2D metrics,</span>
+<span class="sd">            or a single expression for 1D metrics.</span>
+<span class="sd">        is_covariant : bool, default False</span>
+<span class="sd">            Whether T is a fully covariant tensor T_ij (True) or a mixed</span>
+<span class="sd">            tensor T^i_j (False).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The simplified scalar trace.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">is_covariant</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g_inv_expr</span> <span class="o">*</span> <span class="n">T</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">T</span>  <span class="c1"># Trace of a 1x1 mixed tensor is just the element itself</span>
+        
+        <span class="k">if</span> <span class="n">is_covariant</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g_inv_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">T</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">T</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">T</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span></div>
+
+
+    <span class="c1"># ==========================================================================</span>
+    <span class="c1"># Vector Calculus &amp; Differential Operators</span>
+    <span class="c1"># ==========================================================================</span>
+
+<div class="viewcode-block" id="Metric.divergence">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.divergence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">divergence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the Riemannian divergence of a contravariant vector field V.</span>
+
+<span class="sd">        Calculated using the coordinate formula involving the metric determinant:</span>
+<span class="sd">            div(V) = ∇_i V^i = (1 / √|g|) * ∂_i ( √|g| V^i )</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        V : tuple, list, or sympy.Expr</span>
+<span class="sd">            Vector field components (V^1, V^2) for 2D metrics, or a single</span>
+<span class="sd">            expression V^1 for 1D metrics.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The simplified scalar divergence expression.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_expr</span> <span class="o">*</span> <span class="n">V</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_expr</span><span class="p">)</span>
+        
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span>
+        <span class="n">V1</span><span class="p">,</span> <span class="n">V2</span> <span class="o">=</span> <span class="n">V</span>
+        <span class="n">sqrt_g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_g</span>
+        <span class="n">term</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">sqrt_g</span> <span class="o">*</span> <span class="n">V1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">diff</span><span class="p">(</span><span class="n">sqrt_g</span> <span class="o">*</span> <span class="n">V2</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">term</span> <span class="o">/</span> <span class="n">sqrt_g</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Metric.curl">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.curl">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">curl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the 2D scalar curl of a contravariant vector field V.</span>
+
+<span class="sd">        In 2D Riemannian geometry, the scalar curl represents the exterior derivative</span>
+<span class="sd">        of the flat 1-form V^♭ scaled by the volume element:</span>
+<span class="sd">            curl(V) = (1 / √|g|) * ( ∂_x(√|g| V^y) - ∂_y(√|g| V^x) )</span>
+
+<span class="sd">        For 1D metrics, the curl is identically zero.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        V : tuple, list, or sympy.Expr</span>
+<span class="sd">            Vector field components (V^1, V^2) for 2D metrics.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The scalar curl expression for 2D metrics, or sympify(0) for 1D metrics.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span>
+        <span class="n">V1</span><span class="p">,</span> <span class="n">V2</span> <span class="o">=</span> <span class="n">V</span>
+        
+        <span class="c1"># 1. Lower indices: V^♭</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flat</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+        
+        <span class="c1"># 2. Exterior derivative: d(α) = (∂_x α_y - ∂_y α_x) dx∧dy</span>
+        <span class="n">d_alpha</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">alpha</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">diff</span><span class="p">(</span><span class="n">alpha</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">y</span><span class="p">)</span>
+        
+        <span class="c1"># 3. Hodge star: *d(α) = d_alpha / √|g|</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">d_alpha</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_g</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Metric.lie_bracket">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.lie_bracket">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">lie_bracket</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the Lie bracket (commutator) [X, Y] of two vector fields.</span>
+
+<span class="sd">        In local coordinates:</span>
+<span class="sd">            [X, Y]^i = X^j ∂_j Y^i - Y^j ∂_j X^i</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : tuple, list, or sympy.Expr</span>
+<span class="sd">            First vector field components (X^1, X^2) or scalar X^1 in 1D.</span>
+<span class="sd">        Y : tuple, list, or sympy.Expr</span>
+<span class="sd">            Second vector field components (Y^1, Y^2) or scalar Y^1 in 1D.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of sympy.Expr or sympy.Expr</span>
+<span class="sd">            A 2-tuple of vector field components ([X, Y]^1, [X, Y]^2) for 2D metrics,</span>
+<span class="sd">            or a single SymPy expression for 1D metrics.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">X</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">Y</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
+        
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span>
+        <span class="n">X1</span><span class="p">,</span> <span class="n">X2</span> <span class="o">=</span> <span class="n">X</span>
+        <span class="n">Y1</span><span class="p">,</span> <span class="n">Y2</span> <span class="o">=</span> <span class="n">Y</span>
+        
+        <span class="n">b1</span> <span class="o">=</span> <span class="n">X1</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">Y1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">X2</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">Y1</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">Y1</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">X1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">Y2</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">X1</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="n">b2</span> <span class="o">=</span> <span class="n">X1</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">Y2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">X2</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">Y2</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">Y1</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">X2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">Y2</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">X2</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        
+        <span class="k">return</span> <span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">b1</span><span class="p">),</span> <span class="n">simplify</span><span class="p">(</span><span class="n">b2</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Metric.lie_derivative">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.lie_derivative">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">lie_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">obj_type</span><span class="o">=</span><span class="s1">'vector'</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the Lie derivative ℒ_X T of a tensor field T along a vector field X.</span>
+
+<span class="sd">        Formulas by object type:</span>
+<span class="sd">        - Vector field ('vector'):</span>
+<span class="sd">            ℒ_X V = [X, V]</span>
+<span class="sd">        - Covector 1-form ('1form'):</span>
+<span class="sd">            (ℒ_X ω)_i = X^j ∂_j ω_i + ω_j ∂_i X^j</span>
+<span class="sd">        - Metric tensor ('metric'):</span>
+<span class="sd">            ℒ_X g_ij = X^k ∂_k g_ij + g_kj ∂_i X^k + g_ik ∂_j X^k</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : tuple, list, or sympy.Expr</span>
+<span class="sd">            Directional vector field components X^i.</span>
+<span class="sd">        T : tuple, list, sympy.Matrix, or sympy.Expr</span>
+<span class="sd">            Tensor field to differentiate (vector field, 1-form, or metric).</span>
+<span class="sd">        obj_type : {'vector', '1form', 'metric'}, default 'vector'</span>
+<span class="sd">            Type of tensor field represented by T.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple, sympy.Matrix, or sympy.Expr</span>
+<span class="sd">            The resulting Lie-differentiated tensor in the matching representation.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If obj_type is not 'vector', '1form', or 'metric'.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">obj_type</span> <span class="o">==</span> <span class="s1">'vector'</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lie_bracket</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">T</span><span class="p">)</span>
+        
+        <span class="k">elif</span> <span class="n">obj_type</span> <span class="o">==</span> <span class="s1">'1form'</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">X</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">T</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
+            
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span>
+            <span class="n">X1</span><span class="p">,</span> <span class="n">X2</span> <span class="o">=</span> <span class="n">X</span>
+            <span class="n">T1</span><span class="p">,</span> <span class="n">T2</span> <span class="o">=</span> <span class="n">T</span>
+            <span class="c1"># (L_X T)_i = X^j ∂_j T_i + T_j ∂_i X^j</span>
+            <span class="c1"># For i=x (u): </span>
+            <span class="n">L1</span> <span class="o">=</span> <span class="n">X1</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">T1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">X2</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">T1</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">+</span> <span class="n">T1</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">X1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">T2</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">X2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+            <span class="c1"># For i=y (v): </span>
+            <span class="n">L2</span> <span class="o">=</span> <span class="n">X1</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">T2</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">X2</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">T2</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">+</span> <span class="n">T1</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">X1</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">+</span> <span class="n">T2</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">X2</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+            
+            <span class="k">return</span> <span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">L1</span><span class="p">),</span> <span class="n">simplify</span><span class="p">(</span><span class="n">L2</span><span class="p">))</span>
+        
+        <span class="k">elif</span> <span class="n">obj_type</span> <span class="o">==</span> <span class="s1">'metric'</span><span class="p">:</span>
+            <span class="c1"># L_X g_ij = X^k ∂_k g_ij + g_kj ∂_i X^k + g_ik ∂_j X^k</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">X</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g_expr</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_expr</span> <span class="o">*</span> <span class="n">diff</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
+            
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span>
+            <span class="n">X1</span><span class="p">,</span> <span class="n">X2</span> <span class="o">=</span> <span class="n">X</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">g_matrix</span>
+            <span class="n">L</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                    <span class="n">term</span> <span class="o">=</span> <span class="n">X1</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">],</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">X2</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">],</span> <span class="n">y</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+                        <span class="n">Xk</span> <span class="o">=</span> <span class="n">X1</span> <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">X2</span>
+                        <span class="n">term</span> <span class="o">+=</span> <span class="n">g</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">Xk</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">][</span><span class="n">i</span><span class="p">])</span> <span class="o">+</span> <span class="n">g</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span><span class="o">*</span><span class="n">diff</span><span class="p">(</span><span class="n">Xk</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">][</span><span class="n">j</span><span class="p">])</span>
+                    <span class="n">L</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">L</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"obj_type must be 'vector', '1form', or 'metric'."</span><span class="p">)</span></div>
+
+
+    <span class="c1"># ==========================================================================</span>
+    <span class="c1"># Geometric Measurements</span>
+    <span class="c1"># ==========================================================================</span>
+
+<div class="viewcode-block" id="Metric.norm">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.norm">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">norm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the Riemannian norm (length) ||V||_g of a vector field V.</span>
+
+<span class="sd">        Calculated via:</span>
+<span class="sd">            ||V||_g = √( g_ij V^i V^j )</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        V : tuple, list, or sympy.Expr</span>
+<span class="sd">            Contravariant vector field components.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The simplified Riemannian magnitude expression.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inner_product</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">form_type</span><span class="o">=</span><span class="s1">'vector'</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="Metric.angle">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.angle">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">angle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the pointwise angle θ between two vector fields X and Y.</span>
+
+<span class="sd">        Defined by:</span>
+<span class="sd">            θ = arccos( ⟨X, Y⟩_g / ( ||X||_g * ||Y||_g ) )</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : tuple, list, or sympy.Expr</span>
+<span class="sd">            First vector field components.</span>
+<span class="sd">        Y : tuple, list, or sympy.Expr</span>
+<span class="sd">            Second vector field components.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The angle in radians as a SymPy expression involving acos.</span>
+<span class="sd">        """</span>
+        <span class="n">ip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner_product</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">form_type</span><span class="o">=</span><span class="s1">'vector'</span><span class="p">)</span>
+        <span class="n">nX</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">nY</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">acos</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">acos</span><span class="p">(</span><span class="n">ip</span> <span class="o">/</span> <span class="p">(</span><span class="n">nX</span> <span class="o">*</span> <span class="n">nY</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="Metric.cross_product_2d">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.cross_product_2d">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cross_product_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the 2D Riemannian pseudo-cross product (oriented area element).</span>
+
+<span class="sd">        Yields the signed area of the parallelogram formed by vectors X and Y:</span>
+<span class="sd">            X ×_g Y = √|g| * ( X^1 Y^2 - X^2 Y^1 )</span>
+
+<span class="sd">        For 1D metrics, returns sympify(0).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : tuple or list</span>
+<span class="sd">            First vector field components (X^1, X^2).</span>
+<span class="sd">        Y : tuple or list</span>
+<span class="sd">            Second vector field components (Y^1, Y^2).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The signed area scalar expression for 2D metrics, or sympify(0) for 1D.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sqrt_det_g</span> <span class="o">*</span> <span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">Y</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">X</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">Y</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
+
+
+    <span class="c1"># ==========================================================================</span>
+    <span class="c1"># Pullback</span>
+    <span class="c1"># ==========================================================================</span>
+
+<div class="viewcode-block" id="Metric.pullback_1form">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.pullback_1form">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pullback_1form</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">new_coords</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the pullback ϕ*ω of a 1-form ω under a smooth map ϕ.</span>
+
+<span class="sd">        Given a coordinate transformation or map ϕ: N -&gt; M where M has coordinates x^i</span>
+<span class="sd">        and N has coordinates y^j:</span>
+<span class="sd">            (ϕ*ω)_j(y) = ∑_i ω_i(ϕ(y)) * (∂ϕ^i / ∂y^j)</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        phi : tuple of sympy.Expr</span>
+<span class="sd">            The mapping functions expressing old coordinates in terms of new_coords.</span>
+<span class="sd">            E.g., for (u, v) -&gt; (x, y), phi = (x(u, v), y(u, v)).</span>
+<span class="sd">        omega : tuple of sympy.Expr</span>
+<span class="sd">            Components (ω_1, ω_2) of the 1-form in the target manifold coordinates.</span>
+<span class="sd">        new_coords : tuple of sympy.Symbol</span>
+<span class="sd">            The coordinate symbols of the domain manifold.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of sympy.Expr</span>
+<span class="sd">            Components of the pulled-back 1-form expressed in new_coords.</span>
+<span class="sd">        """</span>
+        <span class="c1"># 1. Substitute old coordinates in omega with the map phi</span>
+        <span class="n">omega_sub</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">omega</span><span class="p">:</span>
+            <span class="n">w_sub</span> <span class="o">=</span> <span class="n">w</span>
+            <span class="k">for</span> <span class="n">old_c</span><span class="p">,</span> <span class="n">new_c_expr</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">phi</span><span class="p">):</span>
+                <span class="n">w_sub</span> <span class="o">=</span> <span class="n">w_sub</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">old_c</span><span class="p">,</span> <span class="n">new_c_expr</span><span class="p">)</span>
+            <span class="n">omega_sub</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w_sub</span><span class="p">)</span>
+
+        <span class="c1"># 2. Compute the Jacobian matrix of the map phi</span>
+        <span class="n">J</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_coords</span><span class="p">)):</span>
+                <span class="n">row</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">phi</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">new_coords</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+            <span class="n">J</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+
+        <span class="c1"># 3. Apply pullback formula: alpha_new_j = sum_i omega_sub_i * (d phi_i / d new_coord_j)</span>
+        <span class="n">alpha_new</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_coords</span><span class="p">)):</span>
+            <span class="n">term</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">omega_sub</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">))</span>
+            <span class="n">alpha_new</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">term</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">alpha_new</span><span class="p">)</span></div>
 </div>
 
 
