@@ -102,59 +102,59 @@
 
 <span class="sd">Overview</span>
 <span class="sd">--------</span>
-<span class="sd">The ``matpsiop`` submodule extends the scalar pseudo-differential </span>
-<span class="sd">framework to systems of coupled partial differential equations, </span>
-<span class="sd">Dirac-type equations, and matrix-valued fields (such as density </span>
-<span class="sd">matrices or matrix Green's functions). </span>
+<span class="sd">The `matpsiop` submodule extends the scalar pseudo-differential</span>
+<span class="sd">framework to systems of coupled partial differential equations,</span>
+<span class="sd">Dirac-type equations, and matrix-valued fields (such as density</span>
+<span class="sd">matrices or matrix Green's functions).</span>
 
-<span class="sd">It provides the ``MatrixPseudoDifferentialOperator`` class, which </span>
-<span class="sd">wraps an N × N matrix of scalar symbols Pᵢⱼ(x, ξ) </span>
-<span class="sd">and orchestrates their numerical application and symbolic calculus. </span>
-<span class="sd">Because matrix multiplication is inherently non-commutative, this </span>
-<span class="sd">module implements specialized asymptotic expansions for composition, </span>
+<span class="sd">It provides the :class:`MatrixPseudoDifferentialOperator` class, which</span>
+<span class="sd">wraps an N × N matrix of scalar symbols Pᵢⱼ(x, ξ)</span>
+<span class="sd">and orchestrates their numerical application and symbolic calculus.</span>
+<span class="sd">Because matrix multiplication is inherently non-commutative, this</span>
+<span class="sd">module implements specialized asymptotic expansions for composition,</span>
 <span class="sd">commutators, and exponentials that preserve matrix ordering.</span>
 
 <span class="sd">Main object</span>
 <span class="sd">-----------</span>
-<span class="sd">``MatrixPseudoDifferentialOperator``</span>
-<span class="sd">    N × N matrix-valued pseudo-differential operator. Each entry </span>
-<span class="sd">    Pᵢⱼ is internally wrapped as its own scalar </span>
-<span class="sd">    ``PseudoDifferentialOperator``. This design allows the matrix </span>
-<span class="sd">    operator to seamlessly inherit all scalar numerical backends </span>
-<span class="sd">    (FFT, Peetre decomposition, NUFFT, AAA, low-rank) entrywise, </span>
+<span class="sd">:class:`MatrixPseudoDifferentialOperator`</span>
+<span class="sd">    N × N matrix-valued pseudo-differential operator. Each entry</span>
+<span class="sd">    Pᵢⱼ is internally wrapped as its own scalar</span>
+<span class="sd">    :class:`PseudoDifferentialOperator`. This design allows the matrix</span>
+<span class="sd">    operator to seamlessly inherit all scalar numerical backends</span>
+<span class="sd">    (FFT, Peetre decomposition, NUFFT, AAA, low-rank) entrywise,</span>
 <span class="sd">    without requiring separate matrix-specific numerical kernels.</span>
 
 <span class="sd">Key features</span>
 <span class="sd">------------</span>
 <span class="sd">Vector and matrix field application:</span>
 <span class="sd">    Entrywise application to vector fields u = (u₁, …, uₙ);</span>
-<span class="sd">    left and right matrix-multiplication actions on N × N </span>
-<span class="sd">    matrix-valued fields (essential for Sylvester-type equations </span>
+<span class="sd">    left and right matrix-multiplication actions on N × N</span>
+<span class="sd">    matrix-valued fields (essential for Sylvester-type equations</span>
 <span class="sd">    ∂ₜU = P U - U Q).</span>
 
 <span class="sd">Symbol matrix evaluation and spectral analysis:</span>
-<span class="sd">    Pointwise numerical evaluation of the full (…, N, N) symbol </span>
+<span class="sd">    Pointwise numerical evaluation of the full (…, N, N) symbol</span>
 <span class="sd">    on spatial/frequency grids;</span>
-<span class="sd">    pointwise eigenvalues and eigenvectors of the symbol matrix </span>
-<span class="sd">    (closed-form for N=2, used to build per-branch Hamiltonians </span>
+<span class="sd">    pointwise eigenvalues and eigenvectors of the symbol matrix</span>
+<span class="sd">    (closed-form for N=2, used to build per-branch Hamiltonians</span>
 <span class="sd">    for coupled systems).</span>
 
 <span class="sd">Non-commutative asymptotic symbolic calculus:</span>
-<span class="sd">    Matrix composition P ∘ Q (exact for constant-coefficient </span>
+<span class="sd">    Matrix composition P ∘ Q (exact for constant-coefficient</span>
 <span class="sd">    entries, non-commutative even at 0th order);</span>
 <span class="sd">    matrix commutators [P, Q];</span>
-<span class="sd">    formal left and right asymptotic inverses (requiring an </span>
+<span class="sd">    formal left and right asymptotic inverses (requiring an</span>
 <span class="sd">    invertible principal symbol);</span>
 <span class="sd">    formal Hermitian adjoint P*;</span>
-<span class="sd">    matrix exponential symbols exp(t · Op[P]) for </span>
+<span class="sd">    matrix exponential symbols exp(t · Op[P]) for</span>
 <span class="sd">    propagators of coupled/vector-valued PDE systems.</span>
 
 <span class="sd">Mathematical background</span>
 <span class="sd">-----------------------</span>
 <span class="sd">Matrix-valued symbols and quantization</span>
-<span class="sd">    A matrix pseudo-differential operator P acting on a </span>
-<span class="sd">    vector field u(x) = (u₁(x), …, uₙ(x))ᵀ is defined by </span>
-<span class="sd">    an N × N matrix of scalar symbols P(x, ξ). The </span>
+<span class="sd">    A matrix pseudo-differential operator P acting on a</span>
+<span class="sd">    vector field u(x) = (u₁(x), …, uₙ(x))ᵀ is defined by</span>
+<span class="sd">    an N × N matrix of scalar symbols P(x, ξ). The</span>
 <span class="sd">    Kohn–Nirenberg quantization is applied entrywise:</span>
 
 <span class="sd">        (P u)ᵢ(x) = (2π)⁻ᵈ Σⱼ ∫ exp(i x·ξ) Pᵢⱼ(x, ξ) ûⱼ(ξ) dξ</span>
@@ -165,7 +165,7 @@
 <span class="sd">    column-wise application of the scalar entries.</span>
 
 <span class="sd">Asymptotic matrix composition</span>
-<span class="sd">    The symbol of the composition P ∘ Q </span>
+<span class="sd">    The symbol of the composition P ∘ Q</span>
 <span class="sd">    admits the Kohn–Nirenberg asymptotic expansion:</span>
 
 <span class="sd">        (P ∘ Q)ᵢₖ(x, ξ) ∼ Σⱼ Σ_α [ i^(-|α|) / α! ] ∂_ξ^α Pᵢⱼ(x, ξ) · ∂_x^α Qⱼₖ(x, ξ)</span>
@@ -178,8 +178,8 @@
 <span class="sd">    0th-order matrix product the *exact* composition symbol.</span>
 
 <span class="sd">Matrix exponential and propagators</span>
-<span class="sd">    The symbol of the exponential operator exp(t P) is </span>
-<span class="sd">    computed via a truncated Taylor series using the matrix </span>
+<span class="sd">    The symbol of the exponential operator exp(t P) is</span>
+<span class="sd">    computed via a truncated Taylor series using the matrix</span>
 <span class="sd">    composition rule:</span>
 
 <span class="sd">        exp(t P) ∼ I + t P + (t²/2!) (P ∘ P) + …</span>
@@ -191,11 +191,11 @@
 <span class="sd">    exp(t P(ξ)).</span>
 
 <span class="sd">Formal adjoints and inverses</span>
-<span class="sd">    The formal Hermitian adjoint P* is obtained by taking </span>
-<span class="sd">    the formal adjoint of each scalar entry (complex conjugation + </span>
-<span class="sd">    asymptotic expansion in |ξ| → ∞), and then </span>
-<span class="sd">    transposing the resulting matrix. </span>
-<span class="sd">    </span>
+<span class="sd">    The formal Hermitian adjoint P* is obtained by taking</span>
+<span class="sd">    the formal adjoint of each scalar entry (complex conjugation +</span>
+<span class="sd">    asymptotic expansion in |ξ| → ∞), and then</span>
+<span class="sd">    transposing the resulting matrix.</span>
+
 <span class="sd">    Formal asymptotic inverses R (such that </span>
 <span class="sd">    P ∘ R ∼ I) require the principal </span>
 <span class="sd">    symbol matrix to be invertible (det P ≠ 0). The recursion </span>
@@ -205,28 +205,56 @@
 <span class="sd">Numerical design notes</span>
 <span class="sd">----------------------</span>
 <span class="sd">Entrywise numerical orchestration:</span>
-<span class="sd">    ``MatrixPseudoDifferentialOperator`` introduces *no new numerical </span>
-<span class="sd">    kernels* for application. The ``apply()`` method simply orchestrates </span>
-<span class="sd">    N² independent calls to the scalar ``PseudoDifferentialOperator.apply()``. </span>
-<span class="sd">    Consequently, it automatically inherits the Peetre decomposition, </span>
+<span class="sd">    :class:`MatrixPseudoDifferentialOperator` introduces no new numerical</span>
+<span class="sd">    kernels for application. The `apply()` method simply orchestrates</span>
+<span class="sd">    N² independent calls to the scalar :meth:`PseudoDifferentialOperator.apply`.</span>
+<span class="sd">    Consequently, it automatically inherits the Peetre decomposition,</span>
 <span class="sd">    NUFFT, AAA, and low-rank backends for each entry.</span>
 
 <span class="sd">Memory and performance:</span>
-<span class="sd">    Because each of the N² scalar operators is constructed and </span>
-<span class="sd">    cached independently, memory usage scales linearly with N². </span>
-<span class="sd">    For large systems, constant-coefficient entries benefit from the </span>
-<span class="sd">    scalar fast-path FFT multiplier, making matrix application highly </span>
+<span class="sd">    Because each of the N² scalar operators is constructed and</span>
+<span class="sd">    cached independently, memory usage scales linearly with N².</span>
+<span class="sd">    For large systems, constant-coefficient entries benefit from the</span>
+<span class="sd">    scalar fast-path FFT multiplier, making matrix application highly</span>
 <span class="sd">    efficient.</span>
 
 <span class="sd">Sylvester-type equations:</span>
-<span class="sd">    The ``apply_matrix_field`` (left action) and </span>
-<span class="sd">    ``apply_matrix_field_right`` (right action) methods are designed </span>
-<span class="sd">    to support operator splitting for equations of the form </span>
-<span class="sd">    ∂ₜU = P U - U Q. Left and right </span>
-<span class="sd">    actions commute as *operations* ((P U) Q = </span>
-<span class="sd">    P (U Q)), enabling efficient Lie-Trotter or </span>
-<span class="sd">    Strang splitting schemes even when the underlying scalar operators </span>
+<span class="sd">    The `apply_matrix_field` (left action) and</span>
+<span class="sd">    `apply_matrix_field_right` (right action) methods are designed</span>
+<span class="sd">    to support operator splitting for equations of the form</span>
+<span class="sd">    ∂ₜU = P U - U Q. Left and right</span>
+<span class="sd">    actions commute as operations ((P U) Q =</span>
+<span class="sd">    P (U Q)), enabling efficient Lie-Trotter or</span>
+<span class="sd">    Strang splitting schemes even when the underlying scalar operators</span>
 <span class="sd">    do not commute.</span>
+
+<span class="sd">Examples</span>
+<span class="sd">--------</span>
+<span class="sd">Define a 2×2 constant-coefficient system (e.g., a simplified Dirac </span>
+<span class="sd">or coupled wave system) and apply it to a vector field:</span>
+
+<span class="sd">&gt;&gt;&gt; import sympy as sp</span>
+<span class="sd">&gt;&gt;&gt; import numpy as np</span>
+<span class="sd">&gt;&gt;&gt; from matpsiop import MatrixPseudoDifferentialOperator</span>
+<span class="sd">&gt;&gt;&gt; </span>
+<span class="sd">&gt;&gt;&gt; # Define symbols</span>
+<span class="sd">&gt;&gt;&gt; x, xi = sp.symbols('x xi', real=True)</span>
+<span class="sd">&gt;&gt;&gt; </span>
+<span class="sd">&gt;&gt;&gt; # Define a 2x2 symbol matrix P(xi)</span>
+<span class="sd">&gt;&gt;&gt; P_expr = sp.Matrix([[0, 1j*xi], </span>
+<span class="sd">...                     [1j*xi, 0]])</span>
+<span class="sd">&gt;&gt;&gt; </span>
+<span class="sd">&gt;&gt;&gt; # Create the operator</span>
+<span class="sd">&gt;&gt;&gt; P = MatrixPseudoDifferentialOperator(P_expr, vars_x=[x])</span>
+<span class="sd">&gt;&gt;&gt; </span>
+<span class="sd">&gt;&gt;&gt; # Apply to a vector field u = [u1, u2] on a grid</span>
+<span class="sd">&gt;&gt;&gt; x_grid = np.linspace(0, 2*np.pi, 64, endpoint=False)</span>
+<span class="sd">&gt;&gt;&gt; kx = np.fft.fftfreq(64, d=2*np.pi/64) * 2 * np.pi</span>
+<span class="sd">&gt;&gt;&gt; u1 = np.sin(x_grid)</span>
+<span class="sd">&gt;&gt;&gt; u2 = np.cos(x_grid)</span>
+<span class="sd">&gt;&gt;&gt; </span>
+<span class="sd">&gt;&gt;&gt; # Compute P(u)</span>
+<span class="sd">&gt;&gt;&gt; v1, v2 = P.apply([u1, u2], x_grid, kx)</span>
 <span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="c1"># Import core components from the parent package</span>
@@ -554,9 +582,36 @@
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.eigen_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">eigen_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Pointwise eigenvalues/eigenvectors of the symbol matrix</span>
-<span class="sd">        P(x[, y], xi[, eta]) at given point(s).</span>
-<span class="sd">        If called without arguments, computes symbolic eigenvalues/eigenvectors.</span>
+<span class="sd">        Compute pointwise eigenvalues and eigenvectors of the symbol matrix.</span>
+
+<span class="sd">        Evaluates the eigenvalues and eigenvectors of the N×N symbol matrix</span>
+<span class="sd">        P(x, ξ) at given spatial/frequency points. If called without arguments,</span>
+<span class="sd">        computes the exact symbolic eigenvalues and eigenvectors using SymPy.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *args : tuple of float or numpy.ndarray</span>
+<span class="sd">            The point(s) to evaluate at, in the order each entry's `p_func`</span>
+<span class="sd">            expects: `(x, ξ)` for 1D, `(x, y, ξ, η)` for 2D. Arguments may be</span>
+<span class="sd">            broadcastable ndarrays. If omitted, returns symbolic expressions.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        eigvals : numpy.ndarray or sympy.Matrix</span>
+<span class="sd">            If `*args` is provided, an ndarray of shape `(..., N)` containing</span>
+<span class="sd">            the eigenvalues at each point. If omitted, a `sympy.Matrix` of</span>
+<span class="sd">            shape `(N, 1)` (for N=2) or a dictionary of eigenvalues (for N&gt;2).</span>
+<span class="sd">        eigvecs : numpy.ndarray or sympy.Matrix or None</span>
+<span class="sd">            If `*args` is provided, an ndarray of shape `(..., N, N)` containing</span>
+<span class="sd">            the normalized eigenvectors as columns. If omitted and N=2, a</span>
+<span class="sd">            `sympy.Matrix` of shape `(N, N)`. If omitted and N&gt;2, returns `None`.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        For N=2, closed-form analytical expressions are used for both the</span>
+<span class="sd">        symbolic and numerical paths to avoid the overhead of general eigenvalue</span>
+<span class="sd">        solvers. For N&gt;2, the numerical path falls back to `numpy.linalg.eig`,</span>
+<span class="sd">        and the symbolic path returns `sympy.Matrix.eigenvals()`.</span>
 <span class="sd">        """</span>
         <span class="n">P</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol_matrix</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
         
@@ -684,23 +739,42 @@
         <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">do_simplify</span> <span class="k">else</span> <span class="n">result</span></div>
 
 
+
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.commutator_symbolic">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.commutator_symbolic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">commutator_symbolic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Symbol of the commutator `[Op[self], Op[other]]`, generalizing</span>
-<span class="sd">        `PseudoDifferentialOperator.commutator_symbolic` to matrices.</span>
+<span class="sd">        Compute the symbol of the commutator [Op[self], Op[other]].</span>
 
-<span class="sd">        Unlike the scalar case (whose 0th-order term always vanishes,</span>
-<span class="sd">        since scalars commute), the matrix commutator is generally</span>
-<span class="sd">        nonzero already at 0th order: it's the ordinary matrix commutator</span>
-<span class="sd">        `P(x,xi) Q(x,xi) - Q(x,xi) P(x,xi)`. Higher orders add the</span>
-<span class="sd">        noncommutative analogue of the Poisson-bracket correction. For</span>
-<span class="sd">        constant-coefficient `self`/`other` this is exact, and reduces</span>
-<span class="sd">        exactly to the plain matrix commutator (see `compose_asymptotic`).</span>
+<span class="sd">        Generalizes the scalar commutator to matrix-valued pseudo-differential</span>
+<span class="sd">        operators. Unlike the scalar case, the matrix commutator is generally</span>
+<span class="sd">        nonzero at 0th order, reducing to the ordinary matrix commutator</span>
+<span class="sd">        P(x, ξ)Q(x, ξ) - Q(x, ξ)P(x, ξ). Higher orders add the noncommutative</span>
+<span class="sd">        analogue of the Poisson-bracket correction.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        other : MatrixPseudoDifferentialOperator</span>
+<span class="sd">            The right-hand operator. Must have the same `size` and `dim` as `self`.</span>
+<span class="sd">        order : int, default=1</span>
+<span class="sd">            Truncation order for the asymptotic expansion.</span>
+<span class="sd">        mode : {'kn', 'weyl'}, default='kn'</span>
+<span class="sd">            Quantization convention ('kohn-nirenberg' or 'weyl').</span>
+<span class="sd">        sign_convention : str, optional</span>
+<span class="sd">            Sign convention for the Fourier transform / quantization.</span>
+<span class="sd">            Forwarded to `compose_asymptotic`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Matrix</span>
+<span class="sd">            The symbolic matrix representing the commutator [P, Q].</span>
 <span class="sd">        """</span>
-        <span class="n">pq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="n">sign_convention</span><span class="p">)</span>
-        <span class="n">qp</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="n">sign_convention</span><span class="p">)</span>
+        <span class="n">pq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span>
+            <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="n">sign_convention</span>
+        <span class="p">)</span>
+        <span class="n">qp</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">compose_asymptotic</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="n">sign_convention</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">pq</span> <span class="o">-</span> <span class="n">qp</span><span class="p">)</span></div>
 
 
@@ -784,11 +858,32 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_asymptotic_matrix_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">side</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Matrix analogue of PseudoDifferentialOperator._asymptotic_inverse.</span>
-<span class="sd">        Requires P(x, xi) to be invertible as a matrix (det P != 0</span>
-<span class="sd">        symbolically); P.inv() is used as the 0th-order term. Matrix</span>
-<span class="sd">        multiplication order is preserved: the inverse factor stays on</span>
-<span class="sd">        the side that actually cancels P in `P . R ~ I` / `L . P ~ I`.</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Internal engine for computing left or right asymptotic matrix inverses.</span>
+
+<span class="sd">        Requires the symbol P(x, ξ) to be invertible as a matrix (det P ≠ 0</span>
+<span class="sd">        symbolically); P⁻¹ is used as the 0th-order term. Matrix multiplication</span>
+<span class="sd">        order is preserved: the inverse factor stays on the side that actually</span>
+<span class="sd">        cancels P in P ∘ R ∼ I (right) or L ∘ P ∼ I (left).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        order : int</span>
+<span class="sd">            The truncation order for the asymptotic expansion.</span>
+<span class="sd">        side : {'left', 'right'}</span>
+<span class="sd">            Specifies whether to compute the left or right inverse.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Matrix</span>
+<span class="sd">            The symbolic matrix representing the asymptotic inverse.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the symbol is not invertible (det P = 0).</span>
+<span class="sd">        NotImplementedError</span>
+<span class="sd">            If the spatial dimension `dim` is not 1 or 2.</span>
 <span class="sd">        """</span>
         <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
         <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
@@ -826,10 +921,28 @@
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.right_inverse_asymptotic">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.right_inverse_asymptotic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">right_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Formal right inverse R such that Op[self] . Op[R] ~ Id up to</span>
-<span class="sd">        O(&lt;xi&gt;^-order), matrix analogue of</span>
-<span class="sd">        PseudoDifferentialOperator.right_inverse_asymptotic. Requires</span>
-<span class="sd">        the symbol P(x, xi) to be invertible as a matrix.</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the formal right asymptotic inverse R.</span>
+
+<span class="sd">        Finds a formal right inverse R such that Op[self] ∘ Op[R] ∼ Id up to</span>
+<span class="sd">        O(⟨ξ⟩⁻ᵒʳᵈᵉʳ). This is the matrix analogue of the scalar asymptotic</span>
+<span class="sd">        inverse. Matrix multiplication order is strictly preserved.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        order : int, default=1</span>
+<span class="sd">            The truncation order for the asymptotic expansion.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Matrix</span>
+<span class="sd">            The symbolic matrix representing the right inverse R.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the principal symbol matrix P(x, ξ) is not invertible</span>
+<span class="sd">            (i.e., det P = 0 or SymPy cannot confirm invertibility).</span>
 <span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_asymptotic_matrix_inverse</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">'right'</span><span class="p">)</span></div>
 
@@ -837,10 +950,28 @@
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.left_inverse_asymptotic">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.left_inverse_asymptotic">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">left_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Formal left inverse L such that Op[L] . Op[self] ~ Id up to</span>
-<span class="sd">        O(&lt;xi&gt;^-order), matrix analogue of</span>
-<span class="sd">        PseudoDifferentialOperator.left_inverse_asymptotic. Requires</span>
-<span class="sd">        the symbol P(x, xi) to be invertible as a matrix.</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the formal left asymptotic inverse L.</span>
+
+<span class="sd">        Finds a formal left inverse L such that Op[L] ∘ Op[self] ∼ Id up to</span>
+<span class="sd">        O(⟨ξ⟩⁻ᵒʳᵈᵉʳ). This is the matrix analogue of the scalar asymptotic</span>
+<span class="sd">        inverse. Matrix multiplication order is strictly preserved.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        order : int, default=1</span>
+<span class="sd">            The truncation order for the asymptotic expansion.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Matrix</span>
+<span class="sd">            The symbolic matrix representing the left inverse L.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the principal symbol matrix P(x, ξ) is not invertible</span>
+<span class="sd">            (i.e., det P = 0 or SymPy cannot confirm invertibility).</span>
 <span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_asymptotic_matrix_inverse</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">'left'</span><span class="p">)</span></div>
 
@@ -848,14 +979,24 @@
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.formal_adjoint">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.formal_adjoint">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">formal_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_terms</span><span class="o">=</span><span class="mi">6</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Formal Hermitian adjoint symbol P* of the matrix operator.</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the formal Hermitian adjoint symbol P*.</span>
 
-<span class="sd">        Each entry gets the same scalar treatment as</span>
-<span class="sd">        `PseudoDifferentialOperator.formal_adjoint` (conjugate + asymptotic</span>
-<span class="sd">        expansion at infinity in |xi|); the resulting matrix is then</span>
-<span class="sd">        transposed (not conjugate-transposed again -- conjugation already</span>
-<span class="sd">        happened entrywise) because (Op[P]u, v) = (u, Op[P]* v) swaps the</span>
-<span class="sd">        row/column roles of the symbol, same as for a plain matrix adjoint.</span>
+<span class="sd">        Each entry Pᵢⱼ receives the same scalar treatment as</span>
+<span class="sd">        `PseudoDifferentialOperator.formal_adjoint` (complex conjugation +</span>
+<span class="sd">        asymptotic expansion as |ξ| → ∞). The resulting matrix is then</span>
+<span class="sd">        transposed (P* = (Pᵢⱼ*)ᵀ) because the adjoint operation swaps the</span>
+<span class="sd">        row and column roles of the symbol, analogous to a plain matrix adjoint.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        n_terms : int, default=6</span>
+<span class="sd">            Number of terms to include in the asymptotic expansion at infinity.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Matrix</span>
+<span class="sd">            The symbolic matrix representing the formal adjoint P*.</span>
 <span class="sd">        """</span>
         <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span>
         <span class="n">xi_vars</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">'xi eta'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">),)</span>

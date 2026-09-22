@@ -195,11 +195,18 @@
 
 <span class="sd">    Example Usage:</span>
 <span class="sd">    --------------</span>
-<span class="sd">    &gt;&gt;&gt; from PDESolver import *</span>
-<span class="sd">    &gt;&gt;&gt; u = Function('u')</span>
-<span class="sd">    &gt;&gt;&gt; t, x = symbols('t x')</span>
-<span class="sd">    &gt;&gt;&gt; eq = Eq(diff(u(t, x), t), diff(u(t, x), x, 2) + u(t, x)**2)</span>
-<span class="sd">    &gt;&gt;&gt; def _initial(x): return np.sin(x)</span>
+<span class="sd">    &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">    &gt;&gt;&gt; import sympy as sp</span>
+<span class="sd">    &gt;&gt;&gt; from IPython.display import HTML</span>
+<span class="sd">    &gt;&gt;&gt; from solver import PDESolver</span>
+<span class="sd">    &gt;&gt;&gt; </span>
+<span class="sd">    &gt;&gt;&gt; u = sp.Function('u')</span>
+<span class="sd">    &gt;&gt;&gt; t, x = sp.symbols('t x')</span>
+<span class="sd">    &gt;&gt;&gt; eq = sp.Eq(sp.diff(u(t, x), t), sp.diff(u(t, x), x, 2) + u(t, x)**2)</span>
+<span class="sd">    &gt;&gt;&gt; </span>
+<span class="sd">    &gt;&gt;&gt; def initial(x): </span>
+<span class="sd">    ...     return np.sin(x)</span>
+<span class="sd">    &gt;&gt;&gt; </span>
 <span class="sd">    &gt;&gt;&gt; solver = PDESolver(eq)</span>
 <span class="sd">    &gt;&gt;&gt; solver.setup(Lx=2*np.pi, Nx=128, Lt=1.0, Nt=1000, initial_condition=initial)</span>
 <span class="sd">    &gt;&gt;&gt; solver.solve()</span>
@@ -1697,7 +1704,26 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_symbol_tables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Precompute and store evaluated pseudo-differential operator symbols for spectral methods.</span>
-<span class="sd">        ...</span>
+<span class="sd">        </span>
+<span class="sd">        This method evaluates the symbolic pseudo-differential operators (ψOp) on the </span>
+<span class="sd">        spatial and frequency grids. It performs a fast vectorized conversion to complex128 </span>
+<span class="sd">        arrays, bypassing per-element SymPy `N()` evaluation, and prepares the combined </span>
+<span class="sd">        symbol for the Peetre backend or direct application.</span>
+<span class="sd">        </span>
+<span class="sd">        Attributes Set</span>
+<span class="sd">        --------------</span>
+<span class="sd">        self.precomputed_symbols : list of tuple</span>
+<span class="sd">            List of tuples containing the scalar coefficient and the evaluated complex128 </span>
+<span class="sd">            array for each pseudo-differential operator.</span>
+<span class="sd">        self.combined_symbol : np.ndarray</span>
+<span class="sd">            The accumulated sum of all coefficient-weighted evaluated symbols, representing </span>
+<span class="sd">            the total pseudo-differential operator on the grid.</span>
+<span class="sd">            </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - This method is automatically called during `_setup_1D` or `_setup_2D` when </span>
+<span class="sd">          pseudo-differential operators are present.</span>
+<span class="sd">        - The vectorized accumulation is performed directly in NumPy memory for efficiency.</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">precomputed_symbols</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">combined</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1736,18 +1762,20 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_total_symbol_expr</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the total pseudo-differential symbol expression from all pseudo_terms.</span>
-
-<span class="sd">        This method constructs the full symbol of the pseudo-differential operator</span>
-<span class="sd">        by summing up all coefficient-weighted symbolic expressions.</span>
-
-<span class="sd">        The result is cached in self.symbol_expr to avoid recomputation.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            sympy.Expr: The combined symbol expression, representing the full</span>
-<span class="sd">                        pseudo-differential operator in symbolic form.</span>
-
-<span class="sd">        Example:</span>
-<span class="sd">            Given pseudo_terms = [(2, ξ²), (1, x·ξ)], this returns 2·ξ² + x·ξ.</span>
+<span class="sd">        </span>
+<span class="sd">        Constructs the full symbol of the pseudo-differential operator by summing up </span>
+<span class="sd">        all coefficient-weighted symbolic expressions. The result is cached in </span>
+<span class="sd">        `self.symbol_expr` to avoid recomputation.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Expr</span>
+<span class="sd">            The combined symbol expression, representing the full pseudo-differential </span>
+<span class="sd">            operator in symbolic form.</span>
+<span class="sd">            </span>
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        Given `pseudo_terms = [(2, ξ²), (1, x·ξ)]`, this returns `2·ξ² + x·ξ`.</span>
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_symbol_expr'</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">symbol_expr</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">coeff</span> <span class="o">*</span> <span class="n">expr</span> <span class="k">for</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">expr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pseudo_terms</span><span class="p">)</span>
@@ -1756,28 +1784,28 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_build_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Build a numerical evaluation function from a symbolic pseudo-differential operator expression.</span>
-<span class="sd">    </span>
-<span class="sd">        This method converts a symbolic expression representing a pseudo-differential operator into</span>
-<span class="sd">        a callable NumPy-compatible function. The function accepts spatial and frequency variables</span>
-<span class="sd">        depending on the dimensionality of the problem.</span>
-<span class="sd">    </span>
+<span class="sd">        </span>
+<span class="sd">        Converts a symbolic expression representing a pseudo-differential operator into</span>
+<span class="sd">        a callable NumPy-compatible function.</span>
+<span class="sd">        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        expr : sympy expression</span>
-<span class="sd">            A SymPy expression representing the symbol of the pseudo-differential operator. It may depend on spatial variables (x, y) and frequency variables (xi, eta).</span>
-<span class="sd">    </span>
-<span class="sd">        Returns:</span>
-<span class="sd">            function : A lambdified function that takes:</span>
+<span class="sd">        expr : sympy.Expr</span>
+<span class="sd">            A SymPy expression representing the symbol of the pseudo-differential operator. </span>
+<span class="sd">            It may depend on spatial variables (x, y) and frequency variables (ξ, η).</span>
 <span class="sd">            </span>
-<span class="sd">                - In 1D: `(x, xi)` — spatial coordinate and frequency.</span>
-<span class="sd">                - In 2D: `(x, y, xi, eta)` — spatial coordinates and frequencies.</span>
-<span class="sd">                </span>
-<span class="sd">              Returns a NumPy array of evaluated symbol values over input grids.</span>
-<span class="sd">    </span>
-<span class="sd">        Notes:</span>
-<span class="sd">            - Uses `lambdify` from SymPy with the `'numpy'` backend for efficient vectorized evaluation.</span>
-<span class="sd">            - Real variable assumptions are enforced to ensure proper behavior in numerical contexts.</span>
-<span class="sd">            - Used internally by methods like `apply_psiOp`, `evaluate`, and visualization tools.</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        callable</span>
+<span class="sd">            A lambdified function that takes:</span>
+<span class="sd">            - In 1D: `(x, ξ)` — spatial coordinate and frequency.</span>
+<span class="sd">            - In 2D: `(x, y, ξ, η)` — spatial coordinates and frequencies.</span>
+<span class="sd">            Returns a NumPy array of evaluated symbol values over input grids.</span>
+<span class="sd">            </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - Uses `lambdify` from SymPy with the `'numpy'` backend for efficient vectorized evaluation.</span>
+<span class="sd">        - Real variable assumptions are enforced to ensure proper behavior in numerical contexts.</span>
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">x</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">'x xi'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1845,60 +1873,28 @@
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Perform one time step of a first-order evolution using a pseudo-differential operator.</span>
 <span class="sd">        </span>
-<span class="sd">        This method updates the solution field using an exponential integrator scheme,</span>
-<span class="sd">        depending on boundary conditions and the structure of the pseudo-differential symbol.</span>
-<span class="sd">        It supports:</span>
-<span class="sd">        - Linear dynamics via pseudo-differential operator L (possibly nonlocal, Kohn-Nirenberg quantization)</span>
-<span class="sd">        - Nonlinear terms computed via spectral differentiation</span>
-<span class="sd">        - External source contributions</span>
-<span class="sd">        </span>
-<span class="sd">        The update follows **three distinct computational paths**:</span>
-<span class="sd">        </span>
-<span class="sd">        1. **Periodic boundaries + diagonalizable symbol**</span>
-<span class="sd">           Symbol is spatially constant → exact Fourier-based exponential integrator:</span>
-<span class="sd">               uₙ₊₁ = e⁻ᴸΔᵗ ⋅ uₙ + Δt ⋅ (N(uₙ) + F)</span>
-<span class="sd">        </span>
-<span class="sd">        2. **Non-periodic boundaries + spatially uniform symbol**</span>
-<span class="sd">           General ETD1 scheme in Fourier space:</span>
-<span class="sd">               uₙ₊₁ = e⁻ᴸΔᵗ ⋅ uₙ + Δt ⋅ φ₁(−LΔt) ⋅ (N(uₙ) + F)</span>
-<span class="sd">        </span>
-<span class="sd">        3. **Spatially varying symbol (Kohn-Nirenberg regime)**</span>
-<span class="sd">           Full diagonalization is unavailable. A single call to _apply_psiOp yields</span>
-<span class="sd">           the exact operator action L(uₙ); the pointwise symbol σ(x,ξ) then serves</span>
-<span class="sd">           as a local integrating factor. The update decomposes as:</span>
-<span class="sd">        </span>
-<span class="sd">               uₙ₊₁ = e⁻σΔᵗ ⋅ uₙ + Δt ⋅ φ₁(−σΔt) ⋅ (N(uₙ) + F + R(uₙ))</span>
-<span class="sd">        </span>
-<span class="sd">           where the residual correction:</span>
-<span class="sd">        </span>
-<span class="sd">               R(uₙ) = L(uₙ) + σ ⋅ uₙ</span>
-<span class="sd">        </span>
-<span class="sd">           accounts for the difference between the full nonlocal operator and its</span>
-<span class="sd">           pointwise-diagonal approximation. This correction vanishes when σ is</span>
-<span class="sd">           spatially uniform (recovering exact ETD1), and remains small under the</span>
-<span class="sd">           Kohn-Nirenberg slow-variation assumption on the symbol.</span>
-<span class="sd">           A spectral filter is applied after the update to control aliasing.</span>
-<span class="sd">           This path requires exactly one call to _apply_psiOp per time step.</span>
-<span class="sd">        </span>
-<span class="sd">        where:</span>
-<span class="sd">            L(uₙ)    = full linear action via Kohn-Nirenberg pseudo-differential operator</span>
-<span class="sd">            σ(x,ξ)  = pointwise symbol evaluated on the spatial grid (diagonal approximation of L)</span>
-<span class="sd">            R(uₙ)   = L(uₙ) + σ·uₙ, residual between true operator and diagonal approximation</span>
-<span class="sd">            N(uₙ)   = nonlinear contribution at current time step</span>
-<span class="sd">            F        = external source term</span>
-<span class="sd">            Δt       = time step size</span>
-<span class="sd">            φ₁(z)   = (eᶻ − 1)/z (analytically continued at z=0 as φ₁(0) = 1)</span>
-<span class="sd">        </span>
-<span class="sd">        Boundary conditions are applied after each update to ensure consistency.</span>
+<span class="sd">        Updates the solution field using an exponential integrator scheme, depending on </span>
+<span class="sd">        boundary conditions and the structure of the pseudo-differential symbol.</span>
 <span class="sd">        </span>
 <span class="sd">        Parameters</span>
-<span class="sd">            source_contribution (np.ndarray): Array representing the external source term at the</span>
-<span class="sd">                                              current time step. Pass a scalar 0 to indicate no source;</span>
-<span class="sd">                                              it will be broadcast to a zero array internally.</span>
-<span class="sd">                                              Must match the spatial dimensions of self.u_prev.</span>
-<span class="sd">        </span>
-<span class="sd">        Returns:</span>
-<span class="sd">            np.ndarray: Updated solution array after one time step.</span>
+<span class="sd">        ----------</span>
+<span class="sd">        source_contribution : np.ndarray or scalar</span>
+<span class="sd">            Array representing the external source term at the current time step. </span>
+<span class="sd">            Pass a scalar 0 to indicate no source; it will be broadcast to a zero array </span>
+<span class="sd">            internally. Must match the spatial dimensions of `self.u_prev`.</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            Updated solution array after one time step.</span>
+<span class="sd">            </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        The update follows three distinct computational paths:</span>
+<span class="sd">        1. Periodic boundaries + diagonalizable symbol: Exact Fourier-based exponential integrator.</span>
+<span class="sd">        2. Non-periodic boundaries + spatially uniform symbol: General ETD1 scheme in Fourier space.</span>
+<span class="sd">        3. Spatially varying symbol (Kohn-Nirenberg regime): Uses pointwise symbol as an </span>
+<span class="sd">           approximate integrating factor, with a residual correction `R(uₙ) = L(uₙ) + σ·uₙ`.</span>
 <span class="sd">        """</span>
         <span class="c1"># Handling null source</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">source_contribution</span><span class="p">):</span>
@@ -1985,31 +1981,21 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_step_order2_with_psi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_contribution</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Perform one time step of a second-order time evolution using a pseudo-differential operator.</span>
-<span class="sd">    </span>
-<span class="sd">        This method updates the solution field using a second-order accurate scheme suitable for wave-like equations.</span>
-<span class="sd">        The update includes contributions from:</span>
-<span class="sd">        - Linear dynamics via a pseudo-differential operator (e.g., dispersion or stiffness)</span>
-<span class="sd">        - Nonlinear terms computed via spectral differentiation</span>
-<span class="sd">        - External source contributions</span>
-<span class="sd">    </span>
-<span class="sd">        Discretization follows a leapfrog-style finite difference in time:</span>
 <span class="sd">        </span>
-<span class="sd">            uₙ₊₁ = 2uₙ − uₙ₋₁ + Δt² ⋅ (L(uₙ) + N(uₙ) + F)</span>
-<span class="sd">    </span>
-<span class="sd">        where:</span>
-<span class="sd">            L(uₙ) = linear part evaluated via pseudo-differential operator</span>
-<span class="sd">            N(uₙ) = nonlinear contribution at current time step</span>
-<span class="sd">            F     = external source term at current time step</span>
-<span class="sd">            Δt    = time step size</span>
-<span class="sd">    </span>
-<span class="sd">        Boundary conditions are applied after each update to ensure consistency.</span>
-<span class="sd">    </span>
+<span class="sd">        Updates the solution field using a second-order accurate leapfrog-style finite </span>
+<span class="sd">        difference in time:</span>
+<span class="sd">            uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ + Δt² ⋅ (L(uⁿ) + N(uⁿ) + F)</span>
+<span class="sd">            </span>
 <span class="sd">        Parameters</span>
-<span class="sd">            source_contribution (np.ndarray): Array representing the external source term at current time step.</span>
-<span class="sd">                                              Must match the spatial dimensions of self.u_prev.</span>
-<span class="sd">    </span>
-<span class="sd">        Returns:</span>
-<span class="sd">            np.ndarray: Updated solution array after one time step.</span>
+<span class="sd">        ----------</span>
+<span class="sd">        source_contribution : np.ndarray</span>
+<span class="sd">            Array representing the external source term at current time step.</span>
+<span class="sd">            Must match the spatial dimensions of `self.u_prev`.</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            Updated solution array after one time step.</span>
 <span class="sd">        """</span>
         <span class="n">Lu_prev</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_apply_psiOp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">)</span>
         <span class="n">rhs_nl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_nonlinear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u_prev</span><span class="p">,</span> <span class="n">is_v</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -2026,40 +2012,30 @@
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Solve the partial differential equation numerically using spectral methods.</span>
 <span class="sd">        </span>
-<span class="sd">        This method evolves the solution in time using a combination of:</span>
-<span class="sd">        - Fourier-based linear evolution (with dealiasing)</span>
-<span class="sd">        - Nonlinear term handling via pseudo-spectral evaluation</span>
-<span class="sd">        - Support for pseudo-differential operators (psiOp)</span>
-<span class="sd">        - Source terms and boundary conditions</span>
+<span class="sd">        This method evolves the solution in time using a combination of Fourier-based </span>
+<span class="sd">        linear evolution, nonlinear term handling via pseudo-spectral evaluation, and </span>
+<span class="sd">        support for pseudo-differential operators (ψOp), source terms, and boundary conditions.</span>
 <span class="sd">        </span>
-<span class="sd">        The solver supports:</span>
-<span class="sd">        - 1D and 2D spatial domains</span>
-<span class="sd">        - First and second-order time evolution</span>
-<span class="sd">        - Periodic and Dirichlet boundary conditions</span>
-<span class="sd">        - Time-stepping schemes: default, ETD-RK4</span>
-<span class="sd">        </span>
-<span class="sd">        Returns:</span>
-<span class="sd">            list[np.ndarray]: A list of solution arrays at each saved time frame.</span>
-<span class="sd">        </span>
-<span class="sd">        Side Effects:</span>
-<span class="sd">            - Updates self.frames: stores solution snapshots</span>
-<span class="sd">            - Updates self.energy_history: records total energy if enabled</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of np.ndarray</span>
+<span class="sd">            A list of solution arrays at each saved time frame.</span>
 <span class="sd">            </span>
-<span class="sd">        Algorithm Overview:</span>
-<span class="sd">            For each time step:</span>
-<span class="sd">                1. Evaluate source contributions (if any)</span>
-<span class="sd">                2. Apply time evolution:</span>
-<span class="sd">                    - Order 1:</span>
-<span class="sd">                        - With psiOp: uses step_order1_with_psi</span>
-<span class="sd">                        - With ETD-RK4: exponential time differencing</span>
-<span class="sd">                        - Default: linear + nonlinear update</span>
-<span class="sd">                    - Order 2:</span>
-<span class="sd">                        - With psiOp: uses step_order2_with_psi</span>
-<span class="sd">                        - With ETD-RK4: second-order exponential scheme</span>
-<span class="sd">                        - Default: second-order leapfrog-style update</span>
-<span class="sd">                3. Enforce boundary conditions</span>
-<span class="sd">                4. Save solution snapshot periodically</span>
-<span class="sd">                5. Record energy (for second-order systems, with or without psiOp)</span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - Updates `self.frames` to store solution snapshots.</span>
+<span class="sd">        - Updates `self.energy_history` to record total energy if enabled.</span>
+<span class="sd">        </span>
+<span class="sd">        Algorithm Overview</span>
+<span class="sd">        ------------------</span>
+<span class="sd">        For each time step:</span>
+<span class="sd">            1. Evaluate source contributions (if any).</span>
+<span class="sd">            2. Apply time evolution:</span>
+<span class="sd">                - Order 1: Uses `_step_order1_with_psi`, ETD-RK4, or default linear+nonlinear update.</span>
+<span class="sd">                - Order 2: Uses `_step_order2_with_psi`, ETD-RK4, or default leapfrog-style update.</span>
+<span class="sd">            3. Enforce boundary conditions.</span>
+<span class="sd">            4. Save solution snapshot periodically.</span>
+<span class="sd">            5. Record energy (for second-order systems).</span>
 <span class="sd">        """</span>
         <span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="se">\n</span><span class="s1">*******************'</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s1">'* Solving the PDE *'</span><span class="p">)</span>
@@ -2307,18 +2283,22 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_eval_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_val</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Evaluate the total source term f(x,t) (or f(x,y,t)) at a given time `t_val`.</span>
-
+<span class="sd">        </span>
 <span class="sd">        This factors out the source-evaluation logic used in the main time-stepping</span>
-<span class="sd">        loop so that sub-step schemes (e.g. ETD-RK4) can sample the source at the</span>
-<span class="sd">        intermediate stage times they require (t, t+dt/2, t+dt, ...) instead of</span>
+<span class="sd">        loop so that sub-step schemes (e.g., ETD-RK4) can sample the source at the</span>
+<span class="sd">        intermediate stage times they require (t, t+Δt/2, t+Δt, ...) instead of</span>
 <span class="sd">        reusing a single value computed at the start of the step.</span>
-
+<span class="sd">        </span>
 <span class="sd">        Parameters</span>
-<span class="sd">            t_val (float): Time at which to evaluate the source term(s).</span>
-
+<span class="sd">        ----------</span>
+<span class="sd">        t_val : float</span>
+<span class="sd">            Time at which to evaluate the source term(s).</span>
+<span class="sd">            </span>
 <span class="sd">        Returns</span>
-<span class="sd">            np.ndarray or float: Source contribution on the spatial grid, or 0.0</span>
-<span class="sd">            if no source terms are registered.</span>
+<span class="sd">        -------</span>
+<span class="sd">        np.ndarray or float</span>
+<span class="sd">            Source contribution on the spatial grid, or 0.0 if no source terms </span>
+<span class="sd">            are registered.</span>
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'_compiled_source_funcs'</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compiled_source_funcs</span><span class="p">:</span>
             <span class="n">source</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
@@ -2336,45 +2316,44 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Perform one Exponential Time Differencing Runge-Kutta of 4th order (ETD-RK4) time step </span>
-<span class="sd">        for first-order in time PDEs of the form:</span>
+<span class="sd">        Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step </span>
+<span class="sd">        for first-order in time PDEs.</span>
 <span class="sd">        </span>
+<span class="sd">        Solves equations of the form:</span>
 <span class="sd">            ∂ₜu = L u + N(u) + f(x,t)</span>
-<span class="sd">        </span>
 <span class="sd">        where L is a linear operator (possibly nonlocal or pseudo-differential), and N is a </span>
-<span class="sd">        nonlinear term treated via pseudo-spectral methods. This method evaluates the </span>
-<span class="sd">        exponential integrator up to fourth-order accuracy in time.</span>
-<span class="sd">    </span>
-<span class="sd">        The ETD-RK4 scheme uses four stages to approximate the integral of the variation-of-constants formula:</span>
+<span class="sd">        nonlinear term treated via pseudo-spectral methods.</span>
 <span class="sd">        </span>
+<span class="sd">        The ETD-RK4 scheme uses four stages to approximate the integral of the </span>
+<span class="sd">        variation-of-constants formula:</span>
 <span class="sd">            uⁿ⁺¹ = e^(L Δt) uⁿ + Δt ∫₀¹ e^(L Δt (1 - τ)) φ(N(u(τ))) dτ</span>
-<span class="sd">        </span>
-<span class="sd">        where φ denotes the nonlinear contributions evaluated at intermediate stages.</span>
-<span class="sd">    </span>
+<span class="sd">            </span>
 <span class="sd">        Parameters</span>
-<span class="sd">            u (np.ndarray): Current solution in real space (physical grid values).</span>
-<span class="sd">    </span>
-<span class="sd">        Returns:</span>
-<span class="sd">            np.ndarray: Updated solution in real space after one ETD-RK4 time step.</span>
-<span class="sd">    </span>
-<span class="sd">        Notes:</span>
-<span class="sd">        - The linear part L is diagonal in Fourier space and precomputed as self.L(k).</span>
+<span class="sd">        ----------</span>
+<span class="sd">        u : np.ndarray</span>
+<span class="sd">            Current solution in real space (physical grid values).</span>
+<span class="sd">        t : float, optional</span>
+<span class="sd">            Current time. Default is 0.0.</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            Updated solution in real space after one ETD-RK4 time step.</span>
+<span class="sd">            </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - The linear part L is diagonal in Fourier space and precomputed as `self.L(k)`.</span>
 <span class="sd">        - Nonlinear terms are evaluated in physical space and transformed via FFT.</span>
 <span class="sd">        - The functions φ₁(z) and φ₂(z) are entire functions arising from the ETD scheme:</span>
-<span class="sd">          </span>
-<span class="sd">              φ₁(z) = (eᶻ - 1)/z   if z ≠ 0</span>
-<span class="sd">                     = 1            if z = 0</span>
-<span class="sd">    </span>
-<span class="sd">              φ₂(z) = (eᶻ - 1 - z)/z²   if z ≠ 0</span>
-<span class="sd">                     = ½              if z = 0</span>
-<span class="sd">    </span>
-<span class="sd">        - This implementation assumes periodic boundary conditions and uses spectral differentiation via FFT.</span>
-<span class="sd">        - See Hochbruck &amp; Ostermann (2010) for theoretical background on exponential integrators.</span>
-<span class="sd">    </span>
-<span class="sd">        See Also:</span>
-<span class="sd">            step_ETD_RK4_order2 : For second-order in time equations.</span>
-<span class="sd">            psiOp_apply           : For applying pseudo-differential operators.</span>
-<span class="sd">            apply_nonlinear      : For handling nonlinear terms in the PDE.</span>
+<span class="sd">              φ₁(z) = (eᶻ - 1)/z   if z ≠ 0, else 1</span>
+<span class="sd">              φ₂(z) = (eᶻ - 1 - z)/z²   if z ≠ 0, else ½</span>
+<span class="sd">        - Assumes periodic boundary conditions and uses spectral differentiation via FFT.</span>
+<span class="sd">        </span>
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        _step_ETD_RK4_order2 : For second-order in time equations.</span>
+<span class="sd">        _apply_psiOp : For applying pseudo-differential operators.</span>
+<span class="sd">        _apply_nonlinear : For handling nonlinear terms in the PDE.</span>
 <span class="sd">        """</span>
         <span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
         <span class="n">L_fft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KX</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">KY</span><span class="p">)</span>
@@ -2420,30 +2399,32 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_step_ETD_RK4_order2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Perform one time step of the Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) scheme for second-order PDEs.</span>
-<span class="sd">    </span>
-<span class="sd">        This method evolves the solution u and its time derivative v forward in time by one step using the ETD-RK4 integrator. </span>
-<span class="sd">        It is designed for systems of the form:</span>
+<span class="sd">        Perform one time step of the ETD-RK4 scheme for second-order PDEs.</span>
 <span class="sd">        </span>
+<span class="sd">        Evolves the solution u and its time derivative v forward in time by one step </span>
+<span class="sd">        using the ETD-RK4 integrator. Designed for systems of the form:</span>
 <span class="sd">            ∂ₜ²u = L u + N(u) + f(x,t)</span>
-<span class="sd">            </span>
-<span class="sd">        where L is a linear operator and N is a nonlinear term computed via self._apply_nonlinear.</span>
+<span class="sd">        where L is a linear operator and N is a nonlinear term.</span>
 <span class="sd">        </span>
-<span class="sd">        The exponential integrator handles the linear part exactly in Fourier space, while the nonlinear terms are integrated </span>
-<span class="sd">        using a fourth-order Runge-Kutta-like approach. This ensures high accuracy and stability for stiff systems.</span>
-<span class="sd">    </span>
-<span class="sd">        Parameters:</span>
-<span class="sd">            u (np.ndarray): Current solution array in real space.</span>
-<span class="sd">            v (np.ndarray): Current time derivative of the solution (∂ₜu) in real space.</span>
-<span class="sd">    </span>
-<span class="sd">        Returns:</span>
-<span class="sd">            tuple: (u_new, v_new), updated solution and its time derivative after one time step.</span>
-<span class="sd">    </span>
-<span class="sd">        Notes:</span>
-<span class="sd">            - Assumes periodic boundary conditions and uses FFT-based spectral methods.</span>
-<span class="sd">            - Handles both 1D and 2D problems seamlessly.</span>
-<span class="sd">            - Uses phi functions to compute exponential integrators efficiently.</span>
-<span class="sd">            - Suitable for wave equations and other second-order evolution equations with stiffness.</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        u : np.ndarray</span>
+<span class="sd">            Current solution array in real space.</span>
+<span class="sd">        v : np.ndarray</span>
+<span class="sd">            Current time derivative of the solution (∂ₜu) in real space.</span>
+<span class="sd">        t : float, optional</span>
+<span class="sd">            Current time. Default is 0.0.</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple of np.ndarray</span>
+<span class="sd">            `(u_new, v_new)`: Updated solution and its time derivative after one time step.</span>
+<span class="sd">            </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - Assumes periodic boundary conditions and uses FFT-based spectral methods.</span>
+<span class="sd">        - Handles both 1D and 2D problems seamlessly.</span>
+<span class="sd">        - Uses phi functions to compute exponential integrators efficiently.</span>
 <span class="sd">        """</span>
         <span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span>
     
@@ -2482,31 +2463,24 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_cfl_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Check the CFL (Courant–Friedrichs–Lewymann) condition based on group velocity </span>
+<span class="sd">        Check the CFL (Courant–Friedrichs–Lewy) condition based on group velocity </span>
 <span class="sd">        for second-order time-dependent PDEs.</span>
-<span class="sd">    </span>
-<span class="sd">        This method verifies whether the chosen time step dt satisfies the numerical stability </span>
-<span class="sd">        condition derived from the maximum wave propagation speed in the system. It supports both </span>
-<span class="sd">        1D and 2D problems, with or without a symbolic dispersion relation ω(k).</span>
-<span class="sd">    </span>
-<span class="sd">        The CFL condition ensures that information does not propagate further than one grid cell </span>
-<span class="sd">        per time step. A safety factor of 0.5 is applied by default to ensure robustness.</span>
-<span class="sd">    </span>
-<span class="sd">        Notes:</span>
 <span class="sd">        </span>
+<span class="sd">        Verifies whether the chosen time step Δt satisfies the numerical stability </span>
+<span class="sd">        condition derived from the maximum wave propagation speed in the system.</span>
+<span class="sd">        </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
 <span class="sd">        - In 1D, the group velocity v₉(k) = dω/dk is used to compute the maximum wave speed.</span>
 <span class="sd">        - In 2D, the x- and y-directional group velocities are evaluated independently.</span>
 <span class="sd">        - If no dispersion relation is available, the imaginary part of the linear operator L(k) </span>
 <span class="sd">          is used as an approximation for wave speed.</span>
-<span class="sd">    </span>
-<span class="sd">        Raises:</span>
-<span class="sd">        -------</span>
-<span class="sd">        NotImplementedError: </span>
+<span class="sd">        - Prints a warning message if the current time step Δt exceeds the CFL-stable limit.</span>
+<span class="sd">        </span>
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        NotImplementedError</span>
 <span class="sd">            If the spatial dimension is not 1D or 2D.</span>
-<span class="sd">    </span>
-<span class="sd">        Prints:</span>
-<span class="sd">        -------</span>
-<span class="sd">        Warning message if the current time step dt exceeds the CFL-stable limit.</span>
 <span class="sd">        """</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">*****************"</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">"* CFL condition *"</span><span class="p">)</span>
@@ -2556,49 +2530,36 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_check_symbol_conditions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Check strict analytic conditions on the linear symbol self.L_symbolic:</span>
-<span class="sd">            This method evaluates three key properties of the Fourier multiplier </span>
-<span class="sd">            symbol a(k) = self.L(k), which are crucial for well-posedness, stability,</span>
-<span class="sd">            and numerical efficiency. The checks apply to both 1D and 2D cases.</span>
+<span class="sd">        Check strict analytic conditions on the linear symbol `self.L_symbolic`.</span>
 <span class="sd">        </span>
-<span class="sd">        Conditions checked:</span>
-<span class="sd">        ------------------</span>
-<span class="sd">        1. **Stability condition**: Re(a(k)) ≤ 0 for all k ≠ 0</span>
-<span class="sd">           Ensures that the system does not exhibit exponential growth in time.</span>
-<span class="sd">    </span>
-<span class="sd">        2. **Dissipation condition**: Re(a(k)) ≤ -δ |k|² for large |k|</span>
-<span class="sd">           Ensures sufficient damping at high frequencies to avoid oscillatory instability.</span>
-<span class="sd">    </span>
-<span class="sd">        3. **Growth condition**: |a(k)| ≤ C (1 + |k|)^m with m ≤ 4</span>
-<span class="sd">           Ensures that the symbol does not grow too rapidly with frequency, </span>
-<span class="sd">           which would otherwise cause numerical instability or unphysical amplification.</span>
-<span class="sd">    </span>
+<span class="sd">        Evaluates three key properties of the Fourier multiplier symbol a(k) = self.L(k), </span>
+<span class="sd">        which are crucial for well-posedness, stability, and numerical efficiency.</span>
+<span class="sd">        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        k_range : tuple or None, optional</span>
-<span class="sd">            Specifies the range of frequencies to test in the form (k_min, k_max, N).</span>
-<span class="sd">            If None, defaults are used: [-10, 10] with 500 points in 1D, or [-10, 10] </span>
+<span class="sd">            Specifies the range of frequencies to test in the form `(k_min, k_max, N)`.</span>
+<span class="sd">            If None, defaults are used: `[-10, 10]` with 500 points in 1D, or `[-10, 10]` </span>
 <span class="sd">            with 100 points per axis in 2D.</span>
-<span class="sd">    </span>
 <span class="sd">        verbose : bool, default=True</span>
 <span class="sd">            If True, prints detailed results of each condition check.</span>
-<span class="sd">    </span>
-<span class="sd">        Returns:</span>
-<span class="sd">        --------</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
 <span class="sd">        None</span>
 <span class="sd">            Output is printed directly to the console for interpretability.</span>
-<span class="sd">    </span>
-<span class="sd">        Notes:</span>
-<span class="sd">        ------</span>
+<span class="sd">            </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - **Stability condition**: Re(a(k)) ≤ 0 for all k ≠ 0.</span>
+<span class="sd">        - **Dissipation condition**: Re(a(k)) ≤ -δ |k|² for large |k|.</span>
+<span class="sd">        - **Growth condition**: |a(k)| ≤ C (1 + |k|)^m with m ≤ 4.</span>
 <span class="sd">        - In 2D, the radial frequency |k| = √(kx² + ky²) is used for comparisons.</span>
-<span class="sd">        - The dissipation threshold assumes δ = 0.01 and p = 2 by default.</span>
-<span class="sd">        - The growth ratio is compared against |k|⁴; values above 100 indicate rapid growth.</span>
-<span class="sd">        - This function is typically called during solver setup or analysis phase.</span>
-<span class="sd">    </span>
-<span class="sd">        See Also:</span>
-<span class="sd">        ---------</span>
-<span class="sd">        analyze_wave_propagation : For further symbolic and numerical analysis of dispersion.</span>
-<span class="sd">        plot_symbol : Visualizes the symbol's behavior over the frequency domain.</span>
+<span class="sd">        </span>
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        _analyze_wave_propagation : For further symbolic and numerical analysis of dispersion.</span>
+<span class="sd">        _plot_symbol : Visualizes the symbol's behavior over the frequency domain.</span>
 <span class="sd">        """</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">********************"</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">"* Symbol condition *"</span><span class="p">)</span>
@@ -2670,28 +2631,23 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_analyze_wave_propagation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Perform a detailed analysis of wave propagation characteristics based on the dispersion relation ω(k).</span>
-<span class="sd">    </span>
-<span class="sd">        This method visualizes key wave properties in both 1D and 2D settings:</span>
 <span class="sd">        </span>
+<span class="sd">        Visualizes key wave properties in both 1D and 2D settings:</span>
 <span class="sd">        - Dispersion relation: ω(k)</span>
-<span class="sd">        - Phase velocity: v_p(k) = ω(k)/|k|</span>
-<span class="sd">        - Group velocity: v_g(k) = ∇ₖ ω(k)</span>
-<span class="sd">        - Anisotropy in 2D (via magnitude of group velocity)</span>
-<span class="sd">    </span>
-<span class="sd">        The symbolic dispersion relation 'omega_symbolic' must be defined beforehand.</span>
-<span class="sd">        This is typically available only for second-order-in-time equations.</span>
-<span class="sd">    </span>
-<span class="sd">        In 1D:</span>
-<span class="sd">            Plots ω(k), v_p(k), and v_g(k) over a range of k values.</span>
-<span class="sd">    </span>
-<span class="sd">        In 2D:</span>
-<span class="sd">            Displays heatmaps of ω(kx, ky), v_p(kx, ky), and |v_g(kx, ky)| over a 2D wavenumber grid.</span>
-<span class="sd">    </span>
-<span class="sd">        Raises:</span>
-<span class="sd">            AttributeError: If 'omega_symbolic' is not defined, the method exits gracefully with a message.</span>
-<span class="sd">    </span>
-<span class="sd">        Side Effects:</span>
-<span class="sd">            Generates and displays matplotlib plots.</span>
+<span class="sd">        - Phase velocity: vₚ(k) = ω(k)/|k|</span>
+<span class="sd">        - Group velocity: v₉(k) = ∇ₖ ω(k)</span>
+<span class="sd">        </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - The symbolic dispersion relation `omega_symbolic` must be defined beforehand.</span>
+<span class="sd">        - In 1D: Plots ω(k), vₚ(k), and v₉(k) over a range of k values.</span>
+<span class="sd">        - In 2D: Displays heatmaps of ω(kx, ky), vₚ(kx, ky), and |v₉(kx, ky)|.</span>
+<span class="sd">        - Generates and displays matplotlib plots as a side effect.</span>
+<span class="sd">        </span>
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        AttributeError</span>
+<span class="sd">            If `omega_symbolic` is not defined, the method exits gracefully with a message.</span>
 <span class="sd">        """</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">*****************************"</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">"* Wave propagation analysis *"</span><span class="p">)</span>
@@ -2771,40 +2727,31 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_plot_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s2">"abs"</span><span class="p">,</span> <span class="n">k_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"viridis"</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Visualize the spectral symbol L(k) or L(kx, ky) in 1D or 2D.</span>
-<span class="sd">    </span>
-<span class="sd">        This method plots the linear operator's symbolic Fourier representation </span>
-<span class="sd">        either as a function of a single wavenumber k (1D), or two wavenumbers </span>
-<span class="sd">        kx and ky (2D). The user can choose to display the real part, imaginary part, </span>
-<span class="sd">        or absolute value of the symbol.</span>
-<span class="sd">    </span>
+<span class="sd">        </span>
+<span class="sd">        Plots the linear operator's symbolic Fourier representation either as a function </span>
+<span class="sd">        of a single wavenumber k (1D), or two wavenumbers kx and ky (2D).</span>
+<span class="sd">        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        component : str {'abs', 're', 'im'}</span>
 <span class="sd">            Component of the symbol to visualize:</span>
-<span class="sd">            </span>
-<span class="sd">                - 'abs' : absolute value |a(k)|</span>
-<span class="sd">                - 're'  : real part Re[a(k)]</span>
-<span class="sd">                - 'im'  : imaginary part Im[a(k)]</span>
-<span class="sd">                </span>
+<span class="sd">            - 'abs' : absolute value |a(k)|</span>
+<span class="sd">            - 're'  : real part Re[a(k)]</span>
+<span class="sd">            - 'im'  : imaginary part Im[a(k)]</span>
 <span class="sd">        k_range : tuple (kmin, kmax, N), optional</span>
-<span class="sd">            Wavenumber range for evaluation:</span>
-<span class="sd">            </span>
-<span class="sd">                - kmin: minimum wavenumber</span>
-<span class="sd">                - kmax: maximum wavenumber</span>
-<span class="sd">                - N: number of sampling points</span>
-<span class="sd">                </span>
-<span class="sd">            If None, defaults to [-10, 10] with high resolution.</span>
+<span class="sd">            Wavenumber range for evaluation. If None, defaults to `[-10, 10]` with high resolution.</span>
 <span class="sd">        cmap : str, optional</span>
 <span class="sd">            Colormap used for 2D surface plots. Default is 'viridis'.</span>
-<span class="sd">    </span>
+<span class="sd">            </span>
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
-<span class="sd">            ValueError: If the spatial dimension is not 1D or 2D.</span>
-<span class="sd">    </span>
-<span class="sd">        Notes:</span>
-<span class="sd">            - In 1D, the symbol is plotted using a standard 2D line plot.</span>
-<span class="sd">            - In 2D, a 3D surface plot is generated with color-mapped height.</span>
-<span class="sd">            - Symbol evaluation uses self.L(k), which must be defined and callable.</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the spatial dimension is not 1D or 2D.</span>
+<span class="sd">            </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - In 1D, the symbol is plotted using a standard 2D line plot.</span>
+<span class="sd">        - In 2D, a 3D surface plot is generated with color-mapped height.</span>
 <span class="sd">        """</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">*******************"</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">"* Symbol plotting *"</span><span class="p">)</span>
@@ -3434,45 +3381,35 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u_exact</span><span class="p">,</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="s1">'relative'</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s1">'real'</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Test the solver against an exact solution.</span>
-
-<span class="sd">        This method quantitatively compares the numerical solution with a provided exact solution </span>
-<span class="sd">        at a specified time using either relative or absolute error norms. It supports both </span>
-<span class="sd">        stationary and time-dependent problems in 1D and 2D. If enabled, it also generates plots </span>
-<span class="sd">        of the solution, exact solution, and pointwise error.</span>
-
+<span class="sd">        </span>
+<span class="sd">        Quantitatively compares the numerical solution with a provided exact solution </span>
+<span class="sd">        at a specified time using either relative or absolute error norms.</span>
+<span class="sd">        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        u_exact : callable</span>
 <span class="sd">            Exact solution function taking spatial coordinates and optionally time as arguments.</span>
 <span class="sd">        t_eval : float, optional</span>
 <span class="sd">            Time at which to compare solutions. For non-stationary problems, defaults to final time Lt.</span>
-<span class="sd">            Ignored for stationary problems.</span>
 <span class="sd">        norm : str {'relative', 'absolute'}</span>
 <span class="sd">            Type of error norm used in comparison.</span>
 <span class="sd">        threshold : float</span>
 <span class="sd">            Acceptable error threshold; raises an assertion if exceeded.</span>
-<span class="sd">        plot : bool</span>
-<span class="sd">            Whether to display visual comparison plots (default: True).</span>
 <span class="sd">        component : str {'real', 'imag', 'abs'}</span>
 <span class="sd">            Component of the solution to compare and visualize.</span>
-
+<span class="sd">            </span>
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
 <span class="sd">            If unsupported dimension is encountered or requested evaluation time exceeds simulation duration.</span>
 <span class="sd">        AssertionError</span>
 <span class="sd">            If computed error exceeds the given threshold.</span>
-
-<span class="sd">        Prints</span>
-<span class="sd">        ------</span>
-<span class="sd">        - Information about the closest available frame to the requested evaluation time.</span>
-<span class="sd">        - Computed error value and comparison to threshold.</span>
-
+<span class="sd">            </span>
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        - For time-dependent problems, the solution is extracted from precomputed frames.</span>
 <span class="sd">        - Plots are adapted to spatial dimension: line plots for 1D, image plots for 2D.</span>
-<span class="sd">        - The method ensures consistent handling of real, imaginary, and magnitude components.</span>
+<span class="sd">        - Prints information about the closest available frame and the computed error value.</span>
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_stationary</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">"Testing a stationary solution."</span><span class="p">)</span>

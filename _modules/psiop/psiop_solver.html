@@ -202,11 +202,13 @@
 <span class="sd">    entirely. This is cached process-wide by `build_propagator`.</span>
 
 <span class="sd">Second-order block companion reduction</span>
-<span class="sd">    The equation ``∂²ₜu = Op(S)(u)`` is rewritten as a first-order system </span>
-<span class="sd">    for the state vector ``[u, v]ᵀ`` where ``v = ∂ₜu``:</span>
-<span class="sd">        ∂ₜ [u]   [ 0   I ] [u]</span>
-<span class="sd">           [v] = [ S   0 ] [v]</span>
-<span class="sd">    For a ``k × k`` matrix symbol ``S``, the companion matrix is ``2k × 2k``. </span>
+<span class="sd">    The equation `∂²ₜu = Op[S](u)` is rewritten as a first-order system </span>
+<span class="sd">    for the state vector `[u, v]ᵀ` where `v = ∂ₜu`:</span>
+
+<span class="sd">        ∂ₜ ⎡u⎤   ⎡0   I⎤ ⎡u⎤</span>
+<span class="sd">           ⎣v⎦ = ⎣S   0⎦ ⎣v⎦</span>
+
+<span class="sd">    For a `k × k` matrix symbol `S`, the companion matrix is `2k × 2k`. </span>
 <span class="sd">    This allows the full machinery of `solve_first_order` to be reused </span>
 <span class="sd">    without deriving a separate second-order integrator.</span>
 
@@ -218,8 +220,8 @@
 <span class="sd">    exact solution over a step ``dt`` is ``U(t) = exp(tP) U(0) exp(-tQ)``. </span>
 <span class="sd">    If they depend on ``x``, the underlying scalar operators ``Op[P_ij]`` </span>
 <span class="sd">    and ``Op[Q_jk]`` may not commute. The solver then falls back to:</span>
-<span class="sd">    - Lie-Trotter: ``U^{n+1} = exp(dt·P) exp(-dt·Q) U^n``  (``𝒪(dt)`` error)</span>
-<span class="sd">    - Strang: ``U^{n+1} = exp(dt/2·P) exp(-dt·Q) exp(dt/2·P) U^n`` (``𝒪(dt²)``)</span>
+<span class="sd">    - Lie-Trotter:  `Uⁿ⁺¹ = exp(dt·P) exp(-dt·Q) Uⁿ`   ( `𝒪(dt)`  error)</span>
+<span class="sd">    - Strang:  `Uⁿ⁺¹ = exp(dt/2·P) exp(-dt·Q) exp(dt/2·P) Uⁿ`  ( `𝒪(dt²)` )</span>
 
 <span class="sd">Quasi-linear IMEX for conformal Ricci flow</span>
 <span class="sd">    The 2D Ricci flow in conformal gauge ``g = e²ᵠ(dx² + dy²)`` reduces to </span>
@@ -361,21 +363,38 @@
 <div class="viewcode-block" id="make_grids">
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.make_grids">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">make_grids</span><span class="p">(</span><span class="n">vars_x</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Build spatial + frequency grids and the meshgrid-ed spatial</span>
-<span class="sd">    coordinates used to evaluate initial conditions -- factors out the</span>
-<span class="sd">    grid-setup boilerplate that used to be copy-pasted verbatim in every</span>
-<span class="sd">    solve_* function below.</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Build spatial + frequency grids and the meshgrid-ed spatial</span>
+<span class="sd">    coordinates used to evaluate initial conditions.</span>
+<span class="sd">    </span>
+<span class="sd">    Factors out the grid-setup boilerplate that used to be copy-pasted </span>
+<span class="sd">    verbatim in every solve_* function below.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    vars_x : list of sympy.Symbol</span>
+<span class="sd">        Spatial variables (length 1 for 1D, length 2 for 2D).</span>
+<span class="sd">    L : float</span>
+<span class="sd">        Half-length of the spatial domain.</span>
+<span class="sd">    N : int</span>
+<span class="sd">        Number of grid points per spatial axis.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    X, Y : ndarray, ndarray or None</span>
-<span class="sd">        Meshgrid-ed spatial coordinates ('ij' indexing). Y is None in 1D.</span>
-<span class="sd">    x_grid, y_grid : ndarray, ndarray or None</span>
-<span class="sd">        1D spatial axes (y_grid is None in 1D).</span>
-<span class="sd">    kx, ky : ndarray, ndarray or None</span>
-<span class="sd">        Frequency axes (ky is None in 1D).</span>
+<span class="sd">    X : ndarray or None</span>
+<span class="sd">        Meshgrid-ed spatial coordinates along x ('ij' indexing). None in 1D.</span>
+<span class="sd">    Y : ndarray or None</span>
+<span class="sd">        Meshgrid-ed spatial coordinates along y ('ij' indexing). None in 1D.</span>
+<span class="sd">    x_grid : ndarray</span>
+<span class="sd">        1D spatial axis along x.</span>
+<span class="sd">    y_grid : ndarray or None</span>
+<span class="sd">        1D spatial axis along y. None in 1D.</span>
+<span class="sd">    kx : ndarray</span>
+<span class="sd">        Frequency axis along x.</span>
+<span class="sd">    ky : ndarray or None</span>
+<span class="sd">        Frequency axis along y. None in 1D.</span>
 <span class="sd">    grids : tuple</span>
-<span class="sd">        (x, kx) in 1D or (x, y, kx, ky) in 2D -- what callers return.</span>
+<span class="sd">        `(x, kx)` in 1D or `(x, y, kx, ky)` in 2D.</span>
 <span class="sd">    """</span>
     <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vars_x</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -393,16 +412,39 @@
 <div class="viewcode-block" id="run_time_loop">
 <a class="viewcode-back" href="../../psiop.html#psiop.psiop_solver.run_time_loop">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">run_time_loop</span><span class="p">(</span><span class="n">step_fn</span><span class="p">,</span> <span class="n">U0</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">check_finite</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Repeatedly apply `step_fn(U) -&gt; U_next`, saving a snapshot every</span>
-<span class="sd">    `save_every` steps (plus the final step and t=0) -- factors out the</span>
-<span class="sd">    save-cadence bookkeeping that used to be copy-pasted verbatim in every</span>
-<span class="sd">    solve_* function below.</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Repeatedly apply `step_fn(U) → U_next`, saving a snapshot every</span>
+<span class="sd">    `save_every` steps (plus the final step and t=0).</span>
+<span class="sd">    </span>
+<span class="sd">    Factors out the save-cadence bookkeeping that used to be copy-pasted </span>
+<span class="sd">    verbatim in every solve_* function below.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    step_fn : callable</span>
+<span class="sd">        Function that takes the current state `U` and returns the next state `U_next`.</span>
+<span class="sd">    U0 : ndarray</span>
+<span class="sd">        Initial state array.</span>
+<span class="sd">    dt : float</span>
+<span class="sd">        Time-step size.</span>
+<span class="sd">    n_steps : int</span>
+<span class="sd">        Total number of time steps to evolve.</span>
+<span class="sd">    save_every : int</span>
+<span class="sd">        Store the solution snapshot every `save_every` steps.</span>
+<span class="sd">    check_finite : bool, default True</span>
+<span class="sd">        If True, raise `FloatingPointError` if a non-finite value is detected.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    t_list : ndarray</span>
+<span class="sd">        Array of saved time points.</span>
+<span class="sd">    U_list : ndarray</span>
+<span class="sd">        Array of saved state snapshots.</span>
 
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    FloatingPointError</span>
-<span class="sd">        If `check_finite` is True and a non-finite value shows up -- avoids</span>
-<span class="sd">        silently returning a diverged/garbage trajectory.</span>
+<span class="sd">        If `check_finite` is True and a non-finite value shows up.</span>
 <span class="sd">    """</span>
     <span class="n">t_list</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
     <span class="n">U_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">U0</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
@@ -551,6 +593,35 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_propagator_family_key</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">quantization</span><span class="p">,</span>
                             <span class="n">mode_composition</span><span class="p">,</span> <span class="n">apply_backend</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Generate a hashable cache key for a `PropagatorFamily`.</span>
+<span class="sd">    </span>
+<span class="sd">    The key is based on all parameters that determine the symbolic </span>
+<span class="sd">    composition, excluding the time-step `dt` (which is handled dynamically </span>
+<span class="sd">    via `sympy.subs` inside the family).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    s_expr : sympy.Expr, sympy.MatrixBase, list, or tuple</span>
+<span class="sd">        The symbol or matrix of symbols.</span>
+<span class="sd">    vars_x : list of sympy.Symbol</span>
+<span class="sd">        Spatial variables.</span>
+<span class="sd">    order : int</span>
+<span class="sd">        Truncation order for the asymptotic expansion.</span>
+<span class="sd">    quantization : str</span>
+<span class="sd">        Quantization convention.</span>
+<span class="sd">    mode_composition : str</span>
+<span class="sd">        Composition rule.</span>
+<span class="sd">    apply_backend : str</span>
+<span class="sd">        Numerical application backend.</span>
+<span class="sd">    do_simplify : bool, default True</span>
+<span class="sd">        Whether to simplify the symbol during construction.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tuple</span>
+<span class="sd">        A hashable tuple representing the cache key.</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="p">(</span><span class="n">MatrixBase</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
         <span class="n">expr_key</span> <span class="o">=</span> <span class="n">srepr</span><span class="p">(</span><span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
@@ -668,7 +739,7 @@
 
 <span class="sd">    At each time step the field is advanced via</span>
 
-<span class="sd">        u^{n+1} = exp(dt · Op[s]) u^n ≈ (I + dt·P + (dt²/2!)P∘P + ⋯) u^n</span>
+<span class="sd">        uⁿ⁺¹ = exp(dt · Op[s]) uⁿ ≈ (I + dt·P + (dt²/2!)P∘P + ⋯) uⁿ</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -915,14 +986,16 @@
 <span class="sd">      `dt &gt; 0`, so it is unconditionally unstable; leapfrog is the</span>
 <span class="sd">      cheapest explicit scheme that avoids that failure mode.</span>
 
-<span class="sd">      Per-step KDK update, from `(u^n, v^n)` to `(u^{n+1}, v^{n+1})`:</span>
+<span class="sd">      Per-step KDK update, from `(uⁿ, vⁿ)` to `(uⁿ⁺¹, vⁿ⁺¹)`:</span>
 
-<span class="sd">          v^{n+1/2} = v^n       + (dt/2)·Op[S](u^n)      # kick</span>
-<span class="sd">          u^{n+1}   = u^n       +  dt   ·v^{n+1/2}       # drift</span>
-<span class="sd">          v^{n+1}   = v^{n+1/2} + (dt/2)·Op[S](u^{n+1})  # kick</span>
+<span class="sd">       vⁿ⁺¹/² = vⁿ       + (dt/2)·Op[S](uⁿ)      # kick</span>
+<span class="sd">       uⁿ⁺¹   = uⁿ       +  dt   ·vⁿ⁺¹/²         # drift</span>
+<span class="sd">       vⁿ⁺¹   = vⁿ⁺¹/²   + (dt/2)·Op[S](uⁿ⁺¹)    # kick</span>
+<span class="sd">       equivalent to the textbook `uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ +</span>
+<span class="sd">       dt²·Op[S](uⁿ)` form</span>
 
-<span class="sd">      equivalent to the textbook `u^{n+1} = 2u^n − u^{n−1} +</span>
-<span class="sd">      dt²·Op[S](u^n)` form but self-starting from `(u^0, v^0)` with no</span>
+<span class="sd">      equivalent to the textbook `uⁿ⁺¹ = 2uⁿ − uⁿ⁻¹ +</span>
+<span class="sd">      dt²·Op[S](uⁿ)` form but self-starting from `(u^0, v^0)` with no</span>
 <span class="sd">      separate initialization step, and it yields a velocity that is</span>
 <span class="sd">      naturally synchronized with `u` at every saved time (the average</span>
 <span class="sd">      of the two half-kicks straddling it).</span>
@@ -1266,11 +1339,11 @@
 <span class="sd">        Operator-splitting scheme between the `P` (left) and `Q` (right)</span>
 <span class="sd">        sub-steps:</span>
 
-<span class="sd">        - 'lie'    : one full left step `exp(dt·P)`, then one full right</span>
-<span class="sd">                     step `exp(-dt·Q)` -- first order accurate, `O(dt)`.</span>
-<span class="sd">        - 'strang' : half left step `exp(dt/2·P)`, full right step</span>
-<span class="sd">                     `exp(-dt·Q)`, half left step `exp(dt/2·P)` --</span>
-<span class="sd">                     second order accurate, `O(dt^2)`. Default.</span>
+<span class="sd">         - 'lie'    : one full left step `exp(dt·P)`, then one full right</span>
+<span class="sd">                      step `exp(-dt·Q)` -- first order accurate, `𝒪(dt)`.</span>
+<span class="sd">         - 'strang' : half left step `exp(dt/2·P)`, full right step</span>
+<span class="sd">                      `exp(-dt·Q)`, half left step `exp(dt/2·P)` --</span>
+<span class="sd">                      second order accurate, `𝒪(dt²)`. Default.</span>
 <span class="sd">    L : float, optional</span>
 <span class="sd">        Half-width of the spatial domain. Default 10.0.</span>
 <span class="sd">    N : int, optional</span>

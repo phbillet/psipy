@@ -221,11 +221,18 @@ It is designed for both <strong>linear and nonlinear time-dependent PDEs</strong
 </section>
 <section id="example-usage">
 <h2>Example Usage:<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h2>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">PDESolver</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">u</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s1">'u'</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">t</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">'t x'</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">eq</span> <span class="o">=</span> <span class="n">Eq</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">u</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">t</span><span class="p">),</span> <span class="n">diff</span><span class="p">(</span><span class="n">u</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">x</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">u</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span><span class="w"> </span><span class="nf">_initial</span><span class="p">(</span><span class="n">x</span><span class="p">):</span> <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sp</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">HTML</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">PDESolver</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s1">'u'</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'t x'</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">eq</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">Eq</span><span class="p">(</span><span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">u</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">t</span><span class="p">),</span> <span class="n">sp</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">u</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">x</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">u</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span><span class="w"> </span><span class="nf">initial</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">solver</span> <span class="o">=</span> <span class="n">PDESolver</span><span class="p">(</span><span class="n">eq</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">solver</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">Lx</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">Nx</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">Lt</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">Nt</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">initial_condition</span><span class="o">=</span><span class="n">initial</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
@@ -420,65 +427,42 @@ to compute the solution.</p></li>
 <dt class="sig sig-object py" id="solver.PDESolver.solve">
 <span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.solve" title="Link to this definition"></a></dt>
 <dd><p>Solve the partial differential equation numerically using spectral methods.</p>
-<p>This method evolves the solution in time using a combination of:
-- Fourier-based linear evolution (with dealiasing)
-- Nonlinear term handling via pseudo-spectral evaluation
-- Support for pseudo-differential operators (psiOp)
-- Source terms and boundary conditions</p>
-<p>The solver supports:
-- 1D and 2D spatial domains
-- First and second-order time evolution
-- Periodic and Dirichlet boundary conditions
-- Time-stepping schemes: default, ETD-RK4</p>
+<p>This method evolves the solution in time using a combination of Fourier-based
+linear evolution, nonlinear term handling via pseudo-spectral evaluation, and
+support for pseudo-differential operators (ψOp), source terms, and boundary conditions.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>A list of solution arrays at each saved time frame.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>list[np.ndarray]</p>
+<dd class="field-even"><p>list of np.ndarray</p>
 </dd>
 </dl>
-<dl class="simple">
-<dt>Side Effects:</dt><dd><ul class="simple">
-<li><p>Updates self.frames: stores solution snapshots</p></li>
-<li><p>Updates self.energy_history: records total energy if enabled</p></li>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Updates <cite>self.frames</cite> to store solution snapshots.</p></li>
+<li><p>Updates <cite>self.energy_history</cite> to record total energy if enabled.</p></li>
 </ul>
-</dd>
-<dt>Algorithm Overview:</dt><dd><dl class="simple">
+<section id="algorithm-overview">
+<h3>Algorithm Overview<a class="headerlink" href="#algorithm-overview" title="Link to this heading"></a></h3>
+<dl class="simple">
 <dt>For each time step:</dt><dd><ol class="arabic simple">
-<li><p>Evaluate source contributions (if any)</p></li>
+<li><p>Evaluate source contributions (if any).</p></li>
 <li><dl class="simple">
 <dt>Apply time evolution:</dt><dd><ul class="simple">
-<li><dl class="simple">
-<dt>Order 1:</dt><dd><ul>
-<li><p>With psiOp: uses step_order1_with_psi</p></li>
-<li><p>With ETD-RK4: exponential time differencing</p></li>
-<li><p>Default: linear + nonlinear update</p></li>
+<li><p>Order 1: Uses <cite>_step_order1_with_psi</cite>, ETD-RK4, or default linear+nonlinear update.</p></li>
+<li><p>Order 2: Uses <cite>_step_order2_with_psi</cite>, ETD-RK4, or default leapfrog-style update.</p></li>
 </ul>
 </dd>
 </dl>
 </li>
-<li><dl class="simple">
-<dt>Order 2:</dt><dd><ul>
-<li><p>With psiOp: uses step_order2_with_psi</p></li>
-<li><p>With ETD-RK4: second-order exponential scheme</p></li>
-<li><p>Default: second-order leapfrog-style update</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><p>Enforce boundary conditions</p></li>
-<li><p>Save solution snapshot periodically</p></li>
-<li><p>Record energy (for second-order systems, with or without psiOp)</p></li>
+<li><p>Enforce boundary conditions.</p></li>
+<li><p>Save solution snapshot periodically.</p></li>
+<li><p>Record energy (for second-order systems).</p></li>
 </ol>
 </dd>
 </dl>
-</dd>
-</dl>
+</section>
 </dd></dl>
 
 <dl class="py method">
@@ -537,19 +521,15 @@ Ellipticity of the symbol is checked numerically before inversion to ensure well
 <dt class="sig sig-object py" id="solver.PDESolver.test">
 <span class="sig-name descname"><span class="pre">test</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u_exact</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_eval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'relative'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'real'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/solver.html#PDESolver.test"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#solver.PDESolver.test" title="Link to this definition"></a></dt>
 <dd><p>Test the solver against an exact solution.</p>
-<p>This method quantitatively compares the numerical solution with a provided exact solution
-at a specified time using either relative or absolute error norms. It supports both
-stationary and time-dependent problems in 1D and 2D. If enabled, it also generates plots
-of the solution, exact solution, and pointwise error.</p>
+<p>Quantitatively compares the numerical solution with a provided exact solution
+at a specified time using either relative or absolute error norms.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>u_exact</strong> (<em>callable</em>) – Exact solution function taking spatial coordinates and optionally time as arguments.</p></li>
-<li><p><strong>t_eval</strong> (<em>float</em><em>, </em><em>optional</em>) – Time at which to compare solutions. For non-stationary problems, defaults to final time Lt.
-Ignored for stationary problems.</p></li>
+<li><p><strong>t_eval</strong> (<em>float</em><em>, </em><em>optional</em>) – Time at which to compare solutions. For non-stationary problems, defaults to final time Lt.</p></li>
 <li><p><strong>norm</strong> (<em>str {'relative'</em><em>, </em><em>'absolute'}</em>) – Type of error norm used in comparison.</p></li>
 <li><p><strong>threshold</strong> (<em>float</em>) – Acceptable error threshold; raises an assertion if exceeded.</p></li>
-<li><p><strong>plot</strong> (<em>bool</em>) – Whether to display visual comparison plots (default: True).</p></li>
 <li><p><strong>component</strong> (<em>str {'real'</em><em>, </em><em>'imag'</em><em>, </em><em>'abs'}</em>) – Component of the solution to compare and visualize.</p></li>
 </ul>
 </dd>
@@ -557,10 +537,6 @@ Ignored for stationary problems.</p></li>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>ValueError</strong> – If unsupported dimension is encountered or requested evaluation time exceeds simulation duration.</p></li>
 <li><p><strong>AssertionError</strong> – If computed error exceeds the given threshold.</p></li>
-<li><p><strong>Prints</strong> – </p></li>
-<li><p><strong>------</strong> – </p></li>
-<li><p><strong>- Information about the closest available frame to the requested evaluation time.</strong> – </p></li>
-<li><p><strong>- Computed error value and comparison to threshold.</strong> – </p></li>
 </ul>
 </dd>
 </dl>
@@ -568,7 +544,7 @@ Ignored for stationary problems.</p></li>
 <ul class="simple">
 <li><p>For time-dependent problems, the solution is extracted from precomputed frames.</p></li>
 <li><p>Plots are adapted to spatial dimension: line plots for 1D, image plots for 2D.</p></li>
-<li><p>The method ensures consistent handling of real, imaginary, and magnitude components.</p></li>
+<li><p>Prints information about the closest available frame and the computed error value.</p></li>
 </ul>
 </dd></dl>
 
