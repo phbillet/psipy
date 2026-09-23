@@ -48,7 +48,7 @@ import numpy as np
 from sympy import (
     symbols, Matrix, sin, cos, simplify, sqrt, pi,
     Rational, log, exp, Symbol, Abs, diff, lambdify,
-    DiracDelta,
+    DiracDelta, Integer,
 )
 
 import matplotlib.pyplot as plt
@@ -84,6 +84,16 @@ from riemannian import (
     _eval_metric_grid,
     _brioschi_curvature_grid,
     induced_metric,
+    second_fundamental_form,
+    principal_curvatures,
+    ricci_flow_2d,
+    visualize_eigenmodes,
+    visualize_extrinsic_curvature,
+    ricci_flow_2d,
+    visualize_killing_fields,
+    visualize_ricci_flow,
+    killing_vector_fields_1d,
+    killing_vector_fields_2d,
 )
 
 # ---------------------------------------------------------------------------
@@ -2623,3 +2633,184 @@ class Test1DOperations:
         # norm = sqrt(g * V^2) = sqrt(x^2 * 9) = 3x (assuming x>0)
         n = m_cone.norm(V)
         assert simplify(n - 3*x) == 0
+
+
+# ===========================================================================
+# 41. Killing Vector Fields (NEW)
+# ===========================================================================
+class TestKillingVectorFields:
+    def test_1d_cone(self, m_cone, coords_1d):
+        """1D metric has exactly 1 Killing field (translation in arc length)."""
+        xi = m_cone.killing_vector_fields()
+        # For g = x^2, xi = 1/x
+        assert simplify(xi - 1/coords_1d) == 0
+
+    def test_2d_flat(self, m_flat):
+        """Flat 2D space has 3 Killing fields (2 translations, 1 rotation)."""
+        fields, dim = m_flat.killing_vector_fields()
+        assert dim == 3
+        assert len(fields) == 3
+
+    def test_2d_sphere(self, m_sphere):
+        """Round sphere has 3 Killing fields (SO(3) rotations)."""
+        # The default basis only includes trig functions of coordinates that
+        # appear in the metric's sin/cos atoms (theta).  The full SO(3)
+        # Killing fields also need sin(phi), cos(phi), and mixed terms
+        # like sin(phi)/tan(theta), so we supply a richer custom basis.
+        theta, phi = m_sphere.coords
+        custom_basis = [
+            1, theta, phi, theta*phi, theta**2, phi**2,
+            sin(theta), cos(theta),
+            sin(phi), cos(phi),
+            sin(theta)*sin(phi), sin(theta)*cos(phi),
+            cos(theta)*sin(phi), cos(theta)*cos(phi),
+            sin(phi)/sin(theta)*cos(theta),   # sin(phi)/tan(theta)
+            cos(phi)/sin(theta)*cos(theta),   # cos(phi)/tan(theta)
+        ]
+        fields, dim = m_sphere.killing_vector_fields(
+            basis=custom_basis,
+            sample_box=((0.2, np.pi - 0.2), (0.1, 2 * np.pi - 0.1)),
+            n_samples=120,
+        )
+        assert dim == 3
+        assert len(fields) == 3
+
+    def test_2d_sphere_default_basis_finds_at_least_one(self, m_sphere):
+        """The default basis should find at least the axial Killing field ∂_φ."""
+        fields, dim = m_sphere.killing_vector_fields(
+            sample_box=((0.1, np.pi - 0.1), (0.0, 2 * np.pi))
+        )
+        assert dim >= 1
+
+# ===========================================================================
+# 42. Laplace-Beltrami Eigenmodes (NEW)
+# ===========================================================================
+class TestLaplaceBeltramiEigenmodes:
+    def test_flat_dirichlet(self, m_flat):
+        """Test Dirichlet eigenmodes on a flat square."""
+        grid = RiemannianGrid(m_flat, ((0, np.pi), (0, np.pi)), resolution=20)
+        vals, vecs = grid.laplace_beltrami_eigenmodes(k=3, boundary='dirichlet')
+        
+        assert vals.shape == (3,)
+        assert vecs.shape == (3, 20, 20)
+        # Dirichlet eigenvalues must be strictly positive
+        assert np.all(vals > 0)
+        # First eigenvalue for (0, pi)x(0, pi) is lambda = 1^2 + 1^2 = 2.0
+        assert np.isclose(vals[0], 2.0, rtol=0.15)
+
+    def test_flat_neumann(self, m_flat):
+        """Test Neumann eigenmodes on a flat square."""
+        grid = RiemannianGrid(m_flat, ((0, 1), (0, 1)), resolution=20)
+        vals, vecs = grid.laplace_beltrami_eigenmodes(k=3, boundary='neumann')
+        
+        assert vals.shape == (3,)
+        # First Neumann eigenvalue is ~0 (constant function)
+        assert np.isclose(vals[0], 0.0, atol=1e-4)
+
+# ===========================================================================
+# 43. Extrinsic Geometry (NEW)
+# ===========================================================================
+class TestExtrinsicGeometry:
+    @pytest.fixture
+    def sphere_embedding(self):
+        """Create a discrete unit sphere embedding for testing."""
+        u = np.linspace(0.1, np.pi - 0.1, 20)
+        v = np.linspace(0, 2 * np.pi, 20)
+        U, V = np.meshgrid(u, v, indexing='ij')
+        R = np.zeros((20, 20, 3))
+        R[:, :, 0] = np.sin(U) * np.cos(V)
+        R[:, :, 1] = np.sin(U) * np.sin(V)
+        R[:, :, 2] = np.cos(U)
+        du = u[1] - u[0]
+        dv = v[1] - v[0]
+        return R, du, dv
+
+    def test_second_fundamental_form_shapes(self, sphere_embedding):
+        R, du, dv = sphere_embedding
+        L, M, Ncoef, E, F, G, normal = second_fundamental_form(R, du, dv)
+        
+        assert L.shape == (20, 20)
+        assert M.shape == (20, 20)
+        assert Ncoef.shape == (20, 20)
+        assert normal.shape == (20, 20, 3)
+
+    def test_principal_curvatures_sphere(self, sphere_embedding):
+        R, du, dv = sphere_embedding
+        H, K_ext, k1, k2 = principal_curvatures(R, du, dv)
+        
+        assert H.shape == (20, 20)
+        # Exclude boundaries due to finite-difference edge artifacts
+        sl = slice(2, -2)
+        # The cross-product normal dR/dθ × dR/dφ points outward for the
+        # standard parameterization, so H = −1 (surface curves away from
+        # the outward normal).  Check |H| ≈ 1 to be sign-convention agnostic.
+        assert np.allclose(np.abs(H[sl, sl]), 1.0, atol=0.15)
+        # Extrinsic Gaussian curvature K_ext = det(II)/det(I) is always +1
+        # for the unit sphere regardless of normal orientation.
+        assert np.allclose(K_ext[sl, sl], 1.0, atol=0.2)
+
+# ===========================================================================
+# 44. Ricci Flow 2D (NEW)
+# ===========================================================================
+class TestRicciFlow2D:
+    def test_flat_metric(self, m_flat):
+        """Ricci flow on a flat metric should leave it unchanged (K=0)."""
+        domain = ((0, 1), (0, 1))
+        res = ricci_flow_2d(m_flat, domain, resolution=10, dt=0.01, n_steps=5)
+        
+        assert 'X' in res and 'Y' in res
+        assert res['g11'].shape == (6, 10, 10)
+        assert res['K'].shape == (6, 10, 10)
+        assert res['t'].shape == (6,)
+        
+        # For flat metric, K=0 everywhere, so the metric shouldn't evolve
+        assert np.allclose(res['g11'][0], res['g11'][-1], atol=1e-5)
+        assert np.allclose(res['K'], 0.0, atol=1e-5)
+
+# ===========================================================================
+# 45. Visualizations Smoke Tests (NEW)
+# ===========================================================================
+class TestVisualizationsNew:
+    """
+    Smoke tests for the new visualization functions. 
+    Uses the Agg backend to prevent display windows from opening.
+    """
+    @pytest.fixture(autouse=True)
+    def use_agg(self):
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        yield
+        plt.close('all')
+
+    def test_visualize_eigenmodes(self, m_flat):
+        grid = RiemannianGrid(m_flat, ((0, 1), (0, 1)), resolution=10)
+        vals, vecs = grid.laplace_beltrami_eigenmodes(k=2)
+        fig, axes = visualize_eigenmodes(grid, vals, vecs, n_show=2)
+        assert fig is not None
+
+    def test_visualize_extrinsic_curvature(self):
+        u = np.linspace(0.1, np.pi - 0.1, 10)
+        v = np.linspace(0, 2 * np.pi, 10)
+        U, V = np.meshgrid(u, v, indexing='ij')
+        R = np.zeros((10, 10, 3))
+        R[:, :, 0] = np.sin(U) * np.cos(V)
+        R[:, :, 1] = np.sin(U) * np.sin(V)
+        R[:, :, 2] = np.cos(U)
+        du = u[1] - u[0]
+        dv = v[1] - v[0]
+        
+        fig, axes = visualize_extrinsic_curvature(R, du, dv)
+        assert fig is not None
+
+    def test_visualize_ricci_flow(self, m_flat):
+        domain = ((0, 1), (0, 1))
+        res = ricci_flow_2d(m_flat, domain, resolution=10, dt=0.01, n_steps=5)
+        fig, axes = visualize_ricci_flow(res, n_snapshots=2)
+        assert fig is not None
+
+    def test_visualize_killing_fields(self, m_flat):
+        fields, dim = m_flat.killing_vector_fields()
+        domain = ((-1, 1), (-1, 1))
+        fig, axes = visualize_killing_fields(m_flat, fields, domain, resolution=5)
+        assert fig is not None

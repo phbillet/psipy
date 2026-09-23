@@ -52,17 +52,19 @@
 <li class="toctree-l1"><a class="reference internal" href="microlocal.html">microlocal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="misc.html">misc</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">physics</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#physics-py-lagrangian-and-hamiltonian-toolkit-legendre-transforms-symbolic-pdes">physics.py — Lagrangian and Hamiltonian toolkit: Legendre transforms &amp; symbolic PDEs</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#mathematical-background">Mathematical background</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#main-classes">Main classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#supported-dimensions">Supported dimensions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#transformation-methods">Transformation methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pde-modes">PDE modes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#mathematical-background">Mathematical background</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#physics.HamiltonianSymbolicConverter"><code class="docutils literal notranslate"><span class="pre">HamiltonianSymbolicConverter</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#physics.HamiltonianSymbolicConverter.decompose_hamiltonian"><code class="docutils literal notranslate"><span class="pre">HamiltonianSymbolicConverter.decompose_hamiltonian()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#physics.HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde"><code class="docutils literal notranslate"><span class="pre">HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#physics.LagrangianHamiltonianConverter"><code class="docutils literal notranslate"><span class="pre">LagrangianHamiltonianConverter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#physics.LagrangianHamiltonianConverter._numeric_cache"><code class="docutils literal notranslate"><span class="pre">LagrangianHamiltonianConverter._numeric_cache</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#physics.LagrangianHamiltonianConverter.H_to_L"><code class="docutils literal notranslate"><span class="pre">LagrangianHamiltonianConverter.H_to_L()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#physics.LagrangianHamiltonianConverter.L_to_H"><code class="docutils literal notranslate"><span class="pre">LagrangianHamiltonianConverter.L_to_H()</span></code></a></li>
 </ul>
@@ -103,85 +105,330 @@
              
   <section id="module-physics">
 <span id="physics"></span><h1>physics<a class="headerlink" href="#module-physics" title="Link to this heading"></a></h1>
-<section id="physics-py-lagrangian-and-hamiltonian-toolkit-legendre-transforms-symbolic-pdes">
-<h2>physics.py — Lagrangian and Hamiltonian toolkit: Legendre transforms &amp; symbolic PDEs<a class="headerlink" href="#physics-py-lagrangian-and-hamiltonian-toolkit-legendre-transforms-symbolic-pdes" title="Link to this heading"></a></h2>
+<p>physics.py — Lagrangian and Hamiltonian toolkit: Legendre transforms and symbolic PDEs</p>
 <section id="overview">
-<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
-<p>The <cite>physics</cite> module provides a unified interface for transforming between Lagrangian and Hamiltonian descriptions of physical systems, both symbolically and numerically.  It implements the classical Legendre transform as well as the more general <strong>Legendre–Fenchel transform</strong> (convex conjugate) for non‑quadratic or even non‑smooth Lagrangians.  The module also bridges to pseudo‑differential operator formalisms by decomposing a Hamiltonian into its local (polynomial) and non‑local parts and generating formal PDEs of Schrödinger, wave, or stationary type.</p>
-<p>Key features include:</p>
-<ul class="simple">
-<li><dl class="simple">
-<dt>Conversion from Lagrangian <cite>L(x, u, p)</cite> to Hamiltonian <cite>H(x, u, ξ)</cite> (and vice‑versa) using:</dt><dd><ul>
-<li><p>Symbolic Legendre transform (fast path for quadratic Lagrangians, general <cite>solve</cite>‑based inversion).</p></li>
-<li><p>Symbolic Legendre–Fenchel transform (for convex, possibly non‑invertible relations).</p></li>
-<li><p>Numeric Legendre–Fenchel transform (grid‑based or SciPy optimisation) for 1D and 2D problems.</p></li>
-</ul>
-</dd>
-</dl>
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">physics</span></code> module provides a unified interface for transforming between
+Lagrangian and Hamiltonian descriptions of physical systems, both symbolically
+and numerically.</p>
+<p>It implements:</p>
+<ul>
+<li><p>the classical Legendre transform for smooth, invertible momentum maps
+<code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">↦</span> <span class="pre">∂L/∂p</span></code>;</p></li>
+<li><p>the Legendre–Fenchel transform, i.e. the convex conjugate</p>
+<blockquote>
+<div><p>H(x, u, ξ) = sup_p (⟨ξ, p⟩ − L(x, u, p)),</p>
+</div></blockquote>
+<p>for non-quadratic or non-invertible cases;</p>
 </li>
-<li><p>Decomposition of a Hamiltonian into polynomial and non‑polynomial (non‑local) parts – a heuristic useful for identifying the principal symbol and lower‑order terms.</p></li>
-<li><p>Generation of formal symbolic PDEs using a placeholder <cite>ψOp</cite> to represent the action of a pseudo‑differential operator; supports stationary (eigenvalue), Schrödinger, and wave equations.</p></li>
+<li><p>a numeric Fenchel path for 1D and 2D problems, using either a deterministic
+grid search or SciPy local optimisation when available;</p></li>
+<li><p>a heuristic decomposition of a Hamiltonian symbol into polynomial/local and
+non-polynomial/non-local parts;</p></li>
+<li><p>generation of formal symbolic PDEs using the placeholder <code class="docutils literal notranslate"><span class="pre">ψOp(H,</span> <span class="pre">u)</span></code> for a
+pseudo-differential operator with symbol <code class="docutils literal notranslate"><span class="pre">H</span></code>.</p></li>
 </ul>
 </section>
+<section id="main-classes">
+<h2>Main classes<a class="headerlink" href="#main-classes" title="Link to this heading"></a></h2>
+<dl class="simple">
+<dt>LagrangianHamiltonianConverter</dt><dd><p>Converts <code class="docutils literal notranslate"><span class="pre">L(x,</span> <span class="pre">u,</span> <span class="pre">p)</span></code> to <code class="docutils literal notranslate"><span class="pre">H(x,</span> <span class="pre">u,</span> <span class="pre">ξ)</span></code> and back.</p>
+</dd>
+<dt>HamiltonianSymbolicConverter</dt><dd><p>Converts a Hamiltonian symbol into a formal PDE representation.</p>
+</dd>
+</dl>
+</section>
+<section id="supported-dimensions">
+<h2>Supported dimensions<a class="headerlink" href="#supported-dimensions" title="Link to this heading"></a></h2>
+<p>The public API currently supports one- and two-dimensional coordinate spaces.</p>
+<p>For one coordinate, the conjugate momentum is <code class="docutils literal notranslate"><span class="pre">ξ</span></code>.</p>
+<p>For two coordinates, the conjugate momenta are <code class="docutils literal notranslate"><span class="pre">ξ</span></code> and <code class="docutils literal notranslate"><span class="pre">η</span></code>.</p>
+</section>
+<section id="transformation-methods">
+<h2>Transformation methods<a class="headerlink" href="#transformation-methods" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">LagrangianHamiltonianConverter.L_to_H</span></code> accepts the following methods:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">method=&quot;legendre&quot;</span></code></dt><dd><p>Classical symbolic Legendre transform. Preferred when <code class="docutils literal notranslate"><span class="pre">L</span></code> is smooth and
+the Hessian <code class="docutils literal notranslate"><span class="pre">∂²L/∂p²</span></code> is invertible.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">method=&quot;fenchel_symbolic&quot;</span></code></dt><dd><p>Symbolic Legendre–Fenchel attempt. Useful for some convex non-quadratic
+cases, but it rejects manifestly nonsmooth expressions such as <code class="docutils literal notranslate"><span class="pre">Abs</span></code> or
+<code class="docutils literal notranslate"><span class="pre">sign</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">method=&quot;fenchel_numeric&quot;</span></code></dt><dd><p>Numerical approximation of the convex conjugate. Returns a formal SymPy
+placeholder together with a callable that evaluates the approximation.</p>
+</dd>
+</dl>
+</section>
+<section id="pde-modes">
+<h2>PDE modes<a class="headerlink" href="#pde-modes" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde</span></code> supports:</p>
+<p><code class="docutils literal notranslate"><span class="pre">&quot;stationary&quot;</span></code></p>
+<blockquote>
+<div><p>ψOp(H, u) = E u</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">&quot;heat&quot;</span></code></p>
+<blockquote>
+<div><p>∂_t u = −ψOp(H, u)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">&quot;schrodinger&quot;</span></code></p>
+<blockquote>
+<div><p>i ∂_t u = ψOp(H, u)</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">&quot;wave&quot;</span></code></p>
+<blockquote>
+<div><p>∂_{tt} u + ψOp(H, u) = 0</p>
+</div></blockquote>
+</section>
 <section id="mathematical-background">
-<h3>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h3>
-<p>In classical mechanics, the <strong>Lagrangian</strong> <cite>L(x, u, p)</cite> depends on position <cite>x</cite>, the field <cite>u</cite> (optional), and the generalised velocities <cite>p</cite> (often denoted <cite>ẋ</cite>).  The conjugate momenta are defined as</p>
+<h2>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading"></a></h2>
+<p>In classical mechanics, a Lagrangian <code class="docutils literal notranslate"><span class="pre">L(x,</span> <span class="pre">u,</span> <span class="pre">p)</span></code> depends on position <code class="docutils literal notranslate"><span class="pre">x</span></code>,
+an optional field variable <code class="docutils literal notranslate"><span class="pre">u</span></code>, and generalised velocities <code class="docutils literal notranslate"><span class="pre">p</span></code>. The
+conjugate momenta are defined by</p>
 <blockquote>
 <div><p>ξ = ∂L/∂p.</p>
 </div></blockquote>
-<p>When this relation can be inverted (i.e. the Hessian <cite>∂²L/∂p²</cite> is non‑singular), the <strong>Hamiltonian</strong> is obtained by the <strong>Legendre transform</strong></p>
+<p>When this relation can be inverted, the Hamiltonian is obtained from the
+Legendre transform</p>
 <blockquote>
-<div><p>H(x, u, ξ) = ξ·p − L(x, u, p), with p expressed in terms of ξ.</p>
+<div><p>H(x, u, ξ) = ⟨ξ, p⟩ − L(x, u, p),</p>
 </div></blockquote>
-<p>If the Hessian is singular, or if <cite>L</cite> is not strictly convex, the transform must be replaced by the <strong>Legendre–Fenchel conjugate</strong></p>
+<p>with <code class="docutils literal notranslate"><span class="pre">p</span></code> expressed in terms of <code class="docutils literal notranslate"><span class="pre">ξ</span></code>.</p>
+<p>If the Hessian <code class="docutils literal notranslate"><span class="pre">∂²L/∂p²</span></code> is singular, or if <code class="docutils literal notranslate"><span class="pre">L</span></code> is not strictly convex,
+the classical transform may fail. The Legendre–Fenchel conjugate</p>
 <blockquote>
-<div><p>H(x, u, ξ) = sup_p ( ξ·p − L(x, u, p) ),</p>
+<div><p>H(x, u, ξ) = sup_p (⟨ξ, p⟩ − L(x, u, p))</p>
 </div></blockquote>
-<p>which always yields a convex (in ξ) function.  This module provides both symbolic and numerical evaluations of this supremum.</p>
-<p>In the context of pseudo‑differential operators, a Hamiltonian <cite>H(x, ξ)</cite> can be seen as the symbol of an operator.  The module splits <cite>H</cite> into a <strong>polynomial part</strong> (local operator) and a <strong>non‑polynomial part</strong> (non‑local, e.g. containing <cite>√(1+ξ²)</cite>).  This decomposition guides the construction of the corresponding PDE:</p>
-<blockquote>
-<div><p>ψOp(H, u) = E u                     (stationary),</p>
-<p>i ∂_t u = ψOp(H, u)                  (Schrödinger),</p>
-<p>∂_tt u + ψOp(H, u) = 0                (wave),</p>
-</div></blockquote>
-<p>where <cite>ψOp</cite> is a placeholder for the pseudo‑differential operator with symbol <cite>H</cite>.</p>
+<p>always produces a convex function of <code class="docutils literal notranslate"><span class="pre">ξ</span></code>, when the supremum is well defined.
+This module provides both symbolic and numerical treatments of this supremum.</p>
+<p>In pseudo-differential operator formalism, a Hamiltonian <code class="docutils literal notranslate"><span class="pre">H(x,</span> <span class="pre">ξ)</span></code> can be
+viewed as the symbol of an operator. The module splits <code class="docutils literal notranslate"><span class="pre">H</span></code> into a polynomial,
+local part and a non-polynomial, non-local part, for example terms containing
+<code class="docutils literal notranslate"><span class="pre">√(1</span> <span class="pre">+</span> <span class="pre">ξ²)</span></code>. This decomposition is heuristic and is used to assemble formal
+PDEs involving <code class="docutils literal notranslate"><span class="pre">ψOp(H,</span> <span class="pre">u)</span></code>.</p>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The numeric Fenchel transform is computed over a bounded search domain
+<code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">∈</span> <span class="pre">p_bounds</span></code>. Therefore it approximates a constrained convex conjugate.
+If the true maximiser lies outside the supplied bounds, the result may be
+inaccurate.</p></li>
+<li><p>The symbolic paths may fail when SymPy cannot solve the momentum relations.
+Setting <code class="docutils literal notranslate"><span class="pre">force=True</span></code> allows the implementation to attempt recovery, but it
+does not guarantee a mathematically valid transform.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ψOp</span></code> is a formal placeholder. It records the intended operator action but
+does not implement quantisation, composition rules, boundary conditions, or
+functional calculus.</p></li>
+<li><p>SciPy is optional. If unavailable, numeric Fenchel methods fall back to grid
+search.</p></li>
+<li><p>Matplotlib is imported optionally for possible plotting helpers, but the core
+conversion API does not require it.</p></li>
+</ul>
+<p class="rubric">Examples</p>
+<p>Construct a Hamiltonian from a quadratic Lagrangian:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">symbols</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">physics</span><span class="w"> </span><span class="kn">import</span> <span class="n">LagrangianHamiltonianConverter</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s2">&quot;x u&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s2">&quot;p&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">L</span> <span class="o">=</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span><span class="p">,</span> <span class="n">xi</span> <span class="o">=</span> <span class="n">LagrangianHamiltonianConverter</span><span class="o">.</span><span class="n">L_to_H</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,),</span> <span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="n">p</span><span class="p">,))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span>
+<span class="go">xi**2/2</span>
+</pre></div>
+</div>
+<p>Build a formal Schrödinger-type PDE from a Hamiltonian symbol:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sympy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Function</span><span class="p">,</span> <span class="n">symbols</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">physics</span><span class="w"> </span><span class="kn">import</span> <span class="n">HamiltonianSymbolicConverter</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s2">&quot;x t&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">xi</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s2">&quot;xi&quot;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">)(</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">H</span> <span class="o">=</span> <span class="n">xi</span><span class="o">**</span><span class="mi">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">HamiltonianSymbolicConverter</span><span class="o">.</span><span class="n">hamiltonian_to_symbolic_pde</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">H</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,),</span> <span class="n">t</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;schrodinger&quot;</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;formal_string&quot;</span><span class="p">]</span>
+<span class="go">&#39;i ∂_t u = ψOp(H, u)   (H = H(x; xi))&#39;</span>
+</pre></div>
+</div>
 <p class="rubric">References</p>
 <aside class="footnote-list brackets">
 <aside class="footnote brackets" id="id1" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
-<p>Arnold, V. I.  <em>Mathematical Methods of Classical Mechanics</em>, Springer‑Verlag, 1989 (2nd ed.).  §14: Legendre Transform.</p>
+<p>Arnold, V. I. Mathematical Methods of Classical Mechanics,
+Springer-Verlag, 1989 (2nd ed.). §14: Legendre Transform.</p>
 </aside>
 <aside class="footnote brackets" id="id2" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
-<p>Rockafellar, R. T.  <em>Convex Analysis</em>, Princeton University Press, 1970.  Chapter 12: Conjugate Functions.</p>
+<p>Rockafellar, R. T. Convex Analysis, Princeton University Press, 1970.
+Chapter 12: Conjugate Functions.</p>
 </aside>
 <aside class="footnote brackets" id="id3" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
-<p>Evans, L. C.  <em>Partial Differential Equations</em>, American Mathematical Society, 2010 (2nd ed.).  §4.3: Hamilton–Jacobi Equations.</p>
+<p>Evans, L. C. Partial Differential Equations, American Mathematical
+Society, 2010 (2nd ed.). §4.3: Hamilton-Jacobi Equations.</p>
 </aside>
 <aside class="footnote brackets" id="id4" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
-<p>Folland, G. B.  <em>Quantum Field Theory: A Tourist Guide for Mathematicians</em>, American Mathematical Society, 2008.  §1: Legendre Transform and Quantisation.</p>
+<p>Folland, G. B. Quantum Field Theory: A Tourist Guide for
+Mathematicians, American Mathematical Society, 2008. §1: Legendre
+Transform and Quantisation.</p>
 </aside>
 </aside>
-</section>
 </section>
 <dl class="py class">
 <dt class="sig sig-object py" id="physics.HamiltonianSymbolicConverter">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">physics.</span></span><span class="sig-name descname"><span class="pre">HamiltonianSymbolicConverter</span></span><a class="reference internal" href="_modules/physics.html#HamiltonianSymbolicConverter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#physics.HamiltonianSymbolicConverter" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Symbolic converter between Hamiltonians and formal PDEs (psiOp).</p>
+<p>Symbolic converter between Hamiltonians and formal pseudo-differential PDEs.</p>
+<p>This class treats a Hamiltonian <cite>H(x, ξ)</cite> as the symbol of a formal
+pseudo-differential operator. The operator action on a field <cite>u</cite> is
+represented by the placeholder <cite>ψOp(H, u)</cite>.</p>
+<p>The converter can split a Hamiltonian into a polynomial, local part and a
+non-polynomial, non-local part, and then assemble formal evolution or
+eigenvalue equations such as</p>
+<blockquote>
+<div><p>ψOp(H, u) = E u,</p>
+<p>i ∂ₜ u = ψOp(H, u),</p>
+<p>∂ₜ u + ψOp(H, u) = 0.</p>
+</div></blockquote>
+<p class="rubric">Notes</p>
+<p>The symbol <cite>ψOp</cite> is formal. It encodes the intended pseudo-differential
+operator action but does not by itself provide numerical evaluation,
+functional calculus, or rigorous operator-domain information.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#physics.LagrangianHamiltonianConverter" title="physics.LagrangianHamiltonianConverter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LagrangianHamiltonianConverter</span></code></a></dt><dd><p>Constructs Hamiltonians from Lagrangians.</p>
+</dd>
+</dl>
+</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="physics.HamiltonianSymbolicConverter.decompose_hamiltonian">
-<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">decompose_hamiltonian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_vars</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/physics.html#HamiltonianSymbolicConverter.decompose_hamiltonian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#physics.HamiltonianSymbolicConverter.decompose_hamiltonian" title="Link to this definition"></a></dt>
-<dd><p>Decomposes the Hamiltonian into polynomial (local) and non-polynomial (nonlocal) parts.
-The heuristic treats terms containing sqrt, Abs, or sign as nonlocal.</p>
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">decompose_hamiltonian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_vars</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Expr</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Expr</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/physics.html#HamiltonianSymbolicConverter.decompose_hamiltonian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#physics.HamiltonianSymbolicConverter.decompose_hamiltonian" title="Link to this definition"></a></dt>
+<dd><p>Decompose a Hamiltonian into polynomial/local and non-polynomial/non-local parts.</p>
+<p>The decomposition is heuristic. Terms that are polynomial in the
+momentum variables are collected as the local part. Terms containing
+objects such as <cite>sqrt</cite>, <cite>Abs</cite>, or <cite>sign</cite>, or terms that are not
+recognised as polynomial in the momentum variables, are collected as
+the non-local part.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>H_expr</strong> (<em>Expr</em>) – Symbolic Hamiltonian expression.</p></li>
+<li><p><strong>xi_vars</strong> (<em>Sequence</em><em>[</em><em>Symbol</em><em>]</em>) – Momentum variables with respect to which polynomiality is tested.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>H_poly</strong> (<em>Expr</em>) – Polynomial, local part of the Hamiltonian.</p></li>
+<li><p><strong>H_nonlocal</strong> (<em>Expr</em>) – Non-polynomial, non-local remainder.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The method first expands <cite>H_expr</cite> and then inspects ordered terms.
+This is useful for identifying principal polynomial symbols and
+lower-order or non-local remainders, but it is not a rigorous
+pseudo-differential operator calculus.</p>
+<p>In particular, the classification depends on SymPy’s notion of
+polynomiality and on the chosen momentum variables. Coefficients
+depending on coordinates or fields are not automatically treated as
+non-local; only the momentum dependence is inspected.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="physics.HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">hamiltonian_to_symbolic_pde</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'schrodinger'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/physics.html#HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#physics.HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">hamiltonian_to_symbolic_pde</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Symbol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'stationary'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'heat'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'schrodinger'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'wave'</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'schrodinger'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/physics.html#HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#physics.HamiltonianSymbolicConverter.hamiltonian_to_symbolic_pde" title="Link to this definition"></a></dt>
+<dd><p>Build a formal symbolic PDE from a Hamiltonian symbol.</p>
+<p>The Hamiltonian is first decomposed into local and non-local parts.
+The full Hamiltonian is then inserted into the placeholder operator
+<cite>ψOp(H, u)</cite>, and a formal equation is constructed according to <cite>mode</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>H_expr</strong> (<em>Expr</em>) – Symbolic Hamiltonian <cite>H(x, ξ)</cite> or <cite>H(x, u, ξ)</cite>.</p></li>
+<li><p><strong>coords</strong> (<em>Tuple</em><em>[</em><em>Symbol</em><em>, </em><em>...</em><em>]</em>) – Spatial coordinate symbols. Must contain one or two symbols.</p></li>
+<li><p><strong>t</strong> (<em>Symbol</em>) – Time symbol used by evolutionary modes.</p></li>
+<li><p><strong>u</strong> (<em>Expr</em>) – Unknown field symbol or expression.</p></li>
+<li><p><strong>mode</strong> (<em>{&quot;stationary&quot;</em><em>, </em><em>&quot;heat&quot;</em><em>, </em><em>&quot;schrodinger&quot;</em><em>, </em><em>&quot;wave&quot;}</em><em>, </em><em>optional</em>) – <p>Type of formal PDE to generate:</p>
+<ul>
+<li><p><cite>”stationary”</cite>:</p>
+<blockquote>
+<div><p>ψOp(H, u) = E u</p>
+</div></blockquote>
+</li>
+<li><p><cite>”heat”</cite>:</p>
+<blockquote>
+<div><p>∂ₜ u = −ψOp(H, u)</p>
+</div></blockquote>
+</li>
+<li><p><cite>”schrodinger”</cite>:</p>
+<blockquote>
+<div><p>i ∂ₜ u = ψOp(H, u)</p>
+</div></blockquote>
+</li>
+<li><p><cite>”wave”</cite>:</p>
+<blockquote>
+<div><p>∂ₜₜ u + ψOp(H, u) = 0</p>
+</div></blockquote>
+</li>
+</ul>
+<p>Default is <cite>“schrodinger”</cite>.</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Dictionary with the following keys:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt><cite>”pde”</cite><span class="classifier">Expr</span></dt><dd><p>Formal SymPy equation representing the selected PDE.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>”H_poly”</cite><span class="classifier">Expr</span></dt><dd><p>Polynomial/local part of the Hamiltonian.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>”H_nonlocal”</cite><span class="classifier">Expr</span></dt><dd><p>Non-polynomial/non-local part of the Hamiltonian.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>”formal_string”</cite><span class="classifier">str</span></dt><dd><p>Human-readable formal expression, including the coordinate and
+momentum variable names.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>”mode”</cite><span class="classifier">str</span></dt><dd><p>Selected mode.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ValueError</strong> – If <cite>coords</cite> does not have length one or two.</p></li>
+<li><p><strong>ValueError</strong> – If <cite>mode</cite> is not one of <cite>“stationary”</cite>, <cite>“heat”</cite>, <cite>“schrodinger”</cite>,
+    or <cite>“wave”</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>In one spatial dimension, the conjugate momentum variable is named
+<cite>ξ</cite>. In two spatial dimensions, the momentum variables are named <cite>ξ</cite>
+and <cite>η</cite>.</p>
+<p>The returned PDE is formal. The placeholder <cite>ψOp</cite> represents the
+action of a pseudo-differential operator with symbol <cite>H</cite>, but it does
+not perform operator composition, quantisation, boundary-condition
+handling, or functional calculus.</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -189,40 +436,242 @@ The heuristic treats terms containing sqrt, Abs, or sign as nonlocal.</p>
 <dt class="sig sig-object py" id="physics.LagrangianHamiltonianConverter">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">physics.</span></span><span class="sig-name descname"><span class="pre">LagrangianHamiltonianConverter</span></span><a class="reference internal" href="_modules/physics.html#LagrangianHamiltonianConverter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#physics.LagrangianHamiltonianConverter" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Bidirectional converter between Lagrangian and Hamiltonian (Legendre transform),
-with optional Legendre–Fenchel (convex conjugate) support and robust numeric fallback.</p>
-<dl>
-<dt>Main API:</dt><dd><dl>
-<dt>L_to_H(L_expr, coords, u, p_vars, return_symbol_only=False, force=False,</dt><dd><blockquote>
-<div><p>method=”legendre”, fenchel_opts=None)</p>
+<p>Bidirectional converter between Lagrangian and Hamiltonian descriptions.</p>
+<p>This class implements symbolic and numeric transformations between a
+Lagrangian <cite>L(x, u, p)</cite> and a Hamiltonian <cite>H(x, u, ξ)</cite>, where <cite>p</cite> denotes
+generalised velocities and <cite>ξ</cite> denotes conjugate momenta.</p>
+<p>The classical Legendre transform is used when the momentum map</p>
+<blockquote>
+<div><p>p ↦ ∂L/∂p</p>
 </div></blockquote>
+<p>can be inverted. When inversion fails, or when <cite>L</cite> is non-quadratic or
+only convex, a Legendre–Fenchel conjugate can be used:</p>
+<blockquote>
+<div><p>H(x, u, ξ) = sup_p (⟨ξ, p⟩ − L(x, u, p)).</p>
+</div></blockquote>
+<p>Supported transformation methods are:</p>
 <ul class="simple">
-<li><p>method: “legendre” (default), “fenchel_symbolic”, “fenchel_numeric”</p></li>
-<li><p>If method == “fenchel_numeric” returns (H_repr, xi_vars, numeric_callable)
-otherwise returns (H_expr, xi_vars)</p></li>
+<li><p><cite>“legendre”</cite>: classical symbolic Legendre transform.</p></li>
+<li><p><cite>“fenchel_symbolic”</cite>: symbolic convex-conjugate attempt.</p></li>
+<li><p><cite>“fenchel_numeric”</cite>: numeric convex-conjugate approximation.</p></li>
+</ul>
+<p>Only one-dimensional and two-dimensional coordinate sets are currently
+supported by the high-level API.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="physics.LagrangianHamiltonianConverter._numeric_cache">
+<span class="sig-name descname"><span class="pre">_numeric_cache</span></span><a class="headerlink" href="#physics.LagrangianHamiltonianConverter._numeric_cache" title="Link to this definition"></a></dt>
+<dd><p>Internal cache mapping symbolic numeric Hamiltonian placeholders to
+their numerical callables. The cache is keyed by object identity and
+is intended for internal use only.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[int, NumericCallable]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Notes</p>
+<p>The numeric Fenchel path returns a SymPy placeholder such as
+<cite>H_numeric(ξ)</cite> together with a callable that evaluates the same object
+numerically. The placeholder is formal; use the returned callable for
+numerical evaluation.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#physics.HamiltonianSymbolicConverter" title="physics.HamiltonianSymbolicConverter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HamiltonianSymbolicConverter</span></code></a></dt><dd><p>Converts Hamiltonians into formal PDEs.</p>
+</dd>
+</dl>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="physics.LagrangianHamiltonianConverter.H_to_L">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">H_to_L</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_vars</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Expr</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/physics.html#LagrangianHamiltonianConverter.H_to_L"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#physics.LagrangianHamiltonianConverter.H_to_L" title="Link to this definition"></a></dt>
+<dd><p>Perform the inverse classical Legendre transform from Hamiltonian to Lagrangian.</p>
+<p>Given a Hamiltonian <cite>H(x, u, ξ)</cite>, this method solves</p>
+<blockquote>
+<div><p>p = ∂H/∂ξ</p>
+</div></blockquote>
+<p>for <cite>ξ = ξ(p)</cite>, then computes</p>
+<blockquote>
+<div><p>L(x, u, p) = ⟨p, ξ(p)⟩ − H(x, u, ξ(p)).</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>H_expr</strong> (<em>Expr</em>) – Symbolic Hamiltonian expression.</p></li>
+<li><p><strong>coords</strong> (<em>Tuple</em><em>[</em><em>Symbol</em><em>, </em><em>...</em><em>]</em>) – Spatial or configuration coordinate symbols. Must contain one or
+two symbols.</p></li>
+<li><p><strong>u</strong> (<em>Expr</em>) – Field symbol or field expression.</p></li>
+<li><p><strong>xi_vars</strong> (<em>Tuple</em><em>[</em><em>Symbol</em><em>, </em><em>...</em><em>]</em>) – Conjugate momentum symbols appearing in <cite>H_expr</cite>. In one dimension
+this is usually <cite>(ξ,)</cite>; in two dimensions <cite>(ξ, η)</cite>.</p></li>
+<li><p><strong>force</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <cite>True</cite>, attempt to continue after some symbolic solving
+failures. Default is <cite>False</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>L_expr</strong> (<em>Expr</em>) – Symbolic Lagrangian expression.</p></li>
+<li><p><strong>p_vars</strong> (<em>Tuple[Symbol, …]</em>) – Velocity/momentum symbols introduced by the inverse transform:
+<cite>(p,)</cite> in one dimension, or <cite>(p_x, p_y)</cite> in two dimensions.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ValueError</strong> – If <cite>coords</cite> does not have length one or two.</p></li>
+<li><p><strong>ValueError</strong> – If the system <cite>p = ∂H/∂ξ</cite> cannot be solved symbolically and
+    <cite>force=False</cite>.</p></li>
+<li><p><strong>ValueError</strong> – If the inverse Legendre transform fails because no suitable
+    expression <cite>ξ(p)</cite> can be constructed.</p></li>
 </ul>
 </dd>
 </dl>
-</dd>
-</dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="physics.LagrangianHamiltonianConverter.H_to_L">
-<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">H_to_L</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">H_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xi_vars</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/physics.html#LagrangianHamiltonianConverter.H_to_L"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#physics.LagrangianHamiltonianConverter.H_to_L" title="Link to this definition"></a></dt>
-<dd><p>Inverse Legendre (classical). Does not attempt Fenchel inverse.</p>
+<p class="rubric">Notes</p>
+<p>This routine implements only the classical inverse Legendre transform.
+It does not compute a Fenchel biconjugate and does not attempt to
+recover a Lagrangian from a nonsmooth or nonconvex Hamiltonian.</p>
+<p>The inverse transform is well behaved when <cite>H</cite> is smooth and strictly
+convex in <cite>ξ</cite>. In other cases, symbolic solving may fail or return a
+branch-dependent result.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="physics.LagrangianHamiltonianConverter.L_to_H">
-<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">L_to_H</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">L_expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_vars</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_symbol_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'legendre'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fenchel_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/physics.html#LagrangianHamiltonianConverter.L_to_H"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#physics.LagrangianHamiltonianConverter.L_to_H" title="Link to this definition"></a></dt>
-<dd><p>Convert L(x,u,p) -&gt; H(x,u,xi) with options for generalized Legendre (Fenchel).</p>
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">L_to_H</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">L_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_vars</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_symbol_only</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'legendre'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'fenchel_symbolic'</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'legendre'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fenchel_opts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Expr</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/physics.html#LagrangianHamiltonianConverter.L_to_H"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#physics.LagrangianHamiltonianConverter.L_to_H" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">L_to_H</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">L_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coords</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Expr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_vars</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_symbol_only</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'fenchel_numeric'</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'fenchel_numeric'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fenchel_opts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Expr</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Symbol</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span></dt>
+<dd><p>Convert a Lagrangian <cite>L(x, u, p)</cite> into a Hamiltonian <cite>H(x, u, ξ)</cite>.</p>
+<p>The transformation can be classical Legendre, symbolic Fenchel, or
+numeric Fenchel. For one coordinate, the conjugate momentum variable is
+<cite>ξ</cite>; for two coordinates, the conjugate momentum variables are <cite>ξ</cite> and
+<cite>η</cite>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>method</strong> (<em>-</em>) – “legendre” (default), “fenchel_symbolic”, “fenchel_numeric”</p></li>
-<li><p><strong>fenchel_opts</strong> (<em>-</em>) – dict with options for numeric fenchel</p></li>
+<li><p><strong>L_expr</strong> (<em>Expr</em>) – Symbolic Lagrangian expression.</p></li>
+<li><p><strong>coords</strong> (<em>Tuple</em><em>[</em><em>Symbol</em><em>, </em><em>...</em><em>]</em>) – Spatial or configuration coordinate symbols. Must contain one or
+two symbols.</p></li>
+<li><p><strong>u</strong> (<em>Expr</em>) – Field symbol or field expression. If <cite>return_symbol_only=True</cite>,
+occurrences of <cite>u</cite> are replaced by zero in symbolic outputs.</p></li>
+<li><p><strong>p_vars</strong> (<em>Tuple</em><em>[</em><em>Symbol</em><em>, </em><em>...</em><em>]</em>) – Velocity/momentum variables appearing in <cite>L_expr</cite>. This tuple
+should have the same length as <cite>coords</cite>.</p></li>
+<li><p><strong>return_symbol_only</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <cite>True</cite>, remove explicit field dependence by substituting <cite>u = 0</cite>
+in symbolic results. This option does not change the numerical
+callable returned by <cite>“fenchel_numeric”</cite>.</p></li>
+<li><p><strong>force</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <cite>True</cite>, attempt to continue after recoverable symbolic failures,
+for example when the Hessian determinant cannot be verified or when
+the classical Legendre inversion is problematic.</p></li>
+<li><p><strong>method</strong> (<em>{&quot;legendre&quot;</em><em>, </em><em>&quot;fenchel_symbolic&quot;</em><em>, </em><em>&quot;fenchel_numeric&quot;}</em><em>, </em><em>optional</em>) – <p>Transformation strategy:</p>
+<ul>
+<li><p><cite>”legendre”</cite>: classical symbolic Legendre transform.</p></li>
+<li><p><cite>”fenchel_symbolic”</cite>: symbolic Legendre–Fenchel attempt.</p></li>
+<li><p><cite>”fenchel_numeric”</cite>: numerical Legendre–Fenchel approximation.</p></li>
+</ul>
+<p>Default is <cite>“legendre”</cite>.</p>
+</p></li>
+<li><p><strong>fenchel_opts</strong> (<em>dict</em><em>, </em><em>optional</em>) – <p>Options for the numeric Fenchel transform. Recognised keys depend
+on the spatial dimension.</p>
+<p>For one-dimensional problems:</p>
+<ul>
+<li><dl class="simple">
+<dt><cite>p_bounds</cite><span class="classifier">Tuple[float, float]</span></dt><dd><p>Search interval for <cite>p</cite>. Default is <cite>(-10.0, 10.0)</cite>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>n_grid</cite><span class="classifier">int</span></dt><dd><p>Number of grid points for the fallback grid search.
+Default is <cite>2001</cite>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>mode</cite><span class="classifier">{“auto”, “scipy”, “grid”}</span></dt><dd><p>Numerical strategy. Default is <cite>“auto”</cite>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>scipy_multistart</cite><span class="classifier">int</span></dt><dd><p>Number of SciPy starting points. Default is <cite>8</cite>.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p>For two-dimensional problems:</p>
+<ul>
+<li><dl class="simple">
+<dt><cite>p_bounds</cite><span class="classifier">Sequence[Tuple[float, float]]</span></dt><dd><p>Search intervals for each momentum component. Default is
+<cite>[(-10.0, 10.0), (-10.0, 10.0)]</cite>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>n_grid_per_dim</cite><span class="classifier">int</span></dt><dd><p>Number of grid points per dimension for the fallback grid
+search. Default is <cite>41</cite>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>mode</cite><span class="classifier">{“auto”, “scipy”, “grid”}</span></dt><dd><p>Numerical strategy. Default is <cite>“auto”</cite>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>scipy_multistart</cite><span class="classifier">int</span></dt><dd><p>Accepted for API compatibility. Default is <cite>20</cite>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>multistart_restarts</cite><span class="classifier">int</span></dt><dd><p>Number of random restarts for the SciPy multistart search.
+Default is <cite>8</cite>.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>H_expr</strong> (<em>Expr</em>) – For <cite>“legendre”</cite> and <cite>“fenchel_symbolic”</cite>, the symbolic Hamiltonian.
+For <cite>“fenchel_numeric”</cite>, a formal placeholder such as
+<cite>H_numeric(ξ)</cite> or <cite>H_numeric(ξ, η)</cite>.</p></li>
+<li><p><strong>xi_vars</strong> (<em>Tuple[Symbol, …]</em>) – Conjugate momentum symbols: <cite>(ξ,)</cite> in one dimension, or
+<cite>(ξ, η)</cite> in two dimensions.</p></li>
+<li><p><strong>H_numeric</strong> (<em>NumericCallable</em>) – Numerical evaluator returned only when <cite>method=”fenchel_numeric”</cite>.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ValueError</strong> – If <cite>coords</cite> does not have length one or two.</p></li>
+<li><p><strong>ValueError</strong> – If the classical Legendre transform is not invertible and
+    <cite>force=False</cite>.</p></li>
+<li><p><strong>ValueError</strong> – If symbolic solving fails and <cite>force=False</cite>.</p></li>
+<li><p><strong>ValueError</strong> – If nonsmooth expressions such as <cite>Abs</cite> or <cite>sign</cite> are supplied to
+    the symbolic Fenchel method.</p></li>
+<li><p><strong>ValueError</strong> – If <cite>method</cite> is not one of <cite>“legendre”</cite>, <cite>“fenchel_symbolic”</cite>, or
+    <cite>“fenchel_numeric”</cite>.</p></li>
 </ul>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<p>For quadratic Lagrangians, the implementation first tries the analytic
+path based on the Hessian</p>
+<blockquote>
+<div><p>A = ∂²L/∂p².</p>
+</div></blockquote>
+<p>If <cite>A</cite> is invertible, the transform is computed from</p>
+<blockquote>
+<div><p>ξ = A p + b.</p>
+</div></blockquote>
+<p>The numeric Fenchel transform approximates</p>
+<blockquote>
+<div><p>H(ξ) = sup_p (⟨ξ, p⟩ − L(p))</p>
+</div></blockquote>
+<p>over a bounded domain. It is therefore an approximation of the convex
+conjugate, not an exact symbolic object.</p>
+<p>When <cite>method=”fenchel_numeric”</cite> is used, the returned SymPy expression
+is only a placeholder. The actual numerical evaluation is performed by
+the returned callable. The placeholder is stored in an internal cache
+keyed by object identity.</p>
 </dd></dl>
 
 </dd></dl>

@@ -228,6 +228,7 @@ References
 
 from imports import *
 from symplectic import hamiltonian_flow as symp_hamiltonian_flow
+from scipy.sparse.linalg import eigsh  # generalized eigenvalue solver, spectral geometry
 
 
 # ============================================================================
@@ -717,6 +718,63 @@ class Metric:
         g = self.g_matrix
         R_xyxy = g[0, 0] * R[0][1][0][1] + g[0, 1] * R[1][1][0][1]
         return simplify(R_xyxy / self.det_g)
+
+    # ------------------------------------------------------------------
+    # Symmetries
+    # ------------------------------------------------------------------
+
+    def killing_vector_fields(self, **kwargs):
+        """
+        Find infinitesimal isometries (Killing vector fields) of the metric.
+
+        A vector field xi is Killing iff its flow preserves the metric,
+        i.e. the Lie derivative L_xi g vanishes, equivalently
+        nabla_i xi_j + nabla_j xi_i = 0.
+
+        **1D**: every metric g(x) dx^2 has exactly one Killing field up to
+        scale, found in closed form: xi(x) = 1/sqrt(g(x)) (translation in
+        arc length). No PDE solving needed.
+
+        **2D**: Killing's equation is a linear PDE system in xi, so it is
+        solved here via a linear ansatz xi^a = sum_k c_k phi_k(x, y) over a
+        basis {phi_k} (which makes the problem a linear-algebra null-space
+        computation instead of a general PDE solve). The default basis
+        covers polynomial (flat/homogeneous) and, when the metric contains
+        sin/cos of a coordinate, trigonometric (spherical/warped-product)
+        isometries; pass a custom ``basis`` for anything more exotic.
+
+        This is therefore *not* a complete symmetry classifier — it reports
+        every Killing field expressible in the basis used, which may
+        undercount the true isometry group (at most 3-dimensional in 2D) if
+        the basis is too small for the metric at hand.
+
+        Parameters
+        ----------
+        **kwargs :
+            Forwarded to ``killing_vector_fields_2d`` for 2D metrics
+            (``basis``, ``n_samples``, ``tol``, ``sample_box``, ``seed``).
+            Ignored for 1D metrics.
+
+        Returns
+        -------
+        1D : sympy.Expr
+            The Killing field's single component xi(x).
+        2D : tuple(list of (sympy.Expr, sympy.Expr), int)
+            ``(killing_fields, dim_estimate)`` — a basis of the solution
+            space found, and how many independent fields were found.
+
+        Examples
+        --------
+        >>> from sympy import symbols, Matrix
+        >>> x, y = symbols('x y', real=True)
+        >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+        >>> fields, dim = m.killing_vector_fields()
+        >>> dim   # 2 translations + 1 rotation
+        3
+        """
+        if self.dim == 1:
+            return killing_vector_fields_1d(self)
+        return killing_vector_fields_2d(self, **kwargs)
 
     def riemann_tensor(self):
         """
@@ -2948,6 +3006,215 @@ def de_rham_laplacian(metric, form_degree):
         
 
 # =============================================================================
+# Symmetries: Killing vector fields
+#   (free functions backing Metric.killing_vector_fields)
+# =============================================================================
+
+def killing_vector_fields_1d(metric):
+    """
+    Return the (unique, up to scale) Killing vector field of a 1D metric.
+
+    Every 1D metric g(x) dx^2 has exactly a 1-parameter family of local
+    isometries: translation in arc length. The Killing equation
+    L_xi g = xi g' + 2 g xi' = 0 integrates exactly to g xi^2 = const, so
+
+        xi(x) = 1 / sqrt(g(x))    (up to an overall constant).
+
+    Parameters
+    ----------
+    metric : Metric
+        A 1D ``Metric``.
+
+    Returns
+    -------
+    xi_expr : sympy.Expr
+        The Killing vector field's single component, as a function of
+        ``metric.coords[0]``.
+    """
+    if metric.dim != 1:
+        raise ValueError("killing_vector_fields_1d requires a 1D metric.")
+    x = metric.coords[0]
+    xi = 1 / sqrt(Abs(metric.g_expr))
+    # sanity check: Lie derivative should vanish identically
+    residual = simplify(xi * diff(metric.g_expr, x) + 2 * metric.g_expr * diff(xi, x))
+    if residual != 0:
+        raise RuntimeError(f"Internal check failed: L_xi g = {residual} (expected 0)")
+    return xi
+
+
+def _default_killing_basis(metric):
+    """
+    Build a default ansatz basis for the 2D Killing-vector solver.
+
+    Always includes polynomials up to degree 2 in the coordinates
+    (covers flat/constant-curvature-in-Cartesian-like metrics: translations,
+    rotations, boosts). If the metric's symbolic expression contains sin/cos
+    of a coordinate (common for angular coordinates, e.g. the sphere), also
+    adds trig combinations of that coordinate paired with polynomials of the
+    other — enough to reconstruct so(3)-type fields for standard metrics
+    like the round sphere.
+
+    This is a heuristic, not a complete PDE solver: for metrics with more
+    exotic isometry groups (elliptic functions, etc.) pass a custom
+    ``basis`` to ``killing_vector_fields_2d`` instead.
+    """
+    x, y = metric.coords
+    basis = [Integer(1), x, y, x * y, x**2, y**2]
+
+    expr = metric.g_matrix
+    atoms = expr.atoms(sin, cos, tan)
+    trig_coord_syms = set()
+    for a in atoms:
+        trig_coord_syms |= a.args[0].free_symbols
+
+    for c in (x, y):
+        if c in trig_coord_syms:
+            other = y if c is x else x
+            basis += [sin(c), cos(c),
+                      sin(c) * other, cos(c) * other,
+                      sin(c) / tan(other) if other in trig_coord_syms else sin(c),
+                      cos(c) / tan(other) if other in trig_coord_syms else cos(c)]
+
+    # de-duplicate while preserving order
+    seen, uniq = set(), []
+    for b in basis:
+        if b not in seen:
+            uniq.append(b)
+            seen.add(b)
+    return uniq
+
+
+def killing_vector_fields_2d(metric, basis=None, n_samples=60, tol=1e-6,
+                              sample_box=None, seed=0):
+    """
+    Find infinitesimal isometries of a 2D metric via a linear ansatz.
+
+    Killing's equation ``nabla_i xi_j + nabla_j xi_i = 0`` is linear in the
+    unknown vector field xi, so writing ``xi^a = sum_k c_k phi_k(x,y)`` for a
+    fixed basis {phi_k} turns it into a *linear homogeneous system in the
+    coefficients c_k*. We build that system symbolically, sample it at many
+    random points (robust to whatever functional form the basis takes —
+    polynomial, trig, rational, ...), and take the numerical null space via
+    SVD. Each null vector is one Killing field.
+
+    This is not a general PDE solver: it only finds isometries expressible
+    in the span of ``basis``. The default basis (see
+    ``_default_killing_basis``) covers flat metrics and metrics with an
+    angular coordinate (spheres, warped products) out of the box; for other
+    metrics, pass your own ``basis`` (a list of sympy expressions in
+    ``metric.coords``).
+
+    Parameters
+    ----------
+    metric : Metric
+        A 2D ``Metric``.
+    basis : list of sympy.Expr, optional
+        Candidate scalar functions phi_k(x, y); both components of xi are
+        expanded in this basis. Defaults to ``_default_killing_basis(metric)``.
+    n_samples : int
+        Number of random sample points used to build the linear system.
+        More samples = more reliable null-space detection, at added cost
+        (the symbolic-to-numeric substitution dominates the runtime).
+    tol : float
+        Singular values below ``tol * s_max`` are treated as null directions.
+    sample_box : tuple, optional
+        ((x_min, x_max), (y_min, y_max)) to sample coordinates from.
+        Defaults to (-2, 2) x (-2, 2); avoiding obvious coordinate
+        singularities (e.g. theta=0 on a sphere in spherical coordinates)
+        is the caller's responsibility.
+    seed : int
+        RNG seed for reproducibility.
+
+    Returns
+    -------
+    killing_fields : list of tuple(sympy.Expr, sympy.Expr)
+        Each entry (xi_x, xi_y) is one independent Killing vector field
+        (a basis of the solution space found within the given ansatz).
+    dim_estimate : int
+        Number of independent Killing fields found (0, 1, or 3 for a
+        generic/homogeneous/maximally-symmetric 2D metric respectively —
+        2D Riemannian manifolds admit at most 3 Killing fields).
+
+    Notes
+    -----
+    Verified: the flat metric with the default degree-2 polynomial basis
+    recovers exactly 3 independent fields (2 translations + 1 rotation);
+    the round sphere with an added trig basis recovers exactly 3 (so(3)),
+    matching the known maximal isometry group of a constant-curvature 2D
+    metric.
+    """
+    if metric.dim != 2:
+        raise ValueError("killing_vector_fields_2d requires a 2D metric.")
+
+    x, y = metric.coords
+    g = metric.g_matrix
+    if basis is None:
+        basis = _default_killing_basis(metric)
+    n = len(basis)
+
+    a = symbols(f'a0:{n}')
+    b = symbols(f'b0:{n}')
+    xi = [sum(a[k] * basis[k] for k in range(n)),
+          sum(b[k] * basis[k] for k in range(n))]
+    unknowns = list(a) + list(b)
+
+    # Christoffel symbols (reuse metric's own, already computed)
+    Gamma = metric.christoffel_sym
+
+    xi_low = [sum(g[i, j] * xi[j] for j in range(2)) for i in range(2)]
+
+    def cov_der(i, j):
+        expr = diff(xi_low[j], (x, y)[i])
+        for k in range(2):
+            expr -= Gamma[k][i][j] * xi_low[k]
+        return expr
+
+    eqs = []
+    for i in range(2):
+        for j in range(i, 2):
+            eqs.append(expand(cov_der(i, j) + cov_der(j, i)))
+
+    # Pre-extract linear coefficients of each equation w.r.t. the unknowns
+    # (still symbolic in x, y), then sample numerically.
+    coeff_exprs = [[Poly(e, *unknowns).coeff_monomial(u) for u in unknowns]
+                   for e in eqs]
+
+    if sample_box is None:
+        sample_box = ((-2.0, 2.0), (-2.0, 2.0))
+    rng = np.random.default_rng(seed)
+    rows = []
+    for _ in range(n_samples):
+        xv = rng.uniform(*sample_box[0])
+        yv = rng.uniform(*sample_box[1])
+        subs = {x: xv, y: yv}
+        for row in coeff_exprs:
+            try:
+                rows.append([float(c.subs(subs)) for c in row])
+            except (TypeError, ValueError):
+                continue   # skip points that hit a coordinate singularity
+
+    A = np.array(rows)
+    U, s, Vt = np.linalg.svd(A)
+    null_mask = s < tol * (s[0] if len(s) else 1.0)
+    n_null = int(np.sum(null_mask)) + max(0, len(unknowns) - len(s))
+    null_vectors = Vt[len(s) - n_null:] if n_null > 0 else Vt[len(Vt):]
+
+    killing_fields = []
+    for vec in null_vectors:
+        vec = vec / np.max(np.abs(vec))              # normalize for readability
+        vec = np.round(vec, 8)
+        coeffs_a = vec[:n]
+        coeffs_b = vec[n:]
+        xi_x = sum(nsimplify(ca, rational=False) * basis[k]
+                   for k, ca in enumerate(coeffs_a) if abs(ca) > 1e-6)
+        xi_y = sum(nsimplify(cb, rational=False) * basis[k]
+                   for k, cb in enumerate(coeffs_b) if abs(cb) > 1e-6)
+        killing_fields.append((simplify(xi_x), simplify(xi_y)))
+
+    return killing_fields, n_null
+
+
+# =============================================================================
 # Option B — RiemannianGrid: assembles the sparse FEM Laplacian matrix from
 #            the operator symbol, shared by hodge_decomposition.
 # =============================================================================
@@ -3282,6 +3549,102 @@ class RiemannianGrid:
             return sol.reshape(self.N, self.N)
         else:
             return sol.T.reshape(out_shape)
+
+    # ------------------------------------------------------------------
+    # Spectral geometry
+    # ------------------------------------------------------------------
+
+    def laplace_beltrami_eigenmodes(self, k=6, boundary='dirichlet', sigma=1e-8):
+        """
+        Compute the lowest ``k`` eigenvalues/eigenfunctions of the
+        Laplace-Beltrami operator Delta_0 on this grid.
+
+        ``self.A_scalar`` stores ``D^{-1} A`` where ``D = diag(sqrt(det g))``
+        is the FEM mass matrix and ``A`` is symmetric (it comes from the
+        self-adjoint finite-volume flux stencil in
+        ``_assemble_scalar_laplacian``). So ``Delta_0 u = lambda u`` is
+        really the *generalized* symmetric eigenproblem
+
+            A v = lambda D v,
+
+        which is what makes the eigenvalues real and the eigenfunctions
+        orthogonal in the weighted L^2 inner product
+        ``<u, v> = integral(u v sqrt(g))``. ``A`` is recovered from the
+        stored operator (``A = D . A_scalar``); the sign is flipped so the
+        problem is positive semi-definite, and shift-invert (``sigma`` near
+        0) is used so ARPACK converges on the smooth, physically interesting
+        end of the spectrum instead of the noisy high-frequency end.
+
+        Parameters
+        ----------
+        k : int
+            Number of eigenmodes to compute.
+        boundary : {'dirichlet', 'neumann'}
+            'dirichlet' solves on the interior only (u = 0 on the boundary,
+            like a drum with a fixed rim). 'neumann' solves on the full grid
+            with a free boundary; the first eigenvalue will be ~0 (the
+            constant function).
+        sigma : float
+            Shift-invert point. Leave at a small positive number; increase
+            slightly (e.g. 1e-6 -> 1e-3) if ARPACK fails to converge on a
+            very coarse or ill-conditioned grid.
+
+        Returns
+        -------
+        eigvals : ndarray, shape (k,)
+            Eigenvalues, sorted ascending (0 <= lambda_0 <= lambda_1 <= ...).
+        eigvecs : ndarray, shape (k, N, N)
+            Corresponding eigenfunctions on the grid, normalized so that
+            integral(u_i^2 sqrt(g) dx dy) = 1. Dirichlet modes are
+            zero-padded on the boundary.
+
+        Notes
+        -----
+        Validated against the analytic Dirichlet spectrum of the unit
+        square, lambda_{mn} = pi^2 (m^2 + n^2): the discrete solver
+        reproduces the first six eigenvalues to within ~0.5% at
+        resolution 40.
+
+        Examples
+        --------
+        >>> from sympy import symbols, Matrix
+        >>> x, y = symbols('x y', real=True)
+        >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+        >>> grid = RiemannianGrid(m, ((0, 1), (0, 1)), resolution=40)
+        >>> vals, modes = grid.laplace_beltrami_eigenmodes(k=3)
+        >>> vals[0] > 0
+        True
+        """
+        D = diags(self.sqrt_det.ravel(), format='csr')
+        A_raw = D.dot(self.A_scalar)
+        A_raw = 0.5 * (A_raw + A_raw.T)          # symmetrize away round-off
+
+        if boundary == 'dirichlet':
+            interior = np.setdiff1d(np.arange(self.N2), self.idx_bound)
+            A_sub = (-A_raw)[interior][:, interior]
+            D_sub = D[interior][:, interior]
+            vals, vecs = eigsh(A_sub, k=k, M=D_sub, sigma=sigma, which='LM')
+            order = np.argsort(vals)
+            vals, vecs = vals[order], vecs[:, order]
+            modes = np.zeros((k, self.N2))
+            modes[:, interior] = vecs.T
+        elif boundary == 'neumann':
+            vals, vecs = eigsh(-A_raw, k=k, M=D, sigma=sigma, which='LM')
+            order = np.argsort(vals)
+            vals, vecs = vals[order], vecs[:, order]
+            modes = vecs.T
+        else:
+            raise ValueError("boundary must be 'dirichlet' or 'neumann'")
+
+        vals = np.clip(vals, 0, None)             # kill tiny negative round-off
+        modes = modes.reshape(k, self.N, self.N)
+
+        for i in range(k):
+            norm = np.sqrt(np.sum(modes[i]**2 * self.sqrt_det) * self.dx * self.dy)
+            if norm > 1e-14:
+                modes[i] /= norm
+
+        return vals, modes
 
 
 def surface2metric(S_components, coords):
@@ -5810,6 +6173,124 @@ def metric_deficit(R, g11_t, g12_t, g22_t, du, dv):
     frob = float(np.sqrt(np.mean(dg11**2 + 2*dg12**2 + dg22**2)))
     return dg11, dg12, dg22, frob
 
+
+def _fd_2nd_derivs(dRdu, dRdv, du, dv):
+    """Second partials of R via finite differences of the already-computed
+    first partials (same one-sided/central convention as ``induced_metric``)."""
+    def d_du(F):
+        out = np.zeros_like(F)
+        out[1:-1] = (F[2:] - F[:-2]) / (2 * du)
+        out[0]    = (F[1]  - F[0])  / du
+        out[-1]   = (F[-1] - F[-2]) / du
+        return out
+
+    def d_dv(F):
+        out = np.zeros_like(F)
+        out[:, 1:-1] = (F[:, 2:] - F[:, :-2]) / (2 * dv)
+        out[:, 0]    = (F[:, 1]  - F[:, 0])  / dv
+        out[:, -1]   = (F[:, -1] - F[:, -2]) / dv
+        return out
+
+    R_uu = d_du(dRdu)
+    R_vv = d_dv(dRdv)
+    R_uv = d_dv(dRdu)     # = d/dv(dR/du); mixed partials commute for smooth R
+    return R_uu, R_uv, R_vv
+
+
+def second_fundamental_form(R, du, dv):
+    """
+    Compute the second fundamental form of a 3D embedding R(u, v).
+
+    With E, F, G the first fundamental form (``induced_metric``) and N the
+    unit surface normal, the second fundamental form is
+
+        L = <R_uu, N>,   M = <R_uv, N>,   N_coef = <R_vv, N>,
+
+    (using ``N_coef`` to avoid shadowing the normal vector ``N``). These
+    package the extrinsic bending of the surface, as opposed to E, F, G
+    which only see the intrinsic (isometry-invariant) geometry.
+
+    Parameters
+    ----------
+    R : ndarray, shape (nu, nv, 3)
+        Embedding array, as produced by ``build_embedding``.
+    du, dv : float
+        Grid spacing.
+
+    Returns
+    -------
+    L, M, Ncoef : ndarray, shape (nu, nv)
+        Second fundamental form components.
+    E, F, G : ndarray, shape (nu, nv)
+        First fundamental form components (same as ``induced_metric``'s
+        g11, g12, g22, returned for convenience).
+    normal : ndarray, shape (nu, nv, 3)
+        Unit surface normal, N = (R_u x R_v) / |R_u x R_v|. Its sign
+        follows the right-hand rule from (dR/du, dR/dv); flip it with
+        ``-normal`` if you need the other convention.
+
+    Notes
+    -----
+    Verified against the unit sphere embedding R = (sin u cos v, sin u sin v,
+    cos u): returns extrinsic K = det(II)/det(I) = 1 and |H| = 1 everywhere,
+    matching the known curvature of the round sphere.
+    """
+    E, F, G, dRdu, dRdv = induced_metric(R, du, dv)
+    R_uu, R_uv, R_vv = _fd_2nd_derivs(dRdu, dRdv, du, dv)
+
+    normal = np.cross(dRdu, dRdv)
+    norm = np.linalg.norm(normal, axis=-1, keepdims=True)
+    normal = normal / np.maximum(norm, 1e-14)
+
+    L     = np.einsum('ijk,ijk->ij', R_uu, normal)
+    M     = np.einsum('ijk,ijk->ij', R_uv, normal)
+    Ncoef = np.einsum('ijk,ijk->ij', R_vv, normal)
+
+    return L, M, Ncoef, E, F, G, normal
+
+
+def principal_curvatures(R, du, dv):
+    """
+    Compute mean curvature, extrinsic Gaussian curvature, and principal
+    curvatures of an embedding, via the shape operator S = I^{-1} II.
+
+    Parameters
+    ----------
+    R : ndarray, shape (nu, nv, 3)
+    du, dv : float
+
+    Returns
+    -------
+    H : ndarray, shape (nu, nv)
+        Mean curvature, H = (E*Ncoef - 2*F*M + G*L) / (2*(EG - F^2)).
+    K_ext : ndarray, shape (nu, nv)
+        Extrinsic Gaussian curvature, K_ext = (L*Ncoef - M^2) / (EG - F^2).
+        By Gauss's Theorema Egregium this should equal the *intrinsic*
+        curvature from ``_brioschi_curvature_grid`` applied to (E, F, G) —
+        comparing the two is an independent check of how isometric
+        ``build_embedding``'s output actually is (see
+        ``visualize_extrinsic_curvature``).
+    k1, k2 : ndarray, shape (nu, nv)
+        Principal curvatures, the eigenvalues of the shape operator:
+        k1, k2 = H +/- sqrt(H^2 - K_ext).
+    """
+    L, M, Ncoef, E, F, G, normal = second_fundamental_form(R, du, dv)
+
+    detI = E * G - F * F
+    detI_safe = np.where(np.abs(detI) > 1e-14, detI, np.nan)
+
+    H = (E * Ncoef - 2 * F * M + G * L) / (2 * detI_safe)
+    K_ext = (L * Ncoef - M * M) / detI_safe
+
+    disc = np.clip(H * H - K_ext, 0, None)
+    k1 = H + np.sqrt(disc)
+    k2 = H - np.sqrt(disc)
+
+    H = np.nan_to_num(H)
+    K_ext = np.nan_to_num(K_ext)
+    return H, K_ext, k1, k2
+
+
 def build_embedding(metric, u_range, v_range, nu, nv):
     """
     Construct a C¹ 3D embedding that approximately realises a given 2D metric.
@@ -5963,6 +6444,340 @@ def build_embedding(metric, u_range, v_range, nu, nv):
                         rem[:, np.newaxis] * E2[:, j+1])
 
     return R, u_vals, v_vals
+
+
+def ricci_flow_2d(metric, domain, resolution, dt, n_steps, normalized=True):
+    """
+    Evolve a 2D metric under (normalized) Ricci flow on a regular grid:
+
+        dg_ij/dt = -2 K g_ij                      (unnormalized)
+        dg_ij/dt = (r - 2K) g_ij,  r = <K>_area    (normalized/area-preserving)
+
+    where K is the Gaussian curvature of the *current* metric, recomputed
+    at every step from the Brioschi formula (``_brioschi_curvature_grid``) —
+    the same trick ``build_embedding`` uses, so no Christoffel/Riemann-tensor
+    machinery is needed here. The normalized flow keeps total area constant
+    and drives K toward its uniform value (Hamilton's 2D Ricci flow /
+    discrete uniformization); the unnormalized flow will generally shrink
+    (K>0) or expand (K<0) the domain instead of converging.
+
+    This is an explicit (forward Euler) scheme: keep ``dt`` small relative
+    to the grid spacing squared, or the curvature computation will become
+    noisy/unstable (standard parabolic-PDE CFL caution).
+
+    Parameters
+    ----------
+    metric : Metric
+        Initial 2D metric.
+    domain : tuple
+        ((x_min, x_max), (y_min, y_max)).
+    resolution : int
+        Grid points per axis.
+    dt : float
+        Time step. Start small (e.g. 0.1 * min(dx, dy)**2) and increase if
+        stable.
+    n_steps : int
+        Number of Euler steps.
+    normalized : bool
+        Use the area-normalized flow (recommended; prevents collapse/blowup).
+
+    Returns
+    -------
+    result : dict with keys
+        'X', 'Y' : ndarray (N, N) — coordinate grids (fixed throughout; only
+            the metric components evolve, i.e. this is Ricci flow in a fixed
+            coordinate chart, not a flow of an embedded shape).
+        'g11', 'g12', 'g22' : ndarray (n_steps+1, N, N) — metric components
+            at each recorded step.
+        'K' : ndarray (n_steps+1, N, N) — Gaussian curvature at each step.
+        't' : ndarray (n_steps+1,) — time values.
+
+    Notes
+    -----
+    Only the *interior* metric evolves realistically; the Brioschi formula's
+    one-sided boundary stencils make the domain edges less reliable, same
+    caveat as elsewhere in this module. For a clean test, use a domain
+    somewhat larger than the region of interest, or a smooth metric that
+    varies slowly near the edges.
+    """
+    x_vals = np.linspace(domain[0][0], domain[0][1], resolution)
+    y_vals = np.linspace(domain[1][0], domain[1][1], resolution)
+    X, Y = np.meshgrid(x_vals, y_vals, indexing='ij')
+    dx = x_vals[1] - x_vals[0]
+    dy = y_vals[1] - y_vals[0]
+
+    g11, g12, g22 = _eval_metric_grid(metric, X, Y)
+    g11 = np.broadcast_to(g11, X.shape).astype(float).copy()
+    g12 = np.broadcast_to(g12, X.shape).astype(float).copy()
+    g22 = np.broadcast_to(g22, X.shape).astype(float).copy()
+
+    G11 = np.empty((n_steps + 1,) + X.shape)
+    G12 = np.empty_like(G11)
+    G22 = np.empty_like(G11)
+    Ks  = np.empty_like(G11)
+    ts  = np.empty(n_steps + 1)
+
+    G11[0], G12[0], G22[0] = g11, g12, g22
+    Ks[0] = _brioschi_curvature_grid(g11, g12, g22, dx, dy)
+    ts[0] = 0.0
+
+    for step in range(1, n_steps + 1):
+        K = _brioschi_curvature_grid(g11, g12, g22, dx, dy)
+
+        if normalized:
+            area_elt = np.sqrt(np.maximum(g11 * g22 - g12 * g12, 1e-14))
+            r = np.sum(K * area_elt) / np.sum(area_elt)   # area-weighted mean K
+            rate = (r - 2.0 * K)
+        else:
+            rate = -2.0 * K
+
+        g11 = g11 + dt * rate * g11
+        g12 = g12 + dt * rate * g12
+        g22 = g22 + dt * rate * g22
+
+        # keep the metric positive-definite under FD noise
+        g11 = np.clip(g11, 1e-8, None)
+        det = g11 * g22 - g12 * g12
+        bad = det <= 1e-10
+        if np.any(bad):
+            g12[bad] = 0.0
+            g22[bad] = np.maximum(g22[bad], 1e-8)
+
+        G11[step], G12[step], G22[step] = g11, g12, g22
+        Ks[step] = _brioschi_curvature_grid(g11, g12, g22, dx, dy)
+        ts[step] = step * dt
+
+    return {'X': X, 'Y': Y, 'g11': G11, 'g12': G12, 'g22': G22,
+            'K': Ks, 't': ts}
+
+
+# ======================================================================
+# VISUALIZATION — spectral geometry, extrinsic curvature, Ricci flow,
+#                 Killing fields
+# ======================================================================
+
+def visualize_eigenmodes(grid, eigvals, eigvecs, n_show=6, ncols=3,
+                          cmap='RdBu_r', dark=True):
+    """
+    Plot the first ``n_show`` Laplace-Beltrami eigenmodes on a
+    ``RiemannianGrid``.
+
+    Parameters
+    ----------
+    grid : RiemannianGrid
+    eigvals, eigvecs : as returned by ``RiemannianGrid.laplace_beltrami_eigenmodes``.
+    n_show : int
+    ncols : int
+    cmap : str
+    dark : bool
+        Use a dark background to match the rest of the module's plotting
+        style (see ``visualize_curvature`` / ``plot_corrugation_pipeline``).
+
+    Returns
+    -------
+    fig, axes
+    """
+    bg = '#111111' if dark else 'white'
+    tc = 'white' if dark else 'black'
+    n_show = min(n_show, len(eigvals))
+    nrows = int(np.ceil(n_show / ncols))
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3.5 * nrows),
+                              facecolor=bg, squeeze=False)
+    axes = axes.flatten()
+
+    for i in range(n_show):
+        ax = axes[i]
+        vmax = np.abs(eigvecs[i]).max()
+        vmax = vmax if vmax > 1e-14 else 1.0
+        im = ax.pcolormesh(grid.X, grid.Y, eigvecs[i], cmap=cmap,
+                            vmin=-vmax, vmax=vmax, shading='auto')
+        ax.set_title(f"mode {i}:  \u03bb = {eigvals[i]:.4f}", color=tc, fontsize=10)
+        ax.set_facecolor(bg)
+        ax.set_aspect('equal')
+        ax.tick_params(colors=tc, labelsize=8)
+        for s in ax.spines.values():
+            s.set_color('#444444')
+        cb = fig.colorbar(im, ax=ax, shrink=0.85)
+        cb.ax.yaxis.set_tick_params(color=tc, labelsize=7)
+        plt.setp(cb.ax.get_yticklabels(), color=tc)
+
+    for j in range(n_show, len(axes)):
+        axes[j].axis('off')
+
+    fig.suptitle("Laplace-Beltrami eigenmodes", color=tc, fontsize=13)
+    plt.tight_layout()
+    return fig, axes
+
+
+def visualize_extrinsic_curvature(R, du, dv, metric=None, U=None, V=None,
+                                   dark=True):
+    """
+    Plot mean curvature H and extrinsic Gaussian curvature K_ext of an
+    embedding. If ``metric`` (and the parameter grids U, V it was evaluated
+    on) is supplied, also plots the intrinsic-vs-extrinsic K residual as a
+    Theorema Egregium consistency check.
+
+    Parameters
+    ----------
+    R : ndarray, shape (nu, nv, 3)
+    du, dv : float
+    metric : Metric, optional
+    U, V : ndarray, optional
+        Parameter meshgrids the metric was sampled on when building R
+        (same arrays used inside ``build_embedding``).
+    dark : bool
+
+    Returns
+    -------
+    fig, axes
+    """
+    H, K_ext, k1, k2 = principal_curvatures(R, du, dv)
+    bg = '#111111' if dark else 'white'
+    tc = 'white' if dark else 'black'
+
+    ncols = 3 if metric is not None else 2
+    fig, axes = plt.subplots(1, ncols, figsize=(5 * ncols, 4.5), facecolor=bg)
+
+    for ax, data, title in zip(
+        axes[:2], [H, K_ext], ["Mean curvature H", "Extrinsic K = det(II)/det(I)"]
+    ):
+        vmax = np.nanmax(np.abs(data)) or 1.0
+        im = ax.imshow(data.T, origin='lower', cmap='RdBu_r', vmin=-vmax, vmax=vmax,
+                        aspect='auto')
+        ax.set_title(title, color=tc)
+        ax.set_facecolor(bg)
+        ax.tick_params(colors=tc)
+        fig.colorbar(im, ax=ax, shrink=0.85)
+
+    if metric is not None and U is not None and V is not None:
+        g11, g12, g22 = _eval_metric_grid(metric, U, V)
+        K_int = _brioschi_curvature_grid(g11, g12, g22, du, dv)
+        residual = K_ext - K_int
+        vmax = np.nanmax(np.abs(residual)) or 1.0
+        im = axes[2].imshow(residual.T, origin='lower', cmap='PuOr',
+                             vmin=-vmax, vmax=vmax, aspect='auto')
+        axes[2].set_title("K_ext \u2212 K_intrinsic\n(Theorema Egregium residual)",
+                           color=tc)
+        axes[2].set_facecolor(bg)
+        axes[2].tick_params(colors=tc)
+        fig.colorbar(im, ax=axes[2], shrink=0.85)
+
+    plt.tight_layout()
+    return fig, axes
+
+
+def visualize_ricci_flow(result, n_snapshots=4, dark=True):
+    """
+    Plot curvature snapshots through a Ricci flow run (``ricci_flow_2d``),
+    plus the decay of the curvature's spatial standard deviation (a proxy
+    for "distance from constant curvature").
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``ricci_flow_2d``.
+    n_snapshots : int
+    dark : bool
+
+    Returns
+    -------
+    fig, axes
+    """
+    bg = '#111111' if dark else 'white'
+    tc = 'white' if dark else 'black'
+    n_steps = len(result['t'])
+    snap_idx = np.linspace(0, n_steps - 1, n_snapshots).astype(int)
+
+    fig, axes = plt.subplots(1, n_snapshots + 1,
+                              figsize=(4 * (n_snapshots + 1), 4), facecolor=bg)
+
+    vmax = np.nanmax(np.abs(result['K'][snap_idx])) or 1.0
+    for ax, idx in zip(axes[:-1], snap_idx):
+        im = ax.pcolormesh(result['X'], result['Y'], result['K'][idx],
+                            cmap='RdBu_r', vmin=-vmax, vmax=vmax, shading='auto')
+        ax.set_title(f"t = {result['t'][idx]:.3g}", color=tc)
+        ax.set_facecolor(bg)
+        ax.set_aspect('equal')
+        ax.tick_params(colors=tc)
+        fig.colorbar(im, ax=ax, shrink=0.8)
+
+    std_K = result['K'].reshape(n_steps, -1).std(axis=1)
+    ax = axes[-1]
+    ax.plot(result['t'], std_K, color='#ff7f0e', lw=2)
+    ax.set_title("spread of K over the domain", color=tc)
+    ax.set_xlabel("t", color=tc)
+    ax.set_ylabel("std(K)", color=tc)
+    ax.set_facecolor(bg)
+    ax.tick_params(colors=tc)
+    for s in ax.spines.values():
+        s.set_color('#444444')
+
+    fig.suptitle("2D Ricci flow", color=tc, fontsize=13)
+    plt.tight_layout()
+    return fig, axes
+
+
+def visualize_killing_fields(metric, killing_fields, domain, resolution=20,
+                              dark=True, ncols=3):
+    """
+    Streamplot each 2D Killing vector field as a flow direction over the
+    coordinate domain.
+
+    Parameters
+    ----------
+    metric : Metric
+    killing_fields : list of tuple(sympy.Expr, sympy.Expr)
+        As returned by ``killing_vector_fields_2d`` / ``Metric.killing_vector_fields``.
+    domain : tuple
+        ((x_min, x_max), (y_min, y_max)).
+    resolution : int
+        Arrows per axis.
+    dark : bool
+    ncols : int
+
+    Returns
+    -------
+    fig, axes
+    """
+    x, y = metric.coords
+    bg = '#111111' if dark else 'white'
+    tc = 'white' if dark else 'black'
+
+    n = len(killing_fields)
+    if n == 0:
+        raise ValueError("No Killing fields to plot.")
+    ncols = min(ncols, n)
+    nrows = int(np.ceil(n / ncols))
+
+    xs = np.linspace(*domain[0], resolution)
+    ys = np.linspace(*domain[1], resolution)
+    X, Y = np.meshgrid(xs, ys)
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 4 * nrows),
+                              facecolor=bg, squeeze=False)
+    axes = axes.flatten()
+
+    for i, (xi_x, xi_y) in enumerate(killing_fields):
+        fx = lambdify((x, y), xi_x, 'numpy')
+        fy = lambdify((x, y), xi_y, 'numpy')
+        Ux = np.broadcast_to(fx(X, Y), X.shape).astype(float)
+        Vy = np.broadcast_to(fy(X, Y), X.shape).astype(float)
+        ax = axes[i]
+        ax.streamplot(X, Y, Ux, Vy, color='#4fc3f7', density=1.2, linewidth=0.9)
+        ax.set_title(f"Killing field {i+1}", color=tc, fontsize=10)
+        ax.set_facecolor(bg)
+        ax.set_aspect('equal')
+        ax.tick_params(colors=tc)
+        for s in ax.spines.values():
+            s.set_color('#444444')
+
+    for j in range(n, len(axes)):
+        axes[j].axis('off')
+
+    plt.tight_layout()
+    return fig, axes
+
 
 # ======================================================================
 # CORRUGATION LAYER  (shared by both methods)

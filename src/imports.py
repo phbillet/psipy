@@ -14,7 +14,8 @@ import itertools
 import multiprocessing
 import os
 import sys
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union, overload
+
 import warnings
 
 # ==============================================================================
@@ -140,6 +141,7 @@ from sympy import (
     fourier_transform,
     gegenbauer,
     hermite,
+    hessian,
     integrate,
     inverse_fourier_transform,
     laguerre,
