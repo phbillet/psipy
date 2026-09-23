@@ -154,7 +154,10 @@
 <span class="c1"># ----------------------------------------------------------------------</span>
 <span class="c1"># Dimension detection helper (used internally by microlocal functions)</span>
 <span class="c1"># ----------------------------------------------------------------------</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_infer_dim</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_infer_dim</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Infer the spatial dimension (1 or 2) from a SymPy symbol or an explicit argument.</span>
 
@@ -192,7 +195,11 @@
 <span class="c1"># ----------------------------------------------------------------------</span>
 <div class="viewcode-block" id="characteristic_variety">
 <a class="viewcode-back" href="../microlocal.html#microlocal.characteristic_variety">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">characteristic_variety</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-08</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">characteristic_variety</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-08</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the characteristic variety of a pseudo-differential operator.</span>
 <span class="sd">    </span>
@@ -246,7 +253,14 @@
 <span class="c1"># ----------------------------------------------------------------------</span>
 <div class="viewcode-block" id="bicharacteristic_flow">
 <a class="viewcode-back" href="../microlocal.html#microlocal.bicharacteristic_flow">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">bicharacteristic_flow</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'symplectic'</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">bicharacteristic_flow</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">z0</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">tspan</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'rk45'</span><span class="p">,</span> <span class="s1">'symplectic'</span><span class="p">,</span> <span class="s1">'verlet'</span><span class="p">,</span> <span class="s1">'hamiltonian'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'symplectic'</span><span class="p">,</span>
+    <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Integrate the bicharacteristic flow on the cotangent bundle.</span>
 
@@ -282,7 +296,13 @@
         <span class="k">return</span> <span class="n">_bichar_flow_2d</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">)</span></div>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_bichar_flow_1d</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_bichar_flow_1d</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">z0</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">tspan</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Integrate the 1D bicharacteristic flow and the associated stability matrix.</span>
 
@@ -421,7 +441,13 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'Invalid method for 1D flow'</span><span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_bichar_flow_2d</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_bichar_flow_2d</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">z0</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">tspan</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the bicharacteristic (Hamiltonian) flow for a 2D symbol</span>
 <span class="sd">    and the associated stability matrix.</span>
@@ -564,7 +590,13 @@
 <span class="c1"># ----------------------------------------------------------------------</span>
 <div class="viewcode-block" id="bohr_sommerfeld_quantization">
 <a class="viewcode-back" href="../microlocal.html#microlocal.bohr_sommerfeld_quantization">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">bohr_sommerfeld_quantization</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">n_max</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">x_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">hbar</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">E_range</span><span class="o">=</span><span class="p">(</span><span class="mf">1e-06</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">)):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">bohr_sommerfeld_quantization</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">n_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">x_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+    <span class="n">hbar</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">E_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1e-06</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">)</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute Bohr-Sommerfeld quantization for 1D bound states.</span>
 
@@ -646,7 +678,12 @@
 
 <div class="viewcode-block" id="find_caustics_1d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.find_caustics_1d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">find_caustics_1d</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">xi_range</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_caustics_1d</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">x_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">xi_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">resolution</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Find caustics (envelope of bicharacteristics) in 1D.</span>
 
@@ -685,7 +722,13 @@
 
 <div class="viewcode-block" id="propagate_singularity">
 <a class="viewcode-back" href="../microlocal.html#microlocal.propagate_singularity">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">propagate_singularity</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_sing_support</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">propagate_singularity</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">initial_sing_support</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+    <span class="n">tspan</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">n_samples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Propagate singular support along bicharacteristics.</span>
 
@@ -725,7 +768,14 @@
 <span class="c1"># ----------------------------------------------------------------------</span>
 <div class="viewcode-block" id="plot_characteristic_set">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_characteristic_set">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_characteristic_set</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">xi_range</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_characteristic_set</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">x_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">xi_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">resolution</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot the characteristic variety (zero set of the principal symbol).</span>
 
@@ -799,7 +849,14 @@
 
 <div class="viewcode-block" id="plot_bicharacteristics">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_bicharacteristics">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_bicharacteristics</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_points</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">'position'</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_bicharacteristics</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">initial_points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+    <span class="n">tspan</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">projection</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'position'</span><span class="p">,</span> <span class="s1">'frequency'</span><span class="p">,</span> <span class="s1">'mixed'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'position'</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot bicharacteristic curves (Hamiltonian flow trajectories).</span>
 
@@ -872,7 +929,19 @@
 
 <div class="viewcode-block" id="plot_wavefront_set">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_wavefront_set">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_wavefront_set</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_sing_support</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">'cotangent'</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">'plasma'</span><span class="p">,</span> <span class="n">show_flow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_endpoints</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_wavefront_set</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">initial_sing_support</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+    <span class="n">tspan</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">projection</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'cotangent'</span><span class="p">,</span>
+    <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'plasma'</span><span class="p">,</span>
+    <span class="n">show_flow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">show_endpoints</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">ax</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Axes</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Axes</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Figure</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">Axes</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot the wavefront set WF(u) of a distribution u whose singularities</span>
 <span class="sd">    propagate along bicharacteristics of the operator with symbol p.</span>
@@ -1052,7 +1121,9 @@
 
 <div class="viewcode-block" id="compute_maslov_index">
 <a class="viewcode-back" href="../microlocal.html#microlocal.compute_maslov_index">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">compute_maslov_index</span><span class="p">(</span><span class="n">traj</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_maslov_index</span><span class="p">(</span>
+    <span class="n">traj</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the Maslov index for a single trajectory.</span>
 <span class="sd">    </span>
@@ -1074,7 +1145,13 @@
 
 <div class="viewcode-block" id="compute_caustics_2d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.compute_caustics_2d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">compute_caustics_2d</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">initial_curve</span><span class="p">,</span> <span class="n">tmax</span><span class="p">,</span> <span class="n">n_rays</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_caustics_2d</span><span class="p">(</span>
+    <span class="n">p</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">initial_curve</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+    <span class="n">tmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">n_rays</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute caustics for a 2D Hamiltonian given an initial curve.</span>
 
@@ -1133,7 +1210,18 @@
 <span class="c1"># ---- low-level rendering helpers (shared by the op-visualization and</span>
 <span class="c1">#      characteristic-set/wavefront plots below) --------------------</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_slice_grid</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">x_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_slice_grid</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'freq'</span><span class="p">,</span> <span class="s1">'space'</span><span class="p">],</span>
+    <span class="n">x_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">xi_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">eta_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">y0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">eta0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Evaluate op.p_func over one canonical 2D slice of phase space.</span>
 
 <span class="sd">    kind='freq'  : 1D -&gt; vary (x, xi).   2D -&gt; fix (x0, y0), vary (xi, eta).</span>
@@ -1155,9 +1243,21 @@
     <span class="n">Z</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">p_func</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">xi_grid</span><span class="p">,</span> <span class="n">eta_grid</span><span class="p">,</span> <span class="s1">'$</span><span class="se">\\</span><span class="s1">xi$'</span><span class="p">,</span> <span class="s1">'$</span><span class="se">\\</span><span class="s1">eta$'</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_render_field</span><span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s1">'pcolormesh'</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">'viridis'</span><span class="p">,</span> <span class="n">cbar_label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
-                 <span class="n">xlabel</span><span class="o">=</span><span class="s1">'x'</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s1">'$</span><span class="se">\\</span><span class="s1">xi$'</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> 
-                 <span class="n">contour_color</span><span class="o">=</span><span class="s1">'red'</span><span class="p">,</span> <span class="n">grid</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_render_field</span><span class="p">(</span>
+    <span class="n">ax1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">ax2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">style</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'pcolormesh'</span><span class="p">,</span> <span class="s1">'contourf'</span><span class="p">,</span> <span class="s1">'contour'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'pcolormesh'</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'viridis'</span><span class="p">,</span>
+    <span class="n">cbar_label</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">xlabel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'x'</span><span class="p">,</span>
+    <span class="n">ylabel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'$</span><span class="se">\\</span><span class="s1">xi$'</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span>
+    <span class="n">levels</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="n">contour_color</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'red'</span><span class="p">,</span>
+    <span class="n">grid</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">show</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Render a 2D scalar field using pcolormesh, contourf, or contour.</span>
 
@@ -1208,7 +1308,9 @@
     <span class="k">if</span> <span class="n">show</span><span class="p">:</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_grad_norm</span><span class="p">(</span><span class="n">Z</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_grad_norm</span><span class="p">(</span>
+    <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""|grad Z| over a 2D array, using a consistent abs()**2 convention on</span>
 <span class="sd">    both axes (see visualize_characteristic_gradient's note: this unifies</span>
 <span class="sd">    an inconsistency that used to exist between its 1D and 2D branches)."""</span>
@@ -1216,7 +1318,19 @@
     <span class="n">gy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">gx</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">gy</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_quiver_colored</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">'viridis'</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.004</span><span class="p">,</span> <span class="n">colorbar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">cbar_label</span><span class="o">=</span><span class="s1">'|field|'</span><span class="p">,</span> <span class="o">**</span><span class="n">quiver_kwargs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_quiver_colored</span><span class="p">(</span>
+    <span class="n">ax</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">Y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">V</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'viridis'</span><span class="p">,</span>
+    <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">25</span><span class="p">,</span>
+    <span class="n">width</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.004</span><span class="p">,</span>
+    <span class="n">colorbar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">cbar_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'|field|'</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">quiver_kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Draw a quiver field with fixed-length arrows, colored by magnitude.</span>
 
 <span class="sd">    Plain `plt.quiver(X, Y, U, V)` sizes each arrow by its own (U, V)</span>
@@ -1273,7 +1387,18 @@
         <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="s1">'figure'</span><span class="p">)</span> <span class="k">else</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">(),</span> <span class="n">label</span><span class="o">=</span><span class="n">cbar_label</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">q</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_quiver_field</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xlim</span><span class="p">,</span> <span class="n">klim</span><span class="p">,</span> <span class="n">density</span><span class="p">,</span> <span class="n">vec_exprs_fn</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.004</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">'viridis'</span><span class="p">,</span> <span class="n">cbar_label</span><span class="o">=</span><span class="s1">'|field|'</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_quiver_field</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">xlim</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">klim</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">density</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">vec_exprs_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Symbol</span><span class="p">,</span> <span class="n">Symbol</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]],</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">25</span><span class="p">,</span>
+    <span class="n">width</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.004</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'viridis'</span><span class="p">,</span>
+    <span class="n">cbar_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'|field|'</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""1D-only quiver plot of a vector field derived from the symbol.</span>
 
 <span class="sd">    Arrows are drawn at fixed length; the field's local magnitude is</span>
@@ -1302,7 +1427,9 @@
     <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_make_real</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_make_real</span><span class="p">(</span>
+    <span class="n">expr</span><span class="p">:</span> <span class="n">Expr</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Re(expr), fully evaluated -- used when a Hamiltonian field may come</span>
 <span class="sd">    out complex-valued from sympy but only the real part is physically</span>
 <span class="sd">    meaningful for the flow."""</span>
@@ -1315,7 +1442,13 @@
 
 <div class="viewcode-block" id="visualize_fiber">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_fiber">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">visualize_fiber</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_fiber</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">xi_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">y0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot the cotangent fiber structure at a fixed spatial point (x₀[, y₀]).</span>
 
@@ -1355,7 +1488,15 @@
 
 <div class="viewcode-block" id="visualize_symbol_amplitude">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_symbol_amplitude">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">visualize_symbol_amplitude</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_symbol_amplitude</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">xi_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">eta_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">eta0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Display the modulus |p(x, ξ)| or |p(x, y, ξ₀, η₀)| as a color map.</span>
 
@@ -1390,7 +1531,15 @@
 
 <div class="viewcode-block" id="visualize_phase">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_phase">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">visualize_phase</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_phase</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">xi_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">eta_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">eta0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot the phase (argument) of the pseudodifferential operator's symbol p(x, ξ) or p(x, y, ξ, η).</span>
 
@@ -1432,7 +1581,16 @@
 
 <div class="viewcode-block" id="visualize_characteristic_set">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_characteristic_set">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_set</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="p">[</span><span class="mf">0.1</span><span class="p">]):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_set</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">xi_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">eta_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">y0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">levels</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Visualize the characteristic set of the pseudo-differential symbol, defined as the approximate zero set p(x, ξ) ≈ 0.</span>
 
@@ -1481,7 +1639,15 @@
 
 <div class="viewcode-block" id="visualize_characteristic_gradient">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_characteristic_gradient">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_gradient</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">xi_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_characteristic_gradient</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">xi_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">eta_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">y0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Visualize the norm of the gradient of the symbol in phase space.</span>
 <span class="sd">    </span>
@@ -1527,7 +1693,16 @@
 
 <div class="viewcode-block" id="plot_hamiltonian_flow">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_hamiltonian_flow">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_hamiltonian_flow</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">show_field</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_hamiltonian_flow</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+    <span class="n">y0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">eta0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">tmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="n">show_field</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Integrate and plot the Hamiltonian trajectories of the symbol in phase space.</span>
 
@@ -1607,7 +1782,12 @@
 
 <div class="viewcode-block" id="plot_symplectic_vector_field">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_symplectic_vector_field">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_symplectic_vector_field</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_symplectic_vector_field</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">xlim</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+    <span class="n">klim</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+    <span class="n">density</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Visualize the symplectic vector field (Hamiltonian vector field) associated with the operator's symbol.</span>
 
@@ -1643,7 +1823,15 @@
 
 <div class="viewcode-block" id="visualize_micro_support">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_micro_support">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">visualize_micro_support</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_micro_support</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">xlim</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+    <span class="n">klim</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+    <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">,</span>
+    <span class="n">density</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">eta0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Visualize the micro-support of the operator by plotting the inverse of the symbol magnitude 1 / |p(x, ξ)|.</span>
 
@@ -1689,7 +1877,12 @@
 
 <div class="viewcode-block" id="group_velocity_field">
 <a class="viewcode-back" href="../microlocal.html#microlocal.group_velocity_field">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">group_velocity_field</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">klim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">group_velocity_field</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">xlim</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+    <span class="n">klim</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+    <span class="n">density</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot the group velocity field ∇_ξ p(x, ξ) for 1D pseudo-differential operators.</span>
 
@@ -1723,7 +1916,16 @@
     <span class="n">_quiver_field</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xlim</span><span class="p">,</span> <span class="n">klim</span><span class="p">,</span> <span class="n">density</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">p</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">xi</span><span class="p">:</span> <span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">diff</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">xi</span><span class="p">)),</span> <span class="s1">'Group Velocity Field (1D)'</span><span class="p">)</span></div>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_default_wavefront_seeds</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">n_seeds</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.15</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_default_wavefront_seeds</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">y0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">eta0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">spread</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">n_seeds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">25</span><span class="p">,</span>
+    <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.15</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""Auto-generate seed singularities for visualize_wavefront_set.</span>
 
 <span class="sd">    1D: a fan of frequencies xi in [xi0 - spread, xi0 + spread] at the fixed</span>
@@ -1745,9 +1947,24 @@
 
 <div class="viewcode-block" id="visualize_wavefront_set">
 <a class="viewcode-back" href="../microlocal.html#microlocal.visualize_wavefront_set">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">visualize_wavefront_set</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">seeds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tspan</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">),</span> <span class="n">projection</span><span class="o">=</span><span class="s1">'cotangent'</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> 
-                            <span class="n">cmap</span><span class="o">=</span><span class="s1">'plasma'</span><span class="p">,</span> <span class="n">show_flow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_endpoints</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> 
-                            <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">spread</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">n_seeds</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.15</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_wavefront_set</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">seeds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">tspan</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">),</span>
+    <span class="n">projection</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'cotangent'</span><span class="p">,</span>
+    <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'plasma'</span><span class="p">,</span>
+    <span class="n">show_flow</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">show_endpoints</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">y0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">eta0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">spread</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">n_seeds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">25</span><span class="p">,</span>
+    <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.15</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Figure</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">Axes</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Visualize the wavefront set WF(u) obtained by propagating seed singularities </span>
 <span class="sd">    along the bicharacteristics of the operator's symbol.</span>
@@ -1801,7 +2018,16 @@
 
 <div class="viewcode-block" id="animate_operator_singularity">
 <a class="viewcode-back" href="../microlocal.html#microlocal.animate_operator_singularity">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">animate_operator_singularity</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">n_frames</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">animate_operator_singularity</span><span class="p">(</span>
+    <span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+    <span class="n">eta0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">y0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">tmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">4.0</span><span class="p">,</span>
+    <span class="n">n_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="n">projection</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FuncAnimation</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Animate the propagation of a singularity under the Hamiltonian</span>
 <span class="sd">    flow. Thin delegate to the module-level `animate_singularity`</span>
 <span class="sd">    engine (previously ~130 lines of duplicated Hamiltonian/ODE setup</span>
@@ -1816,7 +2042,14 @@
 
 <div class="viewcode-block" id="interactive_symbol_analysis">
 <a class="viewcode-back" href="../microlocal.html#microlocal.interactive_symbol_analysis">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">interactive_symbol_analysis</span><span class="p">(</span><span class="n">pseudo_op</span><span class="p">,</span> <span class="n">xlim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">ylim</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">xi_range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">eta_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">density</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">interactive_symbol_analysis</span><span class="p">(</span>
+    <span class="n">pseudo_op</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">xlim</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+    <span class="n">ylim</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+    <span class="n">xi_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+    <span class="n">eta_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+    <span class="n">density</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Launch an interactive dashboard for symbol exploration using ipywidgets.</span>
 
@@ -1971,7 +2204,13 @@
 
 <div class="viewcode-block" id="plot_pseudospectrum">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_pseudospectrum">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_pseudospectrum</span><span class="p">(</span><span class="n">Lambda</span><span class="p">,</span> <span class="n">resolvent_norm</span><span class="p">,</span> <span class="n">sigma_min_grid</span><span class="p">,</span> <span class="n">epsilon_levels</span><span class="p">,</span> <span class="n">eigenvalues</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_pseudospectrum</span><span class="p">(</span>
+    <span class="n">Lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">resolvent_norm</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">sigma_min_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">epsilon_levels</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">eigenvalues</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot pseudospectrum results.</span>
 <span class="sd">    </span>
@@ -2034,7 +2273,9 @@
 <span class="c1">#      the time-stepping solvers, and bicharacteristic/singularity</span>
 <span class="c1">#      trajectory animations) ---------------------------------------</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_matrix_of</span><span class="p">(</span><span class="n">s_expr</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_matrix_of</span><span class="p">(</span>
+    <span class="n">s_expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">MatrixBase</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">]]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Matrix</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Coerce a symbol expression into a sympy Matrix.</span>
 
@@ -2062,7 +2303,9 @@
         <span class="k">return</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">s_expr</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">Matrix</span><span class="p">([[</span><span class="n">s_expr</span><span class="p">]])</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_quantity_fn</span><span class="p">(</span><span class="n">quantity</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_quantity_fn</span><span class="p">(</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'real'</span><span class="p">,</span> <span class="s1">'imag'</span><span class="p">,</span> <span class="s1">'abs'</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Map a string identifier to the corresponding NumPy function.</span>
 
@@ -2087,7 +2330,10 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"quantity must be 'real', 'imag', or 'abs'"</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_finish_headless</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_finish_headless</span><span class="p">(</span>
+    <span class="n">fig</span><span class="p">:</span> <span class="n">Figure</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Finalize a matplotlib figure for headless rendering or saving.</span>
 
@@ -2114,8 +2360,15 @@
 
 <div class="viewcode-block" id="plot_scalar_1d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_scalar_1d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_scalar_1d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">"u(x, t)"</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'real'</span><span class="p">,</span>
-                   <span class="n">n_snapshots</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_scalar_1d</span><span class="p">(</span>
+    <span class="n">t</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"u(x, t)"</span><span class="p">,</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'real'</span><span class="p">,</span> <span class="s1">'imag'</span><span class="p">,</span> <span class="s1">'abs'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'real'</span><span class="p">,</span>
+    <span class="n">n_snapshots</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot a scalar 1D space-time solution as a combined heatmap and</span>
 <span class="sd">    snapshot overlay.</span>
@@ -2165,7 +2418,14 @@
 
 <div class="viewcode-block" id="plot_matrix_1d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_matrix_1d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix_1d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'real'</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix_1d</span><span class="p">(</span>
+    <span class="n">t</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'real'</span><span class="p">,</span> <span class="s1">'imag'</span><span class="p">,</span> <span class="s1">'abs'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'real'</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot each component of a matrix-valued 1D solution as a stacked</span>
 <span class="sd">    space-time heatmap.</span>
@@ -2211,7 +2471,15 @@
 
 <div class="viewcode-block" id="plot_scalar_2d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_scalar_2d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_scalar_2d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'real'</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_scalar_2d</span><span class="p">(</span>
+    <span class="n">t</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">times</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'real'</span><span class="p">,</span> <span class="s1">'imag'</span><span class="p">,</span> <span class="s1">'abs'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'real'</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot a scalar 2D solution at selected time instants as a row of</span>
 <span class="sd">    side-by-side pcolormesh panels.</span>
@@ -2258,7 +2526,14 @@
 
 <div class="viewcode-block" id="animate_scalar_1d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.animate_scalar_1d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">animate_scalar_1d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'real'</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">animate_scalar_1d</span><span class="p">(</span>
+    <span class="n">t</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'real'</span><span class="p">,</span> <span class="s1">'imag'</span><span class="p">,</span> <span class="s1">'abs'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'real'</span><span class="p">,</span>
+    <span class="n">interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">40</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FuncAnimation</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Animate a scalar 1D solution as a line plot evolving in time.</span>
 <span class="sd">    </span>
@@ -2309,7 +2584,11 @@
 <span class="c1"># *grid) doesn't fit plot_matrix_1d's (n_saved, size, *grid). These fill</span>
 <span class="c1"># that gap.</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_matrix_field_reduce</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">quantity</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_matrix_field_reduce</span><span class="p">(</span>
+    <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">component</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s1">'trace'</span><span class="p">,</span> <span class="s1">'frobenius'</span><span class="p">,</span> <span class="s1">'diag'</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'real'</span><span class="p">,</span> <span class="s1">'imag'</span><span class="p">,</span> <span class="s1">'abs'</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""Reduce a (n_saved, N, N, *grid) matrix-field array to a single</span>
 <span class="sd">    real/complex scalar field (n_saved, *grid), per `component`."""</span>
     <span class="k">if</span> <span class="n">component</span> <span class="o">==</span> <span class="s1">'trace'</span><span class="p">:</span>
@@ -2326,7 +2605,15 @@
 
 <div class="viewcode-block" id="plot_matrix_field_1d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_matrix_field_1d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix_field_1d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'abs'</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s1">'diag'</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix_field_1d</span><span class="p">(</span>
+    <span class="n">t</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'real'</span><span class="p">,</span> <span class="s1">'imag'</span><span class="p">,</span> <span class="s1">'abs'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'abs'</span><span class="p">,</span>
+    <span class="n">component</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s1">'diag'</span><span class="p">,</span> <span class="s1">'trace'</span><span class="p">,</span> <span class="s1">'frobenius'</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">'diag'</span><span class="p">,</span>
+    <span class="n">labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Space-time heatmap(s) for a matrix-valued 1D solution.</span>
 <span class="sd">    </span>
@@ -2386,7 +2673,16 @@
 
 <div class="viewcode-block" id="plot_matrix_field_2d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_matrix_field_2d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix_field_2d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">times</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'abs'</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s1">'trace'</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix_field_2d</span><span class="p">(</span>
+    <span class="n">t</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">times</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'real'</span><span class="p">,</span> <span class="s1">'imag'</span><span class="p">,</span> <span class="s1">'abs'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'abs'</span><span class="p">,</span>
+    <span class="n">component</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s1">'trace'</span><span class="p">,</span> <span class="s1">'frobenius'</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">'trace'</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot snapshot panels for a matrix-valued 2D solution field.</span>
 
@@ -2438,7 +2734,14 @@
 
 <div class="viewcode-block" id="plot_wave_solution_1d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.plot_wave_solution_1d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_wave_solution_1d</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'real'</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_wave_solution_1d</span><span class="p">(</span>
+    <span class="n">t</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">V</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'real'</span><span class="p">,</span> <span class="s1">'imag'</span><span class="p">,</span> <span class="s1">'abs'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'real'</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Figure</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Plot side-by-side space-time heatmaps of displacement and velocity.</span>
 
@@ -2478,7 +2781,10 @@
 <span class="c1"># Singularity &amp; Ray Flow</span>
 <span class="c1"># ----------------------------------------------------------------------</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_order_freq_vars</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_order_freq_vars</span><span class="p">(</span>
+    <span class="n">freq</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Order a set of free frequency symbols into canonical (ξ, η) or</span>
 <span class="sd">    (ξ, η, …) sequence matching the spatial dimension.</span>
@@ -2513,7 +2819,11 @@
 
 <div class="viewcode-block" id="characteristic_hamiltonians">
 <a class="viewcode-back" href="../microlocal.html#microlocal.characteristic_hamiltonians">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">characteristic_hamiltonians</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">vars_xi</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">characteristic_hamiltonians</span><span class="p">(</span>
+    <span class="n">s_expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">MatrixBase</span><span class="p">],</span>
+    <span class="n">vars_x</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+    <span class="n">vars_xi</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Expr</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Extract the characteristic Hamiltonian functions H(x, ξ) from a</span>
 <span class="sd">    (possibly matrix-valued) operator symbol.</span>
@@ -2583,9 +2893,24 @@
 
 <div class="viewcode-block" id="integrate_singularity">
 <a class="viewcode-back" href="../microlocal.html#microlocal.integrate_singularity">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">integrate_singularity</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
-                          <span class="n">n_frames</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">vars_xi</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">branches</span><span class="o">=</span><span class="s1">'all'</span><span class="p">,</span>
-                          <span class="n">method</span><span class="o">=</span><span class="s1">'RK45'</span><span class="p">,</span> <span class="o">**</span><span class="n">ivp_kwargs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">integrate_singularity</span><span class="p">(</span>
+    <span class="n">s_expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">MatrixBase</span><span class="p">],</span>
+    <span class="n">vars_x</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+    <span class="n">tmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">4.0</span><span class="p">,</span>
+    <span class="n">n_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="n">vars_xi</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">branches</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s1">'all'</span><span class="p">],</span> <span class="nb">int</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">'all'</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'RK45'</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">ivp_kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">List</span><span class="p">[</span><span class="n">Expr</span><span class="p">],</span>
+    <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+    <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Numerically integrate bicharacteristic (Hamiltonian ray) trajectories</span>
 <span class="sd">    from an initial phase-space point (x₀, ξ₀).</span>
@@ -2656,7 +2981,15 @@
     <span class="k">return</span> <span class="n">H_list</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">xis</span><span class="p">,</span> <span class="n">t_eval</span><span class="p">,</span> <span class="n">trajs</span></div>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_trail_animation</span><span class="p">(</span><span class="n">coords_list</span><span class="p">,</span> <span class="n">colors</span><span class="p">,</span> <span class="n">px</span><span class="p">,</span> <span class="n">py</span><span class="p">,</span> <span class="n">pz</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">pad_frac</span><span class="o">=</span><span class="mf">0.08</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_trail_animation</span><span class="p">(</span>
+    <span class="n">coords_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
+    <span class="n">colors</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
+    <span class="n">px</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">py</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">pz</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="n">pad_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.08</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Figure</span><span class="p">,</span> <span class="n">FuncAnimation</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Shared 'growing dashed trail + moving point' animation builder for</span>
 <span class="sd">    both the 2D and 3D singularity animations -- factors out what used to</span>
 <span class="sd">    be two near-identical copies of the same figure/update-function setup.</span>
@@ -2726,10 +3059,22 @@
 
 <div class="viewcode-block" id="animate_singularity">
 <a class="viewcode-back" href="../microlocal.html#microlocal.animate_singularity">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">animate_singularity</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
-                        <span class="n">n_frames</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">branches</span><span class="o">=</span><span class="s1">'all'</span><span class="p">,</span>
-                        <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">contours</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                        <span class="n">solution</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'abs'</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">animate_singularity</span><span class="p">(</span>
+    <span class="n">s_expr</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">vars_x</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+    <span class="n">tmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">4.0</span><span class="p">,</span>
+    <span class="n">n_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="n">projection</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s1">'phase'</span><span class="p">,</span> <span class="s1">'position'</span><span class="p">,</span> <span class="s1">'frequency'</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">branches</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s1">'all'</span><span class="p">],</span> <span class="nb">int</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">'all'</span><span class="p">,</span>
+    <span class="n">labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="n">contours</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">solution</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">quantity</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'abs'</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FuncAnimation</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Animate the propagation of singularities along bicharacteristic</span>
 <span class="sd">    trajectories, projected onto a 2D phase-space plane.</span>
@@ -2821,9 +3166,19 @@
 
 <div class="viewcode-block" id="animate_singularity_3d">
 <a class="viewcode-back" href="../microlocal.html#microlocal.animate_singularity_3d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">animate_singularity_3d</span><span class="p">(</span><span class="n">s_expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xi0</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">tmax</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
-                           <span class="n">n_frames</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">branches</span><span class="o">=</span><span class="s1">'all'</span><span class="p">,</span>
-                           <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">animate_singularity_3d</span><span class="p">(</span>
+    <span class="n">s_expr</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">vars_x</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">xi0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+    <span class="n">tmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">4.0</span><span class="p">,</span>
+    <span class="n">n_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="n">projection</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">branches</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s1">'all'</span><span class="p">],</span> <span class="nb">int</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="s1">'all'</span><span class="p">,</span>
+    <span class="n">labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FuncAnimation</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Animate bicharacteristic trajectories in a 3D matplotlib plot.</span>
 <span class="sd">    </span>

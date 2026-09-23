@@ -165,7 +165,7 @@
 <span class="c1"># Utility functions for variable inference and dimension handling</span>
 <span class="c1"># -----------------------------------------------------------------------------</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_infer_variables</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">expected_ndof</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_infer_variables</span><span class="p">(</span><span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">expected_ndof</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Infer phase space canonical variables from a Hamiltonian expression.</span>
 <span class="sd">    </span>
@@ -180,7 +180,7 @@
 <span class="sd">    </span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H : sympy.Expr</span>
+<span class="sd">    H : Expr</span>
 <span class="sd">        Hamiltonian expression containing phase space variables as free symbols.</span>
 <span class="sd">    expected_ndof : int, optional</span>
 <span class="sd">        Expected number of degrees of freedom. If provided, validates that the</span>
@@ -188,7 +188,7 @@
 <span class="sd">    </span>
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    list of sympy.Symbol</span>
+<span class="sd">    list of Symbol</span>
 <span class="sd">        Ordered list of canonical variables [x₁, p₁, x₂, p₂, ...].</span>
 <span class="sd">    </span>
 <span class="sd">    Raises</span>
@@ -263,14 +263,14 @@
         <span class="s2">"Please provide vars_phase explicitly."</span>
     <span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_get_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Return number of degrees of freedom from variable list (must be even)."""</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Phase space variables must come in pairs (xᵢ, pᵢ)."</span><span class="p">)</span>
     <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">,</span> <span class="n">expected</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span> <span class="n">expected</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Raise ValueError if ndof does not match expected."""</span>
     <span class="n">ndof</span> <span class="o">=</span> <span class="n">_get_ndof</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">ndof</span> <span class="o">!=</span> <span class="n">expected</span><span class="p">:</span>
@@ -306,10 +306,10 @@
 <span class="sd">    n : int, optional</span>
 <span class="sd">        Number of degrees of freedom. Used to generate generic variables if</span>
 <span class="sd">        vars_phase is not provided.</span>
-<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">    vars_phase : list of Symbol, optional</span>
 <span class="sd">        Ordered list of canonical variables [x₁, p₁, x₂, p₂, ...]. If provided,</span>
 <span class="sd">        n is inferred from the length of this list.</span>
-<span class="sd">    omega_matrix : sympy.Matrix, optional</span>
+<span class="sd">    omega_matrix : Matrix, optional</span>
 <span class="sd">        Custom 2n×2n symplectic matrix. If None, the canonical form is used:</span>
 <span class="sd">        J = [[0, -I], [I, 0]] where I is the n×n identity.</span>
 <span class="sd">    </span>
@@ -319,9 +319,9 @@
 <span class="sd">        Number of degrees of freedom.</span>
 <span class="sd">    vars_phase : list</span>
 <span class="sd">        Phase space variables.</span>
-<span class="sd">    omega_matrix : sympy.Matrix</span>
+<span class="sd">    omega_matrix : Matrix</span>
 <span class="sd">        The symplectic matrix J.</span>
-<span class="sd">    omega_inv : sympy.Matrix</span>
+<span class="sd">    omega_inv : Matrix</span>
 <span class="sd">        The inverse J⁻¹ (Poisson tensor), used for computing Poisson brackets.</span>
 <span class="sd">    </span>
 <span class="sd">    Raises</span>
@@ -348,7 +348,12 @@
 <span class="sd">    poisson_bracket : Uses omega_inv to compute {f, g}</span>
 <span class="sd">    hamiltonian_flow : Uses the symplectic structure for integration</span>
 <span class="sd">    """</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">omega_matrix</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">n</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+        <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+        <span class="n">omega_matrix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Matrix</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">vars_phase</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">vars_phase</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">vars_phase</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">=</span> <span class="n">_get_ndof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vars_phase</span><span class="p">)</span>
@@ -388,7 +393,7 @@
 
 <div class="viewcode-block" id="SymplecticForm.eval">
 <a class="viewcode-back" href="../symplectic.html#symplectic.SymplecticForm.eval">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Evaluate the (constant) symplectic matrix at a point.</span>
 <span class="sd">        For canonical form, it's independent of coordinates.</span>
@@ -413,8 +418,14 @@
 <span class="c1"># -----------------------------------------------------------------------------</span>
 <div class="viewcode-block" id="hamiltonian_flow">
 <a class="viewcode-back" href="../symplectic.html#symplectic.hamiltonian_flow">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">hamiltonian_flow</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">integrator</span><span class="o">=</span><span class="s1">'symplectic'</span><span class="p">,</span>
-                     <span class="n">n_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">hamiltonian_flow</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">z0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> 
+    <span class="n">tspan</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">integrator</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'symplectic'</span><span class="p">,</span> <span class="s1">'verlet'</span><span class="p">,</span> <span class="s1">'rk45'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'symplectic'</span><span class="p">,</span>
+    <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Numerically integrate Hamilton's equations of motion.</span>
 
@@ -434,13 +445,13 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H : sympy.Expr</span>
+<span class="sd">    H : Expr</span>
 <span class="sd">        Hamiltonian function H(x₁, p₁, ..., xₙ, pₙ).</span>
 <span class="sd">    z0 : array_like</span>
 <span class="sd">        Initial conditions as [x₁₀, p₁₀, x₂₀, p₂₀, ...], length 2n.</span>
 <span class="sd">    tspan : tuple of float</span>
 <span class="sd">        Time integration interval (t_start, t_end).</span>
-<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">    vars_phase : list of Symbol, optional</span>
 <span class="sd">        Phase space variables in canonical order. If None, inferred from H.</span>
 <span class="sd">    integrator : {'symplectic', 'verlet', 'rk45'}</span>
 <span class="sd">        Numerical integration method (default: 'symplectic').</span>
@@ -606,7 +617,11 @@
 
 <div class="viewcode-block" id="poisson_bracket">
 <a class="viewcode-back" href="../symplectic.html#symplectic.poisson_bracket">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">poisson_bracket</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">poisson_bracket</span><span class="p">(</span>
+    <span class="n">f</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">g</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute Poisson bracket {f, g} = (∂f/∂z) · ω⁻¹ · (∂g/∂z).</span>
 
@@ -652,7 +667,11 @@
 <span class="c1"># -----------------------------------------------------------------------------</span>
 <div class="viewcode-block" id="symplectic_gradient">
 <a class="viewcode-back" href="../symplectic.html#symplectic.symplectic_gradient">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">symplectic_gradient</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">numeric</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">symplectic_gradient</span><span class="p">(</span>
+    <span class="n">f</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">numeric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Expr</span><span class="p">],</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the Hamiltonian vector field (symplectic gradient) of a function f.</span>
 
@@ -664,9 +683,9 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    f : sympy.Expr</span>
+<span class="sd">    f : Expr</span>
 <span class="sd">        Function defined on phase space.</span>
-<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">    vars_phase : list of Symbol, optional</span>
 <span class="sd">        Ordered list of canonical variables [x₁, p₁, x₂, p₂, …].</span>
 <span class="sd">        If None, the variables are inferred automatically from f.</span>
 <span class="sd">    numeric : bool, default False</span>
@@ -676,7 +695,7 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    If numeric=False : list of sympy.Expr</span>
+<span class="sd">    If numeric=False : list of Expr</span>
 <span class="sd">        Components of the Hamiltonian vector field in the same order as</span>
 <span class="sd">        vars_phase, i.e., [X_f_x₁, X_f_p₁, X_f_x₂, X_f_p₂, …].</span>
 <span class="sd">    If numeric=True : callable</span>
@@ -761,7 +780,13 @@
 
 <div class="viewcode-block" id="find_fixed_points">
 <a class="viewcode-back" href="../symplectic.html#symplectic.find_fixed_points">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">find_fixed_points</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">numerical</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_fixed_points</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">domain</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span> 
+    <span class="n">numerical</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Find fixed points (equilibria) of Hamiltonian system: ∂H/∂z_i = 0 for all i.</span>
 
@@ -862,7 +887,11 @@
 
 <div class="viewcode-block" id="linearize_at_fixed_point">
 <a class="viewcode-back" href="../symplectic.html#symplectic.linearize_at_fixed_point">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">linearize_at_fixed_point</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">linearize_at_fixed_point</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">z0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute linear stability matrix (Jacobian of the Hamiltonian vector field) at a fixed point.</span>
 
@@ -934,7 +963,13 @@
 
 <div class="viewcode-block" id="action_integral">
 <a class="viewcode-back" href="../symplectic.html#symplectic.action_integral">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">action_integral</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'numerical'</span><span class="p">,</span> <span class="n">x_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">action_integral</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">E</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Expr</span><span class="p">],</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">method</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'numerical'</span><span class="p">,</span> <span class="s1">'symbolic'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'numerical'</span><span class="p">,</span> 
+    <span class="n">x_bounds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute action integral I(E) for a 1‑DOF system.</span>
 
@@ -1060,8 +1095,14 @@
 
 <div class="viewcode-block" id="phase_portrait">
 <a class="viewcode-back" href="../symplectic.html#symplectic.phase_portrait">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">phase_portrait</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">p_range</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> 
-                   <span class="n">levels</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">phase_portrait</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">x_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">p_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">resolution</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="n">levels</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Generate a 2D phase portrait for a 1-DOF Hamiltonian system.</span>
 <span class="sd">    </span>
@@ -1079,13 +1120,13 @@
 <span class="sd">    </span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H : sympy.Expr</span>
+<span class="sd">    H : Expr</span>
 <span class="sd">        Hamiltonian H(x, p) for a 1-degree-of-freedom system.</span>
 <span class="sd">    x_range : tuple of float</span>
 <span class="sd">        Position axis limits (x_min, x_max).</span>
 <span class="sd">    p_range : tuple of float</span>
 <span class="sd">        Momentum axis limits (p_min, p_max).</span>
-<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">    vars_phase : list of Symbol, optional</span>
 <span class="sd">        Variables [x, p]. If None, inferred from H.</span>
 <span class="sd">    resolution : int</span>
 <span class="sd">        Grid resolution for contour and vector field computation (default: 50).</span>
@@ -1163,7 +1204,13 @@
 
 <div class="viewcode-block" id="separatrix_analysis">
 <a class="viewcode-back" href="../symplectic.html#symplectic.separatrix_analysis">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">separatrix_analysis</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">p_range</span><span class="p">,</span> <span class="n">saddle_point</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">separatrix_analysis</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">x_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">p_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">saddle_point</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Analyze separatrix structure near saddle point (1‑DOF).</span>
 
@@ -1248,9 +1295,15 @@
 
 <div class="viewcode-block" id="visualize_phase_space_structure">
 <a class="viewcode-back" href="../symplectic.html#symplectic.visualize_phase_space_structure">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">visualize_phase_space_structure</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">p_range</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                                    <span class="n">fixed_points</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show_separatrices</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                                    <span class="n">n_trajectories</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_phase_space_structure</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">x_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">p_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">fixed_points</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="o">...</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">show_separatrices</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">n_trajectories</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Comprehensive visualization of phase space structure for 1‑DOF.</span>
 
@@ -1351,7 +1404,13 @@
 
 <div class="viewcode-block" id="action_angle_transform">
 <a class="viewcode-back" href="../symplectic.html#symplectic.action_angle_transform">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">action_angle_transform</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">p_range</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_contours</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">action_angle_transform</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">x_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">p_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">n_contours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute action-angle transformation for integrable system (1‑DOF).</span>
 
@@ -1420,7 +1479,11 @@
 
 <div class="viewcode-block" id="frequency">
 <a class="viewcode-back" href="../symplectic.html#symplectic.frequency">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">frequency</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">I_val</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'derivative'</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">frequency</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">I_val</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Expr</span><span class="p">],</span> 
+    <span class="n">method</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'derivative'</span><span class="p">,</span> <span class="s1">'period'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'derivative'</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute frequency ω(I) = dH/dI from action variable.</span>
 
@@ -1498,7 +1561,13 @@
 
 <div class="viewcode-block" id="hamiltonian_flow_4d">
 <a class="viewcode-back" href="../symplectic.html#symplectic.hamiltonian_flow_4d">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">hamiltonian_flow_4d</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tspan</span><span class="p">,</span> <span class="n">integrator</span><span class="o">=</span><span class="s1">'symplectic'</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">hamiltonian_flow_4d</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">z0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> 
+    <span class="n">tspan</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">integrator</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'symplectic'</span><span class="p">,</span> <span class="s1">'verlet'</span><span class="p">,</span> <span class="s1">'rk45'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'symplectic'</span><span class="p">,</span> 
+    <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Backward compatibility wrapper for 4D flow."""</span>
     <span class="c1"># Assume variables are x1, p1, x2, p2</span>
     <span class="n">vars_phase</span> <span class="o">=</span> <span class="p">[</span><span class="n">symbols</span><span class="p">(</span><span class="s1">'x1 p1 x2 p2'</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
@@ -1509,7 +1578,9 @@
 <span class="c1"># -----------------------------------------------------------------------------</span>
 <span class="c1"># Parallel Poincaré worker  (module-level so ProcessPoolExecutor can pickle it)</span>
 <span class="c1"># -----------------------------------------------------------------------------</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_poincare_worker</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_poincare_worker</span><span class="p">(</span>
+    <span class="n">args</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">float</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Picklable worker for parallel Poincaré section computation.</span>
 <span class="sd">    SymPy expressions are passed directly (they are picklable).</span>
@@ -1525,8 +1596,15 @@
 
 <div class="viewcode-block" id="poincare_section">
 <a class="viewcode-back" href="../symplectic.html#symplectic.poincare_section">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">poincare_section</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">Sigma_def</span><span class="p">,</span> <span class="n">z0</span><span class="p">,</span> <span class="n">tmax</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_returns</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-                     <span class="n">integrator</span><span class="o">=</span><span class="s1">'symplectic'</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">poincare_section</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">Sigma_def</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> 
+    <span class="n">z0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> 
+    <span class="n">tmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">n_returns</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="n">integrator</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'symplectic'</span><span class="p">,</span> <span class="s1">'verlet'</span><span class="p">,</span> <span class="s1">'rk45'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'symplectic'</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute a Poincaré section for a 2-DOF Hamiltonian system.</span>
 
@@ -1543,7 +1621,7 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H : sympy.Expr</span>
+<span class="sd">    H : Expr</span>
 <span class="sd">        Hamiltonian for a 2-degree-of-freedom system.</span>
 <span class="sd">    Sigma_def : dict</span>
 <span class="sd">        Section surface definition with keys:</span>
@@ -1555,7 +1633,7 @@
 <span class="sd">        Initial condition [x₁₀, p₁₀, x₂₀, p₂₀].</span>
 <span class="sd">    tmax : float</span>
 <span class="sd">        Maximum integration time.</span>
-<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">    vars_phase : list of Symbol, optional</span>
 <span class="sd">        Variables [x1, p1, x2, p2]. If None, uses default canonical names.</span>
 <span class="sd">    n_returns : int</span>
 <span class="sd">        Maximum number of section crossings to collect (default: 1000).</span>
@@ -1645,7 +1723,10 @@
 
 <div class="viewcode-block" id="first_return_map">
 <a class="viewcode-back" href="../symplectic.html#symplectic.first_return_map">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">first_return_map</span><span class="p">(</span><span class="n">section_points</span><span class="p">,</span> <span class="n">plot_variables</span><span class="o">=</span><span class="p">(</span><span class="s1">'x1'</span><span class="p">,</span> <span class="s1">'p1'</span><span class="p">)):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">first_return_map</span><span class="p">(</span>
+    <span class="n">section_points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span> 
+    <span class="n">plot_variables</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'x1'</span><span class="p">,</span> <span class="s1">'p1'</span><span class="p">)</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Construct the first return map (Poincaré map) from a Poincaré section.</span>
 
@@ -1716,7 +1797,12 @@
 
 <div class="viewcode-block" id="monodromy_matrix">
 <a class="viewcode-back" href="../symplectic.html#symplectic.monodromy_matrix">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">monodromy_matrix</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">periodic_orbit</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'finite_difference'</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">monodromy_matrix</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">periodic_orbit</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">method</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'finite_difference'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'finite_difference'</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the monodromy matrix for a periodic orbit in a 2-DOF system.</span>
 <span class="sd">    </span>
@@ -1737,12 +1823,12 @@
 <span class="sd">    </span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H : sympy.Expr</span>
+<span class="sd">    H : Expr</span>
 <span class="sd">        Hamiltonian for a 2-degree-of-freedom system.</span>
 <span class="sd">    periodic_orbit : dict</span>
 <span class="sd">        A trajectory dictionary (from hamiltonian_flow) representing one complete</span>
 <span class="sd">        period, with keys 't' and variable names.</span>
-<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">    vars_phase : list of Symbol, optional</span>
 <span class="sd">        Variables [x1, p1, x2, p2]. If None, uses default canonical names.</span>
 <span class="sd">    method : {'finite_difference'}</span>
 <span class="sd">        Computation method (default: 'finite_difference').</span>
@@ -1827,8 +1913,15 @@
 
 <div class="viewcode-block" id="lyapunov_exponents">
 <a class="viewcode-back" href="../symplectic.html#symplectic.lyapunov_exponents">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">lyapunov_exponents</span><span class="p">(</span><span class="n">trajectory</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">H</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_vectors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                       <span class="n">renorm_interval</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">lyapunov_exponents</span><span class="p">(</span>
+    <span class="n">trajectory</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> 
+    <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+    <span class="n">H</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">n_vectors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">renorm_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> 
+    <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Estimate Lyapunov exponents from a trajectory using QR algorithm.</span>
 
@@ -1844,9 +1937,9 @@
 <span class="sd">        Trajectory dict as returned by hamiltonian_flow.</span>
 <span class="sd">    dt : float</span>
 <span class="sd">        Time step between trajectory points.</span>
-<span class="sd">    H : sympy.Expr, optional</span>
+<span class="sd">    H : Expr, optional</span>
 <span class="sd">        Hamiltonian expression (required for accurate Jacobian).</span>
-<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">    vars_phase : list of Symbol, optional</span>
 <span class="sd">        Phase space variables (required when H is given).</span>
 <span class="sd">    n_vectors : int, optional</span>
 <span class="sd">        Number of tangent vectors (default = number of DOF).</span>
@@ -1956,7 +2049,11 @@
 
 <div class="viewcode-block" id="project">
 <a class="viewcode-back" href="../symplectic.html#symplectic.project">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">project</span><span class="p">(</span><span class="n">trajectory</span><span class="p">,</span> <span class="n">plane</span><span class="o">=</span><span class="s1">'xy'</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">project</span><span class="p">(</span>
+    <span class="n">trajectory</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> 
+    <span class="n">plane</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'xy'</span><span class="p">,</span> <span class="s1">'config'</span><span class="p">,</span> <span class="s1">'xp'</span><span class="p">,</span> <span class="s1">'pp'</span><span class="p">,</span> <span class="s1">'momentum'</span><span class="p">,</span> <span class="s1">'x1p2'</span><span class="p">,</span> <span class="s1">'x2p1'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'xy'</span><span class="p">,</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Project a 4D trajectory onto a 2D plane for visualization.</span>
 <span class="sd">    </span>
@@ -1979,7 +2076,7 @@
 <span class="sd">    plane : str</span>
 <span class="sd">        Projection plane specification (default: 'xy').</span>
 <span class="sd">        Options: 'xy', 'config', 'xp', 'pp', 'momentum', 'x1p2', 'x2p1'</span>
-<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">    vars_phase : list of Symbol, optional</span>
 <span class="sd">        Variables [x1, p1, x2, p2]. If None, uses default canonical names.</span>
 <span class="sd">    </span>
 <span class="sd">    Returns</span>
@@ -2039,9 +2136,16 @@
 
 <div class="viewcode-block" id="visualize_poincare_section">
 <a class="viewcode-back" href="../symplectic.html#symplectic.visualize_poincare_section">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">visualize_poincare_section</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">z0_list</span><span class="p">,</span> <span class="n">Sigma_def</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                               <span class="n">tmax</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">n_returns</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">plot_vars</span><span class="o">=</span><span class="p">(</span><span class="s1">'x1'</span><span class="p">,</span> <span class="s1">'p1'</span><span class="p">),</span>
-                               <span class="n">n_workers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_poincare_section</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">z0_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span> 
+    <span class="n">Sigma_def</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">tmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> 
+    <span class="n">n_returns</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span> 
+    <span class="n">plot_vars</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s1">'x1'</span><span class="p">,</span> <span class="s1">'p1'</span><span class="p">),</span>
+    <span class="n">n_workers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Visualize Poincaré section for multiple initial conditions (2-DOF).</span>
 
@@ -2050,13 +2154,13 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H : sympy.Expr</span>
+<span class="sd">    H : Expr</span>
 <span class="sd">        Hamiltonian for a 2-degree-of-freedom system.</span>
 <span class="sd">    z0_list : list of array_like</span>
 <span class="sd">        List of initial conditions, each of length 4.</span>
 <span class="sd">    Sigma_def : dict</span>
 <span class="sd">        Section surface definition (see poincare_section).</span>
-<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">    vars_phase : list of Symbol, optional</span>
 <span class="sd">        Variables [x1, p1, x2, p2].</span>
 <span class="sd">    tmax : float</span>
 <span class="sd">        Maximum integration time (default: 100).</span>
@@ -2110,7 +2214,12 @@
 
 <div class="viewcode-block" id="rectangle_region">
 <a class="viewcode-back" href="../symplectic.html#symplectic.rectangle_region">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">rectangle_region</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">n_points</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">rectangle_region</span><span class="p">(</span>
+    <span class="n">center</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+    <span class="n">width</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+    <span class="n">height</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+    <span class="n">n_points</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Generate a closed rectangular region in phase space.</span>
 
@@ -2174,9 +2283,17 @@
 
 <div class="viewcode-block" id="evolve_phase_space_region">
 <a class="viewcode-back" href="../symplectic.html#symplectic.evolve_phase_space_region">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">evolve_phase_space_region</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">initial_region</span><span class="p">,</span> <span class="n">t_eval</span><span class="p">,</span> <span class="n">vars_phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                              <span class="n">integrator</span><span class="o">=</span><span class="s1">'verlet'</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
-                              <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">evolve_phase_space_region</span><span class="p">(</span>
+    <span class="n">H</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> 
+    <span class="n">initial_region</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+    <span class="n">t_eval</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> 
+    <span class="n">vars_phase</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">integrator</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'symplectic'</span><span class="p">,</span> <span class="s1">'verlet'</span><span class="p">,</span> <span class="s1">'rk45'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'verlet'</span><span class="p">,</span> 
+    <span class="n">n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+    <span class="n">plot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> 
+    <span class="n">ax</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Evolve a closed region in phase space under the Hamiltonian flow and</span>
 <span class="sd">    optionally visualise its deformation and area conservation.</span>
@@ -2192,7 +2309,7 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    H : sympy.Expr</span>
+<span class="sd">    H : Expr</span>
 <span class="sd">        Hamiltonian for a 1‑degree‑of‑freedom system H(x, p).</span>
 <span class="sd">    initial_region : (N,2) array_like</span>
 <span class="sd">        Ordered points defining a closed polygon (first and last point should</span>
@@ -2202,7 +2319,7 @@
 <span class="sd">        Times at which to record the evolved region. If a single float is given,</span>
 <span class="sd">        it is treated as the final time and the region is evaluated at t=0 and</span>
 <span class="sd">        that time. Use a list to obtain intermediate snapshots.</span>
-<span class="sd">    vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">    vars_phase : list of Symbol, optional</span>
 <span class="sd">        Phase space variables [x, p]. If not provided, they are inferred from H.</span>
 <span class="sd">    integrator : {'symplectic', 'verlet', 'rk45'}, optional</span>
 <span class="sd">        Numerical integrator passed to `hamiltonian_flow` (default 'verlet').</span>
@@ -2708,9 +2825,9 @@
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        H : sympy.Expr, optional</span>
+<span class="sd">        H : Expr, optional</span>
 <span class="sd">            Hamiltonian expression.  Required for the algebraic channel.</span>
-<span class="sd">        vars_phase : list of sympy.Symbol, optional</span>
+<span class="sd">        vars_phase : list of Symbol, optional</span>
 <span class="sd">            Phase-space variables ``[x₁, p₁, ...]``.  Required when ``H``</span>
 <span class="sd">            is provided.</span>
 <span class="sd">        levels : ndarray of shape (N,), optional</span>
@@ -2728,7 +2845,7 @@
 <span class="sd">        ndof : int, optional</span>
 <span class="sd">            Number of degrees of freedom.  Inferred from ``vars_phase`` when</span>
 <span class="sd">            possible; required when only ``traj`` is provided.</span>
-<span class="sd">        second_integrals : sympy.Expr or list of sympy.Expr, optional</span>
+<span class="sd">        second_integrals : Expr or list of Expr, optional</span>
 <span class="sd">            Candidate conserved quantities L₁, L₂, …  Each is tested via</span>
 <span class="sd">            ``{H, Lᵢ} = 0``.  Even a single confirmed integral activates</span>
 <span class="sd">            the algebraic hard gate.</span>
@@ -3656,11 +3773,11 @@
 <span class="sd">    </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        H : sympy.Expr</span>
+<span class="sd">        H : Expr</span>
 <span class="sd">            2-DOF Hamiltonian H(x1, p1, x2, p2).</span>
-<span class="sd">        L : sympy.Expr</span>
+<span class="sd">        L : Expr</span>
 <span class="sd">            Second conserved quantity (must Poisson-commute with H).</span>
-<span class="sd">        vars_phase : list of sympy.Symbol</span>
+<span class="sd">        vars_phase : list of Symbol</span>
 <span class="sd">            [x1, p1, x2, p2].</span>
 <span class="sd">        critical_value : (float, float)</span>
 <span class="sd">            (E*, ℓ*) — the critical value of the energy-momentum map around</span>
@@ -3828,7 +3945,7 @@
 <span class="sd">        traj : dict</span>
 <span class="sd">            Trajectory dict as returned by ``hamiltonian_flow``.</span>
 <span class="sd">            For 2-DOF systems the projection onto (x1, p1) is used.</span>
-<span class="sd">        vars_phase : list of sympy.Symbol</span>
+<span class="sd">        vars_phase : list of Symbol</span>
 <span class="sd">            [x, p] or [x1, p1, x2, p2].</span>
 <span class="sd">        orbit_points : (K, 2) ndarray</span>
 <span class="sd">            Points (x, p) sampled along the periodic orbit.</span>

@@ -239,10 +239,10 @@
 <span class="sd">    - SADDLE_POINT with φ_I ≡ 0  →  STATIONARY_PHASE</span>
 <span class="sd">    - SADDLE_POINT with φ_R ≡ 0  →  LAPLACE</span>
 <span class="sd">    """</span>
-    <span class="n">STATIONARY_PHASE</span> <span class="o">=</span> <span class="s2">"stationary_phase"</span>
-    <span class="n">LAPLACE</span>          <span class="o">=</span> <span class="s2">"laplace"</span>
-    <span class="n">SADDLE_POINT</span>     <span class="o">=</span> <span class="s2">"saddle_point"</span>
-    <span class="n">AUTO</span>             <span class="o">=</span> <span class="s2">"auto"</span></div>
+    <span class="n">STATIONARY_PHASE</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"stationary_phase"</span>
+    <span class="n">LAPLACE</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"laplace"</span>
+    <span class="n">SADDLE_POINT</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"saddle_point"</span>
+    <span class="n">AUTO</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"auto"</span></div>
 
 
 
@@ -269,11 +269,11 @@
 <span class="sd">    - HIGHER_ORDER: More degenerate cases requiring special treatment</span>
 <span class="sd">      Not implemented in this code</span>
 <span class="sd">    """</span>
-    <span class="n">MORSE</span> <span class="o">=</span> <span class="s2">"morse"</span>             <span class="c1"># Non-degenerate (det H != 0)</span>
-    <span class="n">AIRY_1D</span> <span class="o">=</span> <span class="s2">"airy_1d"</span>         <span class="c1"># Corank 1, cubic term != 0 (1D)</span>
-    <span class="n">AIRY_2D</span> <span class="o">=</span> <span class="s2">"airy_2d"</span>         <span class="c1"># Corank 1, cubic term != 0 (2D)</span>
-    <span class="n">PEARCEY</span> <span class="o">=</span> <span class="s2">"pearcey"</span>         <span class="c1"># Corank 1, cubic = 0, quartic != 0</span>
-    <span class="n">HIGHER_ORDER</span> <span class="o">=</span> <span class="s2">"higher_order"</span></div>
+    <span class="n">MORSE</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"morse"</span>
+    <span class="n">AIRY_1D</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"airy_1d"</span>
+    <span class="n">AIRY_2D</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"airy_2d"</span>
+    <span class="n">PEARCEY</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"pearcey"</span>
+    <span class="n">HIGHER_ORDER</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"higher_order"</span></div>
 
 
 <div class="viewcode-block" id="CriticalPoint">
@@ -317,15 +317,13 @@
     <span class="n">eigenvalues</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]))</span>
     <span class="n">eigenvectors</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]))</span>
     
-    <span class="c1"># Higher order derivatives (stored as numpy tensors)</span>
     <span class="n">grad_amp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>      
     <span class="n">hess_amp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>      
     <span class="n">phase_d3</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>      
     <span class="n">phase_d4</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>      
     
-    <span class="n">canonical_coefficients</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="c1"># Integration method that produced this critical point</span>
-    <span class="n">method</span><span class="p">:</span> <span class="s1">'IntegralMethod'</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># set by the analyzer; forward ref resolved at runtime</span></div>
+    <span class="n">canonical_coefficients</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IntegralMethod</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="AsymptoticContribution">
@@ -362,7 +360,7 @@
     <span class="n">total_value</span><span class="p">:</span> <span class="nb">complex</span>
     <span class="n">point</span><span class="p">:</span> <span class="n">CriticalPoint</span>
     <span class="n">order_leading</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">method</span><span class="p">:</span> <span class="n">IntegralMethod</span> <span class="o">=</span> <span class="n">IntegralMethod</span><span class="o">.</span><span class="n">STATIONARY_PHASE</span>  <span class="c1"># default for backward compat</span></div>
+    <span class="n">method</span><span class="p">:</span> <span class="n">IntegralMethod</span> <span class="o">=</span> <span class="n">IntegralMethod</span><span class="o">.</span><span class="n">STATIONARY_PHASE</span></div>
 
 
 <span class="c1"># --- Analyzer (Symbolic -&gt; Numerical) ---</span>
@@ -410,9 +408,16 @@
 <span class="sd">        method (IntegralMethod): Resolved integration method (never AUTO after __init__).</span>
 <span class="sd">    """</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase_expr</span><span class="p">,</span> <span class="n">amplitude_expr</span><span class="p">,</span> <span class="n">variables</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">cubic_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">method</span><span class="p">:</span> <span class="n">IntegralMethod</span> <span class="o">=</span> <span class="n">IntegralMethod</span><span class="o">.</span><span class="n">AUTO</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">phase_expr</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+            <span class="n">amplitude_expr</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+            <span class="n">variables</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]],</span>
+            <span class="n">domain</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+            <span class="n">cubic_threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">method</span><span class="p">:</span> <span class="n">IntegralMethod</span> <span class="o">=</span> <span class="n">IntegralMethod</span><span class="o">.</span><span class="n">AUTO</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Initialize the analyzer.</span>
 
@@ -455,7 +460,7 @@
     <span class="c1"># Method auto-detection</span>
     <span class="c1"># ------------------------------------------------------------------</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_detect_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase_expr</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IntegralMethod</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_detect_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase_expr</span><span class="p">:</span> <span class="n">Expr</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IntegralMethod</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Inspect the phase expression symbolically to select the integration method.</span>
 
@@ -546,7 +551,7 @@
 
         <span class="k">return</span> <span class="n">detected</span>
     
-    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_derivatives</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_derivatives</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Symbolically compute all necessary derivatives of phase and amplitude functions.</span>
 <span class="sd">        </span>
@@ -588,7 +593,7 @@
             <span class="n">var_seq</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">idx</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">d4_sym</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">phase_expr</span><span class="p">,</span> <span class="o">*</span><span class="n">var_seq</span><span class="p">))</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_create_numerical_functions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_numerical_functions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Convert symbolic expressions to fast numerical functions using SymPy's lambdify.</span>
 <span class="sd">        </span>
@@ -614,7 +619,9 @@
 
 <div class="viewcode-block" id="Analyzer.find_critical_points">
 <a class="viewcode-back" href="../asymptotic.html#asymptotic.Analyzer.find_critical_points">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">find_critical_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial_guesses</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">find_critical_points</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">initial_guesses</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Locate critical points where ∇φ(x) = 0.</span>
 
@@ -648,7 +655,9 @@
 
 <div class="viewcode-block" id="Analyzer.analyze_point">
 <a class="viewcode-back" href="../asymptotic.html#asymptotic.Analyzer.analyze_point">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">analyze_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xc</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CriticalPoint</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">analyze_point</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">xc</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">complex</span><span class="p">]]]</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CriticalPoint</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Perform complete analysis of a critical point (real or complex).</span>
 
@@ -763,7 +772,9 @@
         <span class="k">return</span> <span class="n">cp</span></div>
 
         
-    <span class="k">def</span><span class="w"> </span><span class="nf">_project_degenerate_coeffs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cp</span><span class="p">:</span> <span class="n">CriticalPoint</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_project_degenerate_coeffs</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">cp</span><span class="p">:</span> <span class="n">CriticalPoint</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">complex</span><span class="p">]]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Projects derivatives onto the eigenvectors to find canonical form coefficients.</span>
 <span class="sd">        </span>
@@ -828,7 +839,7 @@
 <span class="sd">    Attributes:</span>
 <span class="sd">        tolerance (float): Numerical tolerance for detecting near-zero coefficients.</span>
 <span class="sd">    """</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span> <span class="o">=</span> <span class="n">tolerance</span>  <span class="c1"># ← Addition required</span>
             
 <div class="viewcode-block" id="StationaryPhaseEvaluator.evaluate">

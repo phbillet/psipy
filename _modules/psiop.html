@@ -296,7 +296,7 @@
 
 
 <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">8192</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_peetre_is_zero_impl</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_peetre_is_zero_impl</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Expr</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Conservative, memoized symbolic zero test for Peetre-pipeline coefficients.</span>
 
@@ -384,7 +384,7 @@
 <span class="c1"># MatrixPseudoDifferentialOperator. Factored out to replace what used to be</span>
 <span class="c1"># separate hand-unrolled 1D/2D code paths in each of those methods.</span>
 <span class="c1"># ============================================================================</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_mi_all</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_mi_all</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Yield all `dim`-tuples of non-negative integers summing to exactly `n`.</span>
 <span class="sd">    </span>
@@ -410,7 +410,7 @@
         <span class="k">for</span> <span class="n">rest</span> <span class="ow">in</span> <span class="n">_mi_all</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">i</span><span class="p">,</span> <span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
             <span class="k">yield</span> <span class="p">((</span><span class="n">i</span><span class="p">,)</span> <span class="o">+</span> <span class="n">rest</span><span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_mi_upto</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_mi_upto</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Yield all `dim`-tuples of non-negative integers with 1 ≤ sum ≤ `n`.</span>
 <span class="sd">    </span>
@@ -432,7 +432,11 @@
     <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
         <span class="k">yield from</span> <span class="n">_mi_all</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_mi_diff</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">mvars</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_mi_diff</span><span class="p">(</span>
+    <span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">],</span>
+    <span class="n">mvars</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+    <span class="n">alpha</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the mixed partial derivative ∂^|α| expr / ∏(mvars_i^α_i).</span>
 <span class="sd">    </span>
@@ -458,7 +462,7 @@
             <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">expr</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_mi_factorial</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_mi_factorial</span><span class="p">(</span><span class="n">alpha</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the factorial of a multi-index.</span>
 <span class="sd">    </span>
@@ -527,7 +531,17 @@
 <span class="sd">    &gt;&gt;&gt; op = PseudoDifferentialOperator(expr=expr, vars_x=[x], var_u=u(x), mode='auto')</span>
 <span class="sd">    """</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">vars_x</span><span class="p">,</span> <span class="n">var_u</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'symbol'</span><span class="p">,</span> <span class="n">quantization</span><span class="o">=</span><span class="s1">'kohn-nirenberg'</span><span class="p">,</span> <span class="n">apply_backend</span><span class="o">=</span><span class="s1">'peetre'</span><span class="p">,</span> <span class="n">compute_peetre</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">peetre_options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+            <span class="n">vars_x</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+            <span class="n">var_u</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Function</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'symbol'</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'kohn-nirenberg'</span><span class="p">,</span>
+            <span class="n">apply_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'peetre'</span><span class="p">,</span>
+            <span class="n">compute_peetre</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">peetre_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Build a PseudoDifferentialOperator from a symbolic expression.</span>
 
@@ -653,7 +667,7 @@
         <span class="k">if</span> <span class="n">compute_peetre</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_decomposition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peetre_decomposition</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_peetre_options</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_symbol_derivatives</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_symbol_derivatives</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Precompute and lambdify first- and second-order derivatives of the</span>
 <span class="sd">        symbol with respect to space and frequency variables.</span>
@@ -707,7 +721,14 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.evaluate">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.evaluate">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">KX</span><span class="p">,</span> <span class="n">KY</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">Y</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+            <span class="n">KX</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">KY</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+            <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Evaluate the pseudo-differential operator's symbol on a grid of spatial and frequency coordinates.</span>
 
@@ -746,7 +767,7 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.clear_cache">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.clear_cache">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Clear all cached symbol evaluations, Peetre decompositions, and </span>
 <span class="sd">        joint backend plans (low-rank, NUFFT, AAA).</span>
@@ -764,7 +785,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_joint_aaa_cache</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_peetre_decomposition</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_peetre_decomposition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Return the Peetre decomposition stored in the instance.</span>
 <span class="sd">        </span>
@@ -784,26 +805,26 @@
 <div class="viewcode-block" id="PseudoDifferentialOperator.apply">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.apply">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">u</span><span class="p">,</span>
-        <span class="n">x_grid</span><span class="p">,</span>
-        <span class="n">kx</span><span class="p">,</span>
-        <span class="n">boundary_condition</span><span class="o">=</span><span class="s1">'periodic'</span><span class="p">,</span>
-        <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">dealiasing_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">freq_window</span><span class="o">=</span><span class="s1">'gaussian'</span><span class="p">,</span>
-        <span class="n">clamp</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span>
-        <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">weyl_order</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-        <span class="n">backend</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">apply_joint</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">joint_backend</span><span class="o">=</span><span class="s2">"direct"</span><span class="p">,</span>
-        <span class="n">joint_degree</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-        <span class="n">joint_tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
-        <span class="n">joint_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">joint_max_rel_error</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">kx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">boundary_condition</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'periodic'</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ky</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">dealiasing_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">freq_window</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'gaussian'</span><span class="p">,</span>
+            <span class="n">clamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e6</span><span class="p">,</span>
+            <span class="n">space_window</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">weyl_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+            <span class="n">backend</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">apply_joint</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">joint_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"direct"</span><span class="p">,</span>
+            <span class="n">joint_degree</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+            <span class="n">joint_tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
+            <span class="n">joint_bounds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">joint_max_rel_error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply the pseudo-differential operator to the input field u.</span>
 <span class="sd">     </span>
@@ -989,7 +1010,7 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid boundary condition '</span><span class="si">{</span><span class="n">boundary_condition</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span></div>
 
         
-    <span class="k">def</span><span class="w"> </span><span class="nf">_is_spatial_dependent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_spatial_dependent</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Check if the symbol depends on spatial variables.</span>
 <span class="sd">        </span>
@@ -1006,7 +1027,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Get a lambdified NumPy-callable version of the raw symbol.</span>
 <span class="sd">        </span>
@@ -1026,7 +1047,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">'Only 1D and 2D supported'</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_effective_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weyl_order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_effective_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weyl_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Return a lambdified callable for the symbol to pass to the KN backend.</span>
 <span class="sd">     </span>
@@ -1074,7 +1095,18 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">'_get_effective_symbol_func: only 1D and 2D are supported.'</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_constant_fft</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dealiasing_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="s1">'gaussian'</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="mf">1000000.0</span><span class="p">,</span> <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_constant_fft</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">kx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ky</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">dealiasing_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">freq_window</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'gaussian'</span><span class="p">,</span>
+            <span class="n">clamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e6</span><span class="p">,</span>
+            <span class="n">space_window</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply a constant-coefficient pseudo-differential operator in Fourier space.</span>
 <span class="sd">    </span>
@@ -1157,7 +1189,7 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.principal_symbol">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.principal_symbol">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">principal_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">principal_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the leading homogeneous component of the pseudo-differential symbol.</span>
 
@@ -1199,7 +1231,7 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.is_homogeneous">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.is_homogeneous">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">is_homogeneous</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_homogeneous</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Rational</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Check whether the symbol is homogeneous in the frequency variables.</span>
 <span class="sd">    </span>
@@ -1247,7 +1279,11 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.symbol_order">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.symbol_order">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">symbol_order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">0.001</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">symbol_order</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">max_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+            <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.001</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Estimate the asymptotic homogeneity order of the symbol as |ξ| → ∞.</span>
 <span class="sd">        </span>
@@ -1368,7 +1404,7 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.asymptotic_expansion">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.asymptotic_expansion">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">asymptotic_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">asymptotic_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute the asymptotic expansion of the symbol as |ξ| → ∞ (high-frequency regime).</span>
 <span class="sd">    </span>
@@ -1440,7 +1476,14 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.compose_asymptotic">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.compose_asymptotic">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">compose_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'kn'</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compose_asymptotic</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">other</span><span class="p">:</span> <span class="s2">"PseudoDifferentialOperator"</span><span class="p">,</span>
+            <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'kn'</span><span class="p">,</span>
+            <span class="n">sign_convention</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">do_simplify</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compose two pseudo-differential operators using an asymptotic expansion</span>
 <span class="sd">        in the chosen quantization scheme (Kohn–Nirenberg or Weyl).</span>
@@ -1529,7 +1572,7 @@
     <span class="c1"># ======================================================================</span>
         
  
-    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_frequency_symbols</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_frequency_symbols</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Return the frequency symbols actually used in the symbol.</span>
 <span class="sd">        </span>
@@ -1548,7 +1591,10 @@
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">'Peetre decomposition supports only 1D and 2D operators.'</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_merge_local</span><span class="p">(</span><span class="n">dst</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_merge_local</span><span class="p">(</span>
+            <span class="n">dst</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Expr</span><span class="p">],</span>
+            <span class="n">src</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Expr</span><span class="p">],</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Merge one local-coefficient dictionary into another, in place,</span>
 <span class="sd">        summing coefficients that share the same frequency multi-index.</span>
@@ -1574,7 +1620,7 @@
 
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_is_zero</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_is_zero</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Expr</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Memoized wrapper around the conservative symbolic zero test.</span>
 <span class="sd">        </span>
@@ -1593,7 +1639,10 @@
 <span class="sd">        """</span>
         <span class="k">return</span> <span class="n">_peetre_is_zero_impl</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>   
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_classify_terms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_classify_terms</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">expr</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Expr</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]],</span> <span class="n">List</span><span class="p">[</span><span class="n">Expr</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Classify a symbolic expression into local, separable and joint terms.</span>
 
@@ -1650,7 +1699,7 @@
                 <span class="n">local_coeffs</span><span class="p">[</span><span class="n">monom</span><span class="p">]</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">together</span><span class="p">(</span><span class="n">local_coeffs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">monom</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">coeff</span><span class="p">))</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">local_coeffs</span><span class="p">,</span> <span class="n">separable</span><span class="p">,</span> <span class="n">joint</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_coeffs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_coeffs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Expr</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Rebuild the local polynomial symbol from its coefficient</span>
 <span class="sd">        dictionary — the inverse of the local part of</span>
@@ -1679,7 +1728,7 @@
             <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span> <span class="o">+</span> <span class="n">term</span>
         <span class="k">return</span> <span class="n">expand</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_separable_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">separable</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_separable_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">separable</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Rebuild the separable symbol from a list of (a, q) pairs — the</span>
 <span class="sd">        inverse of the separable part of `_peetre_classify_terms`.</span>
@@ -1701,7 +1750,10 @@
             <span class="k">return</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">expand</span><span class="p">(</span><span class="n">Add</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">a</span> <span class="o">*</span> <span class="n">q</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">separable</span><span class="p">]))</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_merge_separable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">separable</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_merge_separable</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">separable</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Merge separable terms having the same frequency factor q(ξ).</span>
 <span class="sd">        </span>
@@ -1735,7 +1787,10 @@
                 <span class="n">ordered_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">[(</span><span class="n">merged</span><span class="p">[</span><span class="n">q</span><span class="p">],</span> <span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">ordered_keys</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">merged</span><span class="p">[</span><span class="n">q</span><span class="p">])]</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_to_separable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_coeffs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_to_separable</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">local_coeffs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Expr</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Convert local polynomial coefficients into separable terms a(x)q(ξ).</span>
 <span class="sd">        </span>
@@ -1775,7 +1830,10 @@
                 <span class="n">separable</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">coeff</span><span class="p">,</span> <span class="n">q</span><span class="p">))</span>
         <span class="k">return</span> <span class="p">[(</span><span class="n">c</span><span class="p">,</span> <span class="n">expand</span><span class="p">(</span><span class="n">q</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">separable</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_peetre_is_zero</span><span class="p">(</span><span class="n">q</span><span class="p">))]</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_as_separable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_coeffs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_peetre_local_as_separable</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">local_coeffs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Expr</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Represent local polynomial coefficients as separable-style pairs</span>
 <span class="sd">        (a(x), q(xi)).</span>
@@ -1797,7 +1855,13 @@
     <span class="c1"># Low-rank joint residual helpers</span>
     <span class="c1"># ------------------------------------------------------------------</span>
     
-    <span class="k">def</span><span class="w"> </span><span class="nf">_infer_joint_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_infer_joint_bounds</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">kx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">ky</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Infer physical bounds for low-rank joint decomposition from the </span>
 <span class="sd">        spatial and frequency grids.</span>
@@ -1841,7 +1905,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">'Only 1D and 2D bounds are supported.'</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_remap_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">syms</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_remap_bounds</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">syms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Ensure bounds keys match the exact SymPy symbols used in the expression.</span>
 <span class="sd">        </span>
@@ -1875,7 +1943,16 @@
             <span class="n">out</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">bounds</span><span class="p">[</span><span class="n">matched_key</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">out</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_low_rank_joint_pairs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-05</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_low_rank_joint_pairs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">joint_symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">degree</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
+        <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+        <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Factorize the joint residual into separable pairs a_k(x)q_k(ξ) via </span>
 <span class="sd">        Chebyshev/SVD low-rank approximation.</span>
@@ -1925,7 +2002,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_joint_lowrank_cache</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'key'</span><span class="p">:</span> <span class="n">key</span><span class="p">,</span> <span class="s1">'pairs'</span><span class="p">:</span> <span class="n">pairs</span><span class="p">,</span> <span class="s1">'metrics'</span><span class="p">:</span> <span class="n">metrics</span><span class="p">}</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="n">metrics</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_joint_symbols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_joint_symbols</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">joint_symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Find the actual spatial and frequency symbols present in the joint symbol.</span>
 <span class="sd">        </span>
@@ -1954,7 +2034,11 @@
             <span class="n">xi_syms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_nufft_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_nufft_plan</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">joint_symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Resolve the NUFFT plan for a joint residual symbol (symbolic, grid-free).</span>
 <span class="sd">        </span>
@@ -1990,7 +2074,17 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_joint_nufft_cache</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'key'</span><span class="p">:</span> <span class="n">key</span><span class="p">,</span> <span class="s1">'plan_info'</span><span class="p">:</span> <span class="n">plan_info</span><span class="p">}</span>
         <span class="k">return</span> <span class="n">plan_info</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_nufft_joint_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="s1">'gaussian'</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_nufft_joint_apply</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">joint_symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+            <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">kx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ky</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">freq_window</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'gaussian'</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply the NUFFT joint-residual backend to the field u.</span>
 <span class="sd">        </span>
@@ -2037,16 +2131,16 @@
             <span class="k">return</span> <span class="n">apply_nufft_2d</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">plan_kind</span><span class="p">,</span> <span class="n">plan_data</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">y_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dxi</span><span class="p">,</span> <span class="n">deta</span><span class="p">,</span> <span class="n">freq_window</span><span class="o">=</span><span class="n">freq_window</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_joint_representation</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">joint_symbol</span><span class="p">,</span>
-        <span class="n">backend</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span>
-        <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">degree</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-        <span class="n">tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
-        <span class="n">num_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
-        <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
-        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="p">):</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">joint_symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+            <span class="n">backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">degree</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+            <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
+            <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+            <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Normalize the joint residual into an executable representation.</span>
 <span class="sd">    </span>
@@ -2153,7 +2247,14 @@
                 <span class="sa">f</span><span class="s2">"got '</span><span class="si">{</span><span class="n">resolved</span><span class="si">}</span><span class="s2">'."</span>
             <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_aaa_joint_symbol_func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_aaa_joint_symbol_func</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">joint_symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+        <span class="n">degree</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">,</span>
+        <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Try the AAA rational approximation joint-residual backend.</span>
 <span class="sd">        </span>
@@ -2217,29 +2318,29 @@
         <span class="k">return</span> <span class="n">symbol_func</span><span class="p">,</span> <span class="n">metrics</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_joint_residual</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">joint_symbol</span><span class="p">,</span>
-        <span class="n">u</span><span class="p">,</span>
-        <span class="n">x_grid</span><span class="p">,</span>
-        <span class="n">kx</span><span class="p">,</span>
-        <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">boundary_condition</span><span class="o">=</span><span class="s2">"periodic"</span><span class="p">,</span>
-        <span class="n">peetre_quantization</span><span class="o">=</span><span class="s2">"kohn-nirenberg"</span><span class="p">,</span>
-        <span class="n">common_apply_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">apply_separable_pair</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">joint_backend</span><span class="o">=</span><span class="s2">"direct"</span><span class="p">,</span>
-        <span class="n">joint_degree</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-        <span class="n">joint_tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
-        <span class="n">joint_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">joint_max_rel_error</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">joint_num_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
-        <span class="n">joint_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
-        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">freq_window</span><span class="o">=</span><span class="s2">"gaussian"</span><span class="p">,</span>
-        <span class="n">clamp</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span>
-        <span class="n">space_window</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="p">):</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">joint_symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+            <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">kx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ky</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">boundary_condition</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"periodic"</span><span class="p">,</span>
+            <span class="n">peetre_quantization</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"kohn-nirenberg"</span><span class="p">,</span>
+            <span class="n">common_apply_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">apply_separable_pair</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">joint_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"direct"</span><span class="p">,</span>
+            <span class="n">joint_degree</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+            <span class="n">joint_tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
+            <span class="n">joint_bounds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">joint_max_rel_error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">joint_num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+            <span class="n">joint_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">freq_window</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"gaussian"</span><span class="p">,</span>
+            <span class="n">clamp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e6</span><span class="p">,</span>
+            <span class="n">space_window</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply the irreducible joint residual with backend selection,</span>
 <span class="sd">        quality gates, and automatic fallback to direct application.</span>
@@ -2478,11 +2579,11 @@
 <div class="viewcode-block" id="PseudoDifferentialOperator.peetre_decomposition">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.peetre_decomposition">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">peetre_decomposition</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">separable_local</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">classify_joint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="p">):</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">separable_local</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">classify_joint</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Symbolic Peetre-style decomposition of the operator symbol.</span>
 
@@ -2606,7 +2707,7 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.decompose_symbol_peetre">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.decompose_symbol_peetre">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">decompose_symbol_peetre</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">decompose_symbol_peetre</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Alias for `peetre_decomposition()`, maintained for backward compatibility </span>
 <span class="sd">        with the standalone `symbolic_decompose.py` naming style.</span>
@@ -2627,16 +2728,16 @@
 <div class="viewcode-block" id="PseudoDifferentialOperator.print_peetre_decomposition">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.print_peetre_decomposition">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">print_peetre_decomposition</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">joint_backend</span><span class="o">=</span><span class="s2">"direct"</span><span class="p">,</span>
-        <span class="n">joint_bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">joint_degree</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-        <span class="n">joint_tol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
-        <span class="n">joint_num_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
-        <span class="n">joint_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
-        <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-    <span class="p">):</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">joint_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"direct"</span><span class="p">,</span>
+            <span class="n">joint_bounds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">joint_degree</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+            <span class="n">joint_tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
+            <span class="n">joint_num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+            <span class="n">joint_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+            <span class="n">use_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Pretty-print the Peetre decomposition.</span>
 
@@ -2759,7 +2860,12 @@
 
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_auto_select_joint_backend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">joint_symbol</span><span class="p">,</span> <span class="n">x_syms</span><span class="p">,</span> <span class="n">xi_syms</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_auto_select_joint_backend</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">joint_symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+            <span class="n">x_syms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+            <span class="n">xi_syms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Intelligently analyze the joint residual symbol and select the most </span>
 <span class="sd">        efficient numerical backend ('nufft', 'aaa', or 'lowrank').</span>
@@ -2824,7 +2930,15 @@
 
 <div class="viewcode-block" id="PseudoDifferentialOperator.apply_hybrid">
 <a class="viewcode-back" href="../psiop.html#psiop.PseudoDifferentialOperator.apply_hybrid">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">apply_hybrid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_hybrid</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">x_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">kx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ky</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Apply the operator via Peetre decomposition with per-term backend routing.</span>
 
