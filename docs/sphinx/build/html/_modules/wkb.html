@@ -149,15 +149,24 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">caustics</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span> 
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
 <span class="c1"># ==================================================================</span>
 <span class="c1"># ENHANCED WKB WITH CAUSTIC CORRECTIONS</span>
 <span class="c1"># ==================================================================</span>
 
 <div class="viewcode-block" id="wkb_approximation">
 <a class="viewcode-back" href="../wkb.html#wkb.wkb_approximation">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">wkb_approximation</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_phase</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                               <span class="n">resolution</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">dimension</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                               <span class="n">caustic_correction</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">caustic_threshold</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">wkb_approximation</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">initial_phase</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">domain</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">resolution</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">dimension</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">caustic_correction</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;auto&#39;</span><span class="p">,</span>
+    <span class="n">caustic_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-3</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute multidimensional WKB approximation (1D or 2D).</span>
 
@@ -279,8 +288,15 @@
     <span class="k">return</span> <span class="n">corrected_solution</span></div>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_compute_base_wkb</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_phase</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">resolution</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">dimension</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_base_wkb</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">initial_phase</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">domain</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">resolution</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">dimension</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute multidimensional WKB (Wentzel-Kramers-Brillouin) approximation for wave propagation.</span>
 <span class="sd">    </span>
@@ -1043,7 +1059,12 @@
     
     <span class="k">return</span> <span class="n">result</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_apply_1d_caustic_corrections</span><span class="p">(</span><span class="n">base_solution</span><span class="p">,</span> <span class="n">caustics</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">mode</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_apply_1d_caustic_corrections</span><span class="p">(</span>
+    <span class="n">base_solution</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">caustics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
+    <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Apply caustic corrections in 1D using Airy functions and Maslov index.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -1110,7 +1131,12 @@
     
     <span class="k">return</span> <span class="n">result</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_apply_2d_caustic_corrections</span><span class="p">(</span><span class="n">base_solution</span><span class="p">,</span> <span class="n">caustics</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">mode</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_apply_2d_caustic_corrections</span><span class="p">(</span>
+    <span class="n">base_solution</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">caustics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
+    <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Apply caustic corrections in 2D using Airy/Pearcey functions.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -1195,7 +1221,12 @@
 
 <div class="viewcode-block" id="compare_orders">
 <a class="viewcode-back" href="../wkb.html#wkb.compare_orders">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">compare_orders</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">initial_phase</span><span class="p">,</span> <span class="n">max_order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compare_orders</span><span class="p">(</span>
+    <span class="n">symbol</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">initial_phase</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">max_order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">]:</span>
 
     <span class="n">solutions</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_order</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
@@ -1283,7 +1314,10 @@
 
 <div class="viewcode-block" id="plot_phase_space">
 <a class="viewcode-back" href="../wkb.html#wkb.plot_phase_space">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_phase_space</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_phase_space</span><span class="p">(</span>
+    <span class="n">solution</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">time_slice</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Plot phase space (position-momentum) trajectories.</span>
 <span class="sd">    </span>
@@ -1381,7 +1415,9 @@
 
 <div class="viewcode-block" id="plot_amplitude_decomposition">
 <a class="viewcode-back" href="../wkb.html#wkb.plot_amplitude_decomposition">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_amplitude_decomposition</span><span class="p">(</span><span class="n">solution</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_amplitude_decomposition</span><span class="p">(</span>
+    <span class="n">solution</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Plot individual amplitude orders aₖ and their contributions.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -1484,7 +1520,11 @@
 
 <div class="viewcode-block" id="plot_with_caustics">
 <a class="viewcode-back" href="../wkb.html#wkb.plot_with_caustics">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_with_caustics</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s1">&#39;abs&#39;</span><span class="p">,</span> <span class="n">highlight_caustics</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_with_caustics</span><span class="p">(</span>
+    <span class="n">solution</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">component</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;abs&#39;</span><span class="p">,</span>
+    <span class="n">highlight_caustics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Plot WKB solution with caustics highlighted.</span>
 <span class="sd">    </span>
@@ -1663,7 +1703,9 @@
 
 <div class="viewcode-block" id="plot_caustic_analysis">
 <a class="viewcode-back" href="../wkb.html#wkb.plot_caustic_analysis">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_caustic_analysis</span><span class="p">(</span><span class="n">solution</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_caustic_analysis</span><span class="p">(</span>
+    <span class="n">solution</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Detailed analysis plot of caustics.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -1817,8 +1859,12 @@
 
 <div class="viewcode-block" id="create_initial_data_line">
 <a class="viewcode-back" href="../wkb.html#wkb.create_initial_data_line">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_initial_data_line</span><span class="p">(</span><span class="n">x_range</span><span class="p">,</span> <span class="n">n_points</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> 
-                             <span class="n">y_intercept</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_initial_data_line</span><span class="p">(</span>
+    <span class="n">x_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">n_points</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="n">direction</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+    <span class="n">y_intercept</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create initial data for WKB on a line segment.</span>
 <span class="sd">    </span>
@@ -1865,7 +1911,11 @@
 
 <div class="viewcode-block" id="create_initial_data_circle">
 <a class="viewcode-back" href="../wkb.html#wkb.create_initial_data_circle">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_initial_data_circle</span><span class="p">(</span><span class="n">radius</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">n_points</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">outward</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_initial_data_circle</span><span class="p">(</span>
+    <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">n_points</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="n">outward</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create initial data for WKB on a circle.</span>
 <span class="sd">    </span>
@@ -1914,7 +1964,11 @@
 
 <div class="viewcode-block" id="create_initial_data_point_source">
 <a class="viewcode-back" href="../wkb.html#wkb.create_initial_data_point_source">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_initial_data_point_source</span><span class="p">(</span><span class="n">x0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">n_rays</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_initial_data_point_source</span><span class="p">(</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">y0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">n_rays</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create initial data for WKB from a point source.</span>
 <span class="sd">    </span>
@@ -1956,7 +2010,11 @@
 
 <div class="viewcode-block" id="visualize_wkb_rays">
 <a class="viewcode-back" href="../wkb.html#wkb.visualize_wkb_rays">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">visualize_wkb_rays</span><span class="p">(</span><span class="n">wkb_result</span><span class="p">,</span> <span class="n">plot_type</span><span class="o">=</span><span class="s1">&#39;phase&#39;</span><span class="p">,</span> <span class="n">n_rays_plot</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">visualize_wkb_rays</span><span class="p">(</span>
+    <span class="n">wkb_result</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;phase&#39;</span><span class="p">,</span>
+    <span class="n">n_rays_plot</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Visualize WKB solution with rays.</span>
 <span class="sd">    </span>

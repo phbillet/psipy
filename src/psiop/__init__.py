@@ -212,7 +212,7 @@ import random
 
 
 @lru_cache(maxsize=8192)
-def _peetre_is_zero_impl(expr):
+def _peetre_is_zero_impl(expr: Optional[Expr]) -> bool:
     """
     Conservative, memoized symbolic zero test for Peetre-pipeline coefficients.
 
@@ -300,7 +300,7 @@ def _peetre_is_zero_impl(expr):
 # MatrixPseudoDifferentialOperator. Factored out to replace what used to be
 # separate hand-unrolled 1D/2D code paths in each of those methods.
 # ============================================================================
-def _mi_all(n, dim):
+def _mi_all(n: int, dim: int) -> Generator[Tuple[int, ...], None, None]:
     """
     Yield all `dim`-tuples of non-negative integers summing to exactly `n`.
     
@@ -326,7 +326,7 @@ def _mi_all(n, dim):
         for rest in _mi_all(n - i, dim - 1):
             yield ((i,) + rest)
 
-def _mi_upto(n, dim):
+def _mi_upto(n: int, dim: int) -> Generator[Tuple[int, ...], None, None]:
     """
     Yield all `dim`-tuples of non-negative integers with 1 ≤ sum ≤ `n`.
     
@@ -348,7 +348,11 @@ def _mi_upto(n, dim):
     for m in range(1, n + 1):
         yield from _mi_all(m, dim)
 
-def _mi_diff(expr, mvars, alpha):
+def _mi_diff(
+    expr: Union[Expr, Matrix],
+    mvars: Sequence[Symbol],
+    alpha: Tuple[int, ...]
+) -> Union[Expr, Matrix]:
     """
     Compute the mixed partial derivative ∂^|α| expr / ∏(mvars_i^α_i).
     
@@ -374,7 +378,7 @@ def _mi_diff(expr, mvars, alpha):
             expr = expr.diff(v, a)
     return expr
 
-def _mi_factorial(alpha):
+def _mi_factorial(alpha: Tuple[int, ...]) -> int:
     """
     Compute the factorial of a multi-index.
     
@@ -441,7 +445,17 @@ class PseudoDifferentialOperator:
     >>> op = PseudoDifferentialOperator(expr=expr, vars_x=[x], var_u=u(x), mode='auto')
     """
 
-    def __init__(self, expr, vars_x, var_u=None, mode='symbol', quantization='kohn-nirenberg', apply_backend='peetre', compute_peetre=False, peetre_options=None):
+    def __init__(
+            self,
+            expr: Union[Expr, str],
+            vars_x: Sequence[Symbol],
+            var_u: Optional[Function] = None,
+            mode: str = 'symbol',
+            quantization: str = 'kohn-nirenberg',
+            apply_backend: str = 'peetre',
+            compute_peetre: Optional[bool] = False,
+            peetre_options: Optional[Dict[str, Any]] = None,
+        ) -> None:
         """
         Build a PseudoDifferentialOperator from a symbolic expression.
 
@@ -567,7 +581,7 @@ class PseudoDifferentialOperator:
         if compute_peetre:
             self._peetre_decomposition = self.peetre_decomposition(**self._peetre_options)
 
-    def _compute_symbol_derivatives(self):
+    def _compute_symbol_derivatives(self) -> None:
         """
         Precompute and lambdify first- and second-order derivatives of the
         symbol with respect to space and frequency variables.
@@ -619,7 +633,14 @@ class PseudoDifferentialOperator:
             except Exception:
                 setattr(self, f'_{name}_func', None)
 
-    def evaluate(self, X, Y, KX, KY, cache=True):
+    def evaluate(
+            self,
+            X: np.ndarray,
+            Y: Optional[np.ndarray],
+            KX: np.ndarray,
+            KY: Optional[np.ndarray],
+            cache: bool = True,
+        ) -> np.ndarray:
         """
         Evaluate the pseudo-differential operator's symbol on a grid of spatial and frequency coordinates.
 
@@ -655,7 +676,7 @@ class PseudoDifferentialOperator:
             self.symbol_cached = symbol
         return symbol
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """
         Clear all cached symbol evaluations, Peetre decompositions, and 
         joint backend plans (low-rank, NUFFT, AAA).
@@ -672,7 +693,7 @@ class PseudoDifferentialOperator:
         if hasattr(self, '_joint_aaa_cache'):
             self._joint_aaa_cache = None
 
-    def _get_peetre_decomposition(self):
+    def _get_peetre_decomposition(self) -> Dict[str, Any]:
         """
         Return the Peetre decomposition stored in the instance.
         
@@ -690,26 +711,26 @@ class PseudoDifferentialOperator:
         return self._peetre_decomposition
 
     def apply(
-        self,
-        u,
-        x_grid,
-        kx,
-        boundary_condition='periodic',
-        y_grid=None,
-        ky=None,
-        dealiasing_mask=None,
-        freq_window='gaussian',
-        clamp=1e6,
-        space_window=False,
-        weyl_order=4,
-        backend=None,
-        apply_joint=True,
-        joint_backend="direct",
-        joint_degree=6,
-        joint_tol=1e-5,
-        joint_bounds=None,
-        joint_max_rel_error=None,
-    ):
+            self,
+            u: np.ndarray,
+            x_grid: np.ndarray,
+            kx: np.ndarray,
+            boundary_condition: str = 'periodic',
+            y_grid: Optional[np.ndarray] = None,
+            ky: Optional[np.ndarray] = None,
+            dealiasing_mask: Optional[np.ndarray] = None,
+            freq_window: Optional[str] = 'gaussian',
+            clamp: float = 1e6,
+            space_window: bool = False,
+            weyl_order: int = 4,
+            backend: Optional[str] = None,
+            apply_joint: bool = True,
+            joint_backend: str = "direct",
+            joint_degree: int = 6,
+            joint_tol: float = 1e-5,
+            joint_bounds: Optional[Dict[Symbol, Tuple[float, float]]] = None,
+            joint_max_rel_error: Optional[float] = None,
+        ) -> np.ndarray:
         """
         Apply the pseudo-differential operator to the input field u.
      
@@ -894,7 +915,7 @@ class PseudoDifferentialOperator:
      
         raise ValueError(f"Invalid boundary condition '{boundary_condition}'")
         
-    def _is_spatial_dependent(self):
+    def _is_spatial_dependent(self) -> bool:
         """
         Check if the symbol depends on spatial variables.
         
@@ -911,7 +932,7 @@ class PseudoDifferentialOperator:
         else:
             return False
 
-    def _get_symbol_func(self):
+    def _get_symbol_func(self) -> Callable[..., Any]:
         """
         Get a lambdified NumPy-callable version of the raw symbol.
         
@@ -931,7 +952,7 @@ class PseudoDifferentialOperator:
         else:
             raise NotImplementedError('Only 1D and 2D supported')
 
-    def _get_effective_symbol_func(self, weyl_order=4):
+    def _get_effective_symbol_func(self, weyl_order: int = 4) -> Callable[..., Any]:
         """
         Return a lambdified callable for the symbol to pass to the KN backend.
      
@@ -979,7 +1000,18 @@ class PseudoDifferentialOperator:
         else:
             raise NotImplementedError('_get_effective_symbol_func: only 1D and 2D are supported.')
 
-    def _apply_constant_fft(self, u, x_grid, kx, y_grid=None, ky=None, dealiasing_mask=None, freq_window='gaussian', clamp=1000000.0, space_window=False):
+    def _apply_constant_fft(
+            self,
+            u: np.ndarray,
+            x_grid: np.ndarray,
+            kx: np.ndarray,
+            y_grid: Optional[np.ndarray] = None,
+            ky: Optional[np.ndarray] = None,
+            dealiasing_mask: Optional[np.ndarray] = None,
+            freq_window: Optional[str] = 'gaussian',
+            clamp: float = 1e6,
+            space_window: bool = False,
+        ) -> np.ndarray:
         """
         Apply a constant-coefficient pseudo-differential operator in Fourier space.
     
@@ -1060,7 +1092,7 @@ class PseudoDifferentialOperator:
                 result *= sw_x[:, None] * sw_y[None, :]
         return result
 
-    def principal_symbol(self, order=1):
+    def principal_symbol(self, order: int = 1) -> Expr:
         """
         Compute the leading homogeneous component of the pseudo-differential symbol.
 
@@ -1099,7 +1131,7 @@ class PseudoDifferentialOperator:
             expansion_cart = expansion.subs({rho: sqrt(xi ** 2 + eta ** 2), cos(theta): xi / sqrt(xi ** 2 + eta ** 2), sin(theta): eta / sqrt(xi ** 2 + eta ** 2)})
             return simplify(powdenest(expansion_cart, force=True))
 
-    def is_homogeneous(self, tol=1e-10):
+    def is_homogeneous(self, tol: float = 1e-10) -> Tuple[bool, Optional[Union[Rational, float]]]:
         """
         Check whether the symbol is homogeneous in the frequency variables.
     
@@ -1144,7 +1176,11 @@ class PseudoDifferentialOperator:
                 pass
             return (False, None)
 
-    def symbol_order(self, max_order=10, tol=0.001):
+    def symbol_order(
+            self,
+            max_order: int = 10,
+            tol: float = 0.001,
+        ) -> Optional[Union[int, float]]:
         """
         Estimate the asymptotic homogeneity order of the symbol as |ξ| → ∞.
         
@@ -1262,7 +1298,7 @@ class PseudoDifferentialOperator:
             return None
         raise NotImplementedError('Only 1D and 2D supported.')
 
-    def asymptotic_expansion(self, order=3):
+    def asymptotic_expansion(self, order: int = 3) -> Expr:
         """
         Compute the asymptotic expansion of the symbol as |ξ| → ∞ (high-frequency regime).
     
@@ -1331,7 +1367,14 @@ class PseudoDifferentialOperator:
                 print(f'Warning: 2D expansion failed: {e}')
                 return p
 
-    def compose_asymptotic(self, other, order=1, mode='kn', sign_convention=None, do_simplify=True):
+    def compose_asymptotic(
+            self,
+            other: "PseudoDifferentialOperator",
+            order: int = 1,
+            mode: str = 'kn',
+            sign_convention: Optional[str] = None,
+            do_simplify: bool = True,
+        ) -> Expr:
         """
         Compose two pseudo-differential operators using an asymptotic expansion
         in the chosen quantization scheme (Kohn–Nirenberg or Weyl).
@@ -1419,7 +1462,7 @@ class PseudoDifferentialOperator:
     # ======================================================================
         
  
-    def _peetre_frequency_symbols(self):
+    def _peetre_frequency_symbols(self) -> Tuple[Symbol, ...]:
         """
         Return the frequency symbols actually used in the symbol.
         
@@ -1438,7 +1481,10 @@ class PseudoDifferentialOperator:
         raise NotImplementedError('Peetre decomposition supports only 1D and 2D operators.')
 
     @staticmethod
-    def _peetre_merge_local(dst, src):
+    def _peetre_merge_local(
+            dst: Dict[Tuple[int, ...], Expr],
+            src: Dict[Tuple[int, ...], Expr],
+        ) -> None:
         """
         Merge one local-coefficient dictionary into another, in place,
         summing coefficients that share the same frequency multi-index.
@@ -1464,7 +1510,7 @@ class PseudoDifferentialOperator:
 
 
     @staticmethod
-    def _peetre_is_zero(expr):
+    def _peetre_is_zero(expr: Optional[Expr]) -> bool:
         """
         Memoized wrapper around the conservative symbolic zero test.
         
@@ -1483,7 +1529,10 @@ class PseudoDifferentialOperator:
         """
         return _peetre_is_zero_impl(expr)   
 
-    def _peetre_classify_terms(self, expr):
+    def _peetre_classify_terms(
+            self,
+            expr: Expr,
+        ) -> Tuple[Dict[Tuple[int, ...], Expr], List[Tuple[Expr, Expr]], List[Expr]]:
         """
         Classify a symbolic expression into local, separable and joint terms.
 
@@ -1540,7 +1589,7 @@ class PseudoDifferentialOperator:
                 local_coeffs[monom] = simplify(together(local_coeffs.get(monom, 0) + coeff))
         return (local_coeffs, separable, joint)
 
-    def _peetre_local_symbol(self, local_coeffs):
+    def _peetre_local_symbol(self, local_coeffs: Dict[Tuple[int, ...], Expr]) -> Expr:
         """
         Rebuild the local polynomial symbol from its coefficient
         dictionary — the inverse of the local part of
@@ -1569,7 +1618,7 @@ class PseudoDifferentialOperator:
             expr = expr + term
         return expand(expr)
 
-    def _peetre_separable_symbol(self, separable):
+    def _peetre_separable_symbol(self, separable: List[Tuple[Expr, Expr]]) -> Expr:
         """
         Rebuild the separable symbol from a list of (a, q) pairs — the
         inverse of the separable part of `_peetre_classify_terms`.
@@ -1591,7 +1640,10 @@ class PseudoDifferentialOperator:
             return Integer(0)
         return expand(Add(*[a * q for a, q in separable]))
 
-    def _peetre_merge_separable(self, separable):
+    def _peetre_merge_separable(
+        self,
+        separable: List[Tuple[Expr, Expr]],
+    ) -> List[Tuple[Expr, Expr]]:
         """
         Merge separable terms having the same frequency factor q(ξ).
         
@@ -1625,7 +1677,10 @@ class PseudoDifferentialOperator:
                 ordered_keys.append(key)
         return [(merged[q], q) for q in ordered_keys if not self._peetre_is_zero(merged[q])]
 
-    def _peetre_local_to_separable(self, local_coeffs):
+    def _peetre_local_to_separable(
+        self,
+        local_coeffs: Dict[Tuple[int, ...], Expr],
+    ) -> List[Tuple[Expr, Expr]]:
         """
         Convert local polynomial coefficients into separable terms a(x)q(ξ).
         
@@ -1665,7 +1720,10 @@ class PseudoDifferentialOperator:
                 separable.append((coeff, q))
         return [(c, expand(q)) for c, q in separable if not self._peetre_is_zero(c) and (not self._peetre_is_zero(q))]
 
-    def _peetre_local_as_separable(self, local_coeffs):
+    def _peetre_local_as_separable(
+        self,
+        local_coeffs: Dict[Tuple[int, ...], Expr],
+    ) -> List[Tuple[Expr, Expr]]:
         """
         Represent local polynomial coefficients as separable-style pairs
         (a(x), q(xi)).
@@ -1687,7 +1745,13 @@ class PseudoDifferentialOperator:
     # Low-rank joint residual helpers
     # ------------------------------------------------------------------
     
-    def _infer_joint_bounds(self, x_grid, kx, y_grid=None, ky=None):
+    def _infer_joint_bounds(
+        self,
+        x_grid: np.ndarray,
+        kx: np.ndarray,
+        y_grid: Optional[np.ndarray] = None,
+        ky: Optional[np.ndarray] = None,
+    ) -> Dict[Symbol, Tuple[float, float]]:
         """
         Infer physical bounds for low-rank joint decomposition from the 
         spatial and frequency grids.
@@ -1731,7 +1795,11 @@ class PseudoDifferentialOperator:
         else:
             raise NotImplementedError('Only 1D and 2D bounds are supported.')
 
-    def _remap_bounds(self, bounds, syms):
+    def _remap_bounds(
+        self,
+        bounds: Dict[Any, Tuple[float, float]],
+        syms: Sequence[Symbol],
+    ) -> Dict[Symbol, Tuple[float, float]]:
         """
         Ensure bounds keys match the exact SymPy symbols used in the expression.
         
@@ -1765,7 +1833,16 @@ class PseudoDifferentialOperator:
             out[s] = bounds[matched_key]
         return out
 
-    def _low_rank_joint_pairs(self, joint_symbol, bounds, degree=6, tol=1e-05, num_samples=10000, seed=42, use_cache=True):
+    def _low_rank_joint_pairs(
+        self,
+        joint_symbol: Expr,
+        bounds: Dict[Symbol, Tuple[float, float]],
+        degree: int = 6,
+        tol: float = 1e-5,
+        num_samples: int = 10000,
+        seed: int = 42,
+        use_cache: bool = True,
+    ) -> Tuple[List[Tuple[Expr, Expr]], Dict[str, Any]]:
         """
         Factorize the joint residual into separable pairs a_k(x)q_k(ξ) via 
         Chebyshev/SVD low-rank approximation.
@@ -1815,7 +1892,10 @@ class PseudoDifferentialOperator:
         self._joint_lowrank_cache = {'key': key, 'pairs': pairs, 'metrics': metrics}
         return (pairs, metrics)
 
-    def _resolve_joint_symbols(self, joint_symbol):
+    def _resolve_joint_symbols(
+        self,
+        joint_symbol: Expr,
+    ) -> Tuple[List[Symbol], List[Symbol]]:
         """
         Find the actual spatial and frequency symbols present in the joint symbol.
         
@@ -1844,7 +1924,11 @@ class PseudoDifferentialOperator:
             xi_syms.append(s)
         return (x_syms, xi_syms)
 
-    def _resolve_nufft_plan(self, joint_symbol, use_cache=True):
+    def _resolve_nufft_plan(
+        self,
+        joint_symbol: Expr,
+        use_cache: bool = True,
+    ) -> Optional[Tuple[str, Any]]:
         """
         Resolve the NUFFT plan for a joint residual symbol (symbolic, grid-free).
         
@@ -1880,7 +1964,17 @@ class PseudoDifferentialOperator:
         self._joint_nufft_cache = {'key': key, 'plan_info': plan_info}
         return plan_info
 
-    def _nufft_joint_apply(self, joint_symbol, u, x_grid, kx, y_grid=None, ky=None, use_cache=True, freq_window='gaussian'):
+    def _nufft_joint_apply(
+            self,
+            joint_symbol: Expr,
+            u: np.ndarray,
+            x_grid: np.ndarray,
+            kx: np.ndarray,
+            y_grid: Optional[np.ndarray] = None,
+            ky: Optional[np.ndarray] = None,
+            use_cache: bool = True,
+            freq_window: Optional[str] = 'gaussian',
+        ) -> Optional[np.ndarray]:
         """
         Apply the NUFFT joint-residual backend to the field u.
         
@@ -1927,16 +2021,16 @@ class PseudoDifferentialOperator:
             return apply_nufft_2d(u, plan_kind, plan_data, x_grid, y_grid, kx, ky, dx, dy, dxi, deta, freq_window=freq_window)
 
     def _resolve_joint_representation(
-        self,
-        joint_symbol,
-        backend="auto",
-        bounds=None,
-        degree=6,
-        tol=1e-5,
-        num_samples=10000,
-        seed=42,
-        use_cache=True,
-    ):
+            self,
+            joint_symbol: Expr,
+            backend: str = "auto",
+            bounds: Optional[Dict[Symbol, Tuple[float, float]]] = None,
+            degree: int = 6,
+            tol: float = 1e-5,
+            num_samples: int = 10000,
+            seed: int = 42,
+            use_cache: bool = True,
+        ) -> Dict[str, Any]:
         """
         Normalize the joint residual into an executable representation.
     
@@ -2043,7 +2137,14 @@ class PseudoDifferentialOperator:
                 f"got '{resolved}'."
             )
 
-    def _aaa_joint_symbol_func(self, joint_symbol, bounds, degree=None, tol=1e-8, use_cache=True):
+    def _aaa_joint_symbol_func(
+        self,
+        joint_symbol: Expr,
+        bounds: Dict[Symbol, Tuple[float, float]],
+        degree: Optional[int] = None,
+        tol: float = 1e-8,
+        use_cache: bool = True,
+    ) -> Tuple[Optional[Callable[..., Any]], Optional[Dict[str, Any]]]:
         """
         Try the AAA rational approximation joint-residual backend.
         
@@ -2107,29 +2208,29 @@ class PseudoDifferentialOperator:
         return symbol_func, metrics
 
     def _apply_joint_residual(
-        self,
-        joint_symbol,
-        u,
-        x_grid,
-        kx,
-        y_grid=None,
-        ky=None,
-        boundary_condition="periodic",
-        peetre_quantization="kohn-nirenberg",
-        common_apply_kwargs=None,
-        apply_separable_pair=None,
-        joint_backend="direct",
-        joint_degree=6,
-        joint_tol=1e-5,
-        joint_bounds=None,
-        joint_max_rel_error=None,
-        joint_num_samples=10000,
-        joint_seed=42,
-        use_cache=True,
-        freq_window="gaussian",
-        clamp=1e6,
-        space_window=False,
-    ):
+            self,
+            joint_symbol: Expr,
+            u: np.ndarray,
+            x_grid: np.ndarray,
+            kx: np.ndarray,
+            y_grid: Optional[np.ndarray] = None,
+            ky: Optional[np.ndarray] = None,
+            boundary_condition: str = "periodic",
+            peetre_quantization: str = "kohn-nirenberg",
+            common_apply_kwargs: Optional[Dict[str, Any]] = None,
+            apply_separable_pair: Optional[Callable[[Expr, Expr], np.ndarray]] = None,
+            joint_backend: str = "direct",
+            joint_degree: int = 6,
+            joint_tol: float = 1e-5,
+            joint_bounds: Optional[Dict[Symbol, Tuple[float, float]]] = None,
+            joint_max_rel_error: Optional[float] = None,
+            joint_num_samples: int = 10000,
+            joint_seed: int = 42,
+            use_cache: bool = True,
+            freq_window: Optional[str] = "gaussian",
+            clamp: float = 1e6,
+            space_window: bool = False,
+        ) -> np.ndarray:
         """
         Apply the irreducible joint residual with backend selection,
         quality gates, and automatic fallback to direct application.
@@ -2366,11 +2467,11 @@ class PseudoDifferentialOperator:
             raise ValueError(f"Unknown joint representation type: '{rep_type}'")
 
     def peetre_decomposition(
-        self,
-        use_cache=True,
-        separable_local=False,
-        classify_joint=False,
-    ):
+            self,
+            use_cache: bool = True,
+            separable_local: bool = False,
+            classify_joint: bool = False,
+        ) -> Dict[str, Any]:
         """
         Symbolic Peetre-style decomposition of the operator symbol.
 
@@ -2491,7 +2592,7 @@ class PseudoDifferentialOperator:
         }
         return result
 
-    def decompose_symbol_peetre(self, *args, **kwargs):
+    def decompose_symbol_peetre(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         """
         Alias for `peetre_decomposition()`, maintained for backward compatibility 
         with the standalone `symbolic_decompose.py` naming style.
@@ -2509,16 +2610,16 @@ class PseudoDifferentialOperator:
         return self.peetre_decomposition(*args, **kwargs)
 
     def print_peetre_decomposition(
-        self,
-        joint_backend="direct",
-        joint_bounds=None,
-        joint_degree=6,
-        joint_tol=1e-5,
-        joint_num_samples=10000,
-        joint_seed=42,
-        use_cache=True,
-        **kwargs,
-    ):
+            self,
+            joint_backend: str = "direct",
+            joint_bounds: Optional[Dict[Symbol, Tuple[float, float]]] = None,
+            joint_degree: int = 6,
+            joint_tol: float = 1e-5,
+            joint_num_samples: int = 10000,
+            joint_seed: int = 42,
+            use_cache: bool = True,
+            **kwargs: Any,
+        ) -> None:
         """
         Pretty-print the Peetre decomposition.
 
@@ -2640,7 +2741,12 @@ class PseudoDifferentialOperator:
         )
 
 
-    def _auto_select_joint_backend(self, joint_symbol, x_syms, xi_syms):
+    def _auto_select_joint_backend(
+            self,
+            joint_symbol: Expr,
+            x_syms: Sequence[Symbol],
+            xi_syms: Sequence[Symbol],
+        ) -> str:
         """
         Intelligently analyze the joint residual symbol and select the most 
         efficient numerical backend ('nufft', 'aaa', or 'lowrank').
@@ -2703,7 +2809,15 @@ class PseudoDifferentialOperator:
     # Peetre-based application
     # ======================================================================
 
-    def apply_hybrid(self, u, x_grid, kx, y_grid=None, ky=None, **kwargs):
+    def apply_hybrid(
+            self,
+            u: np.ndarray,
+            x_grid: np.ndarray,
+            kx: np.ndarray,
+            y_grid: Optional[np.ndarray] = None,
+            ky: Optional[np.ndarray] = None,
+            **kwargs: Any,
+        ) -> np.ndarray:
         """
         Apply the operator via Peetre decomposition with per-term backend routing.
 

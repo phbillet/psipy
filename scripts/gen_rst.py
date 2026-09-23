@@ -2,7 +2,7 @@ import os
 import ast
 
 # Modules à exclure de la documentation
-EXCLUDE = {"imports", "mupsipy", "cotangent_bundle", "hpc_examples", "metric_catalogue"}
+EXCLUDE = {"imports", "cotangent_bundle", "hpc_examples", "metric_catalog", "hamiltonian_db"}
 
 # Modules that have a custom, manually written .rst file (do not auto-generate them)
 CUSTOM_RST = {"psiop"}

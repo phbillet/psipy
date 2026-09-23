@@ -302,9 +302,9 @@ class EquationType:
             equation = EquationType.WAVE,
         )
     """
-    SCHRODINGER = 'schrodinger'
-    PARABOLIC   = 'parabolic'
-    WAVE        = 'wave'
+    SCHRODINGER: str = 'schrodinger'
+    PARABOLIC: str = 'parabolic'
+    WAVE: str = 'wave'
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -354,10 +354,10 @@ class RayData:
         Each crossing contributes a phase factor exp(−iπ/2) = −i to the
         semiclassical amplitude.
     """
-    traj    : dict
-    det_J   : np.ndarray
-    S_cum   : np.ndarray
-    mu      : int
+    traj: Dict[str, Union[np.ndarray, float]]
+    det_J: np.ndarray
+    S_cum: np.ndarray
+    mu: int
 
 
 @dataclass
@@ -420,36 +420,36 @@ class WKBResult:
     dim : int
         Spatial dimension, 1 or 2.
     """
-    rays      : List[RayData]
-    X         : np.ndarray
-    Y         : Optional[np.ndarray]
-    psi       : np.ndarray
-    x_pts     : np.ndarray
-    y_pts     : Optional[np.ndarray]
-    S_pts     : np.ndarray
-    det_J_pts : np.ndarray
-    mu_pts    : np.ndarray
-    hbar      : float
-    t_max     : float
-    dim       : int
-    equation  : str = EquationType.SCHRODINGER   # which PDE was solved
+    rays: List[RayData]
+    X: np.ndarray
+    Y: Optional[np.ndarray]
+    psi: np.ndarray
+    x_pts: np.ndarray
+    y_pts: Optional[np.ndarray]
+    S_pts: np.ndarray
+    det_J_pts: np.ndarray
+    mu_pts: np.ndarray
+    hbar: float
+    t_max: float
+    dim: int
+    equation: str = EquationType.SCHRODINGER
 
 
 # ── New internal function that processes a single ray given the already
 #    constructed objects. It replicates the original loop body.
 def _process_single_ray_internal(
-    p0,                 # initial canonical momentum (float or 2‑tuple)
-    source,             # tuple of floats
-    t_max,              # float
-    hbar,               # float
-    n_steps,            # int
-    integrator,         # str
-    H_sym,              # sympy.Expr
-    vars_phase,         # list of sympy.Symbol
-    is_metric_mode,     # bool
-    metric,             # Metric or None
-    equation=EquationType.SCHRODINGER,   # NEW
-):
+    p0: Union[float, Tuple[float, ...]],
+    source: Tuple[float, ...],
+    t_max: float,
+    hbar: float,
+    n_steps: int,
+    integrator: str,
+    H_sym: Expr,
+    vars_phase: List[Symbol],
+    is_metric_mode: bool,
+    metric: Optional[Metric],
+    equation: str = EquationType.SCHRODINGER,
+) -> Optional[RayData]:
     """
     Perform all steps for one ray (integration, Jacobi, action, Maslov)
     and return a RayData object, or None if the ray fails.
@@ -588,7 +588,15 @@ def _process_single_ray_internal(
 # ── Worker function for parallel execution.
 #    It reconstructs the needed objects from symbolic data,
 #    then calls _process_single_ray_internal.
-def _worker_process_ray(p0, source, t_max, hbar, n_steps, integrator, worker_data):
+def _worker_process_ray(
+    p0: Union[float, Tuple[float, ...]],
+    source: Tuple[float, ...],
+    t_max: float,
+    hbar: float,
+    n_steps: int,
+    integrator: str,
+    worker_data: Dict[str, Any],
+) -> Optional[RayData]:
     """
     worker_data : dict with keys:
         'mode' : 'metric' or 'hamiltonian'
@@ -635,8 +643,12 @@ def _worker_process_ray(p0, source, t_max, hbar, n_steps, integrator, worker_dat
 # 1 — Jacobi matrix determinant  (uses riemannian.jacobi_equation_solver)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _det_J_1d(metric: Metric, traj: dict,
-              tspan: tuple, n_steps: int) -> np.ndarray:
+def _det_J_1d(
+    metric: Metric,
+    traj: Dict[str, np.ndarray],
+    tspan: Tuple[float, float],
+    n_steps: int,
+) -> np.ndarray:
     """
     Integrate the 1D Jacobi scalar J(t) = ∂x(t)/∂p₀ along a given ray.
 
@@ -714,8 +726,12 @@ def _det_J_1d(metric: Metric, traj: dict,
     return sol.y[0]
 
 
-def _det_J_from_jacobi(metric: Metric, traj: dict,
-                        tspan: tuple, n_steps: int) -> np.ndarray:
+def _det_J_from_jacobi(
+    metric: Metric,
+    traj: Dict[str, np.ndarray],
+    tspan: Tuple[float, float],
+    n_steps: int,
+) -> np.ndarray:
     """
     Compute the Jacobi determinant det J(t) along a ray for 1D or 2D metrics.
 
@@ -795,9 +811,12 @@ def _det_J_from_jacobi(metric: Metric, traj: dict,
 # 2 — Cumulative action  (uses symplectic.hamiltonian_flow momentum arrays)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _cumulative_action(traj: dict, dim: int,
-                       metric: Optional[Metric] = None,
-                       coord_keys: Optional[Tuple[str, ...]] = None) -> np.ndarray:
+def _cumulative_action(
+    traj: Dict[str, np.ndarray],
+    dim: int,
+    metric: Optional[Metric] = None,
+    coord_keys: Optional[Tuple[str, ...]] = None,
+) -> np.ndarray:
     """
     Compute the cumulative action S(t) = ∫₀ᵗ pᵢ(t′) ẋⁱ(t′) dt′ along a ray.
 
@@ -930,7 +949,10 @@ def _cumulative_action(traj: dict, dim: int,
 # 3 — Maslov index  (sign-change count on det J)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _maslov_index(det_J: np.ndarray, traj: Optional[dict] = None) -> int:
+def _maslov_index(
+    det_J: np.ndarray,
+    traj: Optional[Dict[str, np.ndarray]] = None,
+) -> int:
     """
     Count the number of caustic crossings (sign changes of det J) along a ray.
 
@@ -993,7 +1015,11 @@ def _maslov_index(det_J: np.ndarray, traj: Optional[dict] = None) -> int:
 # 4 — Caustic corrections using proper Airy / Pearcey profiles
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _airy_argument(x_local: np.ndarray, hbar: float, alpha: float) -> np.ndarray:
+def _airy_argument(
+    x_local: np.ndarray,
+    hbar: float,
+    alpha: float,
+) -> np.ndarray:
     """
     Map the local coordinate x_local = x − x_c to the Airy argument ξ(x).
 
@@ -1054,13 +1080,13 @@ def _airy_argument(x_local: np.ndarray, hbar: float, alpha: float) -> np.ndarray
 
 
 def _asymptotic_correction_1d(
-    x_caustic : float,
-    S_caustic : float,
-    a_caustic : float,
-    dJ_ds     : float,
-    hbar      : float,
-    x_grid    : np.ndarray,
-    width     : float,
+    x_caustic: float,
+    S_caustic: float,
+    a_caustic: float,
+    dJ_ds: float,
+    hbar: float,
+    x_grid: np.ndarray,
+    width: float,
 ) -> np.ndarray:
     """
     Replace the WKB amplitude near a 1D fold caustic with the pointwise
@@ -1149,16 +1175,16 @@ def _asymptotic_correction_1d(
 
 
 def _asymptotic_correction_2d(
-    x_caustic : float,
-    y_caustic : float,
-    S_caustic : float,
-    a_caustic : float,
-    dJ_dx     : float,
-    dJ_dy     : float,
-    hbar      : float,
-    X_grid    : np.ndarray,
-    Y_grid    : np.ndarray,
-    width     : float,
+    x_caustic: float,
+    y_caustic: float,
+    S_caustic: float,
+    a_caustic: float,
+    dJ_dx: float,
+    dJ_dy: float,
+    hbar: float,
+    X_grid: np.ndarray,
+    Y_grid: np.ndarray,
+    width: float,
 ) -> np.ndarray:
     """
     Apply an asymptotic caustic correction on a 2D grid.
@@ -1295,17 +1321,17 @@ def _asymptotic_correction_2d(
 # ─────────────────────────────────────────────────────────────────────────────
 
 def van_vleck_sum(
-    pts    : np.ndarray,             # (M, 1) or (M, 2)
-    S      : np.ndarray,             # (M,)
-    det_J  : np.ndarray,             # (M,)
-    mu     : np.ndarray,             # (M,) integer
-    xlim   : Tuple[float, float],
-    ylim   : Optional[Tuple[float, float]] = None,
-    N      : int   = 300,
-    hbar   : float = 1.0,
-    reg    : float = 1e-4,
-    method : str   = "linear",
-    caustic_threshold : float = 0.05,
+    pts: np.ndarray,
+    S: np.ndarray,
+    det_J: np.ndarray,
+    mu: np.ndarray,
+    xlim: Tuple[float, float],
+    ylim: Optional[Tuple[float, float]] = None,
+    N: int = 300,
+    hbar: float = 1.0,
+    reg: float = 1e-4,
+    method: str = "linear",
+    caustic_threshold: float = 0.05,
 ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """
     Assemble the Van Vleck–Pauli–Morette wavefunction on a regular grid.
@@ -1490,7 +1516,11 @@ def van_vleck_sum(
 # 5b — Parabolic (heat-type) coherent sum   ∂u/∂t = ψOp u
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _pcf_argument(x_local: np.ndarray, hbar: float, alpha: float) -> np.ndarray:
+def _pcf_argument(
+    x_local: np.ndarray,
+    hbar: float,
+    alpha: float,
+) -> np.ndarray:
     """
     Map the local coordinate x_local = x − x_c to the argument of the
     parabolic cylinder function D_{-1/2}(ζ) used near a fold caustic of the
@@ -1524,13 +1554,13 @@ def _pcf_argument(x_local: np.ndarray, hbar: float, alpha: float) -> np.ndarray:
 
 
 def _parabolic_correction_1d(
-    x_caustic : float,
-    S_caustic : float,
-    a_caustic : float,
-    dJ_ds     : float,
-    hbar      : float,
-    x_grid    : np.ndarray,
-    width     : float,
+    x_caustic: float,
+    S_caustic: float,
+    a_caustic: float,
+    dJ_ds: float,
+    hbar: float,
+    x_grid: np.ndarray,
+    width: float,
 ) -> np.ndarray:
     """
     Replace the real WKB amplitude near a 1D fold caustic with the uniform
@@ -1576,16 +1606,16 @@ def _parabolic_correction_1d(
 
 
 def _parabolic_correction_2d(
-    x_caustic : float,
-    y_caustic : float,
-    S_caustic : float,
-    a_caustic : float,
-    dJ_dx     : float,
-    dJ_dy     : float,
-    hbar      : float,
-    X_grid    : np.ndarray,
-    Y_grid    : np.ndarray,
-    width     : float,
+    x_caustic: float,
+    y_caustic: float,
+    S_caustic: float,
+    a_caustic: float,
+    dJ_dx: float,
+    dJ_dy: float,
+    hbar: float,
+    X_grid: np.ndarray,
+    Y_grid: np.ndarray,
+    width: float,
 ) -> np.ndarray:
     """
     Apply the parabolic cylinder correction at a 2D fold caustic for the
@@ -1633,16 +1663,16 @@ def _parabolic_correction_2d(
 
 
 def parabolic_sum(
-    pts    : np.ndarray,
-    S      : np.ndarray,
-    det_J  : np.ndarray,
-    xlim   : Tuple[float, float],
-    ylim   : Optional[Tuple[float, float]] = None,
-    N      : int   = 300,
-    hbar   : float = 1.0,
-    reg    : float = 1e-4,
-    method : str   = 'linear',
-    caustic_threshold : float = 0.05,
+    pts: np.ndarray,
+    S: np.ndarray,
+    det_J: np.ndarray,
+    xlim: Tuple[float, float],
+    ylim: Optional[Tuple[float, float]] = None,
+    N: int = 300,
+    hbar: float = 1.0,
+    reg: float = 1e-4,
+    method: str = 'linear',
+    caustic_threshold: float = 0.05,
 ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """
     Assemble the semiclassical solution for the **parabolic (heat-type)**
@@ -1749,21 +1779,21 @@ def parabolic_sum(
 # ─────────────────────────────────────────────────────────────────────────────
 
 def wave_sum(
-    pts_plus  : np.ndarray,
-    S_plus    : np.ndarray,
+    pts_plus: np.ndarray,
+    S_plus: np.ndarray,
     det_J_plus: np.ndarray,
-    mu_plus   : np.ndarray,
-    pts_minus : np.ndarray,
-    S_minus   : np.ndarray,
+    mu_plus: np.ndarray,
+    pts_minus: np.ndarray,
+    S_minus: np.ndarray,
     det_J_minus: np.ndarray,
-    mu_minus  : np.ndarray,
-    xlim      : Tuple[float, float],
-    ylim      : Optional[Tuple[float, float]] = None,
-    N         : int   = 300,
-    hbar      : float = 1.0,
-    reg       : float = 1e-4,
-    method    : str   = 'linear',
-    caustic_threshold : float = 0.05,
+    mu_minus: np.ndarray,
+    xlim: Tuple[float, float],
+    ylim: Optional[Tuple[float, float]] = None,
+    N: int = 300,
+    hbar: float = 1.0,
+    reg: float = 1e-4,
+    method: str = 'linear',
+    caustic_threshold: float = 0.05,
 ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """
     Assemble the semiclassical wavefunction for the **wave (hyperbolic)**
@@ -1815,7 +1845,9 @@ def wave_sum(
 # 6 — Full pipeline
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_hamiltonian_sym(metric: Metric) -> Tuple[Expr, list]:
+def _build_hamiltonian_sym(
+    metric: Metric,
+) -> Tuple[Expr, List[Symbol]]:
     """
     Construct the kinetic Hamiltonian H = ½ gⁱʲ(x) pᵢ pⱼ from a Metric.
 
@@ -1882,8 +1914,8 @@ def _build_hamiltonian_sym(metric: Metric) -> Tuple[Expr, list]:
 
 
 def _build_wave_hamiltonians(
-    H_sym      : Expr,
-    vars_phase : list,
+    H_sym: Expr,
+    vars_phase: List[Symbol],
 ) -> Tuple[Expr, Expr]:
     """
     Construct the two smooth dispersion branches H₊ and H₋ for the wave
@@ -1992,11 +2024,11 @@ def _build_wave_hamiltonians(
 
 
 def _resolve_hamiltonian(
-    metric        : Optional[Metric],
-    hamiltonian   : Optional[Expr],
-    coords        : Optional[Tuple],
-    momenta       : Optional[Tuple],
-) -> Tuple[Expr, list, int]:
+    metric: Optional[Metric],
+    hamiltonian: Optional[Expr],
+    coords: Optional[Tuple[Symbol, ...]],
+    momenta: Optional[Tuple[Symbol, ...]],
+) -> Tuple[Expr, List[Symbol], int]:
     """
     Resolve the Hamiltonian and phase-space variables from either a
     ``Metric`` object or an explicit SymPy expression.
@@ -2094,11 +2126,11 @@ def _resolve_hamiltonian(
 
 
 def _det_J_1d_general(
-    H_expr    : Expr,
-    vars_phase: list,
-    traj      : dict,
-    tspan     : tuple,
-    n_steps   : int,
+    H_expr: Expr,
+    vars_phase: List[Symbol],
+    traj: Dict[str, np.ndarray],
+    tspan: Tuple[float, float],
+    n_steps: int,
 ) -> np.ndarray:
     """
     Integrate the 1D Jacobi scalar J(t) = ∂x(t)/∂p₀ for a **general**
@@ -2186,25 +2218,22 @@ def _det_J_1d_general(
 
 # ── Modified compute_wavefunction with parallel option ──────────────────────
 def compute_wavefunction(
-    metric       : Optional[Metric]  = None,
-    source       : Optional[Tuple]   = None,
-    v_fan        : Optional[np.ndarray] = None,
-    t_max        : Optional[float]   = None,
-    hbar         : float = 1.0,
-    n_steps      : int   = 400,
-    N_grid       : int   = 300,
-    xlim         : Optional[Tuple] = None,
-    ylim         : Optional[Tuple] = None,
-    integrator   : str   = 'verlet',
-    # ── general Hamiltonian interface ─────────────────────────
-    hamiltonian  : Optional[Expr]  = None,
-    coords       : Optional[Tuple]    = None,
-    momenta      : Optional[Tuple]    = None,
-    p_fan        : Optional[np.ndarray] = None,
-    # ── parallel execution control ────────────────────────────
-    parallel     : bool = True,
-    # ── equation type ─────────────────────────────────────────
-    equation     : str  = EquationType.SCHRODINGER,
+    metric: Optional[Metric] = None,
+    source: Optional[Tuple[float, ...]] = None,
+    v_fan: Optional[np.ndarray] = None,
+    t_max: Optional[float] = None,
+    hbar: float = 1.0,
+    n_steps: int = 400,
+    N_grid: int = 300,
+    xlim: Optional[Tuple[float, float]] = None,
+    ylim: Optional[Tuple[float, float]] = None,
+    integrator: str = 'verlet',
+    hamiltonian: Optional[Expr] = None,
+    coords: Optional[Tuple[Symbol, ...]] = None,
+    momenta: Optional[Tuple[Symbol, ...]] = None,
+    p_fan: Optional[np.ndarray] = None,
+    parallel: bool = True,
+    equation: str = EquationType.SCHRODINGER,
 ) -> WKBResult:
     """
     Compute the semiclassical (Van Vleck–Pauli–Morette) wavefunction.

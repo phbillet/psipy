@@ -127,7 +127,13 @@ class PDESolver:
     >>> ani = solver.animate()
     >>> HTML(ani.to_jshtml())  # Display animation in Jupyter notebook
     """
-    def __init__(self, equation, time_scheme='default', dealiasing_ratio=2/3, compute_energy=True):
+    def __init__(
+        self, 
+        equation: Eq, 
+        time_scheme: str = 'default', 
+        dealiasing_ratio: float = 2/3, 
+        compute_energy: bool = True
+    ) -> None:
         """
         Initialize the PDE solver with a given equation.
 
@@ -314,7 +320,12 @@ class PDESolver:
         self.work_history = []
         self.mechanical_energy_history = []
 
-    def _parse_equation(self, equation):
+    def _parse_equation(
+        self, 
+        equation: Union[Eq, Expr]
+    ) -> Tuple[Dict[Any, Expr], List[Expr], List[Tuple[Any, Expr]], List[Expr], List[Tuple[Any, Expr]]]:
+
+
         """
         Parse the PDE to separate linear and nonlinear terms, symbolic operators (Op), 
         source terms, and pseudo-differential operators (psiOp).
@@ -351,7 +362,7 @@ class PDESolver:
                 - Mixed terms involving both u and its derivatives
                 - External symbolic operators (Op) and pseudo-differential operators (psiOp)
         """
-        def _is_nonlinear_term(term, u_func):
+        def _is_nonlinear_term(term: Expr, u_func: Function) -> bool:
             """
             Determine whether a SymPy expression constitutes a nonlinear term
             with respect to the dependent variable u_func (e.g. u(t, x)).
@@ -380,16 +391,16 @@ class PDESolver:
                 True if the term is nonlinear in u_func, False otherwise.
             """
         
-            def _contains_u(expr):
+            def _contains_u(expr: Expr) -> bool:
                 """True if expr involves u or any Derivative of u."""
                 return expr.has(u_func)
         
-            def _is_derivative_of_u(expr):
+            def _is_derivative_of_u(expr: Expr) -> bool:
                 """True if expr is a Derivative whose function is u."""
                 return (isinstance(expr, Derivative)
                         and expr.args[0].func == u_func.func)
         
-            def _is_u_or_derivative(expr):
+            def _is_u_or_derivative(expr: Expr) -> bool:
                 """True if expr is u itself or a Derivative of u."""
                 return expr == u_func or _is_derivative_of_u(expr)
         
@@ -570,7 +581,7 @@ class PDESolver:
     
         return linear_terms, nonlinear_terms, symbol_terms, source_terms, pseudo_terms
 
-    def _compute_linear_operator(self):
+    def _compute_linear_operator(self) -> None:
         """
         Compute the symbolic Fourier representation L(k) of the linear operator 
         derived from the linear part of the PDE.
@@ -759,7 +770,8 @@ class PDESolver:
             print("\n--- Final linear operator ---")
             pprint(self.L_symbolic, num_columns=NUM_COLS)   
 
-    def _linear_rhs(self, u, is_v=False):
+
+    def _linear_rhs(self, u: np.ndarray, is_v: bool = False) -> np.ndarray:
         """
         Apply the linear operator (in Fourier space) to the field u or v.
 
@@ -786,8 +798,20 @@ class PDESolver:
         u_hat *= self.dealiasing_mask
         return self.ifft(u_hat)
 
-    def setup(self, Lx, Ly=None, Nx=None, Ny=None, Lt=1.0, Nt=100, boundary_condition='periodic',
-              initial_condition=None, initial_velocity=None, n_frames=100, plot=True):
+    def setup(
+        self, 
+        Lx: float, 
+        Ly: Optional[float] = None, 
+        Nx: Optional[int] = None, 
+        Ny: Optional[int] = None, 
+        Lt: float = 1.0, 
+        Nt: int = 100, 
+        boundary_condition: str = 'periodic',
+        initial_condition: Optional[Callable[..., np.ndarray]] = None, 
+        initial_velocity: Optional[Callable[..., np.ndarray]] = None, 
+        n_frames: int = 100, 
+        plot: bool = True
+    ) -> None:
         """
         Configure the spatial/temporal grid and initialize the solution field.
     
@@ -896,7 +920,7 @@ class PDESolver:
                 	if self.temporal_order == 2:
                 		self._analyze_wave_propagation()
 
-    def _setup_1D(self, Lx, Nx):
+    def _setup_1D(self, Lx: float, Nx: int) -> None:
         """
         Configure internal variables for one-dimensional (1D) problems.
     
@@ -971,7 +995,7 @@ class PDESolver:
                 omega_val = self.omega(self.KX)
                 self._setup_omega_terms(omega_val)
     
-    def _setup_2D(self, Lx, Ly, Nx, Ny):
+    def _setup_2D(self, Lx: float, Ly: float, Nx: int, Ny: int) -> None:
         """
         Configure internal variables for two-dimensional (2D) problems.
     
@@ -1054,7 +1078,7 @@ class PDESolver:
                 omega_val = self.omega(self.KX, self.KY)
                 self._setup_omega_terms(omega_val)
     
-    def _setup_omega_terms(self, omega_val):
+    def _setup_omega_terms(self, omega_val: np.ndarray) -> None:
         """
         Initialize terms derived from the angular frequency ω for time evolution.
     
@@ -1105,7 +1129,7 @@ class PDESolver:
         # For the zero mode, the correct factor is dt
         self.inv_omega[~nonzero] = self.dt
 
-    def _precompile_source_funcs(self):
+    def _precompile_source_funcs(self) -> None:
         """
         Pre-compile lambdified callables for all source terms.
 
@@ -1140,7 +1164,7 @@ class PDESolver:
             except Exception as e:
                 print(f"Warning: could not pre-compile source term {term}: {e}")
 
-    def _evaluate_source_at_t0(self):
+    def _evaluate_source_at_t0(self) -> np.ndarray:
         """
         Evaluate source terms at initial time t = 0 over the spatial grid.
     
@@ -1184,7 +1208,11 @@ class PDESolver:
                 for x_val in self.x_grid
             ], dtype=np.complex128)
     
-    def _initialize_conditions(self, initial_condition, initial_velocity):
+    def _initialize_conditions(
+        self, 
+        initial_condition: Callable[..., np.ndarray], 
+        initial_velocity: Optional[Callable[..., np.ndarray]] = None
+    ) -> None:
         """
         Initialize the solution and velocity fields at t = 0.
     
@@ -1256,7 +1284,7 @@ class PDESolver:
     
         self.frames = [self.u_prev.copy()]
            
-    def _apply_boundary(self, u):
+    def _apply_boundary(self, u: np.ndarray) -> None:
         """
         Apply boundary conditions to the solution array based on the specified type.
     
@@ -1320,7 +1348,7 @@ class PDESolver:
                 "Supported types are 'periodic', 'dirichlet' and 'neumann'."
             )
 
-    def _apply_nonlinear(self, u, is_v=False):
+    def _apply_nonlinear(self, u: np.ndarray, is_v: bool = False) -> np.ndarray:
         """
         Apply nonlinear terms to the solution using spectral differentiation with dealiasing.
     
@@ -1432,7 +1460,7 @@ class PDESolver:
     
         from sympy import Symbol, Tuple as SympyTuple
         
-        def _get_diff_order(deriv):
+        def _get_diff_order(deriv: Derivative) -> Optional[Tuple[str, int]]:
             """
             Normalise a SymPy Derivative atom to (variable_name, order) or None.
         
@@ -1542,7 +1570,7 @@ class PDESolver:
             X, Y   = self.X, self.Y
             t_sym, x_sym, y_sym, u_sym = self.t, self.x, self.y, self.u_eq
                 
-            def _eval_nl_term(term):
+            def _eval_nl_term(term: Expr) -> np.ndarray:
                 """Evaluate one nonlinear term; called directly or from a thread pool."""
                 from sympy import Symbol, Tuple as SympyTuple
             
@@ -1612,7 +1640,7 @@ class PDESolver:
     
         return nonlinear_term * self.dt
     
-    def _prepare_symbol_tables(self):
+    def _prepare_symbol_tables(self) -> None:
         """
         Precompute and store evaluated pseudo-differential operator symbols for spectral methods.
         
@@ -1670,7 +1698,7 @@ class PDESolver:
     
         self.combined_symbol = combined
 
-    def _total_symbol_expr(self):
+    def _total_symbol_expr(self) -> Expr:
         """
         Compute the total pseudo-differential symbol expression from all pseudo_terms.
         
@@ -1692,7 +1720,7 @@ class PDESolver:
             self.symbol_expr = sum(coeff * expr for coeff, expr in self.pseudo_terms)
         return self.symbol_expr
 
-    def _build_symbol_func(self, expr):
+    def _build_symbol_func(self, expr: Expr) -> Callable[..., np.ndarray]:
         """
         Build a numerical evaluation function from a symbolic pseudo-differential operator expression.
         
@@ -1725,7 +1753,12 @@ class PDESolver:
             x, y, xi, eta = symbols('x y xi eta', real=True)
             return lambdify((x, y, xi, eta), expr, 'numpy')
 
-    def _apply_psiOp(self, u, psi_ops=None, is_spatial=None):
+    def _apply_psiOp(
+        self, 
+        u: np.ndarray, 
+        psi_ops: Optional[List[Tuple[Any, Any]]] = None, 
+        is_spatial: Optional[bool] = None
+    ) -> np.ndarray:
         """
         Apply a pseudo-differential operator to the input field u.
         
@@ -1780,7 +1813,7 @@ class PDESolver:
         
         return result
 
-    def _step_order1_with_psi(self, source_contribution):
+    def _step_order1_with_psi(self, source_contribution: Union[np.ndarray, float, int]) -> np.ndarray:
         """
         Perform one time step of a first-order evolution using a pseudo-differential operator.
         
@@ -1813,7 +1846,7 @@ class PDESolver:
         else:
             source = source_contribution
 
-        def _spectral_filter(u, cutoff=0.8):
+        def _spectral_filter(u: np.ndarray, cutoff: float = 0.8) -> np.ndarray:
             if u.ndim == 1:
                 u_hat = self.fft(u)
                 N = len(u)
@@ -1889,7 +1922,8 @@ class PDESolver:
         self._apply_boundary(u_new)
         return u_new
 
-    def _step_order2_with_psi(self, source_contribution):
+    def _step_order2_with_psi(self, source_contribution: np.ndarray) -> np.ndarray:
+
         """
         Perform one time step of a second-order time evolution using a pseudo-differential operator.
         
@@ -1917,7 +1951,7 @@ class PDESolver:
         self.u = u_new
         return u_new
 
-    def solve(self):
+    def solve(self) -> List[np.ndarray]:
         """
         Solve the partial differential equation numerically using spectral methods.
         
@@ -2006,7 +2040,7 @@ class PDESolver:
 
         return self.frames  
                 
-    def solve_stationary_psiOp(self, order=3):
+    def solve_stationary_psiOp(self, order: int = 3) -> np.ndarray:
         """
         Solve stationary pseudo-differential equations of the form P[u] = f(x) or P[u] = f(x,y) using asymptotic inversion.
     
@@ -2185,7 +2219,7 @@ class PDESolver:
         self.u = u
         return u
     
-    def _eval_source(self, t_val):
+    def _eval_source(self, t_val: float) -> Union[np.ndarray, float]:
         """
         Evaluate the total source term f(x,t) (or f(x,y,t)) at a given time `t_val`.
         
@@ -2219,7 +2253,7 @@ class PDESolver:
         else:
             return 0.0
 
-    def _step_ETD_RK4_order1(self, u, t=0.0):
+    def _step_ETD_RK4_order1(self, u: np.ndarray, t: float = 0.0) -> np.ndarray:
         """
         Perform one Exponential Time Differencing Runge-Kutta 4th-order (ETD-RK4) time step 
         for first-order in time PDEs.
@@ -2302,7 +2336,7 @@ class PDESolver:
         return ifft(u_new_hat)
 
 
-    def _step_ETD_RK4_order2(self, u, v, t=0.0):
+    def _step_ETD_RK4_order2(self, u: np.ndarray, v: np.ndarray, t: float = 0.0) -> Tuple[np.ndarray, np.ndarray]:
         """
         Perform one time step of the ETD-RK4 scheme for second-order PDEs.
         
@@ -2366,7 +2400,7 @@ class PDESolver:
         return u_new, v_new
 
 
-    def _check_cfl_condition(self):
+    def _check_cfl_condition(self) -> None:
         """
         Check the CFL (Courant–Friedrichs–Lewy) condition based on group velocity 
         for second-order time-dependent PDEs.
@@ -2433,7 +2467,11 @@ class PDESolver:
         else:
             raise NotImplementedError("Only 1D and 2D problems are supported.")
 
-    def _check_symbol_conditions(self, k_range=None, verbose=True):
+    def _check_symbol_conditions(
+        self, 
+        k_range: Optional[Tuple[float, float, int]] = None, 
+        verbose: bool = True
+    ) -> None:
         """
         Check strict analytic conditions on the linear symbol `self.L_symbolic`.
         
@@ -2533,7 +2571,7 @@ class PDESolver:
             print("✔ Symbol analysis completed.")
 
 
-    def _analyze_wave_propagation(self):
+    def _analyze_wave_propagation(self) -> None:
         """
         Perform a detailed analysis of wave propagation characteristics based on the dispersion relation ω(k).
         
@@ -2629,7 +2667,12 @@ class PDESolver:
         else:
             print("❌ Only 1D and 2D wave analysis supported.")
         
-    def _plot_symbol(self, component="abs", k_range=None, cmap="viridis"):
+    def _plot_symbol(
+        self, 
+        component: str = "abs", 
+        k_range: Optional[Tuple[float, float, int]] = None, 
+        cmap: str = "viridis"
+    ) -> None:
         """
         Visualize the spectral symbol L(k) or L(kx, ky) in 1D or 2D.
         
@@ -2726,7 +2769,11 @@ class PDESolver:
         else:
             raise ValueError("Only 1D and 2D supported.")
             
-    def _compute_energy(self, t_val, source_contribution=0.0):
+    def _compute_energy(
+        self, 
+        t_val: float, 
+        source_contribution: Union[np.ndarray, float, int] = 0.0
+    ) -> Optional[float]:
             """
             Compute the total energy of the system at time `t_val`.
     
@@ -2841,7 +2888,7 @@ class PDESolver:
             
             return E_total
 
-    def plot_energy(self, log=False):
+    def plot_energy(self, log: bool = False) -> None:
         """
         Plot the temporal evolution of energy components and print conservation diagnostics.
 
@@ -2901,7 +2948,12 @@ class PDESolver:
         print(f"✅ Initial Total Energy: {E0:.6f}")
         print(f"✅ Max Relative Drift:   {drift:.2e}")
 
-    def show_stationary_solution(self, u=None, component='abs', cmap='viridis'):
+    def show_stationary_solution(
+        self, 
+        u: Optional[np.ndarray] = None, 
+        component: str = 'abs', 
+        cmap: str = 'viridis'
+    ) -> None:
         """
         Display the stationary solution computed by solve_stationary_psiOp.
 
@@ -2935,7 +2987,7 @@ class PDESolver:
         - In 1D, the solution is displayed using a standard line plot.
         - In 2D, the solution is visualized as a 3D surface plot.
         """
-        def _get_component(u):
+        def _get_component(u: np.ndarray) -> np.ndarray:
             if component == 'real':
                 return np.real(u)
             elif component == 'imag':
@@ -2977,7 +3029,13 @@ class PDESolver:
         else:
             raise ValueError("Only 1D and 2D display are supported.")
         
-    def animate(self, component='abs', overlay='contour', mode='surface', physical=True):
+    def animate(
+        self, 
+        component: str = 'abs', 
+        overlay: Optional[str] = 'contour', 
+        mode: str = 'surface', 
+        physical: bool = True
+    ) -> FuncAnimation:
         """
         Create an animated plot of the solution evolution over time.
     
@@ -3029,7 +3087,7 @@ class PDESolver:
           before drawing the next frame to avoid memory/visual accumulation.
         - Animation interval is 50 ms per frame (unchanged).
         """
-        def _get_component(u):
+        def _get_component(u: np.ndarray) -> np.ndarray:
             if component == 'real':
                 return np.real(u)
             elif component == 'imag':
@@ -3272,7 +3330,14 @@ class PDESolver:
             plt.close(fig)
             return ani
 
-    def test(self, u_exact, t_eval=None, norm='relative', threshold=1e-2, component='real'):
+    def test(
+        self, 
+        u_exact: Callable[..., np.ndarray], 
+        t_eval: Optional[float] = None, 
+        norm: str = 'relative', 
+        threshold: float = 1e-2, 
+        component: str = 'real'
+    ) -> float:
         """
         Test the solver against an exact solution.
         

@@ -14,7 +14,7 @@ import itertools
 import multiprocessing
 import os
 import sys
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union, overload
+from typing import Any, Callable, Dict, Generator, Iterable, List, Literal, Optional, Sequence, Tuple, Union, overload
 
 import warnings
 
@@ -31,6 +31,7 @@ import soundfile as sf
 # ==============================================================================
 import numpy as np
 from numpy.linalg import svd
+from numpy.typing import NDArray
 
 # Enable complex square root handling globally
 np.sqrt = np.lib.scimath.sqrt
@@ -172,6 +173,7 @@ from sympy import (
 from sympy.core.function import AppliedUndef
 from sympy.core.numbers import One, Zero
 from sympy.matrices import eye
+from sympy.matrices.matrixbase import MatrixBase
 
 # Complex and Structural Functions
 from sympy import (
@@ -222,6 +224,8 @@ from matplotlib.animation import FFMpegWriter, FuncAnimation
 import matplotlib.colors as mcolors
 from matplotlib.colors import LinearSegmentedColormap, LogNorm
 from matplotlib.gridspec import GridSpec
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 # Matplotlib Modules & Utilities
 import matplotlib.patches as patches

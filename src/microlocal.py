@@ -70,7 +70,10 @@ from caustics import *
 # ----------------------------------------------------------------------
 # Dimension detection helper (used internally by microlocal functions)
 # ----------------------------------------------------------------------
-def _infer_dim(symbol, dim=None):
+def _infer_dim(
+    symbol: Expr, 
+    dim: Optional[int] = None
+) -> int:
     """
     Infer the spatial dimension (1 or 2) from a SymPy symbol or an explicit argument.
 
@@ -106,7 +109,11 @@ def _infer_dim(symbol, dim=None):
 # ----------------------------------------------------------------------
 # Characteristic variety
 # ----------------------------------------------------------------------
-def characteristic_variety(symbol, dim=None, tol=1e-08):
+def characteristic_variety(
+    symbol: Expr, 
+    dim: Optional[int] = None, 
+    tol: float = 1e-08
+) -> Dict[str, Any]:
     """
     Compute the characteristic variety of a pseudo-differential operator.
     
@@ -157,7 +164,14 @@ def characteristic_variety(symbol, dim=None, tol=1e-08):
 # ----------------------------------------------------------------------
 # Bicharacteristic flow
 # ----------------------------------------------------------------------
-def bicharacteristic_flow(symbol, z0, tspan, dim=None, method='symplectic', n_steps=1000):
+def bicharacteristic_flow(
+    symbol: Expr,
+    z0: Sequence[float],
+    tspan: Tuple[float, float],
+    dim: Optional[int] = None,
+    method: Literal['rk45', 'symplectic', 'verlet', 'hamiltonian'] = 'symplectic',
+    n_steps: int = 1000
+) -> Dict[str, np.ndarray]:
     """
     Integrate the bicharacteristic flow on the cotangent bundle.
 
@@ -192,7 +206,13 @@ def bicharacteristic_flow(symbol, z0, tspan, dim=None, method='symplectic', n_st
     else:
         return _bichar_flow_2d(symbol, z0, tspan, method, n_steps)
 
-def _bichar_flow_1d(symbol, z0, tspan, method, n_steps):
+def _bichar_flow_1d(
+    symbol: Expr,
+    z0: Sequence[float],
+    tspan: Tuple[float, float],
+    method: str,
+    n_steps: int
+) -> Dict[str, np.ndarray]:
     """
     Integrate the 1D bicharacteristic flow and the associated stability matrix.
 
@@ -331,7 +351,13 @@ def _bichar_flow_1d(symbol, z0, tspan, method, n_steps):
     else:
         raise ValueError('Invalid method for 1D flow')
 
-def _bichar_flow_2d(symbol, z0, tspan, method, n_steps):
+def _bichar_flow_2d(
+    symbol: Expr,
+    z0: Sequence[float],
+    tspan: Tuple[float, float],
+    method: str,
+    n_steps: int
+) -> Dict[str, np.ndarray]:
     """
     Compute the bicharacteristic (Hamiltonian) flow for a 2D symbol
     and the associated stability matrix.
@@ -472,7 +498,13 @@ def _bichar_flow_2d(symbol, z0, tspan, method, n_steps):
 # ----------------------------------------------------------------------
 # 1D‑specific functions (Bohr–Sommerfeld, caustic detection)
 # ----------------------------------------------------------------------
-def bohr_sommerfeld_quantization(H, n_max=10, x_range=(-10, 10), hbar=1.0, E_range=(1e-06, 50.0)):
+def bohr_sommerfeld_quantization(
+    H: Expr,
+    n_max: int = 10,
+    x_range: Tuple[float, float] = (-10, 10),
+    hbar: float = 1.0,
+    E_range: Tuple[float, float] = (1e-06, 50.0)
+) -> Dict[str, Any]:
     """
     Compute Bohr-Sommerfeld quantization for 1D bound states.
 
@@ -551,7 +583,12 @@ def bohr_sommerfeld_quantization(H, n_max=10, x_range=(-10, 10), hbar=1.0, E_ran
         quantum_numbers.append(n)
     return {'n': np.array(quantum_numbers), 'E_n': np.array(energies), 'actions': np.array(actions), 'hbar': hbar, 'alpha': alpha}
 
-def find_caustics_1d(symbol, x_range, xi_range, resolution=100):
+def find_caustics_1d(
+    symbol: Expr,
+    x_range: Tuple[float, float],
+    xi_range: Tuple[float, float],
+    resolution: int = 100
+) -> Dict[str, Union[np.ndarray, float]]:
     """
     Find caustics (envelope of bicharacteristics) in 1D.
 
@@ -587,7 +624,13 @@ def find_caustics_1d(symbol, x_range, xi_range, resolution=100):
     Z = np.abs(func(X, XI))
     return {'x_grid': X, 'xi_grid': XI, 'caustic_indicator': Z, 'threshold': np.percentile(Z, 10)}
 
-def propagate_singularity(symbol, initial_sing_support, tspan, dim=None, n_samples=None):
+def propagate_singularity(
+    symbol: Expr,
+    initial_sing_support: List[Sequence[float]],
+    tspan: Tuple[float, float],
+    dim: Optional[int] = None,
+    n_samples: Optional[int] = None
+) -> Dict[str, Any]:
     """
     Propagate singular support along bicharacteristics.
 
@@ -624,7 +667,14 @@ def propagate_singularity(symbol, initial_sing_support, tspan, dim=None, n_sampl
 # ----------------------------------------------------------------------
 # Visualisation functions (non‑WKB)
 # ----------------------------------------------------------------------
-def plot_characteristic_set(symbol, x_range, xi_range, dim=None, resolution=200, **kwargs):
+def plot_characteristic_set(
+    symbol: Expr,
+    x_range: Tuple[float, float],
+    xi_range: Tuple[float, float],
+    dim: Optional[int] = None,
+    resolution: int = 200,
+    **kwargs: Any
+) -> None:
     """
     Plot the characteristic variety (zero set of the principal symbol).
 
@@ -695,7 +745,14 @@ def plot_characteristic_set(symbol, x_range, xi_range, dim=None, resolution=200,
         plt.tight_layout()
         plt.show()
 
-def plot_bicharacteristics(symbol, initial_points, tspan, dim=None, projection='position', **kwargs):
+def plot_bicharacteristics(
+    symbol: Expr,
+    initial_points: List[Sequence[float]],
+    tspan: Tuple[float, float],
+    dim: Optional[int] = None,
+    projection: Literal['position', 'frequency', 'mixed'] = 'position',
+    **kwargs: Any
+) -> None:
     """
     Plot bicharacteristic curves (Hamiltonian flow trajectories).
 
@@ -765,7 +822,19 @@ def plot_bicharacteristics(symbol, initial_points, tspan, dim=None, projection='
     plt.tight_layout()
     plt.show()
 
-def plot_wavefront_set(symbol, initial_sing_support, tspan, dim=None, projection='cotangent', n_steps=500, cmap='plasma', show_flow=True, show_endpoints=True, title=None, ax=None):
+def plot_wavefront_set(
+    symbol: Expr,
+    initial_sing_support: List[Sequence[float]],
+    tspan: Tuple[float, float],
+    dim: Optional[int] = None,
+    projection: str = 'cotangent',
+    n_steps: int = 500,
+    cmap: str = 'plasma',
+    show_flow: bool = True,
+    show_endpoints: bool = True,
+    title: Optional[str] = None,
+    ax: Optional[Union[Axes, Sequence[Axes]]] = None
+) -> Tuple[Figure, Union[Axes, np.ndarray]]:
     """
     Plot the wavefront set WF(u) of a distribution u whose singularities
     propagate along bicharacteristics of the operator with symbol p.
@@ -942,7 +1011,9 @@ def plot_wavefront_set(symbol, initial_sing_support, tspan, dim=None, projection
     plt.tight_layout()
     return (fig, axes)
 
-def compute_maslov_index(traj):
+def compute_maslov_index(
+    traj: Dict[str, np.ndarray]
+) -> int:
     """
     Compute the Maslov index for a single trajectory.
     
@@ -961,7 +1032,13 @@ def compute_maslov_index(traj):
     detector.detect()
     return detector.maslov_index(0)
 
-def compute_caustics_2d(p, initial_curve, tmax, n_rays=None, **kwargs):
+def compute_caustics_2d(
+    p: Expr,
+    initial_curve: Dict[str, Sequence[float]],
+    tmax: float,
+    n_rays: Optional[int] = None,
+    **kwargs: Any
+) -> List[Any]:
     """
     Compute caustics for a 2D Hamiltonian given an initial curve.
 
@@ -1019,7 +1096,18 @@ def compute_caustics_2d(p, initial_curve, tmax, n_rays=None, **kwargs):
 # ---- low-level rendering helpers (shared by the op-visualization and
 #      characteristic-set/wavefront plots below) --------------------
 
-def _slice_grid(op, kind, x_grid=None, xi_grid=None, y_grid=None, eta_grid=None, x0=0.0, y0=0.0, xi0=0.0, eta0=0.0):
+def _slice_grid(
+    op: Any,
+    kind: Literal['freq', 'space'],
+    x_grid: Optional[np.ndarray] = None,
+    xi_grid: Optional[np.ndarray] = None,
+    y_grid: Optional[np.ndarray] = None,
+    eta_grid: Optional[np.ndarray] = None,
+    x0: float = 0.0,
+    y0: float = 0.0,
+    xi0: float = 0.0,
+    eta0: float = 0.0
+) -> Tuple[np.ndarray, np.ndarray, str, str, np.ndarray]:
     """Evaluate op.p_func over one canonical 2D slice of phase space.
 
     kind='freq'  : 1D -> vary (x, xi).   2D -> fix (x0, y0), vary (xi, eta).
@@ -1041,9 +1129,21 @@ def _slice_grid(op, kind, x_grid=None, xi_grid=None, y_grid=None, eta_grid=None,
     Z = op.p_func(x0, y0, A, B)
     return (xi_grid, eta_grid, '$\\xi$', '$\\eta$', Z)
 
-def _render_field(ax1, ax2, Z, style='pcolormesh', cmap='viridis', cbar_label=None, 
-                 xlabel='x', ylabel='$\\xi$', title='', levels=50, 
-                 contour_color='red', grid=False, show=True):
+def _render_field(
+    ax1: np.ndarray,
+    ax2: np.ndarray,
+    Z: np.ndarray,
+    style: Literal['pcolormesh', 'contourf', 'contour'] = 'pcolormesh',
+    cmap: str = 'viridis',
+    cbar_label: Optional[str] = None,
+    xlabel: str = 'x',
+    ylabel: str = '$\\xi$',
+    title: str = '',
+    levels: Union[int, Sequence[float]] = 50,
+    contour_color: str = 'red',
+    grid: bool = False,
+    show: bool = True
+) -> None:
     """
     Render a 2D scalar field using pcolormesh, contourf, or contour.
 
@@ -1094,7 +1194,9 @@ def _render_field(ax1, ax2, Z, style='pcolormesh', cmap='viridis', cbar_label=No
     if show:
         plt.show()
 
-def _grad_norm(Z):
+def _grad_norm(
+    Z: np.ndarray
+) -> np.ndarray:
     """|grad Z| over a 2D array, using a consistent abs()**2 convention on
     both axes (see visualize_characteristic_gradient's note: this unifies
     an inconsistency that used to exist between its 1D and 2D branches)."""
@@ -1102,7 +1204,19 @@ def _grad_norm(Z):
     gy = np.gradient(Z, axis=1)
     return np.sqrt(np.abs(gx) ** 2 + np.abs(gy) ** 2)
 
-def _quiver_colored(ax, X, Y, U, V, cmap='viridis', scale=25, width=0.004, colorbar=True, cbar_label='|field|', **quiver_kwargs):
+def _quiver_colored(
+    ax: Any,
+    X: np.ndarray,
+    Y: np.ndarray,
+    U: np.ndarray,
+    V: np.ndarray,
+    cmap: str = 'viridis',
+    scale: float = 25,
+    width: float = 0.004,
+    colorbar: bool = True,
+    cbar_label: str = '|field|',
+    **quiver_kwargs: Any
+) -> Any:
     """Draw a quiver field with fixed-length arrows, colored by magnitude.
 
     Plain `plt.quiver(X, Y, U, V)` sizes each arrow by its own (U, V)
@@ -1159,7 +1273,18 @@ def _quiver_colored(ax, X, Y, U, V, cmap='viridis', scale=25, width=0.004, color
         fig.colorbar(q, ax=ax if hasattr(ax, 'figure') else plt.gca(), label=cbar_label)
     return q
 
-def _quiver_field(op, xlim, klim, density, vec_exprs_fn, title, scale=25, width=0.004, cmap='viridis', cbar_label='|field|'):
+def _quiver_field(
+    op: Any,
+    xlim: Tuple[float, float],
+    klim: Tuple[float, float],
+    density: int,
+    vec_exprs_fn: Callable[[Expr, Symbol, Symbol], Tuple[Expr, Expr]],
+    title: str,
+    scale: float = 25,
+    width: float = 0.004,
+    cmap: str = 'viridis',
+    cbar_label: str = '|field|'
+) -> None:
     """1D-only quiver plot of a vector field derived from the symbol.
 
     Arrows are drawn at fixed length; the field's local magnitude is
@@ -1188,7 +1313,9 @@ def _quiver_field(op, xlim, klim, density, vec_exprs_fn, title, scale=25, width=
     plt.grid(True)
     plt.show()
 
-def _make_real(expr):
+def _make_real(
+    expr: Expr
+) -> Expr:
     """Re(expr), fully evaluated -- used when a Hamiltonian field may come
     out complex-valued from sympy but only the real part is physically
     meaningful for the flow."""
@@ -1199,7 +1326,13 @@ def _make_real(expr):
 #      op.p_func / op.dim / op.vars_x / op.symbol / op.symplectic_flow /
 #      op.expr) -------------------------------------------------------
 
-def visualize_fiber(op, x_grid, xi_grid, x0=0.0, y0=0.0):
+def visualize_fiber(
+    op: Any,
+    x_grid: np.ndarray,
+    xi_grid: np.ndarray,
+    x0: float = 0.0,
+    y0: float = 0.0
+) -> None:
     """
     Plot the cotangent fiber structure at a fixed spatial point (x₀[, y₀]).
 
@@ -1236,7 +1369,15 @@ def visualize_fiber(op, x_grid, xi_grid, x0=0.0, y0=0.0):
     title = 'Cotangent Fiber Structure' if op.dim == 1 else f'Cotangent Fiber at x={x0}, y={y0}'
     _render_field(a1, a2, np.abs(Z), style='contourf', cbar_label='|Symbol|', xlabel=l1, ylabel=l2, title=title)
 
-def visualize_symbol_amplitude(op, x_grid, xi_grid, y_grid=None, eta_grid=None, xi0=0.0, eta0=0.0):
+def visualize_symbol_amplitude(
+    op: Any,
+    x_grid: np.ndarray,
+    xi_grid: np.ndarray,
+    y_grid: Optional[np.ndarray] = None,
+    eta_grid: Optional[np.ndarray] = None,
+    xi0: float = 0.0,
+    eta0: float = 0.0
+) -> None:
     """
     Display the modulus |p(x, ξ)| or |p(x, y, ξ₀, η₀)| as a color map.
 
@@ -1268,7 +1409,15 @@ def visualize_symbol_amplitude(op, x_grid, xi_grid, y_grid=None, eta_grid=None, 
     title = 'Symbol Amplitude |p(x, ξ)|' if op.dim == 1 else f'Symbol Amplitude at ξ={xi0}, η={eta0}'
     _render_field(a1, a2, np.abs(Z), style='pcolormesh', cbar_label='|Symbol|', xlabel=l1, ylabel=l2, title=title)
 
-def visualize_phase(op, x_grid, xi_grid, y_grid=None, eta_grid=None, xi0=0.0, eta0=0.0):
+def visualize_phase(
+    op: Any,
+    x_grid: np.ndarray,
+    xi_grid: np.ndarray,
+    y_grid: Optional[np.ndarray] = None,
+    eta_grid: Optional[np.ndarray] = None,
+    xi0: float = 0.0,
+    eta0: float = 0.0
+) -> None:
     """
     Plot the phase (argument) of the pseudodifferential operator's symbol p(x, ξ) or p(x, y, ξ, η).
 
@@ -1307,7 +1456,16 @@ def visualize_phase(op, x_grid, xi_grid, y_grid=None, eta_grid=None, xi0=0.0, et
     title = 'Phase Portrait (arg p(x, ξ))' if op.dim == 1 else f'Phase Portrait at ξ={xi0}, η={eta0}'
     _render_field(a1, a2, np.angle(Z), style='pcolormesh', cmap='twilight', cbar_label='arg(Symbol) [rad]', xlabel=l1, ylabel=l2, title=title)
 
-def visualize_characteristic_set(op, x_grid, xi_grid, y_grid=None, eta_grid=None, y0=0.0, x0=0.0, levels=[0.1]):
+def visualize_characteristic_set(
+    op: Any,
+    x_grid: np.ndarray,
+    xi_grid: np.ndarray,
+    y_grid: Optional[np.ndarray] = None,
+    eta_grid: Optional[np.ndarray] = None,
+    y0: float = 0.0,
+    x0: float = 0.0,
+    levels: Sequence[float] = [0.1]
+) -> None:
     """
     Visualize the characteristic set of the pseudo-differential symbol, defined as the approximate zero set p(x, ξ) ≈ 0.
 
@@ -1353,7 +1511,15 @@ def visualize_characteristic_set(op, x_grid, xi_grid, y_grid=None, eta_grid=None
     title = 'Characteristic Set (p(x, ξ) ≈ 0)' if op.dim == 1 else f'Characteristic Set at x={x0}, y={y0}'
     _render_field(a1, a2, np.abs(Z), style='contour', levels=levels, xlabel=l1, ylabel=l2, title=title, grid=True)
 
-def visualize_characteristic_gradient(op, x_grid, xi_grid, y_grid=None, eta_grid=None, y0=0.0, x0=0.0):
+def visualize_characteristic_gradient(
+    op: Any,
+    x_grid: np.ndarray,
+    xi_grid: np.ndarray,
+    y_grid: Optional[np.ndarray] = None,
+    eta_grid: Optional[np.ndarray] = None,
+    y0: float = 0.0,
+    x0: float = 0.0
+) -> None:
     """
     Visualize the norm of the gradient of the symbol in phase space.
     
@@ -1396,7 +1562,16 @@ def visualize_characteristic_gradient(op, x_grid, xi_grid, y_grid=None, eta_grid
     title = 'Gradient Norm (High Near Zeros)' if op.dim == 1 else f'Gradient Norm at x={x0}, y={y0}'
     _render_field(a1, a2, _grad_norm(Z), style='pcolormesh', cmap='inferno', cbar_label='|∇p|', xlabel=l1, ylabel=l2, title=title, grid=True)
 
-def plot_hamiltonian_flow(op, x0=0.0, xi0=5.0, y0=0.0, eta0=0.0, tmax=1.0, n_steps=100, show_field=True):
+def plot_hamiltonian_flow(
+    op: Any,
+    x0: float = 0.0,
+    xi0: float = 5.0,
+    y0: float = 0.0,
+    eta0: float = 0.0,
+    tmax: float = 1.0,
+    n_steps: int = 100,
+    show_field: bool = True
+) -> None:
     """
     Integrate and plot the Hamiltonian trajectories of the symbol in phase space.
 
@@ -1473,7 +1648,12 @@ def plot_hamiltonian_flow(op, x0=0.0, xi0=5.0, y0=0.0, eta0=0.0, tmax=1.0, n_ste
         plt.axis('equal')
         plt.show()
 
-def plot_symplectic_vector_field(op, xlim=(-2, 2), klim=(-5, 5), density=30):
+def plot_symplectic_vector_field(
+    op: Any,
+    xlim: Tuple[float, float] = (-2, 2),
+    klim: Tuple[float, float] = (-5, 5),
+    density: int = 30
+) -> None:
     """
     Visualize the symplectic vector field (Hamiltonian vector field) associated with the operator's symbol.
 
@@ -1506,7 +1686,15 @@ def plot_symplectic_vector_field(op, xlim=(-2, 2), klim=(-5, 5), density=30):
     """
     _quiver_field(op, xlim, klim, density, lambda p, x, xi: (diff(p, xi), -diff(p, x)), 'Symplectic Vector Field (1D)')
 
-def visualize_micro_support(op, xlim=(-2, 2), klim=(-10, 10), threshold=0.001, density=300, xi0=0.0, eta0=0.0):
+def visualize_micro_support(
+    op: Any,
+    xlim: Tuple[float, float] = (-2, 2),
+    klim: Tuple[float, float] = (-10, 10),
+    threshold: float = 0.001,
+    density: int = 300,
+    xi0: float = 0.0,
+    eta0: float = 0.0
+) -> None:
     """
     Visualize the micro-support of the operator by plotting the inverse of the symbol magnitude 1 / |p(x, ξ)|.
 
@@ -1549,7 +1737,12 @@ def visualize_micro_support(op, xlim=(-2, 2), klim=(-10, 10), threshold=0.001, d
     title = 'Micro-Support Estimate (1/|Symbol|)' if op.dim == 1 else f'Micro-Support Estimate at ξ={xi0}, η={eta0}'
     _render_field(a1, a2, 1 / (np.abs(Z) + 1e-10), style='contourf', cmap='inferno', cbar_label='$1/|p(x,\\xi)|$', xlabel=l1, ylabel=l2, title=title)
 
-def group_velocity_field(op, xlim=(-2, 2), klim=(-10, 10), density=30):
+def group_velocity_field(
+    op: Any,
+    xlim: Tuple[float, float] = (-2, 2),
+    klim: Tuple[float, float] = (-10, 10),
+    density: int = 30
+) -> None:
     """
     Plot the group velocity field ∇_ξ p(x, ξ) for 1D pseudo-differential operators.
 
@@ -1582,7 +1775,16 @@ def group_velocity_field(op, xlim=(-2, 2), klim=(-10, 10), density=30):
     """
     _quiver_field(op, xlim, klim, density, lambda p, x, xi: (Integer(1), diff(p, xi)), 'Group Velocity Field (1D)')
 
-def _default_wavefront_seeds(op, x0=0.0, y0=0.0, xi0=1.0, eta0=0.0, spread=2.0, n_seeds=25, radius=0.15):
+def _default_wavefront_seeds(
+    op: Any,
+    x0: float = 0.0,
+    y0: float = 0.0,
+    xi0: float = 1.0,
+    eta0: float = 0.0,
+    spread: float = 2.0,
+    n_seeds: int = 25,
+    radius: float = 0.15
+) -> List[Tuple[float, ...]]:
     """Auto-generate seed singularities for visualize_wavefront_set.
 
     1D: a fan of frequencies xi in [xi0 - spread, xi0 + spread] at the fixed
@@ -1602,9 +1804,24 @@ def _default_wavefront_seeds(op, x0=0.0, y0=0.0, xi0=1.0, eta0=0.0, spread=2.0, 
     mag = float(np.hypot(xi0, eta0)) or 1.0
     return [(x0 + radius * np.cos(a), y0 + radius * np.sin(a), mag * np.cos(a), mag * np.sin(a)) for a in angles]
 
-def visualize_wavefront_set(op, seeds=None, tspan=(0, 3.0), projection='cotangent', n_steps=500, 
-                            cmap='plasma', show_flow=True, show_endpoints=True, title=None, x0=0.0, 
-                            y0=0.0, xi0=1.0, eta0=0.0, spread=2.0, n_seeds=25, radius=0.15):
+def visualize_wavefront_set(
+    op: Any,
+    seeds: Optional[List[Sequence[float]]] = None,
+    tspan: Tuple[float, float] = (0, 3.0),
+    projection: str = 'cotangent',
+    n_steps: int = 500,
+    cmap: str = 'plasma',
+    show_flow: bool = True,
+    show_endpoints: bool = True,
+    title: Optional[str] = None,
+    x0: float = 0.0,
+    y0: float = 0.0,
+    xi0: float = 1.0,
+    eta0: float = 0.0,
+    spread: float = 2.0,
+    n_seeds: int = 25,
+    radius: float = 0.15
+) -> Tuple[Figure, Union[Axes, np.ndarray]]:
     """
     Visualize the wavefront set WF(u) obtained by propagating seed singularities 
     along the bicharacteristics of the operator's symbol.
@@ -1655,7 +1872,16 @@ def visualize_wavefront_set(op, seeds=None, tspan=(0, 3.0), projection='cotangen
         seeds = _default_wavefront_seeds(op, x0=x0, y0=y0, xi0=xi0, eta0=eta0, spread=spread, n_seeds=n_seeds, radius=radius)
     return plot_wavefront_set(op.symbol, seeds, tspan, dim=op.dim, projection=projection, n_steps=n_steps, cmap=cmap, show_flow=show_flow, show_endpoints=show_endpoints, title=title)
 
-def animate_operator_singularity(op, xi0=5.0, eta0=0.0, x0=0.0, y0=0.0, tmax=4.0, n_frames=100, projection=None):
+def animate_operator_singularity(
+    op: Any,
+    xi0: float = 5.0,
+    eta0: float = 0.0,
+    x0: float = 0.0,
+    y0: float = 0.0,
+    tmax: float = 4.0,
+    n_frames: int = 100,
+    projection: Optional[str] = None
+) -> FuncAnimation:
     """Animate the propagation of a singularity under the Hamiltonian
     flow. Thin delegate to the module-level `animate_singularity`
     engine (previously ~130 lines of duplicated Hamiltonian/ODE setup
@@ -1667,7 +1893,14 @@ def animate_operator_singularity(op, xi0=5.0, eta0=0.0, x0=0.0, y0=0.0, tmax=4.0
         projection = 'phase' if op.dim == 1 else 'position'
     return animate_singularity(op.symbol, op.vars_x, x0=x0v, xi0=xi0v, tmax=tmax, n_frames=n_frames, projection=projection)
 
-def interactive_symbol_analysis(pseudo_op, xlim=(-2, 2), ylim=(-2, 2), xi_range=(0.1, 5), eta_range=(-5, 5), density=50):
+def interactive_symbol_analysis(
+    pseudo_op: Any,
+    xlim: Tuple[float, float] = (-2, 2),
+    ylim: Tuple[float, float] = (-2, 2),
+    xi_range: Tuple[float, float] = (0.1, 5),
+    eta_range: Tuple[float, float] = (-5, 5),
+    density: int = 50
+) -> None:
     """
     Launch an interactive dashboard for symbol exploration using ipywidgets.
 
@@ -1819,7 +2052,13 @@ def interactive_symbol_analysis(pseudo_op, xlim=(-2, 2), ylim=(-2, 2), xi_range=
     out = interactive_output(render, interactive_kwargs)
     display(VBox([controls_box, out]))
 
-def plot_pseudospectrum(Lambda, resolvent_norm, sigma_min_grid, epsilon_levels, eigenvalues):
+def plot_pseudospectrum(
+    Lambda: np.ndarray,
+    resolvent_norm: np.ndarray,
+    sigma_min_grid: np.ndarray,
+    epsilon_levels: Sequence[float],
+    eigenvalues: Optional[np.ndarray]
+) -> None:
     """
     Plot pseudospectrum results.
     
@@ -1881,7 +2120,9 @@ def plot_pseudospectrum(Lambda, resolvent_norm, sigma_min_grid, epsilon_levels, 
 #      the time-stepping solvers, and bicharacteristic/singularity
 #      trajectory animations) ---------------------------------------
 
-def _matrix_of(s_expr):
+def _matrix_of(
+    s_expr: Union[Expr, MatrixBase, Sequence[Any]]
+) -> Matrix:
     """
     Coerce a symbol expression into a sympy Matrix.
 
@@ -1909,7 +2150,9 @@ def _matrix_of(s_expr):
         return Matrix(s_expr)
     return Matrix([[s_expr]])
 
-def _quantity_fn(quantity):
+def _quantity_fn(
+    quantity: Literal['real', 'imag', 'abs']
+) -> Callable[[np.ndarray], np.ndarray]:
     """
     Map a string identifier to the corresponding NumPy function.
 
@@ -1934,7 +2177,10 @@ def _quantity_fn(quantity):
         raise ValueError("quantity must be 'real', 'imag', or 'abs'")
 
 
-def _finish_headless(fig, save_path=None):
+def _finish_headless(
+    fig: Figure,
+    save_path: Optional[str] = None
+) -> Figure:
     """
     Finalize a matplotlib figure for headless rendering or saving.
 
@@ -1959,8 +2205,15 @@ def _finish_headless(fig, save_path=None):
     return fig
 
 
-def plot_scalar_1d(t, U, x, title="u(x, t)", quantity='real',
-                   n_snapshots=6, save_path=None):
+def plot_scalar_1d(
+    t: np.ndarray,
+    U: np.ndarray,
+    x: np.ndarray,
+    title: str = "u(x, t)",
+    quantity: Literal['real', 'imag', 'abs'] = 'real',
+    n_snapshots: int = 6,
+    save_path: Optional[str] = None
+) -> Figure:
     """
     Plot a scalar 1D space-time solution as a combined heatmap and
     snapshot overlay.
@@ -2007,7 +2260,14 @@ def plot_scalar_1d(t, U, x, title="u(x, t)", quantity='real',
     return _finish_headless(fig, save_path)
 
 
-def plot_matrix_1d(t, U, x, labels=None, quantity='real', save_path=None):
+def plot_matrix_1d(
+    t: np.ndarray,
+    U: np.ndarray,
+    x: np.ndarray,
+    labels: Optional[List[str]] = None,
+    quantity: Literal['real', 'imag', 'abs'] = 'real',
+    save_path: Optional[str] = None
+) -> Figure:
     """
     Plot each component of a matrix-valued 1D solution as a stacked
     space-time heatmap.
@@ -2050,7 +2310,15 @@ def plot_matrix_1d(t, U, x, labels=None, quantity='real', save_path=None):
     return _finish_headless(fig, save_path)
 
 
-def plot_scalar_2d(t, U, x, y, times=None, quantity='real', save_path=None):
+def plot_scalar_2d(
+    t: np.ndarray,
+    U: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
+    times: Optional[Sequence[int]] = None,
+    quantity: Literal['real', 'imag', 'abs'] = 'real',
+    save_path: Optional[str] = None
+) -> Figure:
     """
     Plot a scalar 2D solution at selected time instants as a row of
     side-by-side pcolormesh panels.
@@ -2094,7 +2362,14 @@ def plot_scalar_2d(t, U, x, y, times=None, quantity='real', save_path=None):
     return _finish_headless(fig, save_path)
 
 
-def animate_scalar_1d(t, U, x, quantity='real', interval=40, save_path=None):
+def animate_scalar_1d(
+    t: np.ndarray,
+    U: np.ndarray,
+    x: np.ndarray,
+    quantity: Literal['real', 'imag', 'abs'] = 'real',
+    interval: int = 40,
+    save_path: Optional[str] = None
+) -> FuncAnimation:
     """
     Animate a scalar 1D solution as a line plot evolving in time.
     
@@ -2144,7 +2419,11 @@ def animate_scalar_1d(t, U, x, quantity='real', interval=40, save_path=None):
 # *grid) doesn't fit plot_matrix_1d's (n_saved, size, *grid). These fill
 # that gap.
 
-def _matrix_field_reduce(U, component, quantity):
+def _matrix_field_reduce(
+    U: np.ndarray,
+    component: Union[Literal['trace', 'frobenius', 'diag'], Tuple[int, int]],
+    quantity: Literal['real', 'imag', 'abs']
+) -> Tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
     """Reduce a (n_saved, N, N, *grid) matrix-field array to a single
     real/complex scalar field (n_saved, *grid), per `component`."""
     if component == 'trace':
@@ -2159,7 +2438,15 @@ def _matrix_field_reduce(U, component, quantity):
     return U[:, i, j, ...], _quantity_fn(quantity)
 
 
-def plot_matrix_field_1d(t, U, x, quantity='abs', component='diag', labels=None, save_path=None):
+def plot_matrix_field_1d(
+    t: np.ndarray,
+    U: np.ndarray,
+    x: np.ndarray,
+    quantity: Literal['real', 'imag', 'abs'] = 'abs',
+    component: Union[Literal['diag', 'trace', 'frobenius'], Tuple[int, int]] = 'diag',
+    labels: Optional[List[str]] = None,
+    save_path: Optional[str] = None
+) -> Figure:
     """
     Space-time heatmap(s) for a matrix-valued 1D solution.
     
@@ -2216,7 +2503,16 @@ def plot_matrix_field_1d(t, U, x, quantity='abs', component='diag', labels=None,
     return _finish_headless(fig, save_path)
 
 
-def plot_matrix_field_2d(t, U, x, y, times=None, quantity='abs', component='trace', save_path=None):
+def plot_matrix_field_2d(
+    t: np.ndarray,
+    U: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
+    times: Optional[Sequence[int]] = None,
+    quantity: Literal['real', 'imag', 'abs'] = 'abs',
+    component: Union[Literal['trace', 'frobenius'], Tuple[int, int]] = 'trace',
+    save_path: Optional[str] = None
+) -> Figure:
     """
     Plot snapshot panels for a matrix-valued 2D solution field.
 
@@ -2265,7 +2561,14 @@ def plot_matrix_field_2d(t, U, x, y, times=None, quantity='abs', component='trac
 # --- New: solve_second_order returns (U, V) but there was no combined
 # view -- previously required calling plot_scalar_1d twice by hand.
 
-def plot_wave_solution_1d(t, U, V, x, quantity='real', save_path=None):
+def plot_wave_solution_1d(
+    t: np.ndarray,
+    U: np.ndarray,
+    V: np.ndarray,
+    x: np.ndarray,
+    quantity: Literal['real', 'imag', 'abs'] = 'real',
+    save_path: Optional[str] = None
+) -> Figure:
     """
     Plot side-by-side space-time heatmaps of displacement and velocity.
 
@@ -2304,7 +2607,10 @@ def plot_wave_solution_1d(t, U, V, x, quantity='real', save_path=None):
 # Singularity & Ray Flow
 # ----------------------------------------------------------------------
 
-def _order_freq_vars(freq, dim):
+def _order_freq_vars(
+    freq: Sequence[Symbol],
+    dim: int
+) -> List[Symbol]:
     """
     Order a set of free frequency symbols into canonical (ξ, η) or
     (ξ, η, …) sequence matching the spatial dimension.
@@ -2337,7 +2643,11 @@ def _order_freq_vars(freq, dim):
     out += sorted(by_name.values(), key=lambda s: s.name)
     return out[:dim]
 
-def characteristic_hamiltonians(s_expr, vars_x, vars_xi=None):
+def characteristic_hamiltonians(
+    s_expr: Union[Expr, MatrixBase],
+    vars_x: Sequence[Symbol],
+    vars_xi: Optional[Sequence[Symbol]] = None
+) -> Tuple[List[Expr], List[Symbol], List[Symbol]]:
     """
     Extract the characteristic Hamiltonian functions H(x, ξ) from a
     (possibly matrix-valued) operator symbol.
@@ -2404,9 +2714,24 @@ def characteristic_hamiltonians(s_expr, vars_x, vars_xi=None):
         H_list.append(simplify(re(lam)))
     return H_list, xs, xis
 
-def integrate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
-                          n_frames=100, vars_xi=None, branches='all',
-                          method='RK45', **ivp_kwargs):
+def integrate_singularity(
+    s_expr: Union[Expr, MatrixBase],
+    vars_x: Sequence[Symbol],
+    x0: Union[float, Sequence[float]] = 0.0,
+    xi0: Union[float, Sequence[float]] = 5.0,
+    tmax: float = 4.0,
+    n_frames: int = 100,
+    vars_xi: Optional[Sequence[Symbol]] = None,
+    branches: Union[Literal['all'], int, Sequence[int]] = 'all',
+    method: str = 'RK45',
+    **ivp_kwargs: Any
+) -> Tuple[
+    List[Expr],
+    List[Symbol],
+    List[Symbol],
+    np.ndarray,
+    List[np.ndarray]
+]:
     """
     Numerically integrate bicharacteristic (Hamiltonian ray) trajectories
     from an initial phase-space point (x₀, ξ₀).
@@ -2476,7 +2801,15 @@ def integrate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
         trajs.append(sol.y)
     return H_list, xs, xis, t_eval, trajs
 
-def _trail_animation(coords_list, colors, px, py, pz=None, interval=50, pad_frac=0.08):
+def _trail_animation(
+    coords_list: List[Dict[str, np.ndarray]],
+    colors: Sequence[Any],
+    px: str,
+    py: str,
+    pz: Optional[str] = None,
+    interval: int = 50,
+    pad_frac: float = 0.08
+) -> Tuple[Figure, FuncAnimation]:
     """Shared 'growing dashed trail + moving point' animation builder for
     both the 2D and 3D singularity animations -- factors out what used to
     be two near-identical copies of the same figure/update-function setup.
@@ -2544,10 +2877,22 @@ def _trail_animation(coords_list, colors, px, py, pz=None, interval=50, pad_frac
     return fig, anim
 
 
-def animate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
-                        n_frames=100, projection=None, branches='all',
-                        labels=None, interval=50, contours=True,
-                        solution=None, quantity='abs', save_path=None):
+def animate_singularity(
+    s_expr: Expr,
+    vars_x: Sequence[Symbol],
+    x0: Union[float, Sequence[float]] = 0.0,
+    xi0: Union[float, Sequence[float]] = 5.0,
+    tmax: float = 4.0,
+    n_frames: int = 100,
+    projection: Optional[Literal['phase', 'position', 'frequency']] = None,
+    branches: Union[Literal['all'], int, Sequence[int]] = 'all',
+    labels: Optional[List[str]] = None,
+    interval: int = 50,
+    contours: bool = True,
+    solution: Optional[Any] = None,
+    quantity: str = 'abs',
+    save_path: Optional[str] = None
+) -> FuncAnimation:
     """
     Animate the propagation of singularities along bicharacteristic
     trajectories, projected onto a 2D phase-space plane.
@@ -2636,9 +2981,19 @@ def animate_singularity(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
     return anim
 
 
-def animate_singularity_3d(s_expr, vars_x, x0=0.0, xi0=5.0, tmax=4.0,
-                           n_frames=100, projection=None, branches='all',
-                           labels=None, interval=50, save_path=None):
+def animate_singularity_3d(
+    s_expr: Expr,
+    vars_x: Sequence[Symbol],
+    x0: Union[float, Sequence[float]] = 0.0,
+    xi0: Union[float, Sequence[float]] = 5.0,
+    tmax: float = 4.0,
+    n_frames: int = 100,
+    projection: Optional[Any] = None,
+    branches: Union[Literal['all'], int, Sequence[int]] = 'all',
+    labels: Optional[List[str]] = None,
+    interval: int = 50,
+    save_path: Optional[str] = None
+) -> FuncAnimation:
     """
     Animate bicharacteristic trajectories in a 3D matplotlib plot.
     

@@ -191,7 +191,10 @@ from .matpsiop import MatrixPseudoDifferentialOperator
 # Grids
 # ----------------------------------------------------------------------
 
-def make_grid_1d(L=10.0, N=256):
+def make_grid_1d(
+    L: float = 10.0, 
+    N: int = 256
+) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     Construct a uniform periodic spatial grid and its associated FFT-ordered
     angular frequency grid in one dimension.
@@ -228,7 +231,10 @@ def make_grid_1d(L=10.0, N=256):
     kx = 2.0 * np.pi * np.fft.fftfreq(N, d=dx)
     return x, kx
 
-def make_grid_2d(L=10.0, N=128):
+def make_grid_2d(
+    L: float = 10.0, 
+    N: int = 128
+) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """
     Construct uniform periodic spatial grids and their associated FFT-ordered
     angular frequency grids in two dimensions.
@@ -269,7 +275,19 @@ def make_grid_2d(L=10.0, N=128):
 # Propagator & Solvers
 # ----------------------------------------------------------------------
 
-def make_grids(vars_x, L, N):
+def make_grids(
+    vars_x: List[Symbol], 
+    L: float, 
+    N: int
+) -> Tuple[
+    Optional[NDArray[np.float64]],
+    Optional[NDArray[np.float64]],
+    NDArray[np.float64],
+    Optional[NDArray[np.float64]],
+    NDArray[np.float64],
+    Optional[NDArray[np.float64]],
+    Tuple[NDArray[np.float64], ...]
+]:
     """
     Build spatial + frequency grids and the meshgrid-ed spatial
     coordinates used to evaluate initial conditions.
@@ -315,7 +333,14 @@ def make_grids(vars_x, L, N):
         raise NotImplementedError("Only 1D and 2D are supported")
 
 
-def run_time_loop(step_fn, U0, dt, n_steps, save_every, check_finite=True):
+def run_time_loop(
+    step_fn: Callable[[NDArray[Any]], NDArray[Any]],
+    U0: NDArray[Any],
+    dt: float,
+    n_steps: int,
+    save_every: int,
+    check_finite: bool = True
+) -> Tuple[NDArray[np.float64], NDArray[Any]]:
     """
     Repeatedly apply `step_fn(U) → U_next`, saving a snapshot every
     `save_every` steps (plus the final step and t=0).
@@ -426,8 +451,16 @@ class PropagatorFamily:
     >>> u1 = prop_1.apply(u, x_grid, kx)
     """
 
-    def __init__(self, s_expr, vars_x, order=3, quantization='kohn-nirenberg',
-                 mode_composition='kn', apply_backend='peetre', do_simplify=True):
+    def __init__(
+            self,
+            s_expr: Union[Expr, MatrixBase, List[Any], Tuple[Any, ...]],
+            vars_x: List[Symbol],
+            order: int = 3,
+            quantization: str = 'kohn-nirenberg',
+            mode_composition: str = 'kn',
+            apply_backend: str = 'peetre',
+            do_simplify: bool = True
+        ) -> None:
         self.vars_x = vars_x
         self.order = order
         self.quantization = quantization
@@ -456,7 +489,10 @@ class PropagatorFamily:
             t=self._dt_sym, order=order, mode=mode_composition, do_simplify=do_simplify
         )
 
-    def propagator_for(self, dt):
+    def propagator_for(
+            self, 
+            dt: float
+        ) -> Tuple[Union[PseudoDifferentialOperator, MatrixPseudoDifferentialOperator], bool, Optional[int]]:
         """
         Return the concrete one-step propagator for a numeric `dt`.
 
@@ -488,8 +524,15 @@ class PropagatorFamily:
 _propagator_family_cache = {}
 
 
-def _propagator_family_key(s_expr, vars_x, order, quantization,
-                            mode_composition, apply_backend, do_simplify=True):
+def _propagator_family_key(
+    s_expr: Union[Expr, MatrixBase, List[Any], Tuple[Any, ...]],
+    vars_x: List[Symbol],
+    order: int,
+    quantization: str,
+    mode_composition: str,
+    apply_backend: str,
+    do_simplify: bool = True
+) -> Tuple[str, Tuple[str, ...], int, str, str, str, bool]:
     """
     Generate a hashable cache key for a `PropagatorFamily`.
     
@@ -527,8 +570,16 @@ def _propagator_family_key(s_expr, vars_x, order, quantization,
             quantization, mode_composition, apply_backend, do_simplify)
 
 
-def build_propagator(s_expr, vars_x, dt, order=3, quantization='kohn-nirenberg',
-                     mode_composition='kn', apply_backend='peetre', do_simplify=True):
+def build_propagator(
+    s_expr: Union[Expr, MatrixBase, List[Any], Tuple[Any, ...]],
+    vars_x: List[Symbol],
+    dt: float,
+    order: int = 3,
+    quantization: str = 'kohn-nirenberg',
+    mode_composition: str = 'kn',
+    apply_backend: str = 'peetre',
+    do_simplify: bool = True
+) -> Tuple[Union[PseudoDifferentialOperator, MatrixPseudoDifferentialOperator], bool, Optional[int]]:
     """
     Build the one-step numerical propagator exp(dt · Op[s]) for a
     pseudo-differential operator via truncated asymptotic exponentiation.
@@ -618,10 +669,22 @@ def build_propagator(s_expr, vars_x, dt, order=3, quantization='kohn-nirenberg',
 
     return family.propagator_for(dt)
 
-def solve_first_order(s_expr, vars_x, f, dt, n_steps, order=3,
-                      L=10.0, N=256, apply_kwargs=None, save_every=1,
-                      quantization='kohn-nirenberg', apply_backend='peetre',
-                      check_finite=True, do_simplify=True):
+def solve_first_order(
+    s_expr: Union[Expr, MatrixBase, List[Any], Tuple[Any, ...]],
+    vars_x: List[Symbol],
+    f: Callable[..., Union[NDArray[Any], List[NDArray[Any]], Tuple[NDArray[Any], ...]]],
+    dt: float,
+    n_steps: int,
+    order: int = 3,
+    L: float = 10.0,
+    N: int = 256,
+    apply_kwargs: Optional[Dict[str, Any]] = None,
+    save_every: int = 1,
+    quantization: str = 'kohn-nirenberg',
+    apply_backend: str = 'peetre',
+    check_finite: bool = True,
+    do_simplify: bool = True
+) -> Tuple[NDArray[np.float64], NDArray[Any], Tuple[NDArray[np.float64], ...]]:
     """
     Solve the first-order evolution equation
 
@@ -727,7 +790,12 @@ def solve_first_order(s_expr, vars_x, f, dt, n_steps, order=3,
     t_arr, U_arr = _run_time_loop(step, u0, dt, n_steps, save_every, check_finite)
     return t_arr, U_arr, grids
 
-def _as_component_list(h, X, Y=None, size_hint=1):
+def _as_component_list(
+    h: Callable[..., Union[NDArray[Any], List[NDArray[Any]], Tuple[NDArray[Any], ...]]],
+    X: NDArray[np.float64],
+    Y: Optional[NDArray[np.float64]] = None,
+    size_hint: int = 1
+) -> List[NDArray[Any]]:
     """
     Evaluate a callable `h` on the grid and normalise the result into a
     plain list of component arrays.
@@ -758,7 +826,9 @@ def _as_component_list(h, X, Y=None, size_hint=1):
         return list(out)
     return [out]
 
-def _matrix_of(s_expr):
+def _matrix_of(
+    s_expr: Union[Expr, MatrixBase, List[Any], Tuple[Any, ...]]
+) -> Matrix:
     """
     Coerce a symbol expression into a sympy Matrix.
 
@@ -786,7 +856,9 @@ def _matrix_of(s_expr):
         return Matrix(s_expr)
     return Matrix([[s_expr]])
 
-def block_matrix_second_order(s_expr):
+def block_matrix_second_order(
+    s_expr: Union[Expr, MatrixBase, List[Any], Tuple[Any, ...]]
+) -> Matrix:
     """
     Convert a second-order-in-time operator symbol S into a first-order
     block companion system suitable for `solve_first_order`.
@@ -834,10 +906,24 @@ def block_matrix_second_order(s_expr):
     zero_k, eye_k = zeros(k, k), eye(k)
     return zero_k.row_join(eye_k).col_join(S.row_join(zero_k))
 
-def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
-                       L=10.0, N=256, apply_kwargs=None, save_every=1,
-                       quantization='kohn-nirenberg', apply_backend='peetre',
-                       do_simplify=True, scheme='propagator', check_finite=True):
+def solve_second_order(
+    s_expr: Union[Expr, MatrixBase, List[Any], Tuple[Any, ...]],
+    vars_x: List[Symbol],
+    f: Callable[..., Union[NDArray[Any], List[NDArray[Any]], Tuple[NDArray[Any], ...]]],
+    g: Callable[..., Union[NDArray[Any], List[NDArray[Any]], Tuple[NDArray[Any], ...]]],
+    dt: float,
+    n_steps: int,
+    order: int = 3,
+    L: float = 10.0,
+    N: int = 256,
+    apply_kwargs: Optional[Dict[str, Any]] = None,
+    save_every: int = 1,
+    quantization: str = 'kohn-nirenberg',
+    apply_backend: str = 'peetre',
+    do_simplify: bool = True,
+    scheme: str = 'propagator',
+    check_finite: bool = True
+) -> Tuple[NDArray[np.float64], NDArray[Any], NDArray[Any], Tuple[NDArray[np.float64], ...]]:
     """
     Solve the second-order-in-time evolution equation
 
@@ -1058,10 +1144,22 @@ def solve_second_order(s_expr, vars_x, f, g, dt, n_steps, order=3,
 
     return np.array(t_list), np.array(U_list), np.array(V_list), grids
 
-def solve_matrix_field(s_expr, vars_x, F, dt, n_steps, order=3,
-                        L=10.0, N=256, apply_kwargs=None, save_every=1,
-                        quantization='kohn-nirenberg', apply_backend='peetre',
-                        check_finite=True, do_simplify=True):
+def solve_matrix_field(
+    s_expr: Union[MatrixBase, List[Any], Tuple[Any, ...]],
+    vars_x: List[Symbol],
+    F: Callable[..., NDArray[Any]],
+    dt: float,
+    n_steps: int,
+    order: int = 3,
+    L: float = 10.0,
+    N: int = 256,
+    apply_kwargs: Optional[Dict[str, Any]] = None,
+    save_every: int = 1,
+    quantization: str = 'kohn-nirenberg',
+    apply_backend: str = 'peetre',
+    check_finite: bool = True,
+    do_simplify: bool = True
+) -> Tuple[NDArray[np.float64], NDArray[Any], Tuple[NDArray[np.float64], ...]]:
     """
     Time-step the matrix-field evolution equation `∂ₜU = P U`, where `P`
     is the pseudo-differential operator with N×N matrix symbol `s_expr`
@@ -1168,11 +1266,24 @@ def solve_matrix_field(s_expr, vars_x, F, dt, n_steps, order=3,
     t_arr, U_arr = _run_time_loop(step, U0, dt, n_steps, save_every, check_finite)
     return t_arr, U_arr, grids
 
-def solve_sylvester_field(P_expr, Q_expr, vars_x, F, dt, n_steps, order=3,
-                           splitting='strang', L=10.0, N=256,
-                           apply_kwargs=None, save_every=1,
-                           quantization='kohn-nirenberg', apply_backend='peetre',
-                           check_finite=True, do_simplify=True):
+def solve_sylvester_field(
+    P_expr: Union[MatrixBase, List[Any], Tuple[Any, ...]],
+    Q_expr: Union[MatrixBase, List[Any], Tuple[Any, ...]],
+    vars_x: List[Symbol],
+    F: Callable[..., NDArray[Any]],
+    dt: float,
+    n_steps: int,
+    order: int = 3,
+    splitting: str = 'strang',
+    L: float = 10.0,
+    N: int = 256,
+    apply_kwargs: Optional[Dict[str, Any]] = None,
+    save_every: int = 1,
+    quantization: str = 'kohn-nirenberg',
+    apply_backend: str = 'peetre',
+    check_finite: bool = True,
+    do_simplify: bool = True
+) -> Tuple[NDArray[np.float64], NDArray[Any], Tuple[NDArray[np.float64], ...]]:
     """
     Time-step the Sylvester-type matrix-field evolution equation
     `∂ₜU = P U − U Q`, where `P` and `Q` are pseudo-differential
@@ -1328,9 +1439,18 @@ def solve_sylvester_field(P_expr, Q_expr, vars_x, F, dt, n_steps, order=3,
     t_arr, U_arr = _run_time_loop(step, U0, dt, n_steps, save_every, check_finite)
     return t_arr, U_arr, grids
 
-def solve_ricci_flow_conformal_2d(phi0, dt, n_steps, order=3, L=8.0, N=64,
-                                   save_every=1, quantization='kohn-nirenberg',
-                                   apply_backend='peetre', check_finite=True):
+def solve_ricci_flow_conformal_2d(
+    phi0: Callable[[NDArray[np.float64], NDArray[np.float64]], NDArray[np.float64]],
+    dt: float,
+    n_steps: int,
+    order: int = 3,
+    L: float = 8.0,
+    N: int = 64,
+    save_every: int = 1,
+    quantization: str = 'kohn-nirenberg',
+    apply_backend: str = 'peetre',
+    check_finite: bool = True
+) -> Tuple[NDArray[np.float64], NDArray[np.float64], Tuple[NDArray[np.float64], NDArray[np.float64]]]:
     """
     Integrate 2D Ricci flow in conformal gauge on a flat, doubly periodic
     background.

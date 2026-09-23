@@ -260,6 +260,11 @@
 <span class="c1"># Import core components from the parent package</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">PseudoDifferentialOperator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">_mi_all</span><span class="p">,</span> <span class="n">_mi_diff</span><span class="p">,</span> <span class="n">_mi_factorial</span><span class="p">,</span> <span class="n">_mi_upto</span>
+<span class="n">SymbolicMatrix</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">Matrix</span><span class="p">,</span> <span class="n">MatrixBase</span><span class="p">]</span>
+<span class="n">ScalarExpr</span> <span class="o">=</span> <span class="n">Expr</span>
+<span class="n">VectorField</span> <span class="o">=</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="n">MatrixField</span> <span class="o">=</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span>
+<span class="n">GridArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
 
 
 <span class="c1"># ============================================================================</span>
@@ -320,15 +325,15 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">P_expr</span><span class="p">,</span>
-        <span class="n">vars_x</span><span class="p">,</span>
-        <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
-        <span class="n">quantization</span><span class="o">=</span><span class="s1">&#39;kohn-nirenberg&#39;</span><span class="p">,</span>
-        <span class="n">apply_backend</span><span class="o">=</span><span class="s1">&#39;peetre&#39;</span><span class="p">,</span>
-        <span class="n">compute_peetre</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">peetre_options</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">P_expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">SymbolicMatrix</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ScalarExpr</span><span class="p">]]],</span>
+            <span class="n">vars_x</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Symbol</span><span class="p">],</span>
+            <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;symbol&#39;</span><span class="p">,</span>
+            <span class="n">quantization</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;kohn-nirenberg&#39;</span><span class="p">,</span>
+            <span class="n">apply_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;peetre&#39;</span><span class="p">,</span>
+            <span class="n">compute_peetre</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">peetre_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">P_expr</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">P_expr</span><span class="p">)</span>
         <span class="n">n</span><span class="p">,</span> <span class="n">m</span> <span class="o">=</span> <span class="n">P_expr</span><span class="o">.</span><span class="n">shape</span>
         <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="n">m</span><span class="p">:</span>
@@ -359,7 +364,15 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.apply">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">u</span><span class="p">:</span> <span class="n">VectorField</span><span class="p">,</span>
+            <span class="n">x_grid</span><span class="p">:</span> <span class="n">GridArray</span><span class="p">,</span>
+            <span class="n">kx</span><span class="p">:</span> <span class="n">GridArray</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GridArray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ky</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GridArray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">:</span> <span class="n">Any</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Apply P(x, xi) to a vector field u = (u_1, ..., u_N).</span>
 
@@ -395,7 +408,10 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.symbol_matrix">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.symbol_matrix">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">symbol_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">symbol_matrix</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">GridArray</span><span class="p">]</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">SymbolicMatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Numerically evaluate P(x[, y], xi[, eta]) at a point or</span>
 <span class="sd">        broadcastable arrays, returning an ndarray of shape `(..., N, N)`.</span>
@@ -429,7 +445,15 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply_matrix_field">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.apply_matrix_field">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">U</span><span class="p">:</span> <span class="n">MatrixField</span><span class="p">,</span>
+            <span class="n">x_grid</span><span class="p">:</span> <span class="n">GridArray</span><span class="p">,</span>
+            <span class="n">kx</span><span class="p">:</span> <span class="n">GridArray</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GridArray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ky</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GridArray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">:</span> <span class="n">Any</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Apply P(x, xi) to a matrix-valued field U(x) by left matrix</span>
 <span class="sd">        multiplication on U&#39;s own N x N structure:</span>
@@ -488,7 +512,15 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply_matrix_field_right">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.apply_matrix_field_right">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field_right</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">x_grid</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ky</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field_right</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">U</span><span class="p">:</span> <span class="n">MatrixField</span><span class="p">,</span>
+            <span class="n">x_grid</span><span class="p">:</span> <span class="n">GridArray</span><span class="p">,</span>
+            <span class="n">kx</span><span class="p">:</span> <span class="n">GridArray</span><span class="p">,</span>
+            <span class="n">y_grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GridArray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">ky</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GridArray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">apply_kwargs</span><span class="p">:</span> <span class="n">Any</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Apply this operator&#39;s symbol Q(x, xi) to a matrix-valued field</span>
 <span class="sd">        U(x) by right matrix multiplication on U&#39;s own N x N structure:</span>
@@ -580,7 +612,13 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.eigen_symbol">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.eigen_symbol">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">eigen_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">eigen_symbol</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">GridArray</span><span class="p">]</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span>
+            <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">SymbolicMatrix</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+            <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">SymbolicMatrix</span><span class="p">]]</span>
+        <span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute pointwise eigenvalues and eigenvectors of the symbol matrix.</span>
 
@@ -671,7 +709,14 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.compose_asymptotic">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.compose_asymptotic">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">compose_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;kn&#39;</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compose_asymptotic</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;MatrixPseudoDifferentialOperator&quot;</span><span class="p">,</span>
+            <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;kn&#39;</span><span class="p">,</span> <span class="s1">&#39;weyl&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;kn&#39;</span><span class="p">,</span>
+            <span class="n">sign_convention</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">do_simplify</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SymbolicMatrix</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compose two matrix-valued symbols via the same asymptotic</span>
 <span class="sd">        Kohn-Nirenberg / Weyl expansion as</span>
@@ -742,7 +787,13 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.commutator_symbolic">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.commutator_symbolic">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">commutator_symbolic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;kn&#39;</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">commutator_symbolic</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;MatrixPseudoDifferentialOperator&quot;</span><span class="p">,</span>
+            <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;kn&#39;</span><span class="p">,</span> <span class="s1">&#39;weyl&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;kn&#39;</span><span class="p">,</span>
+            <span class="n">sign_convention</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SymbolicMatrix</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the symbol of the commutator [Op[self], Op[other]].</span>
 
@@ -780,7 +831,14 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.exponential_symbol">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.exponential_symbol">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">exponential_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;kn&#39;</span><span class="p">,</span> <span class="n">sign_convention</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">do_simplify</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exponential_symbol</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">t</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">Symbol</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;kn&#39;</span><span class="p">,</span> <span class="s1">&#39;weyl&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;kn&#39;</span><span class="p">,</span>
+            <span class="n">sign_convention</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">do_simplify</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SymbolicMatrix</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Symbol of `exp(t Op[self])` for the matrix-valued operator, via</span>
 <span class="sd">        the matrix analogue of `PseudoDifferentialOperator.exponential_symbol`.</span>
@@ -857,7 +915,11 @@
         <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">do_simplify</span> <span class="k">else</span> <span class="n">result</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_asymptotic_matrix_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">side</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_asymptotic_matrix_inverse</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+            <span class="n">side</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;left&#39;</span><span class="p">,</span> <span class="s1">&#39;right&#39;</span><span class="p">]</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SymbolicMatrix</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Internal engine for computing left or right asymptotic matrix inverses.</span>
 
@@ -920,7 +982,7 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.right_inverse_asymptotic">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.right_inverse_asymptotic">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">right_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">right_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SymbolicMatrix</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the formal right asymptotic inverse R.</span>
 
@@ -949,7 +1011,7 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.left_inverse_asymptotic">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.left_inverse_asymptotic">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">left_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">left_inverse_asymptotic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SymbolicMatrix</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the formal left asymptotic inverse L.</span>
 
@@ -978,7 +1040,7 @@
 
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.formal_adjoint">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.formal_adjoint">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">formal_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_terms</span><span class="o">=</span><span class="mi">6</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">formal_adjoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_terms</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SymbolicMatrix</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the formal Hermitian adjoint symbol P*.</span>
 

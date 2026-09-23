@@ -153,10 +153,10 @@ class IntegralMethod(Enum):
     - SADDLE_POINT with φ_I ≡ 0  →  STATIONARY_PHASE
     - SADDLE_POINT with φ_R ≡ 0  →  LAPLACE
     """
-    STATIONARY_PHASE = "stationary_phase"
-    LAPLACE          = "laplace"
-    SADDLE_POINT     = "saddle_point"
-    AUTO             = "auto"
+    STATIONARY_PHASE: str = "stationary_phase"
+    LAPLACE: str = "laplace"
+    SADDLE_POINT: str = "saddle_point"
+    AUTO: str = "auto"
 
 
 class SingularityType(Enum):
@@ -180,11 +180,11 @@ class SingularityType(Enum):
     - HIGHER_ORDER: More degenerate cases requiring special treatment
       Not implemented in this code
     """
-    MORSE = "morse"             # Non-degenerate (det H != 0)
-    AIRY_1D = "airy_1d"         # Corank 1, cubic term != 0 (1D)
-    AIRY_2D = "airy_2d"         # Corank 1, cubic term != 0 (2D)
-    PEARCEY = "pearcey"         # Corank 1, cubic = 0, quartic != 0
-    HIGHER_ORDER = "higher_order"
+    MORSE: str = "morse"
+    AIRY_1D: str = "airy_1d"
+    AIRY_2D: str = "airy_2d"
+    PEARCEY: str = "pearcey"
+    HIGHER_ORDER: str = "higher_order"
 
 @dataclass
 class CriticalPoint:
@@ -225,15 +225,13 @@ class CriticalPoint:
     eigenvalues: np.ndarray = field(default_factory=lambda: np.array([]))
     eigenvectors: np.ndarray = field(default_factory=lambda: np.array([]))
     
-    # Higher order derivatives (stored as numpy tensors)
     grad_amp: Optional[np.ndarray] = None      
     hess_amp: Optional[np.ndarray] = None      
     phase_d3: Optional[np.ndarray] = None      
     phase_d4: Optional[np.ndarray] = None      
     
-    canonical_coefficients: Optional[Dict] = None
-    # Integration method that produced this critical point
-    method: 'IntegralMethod' = None  # set by the analyzer; forward ref resolved at runtime
+    canonical_coefficients: Optional[Dict[str, Any]] = None
+    method: Optional[IntegralMethod] = None
 
 @dataclass
 class AsymptoticContribution:
@@ -267,7 +265,7 @@ class AsymptoticContribution:
     total_value: complex
     point: CriticalPoint
     order_leading: float
-    method: IntegralMethod = IntegralMethod.STATIONARY_PHASE  # default for backward compat
+    method: IntegralMethod = IntegralMethod.STATIONARY_PHASE
 
 # --- Analyzer (Symbolic -> Numerical) ---
 
@@ -312,9 +310,16 @@ class Analyzer:
         method (IntegralMethod): Resolved integration method (never AUTO after __init__).
     """
 
-    def __init__(self, phase_expr, amplitude_expr, variables, domain=None,
-                 tolerance=1e-6, cubic_threshold=None,
-                 method: IntegralMethod = IntegralMethod.AUTO):
+    def __init__(
+            self,
+            phase_expr: Expr,
+            amplitude_expr: Expr,
+            variables: Union[Symbol, Sequence[Symbol]],
+            domain: Optional[List[Tuple[float, float]]] = None,
+            tolerance: float = 1e-6,
+            cubic_threshold: Optional[float] = None,
+            method: IntegralMethod = IntegralMethod.AUTO,
+        ) -> None:
         """
         Initialize the analyzer.
 
@@ -357,7 +362,7 @@ class Analyzer:
     # Method auto-detection
     # ------------------------------------------------------------------
 
-    def _detect_method(self, phase_expr) -> IntegralMethod:
+    def _detect_method(self, phase_expr: Expr) -> IntegralMethod:
         """
         Inspect the phase expression symbolically to select the integration method.
 
@@ -448,7 +453,7 @@ class Analyzer:
 
         return detected
     
-    def _prepare_derivatives(self):
+    def _prepare_derivatives(self) -> None:
         """
         Symbolically compute all necessary derivatives of phase and amplitude functions.
         
@@ -490,7 +495,7 @@ class Analyzer:
             var_seq = [self.variables[i] for i in idx]
             self.d4_sym.append(diff(self.phase_expr, *var_seq))
 
-    def _create_numerical_functions(self):
+    def _create_numerical_functions(self) -> None:
         """
         Convert symbolic expressions to fast numerical functions using SymPy's lambdify.
         
@@ -514,7 +519,9 @@ class Analyzer:
         self.func_d3 = lambdify(vars_tuple, self.d3_sym, 'numpy')
         self.func_d4 = lambdify(vars_tuple, self.d4_sym, 'numpy')
 
-    def find_critical_points(self, initial_guesses=None) -> List[np.ndarray]:
+    def find_critical_points(
+            self, initial_guesses: Optional[List[np.ndarray]] = None
+        ) -> List[np.ndarray]:
         """
         Locate critical points where ∇φ(x) = 0.
 
@@ -545,7 +552,9 @@ class Analyzer:
             domain=self.domain,
         )
 
-    def analyze_point(self, xc) -> CriticalPoint:
+    def analyze_point(
+            self, xc: Union[np.ndarray, Sequence[Union[float, complex]]]
+        ) -> CriticalPoint:
         """
         Perform complete analysis of a critical point (real or complex).
 
@@ -659,7 +668,9 @@ class Analyzer:
 
         return cp
         
-    def _project_degenerate_coeffs(self, cp: CriticalPoint) -> Dict[str, float]:
+    def _project_degenerate_coeffs(
+            self, cp: CriticalPoint
+        ) -> Dict[str, Optional[Union[float, complex]]]:
         """
         Projects derivatives onto the eigenvectors to find canonical form coefficients.
         
@@ -721,7 +732,7 @@ class StationaryPhaseEvaluator:
     Attributes:
         tolerance (float): Numerical tolerance for detecting near-zero coefficients.
     """
-    def __init__(self, tolerance=1e-8):
+    def __init__(self, tolerance: float = 1e-8) -> None:
         self.tolerance = tolerance  # ← Addition required
             
     def evaluate(self, cp: CriticalPoint, lam: float) -> AsymptoticContribution:

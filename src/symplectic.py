@@ -81,7 +81,7 @@ from imports import *
 # Utility functions for variable inference and dimension handling
 # -----------------------------------------------------------------------------
 
-def _infer_variables(H, expected_ndof=None):
+def _infer_variables(H: Expr, expected_ndof: Optional[int] = None) -> List[Symbol]:
     """
     Infer phase space canonical variables from a Hamiltonian expression.
     
@@ -96,7 +96,7 @@ def _infer_variables(H, expected_ndof=None):
     
     Parameters
     ----------
-    H : sympy.Expr
+    H : Expr
         Hamiltonian expression containing phase space variables as free symbols.
     expected_ndof : int, optional
         Expected number of degrees of freedom. If provided, validates that the
@@ -104,7 +104,7 @@ def _infer_variables(H, expected_ndof=None):
     
     Returns
     -------
-    list of sympy.Symbol
+    list of Symbol
         Ordered list of canonical variables [x₁, p₁, x₂, p₂, ...].
     
     Raises
@@ -179,14 +179,14 @@ def _infer_variables(H, expected_ndof=None):
         "Please provide vars_phase explicitly."
     )
 
-def _get_ndof(vars_phase):
+def _get_ndof(vars_phase: List[Symbol]) -> int:
     """Return number of degrees of freedom from variable list (must be even)."""
     if len(vars_phase) % 2 != 0:
         raise ValueError("Phase space variables must come in pairs (xᵢ, pᵢ).")
     return len(vars_phase) // 2
 
 
-def _check_ndof(vars_phase, expected):
+def _check_ndof(vars_phase: List[Symbol], expected: int) -> None:
     """Raise ValueError if ndof does not match expected."""
     ndof = _get_ndof(vars_phase)
     if ndof != expected:
@@ -220,10 +220,10 @@ class SymplecticForm:
     n : int, optional
         Number of degrees of freedom. Used to generate generic variables if
         vars_phase is not provided.
-    vars_phase : list of sympy.Symbol, optional
+    vars_phase : list of Symbol, optional
         Ordered list of canonical variables [x₁, p₁, x₂, p₂, ...]. If provided,
         n is inferred from the length of this list.
-    omega_matrix : sympy.Matrix, optional
+    omega_matrix : Matrix, optional
         Custom 2n×2n symplectic matrix. If None, the canonical form is used:
         J = [[0, -I], [I, 0]] where I is the n×n identity.
     
@@ -233,9 +233,9 @@ class SymplecticForm:
         Number of degrees of freedom.
     vars_phase : list
         Phase space variables.
-    omega_matrix : sympy.Matrix
+    omega_matrix : Matrix
         The symplectic matrix J.
-    omega_inv : sympy.Matrix
+    omega_inv : Matrix
         The inverse J⁻¹ (Poisson tensor), used for computing Poisson brackets.
     
     Raises
@@ -262,7 +262,12 @@ class SymplecticForm:
     poisson_bracket : Uses omega_inv to compute {f, g}
     hamiltonian_flow : Uses the symplectic structure for integration
     """
-    def __init__(self, n=None, vars_phase=None, omega_matrix=None):
+    def __init__(
+        self, 
+        n: Optional[int] = None, 
+        vars_phase: Optional[List[Symbol]] = None, 
+        omega_matrix: Optional[Union[Matrix, List[List[Any]]]] = None
+    ) -> None:
         if vars_phase is not None:
             self.vars_phase = list(vars_phase)
             self.n = _get_ndof(self.vars_phase)
@@ -300,7 +305,7 @@ class SymplecticForm:
 
         self.omega_inv = self.omega_matrix.inv()
 
-    def eval(self, point):
+    def eval(self, point: Union[List[float], np.ndarray]) -> np.ndarray:
         """
         Evaluate the (constant) symplectic matrix at a point.
         For canonical form, it's independent of coordinates.
@@ -321,8 +326,14 @@ class SymplecticForm:
 # -----------------------------------------------------------------------------
 # Hamiltonian flow (generic)
 # -----------------------------------------------------------------------------
-def hamiltonian_flow(H, z0, tspan, vars_phase=None, integrator='symplectic',
-                     n_steps=1000):
+def hamiltonian_flow(
+    H: Expr, 
+    z0: Union[List[float], np.ndarray], 
+    tspan: Tuple[float, float], 
+    vars_phase: Optional[List[Symbol]] = None, 
+    integrator: Literal['symplectic', 'verlet', 'rk45'] = 'symplectic',
+    n_steps: int = 1000
+) -> Dict[str, Any]:
     """
     Numerically integrate Hamilton's equations of motion.
 
@@ -342,13 +353,13 @@ def hamiltonian_flow(H, z0, tspan, vars_phase=None, integrator='symplectic',
 
     Parameters
     ----------
-    H : sympy.Expr
+    H : Expr
         Hamiltonian function H(x₁, p₁, ..., xₙ, pₙ).
     z0 : array_like
         Initial conditions as [x₁₀, p₁₀, x₂₀, p₂₀, ...], length 2n.
     tspan : tuple of float
         Time integration interval (t_start, t_end).
-    vars_phase : list of sympy.Symbol, optional
+    vars_phase : list of Symbol, optional
         Phase space variables in canonical order. If None, inferred from H.
     integrator : {'symplectic', 'verlet', 'rk45'}
         Numerical integration method (default: 'symplectic').
@@ -511,7 +522,11 @@ def hamiltonian_flow(H, z0, tspan, vars_phase=None, integrator='symplectic',
 # Poisson bracket (generic)
 # -----------------------------------------------------------------------------
 
-def poisson_bracket(f, g, vars_phase=None):
+def poisson_bracket(
+    f: Expr, 
+    g: Expr, 
+    vars_phase: Optional[List[Symbol]] = None
+) -> Expr:
     """
     Compute Poisson bracket {f, g} = (∂f/∂z) · ω⁻¹ · (∂g/∂z).
 
@@ -554,7 +569,11 @@ def poisson_bracket(f, g, vars_phase=None):
 # -----------------------------------------------------------------------------
 # Symplectic gradient
 # -----------------------------------------------------------------------------
-def symplectic_gradient(f, vars_phase=None, numeric=False):
+def symplectic_gradient(
+    f: Expr, 
+    vars_phase: Optional[List[Symbol]] = None, 
+    numeric: bool = False
+) -> Union[List[Expr], Callable[[Union[List[float], np.ndarray]], np.ndarray]]:
     """
     Compute the Hamiltonian vector field (symplectic gradient) of a function f.
 
@@ -566,9 +585,9 @@ def symplectic_gradient(f, vars_phase=None, numeric=False):
 
     Parameters
     ----------
-    f : sympy.Expr
+    f : Expr
         Function defined on phase space.
-    vars_phase : list of sympy.Symbol, optional
+    vars_phase : list of Symbol, optional
         Ordered list of canonical variables [x₁, p₁, x₂, p₂, …].
         If None, the variables are inferred automatically from f.
     numeric : bool, default False
@@ -578,7 +597,7 @@ def symplectic_gradient(f, vars_phase=None, numeric=False):
 
     Returns
     -------
-    If numeric=False : list of sympy.Expr
+    If numeric=False : list of Expr
         Components of the Hamiltonian vector field in the same order as
         vars_phase, i.e., [X_f_x₁, X_f_p₁, X_f_x₂, X_f_p₂, …].
     If numeric=True : callable
@@ -660,7 +679,13 @@ def symplectic_gradient(f, vars_phase=None, numeric=False):
 # Fixed points and linearization (generic)
 # -----------------------------------------------------------------------------
 
-def find_fixed_points(H, vars_phase=None, domain=None, tol=1e-6, numerical=False):
+def find_fixed_points(
+    H: Expr, 
+    vars_phase: Optional[List[Symbol]] = None, 
+    domain: Optional[List[Tuple[float, float]]] = None, 
+    tol: float = 1e-6, 
+    numerical: bool = False
+) -> List[Tuple[Any, ...]]:
     """
     Find fixed points (equilibria) of Hamiltonian system: ∂H/∂z_i = 0 for all i.
 
@@ -758,7 +783,11 @@ def find_fixed_points(H, vars_phase=None, domain=None, tol=1e-6, numerical=False
     return fixed_points
 
 
-def linearize_at_fixed_point(H, z0, vars_phase=None):
+def linearize_at_fixed_point(
+    H: Expr, 
+    z0: Union[List[float], np.ndarray, Tuple[float, ...]], 
+    vars_phase: Optional[List[Symbol]] = None
+) -> Dict[str, Any]:
     """
     Compute linear stability matrix (Jacobian of the Hamiltonian vector field) at a fixed point.
 
@@ -827,7 +856,13 @@ def linearize_at_fixed_point(H, z0, vars_phase=None):
 # 1‑DOF specific functions (require ndof == 1)
 # -----------------------------------------------------------------------------
 
-def action_integral(H, E, vars_phase=None, method='numerical', x_bounds=None):
+def action_integral(
+    H: Expr, 
+    E: Union[float, Expr], 
+    vars_phase: Optional[List[Symbol]] = None, 
+    method: Literal['numerical', 'symbolic'] = 'numerical', 
+    x_bounds: Optional[Tuple[float, float]] = None
+) -> Union[float, Expr]:
     """
     Compute action integral I(E) for a 1‑DOF system.
 
@@ -950,8 +985,14 @@ def action_integral(H, E, vars_phase=None, method='numerical', x_bounds=None):
         raise ValueError("method must be 'symbolic' or 'numerical'")
 
 
-def phase_portrait(H, x_range, p_range, vars_phase=None, resolution=50, 
-                   levels=20):
+def phase_portrait(
+    H: Expr, 
+    x_range: Tuple[float, float], 
+    p_range: Tuple[float, float], 
+    vars_phase: Optional[List[Symbol]] = None, 
+    resolution: int = 50,
+    levels: int = 20
+) -> None:
     """
     Generate a 2D phase portrait for a 1-DOF Hamiltonian system.
     
@@ -969,13 +1010,13 @@ def phase_portrait(H, x_range, p_range, vars_phase=None, resolution=50,
     
     Parameters
     ----------
-    H : sympy.Expr
+    H : Expr
         Hamiltonian H(x, p) for a 1-degree-of-freedom system.
     x_range : tuple of float
         Position axis limits (x_min, x_max).
     p_range : tuple of float
         Momentum axis limits (p_min, p_max).
-    vars_phase : list of sympy.Symbol, optional
+    vars_phase : list of Symbol, optional
         Variables [x, p]. If None, inferred from H.
     resolution : int
         Grid resolution for contour and vector field computation (default: 50).
@@ -1050,7 +1091,13 @@ def phase_portrait(H, x_range, p_range, vars_phase=None, resolution=50,
     plt.show()
 
 
-def separatrix_analysis(H, x_range, p_range, saddle_point, vars_phase=None):
+def separatrix_analysis(
+    H: Expr, 
+    x_range: Tuple[float, float], 
+    p_range: Tuple[float, float], 
+    saddle_point: Tuple[float, float], 
+    vars_phase: Optional[List[Symbol]] = None
+) -> Dict[str, Any]:
     """
     Analyze separatrix structure near saddle point (1‑DOF).
 
@@ -1132,9 +1179,15 @@ def separatrix_analysis(H, x_range, p_range, saddle_point, vars_phase=None):
     }
 
 
-def visualize_phase_space_structure(H, x_range, p_range, vars_phase=None,
-                                    fixed_points=None, show_separatrices=True,
-                                    n_trajectories=10):
+def visualize_phase_space_structure(
+    H: Expr, 
+    x_range: Tuple[float, float], 
+    p_range: Tuple[float, float], 
+    vars_phase: Optional[List[Symbol]] = None,
+    fixed_points: Optional[List[Tuple[float, ...]]] = None, 
+    show_separatrices: bool = True,
+    n_trajectories: int = 10
+) -> None:
     """
     Comprehensive visualization of phase space structure for 1‑DOF.
 
@@ -1232,7 +1285,13 @@ def visualize_phase_space_structure(H, x_range, p_range, vars_phase=None,
     plt.show()
 
 
-def action_angle_transform(H, x_range, p_range, vars_phase=None, n_contours=10):
+def action_angle_transform(
+    H: Expr, 
+    x_range: Tuple[float, float], 
+    p_range: Tuple[float, float], 
+    vars_phase: Optional[List[Symbol]] = None, 
+    n_contours: int = 10
+) -> Dict[str, np.ndarray]:
     """
     Compute action-angle transformation for integrable system (1‑DOF).
 
@@ -1298,7 +1357,11 @@ def action_angle_transform(H, x_range, p_range, vars_phase=None, n_contours=10):
     }
 
 
-def frequency(H, I_val, method='derivative'):
+def frequency(
+    H: Expr, 
+    I_val: Union[float, Expr], 
+    method: Literal['derivative', 'period'] = 'derivative'
+) -> Union[float, Expr]:
     """
     Compute frequency ω(I) = dH/dI from action variable.
 
@@ -1373,7 +1436,13 @@ def frequency(H, I_val, method='derivative'):
 # 2‑DOF specific functions (require ndof == 2)
 # -----------------------------------------------------------------------------
 
-def hamiltonian_flow_4d(H, z0, tspan, integrator='symplectic', n_steps=1000):
+def hamiltonian_flow_4d(
+    H: Expr, 
+    z0: Union[List[float], np.ndarray], 
+    tspan: Tuple[float, float], 
+    integrator: Literal['symplectic', 'verlet', 'rk45'] = 'symplectic', 
+    n_steps: int = 1000
+) -> Dict[str, Any]:
     """Backward compatibility wrapper for 4D flow."""
     # Assume variables are x1, p1, x2, p2
     vars_phase = [symbols('x1 p1 x2 p2', real=True)]
@@ -1383,7 +1452,9 @@ def hamiltonian_flow_4d(H, z0, tspan, integrator='symplectic', n_steps=1000):
 # -----------------------------------------------------------------------------
 # Parallel Poincaré worker  (module-level so ProcessPoolExecutor can pickle it)
 # -----------------------------------------------------------------------------
-def _poincare_worker(args):
+def _poincare_worker(
+    args: Tuple[Expr, Dict[str, Any], List[float], float, List[str], int, str]
+) -> Dict[str, Any]:
     """
     Picklable worker for parallel Poincaré section computation.
     SymPy expressions are passed directly (they are picklable).
@@ -1397,8 +1468,15 @@ def _poincare_worker(args):
                             n_returns=n_returns,
                             integrator=integrator)
 
-def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000,
-                     integrator='symplectic'):
+def poincare_section(
+    H: Expr, 
+    Sigma_def: Dict[str, Any], 
+    z0: Union[List[float], np.ndarray], 
+    tmax: float, 
+    vars_phase: Optional[List[Symbol]] = None, 
+    n_returns: int = 1000,
+    integrator: Literal['symplectic', 'verlet', 'rk45'] = 'symplectic'
+) -> Dict[str, Any]:
     """
     Compute a Poincaré section for a 2-DOF Hamiltonian system.
 
@@ -1415,7 +1493,7 @@ def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000,
 
     Parameters
     ----------
-    H : sympy.Expr
+    H : Expr
         Hamiltonian for a 2-degree-of-freedom system.
     Sigma_def : dict
         Section surface definition with keys:
@@ -1427,7 +1505,7 @@ def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000,
         Initial condition [x₁₀, p₁₀, x₂₀, p₂₀].
     tmax : float
         Maximum integration time.
-    vars_phase : list of sympy.Symbol, optional
+    vars_phase : list of Symbol, optional
         Variables [x1, p1, x2, p2]. If None, uses default canonical names.
     n_returns : int
         Maximum number of section crossings to collect (default: 1000).
@@ -1514,7 +1592,10 @@ def poincare_section(H, Sigma_def, z0, tmax, vars_phase=None, n_returns=1000,
     }
 
 
-def first_return_map(section_points, plot_variables=('x1', 'p1')):
+def first_return_map(
+    section_points: List[Dict[str, float]], 
+    plot_variables: Tuple[str, str] = ('x1', 'p1')
+) -> Dict[str, Any]:
     """
     Construct the first return map (Poincaré map) from a Poincaré section.
 
@@ -1582,7 +1663,12 @@ def first_return_map(section_points, plot_variables=('x1', 'p1')):
     return {'current': current, 'next': next_pts, 'variables': plot_variables}
 
 
-def monodromy_matrix(H, periodic_orbit, vars_phase=None, method='finite_difference'):
+def monodromy_matrix(
+    H: Expr, 
+    periodic_orbit: Dict[str, Any], 
+    vars_phase: Optional[List[Symbol]] = None, 
+    method: Literal['finite_difference'] = 'finite_difference'
+) -> Dict[str, Any]:
     """
     Compute the monodromy matrix for a periodic orbit in a 2-DOF system.
     
@@ -1603,12 +1689,12 @@ def monodromy_matrix(H, periodic_orbit, vars_phase=None, method='finite_differen
     
     Parameters
     ----------
-    H : sympy.Expr
+    H : Expr
         Hamiltonian for a 2-degree-of-freedom system.
     periodic_orbit : dict
         A trajectory dictionary (from hamiltonian_flow) representing one complete
         period, with keys 't' and variable names.
-    vars_phase : list of sympy.Symbol, optional
+    vars_phase : list of Symbol, optional
         Variables [x1, p1, x2, p2]. If None, uses default canonical names.
     method : {'finite_difference'}
         Computation method (default: 'finite_difference').
@@ -1690,8 +1776,15 @@ def monodromy_matrix(H, periodic_orbit, vars_phase=None, method='finite_differen
     else:
         raise NotImplementedError("Only finite_difference method implemented.")
 
-def lyapunov_exponents(trajectory, dt, H=None, vars_phase=None, n_vectors=None,
-                       renorm_interval=10, epsilon=1e-6):
+def lyapunov_exponents(
+    trajectory: Dict[str, Any], 
+    dt: float, 
+    H: Optional[Expr] = None, 
+    vars_phase: Optional[List[Symbol]] = None, 
+    n_vectors: Optional[int] = None,
+    renorm_interval: int = 10, 
+    epsilon: float = 1e-6
+) -> np.ndarray:
     """
     Estimate Lyapunov exponents from a trajectory using QR algorithm.
 
@@ -1707,9 +1800,9 @@ def lyapunov_exponents(trajectory, dt, H=None, vars_phase=None, n_vectors=None,
         Trajectory dict as returned by hamiltonian_flow.
     dt : float
         Time step between trajectory points.
-    H : sympy.Expr, optional
+    H : Expr, optional
         Hamiltonian expression (required for accurate Jacobian).
-    vars_phase : list of sympy.Symbol, optional
+    vars_phase : list of Symbol, optional
         Phase space variables (required when H is given).
     n_vectors : int, optional
         Number of tangent vectors (default = number of DOF).
@@ -1816,7 +1909,11 @@ def lyapunov_exponents(trajectory, dt, H=None, vars_phase=None, n_vectors=None,
         return np.sort(exponents)[::-1]
 
 
-def project(trajectory, plane='xy', vars_phase=None):
+def project(
+    trajectory: Dict[str, Any], 
+    plane: Literal['xy', 'config', 'xp', 'pp', 'momentum', 'x1p2', 'x2p1'] = 'xy', 
+    vars_phase: Optional[List[Symbol]] = None
+) -> Tuple[np.ndarray, np.ndarray, Tuple[str, str]]:
     """
     Project a 4D trajectory onto a 2D plane for visualization.
     
@@ -1839,7 +1936,7 @@ def project(trajectory, plane='xy', vars_phase=None):
     plane : str
         Projection plane specification (default: 'xy').
         Options: 'xy', 'config', 'xp', 'pp', 'momentum', 'x1p2', 'x2p1'
-    vars_phase : list of sympy.Symbol, optional
+    vars_phase : list of Symbol, optional
         Variables [x1, p1, x2, p2]. If None, uses default canonical names.
     
     Returns
@@ -1896,9 +1993,16 @@ def project(trajectory, plane='xy', vars_phase=None):
         raise ValueError(f"Unknown projection plane: {plane}")
 
 
-def visualize_poincare_section(H, z0_list, Sigma_def, vars_phase=None,
-                               tmax=100, n_returns=500, plot_vars=('x1', 'p1'),
-                               n_workers=None):
+def visualize_poincare_section(
+    H: Expr, 
+    z0_list: List[Union[List[float], np.ndarray]], 
+    Sigma_def: Dict[str, Any], 
+    vars_phase: Optional[List[Symbol]] = None,
+    tmax: float = 100, 
+    n_returns: int = 500, 
+    plot_vars: Tuple[str, str] = ('x1', 'p1'),
+    n_workers: Optional[int] = None
+) -> None:
     """
     Visualize Poincaré section for multiple initial conditions (2-DOF).
 
@@ -1907,13 +2011,13 @@ def visualize_poincare_section(H, z0_list, Sigma_def, vars_phase=None,
 
     Parameters
     ----------
-    H : sympy.Expr
+    H : Expr
         Hamiltonian for a 2-degree-of-freedom system.
     z0_list : list of array_like
         List of initial conditions, each of length 4.
     Sigma_def : dict
         Section surface definition (see poincare_section).
-    vars_phase : list of sympy.Symbol, optional
+    vars_phase : list of Symbol, optional
         Variables [x1, p1, x2, p2].
     tmax : float
         Maximum integration time (default: 100).
@@ -1964,7 +2068,12 @@ def visualize_poincare_section(H, z0_list, Sigma_def, vars_phase=None,
     plt.tight_layout()
     plt.show()
 
-def rectangle_region(center, width, height, n_points=50):
+def rectangle_region(
+    center: Tuple[float, float], 
+    width: float, 
+    height: float, 
+    n_points: int = 50
+) -> np.ndarray:
     """
     Generate a closed rectangular region in phase space.
 
@@ -2025,9 +2134,17 @@ def rectangle_region(center, width, height, n_points=50):
     return points
 
 
-def evolve_phase_space_region(H, initial_region, t_eval, vars_phase=None,
-                              integrator='verlet', n_steps=10000,
-                              plot=True, ax=None, **plot_kwargs):
+def evolve_phase_space_region(
+    H: Expr, 
+    initial_region: np.ndarray, 
+    t_eval: Union[float, List[float], np.ndarray], 
+    vars_phase: Optional[List[Symbol]] = None,
+    integrator: Literal['symplectic', 'verlet', 'rk45'] = 'verlet', 
+    n_steps: int = 10000,
+    plot: bool = True, 
+    ax: Optional[Any] = None, 
+    **plot_kwargs: Any
+) -> Dict[str, Any]:
     """
     Evolve a closed region in phase space under the Hamiltonian flow and
     optionally visualise its deformation and area conservation.
@@ -2043,7 +2160,7 @@ def evolve_phase_space_region(H, initial_region, t_eval, vars_phase=None,
 
     Parameters
     ----------
-    H : sympy.Expr
+    H : Expr
         Hamiltonian for a 1‑degree‑of‑freedom system H(x, p).
     initial_region : (N,2) array_like
         Ordered points defining a closed polygon (first and last point should
@@ -2053,7 +2170,7 @@ def evolve_phase_space_region(H, initial_region, t_eval, vars_phase=None,
         Times at which to record the evolved region. If a single float is given,
         it is treated as the final time and the region is evaluated at t=0 and
         that time. Use a list to obtain intermediate snapshots.
-    vars_phase : list of sympy.Symbol, optional
+    vars_phase : list of Symbol, optional
         Phase space variables [x, p]. If not provided, they are inferred from H.
     integrator : {'symplectic', 'verlet', 'rk45'}, optional
         Numerical integrator passed to `hamiltonian_flow` (default 'verlet').
@@ -2548,9 +2665,9 @@ class IntegrabilityAnalysis:
 
         Parameters
         ----------
-        H : sympy.Expr, optional
+        H : Expr, optional
             Hamiltonian expression.  Required for the algebraic channel.
-        vars_phase : list of sympy.Symbol, optional
+        vars_phase : list of Symbol, optional
             Phase-space variables ``[x₁, p₁, ...]``.  Required when ``H``
             is provided.
         levels : ndarray of shape (N,), optional
@@ -2568,7 +2685,7 @@ class IntegrabilityAnalysis:
         ndof : int, optional
             Number of degrees of freedom.  Inferred from ``vars_phase`` when
             possible; required when only ``traj`` is provided.
-        second_integrals : sympy.Expr or list of sympy.Expr, optional
+        second_integrals : Expr or list of Expr, optional
             Candidate conserved quantities L₁, L₂, …  Each is tested via
             ``{H, Lᵢ} = 0``.  Even a single confirmed integral activates
             the algebraic hard gate.
@@ -3478,11 +3595,11 @@ class IntegrabilityAnalysis:
     
         Parameters
         ----------
-        H : sympy.Expr
+        H : Expr
             2-DOF Hamiltonian H(x1, p1, x2, p2).
-        L : sympy.Expr
+        L : Expr
             Second conserved quantity (must Poisson-commute with H).
-        vars_phase : list of sympy.Symbol
+        vars_phase : list of Symbol
             [x1, p1, x2, p2].
         critical_value : (float, float)
             (E*, ℓ*) — the critical value of the energy-momentum map around
@@ -3647,7 +3764,7 @@ class IntegrabilityAnalysis:
         traj : dict
             Trajectory dict as returned by ``hamiltonian_flow``.
             For 2-DOF systems the projection onto (x1, p1) is used.
-        vars_phase : list of sympy.Symbol
+        vars_phase : list of Symbol
             [x, p] or [x1, p1, x2, p2].
         orbit_points : (K, 2) ndarray
             Points (x, p) sampled along the periodic orbit.

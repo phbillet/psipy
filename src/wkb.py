@@ -65,13 +65,22 @@ References
 
 from imports import *
 from caustics import * 
+import numpy.typing as npt
 # ==================================================================
 # ENHANCED WKB WITH CAUSTIC CORRECTIONS
 # ==================================================================
 
-def wkb_approximation(symbol, initial_phase, order=1, domain=None,
-                               resolution=50, epsilon=0.1, dimension=None,
-                               caustic_correction='auto', caustic_threshold=1e-3):
+def wkb_approximation(
+    symbol: Expr,
+    initial_phase: Dict[str, Any],
+    order: int = 1,
+    domain: Optional[Union[Tuple[float, float], Tuple[Tuple[float, float], Tuple[float, float]]]] = None,
+    resolution: Union[int, Tuple[int, ...]] = 50,
+    epsilon: float = 0.1,
+    dimension: Optional[int] = None,
+    caustic_correction: str = 'auto',
+    caustic_threshold: float = 1e-3
+) -> Dict[str, Any]:
     """
     Compute multidimensional WKB approximation (1D or 2D).
 
@@ -192,8 +201,15 @@ def wkb_approximation(symbol, initial_phase, order=1, domain=None,
     
     return corrected_solution
 
-def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
-                resolution=50, epsilon=0.1, dimension=None):
+def _compute_base_wkb(
+    symbol: Expr,
+    initial_phase: Dict[str, Any],
+    order: int = 1,
+    domain: Optional[Union[Tuple[float, float], Tuple[Tuple[float, float], Tuple[float, float]]]] = None,
+    resolution: Union[int, Tuple[int, ...]] = 50,
+    epsilon: float = 0.1,
+    dimension: Optional[int] = None
+) -> Dict[str, Any]:
     """
     Compute multidimensional WKB (Wentzel-Kramers-Brillouin) approximation for wave propagation.
     
@@ -956,7 +972,12 @@ def _compute_base_wkb(symbol, initial_phase, order=1, domain=None,
     
     return result
 
-def _apply_1d_caustic_corrections(base_solution, caustics, epsilon, mode):
+def _apply_1d_caustic_corrections(
+    base_solution: Dict[str, Any],
+    caustics: List[Any],
+    epsilon: float,
+    mode: str
+) -> Dict[str, Any]:
     """
     Apply caustic corrections in 1D using Airy functions and Maslov index.
     """
@@ -1023,7 +1044,12 @@ def _apply_1d_caustic_corrections(base_solution, caustics, epsilon, mode):
     
     return result
 
-def _apply_2d_caustic_corrections(base_solution, caustics, epsilon, mode):
+def _apply_2d_caustic_corrections(
+    base_solution: Dict[str, Any],
+    caustics: List[Any],
+    epsilon: float,
+    mode: str
+) -> Dict[str, Any]:
     """
     Apply caustic corrections in 2D using Airy/Pearcey functions.
     """
@@ -1106,7 +1132,12 @@ def _apply_2d_caustic_corrections(base_solution, caustics, epsilon, mode):
     
     return result
 
-def compare_orders(symbol, initial_phase, max_order=3, **kwargs):
+def compare_orders(
+    symbol: Expr,
+    initial_phase: Dict[str, Any],
+    max_order: int = 3,
+    **kwargs: Any
+) -> Tuple[Dict[int, Dict[str, Any]], plt.Figure]:
 
     solutions = {}
     for order in range(max_order + 1):
@@ -1191,7 +1222,10 @@ def compare_orders(symbol, initial_phase, max_order=3, **kwargs):
 
     return solutions, fig
 
-def plot_phase_space(solution, time_slice=None):
+def plot_phase_space(
+    solution: Dict[str, Any],
+    time_slice: Optional[float] = None
+) -> plt.Figure:
     """
     Plot phase space (position-momentum) trajectories.
     
@@ -1286,7 +1320,9 @@ def plot_phase_space(solution, time_slice=None):
 # ADVANCED: Amplitude decomposition
 # ==================================================================
 
-def plot_amplitude_decomposition(solution):
+def plot_amplitude_decomposition(
+    solution: Dict[str, Any]
+) -> plt.Figure:
     """
     Plot individual amplitude orders aₖ and their contributions.
     """
@@ -1386,7 +1422,11 @@ def plot_amplitude_decomposition(solution):
 # VISUALIZATION WITH CAUSTIC HIGHLIGHTING
 # ==================================================================
 
-def plot_with_caustics(solution, component='abs', highlight_caustics=True):
+def plot_with_caustics(
+    solution: Dict[str, Any],
+    component: str = 'abs',
+    highlight_caustics: bool = True
+) -> plt.Figure:
     """
     Plot WKB solution with caustics highlighted.
     
@@ -1562,7 +1602,9 @@ def plot_with_caustics(solution, component='abs', highlight_caustics=True):
         plt.tight_layout()
         return fig
 
-def plot_caustic_analysis(solution):
+def plot_caustic_analysis(
+    solution: Dict[str, Any]
+) -> Optional[plt.Figure]:
     """
     Detailed analysis plot of caustics.
     """
@@ -1713,8 +1755,12 @@ def plot_caustic_analysis(solution):
     plt.tight_layout()
     return fig
 
-def create_initial_data_line(x_range, n_points=20, direction=(1, 0), 
-                             y_intercept=0.0):
+def create_initial_data_line(
+    x_range: Tuple[float, float],
+    n_points: int = 20,
+    direction: Tuple[float, float] = (1, 0),
+    y_intercept: float = 0.0
+) -> Dict[str, npt.NDArray[np.float64]]:
     """
     Create initial data for WKB on a line segment.
     
@@ -1758,7 +1804,11 @@ def create_initial_data_line(x_range, n_points=20, direction=(1, 0),
     }
 
 
-def create_initial_data_circle(radius=1.0, n_points=30, outward=True):
+def create_initial_data_circle(
+    radius: float = 1.0,
+    n_points: int = 30,
+    outward: bool = True
+) -> Dict[str, npt.NDArray[np.float64]]:
     """
     Create initial data for WKB on a circle.
     
@@ -1804,7 +1854,11 @@ def create_initial_data_circle(radius=1.0, n_points=30, outward=True):
     }
 
 
-def create_initial_data_point_source(x0=0.0, y0=0.0, n_rays=20):
+def create_initial_data_point_source(
+    x0: float = 0.0,
+    y0: float = 0.0,
+    n_rays: int = 20
+) -> Dict[str, npt.NDArray[np.float64]]:
     """
     Create initial data for WKB from a point source.
     
@@ -1843,7 +1897,11 @@ def create_initial_data_point_source(x0=0.0, y0=0.0, n_rays=20):
         'p_y': py_init
     }
 
-def visualize_wkb_rays(wkb_result, plot_type='phase', n_rays_plot=None):
+def visualize_wkb_rays(
+    wkb_result: Dict[str, Any],
+    plot_type: str = 'phase',
+    n_rays_plot: Optional[int] = None
+) -> None:
     """
     Visualize WKB solution with rays.
     

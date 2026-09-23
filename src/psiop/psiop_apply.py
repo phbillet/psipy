@@ -269,15 +269,15 @@ def kohn_nirenberg_fft(
     symbol_func: Callable[..., np.ndarray],
     x_grid: np.ndarray,
     kx: np.ndarray,
-    fft_func: Callable,
-    ifft_func: Callable,
+    fft_func: Callable[[np.ndarray], np.ndarray],
+    ifft_func: Callable[[np.ndarray], np.ndarray],
     dim: int = 1,
     y_grid: Optional[np.ndarray] = None,
     ky: Optional[np.ndarray] = None,
     freq_window: Optional[str] = 'gaussian',
     clamp: float = 1e6,
     space_window: bool = False,
-    is_spatial: bool = False,
+    is_spatial: Optional[bool] = None,
 ) -> np.ndarray:
     """
     Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator
@@ -315,7 +315,7 @@ def kohn_nirenberg_fft(
     symbol_func : callable
         Symbol evaluator p(x, ξ) in 1D or p(x, y, ξ, η) in 2D. Must accept 
         NumPy-broadcastable positional arguments. Return arrays are automatically 
-        broadcasted and cast to complex128 to handle scalar outputs safely (e.g., from `sympy.lambdify`).
+        broadcasted and cast to complex128 to handle scalar outputs safely (e.g., from `lambdify`).
     x_grid : ndarray
         1D array of spatial coordinates along the x-axis.
     kx : ndarray
@@ -639,7 +639,14 @@ def kohn_nirenberg_fft(
 # Non-Periodic Kohn-Nirenberg Quantization (Dirichlet)
 # ============================================================================
 
-def _cache_key_2d(x1, x2, xi1, xi2, freq_window, space_window):
+def _cache_key_2d(
+    x1: np.ndarray,
+    x2: np.ndarray,
+    xi1: np.ndarray,
+    xi2: np.ndarray,
+    freq_window: Optional[str],
+    space_window: bool,
+) -> Tuple[Tuple[Tuple[int, ...], float, float, Tuple[int, ...], float, float], Tuple[Tuple[int, ...], float, float, Tuple[int, ...], float, float], Optional[str], bool]:
     """
     Build a stable cache key for the 2D non-periodic Kohn-Nirenberg branch.
 
@@ -685,7 +692,7 @@ def kohn_nirenberg_nonperiodic(
     clamp: float = 1e6,
     space_window: bool = False,
     is_spatial: Optional[bool] = None,
-    _cache: Dict = _KN_CACHE,
+    _cache: Dict[Tuple, Dict[str, Any]] = _KN_CACHE,
 ) -> np.ndarray:
     """
     Numerically stable Kohn–Nirenberg quantization of a pseudo-differential operator
@@ -744,7 +751,7 @@ def kohn_nirenberg_nonperiodic(
         Symbol evaluator p(x, ξ) in 1D or p(x1, x2, ξ1, ξ2) in 2D. Must accept
         NumPy-broadcastable positional arguments. Returns are automatically
         broadcasted, type-cast to `complex128`, and reshaped/copied safely to handle scalar
-        or reduced-dimension outputs (e.g., from `sympy.lambdify`).
+        or reduced-dimension outputs (e.g., from `lambdify`).
     freq_window : {'gaussian', 'hann', None}, default='gaussian'
         Frequency-domain window/taper applied to attenuate high-frequency numerical artifacts.
     clamp : float, default=1e6
@@ -1016,10 +1023,14 @@ def kohn_nirenberg_nonperiodic(
         raise NotImplementedError("Only 1D (ndim=1) and 2D (ndim=2) inputs are supported")
 
 
-def _sympy_number(z, digits=5, drop_tol=0.0):
+def _sympy_number(
+    z: Union[complex, float, int],
+    digits: int = 5,
+    drop_tol: float = 0.0,
+) -> Expr:
     """
     Convert a Python/NumPy complex number into a SymPy number, since
-    `sympy.Float` does not accept complex values directly.
+    `Float` does not accept complex values directly.
 
     Parameters
     ----------
@@ -1035,9 +1046,9 @@ def _sympy_number(z, digits=5, drop_tol=0.0):
 
     Returns
     -------
-    sympy.Float or sympy.Expr
-        `sympy.Float(re, digits)` if the imaginary part is zero, otherwise
-        `sympy.Float(re, digits) + sympy.I * sympy.Float(im, digits)`.
+    Float or Expr
+        `Float(re, digits)` if the imaginary part is zero, otherwise
+        `Float(re, digits) + I * Float(im, digits)`.
     """
     z = complex(z)
     re = float(np.real(z))
@@ -1054,7 +1065,7 @@ def _sympy_number(z, digits=5, drop_tol=0.0):
     return Float(re, digits) + I * Float(im, digits)
 
 
-def _chebyshev_polynomial(n, z):
+def _chebyshev_polynomial(n: int, z: Union[Expr, Symbol]) -> Expr:
     """
     Return the Chebyshev polynomial Tₙ(z) as an explicit expanded SymPy expression.
 
@@ -1066,12 +1077,12 @@ def _chebyshev_polynomial(n, z):
     ----------
     n : int
         Degree of the Chebyshev polynomial (n ≥ 0).
-    z : sympy.Expr or sympy.Symbol
+    z : Expr or Symbol
         The symbolic variable.
 
     Returns
     -------
-    sympy.Expr
+    Expr
         The expanded Chebyshev polynomial of degree `n`.
     """
     if n == 0:
@@ -1088,14 +1099,14 @@ def _chebyshev_polynomial(n, z):
     return t_curr
 
 def evaluate_decomposition_quality(
-    orig_expr,
-    symbolic_pairs,
-    x_syms,
-    xi_syms,
-    bounds,
-    num_samples=10000,
-    seed=42,
-):
+    orig_expr: Expr,
+    symbolic_pairs: List[Tuple[Expr, Expr]],
+    x_syms: Sequence[Symbol],
+    xi_syms: Sequence[Symbol],
+    bounds: Dict[Symbol, Tuple[float, float]],
+    num_samples: int = 10000,
+    seed: int = 42,
+) -> Dict[str, float]:
     """
     Estimate the symbol-level approximation error of a separable/low-rank
     decomposition against the original expression, via Monte Carlo
@@ -1107,7 +1118,7 @@ def evaluate_decomposition_quality(
 
     Parameters
     ----------
-    orig_expr : sympy.Expr
+    orig_expr : Expr
         Original joint symbol being approximated.
     symbolic_pairs : list of tuple
         Candidate decomposition, as pairs `(a_k(x), q_k(xi))` of sympy
@@ -1199,16 +1210,16 @@ def evaluate_decomposition_quality(
 
 
 def factorize_symbolic(
-    expr,
-    x_syms,
-    xi_syms,
-    bounds,
-    degree=6,
-    tol=1e-5,
-    num_samples=10000,
-    seed=42,
-    digits=5,
-):
+    expr: Expr,
+    x_syms: Sequence[Symbol],
+    xi_syms: Sequence[Symbol],
+    bounds: Dict[Symbol, Tuple[float, float]],
+    degree: int = 6,
+    tol: float = 1e-5,
+    num_samples: int = 10000,
+    seed: int = 42,
+    digits: int = 5,
+) -> Tuple[List[Tuple[Expr, Expr]], Dict[str, Any]]:
     """
     Low-rank Chebyshev/SVD factorization of a joint symbol:
 
@@ -1218,7 +1229,7 @@ def factorize_symbolic(
 
     Parameters
     ----------
-    expr : sympy.Expr
+    expr : Expr
         Symbol to factorize, usually the Peetre joint residual.
     x_syms : list of sympy symbols
         Spatial variables.
@@ -1235,7 +1246,7 @@ def factorize_symbolic(
     seed : int
         RNG seed.
     digits : int
-        Number of digits used when converting floating coefficients to SymPy.
+        Number of digits used when converting floating coefficients to 
 
     Returns
     -------
@@ -1473,7 +1484,7 @@ except ImportError:
 _finufft_warned = False
 
 
-def _warn_no_finufft():
+def _warn_no_finufft() -> None:
     """
     Issue a one-time warning if the optional `finufft` library is missing.
 
@@ -1496,7 +1507,7 @@ def _warn_no_finufft():
         _finufft_warned = True
 
 
-def _nufft_split_real_imag_exponent(total_exponent):
+def _nufft_split_real_imag_exponent(total_exponent: Expr) -> Tuple[Expr, Expr, bool]:
     """
     Split a symbolic exponent into its imaginary (phase) and real (envelope) parts.
 
@@ -1506,14 +1517,14 @@ def _nufft_split_real_imag_exponent(total_exponent):
 
     Parameters
     ----------
-    total_exponent : sympy.Expr
+    total_exponent : Expr
         The expanded symbolic exponent to be split.
 
     Returns
     -------
-    phase_expr : sympy.Expr
+    phase_expr : Expr
         The purely imaginary part (without the `i` factor).
-    real_envelope : sympy.Expr
+    real_envelope : Expr
         The purely real part of the exponent.
     has_osc : bool
         True if the exponent contained at least one imaginary term.
@@ -1531,7 +1542,11 @@ def _nufft_split_real_imag_exponent(total_exponent):
     return phase_expr, real_envelope, bool(imag_terms)
 
 
-def _nufft_extract_term_nd(term, phys_syms, freq_syms):
+def _nufft_extract_term_nd(
+    term: Expr,
+    phys_syms: Sequence[Symbol],
+    freq_syms: Sequence[Symbol],
+) -> Optional[Dict[str, Any]]:
     """
     Factor a single (exp-rewritten, expanded) additive term into
         c(phys) * g(freq) * exp(i * Lambda(phys) * M(freq))
@@ -1589,7 +1604,11 @@ def _nufft_extract_term_nd(term, phys_syms, freq_syms):
     }
 
 
-def try_nufft_decomposition_1d(joint_expr, x_sym, xi_sym):
+def try_nufft_decomposition_1d(
+    joint_expr: Expr,
+    x_sym: Symbol,
+    xi_sym: Symbol,
+) -> Optional[List[Dict[str, Any]]]:
     """
     1D (phase space (x, ξ)) NUFFT classifier.
 
@@ -1598,11 +1617,11 @@ def try_nufft_decomposition_1d(joint_expr, x_sym, xi_sym):
 
     Parameters
     ----------
-    joint_expr : sympy.Expr
+    joint_expr : Expr
         The joint symbolic expression to classify.
-    x_sym : sympy.Symbol
+    x_sym : Symbol
         The spatial variable.
-    xi_sym : sympy.Symbol
+    xi_sym : Symbol
         The frequency variable.
 
     Returns
@@ -1622,7 +1641,11 @@ def try_nufft_decomposition_1d(joint_expr, x_sym, xi_sym):
     return plans
 
 
-def _resolve_1d_piece_for_axis_sep(part_expr, phys_sym, freq_sym):
+def _resolve_1d_piece_for_axis_sep(
+    part_expr: Expr,
+    phys_sym: Symbol,
+    freq_sym: Symbol,
+) -> Optional[List[Dict[str, Any]]]:
     """
     Resolve a single-variable-pair factor for the 2D axis-separable tier.
 
@@ -1631,11 +1654,11 @@ def _resolve_1d_piece_for_axis_sep(part_expr, phys_sym, freq_sym):
 
     Parameters
     ----------
-    part_expr : sympy.Expr
+    part_expr : Expr
         The symbolic sub-expression to resolve.
-    phys_sym : sympy.Symbol
+    phys_sym : Symbol
         The physical/spatial variable.
-    freq_sym : sympy.Symbol
+    freq_sym : Symbol
         The frequency variable.
 
     Returns
@@ -1660,7 +1683,13 @@ def _resolve_1d_piece_for_axis_sep(part_expr, phys_sym, freq_sym):
     return pieces
 
 
-def try_nufft_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym):
+def try_nufft_decomposition_2d(
+    joint_expr: Expr,
+    x_sym: Symbol,
+    y_sym: Symbol,
+    xi_sym: Symbol,
+    eta_sym: Symbol,
+) -> Optional[Tuple[str, List[Dict[str, Any]]]]:
     """
     2D (phase space (x,y,xi,eta)) NUFFT classifier. Tries, in order:
       (a) axis-separable: term factors as A(x,xi)*B(y,eta) (disjoint
@@ -1704,7 +1733,7 @@ def try_nufft_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym):
     return ("joint3d", plans) if plans else None
 
 
-def _nufft_uhat_1d(u, x_grid, dx, kx):
+def _nufft_uhat_1d(u: np.ndarray, x_grid: np.ndarray, dx: float, kx: np.ndarray) -> np.ndarray:
     """
     Compute the continuous Fourier transform approximation of `u`.
 
@@ -1732,7 +1761,7 @@ def _nufft_uhat_1d(u, x_grid, dx, kx):
     x0 = x_grid[0]
     return np.fft.fft(u) * dx * np.exp(-1j * x0 * kx)
 
-def _grid_fingerprint(*arrays):
+def _grid_fingerprint(*arrays: np.ndarray) -> Tuple[Tuple[Tuple[int, ...], complex, complex, complex], ...]:    
     """
     Compute a cheap, order-sensitive fingerprint of a set of point arrays.
 
@@ -1763,7 +1792,16 @@ def _grid_fingerprint(*arrays):
     return tuple(parts)
 
 
-def _get_or_build_finufft_plan_2d(term, key, eps, src_x, src_y, tgt_x, tgt_y, isign=1):
+def _get_or_build_finufft_plan_2d(
+    term: Dict[str, Any],
+    key: Tuple,
+    eps: float,
+    src_x: np.ndarray,
+    src_y: np.ndarray,
+    tgt_x: np.ndarray,
+    tgt_y: np.ndarray,
+    isign: int = 1,
+) -> Any:
     """
     Retrieve or build a cached 2D `finufft.Plan` (Type 3, 2D).
 
@@ -1800,7 +1838,18 @@ def _get_or_build_finufft_plan_2d(term, key, eps, src_x, src_y, tgt_x, tgt_y, is
     return plan_obj
 
 
-def _get_or_build_finufft_plan_3d(term, key, eps, src_x, src_y, src_z, tgt_x, tgt_y, tgt_z, isign=1):
+def _get_or_build_finufft_plan_3d(
+    term: Dict[str, Any],
+    key: Tuple,
+    eps: float,
+    src_x: np.ndarray,
+    src_y: np.ndarray,
+    src_z: np.ndarray,
+    tgt_x: np.ndarray,
+    tgt_y: np.ndarray,
+    tgt_z: np.ndarray,
+    isign: int = 1,
+) -> Any:
     """
     Retrieve or build a cached 3D `finufft.Plan` (Type 3, 3D).
 
@@ -1836,7 +1885,14 @@ def _get_or_build_finufft_plan_3d(term, key, eps, src_x, src_y, src_z, tgt_x, tg
     term['_finufft_plan_cache'] = {'key': key, 'plan': plan_obj}
     return plan_obj
 
-def _nufft_direct_2d_type3(sx, sy, weights, tx, ty, isign=1):
+def _nufft_direct_2d_type3(
+    sx: np.ndarray,
+    sy: np.ndarray,
+    weights: np.ndarray,
+    tx: np.ndarray,
+    ty: np.ndarray,
+    isign: int = 1,
+) -> np.ndarray:
     """
     Fallback 2D NUFFT direct sum using pure NumPy.
 
@@ -1868,7 +1924,16 @@ def _nufft_direct_2d_type3(sx, sy, weights, tx, ty, isign=1):
     return (weights[None, :] * np.exp(1j * phase)).sum(axis=1)
 
 
-def _nufft_direct_3d_type3(sx, sy, sz, weights, tx, ty, tz, isign=1):
+def _nufft_direct_3d_type3(
+    sx: np.ndarray,
+    sy: np.ndarray,
+    sz: np.ndarray,
+    weights: np.ndarray,
+    tx: np.ndarray,
+    ty: np.ndarray,
+    tz: np.ndarray,
+    isign: int = 1,
+) -> np.ndarray:
     """
     Fallback 3D NUFFT direct sum using pure NumPy.
 
@@ -1896,7 +1961,7 @@ def _nufft_direct_3d_type3(sx, sy, sz, weights, tx, ty, tz, isign=1):
     return (weights[None, :] * np.exp(1j * phase)).sum(axis=1)
 
 
-def _nufft_freq_window(kvals, freq_window):
+def _nufft_freq_window(kvals: np.ndarray, freq_window: Optional[str]) -> np.ndarray:
     """
     Apply a frequency-domain window/taper to a raw frequency array.
 
@@ -1926,7 +1991,16 @@ def _nufft_freq_window(kvals, freq_window):
     return np.ones_like(kvals, dtype=float)
 
 
-def apply_nufft_1d(u, plan, x_grid, kx, dx, dxi, eps=1e-12, freq_window="gaussian"):
+def apply_nufft_1d(
+    u: np.ndarray,
+    plan: List[Dict[str, Any]],
+    x_grid: np.ndarray,
+    kx: np.ndarray,
+    dx: float,
+    dxi: float,
+    eps: float = 1e-12,
+    freq_window: Optional[str] = "gaussian",
+) -> np.ndarray:
     """
     Apply the pseudo-differential operator Op(p_joint) via the 1D NUFFT tier.
 
@@ -1983,8 +2057,21 @@ def apply_nufft_1d(u, plan, x_grid, kx, dx, dxi, eps=1e-12, freq_window="gaussia
     return result
 
 
-def apply_nufft_2d(u, kind, plan, x_grid, y_grid, kx, ky, dx, dy, dxi, deta, eps=1e-12,
-                    freq_window="gaussian"):
+def apply_nufft_2d(
+    u: np.ndarray,
+    kind: str,
+    plan: Union[List[Dict[str, Any]], Dict[str, Any]],
+    x_grid: np.ndarray,
+    y_grid: np.ndarray,
+    kx: np.ndarray,
+    ky: np.ndarray,
+    dx: float,
+    dy: float,
+    dxi: float,
+    deta: float,
+    eps: float = 1e-12,
+    freq_window: Optional[str] = "gaussian",
+) -> np.ndarray:
     """
     Apply the pseudo-differential operator Op(p_joint) via the 2D NUFFT tier.
 
@@ -2068,8 +2155,16 @@ def apply_nufft_2d(u, kind, plan, x_grid, y_grid, kx, ky, dx, dy, dxi, deta, eps
     raise ValueError(f"unknown NUFFT 2D plan kind: {kind}")
 
 
-def _apply_1d_piece_rows(piece, field, axis_grid, k_axis, d_axis, dk_axis, along_axis,
-                          freq_window="gaussian"):
+def _apply_1d_piece_rows(
+    piece: Dict[str, Any],
+    field: np.ndarray,
+    axis_grid: np.ndarray,
+    k_axis: np.ndarray,
+    d_axis: float,
+    dk_axis: float,
+    along_axis: int,
+    freq_window: Optional[str] = "gaussian",
+) -> np.ndarray:
     """
     Apply 1D NUFFT pieces row-by-row for the 2D axis-separable tier.
 
@@ -2164,7 +2259,12 @@ class _VectorAAA:
         The function values at the support points, shape `(k, m)` where 
         `k` is the number of poles and `m` is the number of spatial nodes.
     """
-    def __init__(self, z_support, w, f_support):
+    def __init__(
+            self,
+            z_support: np.ndarray,
+            w: np.ndarray,
+            f_support: np.ndarray,
+        ) -> None:
         """
         Initialize the vector-valued AAA rational fit.
 
@@ -2181,7 +2281,7 @@ class _VectorAAA:
         self.w = np.asarray(w)
         self.f_support = np.asarray(f_support)  # (k, m)
 
-    def __call__(self, z):
+    def __call__(self, z: Union[np.ndarray, Sequence[complex], complex]) -> np.ndarray:
         """
         Evaluate the rational fit at arbitrary points `z`.
 
@@ -2210,7 +2310,12 @@ class _VectorAAA:
         return out
 
 
-def _vector_aaa(z_samples, F_samples, rtol=1e-8, max_terms=50):
+def _vector_aaa(
+    z_samples: np.ndarray,
+    F_samples: np.ndarray,
+    rtol: float = 1e-8,
+    max_terms: int = 50,
+) -> _VectorAAA:
     """
     Core implementation of the vector-valued Adaptive Antoulas-Algorithm (AAA).
 
@@ -2277,7 +2382,7 @@ def _vector_aaa(z_samples, F_samples, rtol=1e-8, max_terms=50):
     return _VectorAAA(z_support, w, f_support)
 
 
-def _aaa_chebyshev_nodes(a, b, n):
+def _aaa_chebyshev_nodes(a: float, b: float, n: int) -> np.ndarray:
     """
     Generate Chebyshev nodes of the first kind mapped to the interval [a, b].
 
@@ -2300,7 +2405,7 @@ def _aaa_chebyshev_nodes(a, b, n):
     return 0.5*(b-a)*x + 0.5*(b+a)
 
 
-def _aaa_bary_weights_1st_kind(n):
+def _aaa_bary_weights_1st_kind(n: int) -> np.ndarray:
     """
     Compute barycentric weights for Chebyshev nodes of the first kind.
 
@@ -2319,8 +2424,16 @@ def _aaa_bary_weights_1st_kind(n):
     return ((-1.0)**k) * np.sin(theta)
 
 
-def try_aaa_decomposition_1d(joint_expr, x_sym, xi_sym, x_bounds, xi_bounds,
-                              n_cheb=24, n_xi_samples=100, rtol=1e-8):
+def try_aaa_decomposition_1d(
+    joint_expr: Expr,
+    x_sym: Symbol,
+    xi_sym: Symbol,
+    x_bounds: Tuple[float, float],
+    xi_bounds: Tuple[float, float],
+    n_cheb: int = 24,
+    n_xi_samples: int = 100,
+    rtol: float = 1e-8,
+) -> Optional[Dict[str, Any]]:
     """
     1D bivariate rational decomposition via vector-valued AAA.
 
@@ -2330,9 +2443,9 @@ def try_aaa_decomposition_1d(joint_expr, x_sym, xi_sym, x_bounds, xi_bounds,
 
     Parameters
     ----------
-    joint_expr : sympy.Expr
+    joint_expr : Expr
         The joint symbolic expression to approximate.
-    x_sym, xi_sym : sympy.Symbol
+    x_sym, xi_sym : Symbol
         Spatial and frequency variables.
     x_bounds, xi_bounds : tuple of float
         `(min, max)` bounds for the spatial and frequency variables.
@@ -2368,7 +2481,11 @@ def try_aaa_decomposition_1d(joint_expr, x_sym, xi_sym, x_bounds, xi_bounds,
             "rel_l2_error": rel_l2_error, "n_poles": len(fit.z_support)}
 
 
-def _aaa_eval_1d(plan, x_eval, xi_eval):
+def _aaa_eval_1d(
+    plan: Dict[str, Any],
+    x_eval: np.ndarray,
+    xi_eval: np.ndarray,
+) -> np.ndarray:
     """
     Evaluate the 1D AAA-fitted symbol p(x, ξ) at arbitrary points.
 
@@ -2407,7 +2524,7 @@ def _aaa_eval_1d(plan, x_eval, xi_eval):
     return out  # (Nxi, Nx)
 
 
-def aaa_plan_to_callable_1d(plan):
+def aaa_plan_to_callable_1d(plan: Dict[str, Any]) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
     """
     Wrap a 1D AAA decomposition plan into a fast NumPy callable.
 
@@ -2440,10 +2557,22 @@ def aaa_plan_to_callable_1d(plan):
     return p_approx
 
 
-def try_aaa_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym,
-                              x_bounds, y_bounds, xi_bounds, eta_bounds,
-                              n_cheb_x=10, n_cheb_y=10,
-                              n_xi_samples=30, n_eta_samples=30, rtol=1e-8):
+def try_aaa_decomposition_2d(
+    joint_expr: Expr,
+    x_sym: Symbol,
+    y_sym: Symbol,
+    xi_sym: Symbol,
+    eta_sym: Symbol,
+    x_bounds: Tuple[float, float],
+    y_bounds: Tuple[float, float],
+    xi_bounds: Tuple[float, float],
+    eta_bounds: Tuple[float, float],
+    n_cheb_x: int = 10,
+    n_cheb_y: int = 10,
+    n_xi_samples: int = 30,
+    n_eta_samples: int = 30,
+    rtol: float = 1e-8,
+) -> Optional[Dict[str, Any]]:
     """
     2D decomposition via sequential vector-valued AAA.
 
@@ -2452,9 +2581,9 @@ def try_aaa_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym,
 
     Parameters
     ----------
-    joint_expr : sympy.Expr
+    joint_expr : Expr
         The 2D joint symbolic expression.
-    x_sym, y_sym, xi_sym, eta_sym : sympy.Symbol
+    x_sym, y_sym, xi_sym, eta_sym : Symbol
         Spatial and frequency variables.
     x_bounds, y_bounds, xi_bounds, eta_bounds : tuple of float
         `(min, max)` bounds for each variable.
@@ -2513,7 +2642,13 @@ def try_aaa_decomposition_2d(joint_expr, x_sym, y_sym, xi_sym, eta_sym,
     return plan
 
 
-def _interp_2d_tensor_chebyshev(vals_grid, x_nodes, y_nodes, x_eval, y_eval):
+def _interp_2d_tensor_chebyshev(
+    vals_grid: np.ndarray,
+    x_nodes: np.ndarray,
+    y_nodes: np.ndarray,
+    x_eval: np.ndarray,
+    y_eval: np.ndarray,
+) -> np.ndarray:
     """
     2D tensor-product barycentric Lagrange interpolation.
 
@@ -2561,7 +2696,13 @@ def _interp_2d_tensor_chebyshev(vals_grid, x_nodes, y_nodes, x_eval, y_eval):
     return bary_1d(step1, y_nodes, bwy, y_eval, axis=ax_y)
 
 
-def _aaa_eval_2d(plan, x_eval, y_eval, xi_eval, eta_eval):
+def _aaa_eval_2d(
+    plan: Dict[str, Any],
+    x_eval: Union[np.ndarray, Sequence[float], float],
+    y_eval: Union[np.ndarray, Sequence[float], float],
+    xi_eval: Union[np.ndarray, Sequence[complex], complex],
+    eta_eval: Union[np.ndarray, Sequence[complex], complex],
+) -> np.ndarray:
     """
     Evaluate the 2D AAA-fitted symbol p(x, y, ξ, η) at arbitrary points.
 
@@ -2607,7 +2748,17 @@ def _aaa_eval_2d(plan, x_eval, y_eval, xi_eval, eta_eval):
     return out
 
 
-def aaa_plan_to_callable_2d(plan):
+def aaa_plan_to_callable_2d(
+    plan: Dict[str, Any]
+) -> Callable[
+    [
+        Union[np.ndarray, Sequence[float], float],
+        Union[np.ndarray, Sequence[float], float],
+        Union[np.ndarray, Sequence[complex], complex],
+        Union[np.ndarray, Sequence[complex], complex],
+    ],
+    np.ndarray,
+]:
     """
     Wrap a 2D AAA decomposition plan into a fast NumPy callable.
 

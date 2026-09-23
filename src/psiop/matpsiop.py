@@ -175,6 +175,11 @@ from imports import *
 # Import core components from the parent package
 from . import PseudoDifferentialOperator
 from . import _mi_all, _mi_diff, _mi_factorial, _mi_upto
+SymbolicMatrix = Union[Matrix, MatrixBase]
+ScalarExpr = Expr
+VectorField = Sequence[np.ndarray]
+MatrixField = Sequence[Sequence[np.ndarray]]
+GridArray = np.ndarray
 
 
 # ============================================================================
@@ -233,15 +238,15 @@ class MatrixPseudoDifferentialOperator:
     """
 
     def __init__(
-        self,
-        P_expr,
-        vars_x,
-        mode='symbol',
-        quantization='kohn-nirenberg',
-        apply_backend='peetre',
-        compute_peetre=False,
-        peetre_options=None,
-    ):
+            self,
+            P_expr: Union[SymbolicMatrix, Sequence[Sequence[ScalarExpr]]],
+            vars_x: Sequence[Symbol],
+            mode: str = 'symbol',
+            quantization: str = 'kohn-nirenberg',
+            apply_backend: str = 'peetre',
+            compute_peetre: bool = False,
+            peetre_options: Optional[Dict[str, Any]] = None,
+        ) -> None:
         P_expr = Matrix(P_expr)
         n, m = P_expr.shape
         if n != m:
@@ -270,7 +275,15 @@ class MatrixPseudoDifferentialOperator:
         self.fft = self.entries[0][0].fft
         self.ifft = self.entries[0][0].ifft
 
-    def apply(self, u, x_grid, kx, y_grid=None, ky=None, **apply_kwargs):
+    def apply(
+            self,
+            u: VectorField,
+            x_grid: GridArray,
+            kx: GridArray,
+            y_grid: Optional[GridArray] = None,
+            ky: Optional[GridArray] = None,
+            **apply_kwargs: Any
+        ) -> List[np.ndarray]:
         """
         Apply P(x, xi) to a vector field u = (u_1, ..., u_N).
 
@@ -303,7 +316,10 @@ class MatrixPseudoDifferentialOperator:
             out.append(v_i)
         return out
 
-    def symbol_matrix(self, *args):
+    def symbol_matrix(
+            self,
+            *args: Union[float, complex, GridArray]
+        ) -> Union[SymbolicMatrix, np.ndarray]:
         """
         Numerically evaluate P(x[, y], xi[, eta]) at a point or
         broadcastable arrays, returning an ndarray of shape `(..., N, N)`.
@@ -334,7 +350,15 @@ class MatrixPseudoDifferentialOperator:
                 P[..., i, j] = self.entries[i][j].p_func(*args)
         return P
 
-    def apply_matrix_field(self, U, x_grid, kx, y_grid=None, ky=None, **apply_kwargs):
+    def apply_matrix_field(
+            self,
+            U: MatrixField,
+            x_grid: GridArray,
+            kx: GridArray,
+            y_grid: Optional[GridArray] = None,
+            ky: Optional[GridArray] = None,
+            **apply_kwargs: Any
+        ) -> List[List[np.ndarray]]:
         """
         Apply P(x, xi) to a matrix-valued field U(x) by left matrix
         multiplication on U's own N x N structure:
@@ -390,7 +414,15 @@ class MatrixPseudoDifferentialOperator:
                 out[i][k] = result_column[i]
         return out
 
-    def apply_matrix_field_right(self, U, x_grid, kx, y_grid=None, ky=None, **apply_kwargs):
+    def apply_matrix_field_right(
+            self,
+            U: MatrixField,
+            x_grid: GridArray,
+            kx: GridArray,
+            y_grid: Optional[GridArray] = None,
+            ky: Optional[GridArray] = None,
+            **apply_kwargs: Any
+        ) -> List[List[np.ndarray]]:
         """
         Apply this operator's symbol Q(x, xi) to a matrix-valued field
         U(x) by right matrix multiplication on U's own N x N structure:
@@ -479,7 +511,13 @@ class MatrixPseudoDifferentialOperator:
                 P[..., i, j] = self.entries[i][j].p_func(*args)
         return P
 
-    def eigen_symbol(self, *args):
+    def eigen_symbol(
+            self,
+            *args: Union[float, complex, GridArray]
+        ) -> Tuple[
+            Union[np.ndarray, SymbolicMatrix, Dict[Any, Any]],
+            Optional[Union[np.ndarray, SymbolicMatrix]]
+        ]:
         """
         Compute pointwise eigenvalues and eigenvectors of the symbol matrix.
 
@@ -567,7 +605,14 @@ class MatrixPseudoDifferentialOperator:
             
         return np.linalg.eig(P)  # general N x N fallback: (eigvals, eigvecs)
 
-    def compose_asymptotic(self, other, order=1, mode='kn', sign_convention=None, do_simplify=True):
+    def compose_asymptotic(
+            self,
+            other: "MatrixPseudoDifferentialOperator",
+            order: int = 1,
+            mode: Literal['kn', 'weyl'] = 'kn',
+            sign_convention: Optional[str] = None,
+            do_simplify: bool = True
+        ) -> SymbolicMatrix:
         """
         Compose two matrix-valued symbols via the same asymptotic
         Kohn-Nirenberg / Weyl expansion as
@@ -635,7 +680,13 @@ class MatrixPseudoDifferentialOperator:
         return simplify(result) if do_simplify else result
 
 
-    def commutator_symbolic(self, other, order=1, mode='kn', sign_convention=None):
+    def commutator_symbolic(
+            self,
+            other: "MatrixPseudoDifferentialOperator",
+            order: int = 1,
+            mode: Literal['kn', 'weyl'] = 'kn',
+            sign_convention: Optional[str] = None
+        ) -> SymbolicMatrix:
         """
         Compute the symbol of the commutator [Op[self], Op[other]].
 
@@ -670,7 +721,14 @@ class MatrixPseudoDifferentialOperator:
         )
         return simplify(pq - qp)
 
-    def exponential_symbol(self, t=1.0, order=2, mode='kn', sign_convention=None, do_simplify=True):
+    def exponential_symbol(
+            self,
+            t: Union[float, complex, Symbol] = 1.0,
+            order: int = 2,
+            mode: Literal['kn', 'weyl'] = 'kn',
+            sign_convention: Optional[str] = None,
+            do_simplify: bool = True
+        ) -> SymbolicMatrix:
         """
         Symbol of `exp(t Op[self])` for the matrix-valued operator, via
         the matrix analogue of `PseudoDifferentialOperator.exponential_symbol`.
@@ -746,7 +804,11 @@ class MatrixPseudoDifferentialOperator:
 
         return simplify(result) if do_simplify else result
 
-    def _asymptotic_matrix_inverse(self, order, side):
+    def _asymptotic_matrix_inverse(
+            self,
+            order: int,
+            side: Literal['left', 'right']
+        ) -> SymbolicMatrix:
         """
         Internal engine for computing left or right asymptotic matrix inverses.
 
@@ -807,7 +869,7 @@ class MatrixPseudoDifferentialOperator:
             R = R - (R0 * term if side == 'right' else term * R0)
         return simplify(R)
 
-    def right_inverse_asymptotic(self, order=1):
+    def right_inverse_asymptotic(self, order: int = 1) -> SymbolicMatrix:
         """
         Compute the formal right asymptotic inverse R.
 
@@ -833,7 +895,7 @@ class MatrixPseudoDifferentialOperator:
         """
         return self._asymptotic_matrix_inverse(order, side='right')
 
-    def left_inverse_asymptotic(self, order=1):
+    def left_inverse_asymptotic(self, order: int = 1) -> SymbolicMatrix:
         """
         Compute the formal left asymptotic inverse L.
 
@@ -859,7 +921,7 @@ class MatrixPseudoDifferentialOperator:
         """
         return self._asymptotic_matrix_inverse(order, side='left')
 
-    def formal_adjoint(self, n_terms=6):
+    def formal_adjoint(self, n_terms: int = 6) -> SymbolicMatrix:
         """
         Compute the formal Hermitian adjoint symbol P*.
 
