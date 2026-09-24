@@ -149,6 +149,7 @@ from sympy import (
     lambdify,
     latex,
     legendre,
+    limit,
     ln,
     log,
     nsimplify,

@@ -41,6 +41,11 @@ Covers:
   - arc_length: numerical and symbolic agree on cone metric
   - visualize_curvature smoke tests (Agg backend, no display)
   - Hodge decomposition tighter tolerances
+  NEW (exterior algebra):
+  - wedge_product — graded commutativity, bilinearity, degree overflow, 1D
+  - interior_product — antiderivation, iota² = 0, dV identity, covector option
+  - exterior_derivative — d² = 0, Leibniz rule, curl = ⋆d♭, pullback commutation
+  - Cartan's formula L_X = d·iota_X + iota_X·d on 0-, 1- and 2-forms
 """
 
 import pytest
@@ -48,7 +53,7 @@ import numpy as np
 from sympy import (
     symbols, Matrix, sin, cos, simplify, sqrt, pi,
     Rational, log, exp, Symbol, Abs, diff, lambdify,
-    DiracDelta, Integer,
+    DiracDelta, Integer, Function, I, zeros,
 )
 
 import matplotlib.pyplot as plt
@@ -94,6 +99,13 @@ from riemannian import (
     visualize_ricci_flow,
     killing_vector_fields_1d,
     killing_vector_fields_2d,
+    wedge_product,
+    interior_product,
+    exterior_derivative,
+    form_inner_product,
+    form_norm,
+    codifferential,
+    lie_derivative_form,
 )
 
 # ---------------------------------------------------------------------------
@@ -2814,3 +2826,815 @@ class TestVisualizationsNew:
         domain = ((-1, 1), (-1, 1))
         fig, axes = visualize_killing_fields(m_flat, fields, domain, resolution=5)
         assert fig is not None
+
+# ===========================================================================
+# NEW: Exterior algebra — wedge_product, interior_product, exterior_derivative
+# ===========================================================================
+
+@pytest.fixture(scope='module')
+def ea_fields(coords_2d):
+    """Generic symbolic fields on R^2 (coordinates x, y)."""
+    x, y = coords_2d
+    F = lambda name: Function(name)(x, y)
+    return {
+        'f': F('f'), 'h': F('h'),
+        'a': (F('a1'), F('a2')),
+        'b': (F('b1'), F('b2')),
+        'X': (F('X1'), F('X2')),
+    }
+
+
+def _zero(expr):
+    return simplify(expr) == 0
+
+
+def _zero_tuple(t):
+    return all(_zero(c) for c in t)
+
+
+class TestWedgeProduct:
+
+    def test_0_0_is_product(self, m_flat, ea_fields):
+        f, h = ea_fields['f'], ea_fields['h']
+        assert wedge_product(m_flat, f, h, 0, 0) == (0, f * h)
+
+    def test_0_1_scales_components(self, m_flat, coords_2d):
+        x, y = coords_2d
+        deg, res = wedge_product(m_flat, y, (1, 2), 0, 1)
+        assert deg == 1
+        assert res == (y, 2 * y)
+
+    def test_1_0_same_as_0_1(self, m_flat, ea_fields):
+        f, a = ea_fields['f'], ea_fields['a']
+        d1, r1 = wedge_product(m_flat, f, a, 0, 1)
+        d2, r2 = wedge_product(m_flat, a, f, 1, 0)
+        assert d1 == d2 == 1
+        assert _zero_tuple([p - q for p, q in zip(r1, r2)])
+
+    def test_0_2_scales_coefficient(self, m_flat, ea_fields):
+        f, h = ea_fields['f'], ea_fields['h']
+        assert wedge_product(m_flat, f, h, 0, 2) == (2, f * h)
+        assert wedge_product(m_flat, h, f, 2, 0) == (2, f * h)
+
+    def test_1_1_coordinate_forms(self, m_flat, coords_2d):
+        x, y = coords_2d
+        # x dx ^ y dy = x y dx^dy
+        assert wedge_product(m_flat, (x, 0), (0, y), 1, 1) == (2, x * y)
+        # dx ^ dy = dx^dy, dy ^ dx = -dx^dy
+        assert wedge_product(m_flat, (1, 0), (0, 1), 1, 1) == (2, 1)
+        assert wedge_product(m_flat, (0, 1), (1, 0), 1, 1) == (2, -1)
+
+    def test_1_1_self_wedge_zero(self, m_flat, ea_fields):
+        a = ea_fields['a']
+        assert _zero(wedge_product(m_flat, a, a, 1, 1)[1])
+
+    def test_1_1_anticommutative(self, m_flat, ea_fields):
+        a, b = ea_fields['a'], ea_fields['b']
+        ab = wedge_product(m_flat, a, b, 1, 1)[1]
+        ba = wedge_product(m_flat, b, a, 1, 1)[1]
+        assert _zero(ab + ba)
+
+    def test_1_1_bilinear(self, m_flat, ea_fields):
+        a, b, f = ea_fields['a'], ea_fields['b'], ea_fields['f']
+        c = ea_fields['X']
+        s = tuple(ai + f * bi for ai, bi in zip(a, b))
+        lhs = wedge_product(m_flat, s, c, 1, 1)[1]
+        rhs = (wedge_product(m_flat, a, c, 1, 1)[1]
+               + f * wedge_product(m_flat, b, c, 1, 1)[1])
+        assert _zero(lhs - rhs)
+
+    def test_degree_overflow_is_zero_2d(self, m_flat, ea_fields):
+        a = ea_fields['a']
+        h = ea_fields['h']
+        assert wedge_product(m_flat, a, h, 1, 2) == (3, 0)
+        assert wedge_product(m_flat, h, h, 2, 2) == (4, 0)
+
+    def test_metric_independent(self, m_flat, m_hyperbolic, m_sphere, ea_fields):
+        # the wedge product only depends on coordinates through the components
+        a, b = ea_fields['a'], ea_fields['b']
+        r0 = wedge_product(m_flat, a, b, 1, 1)
+        r1 = wedge_product(m_hyperbolic, a, b, 1, 1)
+        assert _zero(r0[1] - r1[1])
+
+    def test_1d_products(self, m_cone, coords_1d):
+        x = coords_1d
+        assert wedge_product(m_cone, x, x**2, 0, 0) == (0, x**3)
+        assert wedge_product(m_cone, x, x**2, 0, 1) == (1, x**3)
+        assert wedge_product(m_cone, x, x**2, 1, 1) == (2, 0)
+
+    def test_invalid_degree_raises(self, m_flat, ea_fields):
+        f = ea_fields['f']
+        with pytest.raises(ValueError):
+            wedge_product(m_flat, f, f, 3, 0)
+        with pytest.raises(ValueError):
+            wedge_product(m_flat, f, f, 0, -1)
+
+    def test_invalid_degree_raises_1d(self, m_cone, coords_1d):
+        with pytest.raises(ValueError):
+            wedge_product(m_cone, coords_1d, coords_1d, 2, 0)
+
+    def test_matrix_valued_1_1_is_commutator(self, m_flat, coords_2d):
+        x, y = coords_2d
+        S1, S2 = Matrix([[0, 1], [1, 0]]), Matrix([[0, -I], [I, 0]])
+        A = (cos(y) * S1, sin(x) * S2)
+        _, AwA = wedge_product(m_flat, A, A, 1, 1)
+        assert simplify(AwA - (A[0] * A[1] - A[1] * A[0])) == zeros(2, 2)
+        # F = dA + A^A agrees with the componentwise formula
+        _, dA = exterior_derivative(m_flat, A, 1)
+        F_ref = diff(A[1], x) - diff(A[0], y) + (A[0] * A[1] - A[1] * A[0])
+        assert simplify(dA + AwA - F_ref) == zeros(2, 2)
+
+
+class TestInteriorProduct:
+
+    def test_0form_gives_zero(self, m_flat, ea_fields):
+        deg, res = interior_product(m_flat, ea_fields['X'], ea_fields['f'], 0)
+        assert deg == -1 and res == 0
+
+    def test_1form_pairing(self, m_flat, coords_2d):
+        x, y = coords_2d
+        # iota_X (y dx - x dy) with X = (x, y) -> xy - xy = 0
+        assert interior_product(m_flat, (x, y), (y, -x), 1) == (0, 0)
+        # iota_{d/dx} dx = 1, iota_{d/dy} dx = 0
+        assert interior_product(m_flat, (1, 0), (1, 0), 1) == (0, 1)
+        assert interior_product(m_flat, (0, 1), (1, 0), 1) == (0, 0)
+
+    def test_1form_general_matches_pairing(self, m_flat, ea_fields):
+        a, X = ea_fields['a'], ea_fields['X']
+        deg, res = interior_product(m_flat, X, a, 1)
+        assert deg == 0
+        assert _zero(res - (a[0] * X[0] + a[1] * X[1]))
+
+    def test_2form_coordinate_volume(self, m_flat, coords_2d):
+        x, y = coords_2d
+        # iota_X (dx^dy) = X^x dy - X^y dx = (-y, x) for X = (x, y)
+        assert interior_product(m_flat, (x, y), 1, 2) == (1, (-y, x))
+
+    def test_2form_general_formula(self, m_flat, ea_fields):
+        f, X = ea_fields['f'], ea_fields['X']
+        deg, res = interior_product(m_flat, X, f, 2)
+        assert deg == 1
+        assert _zero(res[0] + f * X[1])
+        assert _zero(res[1] - f * X[0])
+
+    def test_iota_squared_zero(self, m_flat, ea_fields):
+        f, X = ea_fields['f'], ea_fields['X']
+        _, w1 = interior_product(m_flat, X, f, 2)
+        assert _zero(interior_product(m_flat, X, w1, 1)[1])
+
+    def test_iota_X_X_flat_wedge_vanishes_on_X(self, m_flat, ea_fields):
+        # iota_X iota_X (a^b) = 0
+        a, b, X = ea_fields['a'], ea_fields['b'], ea_fields['X']
+        ab = wedge_product(m_flat, a, b, 1, 1)[1]
+        _, w1 = interior_product(m_flat, X, ab, 2)
+        assert _zero(interior_product(m_flat, X, w1, 1)[1])
+
+    def test_antiderivation_on_1_forms(self, m_flat, ea_fields):
+        # iota_X (a^b) = (iota_X a) b - a (iota_X b)
+        a, b, X = ea_fields['a'], ea_fields['b'], ea_fields['X']
+        ab = wedge_product(m_flat, a, b, 1, 1)[1]
+        lhs = interior_product(m_flat, X, ab, 2)[1]
+        ia = interior_product(m_flat, X, a, 1)[1]
+        ib = interior_product(m_flat, X, b, 1)[1]
+        rhs = tuple(ia * bc - ib * ac for ac, bc in zip(a, b))
+        assert _zero_tuple([l - r for l, r in zip(lhs, rhs)])
+
+    def test_antiderivation_0_form_times_1_form(self, m_flat, ea_fields):
+        # iota_X (f a) = f iota_X a
+        f, a, X = ea_fields['f'], ea_fields['a'], ea_fields['X']
+        fa = wedge_product(m_flat, f, a, 0, 1)[1]
+        lhs = interior_product(m_flat, X, fa, 1)[1]
+        rhs = f * interior_product(m_flat, X, a, 1)[1]
+        assert _zero(lhs - rhs)
+
+    def test_linear_in_X(self, m_flat, ea_fields):
+        # C^inf-linearity: iota_{fX + Y} w = f iota_X w + iota_Y w
+        f, a, X = ea_fields['f'], ea_fields['a'], ea_fields['X']
+        Y = ea_fields['b']
+        S = tuple(f * xc + yc for xc, yc in zip(X, Y))
+        lhs = interior_product(m_flat, S, a, 1)[1]
+        rhs = (f * interior_product(m_flat, X, a, 1)[1]
+               + interior_product(m_flat, Y, a, 1)[1])
+        assert _zero(lhs - rhs)
+
+    def test_volume_form_identity_flat(self, m_flat, ea_fields):
+        # iota_X dV = star(X^flat)
+        X = ea_fields['X']
+        dV = m_flat.sqrt_det_g
+        lhs = interior_product(m_flat, X, dV, 2)[1]
+        rhs = hodge_star(m_flat, 1)(*m_flat.flat(X))
+        assert _zero_tuple([l - r for l, r in zip(lhs, rhs)])
+
+    def test_volume_form_identity_hyperbolic(self, m_hyperbolic, ea_fields):
+        X = ea_fields['X']
+        dV = m_hyperbolic.sqrt_det_g
+        lhs = interior_product(m_hyperbolic, X, dV, 2)[1]
+        rhs = hodge_star(m_hyperbolic, 1)(*m_hyperbolic.flat(X))
+        assert _zero_tuple([l - r for l, r in zip(lhs, rhs)])
+
+    def test_volume_form_identity_polar(self, m_polar, ea_fields):
+        X = ea_fields['X']
+        dV = m_polar.sqrt_det_g
+        lhs = interior_product(m_polar, X, dV, 2)[1]
+        rhs = hodge_star(m_polar, 1)(*m_polar.flat(X))
+        assert _zero_tuple([l - r for l, r in zip(lhs, rhs)])
+
+    def test_covector_option_matches_sharp(self, m_hyperbolic, ea_fields):
+        # vector_type='covector' must equal passing X^sharp directly
+        a = ea_fields['a']
+        alpha = ea_fields['b']
+        via_cov = interior_product(m_hyperbolic, alpha, a, 1, vector_type='covector')
+        via_vec = interior_product(m_hyperbolic, m_hyperbolic.sharp(alpha), a, 1)
+        assert _zero(via_cov[1] - via_vec[1])
+
+    def test_covector_is_metric_inner_product(self, m_hyperbolic, ea_fields):
+        # iota_{alpha^#} beta = <alpha, beta>_{g^-1}
+        alpha, beta = ea_fields['a'], ea_fields['b']
+        deg, res = interior_product(m_hyperbolic, alpha, beta, 1, vector_type='covector')
+        ref = m_hyperbolic.inner_product(alpha, beta, form_type='covector')
+        assert deg == 0
+        assert _zero(res - ref)
+
+    def test_1d(self, m_cone, coords_1d):
+        x = coords_1d
+        assert interior_product(m_cone, 3, x, 1) == (0, 3 * x)
+        assert interior_product(m_cone, 3, x, 0) == (-1, 0)
+
+    def test_invalid_form_degree_raises(self, m_flat, ea_fields):
+        with pytest.raises(ValueError):
+            interior_product(m_flat, ea_fields['X'], ea_fields['f'], 3)
+
+    def test_invalid_form_degree_raises_1d(self, m_cone, coords_1d):
+        with pytest.raises(ValueError):
+            interior_product(m_cone, 1, coords_1d, 2)
+
+    def test_invalid_vector_type_raises(self, m_flat, ea_fields):
+        with pytest.raises(ValueError):
+            interior_product(m_flat, ea_fields['X'], ea_fields['a'], 1,
+                             vector_type='bogus')
+
+
+class TestExteriorDerivative:
+
+    def test_d_0form(self, m_flat, coords_2d):
+        x, y = coords_2d
+        assert exterior_derivative(m_flat, x**2 * y, 0) == (1, (2 * x * y, x**2))
+
+    def test_d_0form_constant(self, m_flat):
+        assert exterior_derivative(m_flat, Integer(5), 0) == (1, (0, 0))
+
+    def test_d_1form(self, m_flat, coords_2d):
+        x, y = coords_2d
+        # d(-y dx + x dy) = 2 dx^dy
+        assert exterior_derivative(m_flat, (-y, x), 1) == (2, 2)
+
+    def test_d_1form_closed(self, m_flat, coords_2d):
+        x, y = coords_2d
+        # d(2xy dx + x^2 dy) = 0  (it is d(x^2 y))
+        assert exterior_derivative(m_flat, (2 * x * y, x**2), 1) == (2, 0)
+
+    def test_d_2form_is_zero(self, m_flat, ea_fields):
+        assert exterior_derivative(m_flat, ea_fields['f'], 2) == (3, 0)
+
+    def test_d_squared_zero_on_functions(self, m_flat, ea_fields):
+        f = ea_fields['f']
+        _, df = exterior_derivative(m_flat, f, 0)
+        assert _zero(exterior_derivative(m_flat, df, 1)[1])
+
+    def test_d_squared_zero_on_explicit_function(self, m_flat, coords_2d):
+        x, y = coords_2d
+        g = sin(x * y) + x**3 * y
+        _, dg = exterior_derivative(m_flat, g, 0)
+        assert _zero(exterior_derivative(m_flat, dg, 1)[1])
+
+    def test_leibniz_0_0(self, m_flat, ea_fields, coords_2d):
+        # d(f h) = h df + f dh
+        x, y = coords_2d
+        f, h = ea_fields['f'], ea_fields['h']
+        lhs = exterior_derivative(m_flat, f * h, 0)[1]
+        df = exterior_derivative(m_flat, f, 0)[1]
+        dh = exterior_derivative(m_flat, h, 0)[1]
+        rhs = tuple(h * p + f * q for p, q in zip(df, dh))
+        assert _zero_tuple([l - r for l, r in zip(lhs, rhs)])
+
+    def test_leibniz_0_1(self, m_flat, ea_fields):
+        # d(f a) = df ^ a + f da
+        f, a = ea_fields['f'], ea_fields['a']
+        fa = wedge_product(m_flat, f, a, 0, 1)[1]
+        lhs = exterior_derivative(m_flat, fa, 1)[1]
+        df = exterior_derivative(m_flat, f, 0)[1]
+        da = exterior_derivative(m_flat, a, 1)[1]
+        rhs = wedge_product(m_flat, df, a, 1, 1)[1] + f * da
+        assert _zero(lhs - rhs)
+
+    def test_leibniz_1_1_lands_in_zero_3form(self, m_flat, ea_fields):
+        a, b = ea_fields['a'], ea_fields['b']
+        ab = wedge_product(m_flat, a, b, 1, 1)[1]
+        assert exterior_derivative(m_flat, ab, 2) == (3, 0)
+
+    def test_linear(self, m_flat, ea_fields):
+        # d(a + c b) = da + c db  with c constant
+        a, b = ea_fields['a'], ea_fields['b']
+        c = Integer(3)
+        s = tuple(ai + c * bi for ai, bi in zip(a, b))
+        lhs = exterior_derivative(m_flat, s, 1)[1]
+        rhs = (exterior_derivative(m_flat, a, 1)[1]
+               + c * exterior_derivative(m_flat, b, 1)[1])
+        assert _zero(lhs - rhs)
+
+    def test_metric_independent(self, m_flat, m_sphere):
+        # d only sees coordinate symbols: use each metric's own coords
+        for m in (m_flat, m_sphere):
+            u, v = m.coords
+            deg, res = exterior_derivative(m, (-v, u), 1)
+            assert deg == 2 and res == 2
+
+    def test_d_of_flat_gradient_is_zero(self, m_hyperbolic, ea_fields):
+        # d((grad f)^flat) = d(df) = 0 on any metric
+        f = ea_fields['f']
+        grad = m_hyperbolic.riemannian_gradient(f)
+        flat_grad = m_hyperbolic.flat(grad)
+        assert _zero(exterior_derivative(m_hyperbolic, flat_grad, 1)[1])
+
+    def test_curl_equals_star_d_flat(self, m_hyperbolic, ea_fields):
+        # Metric.curl(V) = star(d(V^flat))
+        V = ea_fields['X']
+        d_flat = exterior_derivative(m_hyperbolic, m_hyperbolic.flat(V), 1)[1]
+        star2 = hodge_star(m_hyperbolic, 2)
+        assert _zero(m_hyperbolic.curl(V) - star2(d_flat))
+
+    def test_curl_equals_star_d_flat_sphere(self, m_sphere, ea_fields):
+        V = ea_fields['X']
+        d_flat = exterior_derivative(m_sphere, m_sphere.flat(V), 1)[1]
+        star2 = hodge_star(m_sphere, 2)
+        assert _zero(m_sphere.curl(V) - star2(d_flat))
+
+    def test_pullback_commutes_with_d(self, m_flat, coords_2d):
+        # phi^* (d f) = d (phi^* f) for a polar-coordinate map phi
+        x, y = coords_2d
+        r, t = symbols('r t', real=True, positive=True)
+        phi = (r * cos(t), r * sin(t))
+        f = x**2 * y
+        df = exterior_derivative(m_flat, f, 0)[1]
+        lhs = m_flat.pullback_1form(phi, df, (r, t))
+        f_pulled = f.subs({x: phi[0], y: phi[1]})
+        m_new = Metric(Matrix([[1, 0], [0, r**2]]), (r, t))
+        rhs = exterior_derivative(m_new, f_pulled, 0)[1]
+        assert _zero_tuple([l - q for l, q in zip(lhs, rhs)])
+
+    def test_1d(self, m_cone, coords_1d):
+        x = coords_1d
+        assert exterior_derivative(m_cone, x**3, 0) == (1, 3 * x**2)
+        assert exterior_derivative(m_cone, x**3, 1) == (2, 0)
+
+    def test_invalid_degree_raises(self, m_flat, ea_fields):
+        with pytest.raises(ValueError):
+            exterior_derivative(m_flat, ea_fields['f'], 3)
+        with pytest.raises(ValueError):
+            exterior_derivative(m_flat, ea_fields['f'], -1)
+
+    def test_invalid_degree_raises_1d(self, m_cone, coords_1d):
+        with pytest.raises(ValueError):
+            exterior_derivative(m_cone, coords_1d, 2)
+
+
+class TestCartanFormula:
+    """L_X w = d(iota_X w) + iota_X (d w), linking all three new operators."""
+
+    def test_cartan_0form(self, m_flat, ea_fields, coords_2d):
+        # L_X f = X(f) = iota_X df
+        f, X = ea_fields['f'], ea_fields['X']
+        x, y = coords_2d
+        df = exterior_derivative(m_flat, f, 0)[1]
+        lhs = interior_product(m_flat, X, df, 1)[1]
+        assert _zero(lhs - (X[0] * diff(f, x) + X[1] * diff(f, y)))
+
+    def test_cartan_1form_flat(self, m_flat, ea_fields):
+        a, X = ea_fields['a'], ea_fields['X']
+        i_a = interior_product(m_flat, X, a, 1)[1]
+        d_i_a = exterior_derivative(m_flat, i_a, 0)[1]
+        da = exterior_derivative(m_flat, a, 1)[1]
+        i_da = interior_product(m_flat, X, da, 2)[1]
+        cartan = tuple(p + q for p, q in zip(d_i_a, i_da))
+        lie = m_flat.lie_derivative(X, a, obj_type='1form')
+        assert _zero_tuple([c - l for c, l in zip(cartan, lie)])
+
+    def test_cartan_1form_hyperbolic(self, m_hyperbolic, ea_fields):
+        # both sides are metric-independent; check with another metric object
+        a, X = ea_fields['a'], ea_fields['X']
+        m = m_hyperbolic
+        i_a = interior_product(m, X, a, 1)[1]
+        d_i_a = exterior_derivative(m, i_a, 0)[1]
+        da = exterior_derivative(m, a, 1)[1]
+        i_da = interior_product(m, X, da, 2)[1]
+        cartan = tuple(p + q for p, q in zip(d_i_a, i_da))
+        lie = m.lie_derivative(X, a, obj_type='1form')
+        assert _zero_tuple([c - l for c, l in zip(cartan, lie)])
+
+    def test_cartan_2form(self, m_flat, ea_fields, coords_2d):
+        # L_X (f dx^dy) = d(iota_X (f dx^dy)) = d_x(f X^x) + d_y(f X^y)
+        x, y = coords_2d
+        f, X = ea_fields['f'], ea_fields['X']
+        i_w = interior_product(m_flat, X, f, 2)[1]
+        cartan = exterior_derivative(m_flat, i_w, 1)[1]
+        expected = diff(f * X[0], x) + diff(f * X[1], y)
+        assert _zero(cartan - expected)
+
+    def test_cartan_2form_volume_gives_divergence(self, m_hyperbolic, ea_fields):
+        # L_X dV = div(X) dV  ->  d(iota_X dV) / sqrt|g| = div X
+        X = ea_fields['X']
+        m = m_hyperbolic
+        dV = m.sqrt_det_g
+        i_w = interior_product(m, X, dV, 2)[1]
+        d_i_w = exterior_derivative(m, i_w, 1)[1]
+        assert _zero(d_i_w / dV - m.divergence(X))
+
+    def test_cartan_1d(self, m_cone, coords_1d):
+        x = coords_1d
+        X, a = 2 * x, x**3
+        # L_X a = d(iota_X a) + iota_X(d a), and d a = 0 in 1D
+        i_a = interior_product(m_cone, X, a, 1)[1]
+        d_i_a = exterior_derivative(m_cone, i_a, 0)[1]
+        lie = m_cone.lie_derivative(X, a, obj_type='1form')
+        assert _zero(d_i_a - lie)
+
+# ===========================================================================
+# NEW: form_inner_product, form_norm, codifferential, lie_derivative_form
+# (uses the ea_fields fixture and the _zero / _zero_tuple helpers defined
+#  with the exterior-algebra tests)
+# ===========================================================================
+
+class TestFormInnerProduct:
+
+    def test_degree_0(self, m_hyperbolic, ea_fields):
+        f, h = ea_fields['f'], ea_fields['h']
+        assert _zero(form_inner_product(m_hyperbolic, f, h, 0) - f * h)
+
+    def test_degree_1_matches_covector_inner_product(self, m_hyperbolic, ea_fields):
+        a, b = ea_fields['a'], ea_fields['b']
+        ref = m_hyperbolic.inner_product(a, b, form_type='covector')
+        assert _zero(form_inner_product(m_hyperbolic, a, b, 1) - ref)
+
+    def test_degree_2_scaled_euclidean(self, coords_2d):
+        x, y = coords_2d
+        m = Metric(Matrix([[4, 0], [0, 9]]), (x, y))
+        assert form_inner_product(m, 3, 5, 2) == Rational(5, 12)      # 15 / (2*3)^2
+
+    def test_flat_1_form(self, m_flat, coords_2d):
+        x, y = coords_2d
+        assert _zero(form_inner_product(m_flat, (x, 1), (2, y), 1) - (2 * x + y))
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_polar', 'm_hyperbolic', 'm_sphere'])
+    def test_symmetric_all_degrees(self, fix, request, ea_fields):
+        m = request.getfixturevalue(fix)
+        f, h = ea_fields['f'], ea_fields['h']
+        a, b = ea_fields['a'], ea_fields['b']
+        for (p, q, k) in [(f, h, 0), (a, b, 1), (f, h, 2)]:
+            assert _zero(form_inner_product(m, p, q, k) - form_inner_product(m, q, p, k))
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_polar', 'm_hyperbolic'])
+    def test_bilinear(self, fix, request, ea_fields):
+        m = request.getfixturevalue(fix)
+        a, b, c = ea_fields['a'], ea_fields['b'], ea_fields['X']
+        s = tuple(2 * p + 3 * q for p, q in zip(a, b))
+        lhs = form_inner_product(m, s, c, 1)
+        rhs = 2 * form_inner_product(m, a, c, 1) + 3 * form_inner_product(m, b, c, 1)
+        assert _zero(lhs - rhs)
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_polar', 'm_hyperbolic'])
+    def test_defining_identity_wedge_star(self, fix, request, ea_fields):
+        # alpha ^ star(beta) = <alpha, beta> dV  in every degree
+        m = request.getfixturevalue(fix)
+        dV = m.sqrt_det_g
+        f, h = ea_fields['f'], ea_fields['h']
+        a, b = ea_fields['a'], ea_fields['b']
+        # k = 0 : f ^ star h  (0-form ^ 2-form)
+        lhs0 = wedge_product(m, f, hodge_star(m, 0)(h), 0, 2)[1]
+        assert _zero(lhs0 - form_inner_product(m, f, h, 0) * dV)
+        # k = 1
+        lhs1 = wedge_product(m, a, hodge_star(m, 1)(*b), 1, 1)[1]
+        assert _zero(lhs1 - form_inner_product(m, a, b, 1) * dV)
+        # k = 2 : (f dA) ^ star(h dA)   (2-form ^ 0-form)
+        lhs2 = wedge_product(m, f, hodge_star(m, 2)(h), 2, 0)[1]
+        assert _zero(lhs2 - form_inner_product(m, f, h, 2) * dV)
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_polar', 'm_hyperbolic'])
+    def test_hodge_star_is_isometry(self, fix, request, ea_fields):
+        m = request.getfixturevalue(fix)
+        f, h = ea_fields['f'], ea_fields['h']
+        a, b = ea_fields['a'], ea_fields['b']
+        # 0 -> 2
+        assert _zero(form_inner_product(m, hodge_star(m, 0)(f), hodge_star(m, 0)(h), 2)
+                     - form_inner_product(m, f, h, 0))
+        # 1 -> 1
+        assert _zero(form_inner_product(m, hodge_star(m, 1)(*a), hodge_star(m, 1)(*b), 1)
+                     - form_inner_product(m, a, b, 1))
+        # 2 -> 0
+        assert _zero(form_inner_product(m, hodge_star(m, 2)(f), hodge_star(m, 2)(h), 0)
+                     - form_inner_product(m, f, h, 2))
+
+    def test_1d(self, m_cone, coords_1d):
+        x = coords_1d
+        assert _zero(form_inner_product(m_cone, x**2, x**3, 1) - x**3)     # g^-1 a b = x^5 / x^2
+        assert _zero(form_inner_product(m_cone, x, x**2, 0) - x**3)
+
+    def test_form_norm_hyperbolic(self):
+        u, v = symbols('u v', real=True, positive=True)
+        m = Metric(Matrix([[1 / v**2, 0], [0, 1 / v**2]]), (u, v))
+        assert _zero(form_norm(m, (1, 0), 1) - v)                          # |dx| = y
+        assert _zero(form_norm(m, 1, 2) - v**2)                            # |dx^dy| = y^2
+
+    def test_invalid_degree_raises(self, m_flat, ea_fields):
+        with pytest.raises(ValueError):
+            form_inner_product(m_flat, ea_fields['f'], ea_fields['f'], 3)
+
+    def test_invalid_degree_raises_1d(self, m_cone, coords_1d):
+        with pytest.raises(ValueError):
+            form_inner_product(m_cone, coords_1d, coords_1d, 2)
+
+
+class TestCodifferential:
+
+    def test_flat_examples(self, m_flat, coords_2d):
+        x, y = coords_2d
+        assert codifferential(m_flat, (x, y), 1) == (0, -2)
+        assert codifferential(m_flat, x * y, 2) == (1, (x, -y))
+
+    def test_0form_is_zero(self, m_hyperbolic, ea_fields):
+        deg, res = codifferential(m_hyperbolic, ea_fields['f'], 0)
+        assert deg == -1 and res == 0
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_polar', 'm_hyperbolic', 'm_sphere'])
+    def test_delta_squared_zero_on_2forms(self, fix, request, ea_fields):
+        m = request.getfixturevalue(fix)
+        _, d1 = codifferential(m, ea_fields['f'], 2)
+        assert _zero(codifferential(m, d1, 1)[1])
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_polar', 'm_hyperbolic'])
+    def test_delta_is_minus_divergence(self, fix, request, ea_fields):
+        # delta a = -div(a^sharp)
+        m = request.getfixturevalue(fix)
+        a = ea_fields['a']
+        assert _zero(codifferential(m, a, 1)[1] + m.divergence(m.sharp(a)))
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_polar', 'm_hyperbolic'])
+    def test_delta_d_is_minus_laplace_beltrami(self, fix, request, ea_fields):
+        # delta d f = -div grad f
+        m = request.getfixturevalue(fix)
+        f = ea_fields['f']
+        df = exterior_derivative(m, f, 0)[1]
+        lb = m.divergence(m.riemannian_gradient(f))
+        assert _zero(codifferential(m, df, 1)[1] + lb)
+
+    def test_delta_d_matches_de_rham_laplacian(self, m_hyperbolic, ea_fields):
+        # de_rham_laplacian(m, 0)['action'] is div grad, hence  delta d f = -action(f)
+        m = m_hyperbolic
+        f = ea_fields['f']
+        df = exterior_derivative(m, f, 0)[1]
+        act = de_rham_laplacian(m, form_degree=0)['action'](f)
+        assert _zero(codifferential(m, df, 1)[1] + act)
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_polar', 'm_hyperbolic'])
+    def test_pointwise_adjointness_0_1(self, fix, request, ea_fields):
+        # <df, b> - f delta b = div(f b^sharp)
+        m = request.getfixturevalue(fix)
+        f, b = ea_fields['f'], ea_fields['b']
+        df = exterior_derivative(m, f, 0)[1]
+        lhs = form_inner_product(m, df, b, 1) - f * codifferential(m, b, 1)[1]
+        rhs = m.divergence(tuple(f * c for c in m.sharp(b)))
+        assert _zero(lhs - rhs)
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_polar', 'm_hyperbolic'])
+    def test_pointwise_adjointness_1_2(self, fix, request, ea_fields):
+        # <da, beta> - <a, delta beta> = -div( psi * (star a)^sharp ),   psi = star(beta)
+        m = request.getfixturevalue(fix)
+        a, w = ea_fields['a'], ea_fields['h']                       # beta = w dA
+        psi = hodge_star(m, 2)(w)
+        da = exterior_derivative(m, a, 1)[1]
+        lhs = (form_inner_product(m, da, w, 2)
+               - form_inner_product(m, a, codifferential(m, w, 2)[1], 1))
+        J = tuple(psi * c for c in m.sharp(hodge_star(m, 1)(*a)))
+        assert _zero(lhs + m.divergence(J))
+
+    def test_star_relation(self, m_hyperbolic, ea_fields):
+        # delta a = -star d star a  (definition), star maps 0-form back
+        m = m_hyperbolic
+        a = ea_fields['a']
+        d_star = exterior_derivative(m, hodge_star(m, 1)(*a), 1)[1]
+        assert _zero(codifferential(m, a, 1)[1] + hodge_star(m, 2)(d_star))
+
+    def test_1d(self, m_cone, coords_1d):
+        x = coords_1d
+        assert codifferential(m_cone, x**3, 1) == (0, -2)
+
+    def test_1d_0form(self, m_cone, coords_1d):
+        assert codifferential(m_cone, coords_1d, 0) == (-1, 0)
+
+    def test_invalid_degree_raises(self, m_flat, ea_fields):
+        with pytest.raises(ValueError):
+            codifferential(m_flat, ea_fields['f'], 3)
+
+    def test_invalid_degree_raises_1d(self, m_cone, coords_1d):
+        with pytest.raises(ValueError):
+            codifferential(m_cone, coords_1d, 2)
+
+
+class TestLieDerivativeForm:
+
+    def test_examples(self, m_flat, coords_2d):
+        x, y = coords_2d
+        rot = (-y, x)
+        assert lie_derivative_form(m_flat, rot, (x, y), 1) == (1, (0, 0))
+        assert lie_derivative_form(m_flat, rot, x, 0) == (0, -y)
+        assert lie_derivative_form(m_flat, (x, 0), 1, 2) == (2, 1)
+
+    def test_0form_is_directional_derivative(self, m_flat, ea_fields, coords_2d):
+        x, y = coords_2d
+        f, X = ea_fields['f'], ea_fields['X']
+        deg, res = lie_derivative_form(m_flat, X, f, 0)
+        assert deg == 0 and _zero(res - (X[0] * diff(f, x) + X[1] * diff(f, y)))
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_hyperbolic', 'm_polar'])
+    def test_1form_matches_metric_lie_derivative(self, fix, request, ea_fields):
+        m = request.getfixturevalue(fix)
+        a, X = ea_fields['a'], ea_fields['X']
+        deg, res = lie_derivative_form(m, X, a, 1)
+        ref = m.lie_derivative(X, a, obj_type='1form')
+        assert deg == 1 and _zero_tuple([p - q for p, q in zip(res, ref)])
+
+    def test_2form_formula(self, m_flat, ea_fields, coords_2d):
+        x, y = coords_2d
+        f, X = ea_fields['f'], ea_fields['X']
+        deg, res = lie_derivative_form(m_flat, X, f, 2)
+        assert deg == 2 and _zero(res - (diff(f * X[0], x) + diff(f * X[1], y)))
+
+    def test_volume_form_gives_divergence(self, m_hyperbolic, ea_fields):
+        X = ea_fields['X']
+        dV = m_hyperbolic.sqrt_det_g
+        res = lie_derivative_form(m_hyperbolic, X, dV, 2)[1]
+        assert _zero(res - m_hyperbolic.divergence(X) * dV)
+
+    @pytest.mark.parametrize("fix", ['m_flat', 'm_hyperbolic'])
+    def test_derivation_of_wedge(self, fix, request, ea_fields):
+        # L_X(a ^ b) = L_X a ^ b + a ^ L_X b
+        m = request.getfixturevalue(fix)
+        a, b, X = ea_fields['a'], ea_fields['b'], ea_fields['X']
+        ab = wedge_product(m, a, b, 1, 1)[1]
+        lhs = lie_derivative_form(m, X, ab, 2)[1]
+        La = lie_derivative_form(m, X, a, 1)[1]
+        Lb = lie_derivative_form(m, X, b, 1)[1]
+        rhs = wedge_product(m, La, b, 1, 1)[1] + wedge_product(m, a, Lb, 1, 1)[1]
+        assert _zero(lhs - rhs)
+
+    def test_leibniz_function_times_form(self, m_flat, ea_fields):
+        # L_X(f a) = X(f) a + f L_X a
+        f, a, X = ea_fields['f'], ea_fields['a'], ea_fields['X']
+        fa = tuple(f * c for c in a)
+        lhs = lie_derivative_form(m_flat, X, fa, 1)[1]
+        Xf = lie_derivative_form(m_flat, X, f, 0)[1]
+        La = lie_derivative_form(m_flat, X, a, 1)[1]
+        rhs = tuple(Xf * c + f * l for c, l in zip(a, La))
+        assert _zero_tuple([p - q for p, q in zip(lhs, rhs)])
+
+    def test_commutes_with_d(self, m_flat, ea_fields):
+        f, a, X = ea_fields['f'], ea_fields['a'], ea_fields['X']
+        # 0 -> 1
+        lhs = exterior_derivative(m_flat, lie_derivative_form(m_flat, X, f, 0)[1], 0)[1]
+        rhs = lie_derivative_form(m_flat, X, exterior_derivative(m_flat, f, 0)[1], 1)[1]
+        assert _zero_tuple([p - q for p, q in zip(lhs, rhs)])
+        # 1 -> 2
+        lhs = exterior_derivative(m_flat, lie_derivative_form(m_flat, X, a, 1)[1], 1)[1]
+        rhs = lie_derivative_form(m_flat, X, exterior_derivative(m_flat, a, 1)[1], 2)[1]
+        assert _zero(lhs - rhs)
+
+    def test_bracket_property_on_functions(self, m_flat, ea_fields):
+        # L_[X,Y] f = L_X L_Y f - L_Y L_X f
+        f, X, Y = ea_fields['f'], ea_fields['X'], ea_fields['b']
+        LY = lie_derivative_form(m_flat, Y, f, 0)[1]
+        LXLY = lie_derivative_form(m_flat, X, LY, 0)[1]
+        LX = lie_derivative_form(m_flat, X, f, 0)[1]
+        LYLX = lie_derivative_form(m_flat, Y, LX, 0)[1]
+        lhs = lie_derivative_form(m_flat, m_flat.lie_bracket(X, Y), f, 0)[1]
+        assert _zero(lhs - (LXLY - LYLX))
+
+    def test_bracket_property_on_1forms(self, m_flat, ea_fields):
+        a, X, Y = ea_fields['a'], ea_fields['X'], ea_fields['b']
+        LY = lie_derivative_form(m_flat, Y, a, 1)[1]
+        LX = lie_derivative_form(m_flat, X, a, 1)[1]
+        LXLY = lie_derivative_form(m_flat, X, LY, 1)[1]
+        LYLX = lie_derivative_form(m_flat, Y, LX, 1)[1]
+        lhs = lie_derivative_form(m_flat, m_flat.lie_bracket(X, Y), a, 1)[1]
+        assert _zero_tuple([l - (p - q) for l, p, q in zip(lhs, LXLY, LYLX)])
+
+    def test_killing_commutes_with_hodge_star(self, m_hyperbolic, ea_fields, coords_2d):
+        # dilation (x, y) is an isometry of the half-plane metric (dx^2+dy^2)/y^2
+        x, y = coords_2d
+        xi = (x, y)
+        assert all(_zero(c) for c in m_hyperbolic.lie_derivative(
+            xi, m_hyperbolic.g_matrix, obj_type='metric'))
+        a = ea_fields['a']
+        star1 = hodge_star(m_hyperbolic, 1)
+        lhs = lie_derivative_form(m_hyperbolic, xi, star1(*a), 1)[1]
+        rhs = star1(*lie_derivative_form(m_hyperbolic, xi, a, 1)[1])
+        assert _zero_tuple([p - q for p, q in zip(lhs, rhs)])
+
+    def test_killing_preserves_inner_product(self, m_hyperbolic, ea_fields, coords_2d):
+        # xi <a,b> = <L a, b> + <a, L b>   for a Killing field xi
+        x, y = coords_2d
+        xi = (x, y)
+        a, b = ea_fields['a'], ea_fields['b']
+        ip = form_inner_product(m_hyperbolic, a, b, 1)
+        lhs = xi[0] * diff(ip, x) + xi[1] * diff(ip, y)
+        La = lie_derivative_form(m_hyperbolic, xi, a, 1)[1]
+        Lb = lie_derivative_form(m_hyperbolic, xi, b, 1)[1]
+        rhs = (form_inner_product(m_hyperbolic, La, b, 1)
+               + form_inner_product(m_hyperbolic, a, Lb, 1))
+        assert _zero(lhs - rhs)
+
+    def test_killing_preserves_volume_form(self, m_flat, coords_2d):
+        x, y = coords_2d
+        assert lie_derivative_form(m_flat, (-y, x), 1, 2) == (2, 0)
+
+    def test_linear_in_X_over_constants(self, m_flat, ea_fields):
+        a, X, Y = ea_fields['a'], ea_fields['X'], ea_fields['b']
+        S = tuple(2 * p + 3 * q for p, q in zip(X, Y))
+        lhs = lie_derivative_form(m_flat, S, a, 1)[1]
+        LX = lie_derivative_form(m_flat, X, a, 1)[1]
+        LY = lie_derivative_form(m_flat, Y, a, 1)[1]
+        assert _zero_tuple([l - (2 * p + 3 * q) for l, p, q in zip(lhs, LX, LY)])
+
+    def test_1d(self, m_cone, coords_1d):
+        x = coords_1d
+        deg, res = lie_derivative_form(m_cone, 2 * x, x**3, 1)
+        assert deg == 1 and _zero(res - 8 * x**3)                 # (X a)' = (2x^4)'
+        assert _zero(lie_derivative_form(m_cone, 2 * x, x**3, 0)[1] - 6 * x**3)   # X f' = 2x * 3x^2
+
+    def test_invalid_degree_raises(self, m_flat, ea_fields):
+        with pytest.raises(ValueError):
+            lie_derivative_form(m_flat, ea_fields['X'], ea_fields['f'], 3)
+
+    def test_invalid_degree_raises_1d(self, m_cone, coords_1d):
+        with pytest.raises(ValueError):
+            lie_derivative_form(m_cone, 1, coords_1d, 2)
+
+# ===========================================================================
+# 36. Symmetrize and Antisymmetrize
+# ===========================================================================
+
+class TestSymmetrizeAndAntisymmetrize:
+    """
+    Test suite for Metric.symmetrize and Metric.antisymmetrize methods operating on 
+    tensor-like expressions, matrices, and arrays.
+    """
+
+    def test_symmetrize_matrix_symmetric(self, coords_2d, m_flat):
+        x, y = coords_2d
+        M = Matrix([[x, y], [y, x**2]])
+        sym_M = m_flat.symmetrize(M)
+        assert simplify(sym_M - M) == Matrix.zeros(2, 2)
+
+    def test_symmetrize_matrix_asymmetric(self, coords_2d, m_flat):
+        x, y = coords_2d
+        M = Matrix([[x, x*y], [0, y**2]])
+        sym_M = m_flat.symmetrize(M)
+        expected = Matrix([[x, x*y/2], [x*y/2, y**2]])
+        assert simplify(sym_M - expected) == Matrix.zeros(2, 2)
+
+    def test_antisymmetrize_matrix_antisymmetric(self, coords_2d, m_flat):
+        x, y = coords_2d
+        M = Matrix([[0, x*y], [-x*y, 0]])
+        asym_M = m_flat.antisymmetrize(M)
+        assert simplify(asym_M - M) == Matrix.zeros(2, 2)
+
+    def test_antisymmetrize_matrix_asymmetric(self, coords_2d, m_flat):
+        x, y = coords_2d
+        M = Matrix([[x, x*y], [0, y**2]])
+        asym_M = m_flat.antisymmetrize(M)
+        expected = Matrix([[0, x*y/2], [-x*y/2, 0]])
+        assert simplify(asym_M - expected) == Matrix.zeros(2, 2)
+
+    def test_decomposition_identity(self, coords_2d, m_flat):
+        """Verify M = symmetrize(M) + antisymmetrize(M)."""
+        x, y = coords_2d
+        M = Matrix([[x**2, sin(x)*y], [cos(y), x + y]])
+        sym_M = m_flat.symmetrize(M)
+        asym_M = m_flat.antisymmetrize(M)
+        assert simplify((sym_M + asym_M) - M) == Matrix.zeros(2, 2)
+
+    def test_higher_rank_tensor_symmetrize(self, m_flat):
+        # 3D rank-3 numpy array
+        T = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+        sym_T = m_flat.symmetrize(T)
+        assert np.allclose(sym_T, np.swapaxes(sym_T, 0, 1))
+
+    def test_higher_rank_tensor_antisymmetrize(self, m_flat):
+        # 3D rank-3 numpy array
+        T = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+        asym_T = m_flat.antisymmetrize(T)
+        assert np.allclose(asym_T, -np.swapaxes(asym_T, 0, 1))
+
+    def test_1d_array_noop(self, m_flat):
+        arr = np.array([1.0, 2.0, 3.0])
+        # 1D vector is identically symmetric; its antisymmetric part is zero
+        assert np.allclose(m_flat.symmetrize(arr), arr)
+        assert np.allclose(m_flat.antisymmetrize(arr), np.zeros_like(arr))

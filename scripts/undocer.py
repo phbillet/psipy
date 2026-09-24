@@ -36,9 +36,6 @@ def process_file(input_file, output_file):
 
 
 # Exemple d'utilisation
-input_file = '../src/microlocal.py'
-output_file = '../src/microlocal_ud.py'
-process_file(input_file, output_file)
-input_file = '../src/psiop.py'
-output_file = '../src/psiop_ud.py'
+input_file = '../src/riemannian.py'
+output_file = '../src/riemannian_ud.py'
 process_file(input_file, output_file)

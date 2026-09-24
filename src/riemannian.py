@@ -31,9 +31,11 @@ The module is organised in four broad layers:
 2. **Geodesic layer** — standalone functions integrate geodesic and
    Hamiltonian flow, compute geodesic distance, solve the Jacobi deviation
    equation, and perform parallel transport along curves.
-3. **Differential-form layer** (2D only) — the Hodge star, the de Rham
-   Laplacian with Weitzenböck correction, and a full numerical Hodge
-   decomposition backed by a sparse FEM solver on a ``RiemannianGrid``.
+3. **Differential-form layer** — the exterior algebra of forms (wedge
+   product, interior product, exterior derivative; 1D and 2D), and, in 2D
+   only, the Hodge star, the de Rham Laplacian with Weitzenböck correction,
+   and a full numerical Hodge decomposition backed by a sparse FEM solver on
+   a ``RiemannianGrid``..
 4. **Visualisation layer** — geodesic trajectory plots and curvature
    colour maps for both dimensions.
 
@@ -91,6 +93,39 @@ Spectral and operator functions
     * ``sturm_liouville_reduce(metric, potential_expr)`` — reduce the 1D
       Laplace-Beltrami eigenvalue problem -Delta_g u + Vu = lambda u to
       canonical Sturm-Liouville form (1D only).
+
+Exterior algebra (1D and 2D)
+    Metric-independent operations on differential forms.  Forms use the
+    same encoding as ``hodge_star``: an expression for a 0-form; a pair
+    ``(a_x, a_y)`` for a 1-form in 2D (a single expression in 1D); the
+    coefficient f of dx∧dy for a 2-form in 2D.  Because a bare expression
+    may be a 0-form or a 2-form, the degree is always passed explicitly, and
+    every function returns ``(degree, components)``.
+
+    * ``wedge_product(metric, alpha, beta, deg_alpha, deg_beta)`` — exterior
+      product α∧β.  Bilinear, associative and graded-commutative,
+      α∧β = (-1)^(kl) β∧α; products of total degree above the dimension
+      vanish.
+    * ``interior_product(metric, X, omega, form_degree, vector_type)`` —
+      contraction ι_X ω of a vector field with a form.  An antiderivation of
+      the wedge product with ι_X ι_X = 0.  With ``vector_type='covector'``
+      the argument is a 1-form, raised with the metric first, so that
+      ι_{α^♯} β = ⟨α, β⟩_{g⁻¹}.
+    * ``exterior_derivative(metric, omega, form_degree)`` — exterior
+      derivative d, satisfying d² = 0 and the graded Leibniz rule
+      d(α∧β) = dα∧β + (-1)^k α∧dβ.
+    * ``form_inner_product(metric, alpha, beta, form_degree)`` / ``form_norm`` —
+      pointwise metric inner product and norm of k-forms; characterised by
+      α∧⋆β = ⟨α,β⟩ dV, and the Hodge star is an isometry.
+    * ``codifferential(metric, omega, form_degree)`` — δ = −⋆d⋆, the formal
+      adjoint of d (δδ = 0, δ(df) = −div grad f); returns ``(degree, components)``.
+    * ``lie_derivative_form(metric, X, omega, form_degree)`` — L_X ω on forms
+      via Cartan's formula dι_X + ι_X d; returns ``(degree, components)``.
+
+    Together with ``Metric.lie_derivative`` these satisfy Cartan's formula
+    L_X ω = d(ι_X ω) + ι_X(dω).  They also reproduce existing operators:
+    ``Metric.curl(V) = ⋆d(V^♭)``, and ι_X dV = ⋆(X^♭) for the Riemannian
+    volume form dV = √|g| dx∧dy.
 
 Differential-form layer (2D only)
     * ``hodge_star(metric, form_degree)`` — symbolic Hodge star on 0-, 1-,
@@ -171,6 +206,26 @@ Gamma^1_11 = 1/2 (log g_11)'.
 R_ij = R^k_ikj, and the scalar curvature R = g^ij R_ij.  In 2D the Gaussian
 curvature K is the only independent component: R_1212 = K |g|.
 
+The **exterior algebra** of differential forms is built from three
+operations that need no metric.  The wedge product α∧β of a k-form and an
+l-form is a (k+l)-form, graded-commutative, α∧β = (-1)^(kl) β∧α, and it
+vanishes when k+l exceeds the dimension; in 2D the only non-trivial case of
+two 1-forms is  a∧b = (a_x b_y - a_y b_x) dx∧dy.  The interior product ι_X
+contracts a vector field into the first slot of a form and lowers its degree
+by one; it is an antiderivation, ι_X(α∧β) = ι_X α∧β + (-1)^k α∧ι_X β, and
+satisfies ι_X ι_X = 0, with  ι_X(f dx∧dy) = f (X^x dy - X^y dx)  in 2D.  The
+exterior derivative d raises the degree by one, obeys d² = 0 and the graded
+Leibniz rule, and in 2D reads  df = f_x dx + f_y dy  and
+d(a_x dx + a_y dy) = (∂_x a_y - ∂_y a_x) dx∧dy.  These are tied together by
+**Cartan's magic formula**,
+
+    L_X ω = d(ι_X ω) + ι_X (dω),
+
+which expresses the Lie derivative along X.  The metric enters only when
+these operations are combined with the Hodge star and the musical
+isomorphisms: for instance the divergence satisfies  L_X dV = (div X) dV,
+the scalar curl is  ⋆d(X^♭),  and  ι_X dV = ⋆(X^♭).
+
 The **Laplace-Beltrami operator** on scalar functions is
 
     Delta = |g|^{-1/2} d_i ( |g|^{1/2} g^ij d_j ),
@@ -224,6 +279,8 @@ References
        2011 (3rd ed.).
 .. [6] Warner, F. W.  *Foundations of Differentiable Manifolds and Lie
        Groups*, Springer, 1983.
+.. [7] Spivak, M.  *Calculus on Manifolds*, Benjamin, 1965 (exterior
+       algebra and differential forms).
 """
 
 from imports import *
@@ -1392,7 +1449,7 @@ class Metric:
                     H[i,j] = term
             return simplify(H) if do_simplify else H
 
-# ==========================================================================
+    # ==========================================================================
     # Tensor Algebra & Index Manipulation
     # ==========================================================================
 
@@ -1503,6 +1560,18 @@ class Metric:
         
         return tuple(simplify(sum(self.g_inv_matrix[i, j] * omega[j] for j in range(2))) for i in range(2))
 
+    def wedge(self, alpha, beta, deg_alpha, deg_beta):
+        """Wedge product; see ``wedge_product``."""
+        return wedge_product(self, alpha, beta, deg_alpha, deg_beta)
+
+    def interior(self, X, omega, form_degree, vector_type='vector'):
+        """Interior product iota_X omega; see ``interior_product``."""
+        return interior_product(self, X, omega, form_degree, vector_type)
+
+    def d(self, omega, form_degree):
+        """Exterior derivative; see ``exterior_derivative``."""
+        return exterior_derivative(self, omega, form_degree)
+
     def trace(self, T, is_covariant=False):
         """
         Compute the metric trace of a rank-2 tensor field T.
@@ -1539,6 +1608,74 @@ class Metric:
             return simplify(res)
         else:
             return simplify(T[0, 0] + T[1, 1])
+
+    def symmetrize(self, T):
+        """
+        Compute the symmetric part of a (0,2) tensor field T.
+        The symmetrization is defined as:
+            T_(ij) = 1/2 (T_ij + T_ji)
+        Parameters
+        ----------
+        T : sympy.Matrix or list of lists
+            A 2×2 SymPy Matrix representing the rank-2 tensor for 2D metrics.
+        Returns
+        -------
+        sympy.Matrix
+            The simplified symmetric part of T.
+        """
+        if isinstance(T, np.ndarray):
+            if T.ndim <= 1:
+                return T.copy()
+            if T.ndim == 2:
+                return (T + T.T) / 2.0
+            # Higher-rank tensor (swapping first two indices)
+            return (T + np.swapaxes(T, 0, 1)) / 2.0
+
+        if isinstance(T, Matrix):
+            if T.shape[0] != T.shape[1]:
+                raise ValueError("Matrix must be square to symmetrize.")
+            return simplify((T + T.T) / 2)
+
+        # Fallback for general sequences/lists
+        arr = np.asarray(T)
+        if arr.ndim == 1:
+            return Matrix(T)
+        T_mat = Matrix(T)
+        return simplify((T_mat + T_mat.T) / 2)
+    
+    def antisymmetrize(self, T):
+        """
+        Compute the antisymmetric part of a (0,2) tensor field T.
+        The antisymmetrization is defined as:
+            T_[ij] = 1/2 (T_ij - T_ji)
+        Parameters
+        ----------
+        T : sympy.Matrix or list of lists
+            A 2×2 SymPy Matrix representing the rank-2 tensor for 2D metrics.
+        Returns
+        -------
+        sympy.Matrix
+            The simplified antisymmetric part of T.
+        """
+        if isinstance(T, np.ndarray):
+            if T.ndim <= 1:
+                return np.zeros_like(T)
+            if T.ndim == 2:
+                return (T - T.T) / 2.0
+            # Higher-rank tensor (swapping first two indices)
+            return (T - np.swapaxes(T, 0, 1)) / 2.0
+
+        if isinstance(T, Matrix):
+            if T.shape[0] != T.shape[1]:
+                raise ValueError("Matrix must be square to antisymmetrize.")
+            return simplify((T - T.T) / 2)
+
+        # Fallback for general sequences/lists
+        arr = np.asarray(T)
+        if arr.ndim == 1:
+            return Matrix.zeros(len(T), 1)
+        T_mat = Matrix(T)
+        return simplify((T_mat - T_mat.T) / 2)
 
     # ==========================================================================
     # Vector Calculus & Differential Operators
@@ -1834,6 +1971,7 @@ class Metric:
             alpha_new.append(simplify(term))
 
         return tuple(alpha_new)
+
 
 # ============================================================================
 # Stand-alone helper functions (dimension-dispatching)
@@ -2799,6 +2937,492 @@ def hodge_star(metric, form_degree):
         return lambda f: f / sqrt_g
     else:
         raise ValueError("form_degree must be 0, 1, or 2.")
+
+# ======================================================================
+# EXTERIOR ALGEBRA: wedge product and interior product
+# ======================================================================
+# Conventions (identical to hodge_star / lie_derivative in this module):
+#   dim 2 :  0-form -> expr f
+#            1-form -> tuple (a_x, a_y)          a = a_x dx + a_y dy
+#            2-form -> expr f                    omega = f dx^dy
+#            vector -> tuple (X^x, X^y)
+#   dim 1 :  0-form -> expr f
+#            1-form -> expr a                    a = a dx
+#            vector -> expr X                    X = X d/dx
+
+def wedge_product(metric, alpha, beta, deg_alpha, deg_beta):
+    """
+    Exterior (wedge) product alpha ^ beta of two differential forms.
+
+    The wedge product is bilinear, associative and graded-commutative,
+
+        alpha ^ beta = (-1)^(k l) beta ^ alpha,   k = deg(alpha), l = deg(beta),
+
+    and is purely algebraic: it does not depend on the metric (the metric
+    argument only supplies the dimension and the coordinates).  In local
+    coordinates, on a 2D manifold,
+
+        f ^ g              = f g                          (0 ^ 0 -> 0)
+        f ^ b              = f b_x dx + f b_y dy          (0 ^ 1 -> 1)
+        a ^ b              = (a_x b_y - a_y b_x) dx^dy    (1 ^ 1 -> 2)
+        f ^ (h dx^dy)      = f h dx^dy                    (0 ^ 2 -> 2)
+
+    and every product of total degree > dim vanishes.  Since the degree
+    cannot be inferred from the components alone (a bare expression may be a
+    0-form or a 2-form), it must be given explicitly.
+
+    The components may be non-commuting objects (e.g. matrix-valued forms for
+    a gauge field): the 1∧1 product is evaluated as a_x·b_y − a_y·b_x, in this
+    order, so that for a Lie-algebra-valued A one gets (A∧A)_xy = [A_x, A_y]
+    and the curvature is F = dA + A∧A.
+
+    Parameters
+    ----------
+    metric : Metric
+        1D or 2D metric (used for ``dim`` only).
+    alpha, beta : sympy.Expr or tuple of sympy.Expr
+        Forms, encoded as in ``hodge_star``: scalar expression for 0-forms
+        (and for 2-forms, as the coefficient of dx^dy, in 2D), pair
+        ``(a_x, a_y)`` for 1-forms in 2D, single expression for 1-forms in 1D.
+    deg_alpha, deg_beta : int
+        Degrees k and l of ``alpha`` and ``beta``, each in ``0..dim``.
+
+    Returns
+    -------
+    (degree, components) : tuple
+        ``degree = deg_alpha + deg_beta`` and the components of the product,
+        in the same encoding as the inputs.  If the degree exceeds ``dim``
+        the product is the zero form and the components are ``sympify(0)``.
+
+    Raises
+    ------
+    ValueError
+        If a degree is outside ``0..dim``.
+
+    Examples
+    --------
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> wedge_product(m, (x, 0), (0, y), 1, 1)          # x dx ^ y dy
+    (2, x*y)
+    >>> wedge_product(m, (x, y), (x, y), 1, 1)          # a ^ a = 0
+    (2, 0)
+    >>> wedge_product(m, y, (1, 2), 0, 1)               # y (dx + 2 dy)
+    (1, (y, 2*y))
+    """
+    n = metric.dim
+    for k, nm in ((deg_alpha, 'deg_alpha'), (deg_beta, 'deg_beta')):
+        if not (isinstance(k, int) and 0 <= k <= n):
+            raise ValueError(f"{nm} must be an integer in 0..{n}.")
+
+    k, l = deg_alpha, deg_beta
+    deg = k + l
+    if deg > n:
+        return deg, sympify(0)
+
+    # 0-form times anything: multiply componentwise
+    if k == 0 or l == 0:
+        f, w = (alpha, beta) if k == 0 else (beta, alpha)
+        if isinstance(w, (tuple, list)):
+            return deg, tuple(simplify(f * c) for c in w)
+        return deg, simplify(f * w)
+
+    # remaining case: 1 ^ 1 in 2D  (1D handled by deg > n above)
+    a_x, a_y = alpha
+    b_x, b_y = beta
+    return 2, simplify(a_x * b_y - a_y * b_x)
+
+
+def interior_product(metric, X, omega, form_degree, vector_type='vector'):
+    """
+    Interior product (contraction) iota_X omega of a vector field X with a
+    differential form omega.
+
+    iota_X lowers the degree by one, is an antiderivation of the wedge
+    product,
+
+        iota_X (alpha ^ beta) = (iota_X alpha) ^ beta
+                                + (-1)^k alpha ^ (iota_X beta),
+
+    squares to zero (iota_X iota_X = 0), is C^inf-linear in X, and is linked
+    to the exterior derivative and the Lie derivative by Cartan's formula
+
+        L_X omega = d(iota_X omega) + iota_X (d omega).
+
+    Like the wedge product it is metric-independent.  On a 2D manifold,
+
+        0-form f            ->  iota_X f = 0
+        1-form a            ->  iota_X a = a_x X^x + a_y X^y            (0-form)
+        2-form f dx^dy      ->  iota_X (f dx^dy) = -f X^y dx + f X^x dy (1-form)
+
+    In 1D: iota_X (a dx) = a X.
+
+    The metric enters only through the optional ``vector_type='covector'``,
+    where X is given as a 1-form and is raised with the metric first
+    (X^# = g^{-1} X).  With the Riemannian volume form dV = sqrt|g| dx^dy
+    this gives the identity  iota_X dV = star(X^flat).
+
+    Parameters
+    ----------
+    metric : Metric
+        1D or 2D metric.
+    X : sympy.Expr or tuple of sympy.Expr
+        Vector field (X^x, X^y) in 2D, single expression in 1D.  If
+        ``vector_type='covector'`` the components of the 1-form X_flat.
+    omega : sympy.Expr or tuple of sympy.Expr
+        Form to contract, encoded as in ``wedge_product``.
+    form_degree : int
+        Degree of ``omega``, in ``0..dim``.
+    vector_type : {'vector', 'covector'}, default 'vector'
+        Whether ``X`` is contravariant components or a 1-form to be raised
+        with ``metric.sharp``.
+
+    Returns
+    -------
+    (degree, components) : tuple
+        ``degree = form_degree - 1`` (``-1`` for a 0-form, whose contraction
+        is 0) and the components in the module's encoding.
+
+    Raises
+    ------
+    ValueError
+        If ``form_degree`` is outside ``0..dim`` or ``vector_type`` is invalid.
+
+    Examples
+    --------
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> X = (x, y)                                    # radial field
+    >>> interior_product(m, X, (y, -x), 1)            # 1-form y dx - x dy
+    (0, 0)
+    >>> interior_product(m, X, 1, 2)                  # iota_X (dx^dy) = -y dx + x dy
+    (1, (-y, x))
+    >>> interior_product(m, X, X, 0)                  # contraction of a function
+    (-1, 0)
+    """
+    n = metric.dim
+    if not (isinstance(form_degree, int) and 0 <= form_degree <= n):
+        raise ValueError(f"form_degree must be an integer in 0..{n}.")
+    if vector_type not in ('vector', 'covector'):
+        raise ValueError("vector_type must be 'vector' or 'covector'.")
+    if vector_type == 'covector':
+        X = metric.sharp(X)
+
+    if form_degree == 0:
+        return -1, sympify(0)
+
+    if n == 1:                                   # 1-form a dx
+        return 0, simplify(X * omega)
+
+    X1, X2 = X
+    if form_degree == 1:
+        a_x, a_y = omega
+        return 0, simplify(a_x * X1 + a_y * X2)
+    # form_degree == 2 : omega = f dx^dy
+    f = omega
+    return 1, (simplify(-f * X2), simplify(f * X1))
+
+def exterior_derivative(metric, omega, form_degree):
+    """
+    Exterior derivative d of a differential form.
+
+    d raises the degree by one, is linear, satisfies the graded Leibniz rule
+
+        d(alpha ^ beta) = d alpha ^ beta + (-1)^k alpha ^ d beta,
+
+    and squares to zero (d d = 0).  It is metric-independent and commutes
+    with pullbacks; together with ``interior_product`` it gives Cartan's
+    formula  L_X omega = d(iota_X omega) + iota_X (d omega).
+    In local coordinates, on a 2D manifold,
+
+        f                 ->  d f = f_x dx + f_y dy                 (0 -> 1)
+        a_x dx + a_y dy   ->  d a = (d_x a_y - d_y a_x) dx^dy       (1 -> 2)
+        f dx^dy           ->  d(f dx^dy) = 0                        (2 -> 3, zero)
+
+    and in 1D:  d f = f' dx  (0 -> 1),  d(a dx) = 0  (1 -> 2, zero).
+
+    Related quantities already in this module: for a vector field V,
+    ``Metric.curl(V)`` equals  star(d(V^flat)),  and the exact part d(phi)
+    of the Hodge decomposition is ``exterior_derivative(m, phi, 0)``.
+
+    Parameters
+    ----------
+    metric : Metric
+        1D or 2D metric (used for the coordinates and ``dim`` only).
+    omega : sympy.Expr or tuple of sympy.Expr
+        Form to differentiate, encoded as in ``hodge_star``: expression for
+        0-forms (and for 2-forms, as the coefficient of dx^dy, in 2D), pair
+        ``(a_x, a_y)`` for 1-forms in 2D, single expression for 1-forms in 1D.
+    form_degree : int
+        Degree of ``omega``, in ``0..dim``.
+
+    Returns
+    -------
+    (degree, components) : tuple
+        ``degree = form_degree + 1`` and the components in the module's
+        encoding.  If the degree exceeds ``dim`` the result is the zero form
+        and the components are ``sympify(0)``.
+
+    Raises
+    ------
+    ValueError
+        If ``form_degree`` is outside ``0..dim``.
+
+    Examples
+    --------
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> exterior_derivative(m, x**2 * y, 0)             # d(x^2 y)
+    (1, (2*x*y, x**2))
+    >>> exterior_derivative(m, (-y, x), 1)              # d(-y dx + x dy) = 2 dx^dy
+    (2, 2)
+    >>> exterior_derivative(m, (2*x*y, x**2), 1)        # d d f = 0
+    (2, 0)
+    """
+    n = metric.dim
+    if not (isinstance(form_degree, int) and 0 <= form_degree <= n):
+        raise ValueError(f"form_degree must be an integer in 0..{n}.")
+
+    deg = form_degree + 1
+    if deg > n:
+        return deg, sympify(0)
+
+    coords = metric.coords
+    if form_degree == 0:
+        if n == 1:
+            return 1, simplify(diff(omega, coords[0]))
+        return 1, tuple(simplify(diff(omega, c)) for c in coords)
+
+    # form_degree == 1 in 2D
+    x, y = coords
+    a_x, a_y = omega
+    return 2, simplify(diff(a_y, x) - diff(a_x, y))
+
+# ======================================================================
+# ADDITIONAL FORM OPERATORS: pointwise inner product, codifferential,
+# Lie derivative of forms.   (same encoding as hodge_star / wedge_product)
+# ======================================================================
+
+def form_inner_product(metric, alpha, beta, form_degree):
+    """
+    Pointwise inner product <alpha, beta>_g of two k-forms.
+
+    The metric induces on k-forms the inner product
+
+        k = 0 :  <f, h>                         = f h
+        k = 1 :  <a, b>                         = g^{ij} a_i b_j
+        k = 2 :  <f dx^dy, h dx^dy>             = f h / |det g|        (2D only)
+
+    It is symmetric, positive definite, and is characterised by
+    alpha ^ star(beta) = <alpha, beta> dV.  The Hodge star is an isometry,
+    <star alpha, star beta> = <alpha, beta>.
+
+    Parameters
+    ----------
+    metric : Metric
+        1D or 2D metric.
+    alpha, beta : sympy.Expr or tuple of sympy.Expr
+        Forms of the same degree, encoded as in ``hodge_star`` /
+        ``wedge_product``.
+    form_degree : int
+        Degree k of both forms, in ``0..dim``.
+
+    Returns
+    -------
+    sympy.Expr
+        The scalar function <alpha, beta>_g.
+
+    Raises
+    ------
+    ValueError
+        If ``form_degree`` is outside ``0..dim``.
+
+    Examples
+    --------
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> form_inner_product(m, (x, 1), (2, y), 1)        # 2x + y
+    2*x + y
+    >>> m4 = Metric(Matrix([[4, 0], [0, 9]]), (x, y))
+    >>> form_inner_product(m4, 3, 5, 2)                 # 15 / 36
+    5/12
+    """
+    n = metric.dim
+    if not (isinstance(form_degree, int) and 0 <= form_degree <= n):
+        raise ValueError(f"form_degree must be an integer in 0..{n}.")
+    if form_degree == 0:
+        return simplify(alpha * beta)
+    if form_degree == 1:
+        return metric.inner_product(alpha, beta, form_type='covector')
+    return simplify(alpha * beta / metric.sqrt_det_g**2)      # 2-form, 2D
+
+
+def form_norm(metric, omega, form_degree):
+    """
+    Pointwise norm |omega|_g = sqrt(<omega, omega>_g) of a k-form.
+
+    See ``form_inner_product`` for the conventions.  For a non-negative
+    result with symbolic coordinates, declare them ``positive`` or ``real``
+    as appropriate.
+    """
+    return simplify(sqrt(form_inner_product(metric, omega, omega, form_degree)))
+
+
+def codifferential(metric, omega, form_degree):
+    """
+    Codifferential delta = -star d star : Omega^k -> Omega^(k-1),
+    the formal L^2-adjoint of the exterior derivative.
+
+    In 2D (and for every degree) delta = -star d star.  Concretely
+
+        1-form a   ->  delta a = -(1/sqrt|g|) d_i( sqrt|g| g^{ij} a_j ) = -div(a^sharp)
+        2-form f dA ->  delta (f dA) = -star d (f / sqrt|g|)
+
+    and in 1D  delta(a dx) = -(1/sqrt|g|) d/dx( sqrt|g| g^{-1} a ).
+    A 0-form has delta f = 0.
+
+    Properties: delta delta = 0, and delta d f = -div grad f  (so on functions
+    the *positive* Laplacian d delta + delta d equals -Delta_g, where Delta_g is
+    the Laplace-Beltrami operator ``div grad`` returned by
+    ``de_rham_laplacian(metric, 0)['action']``).  Adjointness holds pointwise up
+    to a divergence:  <df, b> - f delta b = div(f b^sharp).
+
+    Parameters
+    ----------
+    metric : Metric
+        1D or 2D metric.
+    omega : sympy.Expr or tuple of sympy.Expr
+        Form to differentiate, encoded as in ``exterior_derivative``.
+    form_degree : int
+        Degree of ``omega``, in ``0..dim``.
+
+    Returns
+    -------
+    (degree, components) : tuple
+        ``degree = form_degree - 1`` (``-1`` for a 0-form, whose codifferential
+        is 0) and the components in the module's encoding.
+
+    Raises
+    ------
+    ValueError
+        If ``form_degree`` is outside ``0..dim``.
+
+    Examples
+    --------
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> codifferential(m, (x, y), 1)                    # -(d_x x + d_y y)
+    (0, -2)
+    >>> codifferential(m, x * y, 2)                     # (f_y) dx - (f_x) dy
+    (1, (x, -y))
+    """
+    n = metric.dim
+    if not (isinstance(form_degree, int) and 0 <= form_degree <= n):
+        raise ValueError(f"form_degree must be an integer in 0..{n}.")
+
+    if form_degree == 0:
+        return -1, sympify(0)
+
+    if n == 1:                                       # 1-form a dx
+        sg, gi = metric.sqrt_det_expr, metric.g_inv_expr
+        return 0, simplify(-diff(sg * gi * omega, metric.coords[0]) / sg)
+
+    star1, star2 = hodge_star(metric, 1), hodge_star(metric, 2)
+    if form_degree == 1:
+        _, d_star = exterior_derivative(metric, star1(*omega), 1)
+        return 0, simplify(-star2(d_star))
+    # form_degree == 2
+    _, d_psi = exterior_derivative(metric, star2(omega), 0)
+    return 1, tuple(simplify(-c) for c in star1(*d_psi))
+
+
+def _add_forms(a, b):
+    """Sum of two forms of the same degree, where a bare 0 may stand for the zero form."""
+    a_t, b_t = isinstance(a, (tuple, list)), isinstance(b, (tuple, list))
+    if a_t and b_t:
+        return tuple(p + q for p, q in zip(a, b))
+    if a_t:
+        return tuple(a)
+    if b_t:
+        return tuple(b)
+    return a + b
+
+
+def lie_derivative_form(metric, X, omega, form_degree):
+    """
+    Lie derivative L_X omega of a k-form along a vector field X, computed
+    with Cartan's magic formula
+
+        L_X omega = d(iota_X omega) + iota_X (d omega).
+
+    Since it is built from d and iota_X it is metric-independent (the metric
+    argument only supplies the dimension and coordinates).  In 2D:
+
+        0-form f          ->  X(f) = X^x f_x + X^y f_y
+        1-form a          ->  (X^j d_j a_i + a_j d_i X^j) dx^i
+        2-form f dx^dy    ->  d_i(f X^i) dx^dy          (= (X f + f div_coord X) dx^dy)
+
+    and in 1D  L_X(a dx) = (X a)' dx.  Properties: L_X is a derivation of the
+    wedge product, L_X(alpha ^ beta) = L_X alpha ^ beta + alpha ^ L_X beta;
+    it commutes with d; and L_[X,Y] = [L_X, L_Y].  If X is a Killing field it
+    commutes with the Hodge star and preserves ``form_inner_product``.
+
+    Parameters
+    ----------
+    metric : Metric
+        1D or 2D metric.
+    X : sympy.Expr or tuple of sympy.Expr
+        Vector field (X^x, X^y) in 2D, single expression in 1D.
+    omega : sympy.Expr or tuple of sympy.Expr
+        Form to differentiate, encoded as in ``exterior_derivative``.
+    form_degree : int
+        Degree of ``omega``, in ``0..dim``.
+
+    Returns
+    -------
+    (degree, components) : tuple
+        ``degree = form_degree`` and the components of L_X omega in the
+        module's encoding.
+
+    Raises
+    ------
+    ValueError
+        If ``form_degree`` is outside ``0..dim``.
+
+    Examples
+    --------
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> rot = (-y, x)                                   # rotation, a Killing field
+    >>> lie_derivative_form(m, rot, (x, y), 1)          # L_rot d(r^2/2) = 0
+    (1, (0, 0))
+    >>> lie_derivative_form(m, rot, x, 0)               # rot(x) = -y
+    (0, -y)
+    >>> lie_derivative_form(m, (x, 0), 1, 2)            # L_(x d_x)(dx^dy) = dx^dy
+    (2, 1)
+    """
+    n = metric.dim
+    if not (isinstance(form_degree, int) and 0 <= form_degree <= n):
+        raise ValueError(f"form_degree must be an integer in 0..{n}.")
+
+    # d(iota_X omega)
+    if form_degree == 0:
+        term1 = sympify(0)                                       # iota_X f = 0
+    else:
+        deg_i, i_om = interior_product(metric, X, omega, form_degree)
+        _, term1 = exterior_derivative(metric, i_om, deg_i)
+
+    # iota_X (d omega)
+    deg_d, d_om = exterior_derivative(metric, omega, form_degree)
+    if deg_d > n:
+        term2 = sympify(0)
+    else:
+        _, term2 = interior_product(metric, X, d_om, deg_d)
+
+    total = _add_forms(term1, term2)
+    if isinstance(total, tuple):
+        return form_degree, tuple(simplify(c) for c in total)
+    return form_degree, simplify(total)
 
 # =============================================================================
 # Option A — de_rham_laplacian extended to form_degree=1 with the full
