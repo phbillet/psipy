@@ -115,9 +115,11 @@
 <span class="sd">2. **Geodesic layer** — standalone functions integrate geodesic and</span>
 <span class="sd">   Hamiltonian flow, compute geodesic distance, solve the Jacobi deviation</span>
 <span class="sd">   equation, and perform parallel transport along curves.</span>
-<span class="sd">3. **Differential-form layer** (2D only) — the Hodge star, the de Rham</span>
-<span class="sd">   Laplacian with Weitzenböck correction, and a full numerical Hodge</span>
-<span class="sd">   decomposition backed by a sparse FEM solver on a ``RiemannianGrid``.</span>
+<span class="sd">3. **Differential-form layer** — the exterior algebra of forms (wedge</span>
+<span class="sd">   product, interior product, exterior derivative; 1D and 2D), and, in 2D</span>
+<span class="sd">   only, the Hodge star, the de Rham Laplacian with Weitzenböck correction,</span>
+<span class="sd">   and a full numerical Hodge decomposition backed by a sparse FEM solver on</span>
+<span class="sd">   a ``RiemannianGrid``..</span>
 <span class="sd">4. **Visualisation layer** — geodesic trajectory plots and curvature</span>
 <span class="sd">   colour maps for both dimensions.</span>
 
@@ -175,6 +177,43 @@
 <span class="sd">    * ``sturm_liouville_reduce(metric, potential_expr)`` — reduce the 1D</span>
 <span class="sd">      Laplace-Beltrami eigenvalue problem -Delta_g u + Vu = lambda u to</span>
 <span class="sd">      canonical Sturm-Liouville form (1D only).</span>
+
+<span class="sd">Exterior algebra (1D and 2D)</span>
+<span class="sd">    Metric-independent operations on differential forms.  Forms use the</span>
+<span class="sd">    same encoding as ``hodge_star``: an expression for a 0-form; a pair</span>
+<span class="sd">    ``(a_x, a_y)`` for a 1-form in 2D (a single expression in 1D); the</span>
+<span class="sd">    coefficient f of dx∧dy for a 2-form in 2D.  Because a bare expression</span>
+<span class="sd">    may be a 0-form or a 2-form, the degree is always passed explicitly, and</span>
+<span class="sd">    every function returns ``(degree, components)``.</span>
+
+<span class="sd">    * ``wedge_product(metric, alpha, beta, deg_alpha, deg_beta)`` — exterior</span>
+<span class="sd">      product α∧β.  Bilinear, associative and graded-commutative,</span>
+<span class="sd">      α∧β = (-1)^(kl) β∧α; products of total degree above the dimension</span>
+<span class="sd">      vanish.</span>
+<span class="sd">    * ``interior_product(metric, X, omega, form_degree, vector_type)`` —</span>
+<span class="sd">      contraction ι_X ω of a vector field with a form.  An antiderivation of</span>
+<span class="sd">      the wedge product with ι_X ι_X = 0.  With ``vector_type='covector'``</span>
+<span class="sd">      the argument is a 1-form, raised with the metric first, so that</span>
+<span class="sd">      ι_{α^♯} β = ⟨α, β⟩_{g⁻¹}.</span>
+<span class="sd">    * ``exterior_derivative(metric, omega, form_degree)`` — exterior</span>
+<span class="sd">      derivative d, satisfying d² = 0 and the graded Leibniz rule</span>
+<span class="sd">      d(α∧β) = dα∧β + (-1)^k α∧dβ.</span>
+<span class="sd">    * ``form_inner_product(metric, alpha, beta, form_degree)`` / ``form_norm`` —</span>
+<span class="sd">      pointwise metric inner product and norm of k-forms; characterised by</span>
+<span class="sd">      α∧⋆β = ⟨α,β⟩ dV, and the Hodge star is an isometry.</span>
+<span class="sd">    * ``codifferential(metric, omega, form_degree)`` — δ = −⋆d⋆, the formal</span>
+<span class="sd">      adjoint of d (δδ = 0, δ(df) = −div grad f); returns ``(degree, components)``.</span>
+<span class="sd">    * ``lie_derivative_form(metric, X, omega, form_degree)`` — L_X ω on forms</span>
+<span class="sd">      via Cartan's formula dι_X + ι_X d; returns ``(degree, components)``.</span>
+<span class="sd">    * ``pullback_form(metric, phi, omega, form_degree, new_coords)`` — φ*ω for</span>
+<span class="sd">      0-, 1- and 2-forms (domain of dimension 1 or 2); commutes with d and ∧.</span>
+<span class="sd">    * ``is_closed`` / ``is_exact`` / ``find_potential`` — symbolic Poincaré lemma:</span>
+<span class="sd">      dω = 0 test and a verified local potential η with dη = ω.</span>
+
+<span class="sd">    Together with ``Metric.lie_derivative`` these satisfy Cartan's formula</span>
+<span class="sd">    L_X ω = d(ι_X ω) + ι_X(dω).  They also reproduce existing operators:</span>
+<span class="sd">    ``Metric.curl(V) = ⋆d(V^♭)``, and ι_X dV = ⋆(X^♭) for the Riemannian</span>
+<span class="sd">    volume form dV = √|g| dx∧dy.</span>
 
 <span class="sd">Differential-form layer (2D only)</span>
 <span class="sd">    * ``hodge_star(metric, form_degree)`` — symbolic Hodge star on 0-, 1-,</span>
@@ -255,6 +294,26 @@
 <span class="sd">R_ij = R^k_ikj, and the scalar curvature R = g^ij R_ij.  In 2D the Gaussian</span>
 <span class="sd">curvature K is the only independent component: R_1212 = K |g|.</span>
 
+<span class="sd">The **exterior algebra** of differential forms is built from three</span>
+<span class="sd">operations that need no metric.  The wedge product α∧β of a k-form and an</span>
+<span class="sd">l-form is a (k+l)-form, graded-commutative, α∧β = (-1)^(kl) β∧α, and it</span>
+<span class="sd">vanishes when k+l exceeds the dimension; in 2D the only non-trivial case of</span>
+<span class="sd">two 1-forms is  a∧b = (a_x b_y - a_y b_x) dx∧dy.  The interior product ι_X</span>
+<span class="sd">contracts a vector field into the first slot of a form and lowers its degree</span>
+<span class="sd">by one; it is an antiderivation, ι_X(α∧β) = ι_X α∧β + (-1)^k α∧ι_X β, and</span>
+<span class="sd">satisfies ι_X ι_X = 0, with  ι_X(f dx∧dy) = f (X^x dy - X^y dx)  in 2D.  The</span>
+<span class="sd">exterior derivative d raises the degree by one, obeys d² = 0 and the graded</span>
+<span class="sd">Leibniz rule, and in 2D reads  df = f_x dx + f_y dy  and</span>
+<span class="sd">d(a_x dx + a_y dy) = (∂_x a_y - ∂_y a_x) dx∧dy.  These are tied together by</span>
+<span class="sd">**Cartan's magic formula**,</span>
+
+<span class="sd">    L_X ω = d(ι_X ω) + ι_X (dω),</span>
+
+<span class="sd">which expresses the Lie derivative along X.  The metric enters only when</span>
+<span class="sd">these operations are combined with the Hodge star and the musical</span>
+<span class="sd">isomorphisms: for instance the divergence satisfies  L_X dV = (div X) dV,</span>
+<span class="sd">the scalar curl is  ⋆d(X^♭),  and  ι_X dV = ⋆(X^♭).</span>
+
 <span class="sd">The **Laplace-Beltrami operator** on scalar functions is</span>
 
 <span class="sd">    Delta = |g|^{-1/2} d_i ( |g|^{1/2} g^ij d_j ),</span>
@@ -308,6 +367,8 @@
 <span class="sd">       2011 (3rd ed.).</span>
 <span class="sd">.. [6] Warner, F. W.  *Foundations of Differentiable Manifolds and Lie</span>
 <span class="sd">       Groups*, Springer, 1983.</span>
+<span class="sd">.. [7] Spivak, M.  *Calculus on Manifolds*, Benjamin, 1965 (exterior</span>
+<span class="sd">       algebra and differential forms).</span>
 <span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">imports</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
@@ -1523,7 +1584,7 @@
             <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">H</span><span class="p">)</span> <span class="k">if</span> <span class="n">do_simplify</span> <span class="k">else</span> <span class="n">H</span></div>
 
 
-<span class="c1"># ==========================================================================</span>
+    <span class="c1"># ==========================================================================</span>
     <span class="c1"># Tensor Algebra &amp; Index Manipulation</span>
     <span class="c1"># ==========================================================================</span>
 
@@ -1646,6 +1707,27 @@
         <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">g_inv_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">omega</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span></div>
 
 
+<div class="viewcode-block" id="Metric.wedge">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.wedge">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wedge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">deg_alpha</span><span class="p">,</span> <span class="n">deg_beta</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Wedge product; see ``wedge_product``."""</span>
+        <span class="k">return</span> <span class="n">wedge_product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">deg_alpha</span><span class="p">,</span> <span class="n">deg_beta</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Metric.interior">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.interior">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">,</span> <span class="n">vector_type</span><span class="o">=</span><span class="s1">'vector'</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Interior product iota_X omega; see ``interior_product``."""</span>
+        <span class="k">return</span> <span class="n">interior_product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">,</span> <span class="n">vector_type</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Metric.d">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.d">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Exterior derivative; see ``exterior_derivative``."""</span>
+        <span class="k">return</span> <span class="n">exterior_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="Metric.trace">
 <a class="viewcode-back" href="../riemannian.html#riemannian.Metric.trace">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">is_covariant</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
@@ -1684,6 +1766,80 @@
             <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">T</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">T</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="Metric.symmetrize">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.symmetrize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">symmetrize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">T</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the symmetric part of a (0,2) tensor field T.</span>
+<span class="sd">        The symmetrization is defined as:</span>
+<span class="sd">            T_(ij) = 1/2 (T_ij + T_ji)</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        T : sympy.Matrix or list of lists</span>
+<span class="sd">            A 2×2 SymPy Matrix representing the rank-2 tensor for 2D metrics.</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Matrix</span>
+<span class="sd">            The simplified symmetric part of T.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">T</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">T</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">T</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">T</span> <span class="o">+</span> <span class="n">T</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+            <span class="c1"># Higher-rank tensor (swapping first two indices)</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">T</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">/</span> <span class="mf">2.0</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">T</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">T</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Matrix must be square to symmetrize."</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">((</span><span class="n">T</span> <span class="o">+</span> <span class="n">T</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># Fallback for general sequences/lists</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">T_mat</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">((</span><span class="n">T_mat</span> <span class="o">+</span> <span class="n">T_mat</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="Metric.antisymmetrize">
+<a class="viewcode-back" href="../riemannian.html#riemannian.Metric.antisymmetrize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">antisymmetrize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">T</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute the antisymmetric part of a (0,2) tensor field T.</span>
+<span class="sd">        The antisymmetrization is defined as:</span>
+<span class="sd">            T_[ij] = 1/2 (T_ij - T_ji)</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        T : sympy.Matrix or list of lists</span>
+<span class="sd">            A 2×2 SymPy Matrix representing the rank-2 tensor for 2D metrics.</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sympy.Matrix</span>
+<span class="sd">            The simplified antisymmetric part of T.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">T</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">T</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">T</span> <span class="o">-</span> <span class="n">T</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+            <span class="c1"># Higher-rank tensor (swapping first two indices)</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">T</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">/</span> <span class="mf">2.0</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">T</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">T</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Matrix must be square to antisymmetrize."</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">simplify</span><span class="p">((</span><span class="n">T</span> <span class="o">-</span> <span class="n">T</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># Fallback for general sequences/lists</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">arr</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Matrix</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">T_mat</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">((</span><span class="n">T_mat</span> <span class="o">-</span> <span class="n">T_mat</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span></div>
 
 
     <span class="c1"># ==========================================================================</span>
@@ -2004,6 +2160,7 @@
 
         <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">alpha_new</span><span class="p">)</span></div>
 </div>
+
 
 
 <span class="c1"># ============================================================================</span>
@@ -2996,6 +3153,739 @@
         <span class="k">return</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">f</span> <span class="o">/</span> <span class="n">sqrt_g</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"form_degree must be 0, 1, or 2."</span><span class="p">)</span></div>
+
+
+<span class="c1"># ======================================================================</span>
+<span class="c1"># EXTERIOR ALGEBRA: wedge product and interior product</span>
+<span class="c1"># ======================================================================</span>
+<span class="c1"># Conventions (identical to hodge_star / lie_derivative in this module):</span>
+<span class="c1">#   dim 2 :  0-form -&gt; expr f</span>
+<span class="c1">#            1-form -&gt; tuple (a_x, a_y)          a = a_x dx + a_y dy</span>
+<span class="c1">#            2-form -&gt; expr f                    omega = f dx^dy</span>
+<span class="c1">#            vector -&gt; tuple (X^x, X^y)</span>
+<span class="c1">#   dim 1 :  0-form -&gt; expr f</span>
+<span class="c1">#            1-form -&gt; expr a                    a = a dx</span>
+<span class="c1">#            vector -&gt; expr X                    X = X d/dx</span>
+
+<div class="viewcode-block" id="wedge_product">
+<a class="viewcode-back" href="../riemannian.html#riemannian.wedge_product">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">wedge_product</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">deg_alpha</span><span class="p">,</span> <span class="n">deg_beta</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Exterior (wedge) product alpha ^ beta of two differential forms.</span>
+
+<span class="sd">    The wedge product is bilinear, associative and graded-commutative,</span>
+
+<span class="sd">        alpha ^ beta = (-1)^(k l) beta ^ alpha,   k = deg(alpha), l = deg(beta),</span>
+
+<span class="sd">    and is purely algebraic: it does not depend on the metric (the metric</span>
+<span class="sd">    argument only supplies the dimension and the coordinates).  In local</span>
+<span class="sd">    coordinates, on a 2D manifold,</span>
+
+<span class="sd">        f ^ g              = f g                          (0 ^ 0 -&gt; 0)</span>
+<span class="sd">        f ^ b              = f b_x dx + f b_y dy          (0 ^ 1 -&gt; 1)</span>
+<span class="sd">        a ^ b              = (a_x b_y - a_y b_x) dx^dy    (1 ^ 1 -&gt; 2)</span>
+<span class="sd">        f ^ (h dx^dy)      = f h dx^dy                    (0 ^ 2 -&gt; 2)</span>
+
+<span class="sd">    and every product of total degree &gt; dim vanishes.  Since the degree</span>
+<span class="sd">    cannot be inferred from the components alone (a bare expression may be a</span>
+<span class="sd">    0-form or a 2-form), it must be given explicitly.</span>
+
+<span class="sd">    The components may be non-commuting objects (e.g. matrix-valued forms for</span>
+<span class="sd">    a gauge field): the 1∧1 product is evaluated as a_x·b_y − a_y·b_x, in this</span>
+<span class="sd">    order, so that for a Lie-algebra-valued A one gets (A∧A)_xy = [A_x, A_y]</span>
+<span class="sd">    and the curvature is F = dA + A∧A.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        1D or 2D metric (used for ``dim`` only).</span>
+<span class="sd">    alpha, beta : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Forms, encoded as in ``hodge_star``: scalar expression for 0-forms</span>
+<span class="sd">        (and for 2-forms, as the coefficient of dx^dy, in 2D), pair</span>
+<span class="sd">        ``(a_x, a_y)`` for 1-forms in 2D, single expression for 1-forms in 1D.</span>
+<span class="sd">    deg_alpha, deg_beta : int</span>
+<span class="sd">        Degrees k and l of ``alpha`` and ``beta``, each in ``0..dim``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (degree, components) : tuple</span>
+<span class="sd">        ``degree = deg_alpha + deg_beta`` and the components of the product,</span>
+<span class="sd">        in the same encoding as the inputs.  If the degree exceeds ``dim``</span>
+<span class="sd">        the product is the zero form and the components are ``sympify(0)``.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If a degree is outside ``0..dim``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y = symbols('x y', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; wedge_product(m, (x, 0), (0, y), 1, 1)          # x dx ^ y dy</span>
+<span class="sd">    (2, x*y)</span>
+<span class="sd">    &gt;&gt;&gt; wedge_product(m, (x, y), (x, y), 1, 1)          # a ^ a = 0</span>
+<span class="sd">    (2, 0)</span>
+<span class="sd">    &gt;&gt;&gt; wedge_product(m, y, (1, 2), 0, 1)               # y (dx + 2 dy)</span>
+<span class="sd">    (1, (y, 2*y))</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">nm</span> <span class="ow">in</span> <span class="p">((</span><span class="n">deg_alpha</span><span class="p">,</span> <span class="s1">'deg_alpha'</span><span class="p">),</span> <span class="p">(</span><span class="n">deg_beta</span><span class="p">,</span> <span class="s1">'deg_beta'</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">k</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">nm</span><span class="si">}</span><span class="s2"> must be an integer in 0..</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+    <span class="n">k</span><span class="p">,</span> <span class="n">l</span> <span class="o">=</span> <span class="n">deg_alpha</span><span class="p">,</span> <span class="n">deg_beta</span>
+    <span class="n">deg</span> <span class="o">=</span> <span class="n">k</span> <span class="o">+</span> <span class="n">l</span>
+    <span class="k">if</span> <span class="n">deg</span> <span class="o">&gt;</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">deg</span><span class="p">,</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># 0-form times anything: multiply componentwise</span>
+    <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">l</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span> <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">deg</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">w</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">deg</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span>
+
+    <span class="c1"># remaining case: 1 ^ 1 in 2D  (1D handled by deg &gt; n above)</span>
+    <span class="n">a_x</span><span class="p">,</span> <span class="n">a_y</span> <span class="o">=</span> <span class="n">alpha</span>
+    <span class="n">b_x</span><span class="p">,</span> <span class="n">b_y</span> <span class="o">=</span> <span class="n">beta</span>
+    <span class="k">return</span> <span class="mi">2</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">a_x</span> <span class="o">*</span> <span class="n">b_y</span> <span class="o">-</span> <span class="n">a_y</span> <span class="o">*</span> <span class="n">b_x</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="interior_product">
+<a class="viewcode-back" href="../riemannian.html#riemannian.interior_product">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">interior_product</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">,</span> <span class="n">vector_type</span><span class="o">=</span><span class="s1">'vector'</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Interior product (contraction) iota_X omega of a vector field X with a</span>
+<span class="sd">    differential form omega.</span>
+
+<span class="sd">    iota_X lowers the degree by one, is an antiderivation of the wedge</span>
+<span class="sd">    product,</span>
+
+<span class="sd">        iota_X (alpha ^ beta) = (iota_X alpha) ^ beta</span>
+<span class="sd">                                + (-1)^k alpha ^ (iota_X beta),</span>
+
+<span class="sd">    squares to zero (iota_X iota_X = 0), is C^inf-linear in X, and is linked</span>
+<span class="sd">    to the exterior derivative and the Lie derivative by Cartan's formula</span>
+
+<span class="sd">        L_X omega = d(iota_X omega) + iota_X (d omega).</span>
+
+<span class="sd">    Like the wedge product it is metric-independent.  On a 2D manifold,</span>
+
+<span class="sd">        0-form f            -&gt;  iota_X f = 0</span>
+<span class="sd">        1-form a            -&gt;  iota_X a = a_x X^x + a_y X^y            (0-form)</span>
+<span class="sd">        2-form f dx^dy      -&gt;  iota_X (f dx^dy) = -f X^y dx + f X^x dy (1-form)</span>
+
+<span class="sd">    In 1D: iota_X (a dx) = a X.</span>
+
+<span class="sd">    The metric enters only through the optional ``vector_type='covector'``,</span>
+<span class="sd">    where X is given as a 1-form and is raised with the metric first</span>
+<span class="sd">    (X^# = g^{-1} X).  With the Riemannian volume form dV = sqrt|g| dx^dy</span>
+<span class="sd">    this gives the identity  iota_X dV = star(X^flat).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        1D or 2D metric.</span>
+<span class="sd">    X : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Vector field (X^x, X^y) in 2D, single expression in 1D.  If</span>
+<span class="sd">        ``vector_type='covector'`` the components of the 1-form X_flat.</span>
+<span class="sd">    omega : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Form to contract, encoded as in ``wedge_product``.</span>
+<span class="sd">    form_degree : int</span>
+<span class="sd">        Degree of ``omega``, in ``0..dim``.</span>
+<span class="sd">    vector_type : {'vector', 'covector'}, default 'vector'</span>
+<span class="sd">        Whether ``X`` is contravariant components or a 1-form to be raised</span>
+<span class="sd">        with ``metric.sharp``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (degree, components) : tuple</span>
+<span class="sd">        ``degree = form_degree - 1`` (``-1`` for a 0-form, whose contraction</span>
+<span class="sd">        is 0) and the components in the module's encoding.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If ``form_degree`` is outside ``0..dim`` or ``vector_type`` is invalid.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y = symbols('x y', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; X = (x, y)                                    # radial field</span>
+<span class="sd">    &gt;&gt;&gt; interior_product(m, X, (y, -x), 1)            # 1-form y dx - x dy</span>
+<span class="sd">    (0, 0)</span>
+<span class="sd">    &gt;&gt;&gt; interior_product(m, X, 1, 2)                  # iota_X (dx^dy) = -y dx + x dy</span>
+<span class="sd">    (1, (-y, x))</span>
+<span class="sd">    &gt;&gt;&gt; interior_product(m, X, X, 0)                  # contraction of a function</span>
+<span class="sd">    (-1, 0)</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">form_degree</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">form_degree</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"form_degree must be an integer in 0..</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">vector_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'vector'</span><span class="p">,</span> <span class="s1">'covector'</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"vector_type must be 'vector' or 'covector'."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">vector_type</span> <span class="o">==</span> <span class="s1">'covector'</span><span class="p">:</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">sharp</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>                                   <span class="c1"># 1-form a dx</span>
+        <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">X</span> <span class="o">*</span> <span class="n">omega</span><span class="p">)</span>
+
+    <span class="n">X1</span><span class="p">,</span> <span class="n">X2</span> <span class="o">=</span> <span class="n">X</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">a_x</span><span class="p">,</span> <span class="n">a_y</span> <span class="o">=</span> <span class="n">omega</span>
+        <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">a_x</span> <span class="o">*</span> <span class="n">X1</span> <span class="o">+</span> <span class="n">a_y</span> <span class="o">*</span> <span class="n">X2</span><span class="p">)</span>
+    <span class="c1"># form_degree == 2 : omega = f dx^dy</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">omega</span>
+    <span class="k">return</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="o">-</span><span class="n">f</span> <span class="o">*</span> <span class="n">X2</span><span class="p">),</span> <span class="n">simplify</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">X1</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="exterior_derivative">
+<a class="viewcode-back" href="../riemannian.html#riemannian.exterior_derivative">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">exterior_derivative</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Exterior derivative d of a differential form.</span>
+
+<span class="sd">    d raises the degree by one, is linear, satisfies the graded Leibniz rule</span>
+
+<span class="sd">        d(alpha ^ beta) = d alpha ^ beta + (-1)^k alpha ^ d beta,</span>
+
+<span class="sd">    and squares to zero (d d = 0).  It is metric-independent and commutes</span>
+<span class="sd">    with pullbacks; together with ``interior_product`` it gives Cartan's</span>
+<span class="sd">    formula  L_X omega = d(iota_X omega) + iota_X (d omega).</span>
+<span class="sd">    In local coordinates, on a 2D manifold,</span>
+
+<span class="sd">        f                 -&gt;  d f = f_x dx + f_y dy                 (0 -&gt; 1)</span>
+<span class="sd">        a_x dx + a_y dy   -&gt;  d a = (d_x a_y - d_y a_x) dx^dy       (1 -&gt; 2)</span>
+<span class="sd">        f dx^dy           -&gt;  d(f dx^dy) = 0                        (2 -&gt; 3, zero)</span>
+
+<span class="sd">    and in 1D:  d f = f' dx  (0 -&gt; 1),  d(a dx) = 0  (1 -&gt; 2, zero).</span>
+
+<span class="sd">    Related quantities already in this module: for a vector field V,</span>
+<span class="sd">    ``Metric.curl(V)`` equals  star(d(V^flat)),  and the exact part d(phi)</span>
+<span class="sd">    of the Hodge decomposition is ``exterior_derivative(m, phi, 0)``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        1D or 2D metric (used for the coordinates and ``dim`` only).</span>
+<span class="sd">    omega : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Form to differentiate, encoded as in ``hodge_star``: expression for</span>
+<span class="sd">        0-forms (and for 2-forms, as the coefficient of dx^dy, in 2D), pair</span>
+<span class="sd">        ``(a_x, a_y)`` for 1-forms in 2D, single expression for 1-forms in 1D.</span>
+<span class="sd">    form_degree : int</span>
+<span class="sd">        Degree of ``omega``, in ``0..dim``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (degree, components) : tuple</span>
+<span class="sd">        ``degree = form_degree + 1`` and the components in the module's</span>
+<span class="sd">        encoding.  If the degree exceeds ``dim`` the result is the zero form</span>
+<span class="sd">        and the components are ``sympify(0)``.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If ``form_degree`` is outside ``0..dim``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y = symbols('x y', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; exterior_derivative(m, x**2 * y, 0)             # d(x^2 y)</span>
+<span class="sd">    (1, (2*x*y, x**2))</span>
+<span class="sd">    &gt;&gt;&gt; exterior_derivative(m, (-y, x), 1)              # d(-y dx + x dy) = 2 dx^dy</span>
+<span class="sd">    (2, 2)</span>
+<span class="sd">    &gt;&gt;&gt; exterior_derivative(m, (2*x*y, x**2), 1)        # d d f = 0</span>
+<span class="sd">    (2, 0)</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">form_degree</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">form_degree</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"form_degree must be an integer in 0..</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+    <span class="n">deg</span> <span class="o">=</span> <span class="n">form_degree</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">deg</span> <span class="o">&gt;</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">deg</span><span class="p">,</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">omega</span><span class="p">,</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">omega</span><span class="p">,</span> <span class="n">c</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">)</span>
+
+    <span class="c1"># form_degree == 1 in 2D</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">coords</span>
+    <span class="n">a_x</span><span class="p">,</span> <span class="n">a_y</span> <span class="o">=</span> <span class="n">omega</span>
+    <span class="k">return</span> <span class="mi">2</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">a_y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">diff</span><span class="p">(</span><span class="n">a_x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span></div>
+
+
+<span class="c1"># ======================================================================</span>
+<span class="c1"># ADDITIONAL FORM OPERATORS: pointwise inner product, codifferential,</span>
+<span class="c1"># Lie derivative of forms.   (same encoding as hodge_star / wedge_product)</span>
+<span class="c1"># ======================================================================</span>
+
+<div class="viewcode-block" id="form_inner_product">
+<a class="viewcode-back" href="../riemannian.html#riemannian.form_inner_product">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">form_inner_product</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Pointwise inner product &lt;alpha, beta&gt;_g of two k-forms.</span>
+
+<span class="sd">    The metric induces on k-forms the inner product</span>
+
+<span class="sd">        k = 0 :  &lt;f, h&gt;                         = f h</span>
+<span class="sd">        k = 1 :  &lt;a, b&gt;                         = g^{ij} a_i b_j</span>
+<span class="sd">        k = 2 :  &lt;f dx^dy, h dx^dy&gt;             = f h / |det g|        (2D only)</span>
+
+<span class="sd">    It is symmetric, positive definite, and is characterised by</span>
+<span class="sd">    alpha ^ star(beta) = &lt;alpha, beta&gt; dV.  The Hodge star is an isometry,</span>
+<span class="sd">    &lt;star alpha, star beta&gt; = &lt;alpha, beta&gt;.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        1D or 2D metric.</span>
+<span class="sd">    alpha, beta : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Forms of the same degree, encoded as in ``hodge_star`` /</span>
+<span class="sd">        ``wedge_product``.</span>
+<span class="sd">    form_degree : int</span>
+<span class="sd">        Degree k of both forms, in ``0..dim``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sympy.Expr</span>
+<span class="sd">        The scalar function &lt;alpha, beta&gt;_g.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If ``form_degree`` is outside ``0..dim``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y = symbols('x y', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; form_inner_product(m, (x, 1), (2, y), 1)        # 2x + y</span>
+<span class="sd">    2*x + y</span>
+<span class="sd">    &gt;&gt;&gt; m4 = Metric(Matrix([[4, 0], [0, 9]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; form_inner_product(m4, 3, 5, 2)                 # 15 / 36</span>
+<span class="sd">    5/12</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">form_degree</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">form_degree</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"form_degree must be an integer in 0..</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">beta</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">metric</span><span class="o">.</span><span class="n">inner_product</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">form_type</span><span class="o">=</span><span class="s1">'covector'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">beta</span> <span class="o">/</span> <span class="n">metric</span><span class="o">.</span><span class="n">sqrt_det_g</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>      <span class="c1"># 2-form, 2D</span></div>
+
+
+
+<div class="viewcode-block" id="form_norm">
+<a class="viewcode-back" href="../riemannian.html#riemannian.form_norm">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">form_norm</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Pointwise norm |omega|_g = sqrt(&lt;omega, omega&gt;_g) of a k-form.</span>
+
+<span class="sd">    See ``form_inner_product`` for the conventions.  For a non-negative</span>
+<span class="sd">    result with symbolic coordinates, declare them ``positive`` or ``real``</span>
+<span class="sd">    as appropriate.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">sqrt</span><span class="p">(</span><span class="n">form_inner_product</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">)))</span></div>
+
+
+
+<div class="viewcode-block" id="codifferential">
+<a class="viewcode-back" href="../riemannian.html#riemannian.codifferential">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">codifferential</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Codifferential delta = -star d star : Omega^k -&gt; Omega^(k-1),</span>
+<span class="sd">    the formal L^2-adjoint of the exterior derivative.</span>
+
+<span class="sd">    In 2D (and for every degree) delta = -star d star.  Concretely</span>
+
+<span class="sd">        1-form a   -&gt;  delta a = -(1/sqrt|g|) d_i( sqrt|g| g^{ij} a_j ) = -div(a^sharp)</span>
+<span class="sd">        2-form f dA -&gt;  delta (f dA) = -star d (f / sqrt|g|)</span>
+
+<span class="sd">    and in 1D  delta(a dx) = -(1/sqrt|g|) d/dx( sqrt|g| g^{-1} a ).</span>
+<span class="sd">    A 0-form has delta f = 0.</span>
+
+<span class="sd">    Properties: delta delta = 0, and delta d f = -div grad f  (so on functions</span>
+<span class="sd">    the *positive* Laplacian d delta + delta d equals -Delta_g, where Delta_g is</span>
+<span class="sd">    the Laplace-Beltrami operator ``div grad`` returned by</span>
+<span class="sd">    ``de_rham_laplacian(metric, 0)['action']``).  Adjointness holds pointwise up</span>
+<span class="sd">    to a divergence:  &lt;df, b&gt; - f delta b = div(f b^sharp).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        1D or 2D metric.</span>
+<span class="sd">    omega : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Form to differentiate, encoded as in ``exterior_derivative``.</span>
+<span class="sd">    form_degree : int</span>
+<span class="sd">        Degree of ``omega``, in ``0..dim``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (degree, components) : tuple</span>
+<span class="sd">        ``degree = form_degree - 1`` (``-1`` for a 0-form, whose codifferential</span>
+<span class="sd">        is 0) and the components in the module's encoding.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If ``form_degree`` is outside ``0..dim``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y = symbols('x y', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; codifferential(m, (x, y), 1)                    # -(d_x x + d_y y)</span>
+<span class="sd">    (0, -2)</span>
+<span class="sd">    &gt;&gt;&gt; codifferential(m, x * y, 2)                     # (f_y) dx - (f_x) dy</span>
+<span class="sd">    (1, (x, -y))</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">form_degree</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">form_degree</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"form_degree must be an integer in 0..</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>                                       <span class="c1"># 1-form a dx</span>
+        <span class="n">sg</span><span class="p">,</span> <span class="n">gi</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">sqrt_det_expr</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">g_inv_expr</span>
+        <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="o">-</span><span class="n">diff</span><span class="p">(</span><span class="n">sg</span> <span class="o">*</span> <span class="n">gi</span> <span class="o">*</span> <span class="n">omega</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">sg</span><span class="p">)</span>
+
+    <span class="n">star1</span><span class="p">,</span> <span class="n">star2</span> <span class="o">=</span> <span class="n">hodge_star</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">hodge_star</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">d_star</span> <span class="o">=</span> <span class="n">exterior_derivative</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">star1</span><span class="p">(</span><span class="o">*</span><span class="n">omega</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="o">-</span><span class="n">star2</span><span class="p">(</span><span class="n">d_star</span><span class="p">))</span>
+    <span class="c1"># form_degree == 2</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">d_psi</span> <span class="o">=</span> <span class="n">exterior_derivative</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">star2</span><span class="p">(</span><span class="n">omega</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="o">-</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">star1</span><span class="p">(</span><span class="o">*</span><span class="n">d_psi</span><span class="p">))</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_add_forms</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Sum of two forms of the same degree, where a bare 0 may stand for the zero form."""</span>
+    <span class="n">a_t</span><span class="p">,</span> <span class="n">b_t</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)),</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">a_t</span> <span class="ow">and</span> <span class="n">b_t</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">p</span> <span class="o">+</span> <span class="n">q</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">a_t</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">b_t</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
+
+
+<div class="viewcode-block" id="lie_derivative_form">
+<a class="viewcode-back" href="../riemannian.html#riemannian.lie_derivative_form">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">lie_derivative_form</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Lie derivative L_X omega of a k-form along a vector field X, computed</span>
+<span class="sd">    with Cartan's magic formula</span>
+
+<span class="sd">        L_X omega = d(iota_X omega) + iota_X (d omega).</span>
+
+<span class="sd">    Since it is built from d and iota_X it is metric-independent (the metric</span>
+<span class="sd">    argument only supplies the dimension and coordinates).  In 2D:</span>
+
+<span class="sd">        0-form f          -&gt;  X(f) = X^x f_x + X^y f_y</span>
+<span class="sd">        1-form a          -&gt;  (X^j d_j a_i + a_j d_i X^j) dx^i</span>
+<span class="sd">        2-form f dx^dy    -&gt;  d_i(f X^i) dx^dy          (= (X f + f div_coord X) dx^dy)</span>
+
+<span class="sd">    and in 1D  L_X(a dx) = (X a)' dx.  Properties: L_X is a derivation of the</span>
+<span class="sd">    wedge product, L_X(alpha ^ beta) = L_X alpha ^ beta + alpha ^ L_X beta;</span>
+<span class="sd">    it commutes with d; and L_[X,Y] = [L_X, L_Y].  If X is a Killing field it</span>
+<span class="sd">    commutes with the Hodge star and preserves ``form_inner_product``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        1D or 2D metric.</span>
+<span class="sd">    X : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Vector field (X^x, X^y) in 2D, single expression in 1D.</span>
+<span class="sd">    omega : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Form to differentiate, encoded as in ``exterior_derivative``.</span>
+<span class="sd">    form_degree : int</span>
+<span class="sd">        Degree of ``omega``, in ``0..dim``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (degree, components) : tuple</span>
+<span class="sd">        ``degree = form_degree`` and the components of L_X omega in the</span>
+<span class="sd">        module's encoding.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If ``form_degree`` is outside ``0..dim``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y = symbols('x y', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; rot = (-y, x)                                   # rotation, a Killing field</span>
+<span class="sd">    &gt;&gt;&gt; lie_derivative_form(m, rot, (x, y), 1)          # L_rot d(r^2/2) = 0</span>
+<span class="sd">    (1, (0, 0))</span>
+<span class="sd">    &gt;&gt;&gt; lie_derivative_form(m, rot, x, 0)               # rot(x) = -y</span>
+<span class="sd">    (0, -y)</span>
+<span class="sd">    &gt;&gt;&gt; lie_derivative_form(m, (x, 0), 1, 2)            # L_(x d_x)(dx^dy) = dx^dy</span>
+<span class="sd">    (2, 1)</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">form_degree</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">form_degree</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"form_degree must be an integer in 0..</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+    <span class="c1"># d(iota_X omega)</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">term1</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>                                       <span class="c1"># iota_X f = 0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">deg_i</span><span class="p">,</span> <span class="n">i_om</span> <span class="o">=</span> <span class="n">interior_product</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">term1</span> <span class="o">=</span> <span class="n">exterior_derivative</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">i_om</span><span class="p">,</span> <span class="n">deg_i</span><span class="p">)</span>
+
+    <span class="c1"># iota_X (d omega)</span>
+    <span class="n">deg_d</span><span class="p">,</span> <span class="n">d_om</span> <span class="o">=</span> <span class="n">exterior_derivative</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">deg_d</span> <span class="o">&gt;</span> <span class="n">n</span><span class="p">:</span>
+        <span class="n">term2</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">term2</span> <span class="o">=</span> <span class="n">interior_product</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">d_om</span><span class="p">,</span> <span class="n">deg_d</span><span class="p">)</span>
+
+    <span class="n">total</span> <span class="o">=</span> <span class="n">_add_forms</span><span class="p">(</span><span class="n">term1</span><span class="p">,</span> <span class="n">term2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">form_degree</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">total</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">form_degree</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">total</span><span class="p">)</span></div>
+
+
+<span class="c1"># ======================================================================</span>
+<span class="c1"># PULLBACK OF FORMS and the (local) POINCARE LEMMA</span>
+<span class="c1"># ======================================================================</span>
+
+<div class="viewcode-block" id="pullback_form">
+<a class="viewcode-back" href="../riemannian.html#riemannian.pullback_form">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pullback_form</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">,</span> <span class="n">new_coords</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Pullback phi^* omega of a k-form under a smooth map phi : N -&gt; M.</span>
+
+<span class="sd">    ``metric`` describes the TARGET manifold M (it supplies the coordinates</span>
+<span class="sd">    x^i of M and its dimension n).  N has coordinates ``new_coords`` (dimension</span>
+<span class="sd">    p = 1 or 2, not necessarily equal to n) and ``phi`` gives x^i(y).  All</span>
+<span class="sd">    substitutions are simultaneous, so phi may freely reuse the old symbols.</span>
+
+<span class="sd">        k = 0 :  (phi^* f)(y)       = f(phi(y))</span>
+<span class="sd">        k = 1 :  (phi^* a)_j        = a_i(phi(y)) d phi^i / d y^j</span>
+<span class="sd">        k = 2 :  phi^*(f dx^dy)     = f(phi(y)) det(D phi) dy^1^dy^2   (p = 2)</span>
+
+<span class="sd">    A k-form with k &gt; p pulls back to the zero form.  The pullback commutes</span>
+<span class="sd">    with d and with the wedge product,</span>
+
+<span class="sd">        d(phi^* omega) = phi^*(d omega),    phi^*(alpha ^ beta) = phi^*alpha ^ phi^*beta,</span>
+
+<span class="sd">    and is functorial, (psi o phi)^* = phi^* psi^*.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        1D or 2D metric of the target manifold (used for coordinates and dim).</span>
+<span class="sd">    phi : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Map y -&gt; x(y); one expression per target coordinate.</span>
+<span class="sd">    omega : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Form on M, encoded as in ``hodge_star`` / ``wedge_product``.</span>
+<span class="sd">    form_degree : int</span>
+<span class="sd">        Degree of ``omega``, in ``0..n``.</span>
+<span class="sd">    new_coords : sympy.Symbol or tuple of sympy.Symbol</span>
+<span class="sd">        Coordinates of the domain N (one or two symbols).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (degree, components) : tuple</span>
+<span class="sd">        ``degree = form_degree``; components in the module's encoding for a</span>
+<span class="sd">        p-dimensional manifold (a bare expression for 1-forms when p = 1).</span>
+<span class="sd">        If ``form_degree &gt; p`` the components are ``sympify(0)``.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the degree is outside ``0..dim``, ``phi`` does not have one</span>
+<span class="sd">        component per target coordinate, or the domain has more than 2 coordinates.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y, r, t = symbols('x y r t', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; polar = (r * cos(t), r * sin(t))</span>
+<span class="sd">    &gt;&gt;&gt; pullback_form(m, polar, 1, 2, (r, t))            # dx^dy = r dr^dt</span>
+<span class="sd">    (2, r)</span>
+<span class="sd">    &gt;&gt;&gt; pullback_form(m, (cos(t), sin(t)), (-y, x), 1, (t,))   # -y dx + x dy on the unit circle</span>
+<span class="sd">    (1, 1)</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">form_degree</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">form_degree</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"form_degree must be an integer in 0..</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+    <span class="n">phi</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span> <span class="k">else</span> <span class="p">(</span><span class="n">phi</span><span class="p">,)</span>
+    <span class="n">new_coords</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_coords</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_coords</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span> <span class="k">else</span> <span class="p">(</span><span class="n">new_coords</span><span class="p">,)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_coords</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"phi must have </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> component(s), one per target coordinate."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"the domain must have 1 or 2 coordinates."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">&gt;</span> <span class="n">p</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">form_degree</span><span class="p">,</span> <span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">sub</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">phi</span><span class="p">))</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">sympify</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">subs</span><span class="p">(</span><span class="n">sub</span><span class="p">,</span> <span class="n">simultaneous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">J</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">([[</span><span class="n">diff</span><span class="p">(</span><span class="n">phi</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">new_coords</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">p</span><span class="p">)]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)])</span>   <span class="c1"># n x p</span>
+
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">S</span><span class="p">(</span><span class="n">omega</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">om</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">omega</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">omega</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span> <span class="k">else</span> <span class="p">(</span><span class="n">omega</span><span class="p">,)</span>
+        <span class="n">comps</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">S</span><span class="p">(</span><span class="n">om</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">*</span> <span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)))</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">comps</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">comps</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mi">2</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">S</span><span class="p">(</span><span class="n">omega</span><span class="p">)</span> <span class="o">*</span> <span class="n">J</span><span class="o">.</span><span class="n">det</span><span class="p">())</span>                       <span class="c1"># n = p = 2</span></div>
+
+
+
+<div class="viewcode-block" id="is_closed">
+<a class="viewcode-back" href="../riemannian.html#riemannian.is_closed">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">is_closed</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    True if d(omega) = 0.</span>
+
+<span class="sd">    Top-degree forms are always closed; a 0-form is closed iff it is constant.</span>
+<span class="sd">    Metric-independent (the metric only supplies coordinates and dimension).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y = symbols('x y', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; is_closed(m, (y, x), 1), is_closed(m, (-y, x), 1)</span>
+<span class="sd">    (True, False)</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">form_degree</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">form_degree</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"form_degree must be an integer in 0..</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+    <span class="n">deg</span><span class="p">,</span> <span class="n">d_om</span> <span class="o">=</span> <span class="n">exterior_derivative</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">deg</span> <span class="o">&gt;</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="n">comps</span> <span class="o">=</span> <span class="n">d_om</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d_om</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span> <span class="k">else</span> <span class="p">(</span><span class="n">d_om</span><span class="p">,)</span>
+    <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">simplify</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">comps</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="find_potential">
+<a class="viewcode-back" href="../riemannian.html#riemannian.find_potential">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_potential</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Symbolic Poincare lemma: find a (k-1)-form ``eta`` with d(eta) = omega.</span>
+
+<span class="sd">    * 1-form (2D):  eta = P(x, y),  built as  P = int a_x dx + int (a_y - d_y int a_x dx) dy.</span>
+<span class="sd">    * 1-form (1D):  eta = int a dx.</span>
+<span class="sd">    * 2-form (2D):  eta = (0, int f dx)  (a 1-form with d(eta) = f dx^dy).</span>
+<span class="sd">    * 0-forms have no potential.</span>
+
+<span class="sd">    The result is a LOCAL potential, valid on any simply connected region where</span>
+<span class="sd">    the symbolic integrals are smooth, and is defined up to a constant (1-forms)</span>
+<span class="sd">    or a closed 1-form (2-forms).  It is always verified: d(eta) - omega must</span>
+<span class="sd">    simplify to zero.  A closed form can fail to be globally exact (e.g. the</span>
+<span class="sd">    angle form (-y dx + x dy)/(x^2 + y^2) gets the local potential -atan(x/y)).</span>
+
+<span class="sd">    Useful for gauge fixing (A = d phi + ...) and for cross-checking the exact</span>
+<span class="sd">    part of a Hodge decomposition.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metric : Metric</span>
+<span class="sd">        1D or 2D metric (used for coordinates and dimension only).</span>
+<span class="sd">    omega : sympy.Expr or tuple of sympy.Expr</span>
+<span class="sd">        Form to integrate, encoded as in ``exterior_derivative``.</span>
+<span class="sd">    form_degree : int</span>
+<span class="sd">        Degree of ``omega``, in ``1..dim``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (degree, components) : tuple</span>
+<span class="sd">        ``degree = form_degree - 1`` and the components of the potential.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the degree is outside ``1..dim``, if ``omega`` is not closed, or if</span>
+<span class="sd">        sympy cannot integrate it in closed form.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y = symbols('x y', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; find_potential(m, (2*x*y, x**2), 1)              # d(x^2 y)</span>
+<span class="sd">    (0, x**2*y)</span>
+<span class="sd">    &gt;&gt;&gt; find_potential(m, x*y, 2)                        # d(x^2 y / 2  dy)</span>
+<span class="sd">    (1, (0, x**2*y/2))</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">form_degree</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="n">form_degree</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"form_degree must be an integer in 1..</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_int</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">integrate</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">conds</span><span class="o">=</span><span class="s1">'none'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">has</span><span class="p">(</span><span class="n">Integral</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"sympy could not integrate the form in closed form."</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">res</span>
+
+    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">eta_deg</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">_int</span><span class="p">(</span><span class="n">omega</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">a_x</span><span class="p">,</span> <span class="n">a_y</span> <span class="o">=</span> <span class="n">omega</span>
+        
+        <span class="c1"># Check if closed before processing</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_closed</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"the 1-form is not closed, so it has no potential."</span><span class="p">)</span>
+    
+        <span class="n">P</span> <span class="o">=</span> <span class="n">_int</span><span class="p">(</span><span class="n">a_x</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">rem</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">(</span><span class="n">a_y</span> <span class="o">-</span> <span class="n">diff</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+        <span class="c1"># rem should now be purely a function of y (or 0)</span>
+        <span class="n">eta_deg</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">simplify</span><span class="p">(</span><span class="n">P</span> <span class="o">+</span> <span class="n">_int</span><span class="p">(</span><span class="n">rem</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>                                                        <span class="c1"># 2-form in 2D</span>
+        <span class="n">eta_deg</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">sympify</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">simplify</span><span class="p">(</span><span class="n">_int</span><span class="p">(</span><span class="n">omega</span><span class="p">,</span> <span class="n">x</span><span class="p">)))</span>
+
+    <span class="n">_</span><span class="p">,</span> <span class="n">d_eta</span> <span class="o">=</span> <span class="n">exterior_derivative</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">eta_deg</span><span class="p">)</span>
+    <span class="n">diff_</span> <span class="o">=</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">p</span> <span class="o">-</span> <span class="n">q</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">d_eta</span><span class="p">,</span> <span class="n">omega</span><span class="p">))</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">omega</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span>
+             <span class="k">else</span> <span class="p">(</span><span class="n">d_eta</span> <span class="o">-</span> <span class="n">omega</span><span class="p">,))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">diff_</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"the form is not closed, so it has no potential."</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">eta_deg</span><span class="p">,</span> <span class="n">eta</span></div>
+
+
+
+<div class="viewcode-block" id="is_exact">
+<a class="viewcode-back" href="../riemannian.html#riemannian.is_exact">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">is_exact</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    True if omega = d(eta) for a symbolic (local) potential ``eta``; see</span>
+<span class="sd">    ``find_potential`` for what "local" means.  A 0-form is treated as exact</span>
+<span class="sd">    only if it is identically zero.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; x, y = symbols('x y', real=True)</span>
+<span class="sd">    &gt;&gt;&gt; m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))</span>
+<span class="sd">    &gt;&gt;&gt; is_exact(m, (2*x*y, x**2), 1), is_exact(m, (-y, x), 1)</span>
+<span class="sd">    (True, False)</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">form_degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">simplify</span><span class="p">(</span><span class="n">omega</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">find_potential</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">omega</span><span class="p">,</span> <span class="n">form_degree</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span></div>
 
 
 <span class="c1"># =============================================================================</span>

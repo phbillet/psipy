@@ -443,6 +443,34 @@
         <span class="k">return</span> <span class="n">P</span></div>
 
 
+<div class="viewcode-block" id="MatrixPseudoDifferentialOperator.principal_symbol">
+<a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.principal_symbol">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">principal_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SymbolicMatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Extracts the principal homogeneous part of the matrix symbol in (ξ, η)</span>
+<span class="sd">        as scaling ρ → ∞, up to the specified order.</span>
+<span class="sd">        </span>
+<span class="sd">        Delegates to the scalar PseudoDifferentialOperator entries to reuse </span>
+<span class="sd">        the robust polar coordinate asymptotic expansion.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        order : int</span>
+<span class="sd">            The asymptotic order to extract (e.g., 2 for Laplacians, 1 for Dirac/d).</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        SymbolicMatrix</span>
+<span class="sd">            A SymPy Matrix containing the principal symbols of each entry.</span>
+<span class="sd">        """</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+                <span class="c1"># self.entries[i][j] is a scalar PseudoDifferentialOperator</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">principal_symbol</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
 <div class="viewcode-block" id="MatrixPseudoDifferentialOperator.apply_matrix_field">
 <a class="viewcode-back" href="../../psiop.html#psiop.matpsiop.MatrixPseudoDifferentialOperator.apply_matrix_field">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">apply_matrix_field</span><span class="p">(</span>
