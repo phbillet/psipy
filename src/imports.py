@@ -145,6 +145,7 @@ from sympy import (
     hessian,
     integrate,
     inverse_fourier_transform,
+    Integral,
     laguerre,
     lambdify,
     latex,

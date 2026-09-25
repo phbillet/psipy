@@ -27,7 +27,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # 1. PARSING (enhanced signatures + doc volume)
 # ─────────────────────────────────────────────────────────────────
 
-def parse_module(filepath: Path) -> dict:
+def parse_module(filepath: Path, root: Path) -> dict:
     """
     Extracts from a .py file:
     - imports (internal and external)
@@ -43,16 +43,31 @@ def parse_module(filepath: Path) -> dict:
     except SyntaxError as e:
         return {'error': str(e), 'path': filepath}
 
+    # ── FIX: Compute relative dotted name ──────────────────────
+    try:
+        rel = filepath.relative_to(root)
+        parts = list(rel.with_suffix('').parts)
+        if parts and parts[-1] == '__init__':
+            parts = parts[:-1]
+            # e.g., psiop/__init__.py -> psiop.__init__
+            name = '.'.join(parts) + '.__init__' if parts else '__init__'
+        else:
+            # e.g., psiop/matpsiop.py -> psiop.matpsiop
+            name = '.'.join(parts)
+    except ValueError:
+        name = filepath.stem
+    # ───────────────────────────────────────────────────────────
+
     info = {
         'path'      : filepath,
-        'name'      : filepath.stem,
+        'name'      : name,  # <--- Use the computed relative name
         'docstring' : ast.get_docstring(tree) or '',
-        'imports'   : [],   # (module, [names], is_from)
-        'classes'   : [],   # (name, methods, bases, lineno)
-        'functions' : [],   # (name, signature_dict, signature_str, lineno)
-        'constants' : [],   # name
+        'imports'   : [],   
+        'classes'   : [],   
+        'functions' : [],   
+        'constants' : [],   
         'lines'     : len(source.splitlines()),
-        'doc_lines' : 0,    # total lines of docstrings in this module
+        'doc_lines' : 0,    
     }
 
     # Add module docstring lines
@@ -630,7 +645,11 @@ def export_dot(graph: dict, output: Path):
 
 def analyze(directory: str = '.', dot_output: str = 'packages.dot', jobs: int = None):
     directory = Path(directory)
-    py_files  = sorted(directory.glob('*.py'))
+    py_files = sorted([
+        f for f in directory.rglob('*.py')
+        if '__pycache__' not in f.parts
+        and '.ipynb_checkpoints' not in f.parts   # <--- ADD THIS
+    ])
 
     if not py_files:
         print(f"No .py files found in {directory}")
@@ -643,7 +662,11 @@ def analyze(directory: str = '.', dot_output: str = 'packages.dot', jobs: int = 
 
     modules = []
     with ProcessPoolExecutor(max_workers=jobs) as executor:
-        future_to_file = {executor.submit(parse_module, f): f for f in py_files}
+        # Pass 'directory' as the root so parse_module can compute relative paths
+        future_to_file = {
+            executor.submit(parse_module, f, directory): f 
+            for f in py_files
+        }
         for future in as_completed(future_to_file):
             f = future_to_file[future]
             try:

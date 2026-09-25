@@ -132,6 +132,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.distance"><code class="docutils literal notranslate"><span class="pre">distance()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.exponential_map"><code class="docutils literal notranslate"><span class="pre">exponential_map()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.exterior_derivative"><code class="docutils literal notranslate"><span class="pre">exterior_derivative()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.find_potential"><code class="docutils literal notranslate"><span class="pre">find_potential()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.form_inner_product"><code class="docutils literal notranslate"><span class="pre">form_inner_product()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.form_norm"><code class="docutils literal notranslate"><span class="pre">form_norm()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.geodesic_hamiltonian_flow"><code class="docutils literal notranslate"><span class="pre">geodesic_hamiltonian_flow()</span></code></a></li>
@@ -143,6 +144,8 @@
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.hodge_star"><code class="docutils literal notranslate"><span class="pre">hodge_star()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.induced_metric"><code class="docutils literal notranslate"><span class="pre">induced_metric()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.interior_product"><code class="docutils literal notranslate"><span class="pre">interior_product()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.is_closed"><code class="docutils literal notranslate"><span class="pre">is_closed()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.is_exact"><code class="docutils literal notranslate"><span class="pre">is_exact()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.jacobi_equation_solver"><code class="docutils literal notranslate"><span class="pre">jacobi_equation_solver()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.killing_vector_fields_1d"><code class="docutils literal notranslate"><span class="pre">killing_vector_fields_1d()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.killing_vector_fields_2d"><code class="docutils literal notranslate"><span class="pre">killing_vector_fields_2d()</span></code></a></li>
@@ -154,6 +157,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.plot_embedding"><code class="docutils literal notranslate"><span class="pre">plot_embedding()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.principal_curvatures"><code class="docutils literal notranslate"><span class="pre">principal_curvatures()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.project_harmonic_1form"><code class="docutils literal notranslate"><span class="pre">project_harmonic_1form()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#riemannian.pullback_form"><code class="docutils literal notranslate"><span class="pre">pullback_form()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.ricci_flow_2d"><code class="docutils literal notranslate"><span class="pre">ricci_flow_2d()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.second_fundamental_form"><code class="docutils literal notranslate"><span class="pre">second_fundamental_form()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#riemannian.sturm_liouville_reduce"><code class="docutils literal notranslate"><span class="pre">sturm_liouville_reduce()</span></code></a></li>
@@ -307,6 +311,10 @@ pointwise metric inner product and norm of k-forms; characterised by
 adjoint of d (δδ = 0, δ(df) = −div grad f); returns <code class="docutils literal notranslate"><span class="pre">(degree,</span> <span class="pre">components)</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">lie_derivative_form(metric,</span> <span class="pre">X,</span> <span class="pre">omega,</span> <span class="pre">form_degree)</span></code> — L_X ω on forms
 via Cartan’s formula dι_X + ι_X d; returns <code class="docutils literal notranslate"><span class="pre">(degree,</span> <span class="pre">components)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pullback_form(metric,</span> <span class="pre">phi,</span> <span class="pre">omega,</span> <span class="pre">form_degree,</span> <span class="pre">new_coords)</span></code> — φ*ω for
+0-, 1- and 2-forms (domain of dimension 1 or 2); commutes with d and ∧.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">is_closed</span></code> / <code class="docutils literal notranslate"><span class="pre">is_exact</span></code> / <code class="docutils literal notranslate"><span class="pre">find_potential</span></code> — symbolic Poincaré lemma:
+dω = 0 test and a verified local potential η with dη = ω.</p></li>
 </ul>
 <p>Together with <code class="docutils literal notranslate"><span class="pre">Metric.lie_derivative</span></code> these satisfy Cartan’s formula
 L_X ω = d(ι_X ω) + ι_X(dω).  They also reproduce existing operators:
@@ -2524,6 +2532,53 @@ and the components are <code class="docutils literal notranslate"><span class="p
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="riemannian.find_potential">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">find_potential</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">form_degree</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#find_potential"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.find_potential" title="Link to this definition"></a></dt>
+<dd><p>Symbolic Poincare lemma: find a (k-1)-form <code class="docutils literal notranslate"><span class="pre">eta</span></code> with d(eta) = omega.</p>
+<ul class="simple">
+<li><p>1-form (2D):  eta = P(x, y),  built as  P = int a_x dx + int (a_y - d_y int a_x dx) dy.</p></li>
+<li><p>1-form (1D):  eta = int a dx.</p></li>
+<li><p>2-form (2D):  eta = (0, int f dx)  (a 1-form with d(eta) = f dx^dy).</p></li>
+<li><p>0-forms have no potential.</p></li>
+</ul>
+<p>The result is a LOCAL potential, valid on any simply connected region where
+the symbolic integrals are smooth, and is defined up to a constant (1-forms)
+or a closed 1-form (2-forms).  It is always verified: d(eta) - omega must
+simplify to zero.  A closed form can fail to be globally exact (e.g. the
+angle form (-y dx + x dy)/(x^2 + y^2) gets the local potential -atan(x/y)).</p>
+<p>Useful for gauge fixing (A = d phi + …) and for cross-checking the exact
+part of a Hodge decomposition.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian.Metric" title="riemannian.Metric"><em>Metric</em></a>) – 1D or 2D metric (used for coordinates and dimension only).</p></li>
+<li><p><strong>omega</strong> (<em>sympy.Expr</em><em> or </em><em>tuple</em><em> of </em><em>sympy.Expr</em>) – Form to integrate, encoded as in <code class="docutils literal notranslate"><span class="pre">exterior_derivative</span></code>.</p></li>
+<li><p><strong>form_degree</strong> (<em>int</em>) – Degree of <code class="docutils literal notranslate"><span class="pre">omega</span></code>, in <code class="docutils literal notranslate"><span class="pre">1..dim</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>(degree, components)</strong> – <code class="docutils literal notranslate"><span class="pre">degree</span> <span class="pre">=</span> <span class="pre">form_degree</span> <span class="pre">-</span> <span class="pre">1</span></code> and the components of the potential.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If the degree is outside <code class="docutils literal notranslate"><span class="pre">1..dim</span></code>, if <code class="docutils literal notranslate"><span class="pre">omega</span></code> is not closed, or if
+    sympy cannot integrate it in closed form.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">find_potential</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>              <span class="c1"># d(x^2 y)</span>
+<span class="go">(0, x**2*y)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">find_potential</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="o">*</span><span class="n">y</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>                        <span class="c1"># d(x^2 y / 2  dy)</span>
+<span class="go">(1, (0, x**2*y/2))</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="riemannian.form_inner_product">
 <span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">form_inner_product</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">form_degree</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#form_inner_product"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.form_inner_product" title="Link to this definition"></a></dt>
 <dd><p>Pointwise inner product &lt;alpha, beta&gt;_g of two k-forms.</p>
@@ -3195,6 +3250,36 @@ is 0) and the components in the module’s encoding.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="riemannian.is_closed">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">is_closed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">form_degree</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#is_closed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.is_closed" title="Link to this definition"></a></dt>
+<dd><p>True if d(omega) = 0.</p>
+<p>Top-degree forms are always closed; a 0-form is closed iff it is constant.
+Metric-independent (the metric only supplies coordinates and dimension).</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">is_closed</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="mi">1</span><span class="p">),</span> <span class="n">is_closed</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+<span class="go">(True, False)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian.is_exact">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">is_exact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">form_degree</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#is_exact"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.is_exact" title="Link to this definition"></a></dt>
+<dd><p>True if omega = d(eta) for a symbolic (local) potential <code class="docutils literal notranslate"><span class="pre">eta</span></code>; see
+<code class="docutils literal notranslate"><span class="pre">find_potential</span></code> for what “local” means.  A 0-form is treated as exact
+only if it is identically zero.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">is_exact</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="mi">1</span><span class="p">),</span> <span class="n">is_exact</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+<span class="go">(True, False)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="riemannian.jacobi_equation_solver">
 <span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">jacobi_equation_solver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geodesic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_variation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tspan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#jacobi_equation_solver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.jacobi_equation_solver" title="Link to this definition"></a></dt>
 <dd><p>Solve the Jacobi equation (geodesic deviation equation) along a geodesic (2D only).</p>
@@ -3616,6 +3701,60 @@ k1, k2 = H +/- sqrt(H^2 - K_ext).</p></li>
 <dt class="sig sig-object py" id="riemannian.project_harmonic_1form">
 <span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">project_harmonic_1form</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weighted_inner_fn</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#project_harmonic_1form"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.project_harmonic_1form" title="Link to this definition"></a></dt>
 <dd><p>Project 1-form alpha onto the 2D harmonic subspace spanned by (gamma1, gamma2).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="riemannian.pullback_form">
+<span class="sig-prename descclassname"><span class="pre">riemannian.</span></span><span class="sig-name descname"><span class="pre">pullback_form</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">form_degree</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/riemannian.html#pullback_form"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#riemannian.pullback_form" title="Link to this definition"></a></dt>
+<dd><p>Pullback phi^* omega of a k-form under a smooth map phi : N -&gt; M.</p>
+<p><code class="docutils literal notranslate"><span class="pre">metric</span></code> describes the TARGET manifold M (it supplies the coordinates
+x^i of M and its dimension n).  N has coordinates <code class="docutils literal notranslate"><span class="pre">new_coords</span></code> (dimension
+p = 1 or 2, not necessarily equal to n) and <code class="docutils literal notranslate"><span class="pre">phi</span></code> gives x^i(y).  All
+substitutions are simultaneous, so phi may freely reuse the old symbols.</p>
+<blockquote>
+<div><p>k = 0 :  (phi^* f)(y)       = f(phi(y))
+k = 1 :  (phi^* a)_j        = a_i(phi(y)) d phi^i / d y^j
+k = 2 :  phi^*(f dx^dy)     = f(phi(y)) det(D phi) dy^1^dy^2   (p = 2)</p>
+</div></blockquote>
+<p>A k-form with k &gt; p pulls back to the zero form.  The pullback commutes
+with d and with the wedge product,</p>
+<blockquote>
+<div><p>d(phi^* omega) = phi^*(d omega),    phi^*(alpha ^ beta) = phi^*alpha ^ phi^*beta,</p>
+</div></blockquote>
+<p>and is functorial, (psi o phi)^* = phi^* psi^*.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metric</strong> (<a class="reference internal" href="#riemannian.Metric" title="riemannian.Metric"><em>Metric</em></a>) – 1D or 2D metric of the target manifold (used for coordinates and dim).</p></li>
+<li><p><strong>phi</strong> (<em>sympy.Expr</em><em> or </em><em>tuple</em><em> of </em><em>sympy.Expr</em>) – Map y -&gt; x(y); one expression per target coordinate.</p></li>
+<li><p><strong>omega</strong> (<em>sympy.Expr</em><em> or </em><em>tuple</em><em> of </em><em>sympy.Expr</em>) – Form on M, encoded as in <code class="docutils literal notranslate"><span class="pre">hodge_star</span></code> / <code class="docutils literal notranslate"><span class="pre">wedge_product</span></code>.</p></li>
+<li><p><strong>form_degree</strong> (<em>int</em>) – Degree of <code class="docutils literal notranslate"><span class="pre">omega</span></code>, in <code class="docutils literal notranslate"><span class="pre">0..n</span></code>.</p></li>
+<li><p><strong>new_coords</strong> (<em>sympy.Symbol</em><em> or </em><em>tuple</em><em> of </em><em>sympy.Symbol</em>) – Coordinates of the domain N (one or two symbols).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>(degree, components)</strong> – <code class="docutils literal notranslate"><span class="pre">degree</span> <span class="pre">=</span> <span class="pre">form_degree</span></code>; components in the module’s encoding for a
+p-dimensional manifold (a bare expression for 1-forms when p = 1).
+If <code class="docutils literal notranslate"><span class="pre">form_degree</span> <span class="pre">&gt;</span> <span class="pre">p</span></code> the components are <code class="docutils literal notranslate"><span class="pre">sympify(0)</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If the degree is outside <code class="docutils literal notranslate"><span class="pre">0..dim</span></code>, <code class="docutils literal notranslate"><span class="pre">phi</span></code> does not have one
+    component per target coordinate, or the domain has more than 2 coordinates.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="n">symbols</span><span class="p">(</span><span class="s1">&#39;x y r t&#39;</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span><span class="n">Matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">polar</span> <span class="o">=</span> <span class="p">(</span><span class="n">r</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="n">r</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pullback_form</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">polar</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">t</span><span class="p">))</span>            <span class="c1"># dx^dy = r dr^dt</span>
+<span class="go">(2, r)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pullback_form</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="n">cos</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="n">sin</span><span class="p">(</span><span class="n">t</span><span class="p">)),</span> <span class="p">(</span><span class="o">-</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">t</span><span class="p">,))</span>   <span class="c1"># -y dx + x dy on the unit circle</span>
+<span class="go">(1, 1)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py function">

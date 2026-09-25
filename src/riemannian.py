@@ -121,6 +121,10 @@ Exterior algebra (1D and 2D)
       adjoint of d (δδ = 0, δ(df) = −div grad f); returns ``(degree, components)``.
     * ``lie_derivative_form(metric, X, omega, form_degree)`` — L_X ω on forms
       via Cartan's formula dι_X + ι_X d; returns ``(degree, components)``.
+    * ``pullback_form(metric, phi, omega, form_degree, new_coords)`` — φ*ω for
+      0-, 1- and 2-forms (domain of dimension 1 or 2); commutes with d and ∧.
+    * ``is_closed`` / ``is_exact`` / ``find_potential`` — symbolic Poincaré lemma:
+      dω = 0 test and a verified local potential η with dη = ω.
 
     Together with ``Metric.lie_derivative`` these satisfy Cartan's formula
     L_X ω = d(ι_X ω) + ι_X(dω).  They also reproduce existing operators:
@@ -3423,6 +3427,220 @@ def lie_derivative_form(metric, X, omega, form_degree):
     if isinstance(total, tuple):
         return form_degree, tuple(simplify(c) for c in total)
     return form_degree, simplify(total)
+
+# ======================================================================
+# PULLBACK OF FORMS and the (local) POINCARE LEMMA
+# ======================================================================
+
+def pullback_form(metric, phi, omega, form_degree, new_coords):
+    """
+    Pullback phi^* omega of a k-form under a smooth map phi : N -> M.
+
+    ``metric`` describes the TARGET manifold M (it supplies the coordinates
+    x^i of M and its dimension n).  N has coordinates ``new_coords`` (dimension
+    p = 1 or 2, not necessarily equal to n) and ``phi`` gives x^i(y).  All
+    substitutions are simultaneous, so phi may freely reuse the old symbols.
+
+        k = 0 :  (phi^* f)(y)       = f(phi(y))
+        k = 1 :  (phi^* a)_j        = a_i(phi(y)) d phi^i / d y^j
+        k = 2 :  phi^*(f dx^dy)     = f(phi(y)) det(D phi) dy^1^dy^2   (p = 2)
+
+    A k-form with k > p pulls back to the zero form.  The pullback commutes
+    with d and with the wedge product,
+
+        d(phi^* omega) = phi^*(d omega),    phi^*(alpha ^ beta) = phi^*alpha ^ phi^*beta,
+
+    and is functorial, (psi o phi)^* = phi^* psi^*.
+
+    Parameters
+    ----------
+    metric : Metric
+        1D or 2D metric of the target manifold (used for coordinates and dim).
+    phi : sympy.Expr or tuple of sympy.Expr
+        Map y -> x(y); one expression per target coordinate.
+    omega : sympy.Expr or tuple of sympy.Expr
+        Form on M, encoded as in ``hodge_star`` / ``wedge_product``.
+    form_degree : int
+        Degree of ``omega``, in ``0..n``.
+    new_coords : sympy.Symbol or tuple of sympy.Symbol
+        Coordinates of the domain N (one or two symbols).
+
+    Returns
+    -------
+    (degree, components) : tuple
+        ``degree = form_degree``; components in the module's encoding for a
+        p-dimensional manifold (a bare expression for 1-forms when p = 1).
+        If ``form_degree > p`` the components are ``sympify(0)``.
+
+    Raises
+    ------
+    ValueError
+        If the degree is outside ``0..dim``, ``phi`` does not have one
+        component per target coordinate, or the domain has more than 2 coordinates.
+
+    Examples
+    --------
+    >>> x, y, r, t = symbols('x y r t', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> polar = (r * cos(t), r * sin(t))
+    >>> pullback_form(m, polar, 1, 2, (r, t))            # dx^dy = r dr^dt
+    (2, r)
+    >>> pullback_form(m, (cos(t), sin(t)), (-y, x), 1, (t,))   # -y dx + x dy on the unit circle
+    (1, 1)
+    """
+    n = metric.dim
+    if not (isinstance(form_degree, int) and 0 <= form_degree <= n):
+        raise ValueError(f"form_degree must be an integer in 0..{n}.")
+    phi = tuple(phi) if isinstance(phi, (tuple, list)) else (phi,)
+    new_coords = tuple(new_coords) if isinstance(new_coords, (tuple, list)) else (new_coords,)
+    p = len(new_coords)
+    if len(phi) != n:
+        raise ValueError(f"phi must have {n} component(s), one per target coordinate.")
+    if p not in (1, 2):
+        raise ValueError("the domain must have 1 or 2 coordinates.")
+    if form_degree > p:
+        return form_degree, sympify(0)
+
+    sub = dict(zip(metric.coords, phi))
+    S = lambda e: sympify(e).subs(sub, simultaneous=True)
+    J = Matrix([[diff(phi[i], new_coords[j]) for j in range(p)] for i in range(n)])   # n x p
+
+    if form_degree == 0:
+        return 0, simplify(S(omega))
+    if form_degree == 1:
+        om = tuple(omega) if isinstance(omega, (tuple, list)) else (omega,)
+        comps = tuple(simplify(sum(S(om[i]) * J[i, j] for i in range(n))) for j in range(p))
+        return 1, (comps[0] if p == 1 else comps)
+    return 2, simplify(S(omega) * J.det())                       # n = p = 2
+
+
+def is_closed(metric, omega, form_degree):
+    """
+    True if d(omega) = 0.
+
+    Top-degree forms are always closed; a 0-form is closed iff it is constant.
+    Metric-independent (the metric only supplies coordinates and dimension).
+
+    Examples
+    --------
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> is_closed(m, (y, x), 1), is_closed(m, (-y, x), 1)
+    (True, False)
+    """
+    n = metric.dim
+    if not (isinstance(form_degree, int) and 0 <= form_degree <= n):
+        raise ValueError(f"form_degree must be an integer in 0..{n}.")
+    deg, d_om = exterior_derivative(metric, omega, form_degree)
+    if deg > n:
+        return True
+    comps = d_om if isinstance(d_om, (tuple, list)) else (d_om,)
+    return all(simplify(c) == 0 for c in comps)
+
+
+def find_potential(metric, omega, form_degree):
+    """
+    Symbolic Poincare lemma: find a (k-1)-form ``eta`` with d(eta) = omega.
+
+    * 1-form (2D):  eta = P(x, y),  built as  P = int a_x dx + int (a_y - d_y int a_x dx) dy.
+    * 1-form (1D):  eta = int a dx.
+    * 2-form (2D):  eta = (0, int f dx)  (a 1-form with d(eta) = f dx^dy).
+    * 0-forms have no potential.
+
+    The result is a LOCAL potential, valid on any simply connected region where
+    the symbolic integrals are smooth, and is defined up to a constant (1-forms)
+    or a closed 1-form (2-forms).  It is always verified: d(eta) - omega must
+    simplify to zero.  A closed form can fail to be globally exact (e.g. the
+    angle form (-y dx + x dy)/(x^2 + y^2) gets the local potential -atan(x/y)).
+
+    Useful for gauge fixing (A = d phi + ...) and for cross-checking the exact
+    part of a Hodge decomposition.
+
+    Parameters
+    ----------
+    metric : Metric
+        1D or 2D metric (used for coordinates and dimension only).
+    omega : sympy.Expr or tuple of sympy.Expr
+        Form to integrate, encoded as in ``exterior_derivative``.
+    form_degree : int
+        Degree of ``omega``, in ``1..dim``.
+
+    Returns
+    -------
+    (degree, components) : tuple
+        ``degree = form_degree - 1`` and the components of the potential.
+
+    Raises
+    ------
+    ValueError
+        If the degree is outside ``1..dim``, if ``omega`` is not closed, or if
+        sympy cannot integrate it in closed form.
+
+    Examples
+    --------
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> find_potential(m, (2*x*y, x**2), 1)              # d(x^2 y)
+    (0, x**2*y)
+    >>> find_potential(m, x*y, 2)                        # d(x^2 y / 2  dy)
+    (1, (0, x**2*y/2))
+    """
+    n = metric.dim
+    if not (isinstance(form_degree, int) and 1 <= form_degree <= n):
+        raise ValueError(f"form_degree must be an integer in 1..{n}.")
+    x = metric.coords[0]
+
+    def _int(expr, var):
+        res = integrate(expr, var, conds='none')
+        if res.has(Integral):
+            raise ValueError("sympy could not integrate the form in closed form.")
+        return res
+
+    if n == 1:
+        eta_deg, eta = 0, simplify(_int(omega, x))
+    elif form_degree == 1:
+        y = metric.coords[1]
+        a_x, a_y = omega
+        
+        # Check if closed before processing
+        if not is_closed(metric, omega, 1):
+            raise ValueError("the 1-form is not closed, so it has no potential.")
+    
+        P = _int(a_x, x)
+        rem = simplify(a_y - diff(P, y))
+        # rem should now be purely a function of y (or 0)
+        eta_deg, eta = 0, simplify(P + _int(rem, y))
+    else:                                                        # 2-form in 2D
+        eta_deg, eta = 1, (sympify(0), simplify(_int(omega, x)))
+
+    _, d_eta = exterior_derivative(metric, eta, eta_deg)
+    diff_ = (tuple(p - q for p, q in zip(d_eta, omega)) if isinstance(omega, (tuple, list))
+             else (d_eta - omega,))
+    if not all(c.equals(0) for c in diff_):
+        raise ValueError("the form is not closed, so it has no potential.")
+    return eta_deg, eta
+
+
+def is_exact(metric, omega, form_degree):
+    """
+    True if omega = d(eta) for a symbolic (local) potential ``eta``; see
+    ``find_potential`` for what "local" means.  A 0-form is treated as exact
+    only if it is identically zero.
+
+    Examples
+    --------
+    >>> x, y = symbols('x y', real=True)
+    >>> m = Metric(Matrix([[1, 0], [0, 1]]), (x, y))
+    >>> is_exact(m, (2*x*y, x**2), 1), is_exact(m, (-y, x), 1)
+    (True, False)
+    """
+    if form_degree == 0:
+        return simplify(omega) == 0
+    try:
+        find_potential(metric, omega, form_degree)
+    except ValueError:
+        return False
+    return True
 
 # =============================================================================
 # Option A — de_rham_laplacian extended to form_degree=1 with the full

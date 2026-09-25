@@ -350,6 +350,31 @@ class MatrixPseudoDifferentialOperator:
                 P[..., i, j] = self.entries[i][j].p_func(*args)
         return P
 
+    def principal_symbol(self, order: int = 1) -> SymbolicMatrix:
+        """
+        Extracts the principal homogeneous part of the matrix symbol in (ξ, η)
+        as scaling ρ → ∞, up to the specified order.
+        
+        Delegates to the scalar PseudoDifferentialOperator entries to reuse 
+        the robust polar coordinate asymptotic expansion.
+        
+        Parameters
+        ----------
+        order : int
+            The asymptotic order to extract (e.g., 2 for Laplacians, 1 for Dirac/d).
+            
+        Returns
+        -------
+        SymbolicMatrix
+            A SymPy Matrix containing the principal symbols of each entry.
+        """
+        result = zeros(self.size, self.size)
+        for i in range(self.size):
+            for j in range(self.size):
+                # self.entries[i][j] is a scalar PseudoDifferentialOperator
+                result[i, j] = self.entries[i][j].principal_symbol(order=order)
+        return result
+
     def apply_matrix_field(
             self,
             U: MatrixField,

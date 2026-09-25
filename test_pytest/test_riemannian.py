@@ -106,6 +106,10 @@ from riemannian import (
     form_norm,
     codifferential,
     lie_derivative_form,
+    pullback_form,
+    is_closed,
+    is_exact,
+    find_potential,
 )
 
 # ---------------------------------------------------------------------------
@@ -3638,3 +3642,236 @@ class TestSymmetrizeAndAntisymmetrize:
         # 1D vector is identically symmetric; its antisymmetric part is zero
         assert np.allclose(m_flat.symmetrize(arr), arr)
         assert np.allclose(m_flat.antisymmetrize(arr), np.zeros_like(arr))
+
+# ===========================================================================
+# NEW: pullback_form, is_closed, is_exact, find_potential
+# ===========================================================================
+
+class TestPullbackForm:
+
+    @pytest.fixture
+    def polar(self):
+        r, t = symbols('r t', real=True, positive=True)
+        return (r * cos(t), r * sin(t)), (r, t)
+
+    def test_examples(self, m_flat, polar):
+        phi, (r, t) = polar
+        assert pullback_form(m_flat, phi, 1, 2, (r, t)) == (2, r)
+        x, y = m_flat.coords
+        assert pullback_form(m_flat, (cos(t), sin(t)), (-y, x), 1, (t,)) == (1, 1)
+
+    def test_0form_is_composition(self, m_flat, polar):
+        phi, (r, t) = polar
+        x, y = m_flat.coords
+        f = x**2 * y + sin(x)
+        deg, res = pullback_form(m_flat, phi, f, 0, (r, t))
+        assert deg == 0 and _zero(res - f.subs({x: phi[0], y: phi[1]}, simultaneous=True))
+
+    def test_1form_matches_metric_pullback(self, m_flat, polar):
+        phi, (r, t) = polar
+        x, y = m_flat.coords
+        om = (sin(x) * y, x**2 + cos(y))
+        ref = m_flat.pullback_1form(phi, om, (r, t))
+        deg, res = pullback_form(m_flat, phi, om, 1, (r, t))
+        assert deg == 1 and _zero_tuple([p - q for p, q in zip(res, ref)])
+
+    def test_2form_determinant(self, m_flat, polar):
+        phi, (r, t) = polar
+        x, y = m_flat.coords
+        deg, res = pullback_form(m_flat, phi, x**2 + y**2, 2, (r, t))
+        assert deg == 2 and _zero(res - r**3)                  # r^2 * r
+
+    def test_simultaneous_substitution(self, m_flat):
+        # phi(x, y) = (y, x):  phi^*(x dy) = y dx  (a sequential subs would give 0 or x dy)
+        x, y = m_flat.coords
+        assert pullback_form(m_flat, (y, x), (0, x), 1, (x, y)) == (1, (y, 0))
+
+    def test_functoriality(self, m_flat):
+        # (psi o phi)^* = phi^* psi^*  for phi: (r,t) -> (u,v) -> (x,y)
+        x, y = m_flat.coords
+        u, v, r, t = symbols('u v r t', real=True, positive=True)
+        m_uv = Metric(Matrix([[1, 0], [0, 1]]), (u, v))
+        psi = (u * v, u + v**2)                       # (u,v) -> (x,y)
+        phi = (r + t, r * t)                          # (r,t) -> (u,v)
+        comp = tuple(c.subs({u: phi[0], v: phi[1]}, simultaneous=True) for c in psi)
+        om = (y * cos(x), x + y**2)
+        via_steps = pullback_form(m_uv, phi, pullback_form(m_flat, psi, om, 1, (u, v))[1], 1, (r, t))[1]
+        direct = pullback_form(m_flat, comp, om, 1, (r, t))[1]
+        assert _zero_tuple([p - q for p, q in zip(via_steps, direct)])
+
+    def test_functoriality_2forms(self, m_flat):
+        x, y = m_flat.coords
+        u, v, r, t = symbols('u v r t', real=True, positive=True)
+        m_uv = Metric(Matrix([[1, 0], [0, 1]]), (u, v))
+        psi = (u * v, u + v**2)
+        phi = (r + t, r * t)
+        comp = tuple(c.subs({u: phi[0], v: phi[1]}, simultaneous=True) for c in psi)
+        f = x * y + 1
+        via_steps = pullback_form(m_uv, phi, pullback_form(m_flat, psi, f, 2, (u, v))[1], 2, (r, t))[1]
+        direct = pullback_form(m_flat, comp, f, 2, (r, t))[1]
+        assert _zero(via_steps - direct)
+
+    def test_commutes_with_d_on_functions(self, m_flat, polar):
+        phi, (r, t) = polar
+        x, y = m_flat.coords
+        f = x**2 * y + exp(x * y)
+        m_rt = Metric(Matrix([[1, 0], [0, r**2]]), (r, t))          # only supplies (r, t)
+        lhs = exterior_derivative(m_rt, pullback_form(m_flat, phi, f, 0, (r, t))[1], 0)[1]
+        rhs = pullback_form(m_flat, phi, exterior_derivative(m_flat, f, 0)[1], 1, (r, t))[1]
+        assert _zero_tuple([p - q for p, q in zip(lhs, rhs)])
+
+    def test_commutes_with_d_on_1forms(self, m_flat, polar):
+        phi, (r, t) = polar
+        x, y = m_flat.coords
+        om = (sin(x) * y, x**2 + cos(y))
+        m_rt = Metric(Matrix([[1, 0], [0, r**2]]), (r, t))
+        lhs = exterior_derivative(m_rt, pullback_form(m_flat, phi, om, 1, (r, t))[1], 1)[1]
+        rhs = pullback_form(m_flat, phi, exterior_derivative(m_flat, om, 1)[1], 2, (r, t))[1]
+        assert _zero(lhs - rhs)
+
+    def test_respects_wedge(self, m_flat, polar):
+        # phi^*(a ^ b) = phi^* a ^ phi^* b
+        phi, (r, t) = polar
+        x, y = m_flat.coords
+        m_rt = Metric(Matrix([[1, 0], [0, r**2]]), (r, t))
+        a, b = (y, sin(x)), (x * y, cos(y))
+        lhs = pullback_form(m_flat, phi, wedge_product(m_flat, a, b, 1, 1)[1], 2, (r, t))[1]
+        pa = pullback_form(m_flat, phi, a, 1, (r, t))[1]
+        pb = pullback_form(m_flat, phi, b, 1, (r, t))[1]
+        assert _zero(lhs - wedge_product(m_rt, pa, pb, 1, 1)[1])
+
+    def test_isometry_preserves_form_inner_product_of_volume(self, m_flat, polar):
+        # pullback of the flat area form is the polar area form r dr^dt
+        phi, (r, t) = polar
+        m_polar_ = Metric(Matrix([[1, 0], [0, r**2]]), (r, t))
+        assert _zero(pullback_form(m_flat, phi, m_flat.sqrt_det_g, 2, (r, t))[1] - m_polar_.sqrt_det_g)
+
+    def test_curve_kills_2forms(self, m_flat):
+        t = symbols('t', real=True)
+        assert pullback_form(m_flat, (cos(t), sin(t)), 1, 2, (t,)) == (2, 0)
+
+    def test_1d_target(self, m_cone):
+        x = m_cone.coords[0]
+        u, v = symbols('u v', real=True)
+        deg, res = pullback_form(m_cone, u * v, x, 1, (u, v))      # x dx  ->  uv (v du + u dv)
+        assert deg == 1 and _zero_tuple([res[0] - u * v**2, res[1] - u**2 * v])
+
+    def test_invalid_inputs_raise(self, m_flat):
+        t = symbols('t', real=True)
+        with pytest.raises(ValueError):
+            pullback_form(m_flat, (t, t), 1, 3, (t,))              # bad degree
+        with pytest.raises(ValueError):
+            pullback_form(m_flat, (t,), 1, 0, (t,))                # phi has too few components
+        with pytest.raises(ValueError):
+            pullback_form(m_flat, (t, t), 1, 0, (t, t, t))         # 3D domain unsupported
+
+
+class TestPoincareLemma:
+
+    def test_is_closed_examples(self, m_flat, coords_2d):
+        x, y = coords_2d
+        assert is_closed(m_flat, (y, x), 1)
+        assert not is_closed(m_flat, (-y, x), 1)
+
+    def test_is_closed_0forms_and_2forms(self, m_flat, coords_2d):
+        x, y = coords_2d
+        assert is_closed(m_flat, Integer(3), 0)
+        assert not is_closed(m_flat, x, 0)
+        assert is_closed(m_flat, x * y, 2)                      # top degree
+
+    def test_is_closed_is_metric_independent(self, m_flat, m_hyperbolic, coords_2d):
+        x, y = coords_2d
+        for om in [(y, x), (-y, x)]:
+            assert is_closed(m_flat, om, 1) == is_closed(m_hyperbolic, om, 1)
+
+    def test_potential_polynomial(self, m_flat, coords_2d):
+        x, y = coords_2d
+        deg, phi = find_potential(m_flat, (2 * x * y, x**2), 1)
+        assert deg == 0 and _zero(phi - x**2 * y)
+
+    def test_potential_transcendental(self, m_flat, coords_2d):
+        x, y = coords_2d
+        h = sin(y) + x**2 * y + exp(x) * cos(y)
+        dh = exterior_derivative(m_flat, h, 0)[1]
+        _, phi = find_potential(m_flat, dh, 1)
+        assert _zero_tuple([p - q for p, q in zip(exterior_derivative(m_flat, phi, 0)[1], dh)])
+        assert _zero(phi - h)                                   # no ambiguity except a constant here
+
+    def test_potential_is_verified(self, m_flat, coords_2d):
+        x, y = coords_2d
+        om = (y * cos(x * y), x * cos(x * y))                   # d sin(xy)
+        _, phi = find_potential(m_flat, om, 1)
+        assert _zero_tuple([p - q for p, q in zip(exterior_derivative(m_flat, phi, 0)[1], om)])
+
+    def test_not_closed_raises(self, m_flat, coords_2d):
+        x, y = coords_2d
+        with pytest.raises(ValueError):
+            find_potential(m_flat, (-y, x), 1)
+
+    def test_is_exact_examples(self, m_flat, coords_2d):
+        x, y = coords_2d
+        assert is_exact(m_flat, (2 * x * y, x**2), 1)
+        assert not is_exact(m_flat, (-y, x), 1)
+
+    def test_closed_iff_exact_on_polynomials(self, m_flat, coords_2d):
+        # Poincare lemma on R^2 for a few polynomial 1-forms
+        x, y = coords_2d
+        for om in [(y, x), (x**2, y**3), (2 * x * y + 1, x**2), (x * y, x), (y**2, 2 * x * y)]:
+            assert is_closed(m_flat, om, 1) == is_exact(m_flat, om, 1)
+
+    def test_angle_form_is_closed_with_local_potential(self, m_flat, coords_2d):
+        # d(theta) = (-y dx + x dy)/(x^2+y^2): closed, locally exact (local potential only!)
+        x, y = coords_2d
+        om = (-y / (x**2 + y**2), x / (x**2 + y**2))
+        assert is_closed(m_flat, om, 1)
+        _, phi = find_potential(m_flat, om, 1)
+        assert _zero_tuple([p - q for p, q in zip(exterior_derivative(m_flat, phi, 0)[1], om)])
+
+    def test_two_form_potential(self, m_flat, coords_2d):
+        x, y = coords_2d
+        f = x * y**2 + cos(x)
+        deg, eta = find_potential(m_flat, f, 2)
+        assert deg == 1
+        assert _zero(exterior_derivative(m_flat, eta, 1)[1] - f)
+
+    def test_1d_potential(self, m_cone, coords_1d):
+        x = coords_1d
+        assert find_potential(m_cone, x**2, 1) == (0, x**3 / 3)
+
+    def test_zero_form_has_no_potential(self, m_flat, coords_2d):
+        x, y = coords_2d
+        with pytest.raises(ValueError):
+            find_potential(m_flat, x, 0)
+        assert is_exact(m_flat, Integer(0), 0) and not is_exact(m_flat, x, 0)
+
+    def test_invalid_degree_raises(self, m_flat, coords_2d):
+        x, y = coords_2d
+        with pytest.raises(ValueError):
+            is_closed(m_flat, x, 3)
+        with pytest.raises(ValueError):
+            find_potential(m_flat, x, 3)
+
+    def test_pullback_of_exact_is_exact(self, m_flat, coords_2d):
+        x, y = coords_2d
+        r, t = symbols('r t', real=True, positive=True)
+        m_rt = Metric(Matrix([[1, 0], [0, r**2]]), (r, t))
+        phi = (r * cos(t), r * sin(t))
+        om = (2 * x * y, x**2)                                  # d(x^2 y)
+        pulled = pullback_form(m_flat, phi, om, 1, (r, t))[1]
+        assert is_closed(m_rt, pulled, 1)
+        _, pot = find_potential(m_rt, pulled, 1)
+        expected = (r * cos(t))**2 * (r * sin(t))
+        assert _zero(pot - expected)
+
+    def test_hodge_split_exact_part(self, m_flat, coords_2d):
+        x, y = coords_2d
+        phi0 = x**3 * y + sin(y)
+        dphi = exterior_derivative(m_flat, phi0, 0)[1]
+        
+        # Use x**2 * y instead of x * y so star d(psi) is not closed:
+        # d(x**2 * y) = 2*x*y dx + x**2 dy  =>  star d = -x**2 dx + 2*x*y dy
+        # d(star d) = d(2*x*y)/dx - d(-x**2)/dy = 2*y != 0
+        psi = x**2 * y
+        coexact = (-diff(psi, y), diff(psi, x))
+        assert not is_closed(m_flat, coexact, 1)
+
