@@ -11,6 +11,7 @@ from enum import Enum
 from fractions import Fraction
 from functools import lru_cache, partial
 from itertools import *
+import itertools 
 import multiprocessing
 import os
 import sys
