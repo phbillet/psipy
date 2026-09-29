@@ -1062,7 +1062,7 @@ class StationaryPhaseEvaluator:
         # because cos(λαx³/3) is even (contributes) and sin(λαx³/3) is odd (cancels).
         
         # Total contribution
-        val = 2 * np.pi * Ai0 * scale * cp.amplitude_value
+        val = 2 * np.pi * Ai0 * scale * cp.amplitude_value * np.exp(1j * lam * cp.phase_value)
         
         return AsymptoticContribution(
             leading_term=val,
@@ -1151,12 +1151,13 @@ class StationaryPhaseEvaluator:
             No correction term is computed (set to 0j).
         """
         coeffs = cp.canonical_coefficients
-        gamma_coeff = coeffs['quartic']
+        gamma_coeff = coeffs['quartic']        
         beta_coeff = coeffs['quadratic_transverse']
-        
-        if abs(gamma_coeff) < self.tolerance or abs(beta_coeff) < self.tolerance:
-            warnings.warn("Near-zero coefficients in Pearcey evaluation")
-            return AsymptoticContribution(0j, 0j, 0j, cp, 0.75)
+        one_d = beta_coeff is None
+        if abs(gamma_coeff) < self.tolerance or (not one_d and abs(beta_coeff) < self.tolerance):
+            warnings.warn('Near-zero coefficients in Pearcey evaluation')
+            return AsymptoticContribution(0j, 0j, 0j, cp, 0.25 if one_d else 0.75)
+
         
         # Exact asymptotic constant for ∫ exp(iλγu⁴/4) du:
         # Sub t = (λ|γ|)^{1/4}·u → (λ|γ|)^{-1/4} ∫ exp(it⁴/4) dt
@@ -1164,25 +1165,16 @@ class StationaryPhaseEvaluator:
         #                         = 4^{1/4} · (1/2)·Γ(1/4)·exp(iπ/8)
         # Therefore: ∫ exp(iλγu⁴/4) du = (4/(λ|γ|))^{1/4} · (1/2)·Γ(1/4)·exp(iπ sign(γ)/8)
         # NOTE: (1/(λ|γ|))^{1/4} is WRONG — the correct factor is (4/(λ|γ|))^{1/4} = √2/(λ|γ|)^{1/4}
-        pearcey_factor = (4.0 / (lam * abs(gamma_coeff)))**0.25 * 0.5 * gamma(0.25)
-        
-        # Transverse Gaussian factor: ∫ exp(iλβv²/2) dv = √(2π/(λ|β|)) exp(iπ sign(β)/4)
-        gaussian_factor = np.sqrt(2.0 * np.pi / (lam * abs(beta_coeff)))
-        
-        # Maslov phases
-        maslov_degen = np.exp(1j * np.pi * np.sign(gamma_coeff) / 8.0)
-        maslov_trans = np.exp(1j * np.pi * np.sign(beta_coeff) / 4.0)
-        
-        leading = (cp.amplitude_value * np.exp(1j * lam * cp.phase_value) *
-                   pearcey_factor * gaussian_factor * maslov_degen * maslov_trans)
-        
-        return AsymptoticContribution(
-            leading_term=leading,
-            correction_term=0j,
-            total_value=leading,
-            point=cp,
-            order_leading=0.75
-        )
+        pearcey_factor = (4.0 / (lam * abs(gamma_coeff))) ** 0.25 * 0.5 * gamma(0.25)
+        maslov_degen = np.exp(1j * np.pi * np.sign(np.real(gamma_coeff)) / 8.0)
+        leading = cp.amplitude_value * np.exp(1j * lam * cp.phase_value) * pearcey_factor * maslov_degen
+        order = 0.25
+        if not one_d:
+            gaussian_factor = np.sqrt(2.0 * np.pi / (lam * abs(beta_coeff)))
+            maslov_trans = np.exp(1j * np.pi * np.sign(np.real(beta_coeff)) / 4.0)
+            leading = leading * gaussian_factor * maslov_trans
+            order = 0.75
+        return AsymptoticContribution(leading_term=leading, correction_term=0j, total_value=leading, point=cp, order_leading=order)
 
 
 class LaplaceEvaluator:

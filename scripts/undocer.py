@@ -36,9 +36,9 @@ def process_file(input_file, output_file):
 
 
 # Exemple d'utilisation
-input_file = '../src/psiop/__init__.py'
-output_file = '../src/psiop/__init___ud.py'
+input_file = '../src/caustics.py'
+output_file = '../src/caustics_ud.py'
 process_file(input_file, output_file)
-input_file = '../src/psiop/matpsiop.py'
-output_file = '../src/psiop/matpsiop_ud.py'
+input_file = '../src/asymptotic.py'
+output_file = '../src/asymptotic_ud.py'
 process_file(input_file, output_file)

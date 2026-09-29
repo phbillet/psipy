@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from fractions import Fraction
 from functools import lru_cache, partial
-import itertools
+from itertools import *
 import multiprocessing
 import os
 import sys
