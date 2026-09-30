@@ -65,8 +65,9 @@ from scipy.optimize import bisect, fsolve, minimize, minimize_scalar
 from scipy.ndimage import gaussian_filter1d, maximum_filter
 
 # Signal & Windowing
-from scipy.signal import find_peaks
-from scipy.signal.windows import hann
+from scipy.signal import find_peaks, ShortTimeFFT, hilbert
+from scipy.signal.windows import hann, gaussian
+from scipy.signal.windows import tukey
 
 # Fourier Transforms
 from scipy.fft import fft, fft2, fftfreq, fftshift, ifft, ifft2, ifftshift
